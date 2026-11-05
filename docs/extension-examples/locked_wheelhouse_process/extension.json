@@ -1,0 +1,41 @@
+{
+  "id": "example.locked_wheelhouse_process",
+  "name": "Example Locked Wheelhouse Process",
+  "version": "1.0.0",
+  "summary": "Template showing hashed dependency locks with an exceptional custom wheelhouse.",
+  "description": "A repository-ready package template for extensions that need isolated Python dependencies plus extension-specific/private wheels unavailable from official PyPI.",
+  "author": "Example Author",
+  "license": "GPL-3.0-or-later",
+  "publisher_id": "example.author",
+  "type": "python",
+  "entry_point": "locked_wheelhouse_process",
+  "category": "filters",
+  "launch_mode": "single_image",
+  "sdk_backend": "runtime",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "runtime_targets": [
+    "linux-clang-x86_64",
+    "windows-msvc-x86_64"
+  ],
+  "dependencies": {
+    "dependency_context": "private",
+    "requirements_file": "requirements.lock",
+    "pip": {
+      "require_hashes": true,
+      "find_links": [
+        "wheelhouse"
+      ]
+    }
+  },
+  "processes": [
+    {
+      "id_suffix": "main",
+      "class": "ExampleLockedWheelhouseProcess",
+      "display_name": "Example Locked Wheelhouse Process",
+      "action_object_name": "actionExample_Locked_Wheelhouse_Process"
+    }
+  ]
+}

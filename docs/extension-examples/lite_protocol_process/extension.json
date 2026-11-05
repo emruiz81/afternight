@@ -1,0 +1,29 @@
+{
+  "id": "example.lite_protocol_process",
+  "name": "Example Lite Protocol Process",
+  "version": "1.0.0",
+  "summary": "Template for a non-GPL protocol-only lite hosted extension.",
+  "description": "A repository-ready AfterNight extension package that owns its UI or workflow and uses only protocol-safe app/view services.",
+  "author": "Example Author",
+  "license": "MIT",
+  "publisher_id": "example.author",
+  "type": "python",
+  "entry_point": "lite_protocol_process",
+  "process_class": "ExampleLiteProtocolProcess",
+  "category": "filters",
+  "launch_mode": "single_image",
+  "sdk_backend": "protocol",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "tags": [
+    "template",
+    "lite",
+    "protocol"
+  ],
+  "capabilities": {
+    "execute": true,
+    "custom_ui": true
+  }
+}

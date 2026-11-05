@@ -1,0 +1,70 @@
+--- a/src/librawspeed/decoders/ArwDecoder.h
++++ b/src/librawspeed/decoders/ArwDecoder.h
+@@ -53,7 +53,7 @@
+   void DecodeARW2(const ByteStream& input, uint32_t w, uint32_t h,
+                   uint32_t bpp);
+   void DecodeUncompressed(const TiffIFD* raw);
+-  static void SonyDecrypt(const uint32_t* ibuf, uint32_t* obuf, uint32_t len,
++  static void SonyDecrypt(const uint8_t* ibuf, uint8_t* obuf, uint32_t len,
+                           uint32_t key);
+   void GetWB();
+   ByteStream in;
+--- a/src/librawspeed/decoders/ArwDecoder.cpp
++++ b/src/librawspeed/decoders/ArwDecoder.cpp
+@@ -82,16 +82,14 @@
+   static const size_t head_size = 40;
+   const uint8_t* head_orig = mFile.getData(head_off, head_size);
+   vector<uint8_t> head(head_size);
+-  SonyDecrypt(reinterpret_cast<const uint32_t*>(head_orig),
+-              reinterpret_cast<uint32_t*>(&head[0]), 10, key);
++  SonyDecrypt(head_orig, head.data(), 10, key);
+   for (int i = 26; i > 22; i--)
+     key = key << 8 | head[i - 1];
+ 
+   // "Decrypt" the whole image buffer
+   const auto* image_data = mFile.getData(off, len);
+   auto image_decoded = Buffer::Create(len);
+-  SonyDecrypt(reinterpret_cast<const uint32_t*>(image_data),
+-              reinterpret_cast<uint32_t*>(image_decoded.get()), len / 4, key);
++  SonyDecrypt(image_data, image_decoded.get(), len / 4, key);
+ 
+   Buffer di(move(image_decoded), len);
+ 
+@@ -366,7 +364,7 @@
+   }
+ }
+ 
+-void ArwDecoder::SonyDecrypt(const uint32_t* ibuf, uint32_t* obuf, uint32_t len,
++void ArwDecoder::SonyDecrypt(const uint8_t* ibuf, uint8_t* obuf, uint32_t len,
+                              uint32_t key) {
+   if (0 == len)
+     return;
+@@ -383,6 +381,7 @@
+     pad[p] = getU32BE(&pad[p]);
+ 
+   int p = 127;
++  // TIFF offsets need not align to a word; keep byte pointers at this boundary.
+   // Decrypt the buffer in place using the pad
+   for (; len > 0; len--) {
+     pad[p & 127] = pad[(p+1) & 127] ^ pad[(p+1+64) & 127];
+@@ -397,8 +396,8 @@
+ 
+     memcpy(obuf, &bv, sizeof(uint32_t));
+ 
+-    ibuf++;
+-    obuf++;
++    ibuf += sizeof(uint32_t);
++    obuf += sizeof(uint32_t);
+     p++;
+   }
+ }
+@@ -435,8 +434,7 @@
+     const auto DecryptedBufferSize = off + EncryptedBuffer.getSize();
+     auto DecryptedBuffer = Buffer::Create(DecryptedBufferSize);
+ 
+-    SonyDecrypt(reinterpret_cast<const uint32_t*>(EncryptedBuffer.begin()),
+-                reinterpret_cast<uint32_t*>(DecryptedBuffer.get() + off),
++    SonyDecrypt(EncryptedBuffer.begin(), DecryptedBuffer.get() + off,
+                 len / 4, key);
+ 
+     NORangesSet<Buffer> ifds_decoded;

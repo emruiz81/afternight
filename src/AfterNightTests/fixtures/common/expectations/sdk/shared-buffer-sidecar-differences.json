@@ -1,0 +1,81 @@
+{
+ "format": 1,
+ "note": "Every place the descriptor and sidecar the application writes beside a buffer it lends an extension differ, by meaning, from the recorded reference for the same file (shared-buffer-sidecars.json), by the path of the difference - '*' standing for any one segment - with its class and its reason. The process framework suite's extension regression holds the two to this register in both directions.",
+ "differences": [
+  {
+   "path": "sidecar.mosaic/descriptor/pixel_format",
+   "class": "defect repair",
+   "reason": "A mosaic reaches an extension with its Bayer pattern seen from the exported origin, where the reference sends every single-plane image as mono."
+  },
+  {
+   "path": "*/sidecar/NAXIS3",
+   "class": "defect repair",
+   "reason": "A single-plane buffer states two axes and no third; the reference header states NAXIS = 2 beside NAXIS3 = 1, which describes no FITS image. A three-plane buffer states NAXIS = 3 and NAXIS3 = 3 in both."
+  },
+  {
+   "path": "*/sidecar/*/NAXIS3",
+   "class": "defect repair",
+   "reason": "As at the top level: a single-plane buffer states no third axis in fits_header and fits_cards."
+  },
+  {
+   "path": "*/sidecar/astrometry/field_center_ra_deg",
+   "class": "intentional change",
+   "reason": "The field centre is the solution at the frame's centre in the engine's pixel convention, the first pixel's centre at one half; the reference evaluates it half a pixel along each axis from there."
+  },
+  {
+   "path": "*/sidecar/astrometry/field_center_dec_deg",
+   "class": "intentional change",
+   "reason": "As the field centre's right ascension: the frame's centre in the engine's pixel convention."
+  },
+  {
+   "path": "*/sidecar/astrometry/rotation_degrees",
+   "class": "defect repair",
+   "reason": "The rotation is the position angle of celestial north; the reference takes the angle of the negative first matrix column, which reports an ordinary north-up unmirrored frame as turned by half a turn."
+  },
+  {
+   "path": "*/sidecar/astrometry/image_scale_arcsec_per_pixel",
+   "class": "intentional change",
+   "reason": "The scale is the mean over both axes, the square root of the coordinate matrix's determinant; the reference takes the length of the matrix's first column. The two agree for a square frame with no shear and differ here by the shear the solution states."
+  },
+  {
+   "path": "*/sidecar/astrometry/solver",
+   "class": "defect repair",
+   "reason": "The solver is read from PLTSOLVR, the card the product's plate solve writes, then from PLTSLVR; the reference reads PLTSLVR alone and names no solver for a frame the product has solved."
+  },
+  {
+   "path": "sidecar.solved-grey-region/sidecar/EQUINOX",
+   "class": "representation change",
+   "reason": "A preview area's solution is the image's moved with the area's origin and written as the engine writes a solution: RADESYS = 'ICRS' without the EQUINOX the image's header stated beside it, which an ICRS frame does not read."
+  },
+  {
+   "path": "sidecar.solved-grey-region/sidecar/*/EQUINOX",
+   "class": "representation change",
+   "reason": "As at the top level: the moved solution's cards in fits_header and fits_cards state no EQUINOX."
+  },
+  {
+   "path": "sidecar.solved-grey-region/sidecar/astrometry/equinox",
+   "class": "representation change",
+   "reason": "The astrometry record states the equinox the cards state, and the moved solution's cards state none."
+  },
+  {
+   "path": "sidecar.solved-grey-region/sidecar/CUNIT1",
+   "class": "representation change",
+   "reason": "The moved solution's cards state the axes' units, degrees, which the image's header left to the FITS default."
+  },
+  {
+   "path": "sidecar.solved-grey-region/sidecar/CUNIT2",
+   "class": "representation change",
+   "reason": "As CUNIT1."
+  },
+  {
+   "path": "sidecar.solved-grey-region/sidecar/*/CUNIT1",
+   "class": "representation change",
+   "reason": "As CUNIT1 at the top level, in fits_header and fits_cards."
+  },
+  {
+   "path": "sidecar.solved-grey-region/sidecar/*/CUNIT2",
+   "class": "representation change",
+   "reason": "As CUNIT1."
+  }
+ ]
+}

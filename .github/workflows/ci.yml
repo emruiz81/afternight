@@ -1,0 +1,206 @@
+name: CI
+
+# Linux builds and tests on every pull request and every push to main; Windows on a push to main, on a dispatch that
+# asks for it, and on a pull request that carries the `ci:windows` label or changes what the Windows build alone
+# depends on - the build scripts, the installer, the submodule pins and the Windows workflows. The label is read when
+# a run starts, so a label added to an open pull request takes effect at its next push. A change to documentation
+# alone builds nothing, and `CI Complete` still reports, so it can be the one required check.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: 'Build and run tests'
+        required: false
+        default: true
+        type: boolean
+      run_windows:
+        description: 'Build on Windows too'
+        required: false
+        default: true
+        type: boolean
+      build_installers:
+        description: 'Build installers (AppImage + Windows Setup)'
+        required: false
+        default: false
+        type: boolean
+      skip_tests:
+        description: 'Tests to skip (space-separated)'
+        required: false
+        default: ''
+        type: string
+
+# Every job reads the repository and nothing else: no job of this workflow writes to it, and a pull request from a
+# fork receives a read-only token whatever is asked for.
+permissions:
+  contents: read
+
+# A newer push to a pull request supersedes the run before it; a run on main is never cancelled, because its caches
+# are the ones every pull request restores.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gate:
+    name: What Runs
+    runs-on: ubuntu-24.04
+    outputs:
+      code: ${{ steps.decide.outputs.code }}
+      windows: ${{ steps.decide.outputs.windows }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Decide from the event and the files it changed
+        id: decide
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'ci:windows') }}
+          DISPATCH_WINDOWS: ${{ inputs.run_windows }}
+        run: |
+          set -euo pipefail
+          documentation='^(docs/|[^/]+\.md$|LICENSES/|LICENSE$|\.github/copilot-instructions\.md$|\.github/ISSUE_TEMPLATE/|\.github/PULL_REQUEST_TEMPLATE\.md$)'
+          windows_only='^(build/|installer/|vcpkg$|kddockwidgets$|\.github/workflows/(ci|build-windows|cache-windows)\.yml$)'
+          changed=''
+          case "$EVENT" in
+            pull_request) changed=$(git diff --name-only "origin/$BASE_REF...HEAD") ;;
+            push)
+              if [ -n "$BEFORE" ] && ! [[ "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+                changed=$(git diff --name-only "$BEFORE" "$AFTER")
+              else
+                changed='(no earlier commit to compare)'
+              fi ;;
+            *) changed='(dispatched)' ;;
+          esac
+          code=false
+          if grep -Evq "$documentation" <<< "$changed"; then code=true; fi
+          windows=false
+          case "$EVENT" in
+            push) windows=$code ;;
+            workflow_dispatch) code=true; windows=$DISPATCH_WINDOWS ;;
+            pull_request)
+              if [ "$code" = true ] && { [ "$LABELLED" = true ] || grep -Eq "$windows_only" <<< "$changed"; }; then
+                windows=true
+              fi ;;
+          esac
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "windows=$windows" >> "$GITHUB_OUTPUT"
+          {
+            echo "Builds: $code; Windows: $windows (event $EVENT, ci:windows label $LABELLED)"
+            echo
+            echo '```'
+            head -n 200 <<< "$changed"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  format:
+    name: Clang Format
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install clang-format
+        run: build/scripts/linux/install_clang_format.sh
+
+      # A pull request is checked against its base, a push against the commit it moved main from.
+      - name: Check changed C/C++ formatting
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [[ -n "$BASE_REF" ]]; then
+            BASE="origin/$BASE_REF"
+          elif [[ "$EVENT" == "push" && -n "$BEFORE" && ! "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            BASE="$BEFORE"
+          else
+            BASE="origin/main"
+          fi
+          build/scripts/check_clang_format.sh "$BASE"
+
+  licence-headers:
+    name: Licence Headers
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Test the check
+        run: python3 build/scripts/tools/check_license_headers_test.py
+
+      - name: Check every source file states its licence and copyright
+        run: python3 build/scripts/tools/check_license_headers.py
+
+  build-linux:
+    name: Linux Build
+    needs: [gate, format]
+    if: needs.gate.outputs.code == 'true'
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      run_tests: ${{ github.event_name != 'workflow_dispatch' || inputs.run_tests }}
+      build_installer: ${{ inputs.build_installers || false }}
+      skip_tests: ${{ inputs.skip_tests || '' }}
+
+  build-windows:
+    name: Windows Build
+    needs: [gate, format]
+    if: needs.gate.outputs.windows == 'true'
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      run_tests: ${{ github.event_name != 'workflow_dispatch' || inputs.run_tests }}
+      build_installer: ${{ inputs.build_installers || false }}
+      skip_tests: ${{ inputs.skip_tests || '' }}
+
+  # The one check a ruleset requires. Each job counts when the gate asked for it, and a job the gate skipped counts
+  # as skipped - never as a pass it did not earn.
+  ci-complete:
+    name: CI Complete
+    needs: [gate, format, licence-headers, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check the results
+        env:
+          GATE: ${{ needs.gate.result }}
+          CODE: ${{ needs.gate.outputs.code }}
+          WINDOWS_WANTED: ${{ needs.gate.outputs.windows }}
+          FORMAT: ${{ needs.format.result }}
+          LICENCE: ${{ needs.licence-headers.result }}
+          LINUX: ${{ needs.build-linux.result }}
+          WINDOWS: ${{ needs.build-windows.result }}
+        run: |
+          echo "Gate: $GATE (builds $CODE, Windows $WINDOWS_WANTED)"
+          echo "Format: $FORMAT; licence headers: $LICENCE; Linux: $LINUX; Windows: $WINDOWS"
+          failed=0
+          for result in "$GATE" "$FORMAT" "$LICENCE"; do
+            [ "$result" = success ] || failed=1
+          done
+          expect() {
+            if [ "$1" = true ]; then
+              [ "$2" = success ] || failed=1
+            else
+              [ "$2" = skipped ] || failed=1
+            fi
+          }
+          expect "$CODE" "$LINUX"
+          expect "$WINDOWS_WANTED" "$WINDOWS"
+          if [ "$failed" != 0 ]; then
+            echo "A job the gate asked for did not succeed."
+            exit 1
+          fi
+          echo "Every job the gate asked for succeeded."

@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "purpose": "Workflow-mode fixture contracts for sequence orchestration, expected outputs, cancellation, and output cleanup.",
+  "datasets": [
+    {
+      "id": "synthetic_sequence_workflow_smoke",
+      "kind": "synthetic_sequence",
+      "used_by": [
+        "extensions/an_sequence_workflow_demo",
+        "ExtensionHostManagerTest.BundledSequenceWorkflowDemoExecutesWorkflowContext"
+      ],
+      "input": {
+        "synthetic_frames": 4,
+        "output_name": "reports/workflow_demo.txt",
+        "frame_template": {
+          "width": 128,
+          "height": 128,
+          "channels": 1,
+          "pixel_type": "float32",
+          "metadata": {
+            "FRAME": "LIGHT",
+            "FILTER": "L",
+            "EXPTIME": 60.0,
+          "OBJECT": "AN_SEQUENCE_SYNTHETIC"
+          },
+          "registration": {
+            "dx_values": [0.0, 2.0, -1.5, 1.2],
+            "dy_values": [0.0, -1.25, 1.4, 0.9],
+            "rotation_degrees": 0.0
+          }
+        }
+      },
+      "expected": {
+        "sequence_count": 1,
+        "included_frame_count": 4,
+        "workflow_output_kind": "sequence",
+        "report_filename": "workflow_demo.txt",
+        "settings": {
+          "last_sequence_frames": 4,
+          "last_pipeline_status": "native_stacked"
+        },
+        "stages": [
+          "Preparing synthetic sequence",
+          "Calibrating",
+          "Registering",
+          "Stacking",
+          "Workflow complete"
+        ]
+      }
+    },
+    {
+      "id": "calibrate_register_stack_lrgb_v1",
+      "kind": "synthetic_preprocessing_contract",
+      "description": "Synthetic preprocessing fixture for the runtime calibrate -> register -> stack workflow.",
+      "frames": [
+        {
+          "role": "bias",
+          "count": 2,
+          "width": 128,
+          "height": 128,
+          "channels": 1,
+          "metadata": {
+            "IMAGETYP": "BIAS",
+            "FILTER": "L",
+            "EXPTIME": 0.0
+          }
+        },
+        {
+          "role": "dark",
+          "count": 2,
+          "width": 128,
+          "height": 128,
+          "channels": 1,
+          "metadata": {
+            "IMAGETYP": "DARK",
+            "FILTER": "L",
+            "EXPTIME": 60.0
+          }
+        },
+        {
+          "role": "flat",
+          "count": 2,
+          "width": 128,
+          "height": 128,
+          "channels": 1,
+          "metadata": {
+            "IMAGETYP": "FLAT",
+            "FILTER": "L",
+            "EXPTIME": 2.0
+          }
+        },
+        {
+          "role": "light",
+          "count": 4,
+          "width": 128,
+          "height": 128,
+          "channels": 1,
+          "metadata": {
+            "IMAGETYP": "LIGHT",
+            "FILTER": "L",
+            "EXPTIME": 60.0,
+            "OBJECT": "AN_SEQUENCE_LRGB"
+          },
+          "registration": {
+            "dx_values": [0.0, 2.0, -1.5, 1.2],
+            "dy_values": [0.0, -1.25, 1.4, 0.9],
+            "rotation_degrees": [0.0, 0.0, 0.0, 0.0]
+          }
+        }
+      ],
+      "expected": {
+        "groups": [
+          {
+            "filter": "L",
+            "light_count": 4,
+            "calibration": {
+              "bias": true,
+              "dark": true,
+              "flat": true
+            }
+          }
+        ],
+        "artifacts": [
+          "masters/master_bias_L.xisf",
+          "masters/master_dark_L.xisf",
+          "masters/master_flat_L.xisf",
+          "registered/L.sequence.json",
+          "stacks/stacked_L.fit"
+        ],
+        "report_fields": [
+          "calibration_summary",
+          "registration_summary",
+          "stacking_summary",
+          "output_artifacts",
+          "master_bias",
+          "master_dark",
+          "master_flat",
+          "stacked_L"
+        ]
+      }
+    },
+    {
+      "id": "workflow_cancellation_smoke",
+      "kind": "control_flow_contract",
+      "description": "Expected behavior for cooperative cancellation during a workflow extension run.",
+      "trigger": {
+        "stage": "Registering",
+        "progress_at_least": 0.05,
+        "cancel_after_ms": 250,
+        "cancel_grace_period_ms": 1200
+      },
+      "expected": {
+        "status": "cancelled",
+        "opened_outputs": 0,
+        "registered_outputs": 0,
+        "retained_temp_files": false,
+        "host_session_state": "stopped"
+      }
+    },
+    {
+      "id": "workflow_output_cleanup_smoke",
+      "kind": "output_lifecycle_contract",
+      "description": "Expected UI-facing lifecycle for workflow outputs after success, cancellation, and crash.",
+      "expected": {
+        "success_opens_outputs": true,
+        "cancel_discards_outputs": true,
+        "crash_discards_outputs": true,
+        "output_kind": "sequence"
+      }
+    }
+  ]
+}

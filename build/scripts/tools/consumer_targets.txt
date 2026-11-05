@@ -1,0 +1,1150 @@
+# The target registry: every target the Premake definitions generate, whether it reaches the engine, whether it is
+# built, what it compiles, how its tests get their inputs, and which package profiles carry it.
+#
+# This file is the authority for the build set: the generator reads it and refuses a project it does not declare,
+# and refuses the AFTERNIGHT_PRODUCT_ENGINE environment variable, because whether a target reaches the engine is
+# stated here per target and no flag sets it for every source file at once. build/scripts/tools/consumer_targets.py
+# holds the generated projects, both test runners, the source lists in isolated_sources.txt and the profiles in
+# package_profiles.txt to it; check_installer_payload.py derives both packagers' allowlists from `ship`.
+#
+# A new target is declared here in the change that adds it.
+#
+# Record format - one per target, fields indented four spaces, a field continuing onto any line indented
+# further:
+#
+#   target <project name>
+#       workspace    main | tests | 3rdparty - the Premake workspace that defines it
+#       kind         shared | static | console | windowed
+#       output       <its binary's name when that is not the project name>
+#       debug        <its Debug binary's name when that is not <output>_d>
+#       class        none | engine - engine when its link closure holds the engine; the engine is its own
+#       state        active (generated, built, tested) | opt-in (generated only when its build asks for it by name)
+#       depends      <the registry targets whose libraries its link line names, or ->
+#       sources      <the repository roots it compiles and includes from, beyond those of what it depends on>
+#                    | @<the name of its explicit list in isolated_sources.txt>
+#       fixture      for a test only - none (it builds no image input) | engine (it builds its inputs through the
+#                    engine it tests) | neutral (the engine-neutral fixture layer) | adapter (the engine's fixture
+#                    adapter, src/AfterNightTests/fixtures/engine)
+#       runner       product - the numbered runners, run_tests.sh and run_tests.bat, expect it
+#       ship         <the package profiles that carry it, comma-separated>
+#       note         <free text>
+#
+# A field left out is `-`. Lines starting with '#' and blank lines are ignored.
+
+# ---- The platform library and the engine.
+
+target AfterNightPlatform
+    workspace    main
+    kind         shared
+    class        none
+    state        active
+    depends      -
+    sources      src/AfterNightPlatform
+    ship         product
+
+target AfterNightEngine
+    workspace    main
+    kind         shared
+    class        engine
+    state        active
+    depends      -
+    sources      src/AfterNightEngine
+    ship         product
+    note         The engine every product target links.
+
+target AfterNightEnginePythonAdapter
+    workspace    main
+    kind         shared
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightEnginePythonAdapter
+    note         Never ships.
+
+target AfterNightEngineGmicAdapter
+    workspace    main
+    kind         shared
+    class        engine
+    state        active
+    depends      AfterNightEngine, cgmic
+    sources      src/AfterNightEngineGmicAdapter
+    ship         product
+
+# The opt-in OpenCL proof backend and its suite.
+
+target AfterNightEngineOpenClBackend
+    workspace    main
+    kind         shared
+    class        engine
+    state        opt-in
+    depends      AfterNightEngine
+    sources      src/AfterNightEngineOpenClBackend
+    note         Generated only with AFTERNIGHT_OPENCL=1 on Windows, and never shipped.
+
+target Test_EngineOpenClBackend
+    workspace    tests
+    kind         console
+    class        engine
+    state        opt-in
+    depends      AfterNightEngine, AfterNightEngineOpenClBackend
+    sources      src/AfterNightTests
+    fixture      engine
+    note         Generated with the opt-in backend or not at all.
+
+# ---- The engine-free extension boundary.
+
+target AfterNightExtensionProtocol
+    workspace    main
+    kind         shared
+    class        none
+    state        active
+    depends      -
+    sources      src/AfterNightExtensionProtocol
+    ship         product
+
+target AfterNightExtensionHostLite
+    workspace    main
+    kind         console
+    class        none
+    state        active
+    depends      AfterNightExtensionProtocol
+    sources      src/AfterNightExtensionHostLite
+    ship         product
+
+# ---- The consumer runtime: the session, operation scope, image asset and memory allowances every consumer of the
+# engine shares, Qt-free, and its suite.
+
+target AfterNightConsumerRuntime
+    workspace    main
+    kind         shared
+    class        engine
+    state        active
+    depends      AfterNightEngine, AfterNightPlatform
+    sources      src/AfterNightConsumerRuntime
+    ship         product
+    note         Links no Qt, no Python and no product library; neither the engine nor the platform library links it.
+
+target Test_ConsumerFaults
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ConsumerFaults
+    fixture      engine
+    runner       product
+    note         The consumer fault campaign: the engine's fault harness swept over the product's own publication and
+                 read paths - the history's snapshots, the integration's published images and documents, the standalone
+                 stack, a sequence's publication, a view's read and an extension buffer's import - each over a session
+                 built on the sweep's injecting resource, compiled from its explicit list with the harness's source and
+                 linked against the processes and Controls libraries.
+
+target Test_ConsumerRuntime
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightEngine, AfterNightPlatform
+    sources      src/AfterNightTests
+    fixture      engine
+    runner       product
+    note         The runtime's own suite: Qt-free, building its images through the engine directly.
+
+target Test_AfterNightCLI
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightEngine, AfterNightPlatform
+    sources      src/AfterNightTests, src/AfterNightCLI
+    fixture      engine
+    runner       product
+    note         The command-line tool's suite: the tool's units but its entry point, the neutral fixtures and records
+                 it is held to, and the tool's own binary run beside it. Its inputs are neutral FITS files read through
+                 the tool's engine.
+
+# ---- The product: the command-line tool, the Controls and processes libraries, the application and its style plugin,
+# the full extension host and the runtime backend it loads.
+
+target AfterNightCLI
+    workspace    main
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightEngine, AfterNightPlatform
+    sources      src/AfterNightCLI
+    ship         product
+    note         Qt-free and Python-free, so it runs where neither is installed.
+
+target AfterNightControls
+    workspace    main
+    kind         shared
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform
+    sources      src/AfterNightControls
+    ship         product
+    note         Compiles every unit under its directory, the session bridge among them.
+
+target AfterNightProcesses
+    workspace    main
+    kind         shared
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightEngineGmicAdapter, AfterNightExtensionProtocol, AfterNightPlatform
+    sources      src/AfterNightProcesses
+    ship         product
+    note         Compiles every unit under its directory, among them three no isolated suite compiles - the launcher's
+                 entry points, the pipeline manifest and the precompiled header's unit. It runs its G'MIC processes
+                 through the G'MIC adapter.
+
+target AfterNightApp
+    workspace    main
+    kind         windowed
+    output       AfterNight
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses
+    sources      src/AfterNightApp
+    ship         product
+    note         It owns the process's one engine session. Its main window, context and session are compiled by its
+                 suite as well.
+
+target AfterNightStylePlugin
+    workspace    main
+    kind         shared
+    output       qafternight
+    class        engine
+    state        active
+    depends      AfterNightControls
+    sources      src/AfterNightStylePlugin
+    ship         product
+    note         Reaches the engine only through Controls, whose class it holds; it themes the product.
+
+target AfterNightExtensionHost
+    workspace    main
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses
+    sources      src/AfterNightExtensionHost, src/AfterNightExtensionRuntimeBackend
+    ship         product
+    note         It opens no session; it borrows the runtime backend's, which it loads by name rather than links,
+                 through the backend's session capsule. Its context, native window and runtime session are compiled by
+                 its native suite as well.
+
+target AfterNightExtensionRuntimeBackend
+    workspace    main
+    kind         shared
+    output       an_extension_runtime_backend
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightEngine, AfterNightPlatform
+    sources      src/AfterNightExtensionRuntimeBackend
+    ship         product
+    note         Its session is the full host's, which native Controls borrow through the private session capsule.
+                 Qt-free; links the interpreter its host owns. Its isolated driver is Test_ExtensionRuntimeBackend.
+
+# ---- The consumer suites.
+
+target Test_AfterNightApp
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_AfterNightApp
+    fixture      adapter
+    runner       product
+    note         Its cases compile the application's main window, its context and its session from the application's
+                 sources, linked against the processes and Controls libraries, and run them in one engine session the
+                 suite owns as the application owns its own.
+
+target Test_ExtensionHostNative
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ExtensionHostNative
+    fixture      adapter
+    runner       product
+    note         Its cases compile the host's application context, native process window and runtime session from the
+                 host's sources, linked against the processes and Controls libraries, and borrow one engine session
+                 through the runtime backend's capsule as the host does.
+
+target Test_ExtensionRuntimeBackend
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightEngine, AfterNightPlatform
+    sources      src/AfterNightTests, src/AfterNightExtensionRuntimeBackend
+    fixture      engine
+    runner       product
+    note         The backend's isolated driver: it loads the module by file name, runs the embedded Python module
+                 through the bundled interpreter, starts itself again for the lifecycle scenarios and reads the session
+                 capsule as the full host does. Qt-free; its inputs are made through the backend's own bindings.
+
+target AfterNightWorkflowDriver
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @AfterNightWorkflowDriver
+    fixture      none
+    note         The consumer measurement driver: the ImageIntegration workflow's orchestration over a pinned frame set
+                 - the model, the import, the preparation, the executor, the nine stages, the archiver and the report,
+                 as the processes library defines them, and no window - linked against the library and run in one engine
+                 session as the application opens it. Never ships.
+
+target Test_ImageIntegration
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ImageIntegration
+    fixture      adapter
+    runner       product
+    note         The integration workflow's suite, against the processes library: the model, the frame import - each
+                 file's header probed through the engine, its kind from its cards before its folder - and the error
+                 record an engine failure maps to, run over frames the neutral fixture layer writes as capture programs
+                 write them; the workflow core - manifest, diff, hashing, snapshot, tracker, planner, frame cache and
+                 executor - with its persistence contracts and the stage companions the library defines; the nine stages
+                 over lights the neutral layer writes; and the session, preset and registration databases' moves onto
+                 their current schemas, the report, the archiver and every window, tab, dialog and widget of the
+                 integration and its Lite front end.
+
+target Test_ImageProcessControl
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ImageProcessControl
+    fixture      none
+    runner       product
+    note         The process window's declared contracts, the messages and code events it delivers, its title and a
+                 close while its Apply runs, compiled from its explicit list and linked against the Controls library.
+
+target Test_ImageRTPreviewControl
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ImageRTPreviewControl
+    fixture      adapter
+    runner       product
+    note         The real-time preview window's runs, layout and contracts, the dialog layout helpers and the dialog
+                 builders, compiled from its explicit list and linked against the Controls library. It links the
+                 processes library too, for the references the settled previews of the stretch-based dialogs and of
+                 brightness and contrast are held to, over the fixture layer's scenes, and for the opt-in drag
+                 benchmark.
+
+target Test_ImageViewControl
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ImageViewControl
+    fixture      engine
+    runner       product
+    note         Every case of its directory - the viewer's, the history's and the astrometry overlays' - linked against
+                 the Controls library instead of compiled from its sources.
+
+target Test_MainDashboard
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_MainDashboard
+    fixture      none
+    runner       product
+    note         The dashboard, its toolbar, recent files grid, featured file and onboarding panel - the Controls
+                 library's, linked against it - read and written through an application double whose settings,
+                 thumbnails and process settings are the library's own repositories over an in-memory database.
+
+target Test_MaskDrawing
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_MaskDrawing
+    fixture      engine
+    runner       product
+    note         The brush, the shapes, the drawing document, its undo and the queue its edits land through, the canvas
+                 over a view and the mask drawing window's controls, compiled from its explicit list and linked against
+                 the Controls library.
+
+target Test_Persistence
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_Persistence
+    fixture      none
+    runner       product
+    note         The settings, process-settings, folder and thumbnail repositories, the schema versions and the JSON
+                 serializer over an in-memory database, linked against the Controls library.
+
+target Test_ProcessFramework
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessFramework
+    fixture      adapter
+    runner       product
+    note         The extension manager, host manager, SDK service and protocol cases, the process windows' programmatic
+                 interfaces and the registry's, against the processes and Controls libraries, compiled from its explicit
+                 list - its own cases and the fixture units they use, no production unit.
+
+target Test_ThemeSystem
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ThemeSystem
+    fixture      none
+    runner       product
+    note         The theme system's suite, linked against the Controls library.
+
+target Test_Widgets
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_Widgets
+    fixture      adapter
+    runner       product
+    note         The components, the timeline and stage widgets, the curves and histogram widgets, and the quick zoom
+                 over an image the fixture adapter makes, linked against the Controls library.
+
+target Test_SystemInformationPanel
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_SystemInformationPanel
+    fixture      none
+    runner       product
+    note         The system-information panel's memory parser, linked against the Controls library.
+
+target Test_ControlsSession
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsSession
+    fixture      engine
+    runner       product
+    note         The Controls session bridge - the document, its writer, commit tickets and the execution scope. Its
+                 cases are compiled from its explicit list and linked against the Controls library, so the library's own
+                 companions answer it.
+
+target Test_ControlsServices
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsServices
+    fixture      engine
+    runner       product
+    note         The Controls service interfaces - the application context, its events and listeners, the helpers
+                 processes reach it through, the summary reports and the view-creation coordinator's interface - over
+                 views its context's factory makes as the application's does. Its cases are compiled from its explicit
+                 list and linked against the Controls library, so the library's own companions answer it.
+
+target Test_ControlsViewer
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsViewer
+    fixture      engine
+    runner       product
+    note         The image view and what it paints - its widget, lens, mask overlay, comparison and autostretch controls
+                 and the one presentation bridge - with the history, sequence player and tool windows the view reaches
+                 through its companion seam. Its cases are compiled from its explicit list and linked against the
+                 Controls library, so the library's own companions answer it.
+
+target Test_ControlsProcessFramework
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsProcessFramework
+    fixture      engine
+    runner       product
+    note         The process framework - the process window and its channel dispatch, the real-time preview window and
+                 its runs, the typed parameters and the progress dialog - over views whose history records each Apply
+                 and sequences recorded in SER files. Its cases are compiled from its explicit list and linked against
+                 the Controls library, so the library's own companions answer it.
+
+target Test_ControlsHistory
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsHistory
+    fixture      engine
+    runner       product
+    note         The image history - its tracker, its backup writer and the snapshots it writes, the companion the image
+                 view reaches it through and the window over it. Its cases are compiled from its explicit list and
+                 linked against the Controls library, so the library's own companions answer it.
+
+target Test_ControlsFiles
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsFiles
+    fixture      engine
+    runner       product
+    note         The file and image coordinators - the open and save workflows, sequences opened and written as the
+                 files they are, the recent files and their thumbnails, the RAW policy and export intent the settings
+                 publish, the temporary directory and the action state - over the settings database they read. Its cases
+                 are compiled from its explicit list and linked against the Controls library, so the library's own
+                 companions answer it.
+
+target Test_ControlsAstrometry
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsAstrometry
+    fixture      engine
+    runner       product
+    note         The plate solve and the catalogs - the solvers' order and hints, the answers read through the engine's
+                 header reader and card bridge, the internal solver over an installed Gaia chunk catalog, the
+                 astrometry.net web solver's state machine, the catalog search and download services - with the plate-
+                 solve and astrometry windows and the overlays a view draws over a solved image. Its cases are compiled
+                 from its explicit list and linked against the Controls library, so the library's own companions answer
+                 it.
+
+target Test_ControlsStatistics
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsStatistics
+    fixture      engine
+    runner       product
+    note         The histogram, statistics and curve widgets - the counts a histogram draws and the windows that count a
+                 view's image on a worker, the midtones and generalized stretch curves, the structuring element - with
+                 the lens's and the process dialogs' histograms and the star selection, filter and mask windows over one
+                 detected star list. Its cases are compiled from its explicit list and linked against the Controls
+                 library, so the library's own companions answer it.
+
+target Test_ControlsSequences
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsSequences
+    fixture      engine
+    runner       product
+    note         The sequences - the containers the product reads and writes over the engine's sources and sinks, the
+                 companions the file workflows, the process framework and the history reach, the player of a sequence
+                 view and the New Sequence and Export Sequence windows. Its cases are compiled from its explicit list
+                 and linked against the Controls library, so the library's own companions answer it.
+
+target Test_ControlsExtensionSeam
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform
+    sources      @Test_ControlsExtensionSeam
+    fixture      engine
+    runner       product
+    note         The extension buffer seam - the shared buffer manager that exports an asset to a planar shared buffer
+                 and imports one back as an asset, and the host manager's request and result paths over the target
+                 view's document. Its cases drive the session controller directly; nothing launches an extension host.
+                 Its cases are compiled from its explicit list and linked against the Controls library, so the library's
+                 own companions answer it.
+
+target Test_ControlsDialogs
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsDialogs
+    fixture      engine
+    runner       product
+    note         The settings pages, the about and system information dialogs, the dashboard's file cards, the inspector
+                 windows over a view's document and the opener of every tool window a view shows, and the PixelMath
+                 editor - with the RAW policy the settings publish and the processing limits held against the session in
+                 use. The application suite's settings dialog cases are compiled from that suite's directory. Its cases
+                 are compiled from its explicit list and linked against the Controls library, so the library's own
+                 companions answer it.
+
+target Test_ProcessesShared
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesShared
+    fixture      engine
+    runner       product
+    note         The processes library's shared helpers and the launch path every process takes - the closed maps from a
+                 dialog's text to the engine's names, the combined-image metadata, the image-list helpers, the
+                 launcher's guards and the registry - linked against the processes library: every registered action
+                 opens its process's window, or runs its channel action, through the library's own entry points.
+
+target Test_ProcessesPointwise
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesPointwise
+    fixture      adapter
+    runner       product
+    note         The pointwise and tone processes - brightness and contrast, gamma, exposure, the arcsinh stretch,
+                 colorize, colour saturation and the HSL and LCh adjustments - and the helpers they share, compiled from
+                 their explicit list and linked against the processes library, which they are launched through; held to
+                 the behaviour corpus's records through the fixture adapter.
+
+target Test_ProcessesStretching
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesStretching
+    fixture      engine
+    runner       product
+    note         The histogram transformation, curves, generalized hyperbolic and statistical stretch dialogs, their
+                 shared stretch support and the whole-image statistics their stretches are decided from, compiled from
+                 their explicit list and linked against the processes library, which they are launched through; held to
+                 the behaviour corpus over the fixture layer.
+
+target Test_ProcessesSpatial
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesSpatial
+    fixture      adapter
+    runner       product
+    note         The spatial and noise processes - the blurs and the median, the bilateral, banding, NL-Bayes, total
+                 variation and cosmetic denoisers, the detail filters, the noise generator, the morphology and the local
+                 contrast and histogram equalizers, and the six that run a G'MIC command through the optional adapter,
+                 which the processes library alone links - compiled from their explicit list and linked against the
+                 processes library, which they are launched through; each driven through its own dialog and held to the
+                 behaviour corpus's captures through the fixture adapter.
+
+target Test_ProcessesMasks
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesMasks
+    fixture      adapter
+    runner       product
+    note         The mask, star and background processes - mask drawing, range selection, binarize, the star mask, star
+                 reduction, dark structure enhancement, the multiscale linear transform, background extraction and
+                 automatic gradient removal - and the helpers they share, compiled from their explicit list and linked
+                 against the processes library, which they are launched through; held to the behaviour corpus's records
+                 through the fixture adapter.
+
+target Test_ProcessesChannels
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesChannels
+    fixture      adapter
+    runner       product
+    note         The thirty-nine channel and conversion actions and the image menu's other non-interactive actions -
+                 duplicating a view, extracting a sequence's frame, converting a sequence's container, the mirrors and
+                 turns, grey, colour and the negative - and the one table every extraction and conversion runs through,
+                 compiled from their explicit list and linked against the processes library, which they are launched
+                 through; held to the behaviour corpus's records through the fixture adapter.
+
+target Test_ProcessesGeometry
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesGeometry
+    fixture      adapter
+    runner       product
+    note         The geometry and filter-array processes - crop, resize, rotate, integer and CFA integer resample,
+                 debayer, split and merge CFA and extract sequence - and the support they share, and the image menu's
+                 mirrors and turns through the image operations coordinator, compiled from their explicit list and
+                 linked against the processes library, which they are launched through; held to the behaviour corpus's
+                 records through the fixture adapter.
+
+target Test_ProcessesColorTools
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesColorTools
+    fixture      adapter
+    runner       product
+    note         The colour calibration tools - background neutralization, colour calibration, linear match and SCNR -
+                 and the support they share, compiled from their explicit list and linked against the processes library,
+                 which they are launched through; held to the behaviour corpus's records through the fixture adapter.
+
+target Test_ProcessesPixelMath
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesPixelMath
+    fixture      adapter
+    runner       product
+    note         The PixelMath window and the support it runs - the expressions parsed, bound and run as the engine's
+                 fused pointwise program or through its evaluator, the binding policy for size, format and domain, the
+                 symbols, the seeded random stream and the settings file - compiled from their explicit list and linked
+                 against the processes library, which they are launched through; held to the behaviour corpus's records
+                 through the fixture adapter.
+
+target Test_ProcessesExternalTools
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesExternalTools
+    fixture      adapter
+    runner       product
+    note         The external tools - StarNet, StarNet's star mask and DeepSNR - and the support they share: the
+                 engine's hand-off around a program run as a separate process, the program's progress through the
+                 operation and its answers brought back in the source's representation - compiled from their explicit
+                 list and linked against the processes library, which they are launched through; run over a stand-in
+                 program the executable itself is, and over the real programs where they are installed.
+
+target Test_ProcessesPhotometric
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesPhotometric
+    fixture      engine
+    runner       product
+    note         The photometric and spectrophotometric colour calibrations - the two windows, the SPCC readiness and
+                 its panel, the response repository and catalog readers and the integration hand-off, which reads a
+                 registration database the case writes - compiled from their explicit list and linked against the
+                 processes library, which they are launched through; run over plate-solved star fields whose colours are
+                 planted.
+
+target Test_ProcessesStarProfilers
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesStarProfilers
+    fixture      engine
+    runner       product
+    note         The two star profilers - the windows over the one detector, the window they share and the support for
+                 the detection, the catalog enrichment, the tables and the profile documents - compiled from their
+                 explicit list and linked against the processes library, which they are launched through; run over
+                 plate-solved fields whose stars are planted.
+
+target Test_ProcessesWorkflowTools
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesWorkflowTools
+    fixture      engine
+    runner       product
+    note         The standalone workflow tools - Image Calibration, Image Stacking, Image Registration and the Image
+                 List Analyzer - with the file list, the calibration, stacking and registration runs and the
+                 registration records they share with the integration, compiled from their explicit list and linked
+                 against the processes library, which they are launched through; the integration's own dialogs and comet
+                 registration answering through their companions, run over frames written to disk.
+
+target Test_ProcessesCombinations
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Test_ProcessesCombinations
+    fixture      adapter
+    runner       product
+    note         The combination processes - the image blend, the LRGB, NBRGB and channel compositions, the narrowband
+                 colour mapper, the narrowband palette composer with its preview grid, the two star-mask recombinations
+                 and the image comparison - and the helpers they share, compiled from their explicit list and linked
+                 against the processes library, which they are launched through; held to the behaviour corpus's records
+                 through the fixture adapter.
+
+target Test_ControlsSeams
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsSeams
+    fixture      engine
+    runner       product
+    note         The one Controls suite that compiles Controls sources instead of linking the library: its cases need
+                 the classes they exercise compiled into the executable - the close-during-work cases, whose
+                 freed-memory quarantine replaces the global allocation functions and so holds a class's freed blocks
+                 only when the class is compiled here, and the case that observes what the view tells its companions
+                 through registered stand-ins.
+
+target Test_Platform
+    workspace    tests
+    kind         console
+    class        none
+    state        active
+    depends      AfterNightPlatform
+    sources      src/AfterNightTests
+    fixture      none
+    runner       product
+
+# ---- The fixture layers: the engine-neutral executable and the engine's fixture adapter. Each compiles an explicit
+# list, so the neutral one reaches nothing of the engine.
+
+target Test_FixtureNeutral
+    workspace    tests
+    kind         console
+    class        none
+    state        active
+    depends      AfterNightPlatform
+    sources      @Test_FixtureNeutral
+    fixture      neutral
+    runner       product
+    note         The engine-neutral descriptions, files, expected results and expectation records, and the Qt-only
+                 harness every fixture executable runs under. Names nothing of the engine.
+
+target Test_FixtureEngine
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightEngine, AfterNightPlatform
+    sources      @Test_FixtureEngine
+    fixture      adapter
+    runner       product
+    note         The engine's fixture adapter, over the consumer runtime's session, scopes and assets.
+
+# ---- The fuzz targets and the engine's direct suites.
+
+target Fuzz_ConsumerDocuments
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    sources      @Fuzz_ConsumerDocuments
+    fixture      none
+    note         The integration's durable documents fuzzed: the session document, the envelope every non-image document
+                 is published in, the registration's transform records, the drizzle descriptor and the normalization
+                 set's coefficients, each held to answering and to reading back what its own writer writes. Compiled
+                 from its explicit list with the fuzz harness and, outside a libFuzzer build, its standalone driver.
+
+target Fuzz_ConsumerProtocol
+    workspace    tests
+    kind         console
+    class        none
+    state        active
+    depends      AfterNightExtensionProtocol
+    sources      @Fuzz_ConsumerProtocol
+    fixture      none
+    note         The extension protocol fuzzed: messages, frames, buffer descriptions and error records an extension
+                 host or the application could send, each held to answering and to round-tripping. It links the
+                 Apache-2.0 protocol library and Qt's core alone, as the lite host does.
+
+target Fuzz_EngineCodec
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Fuzz_EngineConversion
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Fuzz_EngineDescriptor
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Fuzz_EngineMetadata
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Fuzz_EnginePixelMath
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Fuzz_EngineSequence
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineAstrometry
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineCalibration
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineColor
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineConsumerProbes
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineCore
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineFaults
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineFixtureBridge
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine, EngineBenchCommon
+    sources      src/AfterNightTests, src/AfterNightBench/engine
+    fixture      engine
+
+target Test_EngineGmicAdapter
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine, AfterNightEngineGmicAdapter
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineImage
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineImageOps
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineInterop
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineKernels
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineLibraryParity
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests, src/AfterNightBench/common
+    fixture      engine
+
+target Test_EnginePublicHeaders
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EnginePythonAdapter
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine, AfterNightEnginePythonAdapter
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineRegistration
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineRuntime
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineStacking
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+target Test_EngineStars
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine
+    sources      src/AfterNightTests
+    fixture      engine
+
+# ---- The benchmark layer: the engine-neutral library of scenarios, fixtures and oracles, and the runner.
+
+target EngineBenchCommon
+    workspace    tests
+    kind         static
+    class        none
+    state        active
+    depends      -
+    sources      src/AfterNightBench/common
+
+target Test_EngineBenchCommon
+    workspace    tests
+    kind         console
+    class        none
+    state        active
+    depends      EngineBenchCommon
+    sources      src/AfterNightTests
+    fixture      neutral
+
+target AfterNightEngineBench
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightEngine, EngineBenchCommon
+    sources      src/AfterNightBench/engine
+    fixture      engine
+
+# ---- The third-party libraries built from source by the 3rdparty workspace.
+
+target cgmic
+    workspace    3rdparty
+    kind         shared
+    debug        cgmicd
+    class        none
+    state        active
+    depends      -
+    sources      3rdparty/src/gmic
+    ship         product
+

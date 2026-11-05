@@ -1,0 +1,177 @@
+{
+  "schema": 1,
+  "description": "The product measurement's pinned inputs: the reference dataset, the two workflows, the four cases, the paired protocol, the output contract, the campaigns and the hosts. build/scripts/tools/product_measurement.py reads it, and its check holds it to the protocol the tool states and every baseline it lists to the dataset it pins.",
+  "dataset": {
+    "frameSet": "carina-asi294mm-red",
+    "corpusManifest": "RawDumps/corpus.json",
+    "corpusManifestSha256": "7ae7b9218e137bad19eceff55cc666deade9e85fa0c7124c6489bfffbed771cb",
+    "identityDigest": "77ddd17bf3b34a6200f18cbf7930862ef30ca93088f27a0d12161f1421cc83c0",
+    "frames": 232,
+    "bytes": 21706513920,
+    "roles": {
+      "lights": 72,
+      "flats": 40,
+      "darks": 60,
+      "bias": 60
+    },
+    "reference": "docs/dev/guides/BENCHMARKS.md, the reference ImageIntegration dataset"
+  },
+  "workflows": {
+    "full": {
+      "frontEnd": "ImageIntegrationProcess",
+      "preparation": "planned: ImageIntegration::preparePlannedWorkflowExecution over buildFullWorkflowManifest",
+      "settings": "the defaults of a new session, each role added through its own tab, the run's own output directory"
+    },
+    "lite": {
+      "frontEnd": "ImageIntegrationLiteProcess",
+      "preparation": "direct: ImageIntegration::prepareDirectWorkflowExecution over ImageIntegrationLite::prepareManifest",
+      "settings": "ImageIntegrationLite::defaultProcessingOptions(), each role added as its own type, the run's own output directory"
+    }
+  },
+  "cases": {
+    "cold": {
+      "inputs": "every frame of the set evicted from the operating system's cache before each run",
+      "output": "a fresh output directory per run"
+    },
+    "warm": {
+      "inputs": "left in the cache the warm-up runs read them into",
+      "output": "a fresh output directory per run"
+    },
+    "incremental": {
+      "inputs": "left in the cache",
+      "output": "each side's own directory, primed once by a full run; every measured run alternates a setting of the light stack alone - the full process's high rejection sigma, Lite's weighting - so each re-stacks and reuses everything before the stack"
+    },
+    "cancel": {
+      "inputs": "left in the cache",
+      "output": "a fresh output directory per run",
+      "cancelAfterMs": 20000,
+      "reported": "the latency from the cancellation request to the finished signal, never decided with throughput"
+    }
+  },
+  "protocol": {
+    "pairs": 3,
+    "extraBatch": 3,
+    "warmups": 0,
+    "noRegressionRatio": 1.0,
+    "resolutionFactor": 2.0,
+    "noiseThreshold": 0.05,
+    "pairedSignificance": 0.05,
+    "samplingIntervalMs": 10,
+    "seed": 20260929,
+    "metrics": "wall time from the accepted execution request to the controller's finished signal, and the resident peak the operating system reports over the same region"
+  },
+  "outputContract": {
+    "description": "What the outputs are held to before a timing is accepted. Within a side every image is exact against its side's first run except a role bounded here by units in the last place and a share of the samples. Across the sides each role is described in the baseline's noise - the median's shift, the noise ratio, the typical and 99th-percentile absolute difference and the correlation - over the covered samples, and a role whose grid may differ is held to its median and noise alone.",
+    "withinSide": {
+      "light-master": {
+        "maxUlp": 16,
+        "maxDifferingShare": 0.001
+      }
+    },
+    "acrossSides": {
+      "bias-master": {
+        "maxAbsoluteLocationShiftInNoise": 0.01,
+        "noiseRatio": [
+          0.99,
+          1.01
+        ],
+        "maxMedianAbsoluteDifferenceInNoise": 0.01,
+        "maxP99AbsoluteDifferenceInNoise": 0.05,
+        "minCorrelation": 0.9999
+      },
+      "dark-master": {
+        "maxAbsoluteLocationShiftInNoise": 0.01,
+        "noiseRatio": [
+          0.99,
+          1.01
+        ],
+        "maxMedianAbsoluteDifferenceInNoise": 0.01,
+        "maxP99AbsoluteDifferenceInNoise": 0.05,
+        "minCorrelation": 0.9999
+      },
+      "flat-master": {
+        "maxAbsoluteLocationShiftInNoise": 0.01,
+        "noiseRatio": [
+          0.99,
+          1.01
+        ],
+        "maxMedianAbsoluteDifferenceInNoise": 0.01,
+        "maxP99AbsoluteDifferenceInNoise": 0.05,
+        "minCorrelation": 0.9999
+      },
+      "light-master": {
+        "grid": "any",
+        "maxAbsoluteLocationShiftInNoise": 1.0,
+        "noiseRatio": [
+          0.75,
+          1.35
+        ],
+        "maxMedianAbsoluteDifferenceInNoise": 1.0,
+        "maxP99AbsoluteDifferenceInNoise": 10.0,
+        "minCorrelation": 0.9
+      }
+    }
+  },
+  "campaign": {
+    "description": "What one host runs for one measurement, and the most time it may take. check estimates each host's campaign from the seconds each side's runs take and refuses one over the budget, and run refuses more pairs or warm-up rounds than the protocol states unless asked. A campaign is bounded to under an hour, and half an hour is the target.",
+    "budgetMinutes": 45,
+    "targetMinutes": 30,
+    "hosts": {
+      "bench-windows": {
+        "pairs": 3,
+        "series": [
+          "full-warm",
+          "lite-warm",
+          "full-incremental",
+          "full-cancel"
+        ]
+      },
+      "bench-linux": {
+        "pairs": 2,
+        "series": [
+          "full-warm",
+          "full-cancel"
+        ]
+      }
+    }
+  },
+  "hosts": {
+    "bench-windows": {
+      "physicalCores": 16,
+      "logicalProcessors": 32,
+      "width": "the workflow's default, every logical processor",
+      "runSeconds": {
+        "baseline": {
+          "fresh": 85,
+          "incremental": 22,
+          "cancel": 22.5
+        },
+        "candidate": {
+          "fresh": 57,
+          "incremental": 11,
+          "cancel": 22.5
+        },
+        "source": "the medians of each side's process wall seconds in a campaign on this host, 2026-10-16"
+      }
+    },
+    "bench-linux": {
+      "physicalCores": 4,
+      "logicalProcessors": 8,
+      "width": "the workflow's default, every logical processor",
+      "runSeconds": {
+        "baseline": {
+          "fresh": 390,
+          "incremental": 117,
+          "cancel": 25
+        },
+        "candidate": {
+          "fresh": 590,
+          "incremental": 107,
+          "cancel": 25
+        },
+        "source": "the baseline's fresh run measured on this host; the rest estimated from the Windows host's ratios until this host measures them"
+      }
+    }
+  },
+  "baselines": []
+}

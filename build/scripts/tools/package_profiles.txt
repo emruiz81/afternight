@@ -1,0 +1,51 @@
+# The package profiles: what the product's packages carry, which profile is in force, and which one the real
+# packagers produce.
+#
+# Which targets a profile carries is stated on each target, as its `ship` field in consumer_targets.txt, so a new
+# target is placed in a profile where it is declared. What is listed here is only what no target produces - a
+# third-party runtime that must be in the payload, a name that must stay out of it, a binary a packager copies by a
+# rule of its own.
+#
+# build/scripts/tools/consumer_targets.py holds this file to the registry, and check_installer_payload.py runs
+# both packagers' payload rules against the profile marked `packagers`: every target that profile ships, in its
+# Release spelling, has to reach the payload, and every other target, in both configurations' spellings, has to
+# stay out of it.
+#
+# Record format - one per profile, fields indented four spaces, a field continuing onto any line indented
+# further:
+#
+#   profile <name>
+#       title             <the profile's name in prose>
+#       form              installer | deployment | none - a package, a clean deployment directory, or nothing
+#       active            yes, on exactly one profile: the one in force now
+#       packagers         yes, on exactly one profile: the one installer/win_installer.iss and
+#                         installer/linux_packager.sh produce
+#       ship-windows      <file names that are no target's output and must reach the Windows payload>
+#       ship-linux        <the same for the Linux payload; an entry with a slash is a path below the payload
+#                         root, judged where it lies>
+#       keep-out-windows  <representative names that are no target's output and must stay out of the Windows
+#                         payload: logs, dumps, records>
+#       keep-out-linux    <the same for the Linux payload; an entry with a slash is a path below the payload
+#                         root, judged where it lies>
+#       separate-linux    <target outputs the Linux packager copies by a rule of its own and excludes from its
+#                         sweep>
+#       note              <free text>
+#
+# Lines starting with '#' and blank lines are ignored.
+
+profile product
+    title             product
+    form              installer
+    active            yes
+    packagers         yes
+    ship-windows      Qt6Core.dll
+    ship-linux        PythonLib/lib/python3.14/site-packages/PySide6/Qt/lib/libQt6Test.so.6
+    keep-out-windows  opencv_core4.dll, opencv_imgproc4.dll, raw_r.dll, lcms2-2.dll, gtest.dll
+    keep-out-linux    test_persistence.log, test_thread_safety.log, core, core.12345, vgcore.12345, lib/libQt6Test.so.6
+    separate-linux    AfterNight
+    note              The engine, the consumer runtime, the platform library, the G'MIC adapter and its runtime, the
+                      private RAW runtime the engine imports, the application, both hosts, the command-line tool, the
+                      style plugin and the bundled Python. OpenCV and the public LibRaw with its LittleCMS are
+                      deployed for the library parity suite's reference answers, and no shipped binary imports them.
+                      Qt Test is deployed beside the Linux suites, which find Qt only in lib/, and stays out of the
+                      AppImage; the bundled Python's PySide6 carries a copy of its own, which ships with it.

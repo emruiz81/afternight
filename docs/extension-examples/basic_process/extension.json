@@ -1,0 +1,27 @@
+{
+  "id": "example.basic_process",
+  "name": "Example Basic Process",
+  "version": "1.0.0",
+  "summary": "Minimal runtime-backed example process.",
+  "description": "A small template for a repository-ready AfterNight extension package.",
+  "author": "Example Author",
+  "license": "GPL-3.0-or-later",
+  "publisher_id": "example.author",
+  "type": "python",
+  "entry_point": "basic_process",
+  "category": "filters",
+  "launch_mode": "single_image",
+  "sdk_backend": "runtime",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "processes": [
+    {
+      "id_suffix": "main",
+      "class": "ExampleBasicProcess",
+      "display_name": "Example Basic Process",
+      "action_object_name": "actionExample_Basic_Process"
+    }
+  ]
+}

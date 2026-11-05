@@ -1,0 +1,21 @@
+{
+  "id": "an.demo.sequence_workflow",
+  "name": "Sequence Workflow Demo",
+  "version": "0.2.0",
+  "development_only": true,
+  "summary": "Bundled workflow launch-mode reference extension for calibration, registration, and stacking orchestration.",
+  "type": "python",
+  "entry_point": "an_sequence_workflow_demo",
+  "process_class": "SequenceWorkflowDemoExtension",
+  "category": "multi_image_stacking",
+  "launch_mode": "workflow",
+  "sdk_backend": "runtime",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "dependencies": {
+    "dependency_context": "shared_host",
+    "shared_host_profile": "scientific_core"
+  }
+}

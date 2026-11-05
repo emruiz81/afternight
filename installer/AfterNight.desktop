@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=AfterNight
+GenericName=Astrophotography Processor
+Comment=Process and stack deep-sky astrophotography images
+Exec=AfterNight
+Icon=AfterNight
+Categories=Graphics;Photography;Science;
+Keywords=astrophotography;stacking;astronomy;stars;deep-sky;
+Terminal=false
+StartupWMClass=AfterNight
+StartupNotify=true

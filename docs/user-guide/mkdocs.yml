@@ -1,0 +1,256 @@
+site_name: AfterNight Documentation
+site_description: >-
+  Comprehensive user guide for AfterNight, a cross-platform astrophotography
+  processing application.
+site_url: https://emruiz81.github.io/afternight/
+
+docs_dir: docs/en
+site_dir: site
+use_directory_urls: false
+
+copyright: Copyright &copy; 2024-2026 Ezequiel Ruiz
+
+theme:
+  name: material
+  language: en
+  logo: assets/images/interface/logo.png
+  favicon: assets/images/interface/favicon.png
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.tabs.link
+    - content.code.copy
+    - content.code.annotate
+    - content.tooltips
+    - toc.follow
+    - announce.dismiss
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font: false
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  # Keep documentation fully offline-capable for installer bundles.
+  - assets/javascripts/mermaid/mermaid.min.js
+  - assets/javascripts/mermaid/mermaid-init.js
+  - assets/javascripts/mathjax/tex-mml-chtml.js
+
+extra:
+  polyfills:
+    - assets/javascripts/polyfills/resize-observer.js
+    - assets/javascripts/iframe-worker/shim.js
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/emruiz81/afternight
+  generator: false
+
+plugins:
+  - search:
+      lang: en
+  - tags
+  - glightbox
+  - offline
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          # Render with the local runtime so file:// installer copies never
+          # fall back to Material's network-loaded Mermaid worker.
+          class: an-mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - First Launch: getting-started/first-launch.md
+      - Quick Start Tutorial: getting-started/quick-start.md
+      - Supported Formats: getting-started/supported-formats.md
+  - Interface:
+      - Overview: interface/overview.md
+      - Dashboard: interface/dashboard.md
+      - Image Viewer: interface/image-viewer.md
+      - Astrometry Overlays: interface/astrometry-overlays.md
+      - Sequences: interface/sequences.md
+      - Saving & Exporting: interface/saving-and-exporting.md
+      - Docking Panels: interface/docking-panels.md
+      - Toolbar & Menus: interface/toolbar-and-menus.md
+      - Process Windows: interface/process-windows.md
+      - Session Console: interface/log-viewer.md
+      - Image History: interface/image-history.md
+      - Image Statistics: interface/image-statistics.md
+      - Histogram Analysis: interface/image-histogram.md
+      - Image Summary: interface/image-summary.md
+      - FITS Header, EXIF, And Astrometry Metadata: interface/fits-header-viewer.md
+      - Settings: interface/settings-dialog.md
+      - Masks: interface/masks.md
+  - Processes:
+      - Overview: processes/index.md
+      - Calibration:
+          - Image Calibration: processes/calibration/image-calibration.md
+          - Cosmetic Correction: processes/calibration/cosmetic-correction.md
+          - Debayer: processes/calibration/debayer.md
+          - Split CFA: processes/calibration/split-cfa.md
+          - Merge CFA: processes/calibration/merge-cfa.md
+          - CFA Integer Resample: processes/calibration/cfa-integer-resample.md
+      - Registration & Alignment:
+          - Image Registration: processes/registration-alignment/image-registration.md
+          - Plate Solving: processes/registration-alignment/plate-solving.md
+          - Star Profiler: processes/registration-alignment/star-profiler.md
+      - Stacking & Integration:
+          - Image Integration: processes/stacking-integration/image-integration.md
+          - Image Integration Lite: processes/stacking-integration/image-integration-lite.md
+          - Image Stacking: processes/stacking-integration/image-stacking.md
+          - Image List Analyzer: processes/stacking-integration/image-list-analyzer.md
+      - Color Calibration:
+          - Color Calibration: processes/color-calibration/color-calibration.md
+          - Photometric Color Calibration: processes/color-calibration/photometric-cc.md
+          - Spectrophotometric Color Calibration: processes/color-calibration/spectrophotometric-cc.md
+          - Background Neutralization: processes/color-calibration/background-neutralization.md
+          - SCNR: processes/color-calibration/scnr.md
+          - Linear Match: processes/color-calibration/linear-match.md
+      - Stretching:
+          - Histogram Transformation: processes/stretching/histogram-transformation.md
+          - Curves Transformation: processes/stretching/curves-transformation.md
+          - Generalized Hyperbolic Transformation: processes/stretching/gh-transformation.md
+          - ArcSinh Stretch: processes/stretching/arcsinh-stretch.md
+          - Statistical Stretch: processes/stretching/statistical-stretch.md
+          - Gamma Correction: processes/stretching/gamma-correction.md
+          - Exposure Correction: processes/stretching/exposure-correction.md
+      - Noise Reduction:
+          - DeepSNR: processes/noise-reduction/deepsnr.md
+          - Wavelet Denoise: processes/noise-reduction/wavelet-denoise.md
+          - Total Variation Denoise: processes/noise-reduction/total-variation-denoise.md
+          - NL-Bayes: processes/noise-reduction/nl-bayes.md
+          - Patch PCA Denoise: processes/noise-reduction/patch-pca-denoise.md
+          - Bilateral Filter: processes/noise-reduction/bilateral-filter.md
+          - Gaussian Blur: processes/noise-reduction/gaussian-blur.md
+          - Median Filter: processes/noise-reduction/median-filter.md
+          - GRAYCstoration: processes/noise-reduction/graycstoration.md
+          - Banding Reduction: processes/noise-reduction/banding-reduction.md
+      - Sharpening:
+          - Unsharp Mask: processes/sharpening/unsharp-mask.md
+          - Sharpen Alpha: processes/sharpening/sharpen-alpha.md
+          - High Pass Filter: processes/sharpening/high-pass-filter.md
+          - Local Contrast Enhancement: processes/sharpening/local-contrast-enhancement.md
+          - Local Histogram Equalization: processes/sharpening/local-histogram-equalization.md
+          - CLAHE: processes/sharpening/clahe.md
+      - Background Extraction:
+          - Background Extraction: processes/background-extraction/background-extraction.md
+          - Auto Gradient Removal: processes/background-extraction/auto-gradient-removal.md
+      - Star Operations:
+          - Star Mask: processes/star-operations/star-mask.md
+          - Starnet++: processes/star-operations/starnet.md
+          - StarNet++ Star Mask: processes/star-operations/starnet-star-mask.md
+          - Star Reduction: processes/star-operations/star-reduction.md
+          - Starmask Recombination: processes/star-operations/starmask-recombination.md
+          - Profiled Starmask Recombination: processes/star-operations/profiled-starmask-recomb.md
+          - Dark Structure Enhance: processes/star-operations/dark-structure-enhance.md
+      - Color Composition:
+          - Channel Composition: processes/color-composition/channel-composition.md
+          - LRGB Combination: processes/color-composition/lrgb-combination.md
+          - NBRGB Combination: processes/color-composition/nbrgb-combination.md
+          - NB Color Mapper: processes/color-composition/nb-color-mapper.md
+          - Narrowband Palette Composer: processes/color-composition/narrowband-palette-composer.md
+          - Colorize: processes/color-composition/colorize.md
+      - Geometry:
+          - Crop: processes/geometry/crop.md
+          - Resize: processes/geometry/resize.md
+          - Rotate: processes/geometry/rotate.md
+          - Integer Resample: processes/geometry/integer-resample.md
+      - Pixel Math:
+          - Pixel Math: processes/pixel-math/pixel-math.md
+      - Analysis:
+          - Image Compare: processes/analysis/image-compare.md
+          - Image Blend: processes/analysis/image-blend.md
+          - Range Selection: processes/analysis/range-selection.md
+      - Masking:
+          - Mask Drawing: processes/masking/mask-drawing.md
+          - Binarize: processes/masking/binarize.md
+          - Morphological Transformation: processes/masking/morphological-transformation.md
+      - Multiscale:
+          - Multiscale Linear Transform: processes/multiscale/multiscale-linear.md
+      - Color Adjustment:
+          - Adjust HSL: processes/color-adjustment/adjust-hsl.md
+          - Adjust LCh: processes/color-adjustment/adjust-lch.md
+          - Adjust Brightness/Contrast: processes/color-adjustment/adjust-brightness-contrast.md
+          - Color Saturation: processes/color-adjustment/color-saturation.md
+          - Tighten Edges: processes/color-adjustment/tighten-edges.md
+      - Utility:
+          - Noise Generator: processes/utility/noise-generator.md
+          - Extract Sequence: processes/utility/extract-sequence.md
+          - Non-Interactive Processes: processes/utility/non-interactive-processes.md
+  - Workflows:
+      - Broadband Imaging: workflows/broadband-imaging.md
+      - Narrowband Imaging: workflows/narrowband-imaging.md
+      - Planetary Imaging: workflows/planetary-imaging.md
+      - Mosaic Workflow: workflows/mosaic-workflow.md
+  - Extensions:
+      - Using Extensions: extensions/using-extensions.md
+      - Extension Marketplace: extensions/extension-marketplace.md
+  - Reference:
+      - Keyboard Shortcuts: reference/keyboard-shortcuts.md
+      - Glossary: reference/glossary.md
+      - File Formats: reference/file-formats.md
+      - System Requirements: reference/system-requirements.md
+      - Troubleshooting And Diagnostics: reference/troubleshooting.md
+      - Media Provenance: assets/MEDIA_PROVENANCE.md

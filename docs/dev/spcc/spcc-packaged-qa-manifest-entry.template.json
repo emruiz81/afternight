@@ -1,0 +1,51 @@
+{
+  "packaged_qa_reports": [
+    {
+      "id": "spcc-packaged-qa-2026a",
+      "status": "not-run",
+      "platform": "TODO",
+      "package_type": "TODO: installer, appimage, release-dir, or equivalent package target",
+      "build_configuration": "release",
+      "build_artifact": "TODO",
+      "catalog_mirror_config": {
+        "path": "TODO: spcc_catalog_mirrors.json",
+        "sha256": "TODO",
+        "schema_version": "spcc-catalog-mirror-config-v1"
+      },
+      "response_repository_config": {
+        "path": "TODO: spcc_response_repositories.json",
+        "sha256": "TODO",
+        "schema_version": "spcc-response-repository-config-v1"
+      },
+      "qa_report": {
+        "path": "TODO: validation/spcc-packaged-qa-report.json",
+        "sha256": "TODO",
+        "schema_version": "spcc-packaged-qa-report-v1"
+      },
+      "checklist": {
+        "hosted_catalog_download_smoke": false,
+        "hosted_response_download_smoke": false,
+        "runtime_response_discovery": false,
+        "runtime_response_checksum_validation": false,
+        "catalog_repair_resume_cancel_smoke": false,
+        "install_marker_eviction_smoke": false,
+        "visual_qa_1080p": false,
+        "visual_qa_720p": false
+      },
+      "artifacts": [
+        {
+          "path": "TODO: validation/screenshots/spcc-ready-1920x1080.png",
+          "role": "visual-qa-1080p",
+          "sha256": "TODO"
+        },
+        {
+          "path": "TODO: validation/screenshots/spcc-ready-1280x720.png",
+          "role": "visual-qa-720p",
+          "sha256": "TODO"
+        }
+      ],
+      "validation_command": "TODO: command(s) used for packaged QA",
+      "tolerance_version": "spcc-packaged-qa-v1"
+    }
+  ]
+}

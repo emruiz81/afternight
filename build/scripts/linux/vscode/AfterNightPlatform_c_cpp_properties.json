@@ -1,0 +1,21 @@
+{
+  "configurations": [
+    {
+      "name": "Clang",
+      "includePath": [
+        "${workspaceFolder}/include",
+        "${workspaceFolder}/../../vcpkg/installed/x64-linux/include",
+        "${workspaceFolder}/../../vcpkg/installed/x64-linux/include/crashpad",
+        "${workspaceFolder}/../../vcpkg/installed/x64-linux/include/crashpad/third_party/mini_chromium/mini_chromium",
+        "${workspaceFolder}/../../vcpkg/installed/x64-linux-release/include",
+        "${workspaceFolder}/../../vcpkg/installed/x64-linux-release/include/crashpad",
+        "${workspaceFolder}/../../vcpkg/installed/x64-linux-release/include/crashpad/third_party/mini_chromium/mini_chromium"
+      ],
+      "defines": [ "_DEBUG", "DEBUG", "linux", "__linux__", "AFTERNIGHTPLATFORM_EXPORTS" ],
+      "compilerPath": "/usr/bin/clang++",
+      "intelliSenseMode": "clang-x64",
+      "cppStandard": "c++20"
+    }
+  ],
+  "version": 4
+}

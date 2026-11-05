@@ -1,0 +1,159 @@
+# Reference expectations of the fixture layers: each record states its input, the engine that produced it
+# and how a result is compared with it. See docs/dev/guides/TESTING.md.
+
+expectation  rejection.counts/rejection-low-mono-uint32
+operation    the workflow's rejection-map counts: elements reaching the threshold on the low map, on the high map and on either, the union's fraction of the map, and the clusters both maps hold, at the product's threshold of any rejection
+input        rejection-low-mono-uint32 description=bb3d7e01c0d37c4479cfd06a7161f28dc06736fd4f549d80782ca9f78611c86f samples=9023c1fe62cc2936fa70dfae5256f8390c07255a32d072616bfb46b387902107
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       7 1 1 float64 sha256=9e05e3c807e25ecbd4f127f3fc596db6a3db1c7d2d9ac53e1b10616d4e342ba1
+row          0 0 42 53 90 0.075 6 30 0.025
+end
+
+expectation  rejection.counts-at-two/rejection-low-mono-uint32
+operation    the workflow's rejection-map counts: elements reaching the threshold on the low map, on the high map and on either, the union's fraction of the map, and the clusters both maps hold, counting elements rejected at least twice
+input        rejection-low-mono-uint32 description=bb3d7e01c0d37c4479cfd06a7161f28dc06736fd4f549d80782ca9f78611c86f samples=9023c1fe62cc2936fa70dfae5256f8390c07255a32d072616bfb46b387902107
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       7 1 1 float64 sha256=a871dac414e23765b9b852c03de94645398bdbed9b415cc95a8fc9438da0c0e4
+row          0 0 13 33 46 0.03833333333333333 2 30 0.025
+end
+
+expectation  rejection.counts/rejection-low-rgb-uint32
+operation    the workflow's rejection-map counts: elements reaching the threshold on the low map, on the high map and on either, the union's fraction of the map, and the clusters both maps hold, over three channels, at the product's threshold
+input        rejection-low-rgb-uint32 description=ce2e5537e9c35525efea910e05f60c64297985b787a99631c992621d3431bd41 samples=c920df03c6b3a89801c2b55e21eb09ec0ee91513b88c8c293b86710e80855324
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       7 1 1 float64 sha256=3890a978e54def4b26eef18dfcd7c7c13100e2534b1cdd69499ad620f14280b1
+row          0 0 30 20 46 0.035493827160493825 5 12 0.009259259259259259
+end
+
+expectation  canvas.standard-x2/drizzle-frame-mono-float32
+operation    the drizzle stage's output canvas: the frames' mapped rectangles combined by the alignment mode, enlarged by the scale, an intersection's corners on whole pixels and its edges guarded; the reference frame's rectangle at a scale of two
+input        drizzle-frame-mono-float32 description=6cc898cef05a02e43a78e069578b4db791ea5586cd484c348e14ba976c7c5a0f samples=42cb6e05ce4a7681c2ff075a202ba7af068ad9e67c677ace8bec0cd64a6fa98a
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       9 1 1 float64 sha256=738f8ebea65dfa62016db2926e063862f6fa6f0ff9394a5b5f785741c18aba3b
+row          0 0 0 0 120 90 240 180 0 120 90
+end
+
+expectation  canvas.mosaic-x1.5/drizzle-frame-mono-float32
+operation    the drizzle stage's output canvas: the frames' mapped rectangles combined by the alignment mode, enlarged by the scale, an intersection's corners on whole pixels and its edges guarded; the union of every frame's rectangle at a scale of one and a half
+input        drizzle-frame-mono-float32 description=6cc898cef05a02e43a78e069578b4db791ea5586cd484c348e14ba976c7c5a0f samples=42cb6e05ce4a7681c2ff075a202ba7af068ad9e67c677ace8bec0cd64a6fa98a
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       9 1 1 float64 sha256=6dbaf57cae24e252a1bde62ed6a8a84de445d5ab5db3e305db9f2d8d0d95e591
+row          0 0 -2.75 -1.5 126 95.5 189 144 0 126 96
+end
+
+expectation  canvas.intersection-x2/drizzle-frame-mono-float32
+operation    the drizzle stage's output canvas: the frames' mapped rectangles combined by the alignment mode, enlarged by the scale, an intersection's corners on whole pixels and its edges guarded; the intersection at a scale of two, guarded
+input        drizzle-frame-mono-float32 description=6cc898cef05a02e43a78e069578b4db791ea5586cd484c348e14ba976c7c5a0f samples=42cb6e05ce4a7681c2ff075a202ba7af068ad9e67c677ace8bec0cd64a6fa98a
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       9 1 1 float64 sha256=09c9e2471cdadadb1800f5133f061bc433a0c8e43440a5f6881414bb306e60fd
+row          0 0 4 4 113 84 226 168 3 113 84
+end
+
+expectation  canvas.intersection-x1/drizzle-frame-mono-float32
+operation    the drizzle stage's output canvas: the frames' mapped rectangles combined by the alignment mode, enlarged by the scale, an intersection's corners on whole pixels and its edges guarded; the intersection at a scale of one, which loses a pixel and keeps no guard
+input        drizzle-frame-mono-float32 description=6cc898cef05a02e43a78e069578b4db791ea5586cd484c348e14ba976c7c5a0f samples=42cb6e05ce4a7681c2ff075a202ba7af068ad9e67c677ace8bec0cd64a6fa98a
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       9 1 1 float64 sha256=dd6fca0ac3f7f36a3254e411dd1c66abcb280430b0278067e198f6d6bec88ee8
+row          0 0 4 4 113 84 112 83 0 113 84
+end
+
+expectation  canvas.mosaic-rotated-x2/drizzle-frame-mono-float32
+operation    the drizzle stage's output canvas: the frames' mapped rectangles combined by the alignment mode, enlarged by the scale, an intersection's corners on whole pixels and its edges guarded; the union of rotated frames at a scale of two
+input        drizzle-frame-mono-float32 description=6cc898cef05a02e43a78e069578b4db791ea5586cd484c348e14ba976c7c5a0f samples=42cb6e05ce4a7681c2ff075a202ba7af068ad9e67c677ace8bec0cd64a6fa98a
+class        accepted
+accepted     the record maps a frame's edge as integer-centred numbers and the engine as half-centred ones, so a rotated frame's rectangle moves by half a pixel through the rotation and an extent can round to the next pixel
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       9 1 1 float64 sha256=2b34d998da411226a06d80c435a55da6fe05312b5c78e99546ae3513fc1f2235
+row          0 0 -4 -4.95868912971898 130.42689924229148 100.11621195797608 261 201 0 131 101
+end
+
+expectation  canvas.comet-plane-x2/drizzle-frame-mono-float32
+operation    the drizzle stage's canvas on a comet-aligned output plane: its extent the nearest whole number of pixels to the plane times the scale, unguarded
+input        drizzle-frame-mono-float32 description=6cc898cef05a02e43a78e069578b4db791ea5586cd484c348e14ba976c7c5a0f samples=42cb6e05ce4a7681c2ff075a202ba7af068ad9e67c677ace8bec0cd64a6fa98a
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       9 1 1 float64 sha256=47c3d962cf5d80d66db1557373bf9b89a958f241131127314d6455bc50a9fb4e
+row          0 0 -12.25 4.5 99.25 66.25 199 133 0 100 67
+end
+
+expectation  weighting.exposure/weighting-frame-mono-float32
+operation    the standalone stacking's exposure weights: each frame's exposure in seconds over the mean
+input        weighting-frame-mono-float32 description=521fce663a1b97caf27218fda3395c18e02054dc377afc4a5b4e8ed350be5547 samples=6e92f00319a7b64193bdddda9b958fa8b2b481f512d1f3d03d77a017e36f573f
+class        tolerance
+tolerance    absolute=1e-14 relative=0
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       6 1 1 float64 sha256=ba38dc2f1ae6937519ad107fbea6d253197b8988c37e8d97aef431050f6cc4a8
+row          0 0 0.27906976744186046 0.5581395348837209 1.1162790697674418 0.41860465116279066 0.8372093023255813 2.7906976744186047
+end
+
+expectation  weighting.snr/weighting-frame-mono-float32
+operation    the standalone stacking's signal-to-noise weights: each frame's measured ratio over the mean
+input        weighting-frame-mono-float32 description=521fce663a1b97caf27218fda3395c18e02054dc377afc4a5b4e8ed350be5547 samples=6e92f00319a7b64193bdddda9b958fa8b2b481f512d1f3d03d77a017e36f573f
+class        tolerance
+tolerance    absolute=1e-14 relative=0
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-02
+commit       -
+result       6 1 1 float64 sha256=0f37b62e69e8cd00e05f49863e17d39f6b676aa862d4750634b8586030659d33
+row          0 0 0.7853403141361256 1.256544502617801 0.5026178010471204 0.9581151832460733 1.8848167539267016 0.6125654450261779
+end

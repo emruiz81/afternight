@@ -1,0 +1,181 @@
+{
+  "schema_version": "spcc-real-image-validation-source-v1",
+  "purpose": "TODO: reviewed broadband SPCC production validation image sets and external comparison outputs for the 2026a release gate.",
+  "review_workflow": {
+    "review_status": "license-review-needed",
+    "reviewer": "TODO",
+    "reviewed_at_utc": "TODO",
+    "selection_notes": "TODO: describe why these targets, field sizes, cameras, sky conditions, and processing histories cover the v1 support envelope.",
+    "linearity_notes": "TODO: describe how each input is proven linear RGB with compatible channel basis before SPCC execution.",
+    "catalog_response_notes": "TODO: record the SPCC catalog manifest, response repository, response profile, and white reference used for every run."
+  },
+  "real_image_reference_sets": [
+    {
+      "id": "spcc-realimage-small-fov-broadband-2026a",
+      "status": "validated",
+      "source_url_or_acquisition_path": "TODO",
+      "license": "TODO",
+      "rights_review_status": "license-review-needed",
+      "target_name": "TODO: compact broadband star field",
+      "camera_or_sensor": "TODO",
+      "field_class": "small-fov",
+      "files": [
+        {
+          "path": "images/small-fov/linear-rgb-input.fit",
+          "role": "linear-rgb-input"
+        },
+        {
+          "path": "images/small-fov/afternight-spcc-output.fit",
+          "role": "afternight-spcc-output"
+        },
+        {
+          "path": "images/small-fov/spcc-run-report.json",
+          "role": "afternight-spcc-run-report"
+        }
+      ],
+      "expected_metrics": {
+        "minimum_accepted_samples": 35,
+        "maximum_median_color_residual": 0.05,
+        "maximum_gain_uncertainty": 0.08,
+        "requires_no_sparse_field_warning": true
+      },
+      "tolerance_version": "spcc-real-image-v1"
+    },
+    {
+      "id": "spcc-realimage-medium-fov-broadband-2026a",
+      "status": "validated",
+      "source_url_or_acquisition_path": "TODO",
+      "license": "TODO",
+      "rights_review_status": "license-review-needed",
+      "target_name": "TODO: medium-field broadband validation target",
+      "camera_or_sensor": "TODO",
+      "field_class": "medium-fov",
+      "files": [
+        {
+          "path": "images/medium-fov/linear-rgb-input.fit",
+          "role": "linear-rgb-input"
+        },
+        {
+          "path": "images/medium-fov/afternight-spcc-output.fit",
+          "role": "afternight-spcc-output"
+        },
+        {
+          "path": "images/medium-fov/spcc-run-report.json",
+          "role": "afternight-spcc-run-report"
+        }
+      ],
+      "expected_metrics": {
+        "minimum_accepted_samples": 60,
+        "maximum_median_color_residual": 0.04,
+        "maximum_gain_uncertainty": 0.06,
+        "requires_no_sparse_field_warning": true
+      },
+      "tolerance_version": "spcc-real-image-v1"
+    },
+    {
+      "id": "spcc-realimage-wide-fov-broadband-2026a",
+      "status": "validated",
+      "source_url_or_acquisition_path": "TODO",
+      "license": "TODO",
+      "rights_review_status": "license-review-needed",
+      "target_name": "TODO: wide-field broadband validation target",
+      "camera_or_sensor": "TODO",
+      "field_class": "wide-fov",
+      "files": [
+        {
+          "path": "images/wide-fov/linear-rgb-input.fit",
+          "role": "linear-rgb-input"
+        },
+        {
+          "path": "images/wide-fov/afternight-spcc-output.fit",
+          "role": "afternight-spcc-output"
+        },
+        {
+          "path": "images/wide-fov/spcc-run-report.json",
+          "role": "afternight-spcc-run-report"
+        }
+      ],
+      "expected_metrics": {
+        "minimum_accepted_samples": 90,
+        "maximum_median_color_residual": 0.04,
+        "maximum_gain_uncertainty": 0.05,
+        "requires_no_sparse_field_warning": true
+      },
+      "tolerance_version": "spcc-real-image-v1"
+    }
+  ],
+  "external_comparison_outputs": [
+    {
+      "id": "spcc-realimage-small-fov-reference-a-2026a",
+      "reference_set_id": "spcc-realimage-small-fov-broadband-2026a",
+      "tool": "reference-a",
+      "tool_version": "TODO",
+      "run_command_or_notes": "TODO: record the exact command, catalog, response, white reference and any manual parameters of reference-a.",
+      "license": "TODO",
+      "rights_review_status": "license-review-needed",
+      "output_files": [
+        {
+          "path": "external/reference-a/small-fov/calibrated-output.fit",
+          "role": "calibrated-output"
+        },
+        {
+          "path": "external/reference-a/small-fov/run-notes.txt",
+          "role": "run-notes"
+        }
+      ],
+      "expected_metrics": {
+        "maximum_gain_delta": 0.03,
+        "maximum_median_color_residual_delta": 0.03
+      },
+      "tolerance_version": "spcc-external-comparison-v1"
+    },
+    {
+      "id": "spcc-realimage-medium-fov-reference-b-2026a",
+      "reference_set_id": "spcc-realimage-medium-fov-broadband-2026a",
+      "tool": "reference-b",
+      "tool_version": "TODO",
+      "run_command_or_notes": "TODO: record the exact command, catalog, response, white reference and any manual parameters of reference-b.",
+      "license": "TODO",
+      "rights_review_status": "license-review-needed",
+      "output_files": [
+        {
+          "path": "external/reference-b/medium-fov/calibrated-output.xisf",
+          "role": "calibrated-output"
+        },
+        {
+          "path": "external/reference-b/medium-fov/run-notes.txt",
+          "role": "run-notes"
+        }
+      ],
+      "expected_metrics": {
+        "maximum_gain_delta": 0.03,
+        "maximum_median_color_residual_delta": 0.03
+      },
+      "tolerance_version": "spcc-external-comparison-v1"
+    },
+    {
+      "id": "spcc-realimage-wide-fov-reference-c-2026a",
+      "reference_set_id": "spcc-realimage-wide-fov-broadband-2026a",
+      "tool": "reference-c",
+      "tool_version": "TODO",
+      "run_command_or_notes": "TODO: record the exact command, catalog, response, white reference and any manual parameters of reference-c.",
+      "license": "TODO",
+      "rights_review_status": "license-review-needed",
+      "output_files": [
+        {
+          "path": "external/reference-c/wide-fov/calibrated-output.fit",
+          "role": "calibrated-output"
+        },
+        {
+          "path": "external/reference-c/wide-fov/run-notes.txt",
+          "role": "run-notes"
+        }
+      ],
+      "expected_metrics": {
+        "maximum_gain_delta": 0.03,
+        "maximum_median_color_residual_delta": 0.03
+      },
+      "tolerance_version": "spcc-external-comparison-v1"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+    "configurations": [
+        {
+            "name": "Debug AfterNightCLI (direct)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/../../bin/clang/debug/AfterNightCLI_d",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/../../bin/clang/debug",
+            "environment": [
+            {
+                "name": "LD_LIBRARY_PATH",
+                "value": "${workspaceFolder}/../../bin/clang/debug:${workspaceFolder}/../../bin/clang/debug/lib:${env:LD_LIBRARY_PATH}"
+            },
+            {
+                "name": "QT_PLUGIN_PATH",
+                "value": "${workspaceFolder}/../../bin/clang/debug/plugins"
+            }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build AfterNight (debug)"
+        }
+    ],
+    "version": "2.0.0"
+}

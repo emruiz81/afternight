@@ -1,0 +1,17 @@
+{
+  "folders": [
+    { "path": "." },
+    { "path": "src/AfterNightEngine" },
+    { "path": "src/AfterNightPlatform" },
+    { "path": "src/AfterNightControls" },
+    { "path": "src/AfterNightCLI" },
+    { "path": "src/AfterNightApp" },
+    { "path": "src/AfterNightExtensionProtocol" },
+    { "path": "src/AfterNightExtensionHost" },
+    { "path": "src/AfterNightExtensionHostLite" },
+    { "path": "src/AfterNightExtensionRuntimeBackend" },
+    { "path": "src/AfterNightStylePlugin" },
+    { "path": "src/AfterNightTests" }
+  ],
+  "settings": {}
+}

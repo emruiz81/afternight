@@ -1,0 +1,67 @@
+# The functional conformance campaign's registry: the direct suites of this engine and the cases that
+# must run and pass in them.
+#
+# It is a file rather than a paragraph because "all direct engine tests pass" is a claim about a *set*,
+# and nothing else in this repository states what that set is. A suite that stops being generated
+# prints nothing and disappears from "all".
+#
+# build/scripts/tools/run_conformance_campaign.py reads this file; nothing else does.
+#
+# Record types, one per line. Lines starting with '#' and blank lines are ignored.
+#
+#   suite <name> <always|optional>
+#
+#       A direct engine suite. `always` means the generator defines it unconditionally, so a tree
+#       that does not build it is a failure rather than a smaller campaign; `optional` means it is
+#       generated behind a switch, and the campaign runs it when the tree contains it and says that
+#       it was not generated when it does not. The two are read against the generator in both
+#       directions: a registered suite the generator does not define, and an unconditionally
+#       generated suite the registry does not name, are both failures.
+#
+#   case <suite> <Fixture.Case>
+#
+#       A case that must exist, run and pass, so that "this case passes on this host" is a checked
+#       claim rather than a sentence in a report. It is deliberately not a list of every case: the
+#       suites already fail when one of theirs does.
+
+# ---------------------------------------------------------------------------------------------
+# The direct suites
+# ---------------------------------------------------------------------------------------------
+
+suite Test_EngineCore             always
+suite Test_EngineRuntime          always
+suite Test_EngineImage            always
+suite Test_EngineImageOps         always
+suite Test_EngineCalibration      always
+suite Test_EngineStars            always
+suite Test_EngineRegistration     always
+suite Test_EngineAstrometry       always
+suite Test_EngineColor            always
+suite Test_EngineStacking         always
+suite Test_EngineKernels          always
+suite Test_EngineInterop          always
+suite Test_EngineFaults           always
+suite Test_EngineLibraryParity    always
+suite Test_EngineConsumerProbes   always
+# The published surface's smoke client is a program rather than a case list: it links the engine
+# from outside and prints what it read, so it is judged by its exit code and its output.
+suite Test_EnginePublicHeaders    always     program
+suite Test_EngineFixtureBridge    always
+suite Test_EnginePythonAdapter    always
+suite Test_EngineGmicAdapter      always
+
+# The device proof's suite, generated with its backend or not at all. `optional` is decided by
+# the generated tree and never by a binary: a leftover of an earlier generated tree runs and passes.
+suite Test_EngineOpenClBackend    optional
+
+# ---------------------------------------------------------------------------------------------
+# The cases that must run and pass: the region access of a tiled stack, the contiguous and strided
+# star reduction, an affine registration declared projective, and a photometric colour row held to
+# the unit interval at one end
+# ---------------------------------------------------------------------------------------------
+
+case Test_EngineStacking      StackExecutorTest.RegionAccessKeepsTermsForOneTileWhenEachTileIsFinalOnItsOwn
+case Test_EngineStacking      StackPlannerTest.RegionAccessSizesTheTermsOfAnElementwiseStackWithTheTile
+case Test_EngineRegistration  StarReductionExecutionTest.AContiguousRunReducesEverySampleToTheBitsOfTheStridedPath
+case Test_EngineRegistration  RegistrationPlanTest.AnAffineModelMapsForwardToTheBitsOfTheSameMatrixDeclaredProjective
+case Test_EngineColor         PhotometricColorCalibrationTest.ARowThatLeavesTheIntervalAtOneEndAloneIsCountedAndHeld

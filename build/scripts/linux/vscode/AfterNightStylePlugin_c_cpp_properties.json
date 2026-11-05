@@ -1,0 +1,42 @@
+{
+  "configurations": [
+    {
+      "name": "Clang",
+      "includePath": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/../AfterNightControls",
+        "${workspaceFolder}/../AfterNightEngine/include",
+        "${workspaceFolder}/../AfterNightPlatform/include",
+        "${workspaceFolder}/../../3rdparty/src",
+        "${workspaceFolder}/../../Qt6/6.10.3/gcc_64/include",
+        "${workspaceFolder}/../../Qt6/6.10.3/gcc_64/include/QtCore",
+        "${workspaceFolder}/../../Qt6/6.10.3/gcc_64/include/QtGui",
+        "${workspaceFolder}/../../Qt6/6.10.3/gcc_64/include/QtWidgets",
+        "${workspaceFolder}/../../Qt6/6.10.3/gcc_64/include/QtSvg",
+        "${workspaceFolder}/../../Qt6/6.10.3/gcc_64/include/QtSql",
+        "${workspaceFolder}/../../Qt6/6.10.3/gcc_64/include/QtNetwork",
+        "${workspaceFolder}/../../kddockwidgets/build-clang-install/include/kddockwidgets-qt6",
+        "${workspaceFolder}/../../obj/AfterNightStylePlugin/clang"
+      ],
+      "defines": [
+        "_DEBUG",
+        "DEBUG",
+        "linux",
+        "__linux__",
+        "AN_MARKDOWN_BACKEND_CMARK_GFM",
+        "KDDW_FRONTEND_QT",
+        "KDDW_FRONTEND_QTWIDGETS",
+        "QT_CORE_LIB",
+        "QT_GUI_LIB",
+        "QT_WIDGETS_LIB",
+        "QT_SVG_LIB",
+        "QT_SQL_LIB",
+        "QT_NETWORK_LIB"
+      ],
+      "compilerPath": "/usr/bin/clang++",
+      "intelliSenseMode": "clang-x64",
+      "cppStandard": "c++20"
+    }
+  ],
+  "version": 4
+}

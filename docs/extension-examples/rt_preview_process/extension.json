@@ -1,0 +1,30 @@
+{
+  "id": "example.rt_preview_process",
+  "name": "Example RT Preview Process",
+  "version": "1.0.0",
+  "summary": "Template for a preview-capable runtime-backed process.",
+  "description": "A repository-ready AfterNight extension package that uses the native RT preview process window.",
+  "author": "Example Author",
+  "license": "GPL-3.0-or-later",
+  "publisher_id": "example.author",
+  "type": "python",
+  "entry_point": "rt_preview_process",
+  "process_class": "ExampleRTPreviewProcess",
+  "category": "filters",
+  "launch_mode": "single_image",
+  "sdk_backend": "runtime",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "tags": [
+    "template",
+    "preview"
+  ],
+  "capabilities": {
+    "execute": true,
+    "preview": true,
+    "preview_scaling": "decimated",
+    "keep_open": true
+  }
+}

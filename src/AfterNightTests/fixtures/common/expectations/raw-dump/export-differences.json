@@ -1,0 +1,109 @@
+{
+  "record": "raw-dump-export-differences",
+  "differences": [
+    {
+      "case": "*",
+      "key": "COMMENT",
+      "change": "comment",
+      "reason": "The record reads a COMMENT card's text as nothing - value and comment both empty - so the commentary a FITS file carries is lost; this exporter keeps the text as the card's comment, as the file states it."
+    },
+    {
+      "case": "*",
+      "key": "BITPIX",
+      "change": "value",
+      "recorded": "1",
+      "current": "8",
+      "reason": "The record states BITPIX 1 for an eight-bit image, a count of bytes per sample rather than the file's card; this exporter keeps the file's 8."
+    },
+    {
+      "case": "*",
+      "key": "BZERO",
+      "change": "value",
+      "recorded": "0",
+      "current": "32768",
+      "reason": "The record rewrites the offset of an unsigned sixteen-bit file to the 0 its unsigned samples carry once offset; this exporter keeps the file's card. The samples are the same, as the payload digest shows."
+    },
+    {
+      "case": "*",
+      "key": "BZERO",
+      "change": "value",
+      "recorded": "0",
+      "current": "2147483648",
+      "reason": "The record rewrites the offset of an unsigned thirty-two-bit file to the 0 its unsigned samples carry once offset; this exporter keeps the file's card. The samples are the same, as the payload digest shows."
+    },
+    {
+      "case": "*",
+      "key": "BZERO",
+      "change": "value",
+      "recorded": "128",
+      "current": "-128",
+      "reason": "The record states a signed-byte file's offset with the wrong sign; the file's card is -128, the FITS convention for signed bytes, and this exporter keeps it. The samples are the same, as the payload digest shows."
+    },
+    {
+      "case": "*",
+      "key": "BZERO",
+      "change": "only-recorded",
+      "reason": "The record appends a BZERO card describing in-memory samples to a file that holds none; this exporter writes only the cards the file holds."
+    },
+    {
+      "case": "*",
+      "key": "BSCALE",
+      "change": "only-recorded",
+      "reason": "The record appends a BSCALE card describing in-memory samples to a file that holds none; this exporter writes only the cards the file holds."
+    },
+    {
+      "case": "*",
+      "key": "NAXIS3",
+      "change": "only-recorded",
+      "reason": "The record appends NAXIS3 = 1 to a single-plane file whose header has two axes; this exporter writes only the cards the file holds."
+    },
+    {
+      "case": "*",
+      "key": "SIMPLE",
+      "change": "only-recorded",
+      "reason": "The record invents FITS structural cards for an XISF file, which holds none; this exporter writes only what the file states."
+    },
+    {
+      "case": "*",
+      "key": "EXTEND",
+      "change": "only-recorded",
+      "reason": "The record invents FITS structural cards for an XISF file, which holds none; this exporter writes only what the file states."
+    },
+    {
+      "case": "*",
+      "key": "ColorSpace",
+      "change": "only-current",
+      "reason": "This engine reads an XISF image's colour space, image type and bounds as cards of the XISF namespace; the record does not carry them."
+    },
+    {
+      "case": "*",
+      "key": "ImageType",
+      "change": "only-current",
+      "reason": "This engine reads an XISF image's colour space, image type and bounds as cards of the XISF namespace; the record does not carry them."
+    },
+    {
+      "case": "*",
+      "key": "Bounds",
+      "change": "only-current",
+      "reason": "This engine reads an XISF image's colour space, image type and bounds as cards of the XISF namespace; the record does not carry them."
+    },
+    {
+      "case": "*",
+      "key": "XISF:*",
+      "change": "only-current",
+      "reason": "This engine reads an XISF unit's own metadata - the application that wrote it, when, and with which codecs - as cards of the XISF namespace; the record does not carry them."
+    },
+    {
+      "case": "*",
+      "key": "ColorType",
+      "change": "only-current",
+      "reason": "This engine reads a PNG file's colour type as a card; the record carries no card of a PNG file."
+    },
+    {
+      "case": "*",
+      "key": "Exif.*",
+      "change": "only-current",
+      "reason": "This engine reads the Exif and TIFF tags a TIFF, PNG or JPEG file holds as cards; the record carries no card of those containers."
+    }
+  ]
+}

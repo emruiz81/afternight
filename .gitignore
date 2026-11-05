@@ -1,0 +1,113 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+*.pdb
+*.ilk
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Misc
+*.vsidx
+*.idx
+*.txt
+!/build/vcpkg/overlay-ports/afternight-*/CMakeLists.txt
+!/build/scripts/tools/rawspeed/CMakeLists.txt
+!LICENSES/*.txt
+!docs/user-guide/requirements.txt
+!docs/user-guide/docs/en/assets/javascripts/iframe-worker/LICENSE-MIT.txt
+!docs/user-guide/docs/en/assets/javascripts/mathjax/LICENSE-Apache-2.0.txt
+!build/scripts/tools/fuzz_targets.txt
+!build/scripts/tools/sanitizer_matrix.txt
+!build/scripts/tools/leak_suppressions.txt
+!build/scripts/tools/fault_points.txt
+!build/scripts/tools/dependencies.txt
+!build/scripts/tools/conformance_matrix.txt
+!build/scripts/tools/public_api.txt
+!build/scripts/tools/safety_register.txt
+!build/scripts/tools/consumer_state.txt
+!build/scripts/tools/consumer_targets.txt
+!build/scripts/tools/isolated_sources.txt
+!build/scripts/tools/package_profiles.txt
+*.mk
+*.tlog
+
+# Test artifacts
+temp_images/
+*.suo
+*.lock
+!docs/extension-examples/**/requirements.lock
+!extensions/graxpert/requirements.lock
+*.ipch
+*.db
+*.db-shm
+*.db-wal
+*.opendb
+*.user
+*.bin
+*.log
+*.AppImage
+*.layout
+*.depend
+**/Debug
+**/Release
+**/bin/Icons
+**/bin/Scripts
+**/lib
+**/.vscode/**
+build/codelite-linux/**
+build/make-linux/**
+build/make-tests-linux/**
+build/vs2026-clang/**
+build/vs2026-msvc/**
+obj/**
+bin/**
+deploy/**
+installer/AppDir/**
+installer/AfterNight.AppDir/**
+3rdparty/build/**
+3rdparty/obj/**
+*.aps
+python/python/**
+python/python*.zip
+*.autosave
+Qt6/**
+# OpenXISF, fetched from its published release and built by build/scripts/*/_build_openxisf.*
+/openxisf/
+AfterNight.code-workspace
+*.pyc
+__pycache__/
+*.whl
+catalogs/**
+
+# Documentation build output and MkDocs Material privacy/offline plugin cache
+docs/user-guide/site/
+docs/user-guide/.venv/
+.cache/
+docs/user-guide/.cache/
+warmup-discarded/

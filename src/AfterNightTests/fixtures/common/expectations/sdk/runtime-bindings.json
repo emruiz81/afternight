@@ -1,0 +1,2401 @@
+{
+ "contract": {
+  "calls": [
+   {
+    "call": "available_pixel_types",
+    "result": [
+     "int8",
+     "uint8",
+     "int16",
+     "uint16",
+     "int32",
+     "uint32",
+     "float32",
+     "float64"
+    ]
+   },
+   {
+    "call": "image_from_numpy mono int8",
+    "result": {
+     "image": {
+      "dtype": "int8",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int8",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono uint8",
+    "result": {
+     "image": {
+      "dtype": "uint8",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint8",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono int16",
+    "result": {
+     "image": {
+      "dtype": "int16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono uint16",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono int32",
+    "result": {
+     "image": {
+      "dtype": "int32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono uint32",
+    "result": {
+     "image": {
+      "dtype": "uint32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono float32",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0.0,
+       0.11428571492433548,
+       0.22857142984867096,
+       0.34285715222358704,
+       0.22857142984867096,
+       0.34285715222358704,
+       0.4571428596973419,
+       0.5714285969734192,
+       0.4571428596973419,
+       0.5714285969734192,
+       0.6857143044471741,
+       0.800000011920929
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono float64",
+    "result": {
+     "image": {
+      "dtype": "float64",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0.0,
+       0.1142857142857143,
+       0.2285714285714286,
+       0.3428571428571429,
+       0.2285714285714286,
+       0.3428571428571429,
+       0.4571428571428572,
+       0.5714285714285714,
+       0.4571428571428572,
+       0.5714285714285714,
+       0.6857142857142858,
+       0.8
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "float64",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy colour hwc",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       4,
+       3
+      ],
+      "values": [
+       0.0,
+       0.25,
+       1.0,
+       0.1428571492433548,
+       0.3214285671710968,
+       0.8571428656578064,
+       0.2857142984867096,
+       0.3928571343421936,
+       0.7142857313156128,
+       0.4285714328289032,
+       0.4642857015132904,
+       0.5714285969734192,
+       0.2857142984867096,
+       0.3928571343421936,
+       0.7142857313156128,
+       0.4285714328289032,
+       0.4642857015132904,
+       0.5714285969734192,
+       0.5714285969734192,
+       0.5357142686843872,
+       0.4285714328289032,
+       0.7142857313156128,
+       0.6071428656578064,
+       0.2857142984867096,
+       0.5714285969734192,
+       0.5357142686843872,
+       0.4285714328289032,
+       0.7142857313156128,
+       0.6071428656578064,
+       0.2857142984867096,
+       0.8571428656578064,
+       0.6785714030265808,
+       0.1428571492433548,
+       1.0,
+       0.75,
+       0.0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 3,
+      "height": 3,
+      "pixel_format": "rgb",
+      "pixel_type": "float32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy colour chw",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       3,
+       4
+      ],
+      "values": [
+       0.0,
+       0.1428571492433548,
+       0.2857142984867096,
+       0.4285714328289032,
+       0.2857142984867096,
+       0.4285714328289032,
+       0.5714285969734192,
+       0.7142857313156128,
+       0.5714285969734192,
+       0.7142857313156128,
+       0.8571428656578064,
+       1.0,
+       0.25,
+       0.3214285671710968,
+       0.3928571343421936,
+       0.4642857015132904,
+       0.3928571343421936,
+       0.4642857015132904,
+       0.5357142686843872,
+       0.6071428656578064,
+       0.5357142686843872,
+       0.6071428656578064,
+       0.6785714030265808,
+       0.75,
+       1.0,
+       0.8571428656578064,
+       0.7142857313156128,
+       0.5714285969734192,
+       0.7142857313156128,
+       0.5714285969734192,
+       0.4285714328289032,
+       0.2857142984867096,
+       0.4285714328289032,
+       0.2857142984867096,
+       0.1428571492433548,
+       0.0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 4,
+      "height": 3,
+      "pixel_format": "rgba",
+      "pixel_type": "float32",
+      "width": 3
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy metadata",
+    "result": {
+     "BITPIX": "-32",
+     "BSCALE": "1.0",
+     "BZERO": "0.0",
+     "EXPTIME": "30",
+     "EXTEND": "T",
+     "NAXIS1": "2",
+     "NAXIS2": "2",
+     "NAXIS3": "1",
+     "OBJECT": "M31",
+     "SIMPLE": "T"
+    }
+   },
+   {
+    "call": "image_from_numpy refuses a complex array",
+    "message": "NumPy arrays must use int8/uint8/int16/uint16/int32/uint32/float32/float64",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "image_from_numpy refuses four dimensions",
+    "message": "Runtime images require a 2D mono or 3D color NumPy array",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "image_from_numpy refuses five channels",
+    "message": "3D NumPy arrays must use (H, W, C) or (C, H, W) layout with 1, 3, or 4 channels",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "_RuntimeImage.to_numpy",
+    "result": {
+     "array": {
+      "dtype": "float32",
+      "shape": [
+       4,
+       5,
+       3
+      ],
+      "values": [
+       0.0,
+       0.25,
+       1.0,
+       0.10000000149011612,
+       0.30000001192092896,
+       0.8999999761581421,
+       0.20000000298023224,
+       0.3499999940395355,
+       0.800000011920929,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.699999988079071,
+       0.4000000059604645,
+       0.44999998807907104,
+       0.6000000238418579,
+       0.20000000298023224,
+       0.3499999940395355,
+       0.800000011920929,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.699999988079071,
+       0.4000000059604645,
+       0.44999998807907104,
+       0.6000000238418579,
+       0.5,
+       0.5,
+       0.5,
+       0.6000000238418579,
+       0.550000011920929,
+       0.4000000059604645,
+       0.4000000059604645,
+       0.44999998807907104,
+       0.6000000238418579,
+       0.5,
+       0.5,
+       0.5,
+       0.6000000238418579,
+       0.550000011920929,
+       0.4000000059604645,
+       0.699999988079071,
+       0.6000000238418579,
+       0.30000001192092896,
+       0.800000011920929,
+       0.6499999761581421,
+       0.20000000298023224,
+       0.6000000238418579,
+       0.550000011920929,
+       0.4000000059604645,
+       0.699999988079071,
+       0.6000000238418579,
+       0.30000001192092896,
+       0.800000011920929,
+       0.6499999761581421,
+       0.20000000298023224,
+       0.8999999761581421,
+       0.699999988079071,
+       0.10000000149011612,
+       1.0,
+       0.75,
+       0.0
+      ]
+     },
+     "c_contiguous": false,
+     "writeable": true
+    }
+   },
+   {
+    "call": "_RuntimeImage.properties",
+    "result": {
+     "backend": "runtime",
+     "channels": 3,
+     "height": 4,
+     "pixel_format": "rgb",
+     "pixel_type": "float32",
+     "width": 5
+    }
+   },
+   {
+    "call": "_RuntimeImage.metadata",
+    "result": {}
+   },
+   {
+    "call": "_RuntimeImage.set_metadata",
+    "result": {
+     "BITPIX": "-32",
+     "BSCALE": "1.0",
+     "BZERO": "0.0",
+     "EXTEND": "T",
+     "NAXIS1": "5",
+     "NAXIS2": "4",
+     "NAXIS3": "3",
+     "NOTE": "",
+     "OBSERVER": "someone",
+     "SIMPLE": "T"
+    }
+   },
+   {
+    "call": "_RuntimeImage.set_metadata refuses a reserved key",
+    "message": "Metadata key is reserved and cannot be changed: BITPIX",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "_RuntimeImage.set_metadata refuses an empty key",
+    "message": "Metadata key cannot be empty",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "_RuntimeImage.clone",
+    "result": {
+     "copy": {
+      "image": {
+       "dtype": "float32",
+       "shape": [
+        4,
+        5,
+        3
+       ],
+       "values": [
+        0.0,
+        0.25,
+        1.0,
+        0.10000000149011612,
+        0.30000001192092896,
+        0.8999999761581421,
+        0.20000000298023224,
+        0.3499999940395355,
+        0.800000011920929,
+        0.30000001192092896,
+        0.4000000059604645,
+        0.699999988079071,
+        0.4000000059604645,
+        0.44999998807907104,
+        0.6000000238418579,
+        0.20000000298023224,
+        0.3499999940395355,
+        0.800000011920929,
+        0.30000001192092896,
+        0.4000000059604645,
+        0.699999988079071,
+        0.4000000059604645,
+        0.44999998807907104,
+        0.6000000238418579,
+        0.5,
+        0.5,
+        0.5,
+        0.6000000238418579,
+        0.550000011920929,
+        0.4000000059604645,
+        0.4000000059604645,
+        0.44999998807907104,
+        0.6000000238418579,
+        0.5,
+        0.5,
+        0.5,
+        0.6000000238418579,
+        0.550000011920929,
+        0.4000000059604645,
+        0.699999988079071,
+        0.6000000238418579,
+        0.30000001192092896,
+        0.800000011920929,
+        0.6499999761581421,
+        0.20000000298023224,
+        0.6000000238418579,
+        0.550000011920929,
+        0.4000000059604645,
+        0.699999988079071,
+        0.6000000238418579,
+        0.30000001192092896,
+        0.800000011920929,
+        0.6499999761581421,
+        0.20000000298023224,
+        0.8999999761581421,
+        0.699999988079071,
+        0.10000000149011612,
+        1.0,
+        0.75,
+        0.0
+       ]
+      },
+      "properties": {
+       "backend": "runtime",
+       "channels": 3,
+       "height": 4,
+       "pixel_format": "rgb",
+       "pixel_type": "float32",
+       "width": 5
+      }
+     },
+     "equal": true
+    }
+   },
+   {
+    "call": "_RuntimeImage.from_numpy",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       2,
+       3
+      ],
+      "values": [
+       0,
+       16384,
+       32768,
+       32768,
+       49151,
+       65535
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 2,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 3
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type int8",
+    "result": {
+     "image": {
+      "dtype": "int8",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       -128,
+       -128,
+       -83,
+       -28,
+       -83,
+       -28,
+       26,
+       81,
+       26,
+       81,
+       127,
+       127
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int8",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type uint8",
+    "result": {
+     "image": {
+      "dtype": "uint8",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       0,
+       45,
+       100,
+       45,
+       100,
+       154,
+       209,
+       154,
+       209,
+       255,
+       255
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint8",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type int16",
+    "result": {
+     "image": {
+      "dtype": "int16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       -32768,
+       -32768,
+       -21066,
+       -7023,
+       -21066,
+       -7023,
+       7021,
+       21064,
+       7021,
+       21064,
+       32767,
+       32767
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type uint16",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       0,
+       11702,
+       25745,
+       11702,
+       25745,
+       39789,
+       53832,
+       39789,
+       53832,
+       65535,
+       65535
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type int32",
+    "result": {
+     "image": {
+      "dtype": "int32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       -2147483646,
+       -2147483646,
+       -1380525182,
+       -460175102,
+       -1380525182,
+       -460175102,
+       460175106,
+       1380525314,
+       460175106,
+       1380525314,
+       -2147483646,
+       -2147483646
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type uint32",
+    "result": {
+     "image": {
+      "dtype": "uint32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       0,
+       766958464,
+       1687308544,
+       766958464,
+       1687308544,
+       2607658752,
+       3528008960,
+       2607658752,
+       3528008960,
+       0,
+       0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type float32",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       -0.25,
+       -0.0357142873108387,
+       0.1785714328289032,
+       0.3928571343421936,
+       0.1785714328289032,
+       0.3928571343421936,
+       0.6071428656578064,
+       0.8214285969734192,
+       0.6071428656578064,
+       0.8214285969734192,
+       1.0357142686843872,
+       1.25
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type float64",
+    "result": {
+     "image": {
+      "dtype": "float64",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       -0.25,
+       -0.0357142873108387,
+       0.1785714328289032,
+       0.3928571343421936,
+       0.1785714328289032,
+       0.3928571343421936,
+       0.6071428656578064,
+       0.8214285969734192,
+       0.6071428656578064,
+       0.8214285969734192,
+       1.0357142686843872,
+       1.25
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "float64",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type refuses an unknown type",
+    "message": "Unsupported pixel type: int64",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "apply_linear_transform defaults",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       0,
+       11702,
+       25745,
+       11702,
+       25745,
+       39789,
+       53832,
+       39789,
+       53832,
+       65535,
+       65535
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "apply_linear_transform scale 2 offset 0.1",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       0,
+       23404,
+       51490,
+       23404,
+       51490,
+       65535,
+       65535,
+       65535,
+       65535,
+       65535,
+       65535
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "apply_linear_transform refuses another extent",
+    "message": "apply_linear_transform() requires source and destination images to share dimensions and channels",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "extract_channel 1",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0.25,
+       0.3214285671710968,
+       0.3928571343421936,
+       0.4642857015132904,
+       0.3928571343421936,
+       0.4642857015132904,
+       0.5357142686843872,
+       0.6071428656578064,
+       0.5357142686843872,
+       0.6071428656578064,
+       0.6785714030265808,
+       0.75
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "extract_channel refuses channel 3",
+    "message": "Channel index is out of range",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "extract_channels",
+    "result": [
+     {
+      "image": {
+       "dtype": "float32",
+       "shape": [
+        3,
+        4
+       ],
+       "values": [
+        0.0,
+        0.1428571492433548,
+        0.2857142984867096,
+        0.4285714328289032,
+        0.2857142984867096,
+        0.4285714328289032,
+        0.5714285969734192,
+        0.7142857313156128,
+        0.5714285969734192,
+        0.7142857313156128,
+        0.8571428656578064,
+        1.0
+       ]
+      },
+      "properties": {
+       "backend": "runtime",
+       "channels": 1,
+       "height": 3,
+       "pixel_format": "gray",
+       "pixel_type": "float32",
+       "width": 4
+      }
+     },
+     {
+      "image": {
+       "dtype": "float32",
+       "shape": [
+        3,
+        4
+       ],
+       "values": [
+        0.25,
+        0.3214285671710968,
+        0.3928571343421936,
+        0.4642857015132904,
+        0.3928571343421936,
+        0.4642857015132904,
+        0.5357142686843872,
+        0.6071428656578064,
+        0.5357142686843872,
+        0.6071428656578064,
+        0.6785714030265808,
+        0.75
+       ]
+      },
+      "properties": {
+       "backend": "runtime",
+       "channels": 1,
+       "height": 3,
+       "pixel_format": "gray",
+       "pixel_type": "float32",
+       "width": 4
+      }
+     },
+     {
+      "image": {
+       "dtype": "float32",
+       "shape": [
+        3,
+        4
+       ],
+       "values": [
+        1.0,
+        0.8571428656578064,
+        0.7142857313156128,
+        0.5714285969734192,
+        0.7142857313156128,
+        0.5714285969734192,
+        0.4285714328289032,
+        0.2857142984867096,
+        0.4285714328289032,
+        0.2857142984867096,
+        0.1428571492433548,
+        0.0
+       ]
+      },
+      "properties": {
+       "backend": "runtime",
+       "channels": 1,
+       "height": 3,
+       "pixel_format": "gray",
+       "pixel_type": "float32",
+       "width": 4
+      }
+     }
+    ]
+   },
+   {
+    "call": "compose_rgb",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       4,
+       3
+      ],
+      "values": [
+       0.0,
+       0.25,
+       1.0,
+       0.1428571492433548,
+       0.3214285671710968,
+       0.8571428656578064,
+       0.2857142984867096,
+       0.3928571343421936,
+       0.7142857313156128,
+       0.4285714328289032,
+       0.4642857015132904,
+       0.5714285969734192,
+       0.2857142984867096,
+       0.3928571343421936,
+       0.7142857313156128,
+       0.4285714328289032,
+       0.4642857015132904,
+       0.5714285969734192,
+       0.5714285969734192,
+       0.5357142686843872,
+       0.4285714328289032,
+       0.7142857313156128,
+       0.6071428656578064,
+       0.2857142984867096,
+       0.5714285969734192,
+       0.5357142686843872,
+       0.4285714328289032,
+       0.7142857313156128,
+       0.6071428656578064,
+       0.2857142984867096,
+       0.8571428656578064,
+       0.6785714030265808,
+       0.1428571492433548,
+       1.0,
+       0.75,
+       0.0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 3,
+      "height": 3,
+      "pixel_format": "rgb",
+      "pixel_type": "float32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "compose_rgb refuses a colour plane",
+    "message": "compose_rgb() requires mono channel images",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "compose_rgb refuses another extent",
+    "message": "compose_rgb() requires all channels to share the same dimensions",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "is_supported_path .fits",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .fit",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .fts",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .xisf",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .tif",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .tiff",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .png",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .jpg",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .ser",
+    "result": false
+   },
+   {
+    "call": "is_supported_path .avi",
+    "result": false
+   },
+   {
+    "call": "is_supported_path .txt",
+    "result": false
+   },
+   {
+    "call": "is_supported_path no suffix",
+    "result": false
+   },
+   {
+    "call": "save_image .fits",
+    "result": true
+   },
+   {
+    "call": "load_image .fits",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       4,
+       5
+      ],
+      "values": [
+       0.0,
+       0.10000000149011612,
+       0.20000000298023224,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.20000000298023224,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.5,
+       0.6000000238418579,
+       0.4000000059604645,
+       0.5,
+       0.6000000238418579,
+       0.699999988079071,
+       0.800000011920929,
+       0.6000000238418579,
+       0.699999988079071,
+       0.800000011920929,
+       0.8999999761581421,
+       1.0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "file_name": "<work>/saved.fits",
+      "height": 4,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 5
+     }
+    }
+   },
+   {
+    "call": "load_image without metadata .fits",
+    "result": {
+     "FILENAME": "<work>/saved.fits"
+    }
+   },
+   {
+    "call": "save_image .tif",
+    "result": true
+   },
+   {
+    "call": "load_image .tif",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       4,
+       5
+      ],
+      "values": [
+       0.0,
+       0.10000000149011612,
+       0.20000000298023224,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.20000000298023224,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.5,
+       0.6000000238418579,
+       0.4000000059604645,
+       0.5,
+       0.6000000238418579,
+       0.699999988079071,
+       0.800000011920929,
+       0.6000000238418579,
+       0.699999988079071,
+       0.800000011920929,
+       0.8999999761581421,
+       1.0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "file_name": "<work>/saved.tif",
+      "height": 4,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 5
+     }
+    }
+   },
+   {
+    "call": "load_image without metadata .tif",
+    "result": {
+     "FILENAME": "<work>/saved.tif"
+    }
+   },
+   {
+    "call": "save_image .png",
+    "result": true
+   },
+   {
+    "call": "load_image .png",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       4,
+       5
+      ],
+      "values": [
+       0,
+       6553,
+       13107,
+       19660,
+       26214,
+       13107,
+       19660,
+       26214,
+       32767,
+       39321,
+       26214,
+       32767,
+       39321,
+       45874,
+       52428,
+       39321,
+       45874,
+       52428,
+       58981,
+       65535
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "file_name": "<work>/saved.png",
+      "height": 4,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 5
+     }
+    }
+   },
+   {
+    "call": "load_image without metadata .png",
+    "result": {
+     "FILENAME": "<work>/saved.png"
+    }
+   },
+   {
+    "call": "save_image with options",
+    "result": true
+   },
+   {
+    "call": "load_image refuses a missing file",
+    "message": "Could NOT open FITS image. cfitsio reported an error while accessing fits files. Status = 104: could not open the named file.",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "save_image refuses an unknown format",
+    "message": "File extension not supported by any codec",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "detect_fwhm defaults",
+    "result": 2.9005350668874006
+   },
+   {
+    "call": "find_stars defaults",
+    "result": [
+     {
+      "amplitude": 0.8991134889934104,
+      "angle_degrees": -10.301581476911666,
+      "background": 0.10550315719350668,
+      "beta": -1.0,
+      "box_radius": 10,
+      "channel": 0,
+      "circularity": 8.389342913288065,
+      "dec": 0.0,
+      "fwhm": 3.34539666368561,
+      "fwhm_x": 3.348983309164679,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 3.3418100182065413,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.6424351853762253,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.03467284346834344,
+      "roundness": 0.9978580690627787,
+      "saturated": true,
+      "saturation": 1.0,
+      "snr": 0.0,
+      "sx": 1.4221822666377097,
+      "sy": 1.4191360504424309,
+      "units": "px",
+      "x": 22.600755794194512,
+      "x0": 10.600755794194512,
+      "y": 30.90299998170999,
+      "y0": 10.902999981709991
+     },
+     {
+      "amplitude": 0.7989054300735597,
+      "angle_degrees": 44.21708044839356,
+      "background": 0.08809839864318525,
+      "beta": -1.0,
+      "box_radius": 10,
+      "channel": 0,
+      "circularity": 7.02810585853535,
+      "dec": 0.0,
+      "fwhm": 3.0014310775238213,
+      "fwhm_x": 3.0082675457098635,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 2.9945946093377795,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.278538341721705,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.003662985658401826,
+      "roundness": 0.9954548802045273,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 0.0,
+      "sx": 1.2774936038356761,
+      "sy": 1.2716872423682928,
+      "units": "px",
+      "x": 12.80394450828864,
+      "x0": 10.80394450828864,
+      "y": 11.100150930916207,
+      "y0": 10.100150930916207
+     },
+     {
+      "amplitude": 0.6990841024441039,
+      "angle_degrees": -25.109035730484983,
+      "background": 0.09522345430994061,
+      "beta": -1.0,
+      "box_radius": 9,
+      "channel": 0,
+      "circularity": 6.264836691890892,
+      "dec": 0.0,
+      "fwhm": 3.09943793617476,
+      "fwhm_x": 3.1052322159641266,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 3.093643656385393,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.203456479926669,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.003839712501302839,
+      "roundness": 0.9962680537966995,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 0.0,
+      "sx": 1.318670707988035,
+      "sy": 1.3137494998459556,
+      "units": "px",
+      "x": 9.906288485065826,
+      "x0": 9.906288485065826,
+      "y": 38.60315196233947,
+      "y0": 9.603151962339469
+     },
+     {
+      "amplitude": 0.549896032924553,
+      "angle_degrees": -19.74888719869059,
+      "background": 0.0999639356701947,
+      "beta": -1.0,
+      "box_radius": 6,
+      "channel": 0,
+      "circularity": 5.4919121649862,
+      "dec": 0.0,
+      "fwhm": 2.689725048922664,
+      "fwhm_x": 2.689789217504094,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 2.6896608803412336,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -1.6350866782986153,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.010759305126322167,
+      "roundness": 0.9999522872788599,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 0.0,
+      "sx": 1.1422483103034002,
+      "sy": 1.1421938105282978,
+      "units": "px",
+      "x": 41.80845632508542,
+      "x0": 6.808456325085421,
+      "y": 7.701681820299988,
+      "y0": 6.701681820299988
+     },
+     {
+      "amplitude": 0.4987317745832367,
+      "angle_degrees": -10.128776313205512,
+      "background": 0.10644680804227703,
+      "beta": -1.0,
+      "box_radius": 9,
+      "channel": 0,
+      "circularity": 4.570273495786295,
+      "dec": 0.0,
+      "fwhm": 2.79963905625098,
+      "fwhm_x": 2.804201630574273,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 2.795076481927686,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -1.6158535650239312,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.0032736009413149737,
+      "roundness": 0.9967459013834471,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 0.0,
+      "sx": 1.1908347886254502,
+      "sy": 1.1869596947872412,
+      "units": "px",
+      "x": 38.71031936101261,
+      "x0": 9.710319361012612,
+      "y": 37.20638986349921,
+      "y0": 9.206389863499211
+     },
+     {
+      "amplitude": 0.5977882718151959,
+      "angle_degrees": 75.04275637617863,
+      "background": 0.11522601137172989,
+      "beta": -1.0,
+      "box_radius": 10,
+      "channel": 0,
+      "circularity": 4.896952397289116,
+      "dec": 0.0,
+      "fwhm": 2.460522495968519,
+      "fwhm_x": 2.4715592616256776,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 2.44948573031136,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -1.5324050446047635,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.06140644746541861,
+      "roundness": 0.9910689856168778,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 0.0,
+      "sx": 1.049574580801647,
+      "sy": 1.040200815124348,
+      "units": "px",
+      "x": 34.00129030233028,
+      "x0": 10.001290302330284,
+      "y": 14.704974037376482,
+      "y0": 10.704974037376482
+     }
+    ]
+   },
+   {
+    "call": "find_stars max_stars 3",
+    "result": [
+     {
+      "amplitude": 0.8991134889934104,
+      "angle_degrees": -10.301581476911666,
+      "background": 0.10550315719350668,
+      "beta": -1.0,
+      "box_radius": 10,
+      "channel": 0,
+      "circularity": 8.389342913288065,
+      "dec": 0.0,
+      "fwhm": 3.34539666368561,
+      "fwhm_x": 3.348983309164679,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 3.3418100182065413,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.6424351853762253,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.03467284346834344,
+      "roundness": 0.9978580690627787,
+      "saturated": true,
+      "saturation": 1.0,
+      "snr": 0.0,
+      "sx": 1.4221822666377097,
+      "sy": 1.4191360504424309,
+      "units": "px",
+      "x": 22.600755794194512,
+      "x0": 10.600755794194512,
+      "y": 30.90299998170999,
+      "y0": 10.902999981709991
+     },
+     {
+      "amplitude": 0.7989054300735597,
+      "angle_degrees": 44.21708044839356,
+      "background": 0.08809839864318525,
+      "beta": -1.0,
+      "box_radius": 10,
+      "channel": 0,
+      "circularity": 7.02810585853535,
+      "dec": 0.0,
+      "fwhm": 3.0014310775238213,
+      "fwhm_x": 3.0082675457098635,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 2.9945946093377795,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.278538341721705,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.003662985658401826,
+      "roundness": 0.9954548802045273,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 0.0,
+      "sx": 1.2774936038356761,
+      "sy": 1.2716872423682928,
+      "units": "px",
+      "x": 12.80394450828864,
+      "x0": 10.80394450828864,
+      "y": 11.100150930916207,
+      "y0": 10.100150930916207
+     },
+     {
+      "amplitude": 0.6990841024441039,
+      "angle_degrees": -25.109035730484983,
+      "background": 0.09522345430994061,
+      "beta": -1.0,
+      "box_radius": 9,
+      "channel": 0,
+      "circularity": 6.264836691890892,
+      "dec": 0.0,
+      "fwhm": 3.09943793617476,
+      "fwhm_x": 3.1052322159641266,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 3.093643656385393,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.203456479926669,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.003839712501302839,
+      "roundness": 0.9962680537966995,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 0.0,
+      "sx": 1.318670707988035,
+      "sy": 1.3137494998459556,
+      "units": "px",
+      "x": 9.906288485065826,
+      "x0": 9.906288485065826,
+      "y": 38.60315196233947,
+      "y0": 9.603151962339469
+     }
+    ]
+   },
+   {
+    "call": "find_stars refuses no stars",
+    "message": "find_stars() max_stars must be greater than zero",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "find_stars refuses channel 2 of a mono image",
+    "message": "find_stars() channel is out of range",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "find_stars refuses a zero radius",
+    "message": "Star finder radius must be greater than zero",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "richardson_lucy_deconvolution defaults",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "finite": 576,
+      "max": 1.0,
+      "min": 0.07536179572343826,
+      "samples": [
+       0.08005350083112717,
+       0.08485031872987747,
+       0.08960893750190735,
+       0.08886854350566864,
+       0.09294477105140686,
+       0.08674121648073196,
+       0.09153202921152115,
+       0.09537895768880844
+      ],
+      "shape": [
+       24,
+       24
+      ],
+      "sum": 58.271905571222305,
+      "sum_of_squares": 10.295478046936827
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 24,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 24
+     }
+    }
+   },
+   {
+    "call": "richardson_lucy_deconvolution refuses the automatic profile",
+    "message": "Automatic deconvolution PSF profile requires fitted stars",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "richardson_lucy_deconvolution refuses no iterations",
+    "message": "Richardson-Lucy iterations must be greater than zero",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "wiener_deconvolution defaults",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "finite": 576,
+      "max": 1.0,
+      "min": 0.07233873009681702,
+      "samples": [
+       0.07233873009681702,
+       0.08475480228662491,
+       0.09017139673233032,
+       0.09388045966625214,
+       0.09308058023452759,
+       0.08757975697517395,
+       0.09228068590164185,
+       0.0864122062921524
+      ],
+      "shape": [
+       24,
+       24
+      ],
+      "sum": 58.41457558423281,
+      "sum_of_squares": 10.524896539697233
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 24,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 24
+     }
+    }
+   },
+   {
+    "call": "wiener_deconvolution refuses no regularization",
+    "message": "Wiener deconvolution regularization must be greater than zero",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "richardson_lucy_star_deconvolution defaults",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "finite": 2304,
+      "max": 1.0,
+      "min": 0.04221080243587494,
+      "samples": [
+       0.08083439618349075,
+       0.31486865878105164,
+       0.42120715975761414,
+       0.06996278464794159,
+       0.06498325616121292,
+       0.11296510696411133,
+       0.1175469309091568,
+       0.1124139130115509
+      ],
+      "shape": [
+       48,
+       48
+      ],
+      "sum": 257.74520613253117,
+      "sum_of_squares": 51.70303063129478
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 48,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 48
+     }
+    }
+   },
+   {
+    "call": "richardson_lucy_star_deconvolution refuses a field without stars",
+    "message": "Star-derived deconvolution PSF does not have enough usable fitted stars.",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "create_calibration_masters_paths defaults",
+    "result": {
+     "bias": {
+      "frame_count": 3,
+      "metadata": {
+       "FILTER": "L",
+       "FRAMECNT": 3,
+       "IMAGETYP": "MASTER_BIAS",
+       "STACKMTH": "average"
+      },
+      "method": "average",
+      "native": true,
+      "path": "<work>/masters/master_bias_L.xisf"
+     },
+     "dark": {
+      "frame_count": 3,
+      "metadata": {
+       "FILTER": "L",
+       "FRAMECNT": 3,
+       "IMAGETYP": "MASTER_DARK",
+       "STACKMTH": "average"
+      },
+      "method": "average",
+      "native": true,
+      "path": "<work>/masters/master_dark_L.xisf"
+     },
+     "flat": {
+      "frame_count": 3,
+      "metadata": {
+       "FILTER": "L",
+       "FRAMECNT": 3,
+       "IMAGETYP": "MASTER_FLAT",
+       "STACKMTH": "average"
+      },
+      "method": "average",
+      "native": true,
+      "path": "<work>/masters/master_flat_L.xisf"
+     }
+    }
+   },
+   {
+    "call": "create_calibration_masters_paths refuses no output directory",
+    "message": "create_calibration_masters_paths() output_dir must not be empty",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "calibrate_sequence_paths defaults",
+    "result": {
+     "failed_count": 0,
+     "frames": [
+      {
+       "error_message": "",
+       "index": 0,
+       "input_path": "<work>/light_0.fits",
+       "output_path": "<work>/calibrated/image_0000.fits",
+       "succeeded": true
+      },
+      {
+       "error_message": "",
+       "index": 1,
+       "input_path": "<work>/light_1.fits",
+       "output_path": "<work>/calibrated/image_0001.fits",
+       "succeeded": true
+      },
+      {
+       "error_message": "",
+       "index": 2,
+       "input_path": "<work>/light_2.fits",
+       "output_path": "<work>/calibrated/image_0002.fits",
+       "succeeded": true
+      }
+     ],
+     "output_paths": [
+      "<work>/calibrated/image_0000.fits",
+      "<work>/calibrated/image_0001.fits",
+      "<work>/calibrated/image_0002.fits"
+     ],
+     "skipped_count": 0,
+     "succeeded_count": 3,
+     "total_count": 3,
+     "was_cancelled": false
+    }
+   },
+   {
+    "call": "register_sequence_paths defaults",
+    "result": {
+     "canvas_height": 48,
+     "canvas_width": 48,
+     "failed_count": 0,
+     "failed_registration_paths": [
+      "<work>/light_1.fits",
+      "<work>/light_2.fits"
+     ],
+     "frames": [
+      {
+       "error_message": "",
+       "index": 0,
+       "input_path": "<work>/light_0.fits",
+       "output_path": "<work>/registered/image_0000.fits",
+       "registration": {
+        "background": 0.09839977324008942,
+        "background_noise": 0.015155768002672319,
+        "dx": 0.0,
+        "dy": 0.0,
+        "fwhm": 2.9005350668874006,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "reference",
+        "on_error": false,
+        "quality": 1.7792794602794446,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.9965069775900732,
+        "scale": 1.0,
+        "snr": 39.44295476875812,
+        "star_count": 6,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": true
+      },
+      {
+       "error_message": "Failed to load image metadata",
+       "index": 1,
+       "input_path": "<work>/light_1.fits",
+       "output_path": "",
+       "registration": {
+        "background": 0.09827597439289093,
+        "background_noise": 0.015129493085048008,
+        "dx": 0.0,
+        "dy": 0.0,
+        "fwhm": 2.9921934252615765,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "failed",
+        "on_error": true,
+        "quality": 1.3817395598395725,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.9983667213513066,
+        "scale": 1.0,
+        "snr": 42.868084294084525,
+        "star_count": 5,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": false
+      },
+      {
+       "error_message": "Failed to load image metadata",
+       "index": 2,
+       "input_path": "<work>/light_2.fits",
+       "output_path": "",
+       "registration": {
+        "background": 0.09827824681997299,
+        "background_noise": 0.015102218717940583,
+        "dx": 0.0,
+        "dy": 0.0,
+        "fwhm": 2.9991487177351175,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "failed",
+        "on_error": true,
+        "quality": 1.3760302014563028,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.9999691956228752,
+        "scale": 1.0,
+        "snr": 43.03699432407673,
+        "star_count": 5,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": false
+      }
+     ],
+     "reference_index": 0,
+     "reference_path": "<work>/light_0.fits",
+     "skipped_count": 2,
+     "succeeded_count": 1,
+     "total_count": 3
+    }
+   },
+   {
+    "call": "register_sequence_paths refuses no frames",
+    "message": "register_sequence_paths() requires at least one source path",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "apply_registration_paths defaults",
+    "result": {
+     "canvas_height": 48,
+     "canvas_width": 48,
+     "failed_count": 0,
+     "frames": [
+      {
+       "error_message": "",
+       "index": 0,
+       "input_path": "<work>/light_0.fits",
+       "output_path": "<work>/aligned/image_0000.fits",
+       "registration": {
+        "background": 0.0,
+        "background_noise": 0.0,
+        "dx": 0.0,
+        "dy": 0.0,
+        "fwhm": 0.0,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "reference",
+        "on_error": false,
+        "quality": 0.0,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.0,
+        "scale": 1.0,
+        "snr": 0.0,
+        "star_count": 0,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": true
+      },
+      {
+       "error_message": "",
+       "index": 1,
+       "input_path": "<work>/light_1.fits",
+       "output_path": "<work>/aligned/image_0001.fits",
+       "registration": {
+        "background": 0.0,
+        "background_noise": 0.0,
+        "dx": -1.5,
+        "dy": 1.0,
+        "fwhm": 0.0,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          -1.5
+         ],
+         [
+          0.0,
+          1.0,
+          1.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "star_matching",
+        "on_error": false,
+        "quality": 0.0,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.0,
+        "scale": 1.0,
+        "snr": 0.0,
+        "star_count": 0,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": true
+      },
+      {
+       "error_message": "",
+       "index": 2,
+       "input_path": "<work>/light_2.fits",
+       "output_path": "<work>/aligned/image_0002.fits",
+       "registration": {
+        "background": 0.0,
+        "background_noise": 0.0,
+        "dx": -3.0,
+        "dy": 2.0,
+        "fwhm": 0.0,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          -3.0
+         ],
+         [
+          0.0,
+          1.0,
+          2.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "star_matching",
+        "on_error": false,
+        "quality": 0.0,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.0,
+        "scale": 1.0,
+        "snr": 0.0,
+        "star_count": 0,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": true
+      }
+     ],
+     "reference_index": 0,
+     "reference_path": "<work>/light_0.fits",
+     "skipped_count": 0,
+     "succeeded_count": 3,
+     "total_count": 3,
+     "was_cancelled": false
+    }
+   },
+   {
+    "call": "apply_registration_paths refuses mismatched lists",
+    "message": "apply_registration_paths() paths and registrations must have the same length",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "stack_sequence_paths defaults",
+    "result": {
+     "frame_count": 3,
+     "method": "average",
+     "native": true,
+     "path": "<work>/stacked.fits"
+    }
+   },
+   {
+    "call": "stack_sequence_paths refuses no frames",
+    "message": "stack_sequence_paths() requires at least one source path",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "stack result",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "finite": 2304,
+      "max": 0.6570944786071777,
+      "min": 0.07865263521671295,
+      "samples": [
+       0.08006838709115982,
+       0.2568407356739044,
+       0.34027186036109924,
+       0.11587712913751602,
+       0.10573507100343704,
+       0.1641530692577362,
+       0.09229057282209396,
+       0.11199074983596802
+      ],
+      "shape": [
+       48,
+       48
+      ],
+      "sum": 266.0330978780985,
+      "sum_of_squares": 39.92248256195367
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "file_name": "<work>/stacked.fits",
+      "height": 48,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 48
+     }
+    }
+   },
+   {
+    "call": "drizzle_stack_sequence_paths defaults",
+    "result": {
+     "drizzle": {
+      "enabled": true,
+      "kernel": "square",
+      "output_height": 96,
+      "output_width": 96,
+      "pixel_fraction": 0.8999999761581421,
+      "scale": 2.0,
+      "trim_offset_x": 0,
+      "trim_offset_y": 0
+     },
+     "frame_count": 3,
+     "method": "average",
+     "native": true,
+     "path": "<work>/drizzled.fits"
+    }
+   }
+  ],
+  "format": 1,
+  "native_signatures": {
+   "apply_linear_transform": "apply_linear_transform(source: _afternight_runtime._RuntimeImage, destination: _afternight_runtime._RuntimeImage, scale: typing.SupportsFloat | typing.SupportsIndex = 1.0, offset: typing.SupportsFloat | typing.SupportsIndex = 0.0) -> None",
+   "apply_registration_paths": "apply_registration_paths(paths: collections.abc.Sequence, registrations: collections.abc.Sequence, output_dir: str, reference_index: typing.SupportsInt | typing.SupportsIndex = 0, interpolation: str = 'lanczos4', alignment_mode: str = 'standard', output_options: object = None) -> dict",
+   "available_pixel_types": "available_pixel_types() -> list",
+   "calibrate_sequence_paths": "calibrate_sequence_paths(paths: collections.abc.Sequence, masters: dict, output_dir: str, params: object = None, output_options: object = None) -> dict",
+   "compose_rgb": "compose_rgb(red: _afternight_runtime._RuntimeImage, green: _afternight_runtime._RuntimeImage, blue: _afternight_runtime._RuntimeImage) -> _afternight_runtime._RuntimeImage",
+   "convert_pixel_type": "convert_pixel_type(image: _afternight_runtime._RuntimeImage, pixel_type: str) -> _afternight_runtime._RuntimeImage",
+   "create_calibration_masters_paths": "create_calibration_masters_paths(role_paths: dict, output_dir: str, filter_name: str = 'L', method: str = 'average', params: object = None, save_options: object = None) -> dict",
+   "detect_fwhm": "detect_fwhm(image: _afternight_runtime._RuntimeImage, channel: typing.SupportsInt | typing.SupportsIndex = -1) -> float",
+   "drizzle_stack_sequence_paths": "drizzle_stack_sequence_paths(paths: collections.abc.Sequence, registrations: collections.abc.Sequence, output_path: str, method: str = 'average', params: object = None, metadata: object = None, save_options: object = None, reference_index: typing.SupportsInt | typing.SupportsIndex = 0, interpolation: str = 'lanczos4', alignment_mode: str = 'standard') -> dict",
+   "extract_channel": "extract_channel(image: _afternight_runtime._RuntimeImage, channel: typing.SupportsInt | typing.SupportsIndex) -> _afternight_runtime._RuntimeImage",
+   "extract_channels": "extract_channels(image: _afternight_runtime._RuntimeImage) -> list",
+   "find_stars": "find_stars(image: _afternight_runtime._RuntimeImage, channel: typing.SupportsInt | typing.SupportsIndex = -1, max_stars: typing.SupportsInt | typing.SupportsIndex = 512, params: object = None) -> list",
+   "image_from_numpy": "image_from_numpy(array: numpy.ndarray, metadata: object = None) -> _afternight_runtime._RuntimeImage",
+   "is_supported_path": "is_supported_path(arg0: str) -> bool",
+   "load_image": "load_image(path: str, load_metadata: bool = True) -> _afternight_runtime._RuntimeImage",
+   "register_sequence_paths": "register_sequence_paths(paths: collections.abc.Sequence, output_dir: str, reference_index: typing.SupportsInt | typing.SupportsIndex = 0, max_stars: typing.SupportsInt | typing.SupportsIndex = 512, min_stars: typing.SupportsInt | typing.SupportsIndex = 6, params: object = None, transform_type: str = 'similarity', polynomial_order: typing.SupportsInt | typing.SupportsIndex = 0, auto_select_polynomial_order: bool = False, interpolation: str = 'lanczos4') -> dict",
+   "richardson_lucy_deconvolution": "richardson_lucy_deconvolution(image: _afternight_runtime._RuntimeImage, fwhm_x: typing.SupportsFloat | typing.SupportsIndex, fwhm_y: typing.SupportsFloat | typing.SupportsIndex = 0.0, angle_degrees: typing.SupportsFloat | typing.SupportsIndex = 0.0, iterations: typing.SupportsInt | typing.SupportsIndex = 20, tv_regularization: typing.SupportsFloat | typing.SupportsIndex = 0.0, damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, stopping_delta: typing.SupportsFloat | typing.SupportsIndex = 0.0, psf_size: typing.SupportsInt | typing.SupportsIndex = 0, output_pixel_type: str = 'float32', preserve_flux: bool = True, clamp_to_unit_range: bool = True, profile: str = 'gaussian', beta: typing.SupportsFloat | typing.SupportsIndex = 4.5, relative_stopping_delta: typing.SupportsFloat | typing.SupportsIndex = 0.0, edge_taper_radius: typing.SupportsFloat | typing.SupportsIndex = 0.0, convolution_backend: str = 'auto', color_mode: str = 'auto', edge_taper_mode: str = 'auto', edge_taper_iterations: typing.SupportsInt | typing.SupportsIndex = 3, regularization_mode: str = 'total_variation', update_method: str = 'multiplicative', gradient_descent_step: typing.SupportsFloat | typing.SupportsIndex = 0.0003) -> _afternight_runtime._RuntimeImage",
+   "richardson_lucy_star_deconvolution": "richardson_lucy_star_deconvolution(image: _afternight_runtime._RuntimeImage, channel: typing.SupportsInt | typing.SupportsIndex = -1, max_stars: typing.SupportsInt | typing.SupportsIndex = 512, star_params: object = None, iterations: typing.SupportsInt | typing.SupportsIndex = 20, tv_regularization: typing.SupportsFloat | typing.SupportsIndex = 0.0, damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, stopping_delta: typing.SupportsFloat | typing.SupportsIndex = 0.0, psf_size: typing.SupportsInt | typing.SupportsIndex = 0, output_pixel_type: str = 'float32', preserve_flux: bool = True, clamp_to_unit_range: bool = True, profile: str = 'auto', minimum_star_count: typing.SupportsInt | typing.SupportsIndex = 3, ignore_saturated: bool = True, circularize: bool = False, relative_stopping_delta: typing.SupportsFloat | typing.SupportsIndex = 0.0, edge_taper_radius: typing.SupportsFloat | typing.SupportsIndex = 0.0, convolution_backend: str = 'auto', color_mode: str = 'auto', edge_taper_mode: str = 'auto', edge_taper_iterations: typing.SupportsInt | typing.SupportsIndex = 3, regularization_mode: str = 'total_variation', update_method: str = 'multiplicative', gradient_descent_step: typing.SupportsFloat | typing.SupportsIndex = 0.0003) -> _afternight_runtime._RuntimeImage",
+   "save_image": "save_image(image: _afternight_runtime._RuntimeImage, path: str, options: object = None) -> None",
+   "stack_sequence_paths": "stack_sequence_paths(paths: collections.abc.Sequence, output_path: str, method: str = 'average', params: object = None, metadata: object = None, save_options: object = None) -> dict",
+   "wiener_deconvolution": "wiener_deconvolution(image: _afternight_runtime._RuntimeImage, fwhm_x: typing.SupportsFloat | typing.SupportsIndex, fwhm_y: typing.SupportsFloat | typing.SupportsIndex = 0.0, angle_degrees: typing.SupportsFloat | typing.SupportsIndex = 0.0, regularization: typing.SupportsFloat | typing.SupportsIndex = 0.01, psf_size: typing.SupportsInt | typing.SupportsIndex = 0, output_pixel_type: str = 'float32', preserve_flux: bool = True, clamp_to_unit_range: bool = True, profile: str = 'gaussian', beta: typing.SupportsFloat | typing.SupportsIndex = 4.5, edge_taper_radius: typing.SupportsFloat | typing.SupportsIndex = 0.0, color_mode: str = 'auto', edge_taper_mode: str = 'auto', edge_taper_iterations: typing.SupportsInt | typing.SupportsIndex = 3) -> _afternight_runtime._RuntimeImage"
+  },
+  "package_signatures": {
+   "afternight.calibration.calibrate_lights": "(sequence: 'SequenceHandle', masters: 'dict[str, dict[str, Any]]', output_dir: 'str', *, filter_name: 'str' = 'L', name: 'str' = 'calibrated_lights', params=None, output_options=None)",
+   "afternight.calibration.create_masters": "(sequence: 'SequenceHandle', output_dir: 'str', filter_name: 'str' = 'L', *, method: 'str' = 'average', params=None, save_options=None)",
+   "afternight.core.apply_linear_transform": "(source, destination, scale=1.0, offset=0.0)",
+   "afternight.core.available_pixel_types": "()",
+   "afternight.core.compose_rgb": "(red, green, blue)",
+   "afternight.core.convert_pixel_type": "(image, pixel_type)",
+   "afternight.core.detect_fwhm": "(image, channel=-1)",
+   "afternight.core.extract_channel": "(image, channel)",
+   "afternight.core.extract_channels": "(image)",
+   "afternight.core.from_numpy": "(array, metadata=None)",
+   "afternight.core.richardson_lucy_deconvolution": "(image, *, fwhm, fwhm_y=None, angle_degrees=0.0, iterations=20, tv_regularization=0.0, regularization_mode='total_variation', update_method='multiplicative', gradient_descent_step=0.0003, damping=0.0, stopping_delta=0.0, relative_stopping_delta=0.0, edge_taper_radius=0.0, edge_taper_mode='auto', edge_taper_iterations=3, convolution_backend='auto', color_mode='auto', psf_size=0, output_pixel_type='float32', preserve_flux=True, clamp_to_unit_range=True, profile='gaussian', beta=4.5)",
+   "afternight.core.richardson_lucy_star_deconvolution": "(image, *, channel=-1, max_stars=512, star_params=None, iterations=20, tv_regularization=0.0, regularization_mode='total_variation', update_method='multiplicative', gradient_descent_step=0.0003, damping=0.0, stopping_delta=0.0, relative_stopping_delta=0.0, edge_taper_radius=0.0, edge_taper_mode='auto', edge_taper_iterations=3, convolution_backend='auto', color_mode='auto', psf_size=0, output_pixel_type='float32', preserve_flux=True, clamp_to_unit_range=True, profile='auto', minimum_star_count=3, ignore_saturated=True, circularize=False)",
+   "afternight.core.wiener_deconvolution": "(image, *, fwhm, fwhm_y=None, angle_degrees=0.0, regularization=0.01, edge_taper_radius=0.0, edge_taper_mode='auto', edge_taper_iterations=3, color_mode='auto', psf_size=0, output_pixel_type='float32', preserve_flux=True, clamp_to_unit_range=True, profile='gaussian', beta=4.5)",
+   "afternight.io.is_supported_path": "(path)",
+   "afternight.io.load": "(path, load_metadata=True)",
+   "afternight.io.save": "(image, path, options=None)",
+   "afternight.registration.apply": "(sequence: 'SequenceHandle', output_dir: 'str', *, manifest_name: 'str' = 'applied_registration.sequence.json', name: 'str' = 'applied_registered_lights', reference_index: 'int' = 0, interpolation: 'str' = 'lanczos4', alignment_mode: 'str' = 'standard', output_options=None)",
+   "afternight.registration.find_stars": "(image, *, channel: 'int' = -1, max_stars: 'int' = 512, params=None, **overrides)",
+   "afternight.registration.register": "(sequence: 'SequenceHandle', output_dir: 'str', *, manifest_name: 'str' = 'L.sequence.json', name: 'str' = 'registered_lights', reference_index: 'int' = 0, max_stars: 'int' = 512, min_stars: 'int' = 6, star_params=None, transform_type: 'str' = 'similarity', polynomial_order: 'int' = 0, auto_select_polynomial_order: 'bool' = False, interpolation: 'str' = 'lanczos4')",
+   "afternight.stacking.average": "(sequence: 'SequenceHandle', output_path: 'str', *, metadata=None, params=None, save_options=None)",
+   "afternight.stacking.drizzle": "(sequence: 'SequenceHandle', output_path: 'str', *, method: 'str' = 'average', metadata=None, params=None, save_options=None, reference_index: 'int' = 0, interpolation: 'str' = 'lanczos4', alignment_mode: 'str' = 'standard')",
+   "afternight.stacking.stack": "(sequence: 'SequenceHandle', output_path: 'str', *, method: 'str' = 'average', metadata=None, params=None, save_options=None)"
+  }
+ },
+ "provenance": {
+  "captured": "2026-09-29",
+  "commit": "bbf414d01",
+  "numpy": "2.5.3",
+  "platform": "windows-amd64",
+  "producer": "AfterNightEngine through an_extension_runtime_backend",
+  "python": "3.14.7"
+ }
+}

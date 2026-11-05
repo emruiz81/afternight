@@ -1,0 +1,188 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+      run_tests:
+        description: 'Build and run tests'
+        required: false
+        default: true
+        type: boolean
+      skip_tests:
+        description: 'Tests to skip (space-separated)'
+        required: false
+        default: ''
+        type: string
+
+# Only the two jobs that create and publish the release write to the repository. The builds and the guide run with a
+# read-only token and hand what they produce over as artifacts, which the publishing job attaches.
+permissions:
+  contents: read
+
+# A release is never cancelled half way, and a second release of the same ref waits for the first.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ===== Prepare Release =====
+  prepare-release:
+    name: Prepare GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing version: $VERSION"
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ inputs.prerelease || false }}
+        run: |
+          TAG="v${VERSION}"
+          prerelease_args=()
+          if [ "$PRERELEASE" = "true" ]; then
+            prerelease_args+=(--prerelease)
+          else
+            prerelease_args+=(--prerelease=false)
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --draft \
+              "${prerelease_args[@]}" \
+              --title "AfterNight v${VERSION}" \
+              --target "$GITHUB_SHA"
+          else
+            gh release create "$TAG" \
+              --draft \
+              "${prerelease_args[@]}" \
+              --title "AfterNight v${VERSION}" \
+              --generate-notes \
+              --target "$GITHUB_SHA"
+          fi
+
+  # ===== Build Documentation =====
+  # The guide's workflow has a Pages deployment job, which a release never runs; a caller has to grant what any of a
+  # called workflow's jobs asks for, so the grant is here and the job that would use it is skipped.
+  build-docs:
+    name: Build Documentation
+    needs: prepare-release
+    uses: ./.github/workflows/docs.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    with:
+      release_version: ${{ needs.prepare-release.outputs.version }}
+
+  # ===== Build Linux =====
+  build-linux:
+    name: Build Linux Release
+    needs: [prepare-release, build-docs]
+    uses: ./.github/workflows/build-linux.yml
+    permissions:
+      contents: read
+    with:
+      run_tests: ${{ github.event_name != 'workflow_dispatch' || inputs.run_tests }}
+      build_installer: true
+      skip_tests: ${{ inputs.skip_tests || '' }}
+      release_version: ${{ needs.prepare-release.outputs.version }}
+      upload_release_assets: true
+      docs_artifact_name: afternight-documentation-html
+
+  # ===== Build Windows =====
+  build-windows:
+    name: Build Windows Release
+    needs: [prepare-release, build-docs]
+    uses: ./.github/workflows/build-windows.yml
+    permissions:
+      contents: read
+    with:
+      run_tests: ${{ github.event_name != 'workflow_dispatch' || inputs.run_tests }}
+      build_installer: true
+      skip_tests: ${{ inputs.skip_tests || '' }}
+      release_version: ${{ needs.prepare-release.outputs.version }}
+      upload_release_assets: true
+      docs_artifact_name: afternight-documentation-html
+
+  # ===== Publish Release =====
+  release:
+    name: Publish GitHub Release
+    needs: [prepare-release, build-docs, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download the assets the builds handed over
+        uses: actions/download-artifact@v6
+        with:
+          pattern: afternight-release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Attach the assets to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: |
+          shopt -s nullglob
+          assets=(release-assets/*)
+          if (( ${#assets[@]} == 0 )); then
+            echo "No release assets were handed over"
+            exit 1
+          fi
+          printf 'Attaching %s\n' "${assets[@]}"
+          gh release upload "v${VERSION}" "${assets[@]}" --clobber
+
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+          PRERELEASE: ${{ inputs.prerelease || false }}
+        run: |
+          TAG="v${VERSION}"
+          prerelease_args=()
+          if [ "$PRERELEASE" = "true" ]; then
+            prerelease_args+=(--prerelease)
+          else
+            prerelease_args+=(--prerelease=false)
+          fi
+
+          gh release edit "$TAG" \
+            --draft=false \
+            "${prerelease_args[@]}" \
+            --title "AfterNight v${VERSION}" \
+            --target "$GITHUB_SHA"

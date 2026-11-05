@@ -1,0 +1,95 @@
+# The fault campaign's registry: which scenario injects which kind of fault into which subject, and
+# how many injection points it must find.
+#
+# Format:   scenario <label> <kind> <gtest name> minimum=<points> [suite=<executable>]
+#
+# `label` is what the scenario prints, `kind` is one of allocation, cancellation, io and external,
+# `gtest name` is the case that runs it, `minimum` is the smallest number of injection points the
+# scenario may find before the campaign calls it a failure, and `suite` the executable that defines
+# the case - Test_EngineFaults, the engine's, when it is not stated; Test_ConsumerFaults is the
+# product's, the same harness over the consumer's sessions.
+#
+# The minimum is the part that earns this file. A fault scenario passes by its subject behaving well
+# on a failure path, so a scenario whose census found no injection point - because the subject it was
+# pointed at stopped allocating, or stopped being reached at all - passes by doing nothing, and prints
+# a line that looks exactly like a scenario that swept two hundred points. The number here is what the
+# scenario measured when it was written, less a small margin; a scenario that finds fewer points than
+# this has stopped covering what it covered, and a scenario that finds many more has changed subject
+# and its number should be raised deliberately rather than silently.
+#
+# A point count is a fact about this engine rather than about this campaign. Several are small, and
+# that is the engine's memory discipline rather than a thin sweep: a FITS decode asks the engine's
+# resource for exactly one block because the container's own reading is CFITSIO's allocation, and a
+# published write asks for two. What the campaign cannot reach through this seam is an external
+# library's own allocator: CFITSIO, libtiff, FFmpeg and the rest take their memory from the platform,
+# so no scenario can refuse one of their allocations.
+#
+# build/scripts/tools/run_fault_campaign.py reads this file; nothing else does. Its `--check` reads
+# the scenario declarations out of the suite's sources as well, and fails when a scenario is
+# registered and not defined, or defined and not registered - a scenario nobody runs is worse than one
+# that does not exist, because it looks like coverage.
+#
+# Lines starting with '#' and blank lines are ignored.
+
+# The bounded read-ahead and write-behind stream: the subject with background threads and two bounded
+# queues, and therefore the one where a failure path costs a deadlock rather than a wrong answer.
+scenario alloc.stream       allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfABoundedStream    minimum=12
+scenario cancel.stream      cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfABoundedStream         minimum=13
+scenario io.stream          io           FaultCampaign.EveryStageOfABoundedStreamRefusesEveryFrameInTurn    minimum=37
+scenario external.stream    external     FaultCampaign.EveryStageOfABoundedStreamThrowsOnEveryFrameInTurn   minimum=36
+
+# The streaming stack executor: several passes over a working set whose memory its stack plan states, and
+# the only subject whose cancellation points are the stages it reports rather than the blocks it takes.
+scenario alloc.stack        allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfAStack            minimum=7
+scenario cancel.stack       cancellation FaultCampaign.AStopIsRequestedAtEveryStageAStackReports            minimum=8
+
+# One generated file's journey from a private pending payload to its destination name, where "no
+# half-commit" is a statement about a directory rather than about a returned value.
+scenario alloc.write        allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfAPublishedWrite   minimum=2
+scenario cancel.write       cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfAPublishedWrite        minimum=3
+scenario io.write           io           FaultCampaign.TheEncoderFailsAtEveryStepOfWritingThePendingPayload minimum=5
+scenario external.write     external     FaultCampaign.TheEncoderThrowsAtEveryStepThatCanThrow              minimum=3
+
+# Reading a real container through a real external library.
+scenario alloc.decode       allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfADecode           minimum=1
+scenario cancel.decode      cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfADecode                minimum=2
+# The same read through a registry the read names, in an engine context with none of its own: the
+# registry brings no memory and no stop of its own, so it must find the points the ordinary read finds.
+scenario alloc.decode.registry  allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfADecodeThroughANamedRegistry minimum=1
+scenario cancel.decode.registry cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfADecodeThroughANamedRegistry   minimum=2
+
+# Two operations at once in one engine context, so that a failure path that is only wrong while
+# something else is running cannot pass twelve times.
+scenario alloc.concurrent   allocation   FaultCampaign.AnAllocationIsRefusedWhileTwoOperationsShareOneContext minimum=24
+scenario alloc.snapshot.write  allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfASnapshotWrite     minimum=4
+scenario cancel.snapshot.write cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfASnapshotWrite          minimum=5
+scenario alloc.snapshot.read   allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfASnapshotRead      minimum=4
+scenario cancel.snapshot.read  cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfASnapshotRead           minimum=5
+
+# The product's scenarios: the same harness swept over the product's publication and read paths, each over a
+# session built on the sweep's injecting resource, so the session's engine context takes every block from it. Their
+# floors are what the census found on Windows.
+
+# A history step: the state an edit replaces written as the engine's image snapshot, and an undo's read of it.
+scenario alloc.history.write      allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfAHistoryStepsSnapshot minimum=2 suite=Test_ConsumerFaults
+scenario cancel.history.write     cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfAHistoryStepsSnapshot minimum=3 suite=Test_ConsumerFaults
+scenario alloc.history.read       allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfAnUndosRead minimum=2 suite=Test_ConsumerFaults
+scenario cancel.history.read      cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfAnUndosRead minimum=3 suite=Test_ConsumerFaults
+
+# What a view opens through the product's read, and an extension's result copied out of its lent buffer.
+scenario alloc.view.read          allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfAViewsRead minimum=1 suite=Test_ConsumerFaults
+scenario cancel.view.read         cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfAViewsRead minimum=2 suite=Test_ConsumerFaults
+scenario alloc.buffer.import      allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfAnExtensionBuffersImport minimum=1 suite=Test_ConsumerFaults
+
+# A sequence written through the product's writer, which publishes its container only when it finishes.
+scenario alloc.sequence.write     allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfASequencesPublication minimum=6 suite=Test_ConsumerFaults
+scenario cancel.sequence.write    cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfASequencesPublication minimum=7 suite=Test_ConsumerFaults
+
+# The integration's publications its reuse decisions rest on: a stage's stamped image, a document through the pending
+# file beside it, a payload and the manifest that names it, and the standalone stack's group.
+scenario alloc.workflow.image     allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfAStagesPublishedImage minimum=2 suite=Test_ConsumerFaults
+scenario cancel.workflow.image    cancellation FaultCampaign.AStopIsRequestedAtEveryPointOfAStagesPublishedImage minimum=3 suite=Test_ConsumerFaults
+scenario io.workflow.document     io           FaultCampaign.EveryFileOperationOfADocumentsPublicationFailsInTurn minimum=5 suite=Test_ConsumerFaults
+scenario io.workflow.pair         io           FaultCampaign.EveryFileOperationOfAPayloadAndItsManifestFailsInTurn minimum=10 suite=Test_ConsumerFaults
+scenario alloc.stack.standalone   allocation   FaultCampaign.AnAllocationIsRefusedAtEveryPointOfAStandaloneStack minimum=13 suite=Test_ConsumerFaults
+scenario cancel.stack.standalone  cancellation FaultCampaign.AStopIsRequestedAtEveryProgressReportOfAStandaloneStack minimum=12 suite=Test_ConsumerFaults

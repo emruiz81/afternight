@@ -1,0 +1,7 @@
+include("${CMAKE_CURRENT_LIST_DIR}/../../../vcpkg/scripts/toolchains/windows.cmake")
+if(NOT EXISTS "$ENV{AN_RAW_CLANG_CL}")
+    message(FATAL_ERROR "The nominated RawSpeed clang-cl compiler is unavailable")
+endif()
+file(TO_CMAKE_PATH "$ENV{AN_RAW_CLANG_CL}" AN_RAW_COMPILER)
+set(CMAKE_C_COMPILER "${AN_RAW_COMPILER}" CACHE FILEPATH "RawSpeed C compiler")
+set(CMAKE_CXX_COMPILER "${AN_RAW_COMPILER}" CACHE FILEPATH "RawSpeed C++ compiler")

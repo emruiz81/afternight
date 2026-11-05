@@ -1,0 +1,3 @@
+# Add pinned requirements with hashes. Prefer official PyPI index downloads for public packages.
+# Use this template's wheelhouse only for custom/private artifacts unavailable from official PyPI, for example:
+# example-package==1.2.3 --hash=sha256:<64-character-hex-digest>

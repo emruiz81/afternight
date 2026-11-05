@@ -1,0 +1,19 @@
+{
+  "configurations": [
+    {
+      "name": "Clang",
+      "includePath": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/../AfterNightConsumerRuntime/include",
+        "${workspaceFolder}/../AfterNightEngine/include",
+        "${workspaceFolder}/../AfterNightPlatform/include",
+        "${workspaceFolder}/../../vcpkg/installed/x64-linux/include"
+      ],
+      "defines": ["_DEBUG", "DEBUG", "linux", "__linux__"],
+      "compilerPath": "/usr/bin/clang++",
+      "intelliSenseMode": "clang-x64",
+      "cppStandard": "c++20"
+    }
+  ],
+  "version": 4
+}

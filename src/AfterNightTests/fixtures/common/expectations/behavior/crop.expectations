@@ -1,0 +1,48 @@
+# Reference expectations of the fixture layers: each record states its input, the engine that produced it
+# and how a result is compared with it. See docs/dev/guides/TESTING.md.
+
+expectation  crop.x-2-y-1-width-8-height-5/scene-rgb-uint16
+operation    a crop to 8 by 5 at column 2, row 1, in place
+input        scene-rgb-uint16 description=3ea4136069ff94330a518695915d7e9e7768b513771fee40d876b47af2d51b9d samples=205675a657c36227a69af223e3eefaf796fe2ab63dc939bfdf9c9f30d3623470
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-09-29
+commit       -
+result       8 5 3 uint16 sha256=fd932a2c12943e6fa0b079232bfccf18eece7d3c73e5797986b4b8f58858c71a
+row          0 0 10055 13197 15954 18482 20926 22800 26150 28325
+row          0 1 12368 13728 17050 19861 22569 24187 27483 29407
+row          0 2 14088 15523 17943 21103 23602 26470 28728 30492
+row          0 3 14564 17767 20041 23017 24790 26969 29852 32902
+row          0 4 16359 19448 21567 24647 26278 28597 31307 33813
+row          1 0 13617 15787 17026 18662 19034 20170 22094 23422
+row          1 1 18112 18868 20167 21385 21554 23429 25275 26240
+row          1 2 20608 21161 23456 23892 24833 27015 28171 29339
+row          1 3 23163 24158 25558 27488 28284 30082 31093 31846
+row          1 4 26026 27094 28726 29787 30639 31931 33777 35375
+row          2 0 46230 44641 41641 38553 35238 32373 28691 26129
+row          2 1 47408 44375 41452 38345 35988 33003 29714 26584
+row          2 2 49569 46773 43476 39381 37548 33516 30724 27825
+row          2 3 50700 47558 43732 41315 37812 35154 32176 28667
+row          2 4 51123 48122 45006 41617 38229 36616 32888 30243
+end
+
+expectation  crop.x-2-y-1-width-8-height-5/scene-mono-float32
+operation    a crop to 8 by 5 at column 2, row 1, in place
+input        scene-mono-float32 description=90d248b2a295b5fdef5bfa2b27922ea2964ec534d1d8b80b8e7de969ac2307b2 samples=0eae8590195868d36faed6ff8520ac0fa701ee692113887bf169eca6949442ab
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-09-29
+commit       -
+result       8 5 1 float32 sha256=30f2f3f5641eb9fa2f3341d01d65100cf25fca061a0d948fde4904ba2b7e97d4
+row          0 0 0.21290056 0.28698844 0.34353444 0.3711364 0.43622553 0.47833455 0.555697 0.605926
+row          0 1 0.26265606 0.32606345 0.3368318 0.42492908 0.49892396 0.4864436 0.5411078 0.62150586
+row          0 2 0.29280284 0.385899 0.36933237 0.4509195 0.5117372 0.5295227 0.6203206 0.6843105
+row          0 3 0.3565042 0.40180272 0.4226641 0.51237845 0.52171886 0.6217203 0.6237574 0.7266979
+row          0 4 0.3678275 0.4420213 0.517907 0.49886882 0.54027003 0.6389268 0.6518561 0.75199205
+end

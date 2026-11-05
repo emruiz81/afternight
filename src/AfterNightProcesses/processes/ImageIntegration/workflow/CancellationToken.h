@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
+
+#pragma once
+
+#include "app/CancellationToken.h"
+
+// The workflow names the cancellation token without its namespace.
+using an::ui::CancellationToken;

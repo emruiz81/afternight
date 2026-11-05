@@ -1,0 +1,38 @@
+# The fuzz campaign's registry: one target per line, with the budget it is run to.
+#
+# Format:   <project name>  iterations=<count>  seconds=<wall-clock bound>
+#
+# `iterations` is how many mutated inputs the standalone driver evaluates after replaying the seeds,
+# and `seconds` is the wall-clock bound that stops a target early when the host is slower than the
+# budget assumed. Whichever comes first wins, so the same registry is a fixed amount of search on a
+# fast host and a fixed amount of time on a slow one. build/scripts/tools/run_fuzz_campaign.py reads
+# this file; nothing else does.
+#
+# The counts differ by four orders of magnitude because the targets do. A descriptor line is parsed in
+# under a microsecond and nothing is written; a codec input is written to a file and opened through an
+# external library, and a sequence input may be decoded frame by frame. The numbers below were chosen
+# so that every target spends between fifteen seconds and a minute on the Windows and Linux hosts the
+# budgets were set on, which puts the whole campaign at about three minutes - it is meant to be run
+# often, and a budget nobody will wait for is a budget that gets skipped.
+#
+# The wall-clock bound is not the binding constraint on either of those hosts and is not meant to be.
+# It is there so that an instrumented build, a loaded machine or a slower host stops with a report
+# that says it stopped early, rather than running for an hour.
+#
+# A target listed here that does not build, does not run, or does not evaluate its whole budget is a
+# failure of the campaign, not a line to delete. The registry is also the seed list for a
+# coverage-guided run: each target writes its own seeds with `--dump-corpus`, and the Linux procedure
+# in docs/dev/LOCAL_VALIDATION.md feeds those to the libFuzzer build of the same target.
+#
+# Lines starting with '#' and blank lines are ignored.
+
+Fuzz_EngineDescriptor   iterations=50000000  seconds=180
+Fuzz_EngineConversion   iterations=20000000  seconds=180
+Fuzz_EnginePixelMath    iterations=20000000  seconds=180
+Fuzz_EngineMetadata     iterations=10000000  seconds=180
+Fuzz_EngineCodec        iterations=20000     seconds=240
+Fuzz_EngineSequence     iterations=20000     seconds=240
+
+# The consumer's targets: the integration's durable documents and the extension protocol.
+Fuzz_ConsumerDocuments iterations=10000000 seconds=180
+Fuzz_ConsumerProtocol  iterations=10000000 seconds=180

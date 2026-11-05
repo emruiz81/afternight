@@ -1,0 +1,9 @@
+stage,operation,fused_max,fused_rms,native_max,native_rms
+1,brightness/contrast,0,0.0000,2,1.0076
+2,tone curve,1,0.4754,2,0.9943
+3,brightness/contrast,1,0.5286,3,1.0443
+4,tone curve,2,0.6314,4,1.1380
+5,brightness/contrast,3,0.6992,4,1.1334
+6,tone curve,4,0.7519,6,1.1815
+7,brightness/contrast,4,0.8030,7,1.3256
+8,tone curve,4,0.8501,6,1.3635

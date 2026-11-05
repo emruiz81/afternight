@@ -1,0 +1,43 @@
+# Every AfterNight-owned text file uses CRLF by default.
+* text=auto eol=crlf
+
+# Linux-exclusive files and shell entry points executed on Linux require LF.
+/build/scripts/linux/** text eol=lf
+/build/premake/configure_linux.sh text eol=lf
+/build/scripts/_build_user_guide_docs.sh text eol=lf
+/build/scripts/check_clang_format.sh text eol=lf
+/build/scripts/format_changed.sh text eol=lf
+/build/scripts/python/setup_python_linux.sh text eol=lf
+/installer/linux_packager.sh text eol=lf
+/installer/AfterNight.desktop text eol=lf
+# Read by the Linux sanitizer runtime, which takes a carriage return as part of a pattern.
+/build/scripts/tools/leak_suppressions.txt text eol=lf
+
+
+# Preserve externally owned content exactly as supplied upstream.
+/3rdparty/** -text !eol
+
+# Preserve the upstream LibRaw port patches byte-for-byte.
+/build/vcpkg/overlay-ports/libraw/*.patch -text !eol whitespace=-blank-at-eol
+
+# Preserve the upstream FFmpeg port patches, and the shell template its build runs under bash, byte-for-byte.
+/build/vcpkg/overlay-ports/ffmpeg/*.patch -text !eol whitespace=-blank-at-eol
+/build/vcpkg/overlay-ports/ffmpeg/build.sh.in -text !eol
+
+# Preserve the x264 repair patch byte-for-byte: it applies to the upstream sources, which use LF.
+/build/vcpkg/overlay-ports/x264/*.patch -text !eol whitespace=-blank-at-eol
+
+# Context-only blank lines are meaningful inside the maintained private RAW patch series.
+/build/vcpkg/overlay-ports/afternight-*/*.patch text eol=crlf whitespace=-blank-at-eol
+
+# A source-closure rehearsal's port and probes are `git diff` output, applied by digest; keep them byte-for-byte.
+/build/scripts/tools/rehearsals/**/*.patch -text
+
+# XISF units PixInsight wrote, and its evaluation of their astrometric solutions, kept as test inputs exactly as it
+# wrote them (fixtures/common/xisf/PROVENANCE.md).
+/src/AfterNightTests/fixtures/common/xisf/*.xisf binary
+/src/AfterNightTests/fixtures/common/xisf/*.csv -text
+
+# The raw-dump exporter's inputs are compared by the digest of what the engine decodes from them; keep them
+# byte-for-byte.
+/src/AfterNightTests/fixtures/common/expectations/raw-dump/inputs/** -text

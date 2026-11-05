@@ -1,0 +1,144 @@
+# Doxygen configuration for the AfterNightEngine public surface.
+#
+# This file has two jobs, and the second one is the reason it exists this early. It generates the
+# engine's API reference, and it is the check that refuses an undocumented public declaration -
+# WARN_IF_UNDOCUMENTED and WARN_NO_PARAMDOC report one, and WARN_AS_ERROR turns the report into a
+# failure. Using the generator as the check means there is one configuration to keep true rather
+# than a generator and a separate symbol inventory that drift apart.
+#
+# What it can and cannot judge is worth stating plainly: it sees whether a declaration carries a
+# comment, not whether that comment states ownership, lifetime, numeric behaviour, thread safety,
+# cancellation and error results. Those are what the documentation standard actually requires, and
+# review is what enforces them. A green run here is a floor, never a met standard.
+#
+# The input is the published surface alone, plus the page the reference opens on.
+#
+# Run it through build/scripts/tools/check_public_documentation.py, which supplies the output
+# directory and reports the diagnostics; that script is in the common check list both nominated
+# hosts run. Pass it --output-dir to keep the generated reference.
+#
+# A published header's module documentation is a `/// @file` block, which is what places it on the
+# header's own page of the reference rather than leaving it to be found in the source. The checker
+# refuses a published header that opens without one. The implementation's private headers have a
+# configuration of their own, AfterNightEngineInternal.doxyfile, which holds every declaration in
+# them to the same floor without asking for the parameter-by-parameter contract a public declaration
+# carries; build/scripts/tools/check_engine_documentation.py runs it.
+
+DOXYFILE_ENCODING      = UTF-8
+PROJECT_NAME           = AfterNightEngine
+PROJECT_BRIEF          = "The AfterNight image engine: public API reference"
+OUTPUT_DIRECTORY       = doxygen-output
+CREATE_SUBDIRS         = NO
+ALLOW_UNICODE_NAMES    = NO
+OUTPUT_LANGUAGE        = English
+
+# Paths in a diagnostic are relative to the directory doxygen was started in, which the checker
+# sets to the repository root, so a reported path is one that can be opened as printed.
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = .
+STRIP_FROM_INC_PATH    = src/AfterNightEngine/include src/AfterNightEngineGmicAdapter/include src/AfterNightEnginePythonAdapter/include
+
+# The comment form: /// and ///<, with @-prefixed commands, and the first sentence as the brief.
+# AUTOBRIEF is what removes an @brief command from every declaration in the engine; the existing
+# @brief blocks elsewhere in the repository stay valid and are not rewritten for consistency alone.
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+MULTILINE_CPP_IS_BRIEF = NO
+INHERIT_DOCS           = YES
+TAB_SIZE               = 4
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+BUILTIN_STL_SUPPORT    = YES
+DISTRIBUTE_GROUP_DOC   = NO
+
+# EXTRACT_ALL would document everything whether or not anyone wrote a word about it, which is
+# exactly the behaviour that makes WARN_IF_UNDOCUMENTED silent. It stays off.
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_PRIV_VIRTUAL   = NO
+EXTRACT_PACKAGE        = NO
+EXTRACT_STATIC         = NO
+EXTRACT_LOCAL_CLASSES  = NO
+EXTRACT_ANON_NSPACES   = NO
+# Hiding an undocumented declaration also stops it being reported, so each of these three is what
+# makes a whole kind of declaration checkable: with HIDE_UNDOC_MEMBERS on, an undocumented member of
+# a documented struct produces no diagnostic at all. They stay NO for the same reason EXTRACT_ALL
+# stays NO, and the checker refuses the file if any of them is turned around.
+#
+# HIDE_UNDOC_NAMESPACES is understood from doxygen 1.10. An older one - 1.9.8 is what Ubuntu 24.04
+# ships - ignores it with a warning and carries on with the namespace rule switched off, which is
+# why the checker treats that warning as a run it cannot draw a conclusion from rather than as a
+# finding about the engine. build/scripts/linux/install_doxygen.sh holds the floor.
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+HIDE_UNDOC_NAMESPACES  = NO
+INTERNAL_DOCS          = NO
+CASE_SENSE_NAMES       = YES
+HIDE_SCOPE_NAMES       = NO
+SHOW_INCLUDE_FILES     = YES
+SORT_MEMBER_DOCS       = NO
+SORT_BRIEF_DOCS        = NO
+GENERATE_TODOLIST      = YES
+GENERATE_TESTLIST      = NO
+GENERATE_BUGLIST       = YES
+GENERATE_DEPRECATEDLIST = YES
+
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_IF_INCOMPLETE_DOC = YES
+WARN_NO_PARAMDOC       = YES
+WARN_IF_UNDOC_ENUM_VAL = YES
+WARN_AS_ERROR          = FAIL_ON_WARNINGS
+WARN_FORMAT            = "$file:$line: $text"
+
+INPUT                  = src/AfterNightEngine/include src/AfterNightEngineGmicAdapter/include src/AfterNightEngineOpenClBackend/include src/AfterNightEnginePythonAdapter/include
+INPUT_ENCODING         = UTF-8
+FILE_PATTERNS          = *.h *.hpp
+RECURSIVE              = YES
+EXCLUDE_SYMLINKS       = YES
+
+# The reference opens on a page that says what the surface is, where to start and which guide answers
+# which question, instead of on an empty page above an alphabetical index of one namespace.
+INPUT                 += build/doxygen/AfterNightEngine.mainpage.md
+USE_MDFILE_AS_MAINPAGE = build/doxygen/AfterNightEngine.mainpage.md
+
+SOURCE_BROWSER         = NO
+ALPHABETICAL_INDEX     = YES
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_FILE_EXTENSION    = .html
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+SEARCHENGINE           = NO
+
+GENERATE_LATEX         = NO
+GENERATE_RTF           = NO
+GENERATE_MAN           = NO
+GENERATE_XML           = NO
+GENERATE_DOCBOOK       = NO
+
+# The export decorations are expanded away rather than documented as part of a signature. Without
+# this, every exported function reads as returning a macro - which is what every declaration of the
+# two adapters did until each library's own decoration was listed here beside the engine's.
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+SEARCH_INCLUDES        = YES
+INCLUDE_PATH           = src/AfterNightEngine/include src/AfterNightEngineGmicAdapter/include src/AfterNightEnginePythonAdapter/include
+PREDEFINED             = AFTERNIGHTENGINE_API= AFTERNIGHTENGINE_INTERFACE= AFTERNIGHTENGINEGMICADAPTER_API= AFTERNIGHTENGINEPYTHONADAPTER_API=
+SKIP_FUNCTION_MACROS   = YES
+
+# The opt-in device backend's published surface is read like the adapters', with its own decoration
+# expanded away. These three lines go with the backend when its removal procedure runs.
+STRIP_FROM_INC_PATH   += src/AfterNightEngineOpenClBackend/include
+INCLUDE_PATH          += src/AfterNightEngineOpenClBackend/include
+PREDEFINED            += AFTERNIGHTENGINEOPENCLBACKEND_API=
+
+CLASS_GRAPH            = NO
+COLLABORATION_GRAPH    = NO
+INCLUDE_GRAPH          = NO
+INCLUDED_BY_GRAPH      = NO
+HAVE_DOT               = NO

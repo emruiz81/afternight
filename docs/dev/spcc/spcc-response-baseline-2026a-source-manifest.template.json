@@ -1,0 +1,132 @@
+{
+  "repository_id": "spcc-response-baseline",
+  "version": "2026a",
+  "rights": {
+    "review_status": "license-review-needed",
+    "license_name": "TODO",
+    "license_url": "TODO",
+    "reviewer": "TODO",
+    "reviewed_at_utc": "TODO",
+    "redistribution_permission": "TODO",
+    "managed_download_permission": "TODO",
+    "bundling_permission": "TODO",
+    "derivative_permission": "TODO",
+    "required_attribution": "TODO",
+    "notes": "Replace every TODO before normalization. Production review status must be approved-for-managed-download or approved-for-bundling."
+  },
+  "components": [
+    {
+      "component_id": "sensor.reviewed-baseline.r",
+      "version": "2026a",
+      "role": "sensor-red-response",
+      "curve_csv": "curves/sensor_reviewed_baseline_r.csv",
+      "wavelength_unit": "nm",
+      "value_semantics": "dimensionless-throughput",
+      "interpolation": "linear",
+      "out_of_range": "zero",
+      "normalization": "preserve-relative-shape",
+      "review_status": "license-review-needed",
+      "license_name": "TODO",
+      "license_url": "TODO",
+      "source_url": "TODO",
+      "source_citation": "TODO",
+      "attribution_text": "TODO",
+      "source_acquired_at_utc": "TODO",
+      "reviewer": "TODO",
+      "reviewed_at_utc": "TODO",
+      "redistribution_permission": "TODO",
+      "derivative_permission": "TODO",
+      "transformation_notes": "TODO: describe extraction, digitization, unit conversion, resampling, clipping, smoothing, and normalization."
+    },
+    {
+      "component_id": "sensor.reviewed-baseline.g",
+      "version": "2026a",
+      "role": "sensor-green-response",
+      "curve_csv": "curves/sensor_reviewed_baseline_g.csv",
+      "wavelength_unit": "nm",
+      "value_semantics": "dimensionless-throughput",
+      "interpolation": "linear",
+      "out_of_range": "zero",
+      "normalization": "preserve-relative-shape",
+      "review_status": "license-review-needed",
+      "license_name": "TODO",
+      "license_url": "TODO",
+      "source_url": "TODO",
+      "source_citation": "TODO",
+      "attribution_text": "TODO",
+      "source_acquired_at_utc": "TODO",
+      "reviewer": "TODO",
+      "reviewed_at_utc": "TODO",
+      "redistribution_permission": "TODO",
+      "derivative_permission": "TODO",
+      "transformation_notes": "TODO: describe extraction, digitization, unit conversion, resampling, clipping, smoothing, and normalization."
+    },
+    {
+      "component_id": "sensor.reviewed-baseline.b",
+      "version": "2026a",
+      "role": "sensor-blue-response",
+      "curve_csv": "curves/sensor_reviewed_baseline_b.csv",
+      "wavelength_unit": "nm",
+      "value_semantics": "dimensionless-throughput",
+      "interpolation": "linear",
+      "out_of_range": "zero",
+      "normalization": "preserve-relative-shape",
+      "review_status": "license-review-needed",
+      "license_name": "TODO",
+      "license_url": "TODO",
+      "source_url": "TODO",
+      "source_citation": "TODO",
+      "attribution_text": "TODO",
+      "source_acquired_at_utc": "TODO",
+      "reviewer": "TODO",
+      "reviewed_at_utc": "TODO",
+      "redistribution_permission": "TODO",
+      "derivative_permission": "TODO",
+      "transformation_notes": "TODO: describe extraction, digitization, unit conversion, resampling, clipping, smoothing, and normalization."
+    }
+  ],
+  "white_references": [
+    {
+      "white_reference_id": "white.reviewed-baseline.d65",
+      "version": "2026a",
+      "role": "white-reference",
+      "curve_csv": "curves/white_reviewed_baseline_d65.csv",
+      "wavelength_unit": "nm",
+      "value_semantics": "relative-sed",
+      "interpolation": "linear",
+      "out_of_range": "zero",
+      "normalization": "preserve-relative-shape",
+      "review_status": "license-review-needed",
+      "license_name": "TODO",
+      "license_url": "TODO",
+      "source_url": "TODO",
+      "source_citation": "TODO",
+      "attribution_text": "TODO",
+      "source_acquired_at_utc": "TODO",
+      "reviewer": "TODO",
+      "reviewed_at_utc": "TODO",
+      "redistribution_permission": "TODO",
+      "derivative_permission": "TODO",
+      "transformation_notes": "TODO: describe source spectrum, units, resampling, and normalization."
+    }
+  ],
+  "throughput_profiles": [
+    {
+      "profile_id": "profile.reviewed-baseline.osc-rgb",
+      "version": "2026a",
+      "component_ids": [
+        "sensor.reviewed-baseline.r",
+        "sensor.reviewed-baseline.g",
+        "sensor.reviewed-baseline.b"
+      ],
+      "white_reference_id": "white.reviewed-baseline.d65",
+      "compatible_channel_bases": [
+        "linear-rgb",
+        "camera-rgb"
+      ],
+      "models_raw_white_balance": false,
+      "models_camera_matrix": false,
+      "algorithm_version": "spcc-synthetic-photometry-v2"
+    }
+  ]
+}

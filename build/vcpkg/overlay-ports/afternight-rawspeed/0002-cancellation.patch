@@ -1,0 +1,375 @@
+--- a/src/librawspeed/common/RawImage.cpp
++++ b/src/librawspeed/common/RawImage.cpp
+@@ -67,6 +67,9 @@
+ 
+ 
+ void RawImageData::createData() {
++  if (anExpectedWidth && (dim.x != anExpectedWidth || dim.y != anExpectedHeight || cpp != 1 || bpp != 2))
++    throw AnGeometryMismatch{};
++  anCheckpoint();
+   static constexpr const auto alignment = 16;
+ 
+   if (dim.x > 65535 || dim.y > 65535)
+@@ -97,7 +100,7 @@
+   data = alignedMallocArray<uint8_t, alignment>(dim.y, pitch);
+ 
+   if (!data)
+-    ThrowRDE("Memory Allocation failed.");
++    throw std::bad_alloc();
+ 
+   uncropped_dim = dim;
+ 
+@@ -280,7 +283,7 @@
+   memset(mBadPixelMap, 0,
+          static_cast<size_t>(mBadPixelMapPitch) * uncropped_dim.y);
+   if (!mBadPixelMap)
+-    ThrowRDE("Memory Allocation failed.");
++    throw std::bad_alloc();
+ }
+ 
+ RawImage::RawImage(RawImageData* p) : p_(p) {
+@@ -529,7 +532,7 @@
+   performTask();
+ }
+ 
+-void RawImageWorker::performTask() noexcept {
++void RawImageWorker::performTask() {
+   try {
+     switch(task)
+     {
+--- a/src/librawspeed/common/RawImage.h
++++ b/src/librawspeed/common/RawImage.h
+@@ -20,6 +20,7 @@
+ 
+ #pragma once
+ 
++#include "decoders/RawDecoderException.h"
+ #include "rawspeedconfig.h"            // for WITH_SSE2
+ #include "ThreadSafetyAnalysis.h"      // for GUARDED_BY, REQUIRES
+ #include "common/Array2DRef.h"         // for Array2DRef
+@@ -40,6 +41,7 @@
+ #include <vector>                      // for vector
+ 
+ namespace rawspeed {
++struct AnGeometryMismatch {};
+ 
+ class RawImage;
+ 
+@@ -59,7 +61,7 @@
+   int start_y;
+   int end_y;
+ 
+-  void performTask() noexcept;
++  void performTask();
+ 
+ public:
+   RawImageWorker(RawImageData* img, RawImageWorkerTask task, int start_y,
+@@ -98,6 +100,14 @@
+   friend class RawImageWorker;
+ public:
+   virtual ~RawImageData();
++  // Borrowed operation callback. Production builds are serial and never call a global sink.
++  int (*anStop)(void*) = nullptr;
++  void* anStopState = nullptr;
++  unsigned anExpectedWidth = 0, anExpectedHeight = 0;
++  bool anStopped() const noexcept { return anStop && anStop(anStopState); }
++  void anCheckpoint() const {
++    if (anStopped()) throw rawspeed::RawDecoderException("Decode cancelled");
++  }
+   [[nodiscard]] uint32_t getCpp() const { return cpp; }
+   [[nodiscard]] uint32_t getBpp() const { return bpp; }
+   void setCpp(uint32_t val);
+--- a/src/librawspeed/common/RawImageDataU16.cpp
++++ b/src/librawspeed/common/RawImageDataU16.cpp
+@@ -479,6 +479,7 @@
+       int gw = uncropped_dim.x * cpp;
+       auto* t = reinterpret_cast<uint32_t*>(table->getTable(0));
+       for (int y = start_y; y < end_y; y++) {
++      anCheckpoint();
+         uint32_t v = (uncropped_dim.x + y * 13) ^ 0x45694584;
+         auto* pixel = reinterpret_cast<uint16_t*>(getDataUncropped(0, y));
+         for (int x = 0 ; x < gw; x++) {
+@@ -498,6 +499,7 @@
+     int gw = uncropped_dim.x * cpp;
+     uint16_t* t = table->getTable(0);
+     for (int y = start_y; y < end_y; y++) {
++      anCheckpoint();
+       auto* pixel = reinterpret_cast<uint16_t*>(getDataUncropped(0, y));
+       for (int x = 0 ; x < gw; x++) {
+         *pixel = t[*pixel];
+--- a/src/librawspeed/decoders/DngDecoder.cpp
++++ b/src/librawspeed/decoders/DngDecoder.cpp
+@@ -358,6 +358,7 @@
+ 
+   compression = raw->getEntry(COMPRESSION)->getU16();
+ 
++  const RawImage previous = mRaw;
+   switch (sample_format) {
+   case 1:
+     mRaw = RawImage::create(TYPE_USHORT16);
+@@ -371,6 +372,10 @@
+              sample_format);
+   }
+ 
++  mRaw->anStop = previous->anStop;
++  mRaw->anStopState = previous->anStopState;
++  mRaw->anExpectedWidth = previous->anExpectedWidth;
++  mRaw->anExpectedHeight = previous->anExpectedHeight;
+   mRaw->isCFA = (raw->getEntry(PHOTOMETRICINTERPRETATION)->getU16() == 32803);
+ 
+   if (mRaw->isCFA)
+--- a/src/librawspeed/decompressors/AbstractDngDecompressor.cpp
++++ b/src/librawspeed/decompressors/AbstractDngDecompressor.cpp
+@@ -41,11 +41,12 @@
+ 
+ namespace rawspeed {
+ 
+-template <> void AbstractDngDecompressor::decompressThread<1>() const noexcept {
+-#ifdef HAVE_OPENMP
+-#pragma omp for schedule(static)
+-#endif
+-  for (auto e = slices.cbegin(); e < slices.cend(); ++e) {
++template <> void AbstractDngDecompressor::decompressThread<1>() const {
++#ifdef HAVE_OPENMP
++#pragma omp for schedule(static)
++#endif
++  for (auto e = slices.cbegin(); e < slices.cend(); ++e) {
++    if (mRaw->anStopped()) return;
+     UncompressedDecompressor decompressor(e->bs, mRaw);
+ 
+     iPoint2D tileSize(e->width, e->height);
+@@ -96,11 +97,12 @@
+   }
+ }
+ 
+-template <> void AbstractDngDecompressor::decompressThread<7>() const noexcept {
+-#ifdef HAVE_OPENMP
+-#pragma omp for schedule(static)
+-#endif
+-  for (auto e = slices.cbegin(); e < slices.cend(); ++e) {
++template <> void AbstractDngDecompressor::decompressThread<7>() const {
++#ifdef HAVE_OPENMP
++#pragma omp for schedule(static)
++#endif
++  for (auto e = slices.cbegin(); e < slices.cend(); ++e) {
++    if (mRaw->anStopped()) return;
+     try {
+       LJpegDecompressor d(e->bs, mRaw);
+       d.decode(e->offX, e->offY, e->width, e->height, mFixLjpeg);
+@@ -113,13 +115,14 @@
+ }
+ 
+ #ifdef HAVE_ZLIB
+-template <> void AbstractDngDecompressor::decompressThread<8>() const noexcept {
++template <> void AbstractDngDecompressor::decompressThread<8>() const {
+   std::unique_ptr<unsigned char[]> uBuffer; // NOLINT
+ 
+ #ifdef HAVE_OPENMP
+ #pragma omp for schedule(static)
+ #endif
+   for (auto e = slices.cbegin(); e < slices.cend(); ++e) {
++    if (mRaw->anStopped()) return;
+     DeflateDecompressor z(e->bs, mRaw, mPredictor, mBps);
+     try {
+       z.decode(&uBuffer, iPoint2D(mRaw->getCpp() * e->dsc.tileW, e->dsc.tileH),
+@@ -134,11 +137,12 @@
+ }
+ #endif
+ 
+-template <> void AbstractDngDecompressor::decompressThread<9>() const noexcept {
+-#ifdef HAVE_OPENMP
+-#pragma omp for schedule(static)
+-#endif
+-  for (auto e = slices.cbegin(); e < slices.cend(); ++e) {
++template <> void AbstractDngDecompressor::decompressThread<9>() const {
++#ifdef HAVE_OPENMP
++#pragma omp for schedule(static)
++#endif
++  for (auto e = slices.cbegin(); e < slices.cend(); ++e) {
++    if (mRaw->anStopped()) return;
+     try {
+       VC5Decompressor d(e->bs, mRaw);
+       d.decode(e->offX, e->offY, e->width, e->height);
+@@ -152,11 +156,12 @@
+ 
+ #ifdef HAVE_JPEG
+ template <>
+-void AbstractDngDecompressor::decompressThread<0x884c>() const noexcept {
+-#ifdef HAVE_OPENMP
+-#pragma omp for schedule(static)
+-#endif
+-  for (auto e = slices.cbegin(); e < slices.cend(); ++e) {
++void AbstractDngDecompressor::decompressThread<0x884c>() const {
++#ifdef HAVE_OPENMP
++#pragma omp for schedule(static)
++#endif
++  for (auto e = slices.cbegin(); e < slices.cend(); ++e) {
++    if (mRaw->anStopped()) return;
+     JpegDecompressor j(e->bs, mRaw);
+     try {
+       j.decode(e->offX, e->offY);
+@@ -169,7 +174,7 @@
+ }
+ #endif
+ 
+-void AbstractDngDecompressor::decompressThread() const noexcept {
++void AbstractDngDecompressor::decompressThread() const {
+   assert(mRaw->dim.x > 0);
+   assert(mRaw->dim.y > 0);
+   assert(mRaw->getCpp() > 0 && mRaw->getCpp() <= 4);
+--- a/src/librawspeed/decompressors/AbstractDngDecompressor.h
++++ b/src/librawspeed/decompressors/AbstractDngDecompressor.h
+@@ -118,9 +118,9 @@
+ class AbstractDngDecompressor final : public AbstractDecompressor {
+   RawImage mRaw;
+ 
+-  template <int compression> void decompressThread() const noexcept;
++  template <int compression> void decompressThread() const;
+ 
+-  void decompressThread() const noexcept;
++  void decompressThread() const;
+ 
+ public:
+   AbstractDngDecompressor(const RawImage& img, DngTilingDescription dsc_,
+--- a/src/librawspeed/decompressors/Cr2Decompressor.cpp
++++ b/src/librawspeed/decompressors/Cr2Decompressor.cpp
+@@ -205,6 +205,7 @@
+     assert(frame.h % frameRowStep == 0);
+     for (unsigned sliceFrameRow = 0; sliceFrameRow < frame.h;
+          sliceFrameRow += frameRowStep, globalFrameRow += frameRowStep) {
++      mRaw->anCheckpoint();
+       unsigned row = globalFrameRow % realDim.y;
+       unsigned col = globalFrameRow / realDim.y * slicing.widthOfSlice(0) / cpp;
+       if (col >= static_cast<unsigned>(realDim.x))
+--- a/src/librawspeed/decompressors/LJpegDecompressor.cpp
++++ b/src/librawspeed/decompressors/LJpegDecompressor.cpp
+@@ -187,6 +187,7 @@
+ 
+   // For y, we can simply stop decoding when we reached the border.
+   for (unsigned row = 0; row < h; ++row) {
++    mRaw->anCheckpoint();
+     unsigned col = 0;
+ 
+     copy_n(predNext, N_COMP, pred.data());
+--- a/src/librawspeed/decompressors/NikonDecompressor.cpp
++++ b/src/librawspeed/decompressors/NikonDecompressor.cpp
+@@ -492,6 +492,7 @@
+   assert(out.width % 2 == 0);
+   assert(out.width >= 2);
+   for (int row = start_y; row < end_y; row++) {
++    mRaw->anCheckpoint();
+     std::array<int, 2> pred = pUp[row & 1];
+     for (int col = 0; col < out.width; col++) {
+       pred[col & 1] += ht.decodeDifference(bits);
+--- a/src/librawspeed/decompressors/SonyArw2Decompressor.cpp
++++ b/src/librawspeed/decompressors/SonyArw2Decompressor.cpp
+@@ -107,7 +107,7 @@
+   }
+ }
+ 
+-void SonyArw2Decompressor::decompressThread() const noexcept {
++void SonyArw2Decompressor::decompressThread() const {
+   assert(mRaw->dim.x > 0);
+   assert(mRaw->dim.x % 32 == 0);
+   assert(mRaw->dim.y > 0);
+@@ -116,6 +116,7 @@
+ #pragma omp for schedule(static)
+ #endif
+   for (int y = 0; y < mRaw->dim.y; y++) {
++    if (mRaw->anStopped()) return;
+     try {
+       decompressRow(y);
+     } catch (RawspeedException& err) {
+--- a/src/librawspeed/decompressors/SonyArw2Decompressor.h
++++ b/src/librawspeed/decompressors/SonyArw2Decompressor.h
+@@ -28,7 +28,7 @@
+ 
+ class SonyArw2Decompressor final : public AbstractDecompressor {
+   void decompressRow(int row) const;
+-  void decompressThread() const noexcept;
++  void decompressThread() const;
+ 
+   RawImage mRaw;
+   ByteStream input;
+--- a/src/librawspeed/decompressors/UncompressedDecompressor.cpp
++++ b/src/librawspeed/decompressors/UncompressedDecompressor.cpp
+@@ -108,6 +108,7 @@
+   Pump bits(input);
+   w *= cpp;
+   for (; y < h; y++) {
++    mRaw->anCheckpoint();
+     auto* dest = reinterpret_cast<uint32_t*>(
+         &data[offset.x * sizeof(uint32_t) * cpp + y * outPitch]);
+     for (uint32_t x = 0; x < w; x++) {
+@@ -133,6 +134,7 @@
+   Pump bits(input);
+   w *= cpp;
+   for (; y < h; y++) {
++    mRaw->anCheckpoint();
+     auto* dest = reinterpret_cast<uint32_t*>(
+         &data[offset.x * sizeof(uint32_t) * cpp + y * outPitch]);
+     for (uint32_t x = 0; x < w; x++) {
+@@ -223,6 +225,7 @@
+     BitPumpMSB bits(input);
+     w *= cpp;
+     for (; y < h; y++) {
++    mRaw->anCheckpoint();
+       auto* dest = reinterpret_cast<uint16_t*>(
+           &data[offset.x * sizeof(uint16_t) * cpp + y * outPitch]);
+       for (uint32_t x = 0; x < w; x++) {
+@@ -235,6 +238,7 @@
+     BitPumpMSB16 bits(input);
+     w *= cpp;
+     for (; y < h; y++) {
++    mRaw->anCheckpoint();
+       auto* dest = reinterpret_cast<uint16_t*>(
+           &data[offset.x * sizeof(uint16_t) * cpp + y * outPitch]);
+       for (uint32_t x = 0; x < w; x++) {
+@@ -247,6 +251,7 @@
+     BitPumpMSB32 bits(input);
+     w *= cpp;
+     for (; y < h; y++) {
++    mRaw->anCheckpoint();
+       auto* dest = reinterpret_cast<uint16_t*>(
+           &data[offset.x * sizeof(uint16_t) * cpp + y * outPitch]);
+       for (uint32_t x = 0; x < w; x++) {
+@@ -270,6 +275,7 @@
+     BitPumpLSB bits(input);
+     w *= cpp;
+     for (; y < h; y++) {
++    mRaw->anCheckpoint();
+       auto* dest = reinterpret_cast<uint16_t*>(
+           &data[offset.x * sizeof(uint16_t) + y * outPitch]);
+       for (uint32_t x = 0; x < w; x++) {
+@@ -290,6 +296,7 @@
+   const uint8_t* in = input.getData(w * h);
+   uint32_t random = 0;
+   for (uint32_t y = 0; y < h; y++) {
++    mRaw->anCheckpoint();
+     auto* dest = reinterpret_cast<uint16_t*>(&data[y * pitch]);
+     for (uint32_t x = 0; x < w; x++) {
+       if (uncorrectedRawValues)
+@@ -332,6 +339,7 @@
+   const uint8_t* in = input.peekData(perline * h);
+   uint32_t half = (h + 1) >> 1;
+   for (uint32_t row = 0; row < h; row++) {
++    mRaw->anCheckpoint();
+     uint32_t y = !interlaced ? row : row % half * 2 + row / half;
+     auto* dest = reinterpret_cast<uint16_t*>(&data[y * pitch]);
+ 
+@@ -394,6 +402,7 @@
+   const uint8_t* in = input.getData(w * h * 2);
+ 
+   for (uint32_t y = 0; y < h; y++) {
++    mRaw->anCheckpoint();
+     auto* dest = reinterpret_cast<uint16_t*>(&data[y * pitch]);
+     for (uint32_t x = 0; x < w; x += 1, in += 2) {
+       uint32_t g1 = in[0];
+@@ -429,6 +438,7 @@
+   const uint8_t* in = input.getData(w * h * 2);
+ 
+   for (uint32_t y = 0; y < h; y++) {
++    mRaw->anCheckpoint();
+     auto* dest = reinterpret_cast<uint16_t*>(&data[y * pitch]);
+     for (uint32_t x = 0; x < w; x += 1, in += 2) {
+       uint32_t g1 = in[0];

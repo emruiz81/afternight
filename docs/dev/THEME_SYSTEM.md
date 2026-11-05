@@ -1,0 +1,981 @@
+# AfterNight Theme System
+
+> **Audience:** AI coding agents and human contributors implementing or modifying UI controls.
+>
+> **Source of truth:** The files in `src/AfterNightControls/theme/` and `src/AfterNightControls/components/`.
+
+---
+
+## Table of Contents
+
+1. [Architecture Overview](#architecture-overview)
+2. [Design Tokens (`AnDesignTokens`)](#design-tokens-andesigntokens)
+3. [Proxy Style (`AnProxyStyle`)](#proxy-style-anproxystyle)
+4. [KDDockWidgets Style (`KddwProxyStyle`)](#kddockwidgets-style-kddwproxystyle)
+5. [Layout Utilities (`AnLayoutUtils`)](#layout-utilities-anlayoututils)
+6. [Animation Utilities (`AnimationUtils`)](#animation-utilities-animationutils)
+7. [Icon Management (`IconManager`)](#icon-management-iconmanager)
+8. [Semantic Color Bridge (`UiStyleTokens`)](#semantic-color-bridge-uistyletokens)
+9. [Reusable Components (`components/`)](#reusable-components-components)
+10. [ABSOLUTE RULES — What Is Forbidden](#absolute-rules--what-is-forbidden)
+11. [How to Style a New Widget or Control](#how-to-style-a-new-widget-or-control)
+12. [Custom Widget with `paintEvent()` — Step by Step](#custom-widget-with-paintevent--step-by-step)
+13. [Dynamic Properties for Variant Styling](#dynamic-properties-for-variant-styling)
+14. [Theme Switching & Refresh Flow](#theme-switching--refresh-flow)
+15. [Responsiveness & Resolution Policy](#responsiveness--resolution-policy)
+16. [Spacing, Radius, and Typography Token Reference](#spacing-radius-and-typography-token-reference)
+17. [Color Token Reference](#color-token-reference)
+18. [Contrast Validation & Accessibility](#contrast-validation--accessibility)
+19. [Checklist for New Controls](#checklist-for-new-controls)
+
+---
+
+## Architecture Overview
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                     Application Startup                   │
+│  installAnProxyStyle()  →  QApplication::setStyle(proxy) │
+│  installKddwProxyStyle(dockWindow)                       │
+└───────────────┬──────────────────────────┬───────────────┘
+                │                          │
+    ┌───────────▼──────────┐   ┌───────────▼──────────────┐
+    │    AnProxyStyle       │   │    KddwProxyStyle        │
+    │  (all standard Qt     │   │  (KDDockWidgets-specific │
+    │   widgets)            │   │   overrides)             │
+    └───────────┬──────────┘   └───────────┬──────────────┘
+                │                          │
+    ┌───────────▼──────────────────────────▼──────────────┐
+    │              AnDesignTokens (singleton)              │
+    │  ColorTokens · SpacingTokens · RadiusTokens         │
+    │  LayerTokens · MaterialTokens · TypographyTokens    │
+    └─────────────────────────────────────────────────────┘
+```
+
+**Key principles:**
+
+- **No QSS.** Ever. See [Absolute Rules](#absolute-rules--what-is-forbidden).
+- Every visual aspect is controlled by either `AnProxyStyle` (C++ `QProxyStyle` overrides) or custom `paintEvent()` implementations.
+- All colors, spacings, radii, and fonts are resolved through the `AnDesignTokens` singleton — never hardcoded.
+- The system supports dark/light themes, multiple accent families, contrast profiles, and surface tints — all switchable at runtime.
+
+### File Map
+
+| File | Purpose |
+|---|---|
+| `theme/AnDesignTokens.h/.cpp` | Token definitions, resolution pipeline, theme preference API |
+| `theme/AnProxyStyle.h/.cpp` | Global `QProxyStyle` for all standard Qt widgets (~3000 LOC) |
+| `theme/KddwProxyStyle.h/.cpp` | `QProxyStyle` for KDDockWidgets subsystem (~700 LOC) |
+| `theme/AnimationUtils.h/.cpp` | Global animation toggle (accessibility) |
+| `theme/PainterGuard.h` | `an::ui::PainterGuard`, the RAII `QPainter` save/restore guard |
+| `components/AnLayoutUtils.h` | Layout spacing/margin normalization to design tokens |
+| `app/UiStyleTokens.h/.cpp` | Palette-based semantic color bridge utilities |
+| `app/IconManager.h/.cpp` | SVG icon loading with theme-aware colorization |
+| `app/ThemeManager.h/.cpp` | Applies a theme change: preference, both proxy styles, icons, open windows |
+| `src/AfterNightStylePlugin/` | The `afternight` Qt style plugin; creates an `AnProxyStyle`, initial variant from `AN_THEME` |
+
+---
+
+## Design Tokens (`AnDesignTokens`)
+
+Design tokens are the single source of truth for all visual parameters in the application. They live in `namespace an::ui` and are accessed through free functions.
+
+### Token Categories
+
+#### ColorTokens
+Organized into semantic groups accessible via helper methods:
+
+| Group | Accessor | Members |
+|---|---|---|
+| **Background** | `colors.bg()` | `primary`, `surface`, `card`, `cardPrimary`, `cardSecondary`, `input`, `hover` |
+| **Text** | `colors.text()` | `primary`, `secondary`, `tertiary`, `accent`, `onAccent` |
+| **Border** | `colors.border()` | `primary`, `subtle`, `focus` |
+| **Status** | `colors.status()` | `success`, `warning`, `error`, `info`, plus `*Soft` variants |
+| **Accent** | `colors.accent()` | `primary`, `hover`, `pressed`, `disabled`, `pinned`, `surfaceTint`, `surfaceBorderTint` |
+| **Effects** | `colors.effects()` | `shadowOverlay` |
+
+#### SpacingTokens
+```cpp
+struct SpacingTokens {
+    int xs = 4;   // Tight spacing (indicator margins, small gaps)
+    int sm = 8;   // Default element spacing
+    int md = 12;  // Layout margins
+    int lg = 16;  // Section spacing, tab padding
+    int xl = 24;  // Dialog margins, large separations
+};
+```
+
+#### RadiusTokens
+```cpp
+struct RadiusTokens {
+    int none = 0;   // Sharp corners (never used for interactive controls)
+    int sm   = 4;   // Buttons, inputs, combo boxes, tabs, menus
+    int md   = 8;   // Group boxes, cards
+    int lg   = 12;  // Process shell cards
+    int xl   = 14;  // Large overlay panels
+};
+```
+
+#### LayerTokens
+Five elevation layers derived from background colors:
+```
+surface0 → bgPrimary      (deepest, window background)
+surface1 → bgSurface      (standard surface)
+surface2 → bgCardSecondary (raised panels)
+surface3 → bgCardPrimary   (elevated cards)
+surface4 → bgHover         (highest elevation)
+```
+
+#### MaterialTokens
+Deterministic fallbacks for native backdrop effects (blur/acrylic/mica):
+- `solidSurface` — opaque surface (toolbar, status bar)
+- `micaSurface` — window/palette background
+- `acrylicSurface` — translucent card background
+
+#### TypographyTokens
+```cpp
+struct TypographyTokens {
+    QFont heading1;   // body.pointSize + 4, Bold
+    QFont heading2;   // body.pointSize + 2, DemiBold
+    QFont heading3;   // body.pointSize + 1, DemiBold
+    QFont body;       // System default (10pt)
+    QFont caption;    // body.pointSize - 1 (min 8pt)
+    QFont monospace;  // "Cascadia Mono", Monospace hint
+};
+```
+
+### Token Resolution Pipeline
+
+Tokens go through a multi-stage resolution before becoming active:
+
+```
+Base Tokens (createDarkTokens / createLightTokens)
+       │
+       ▼
+Apply Accent Family (Blue, Teal, Amber, Amethyst, Rose)
+       │
+       ▼
+Apply Surface Tint Family (Neutral, Ocean, Mint, Amethyst, Rose, Amber)
+       │
+       ▼
+Apply Contrast Profile (High, Balanced, Soft, Oled)
+       │
+       ▼
+Compute textOnAccent (WCAG contrast auto-selection)
+       │
+       ▼
+Resolve Material Tokens (native vs. fallback backdrop)
+       │
+       ▼
+Validate Contrast Ratios (debug builds only)
+       │
+       ▼
+Publish Snapshot (lock-free atomic pointer swap)
+```
+
+### Accessing Tokens
+
+```cpp
+#include "theme/AnDesignTokens.h"
+
+// Current active theme tokens (dark or light depending on preference)
+const auto& t = an::ui::tokens();
+QColor bg = t.colors.bgSurface;
+int pad = t.spacing.md;
+int r = t.radius.sm;
+QFont font = t.typography.body;
+
+// Force a specific variant
+const auto& dark = an::ui::resolvedDarkTokens();
+const auto& light = an::ui::resolvedLightTokens();
+
+// Semantic color API (for palette-agnostic code)
+QColor successBg = an::ui::semanticColor(an::ui::SemanticColorRole::SuccessBackground);
+
+// Query current theme state
+bool isDark = an::ui::isDarkTheme();
+```
+
+### Thread Safety
+
+Token access is thread-safe. The resolution pipeline uses atomic pointer swaps and old snapshots are kept alive in a history vector. Reading `tokens()` never blocks.
+
+---
+
+## Proxy Style (`AnProxyStyle`)
+
+`AnProxyStyle` is a `QProxyStyle` subclass that sits on top of Fusion (Qt's cross-platform base style). It overrides **every significant paint path** so that all standard Qt widgets rendered in the application use design tokens instead of platform defaults.
+
+### Installation
+
+Called once at startup:
+```cpp
+an::ui::AnProxyStyle* style = an::ui::installAnProxyStyle();
+```
+Qt takes ownership of the style object. Access the currently installed instance:
+```cpp
+an::ui::AnProxyStyle* style = an::ui::installedAnProxyStyle();
+```
+
+The full extension host loads the same style through the `afternight` style plugin
+(`QStyleFactory::create("afternight")`) and registers it with `registerInstalledAnProxyStyle()`,
+or calls `installAnProxyStyle()` when the plugin is not found. The application installs the style
+unless `AN_UI_TOKENS_ENABLED` is set false.
+
+### What It Overrides
+
+| Override | Widgets/Elements |
+|---|---|
+| `drawPrimitive()` | `PE_PanelLineEdit`, `PE_IndicatorCheckBox`, `PE_IndicatorRadioButton`, `PE_PanelItemViewItem`, `PE_PanelTipLabel`, `PE_FrameGroupBox`, `PE_Frame` (cards, banners, context messages, item views, generic `anFrameRadius` frames), `PE_FrameTabWidget`, `PE_FrameMenu`, `PE_PanelMenu`, `PE_PanelMenuBar`, `PE_PanelStatusBar`, `PE_PanelToolBar`, `PE_IndicatorToolBarSeparator`, `PE_PanelButtonCommand`, `PE_PanelButtonTool`, `PE_IndicatorTabClose` |
+| `drawControl()` | `CE_PushButtonBevel`, `CE_PushButtonLabel`, `CE_TabBarTabShape`, `CE_TabBarTabLabel`, `CE_ProgressBar*`, `CE_HeaderSection`, `CE_HeaderLabel`, `CE_MenuItem`, `CE_MenuBarItem`, `CE_MenuBarEmptyArea`, `CE_ComboBoxLabel`, `CE_ToolButtonLabel`, `CE_Splitter`, `CE_DockWidgetTitle`, `CE_ItemViewItem` |
+| `drawComplexControl()` | `CC_ComboBox`, `CC_SpinBox`, `CC_Slider`, `CC_ScrollBar`, `CC_GroupBox` |
+| `sizeFromContents()` | `CT_PushButton`, `CT_LineEdit`, `CT_ComboBox`, `CT_SpinBox`, `CT_TabBarTab` |
+| `subControlRect()` | `CC_SpinBox`, `CC_ComboBox`, `CC_GroupBox` |
+| `subElementRect()` | `SE_LineEditContents` |
+| `pixelMetric()` | Margins, frame widths, scroll bar extent, slider dimensions, layout spacing, toolbar metrics, splitter width, indicator sizes |
+| `styleHint()` | Tooltip delay, etch-disabled-text, item-view decoration |
+| `standardIcon()` | Maps Qt standard pixmaps to themed SVG icons from `IconManager` |
+| `polish()` | Sets `WA_Hover` on interactive widgets, applies palette colors to `QLabel`, configures `QDialogButtonBox` roles/icons, normalizes layout spacing to tokens, promotes process-shell frames |
+
+### PainterGuard Pattern
+
+All drawing methods use `an::ui::PainterGuard` (`theme/PainterGuard.h`). It calls `QPainter::save()` when
+constructed and `restore()` when destroyed, ignores a null painter, and cannot be copied. Code outside the style
+includes the same header.
+```cpp
+#include "theme/PainterGuard.h"
+
+// Usage in every draw method:
+void AnProxyStyle::drawSomething(...) const {
+    const PainterGuard guard(painter);
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    // ... paint using m_tokens->colors, m_tokens->radius, etc.
+}
+```
+
+### State Helper Functions
+
+```cpp
+bool isHovered(const QStyleOption* opt);   // State_MouseOver && State_Enabled
+bool isPressed(const QStyleOption* opt);   // State_Sunken && State_Enabled
+bool isFocused(const QStyleOption* opt);   // State_HasFocus && State_Enabled
+bool isEnabled(const QStyleOption* opt);   // State_Enabled
+bool isSelected(const QStyleOption* opt);  // State_Selected
+bool isChecked(const QStyleOption* opt);   // State_On
+```
+
+---
+
+## KDDockWidgets Style (`KddwProxyStyle`)
+
+A secondary `QProxyStyle` installed specifically on the KDDockWidgets main window. It intercepts paint calls for KDDW-specific widgets (title bars, dock tabs, separators, group frames, title-bar buttons) and renders them with design tokens.
+
+```cpp
+auto* kddwStyle = an::ui::installKddwProxyStyle(dockMainWindow);
+// On theme change:
+kddwStyle->refreshThemeTokens();
+```
+
+It uses `isKddwWidget()` ancestry checks to determine whether a widget belongs to the KDDW subsystem, and delegates everything else to the base proxy chain.
+
+---
+
+## Layout Utilities (`AnLayoutUtils`)
+
+Header-only (`components/AnLayoutUtils.h`). Provides:
+
+### `normalizeSpacingValueToTokens(int value, SpacingTokens)`
+Maps hardcoded spacing values to the nearest design token:
+```
+4       → spacing.xs
+6-9     → spacing.sm
+10-13   → spacing.md
+14-18   → spacing.lg
+20-24   → spacing.xl
+```
+
+### `normalizeLayoutSpacingToTokens(QLayout*, SpacingTokens)`
+Recursively walks a layout tree and normalizes all spacing and margins to design tokens. **Called automatically by `AnProxyStyle::polish()`** on every widget's root layout.
+
+Layouts can opt out with dynamic properties:
+- `anKeepLayoutSpacing` — skip spacing normalization
+- `anKeepLayoutMargins` / `anKeepPreviewLayoutMargins` — skip margin normalization
+
+### `reparentLayoutWidgets(QLayout*, QWidget*)`
+Utility for reassigning widget parents when transferring layouts.
+
+---
+
+## Animation Utilities (`AnimationUtils`)
+
+Header-only global toggle for all UI animations (accessibility support):
+
+```cpp
+#include "theme/AnimationUtils.h"
+
+// Gate every animation:
+m_animation->setDuration(an::ui::AnimationUtils::duration(170));
+
+// Check before complex animation setup:
+if (!an::ui::AnimationUtils::animationsEnabled()) {
+    applyInstantly();
+    return;
+}
+```
+
+Every animated component **must** use `AnimationUtils::duration()` instead of hardcoded durations. This ensures the global "Disable animations" preference is respected.
+
+---
+
+## Icon Management (`IconManager`)
+
+SVG icons are loaded and colorized at startup per the current theme tokens:
+
+```cpp
+IconManager iconMgr;
+iconMgr.setColors(tokens.colors.textPrimary, tokens.colors.textTertiary);
+iconMgr.setSemanticColors(
+    tokens.colors.statusInfo,
+    tokens.colors.statusWarning,
+    tokens.colors.statusError,
+    /* question */ tokens.colors.textPrimary,
+    tokens.colors.statusSuccess);
+iconMgr.loadIcons(":/AfterNight/icons/SVG/");
+```
+
+Icons named `info`, `warning`, `priority_high`, `help` automatically receive their semantic color. All other icons get the normal text color.
+
+The `AnProxyStyle::standardIcon()` override maps Qt's `SP_*` standard pixmaps to icons from `IconManager`, so system dialogs (file dialogs, message boxes) display themed icons.
+
+---
+
+## Semantic Color Bridge (`UiStyleTokens`)
+
+`app/UiStyleTokens.h` provides palette-based utilities for code that doesn't directly include theme headers:
+
+```cpp
+#include "app/UiStyleTokens.h"
+
+// Determine theme variant from a widget's palette
+bool dark = an::ui::styling::isDarkPalette(widget->palette());
+
+// Get a semantic color against a specific palette
+QColor bg = an::ui::styling::semanticColor(widget->palette(),
+    an::ui::SemanticColorRole::SuccessBackground);
+```
+
+---
+
+## Reusable Components (`components/`)
+
+The `components/` directory contains pre-themed composite widgets that follow all theme rules. **Prefer reusing these** over creating one-off widgets:
+
+| Component | Purpose |
+|---|---|
+| `AnButtonGroup` | Grouped exclusive/non-exclusive button set |
+| `AnCardWidget` | Elevated card with rounded corners, drop shadow, border tint |
+| `AnCollapsibleSection` | Expandable/collapsible section with smooth animation |
+| `AnInfoBanner` | Status-toned info/warning/error banner |
+| `AnInputField` | Labeled input with validation styling |
+| `AnProgressCard` | Card with embedded progress bar and status |
+| `AnSectionHeader` | Section heading with optional action widgets |
+| `AnSliderControl` | Labeled slider with value display |
+| `AnStatusBadge` | Colored status indicator chip |
+| `AnStyledTable` | Pre-themed `QTableWidget`: row selection, alternating rows, token palette and header font; `refreshTheme()` re-applies them |
+
+All components use `paintEvent()` with design tokens for custom drawing, and standard Qt widgets (via proxy style) for embedded controls.
+
+---
+
+## ABSOLUTE RULES — What Is Forbidden
+
+### 1. QSS / `setStyleSheet()` Is FORBIDDEN
+
+**Never use `setStyleSheet()`, `QWidget::setStyleSheet()`, or any form of Qt Style Sheets (QSS).**
+
+Reasons:
+- QSS is parsed and selector-matched at every paint event — significant performance cost.
+- QSS overrides `QProxyStyle` rendering unpredictably, breaking the token-driven pipeline.
+- QSS strings are opaque to the compiler, lose type safety, and are impossible to validate at build time.
+- QSS does not participate in the token resolution pipeline (contrast profiles, accent families, surface tints).
+
+**No code under `src/` calls `setStyleSheet()`, and the process-window tests assert that a window and its children carry no style sheet (`expectNoStyleSheet` in `src/AfterNightTests/Test_ProcessFramework/ProcessWindowCaseSupport.h`). Meet a styling need with an `AnProxyStyle` override or a custom `paintEvent()`.**
+
+### 2. No Hardcoded Colors
+
+**Never write literal color values** (hex, RGB, or named constants) in widget code. Always reference design tokens:
+
+```cpp
+// ❌ WRONG
+painter->setPen(QColor(96, 165, 250));
+label->setStyleSheet("color: #60A5FA;");
+
+// ✅ CORRECT
+const auto& c = an::ui::tokens().colors;
+painter->setPen(c.accentPrimary);
+```
+
+### 3. No Hardcoded Spacing or Radii
+
+**Always use `SpacingTokens` and `RadiusTokens`:**
+
+```cpp
+// ❌ WRONG
+layout->setContentsMargins(12, 12, 12, 12);
+painter->drawRoundedRect(rect, 4, 4);
+
+// ✅ CORRECT
+const auto& t = an::ui::tokens();
+layout->setContentsMargins(t.spacing.md, t.spacing.md, t.spacing.md, t.spacing.md);
+painter->drawRoundedRect(rect, t.radius.sm, t.radius.sm);
+```
+
+### 4. No Direct Font Construction for UI Text
+
+**Use `TypographyTokens`** for all fonts:
+
+```cpp
+// ❌ WRONG
+label->setFont(QFont("Arial", 14, QFont::Bold));
+
+// ✅ CORRECT
+label->setFont(an::ui::tokens().typography.heading2);
+```
+
+### 5. No Animations Without `AnimationUtils`
+
+```cpp
+// ❌ WRONG
+animation->setDuration(200);
+
+// ✅ CORRECT
+animation->setDuration(an::ui::AnimationUtils::duration(200));
+```
+
+---
+
+## How to Style a New Widget or Control
+
+### Decision: AnProxyStyle Override vs. Custom `paintEvent()`
+
+| Use `AnProxyStyle` override | Use custom `paintEvent()` |
+|---|---|
+| Standard Qt widget (QPushButton, QComboBox, etc.) | Composite widget with unique visual structure |
+| The widget already has a `PrimitiveElement`, `ControlElement`, or `ComplexControl` enum | No existing Qt style element matches the widget |
+| You want Fusion fallback for states you don't handle | Full control over every pixel is needed |
+| The widget appears in many places with the same look | The widget is a one-of-a-kind composite |
+
+### Path A: Adding to AnProxyStyle
+
+1. **Identify the correct override point** — is it a primitive (`drawPrimitive`), a control (`drawControl`), a complex control (`drawComplexControl`), or a size/metric override?
+
+2. **Add a private helper method** to `AnProxyStyle`:
+   ```cpp
+   // In AnProxyStyle.h:
+   void drawMyWidget(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
+   ```
+
+3. **Implement the helper** using the established pattern:
+   ```cpp
+   void AnProxyStyle::drawMyWidget(const QStyleOption* option,
+                                    QPainter* painter,
+                                    const QWidget* widget) const
+   {
+       const PainterGuard guard(painter);
+       painter->setRenderHint(QPainter::Antialiasing, true);
+
+       const auto& c = m_tokens->colors;
+       const auto r = m_tokens->radius.sm;
+
+       // Determine state
+       const bool enabled = isEnabled(option);
+       const bool hovered = isHovered(option);
+       const bool pressed = isPressed(option);
+
+       // Compute colors based on state
+       QColor bgColor = enabled ? c.bgCard : c.bgSurface;
+       QColor borderColor = hovered ? c.borderFocus : c.borderSubtle;
+
+       // Draw
+       painter->setPen(QPen(borderColor, 1));
+       painter->setBrush(bgColor);
+       const QRectF rect = QRectF(option->rect).adjusted(0.5, 0.5, -0.5, -0.5);
+       painter->drawRoundedRect(rect, r, r);
+   }
+   ```
+
+4. **Wire the dispatch** in the appropriate switch statement:
+   ```cpp
+   case PE_MyElement:
+       drawMyWidget(option, painter, widget);
+       return;
+   ```
+
+5. **Add `polish()` setup** if the widget needs hover tracking or palette adjustments.
+
+### Path B: Using Dynamic Properties for Variants
+
+When the same widget type needs different visual treatments, use Qt dynamic properties instead of subclassing:
+
+```cpp
+// In widget setup code:
+button->setProperty("anButtonVariant", "primary");
+button->setProperty("anProcessButtonRole", "danger");
+frame->setProperty("anFrameRadius", tokens().radius.md);
+progressBar->setProperty("anUsageTone", "high");
+label->setProperty("anStatusTone", "success");
+```
+
+The proxy style checks these properties:
+```cpp
+const bool isPrimary = hasProperty(widget, "anButtonVariant", "primary");
+```
+
+Naming convention for custom properties: **`an` prefix + PascalCase descriptor** (e.g., `anStatusTone`, `anFrameRadius`, `anSplitterVariant`).
+
+---
+
+## Custom Widget with `paintEvent()` — Step by Step
+
+Use this approach for widgets that don't map to standard Qt style elements.
+
+### Template
+
+```cpp
+#pragma once
+
+#include <QWidget>
+
+#include <verdigris/wobjectdefs.h>
+
+namespace an::ui {
+
+struct DesignTokens;
+
+class MyCustomWidget : public QWidget
+{
+    W_OBJECT(MyCustomWidget)
+
+public:
+    explicit MyCustomWidget(QWidget* parent = nullptr);
+
+protected:
+    void paintEvent(QPaintEvent* event) override;
+
+private:
+    // No m_tokens pointer needed — call an::ui::tokens() directly
+};
+
+} // namespace an::ui
+```
+
+```cpp
+#include "stdafx.hpp"
+#include "MyCustomWidget.h"
+
+#include "theme/AnDesignTokens.h"
+
+#include <QPainter>
+#include <QPaintEvent>
+
+#include <verdigris/wobjectimpl.h>
+
+W_OBJECT_IMPL(an::ui::MyCustomWidget)
+
+namespace an::ui {
+
+MyCustomWidget::MyCustomWidget(QWidget* parent)
+    : QWidget(parent)
+{
+    // Enable styled background if needed
+    setAttribute(Qt::WA_StyledBackground, true);
+
+    // Use size policy for responsive layouts
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+}
+
+void MyCustomWidget::paintEvent(QPaintEvent* /*event*/)
+{
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    const auto& t = an::ui::tokens();
+    const auto& c = t.colors;
+
+    // Background
+    const QRectF bounds = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+    painter.setPen(QPen(c.borderPrimary, 1));
+    painter.setBrush(c.bgCard);
+    painter.drawRoundedRect(bounds, t.radius.md, t.radius.md);
+
+    // Text
+    painter.setPen(c.textPrimary);
+    painter.setFont(t.typography.body);
+    painter.drawText(bounds.adjusted(t.spacing.md, t.spacing.sm, -t.spacing.md, -t.spacing.sm),
+                     Qt::AlignVCenter | Qt::AlignLeft, tr("My Widget"));
+}
+
+} // namespace an::ui
+```
+
+### Key Practices
+
+1. **Always call `an::ui::tokens()`** inside `paintEvent()` (not cached in constructor) so the widget automatically picks up theme changes.
+2. **Use `QRectF` adjusted by 0.5px** for anti-aliased borders so pen strokes don't exceed widget bounds.
+3. **Enable `Qt::WA_StyledBackground`** if you want the widget to participate in palette-based background filling.
+4. **Handle disabled state:** Check `isEnabled()` and use `textTertiary` / `bgSurface` colors accordingly.
+5. **Respect surface tints** for card-like backgrounds:
+   ```cpp
+   QColor bg = c.bgCard;
+   if (c.cardSurfaceTint.isValid()) {
+       const bool dark = an::ui::isDarkTheme();
+       bg = blendRgb(bg, c.cardSurfaceTint, dark ? 0.52 : 0.40);
+       if (dark) bg = blendRgb(bg, QColor(0, 0, 0), 0.22);
+   }
+   ```
+
+---
+
+## Dynamic Properties for Variant Styling
+
+The proxy style uses dynamic properties to differentiate visual variants without subclassing:
+
+### Button Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `buttonVariant` | `"primary"` | Accent-colored button |
+| `anButtonVariant` | `"primary"` | Same as above (preferred prefix) |
+| `anProcessButtonRole` | `"primary"`, `"secondary"`, `"neutral"`, `"danger"` | Dialog/process button roles (set automatically on `QDialogButtonBox`) |
+
+### Frame / Card Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `anFrameRadius` | integer (e.g., `8`) | Generic rounded card via `PE_Frame` |
+| `anFrameBorderDashed` | `true` | Dashed border style |
+
+### Label Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `anStatusTone` | `"success"`, `"warning"`, `"error"`, `"secondary"` | Semantic text color + DemiBold |
+
+### ProgressBar Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `anUsageTone` | `"high"`, `"medium"`, `"low"` | Chunk color: error/warning/success |
+
+### Splitter Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `anSplitterVariant` | `"process"` | Wider handle (8px) with groove indicator |
+
+### Tab Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `anTabCompact` | `true` | Reduced vertical padding |
+| `anTabHeightScale` | `double` (e.g., `0.8`) | Scale tab height |
+| `anTabMinWidth` | integer | Minimum tab width |
+| `anTabMinHeight` | integer | Minimum tab height |
+| `anTabAccentLinePosition` | `"top"` | Place accent line on top instead of bottom |
+| `forceUnselected` | `true` | Visually de-select all tabs (KDDW) |
+
+### Toolbar Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `anUseCardBackground` | `true` | Use acrylic surface + tint instead of solid |
+
+### Context Message Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `anContextMessageTone` | `"info"`, `"warning"`, `"error"` | Border color tone |
+
+### Banner, Group Box and Combo Box Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `anProcessMessageTone` | `"info"`, `"warning"`, `"error"` | Border tone of an `anProcessShellBanner` |
+| `anGroupVariant` | `"flat"` | Flat (process-shell) group box, as `QGroupBox::isFlat()` |
+| `anComboPopupAnchored` | `"true"` | Drop-down list opens below the combo box (`SH_ComboBox_Popup` = 0) |
+
+### Layout Opt-Out Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `anKeepLayoutSpacing` | `true` | Skip spacing normalization |
+| `anKeepLayoutMargins` | `true` | Skip margin normalization |
+| `anKeepPreviewLayoutMargins` | `true` | Skip margin normalization (preview layouts) |
+
+### Named Object Identifiers
+
+Some widgets are identified by `objectName()` for specific styling:
+
+| Object Name | Applied To | Effect |
+|---|---|---|
+| `anProcessShellCard` | `QFrame` | Elevated card with surface tint, rounded `radius.lg` |
+| `anProcessShellBanner` | `QWidget`/`QFrame` | Status-toned banner |
+| `anProcessShellHeaderTitle` | `QLabel` | `heading1` font |
+| `anProcessShellHeaderDescription` | `QLabel` | `textSecondary` color, `body` font |
+| `anProcessShellBannerMessage` | `QLabel` | `body` font |
+| `anContextMessage` | `QFrame` | Generic semantically-toned info card |
+| `anMessageBox` | `QMessageBox` | Styled message box variant |
+
+---
+
+## Theme Switching & Refresh Flow
+
+```
+Settings applies contrast/accent/tint (set*()) and the theme
+       ▼
+ThemeManager::applyTheme(themeId)              (app/ThemeManager.cpp)
+  ├─ setThemePreference(...) → refreshTokens() → publishResolvedTokenSnapshot()
+  ├─ installedAnProxyStyle()->refreshThemeTokens()
+  │     refreshTokens(); re-reads tokens(); app palette via setupPalette(); polish()+update() every widget
+  ├─ installedKddwProxyStyle()->refreshThemeTokens()
+  │     re-reads tokens(); dock-window palette; polish()+update() its children
+  ├─ clears the KDDW view factory's icon cache
+  ├─ loadIcons(): IconManager recoloured from the new tokens; action icons reset
+  └─ refreshCascade(): dashboard, image views, dock tabs/stacks, open processes; native backdrop
+```
+
+The same flow applies for accent family, contrast profile, and surface tint changes. Each `set*()` function calls `refreshTokens()` internally.
+
+### Environment Variable
+
+Set `AN_THEME_TOKEN_DEBUG_DUMP=1` to log the resolved token values each time the tokens are resolved, once the logger is initialized, in any build configuration.
+
+---
+
+## Responsiveness & Resolution Policy
+
+### Target Resolutions
+
+| Resolution | Status | Priority |
+|---|---|---|
+| **1080p** (1920×1080) | **Must work perfectly** | Primary target |
+| **1440p** (2560×1440) | Should work well | Secondary |
+| **4K** (3840×2160) with scaling | Should work well | Secondary |
+| **720p** (1280×720) | **Best effort** — must remain usable | Tertiary |
+
+### Principles
+
+1. **Use Qt layout managers exclusively.** Never use absolute positioning (`setGeometry()`, `move()`) for layout. Use `QVBoxLayout`, `QHBoxLayout`, `QGridLayout`, `QFormLayout`, and `QStackedLayout`.
+
+2. **Set appropriate size policies.** Every custom widget must declare a meaningful `QSizePolicy`:
+   ```cpp
+   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+   ```
+
+3. **Use `minimumSize()` / `minimumSizeHint()` conservatively.** Keep minimum sizes small enough that the UI remains usable at 720p. Prefer `setMinimumWidth()/setMinimumHeight()` over `setFixedSize()`.
+
+4. **Avoid fixed sizes.** Use `setMinimumSize()` and `setMaximumSize()` to constrain rather than `setFixedSize()`. Fixed-size widgets break responsiveness.
+
+5. **Use stretch factors** in layouts for proportional resizing:
+   ```cpp
+   layout->addWidget(sidebar, 1);     // 25% of space
+   layout->addWidget(content, 3);     // 75% of space
+   ```
+
+6. **Use `QSplitter`** for user-resizable panel divisions. Set minimum sizes on child widgets to prevent collapse below usable dimensions.
+
+7. **Elide text** when space is constrained:
+   ```cpp
+   const QString elided = fontMetrics().elidedText(text, Qt::ElideMiddle,
+       (std::max)(0, availableWidth));
+   ```
+
+8. **Use scroll areas** for content that may overflow at low resolutions:
+   ```cpp
+   auto* scroll = new QScrollArea(this);
+   scroll->setWidgetResizable(true);
+   scroll->setWidget(contentWidget);
+   ```
+
+9. **Spacing tokens are your friend.** The token values (4/8/12/16/24px) are designed to work at 1080p. At 720p, the automatic layout normalization keeps spacing consistent and compact.
+
+10. **Test at 1080p AND 720p.** Before submitting UI changes, resize the window to approximately 1280×720 and verify everything is still usable — controls reachable, text readable, no overlapping elements.
+
+### Size Guidelines for 720p Compatibility
+
+| Element | Maximum recommended minimum size |
+|---|---|
+| Dialogs | 640×400 (avoid larger minimums) |
+| Sidebar panels | 200px minimum width |
+| Toolbar height | 32-36px |
+| Button minimum width | 70px (standard), 90px (dialog) |
+| Input field minimum height | 24px |
+| Tab bar tab | No fixed minimum (use `sizeFromContents`) |
+
+### What NOT to Do
+
+```cpp
+// ❌ WRONG: Fixed size breaks responsive layout
+widget->setFixedSize(400, 300);
+
+// ❌ WRONG: Absolute positioning
+widget->move(100, 200);
+widget->setGeometry(50, 50, 300, 200);
+
+// ❌ WRONG: Large minimum sizes that break at 720p
+dialog->setMinimumSize(1200, 800);
+
+// ✅ CORRECT: Flexible sizing
+widget->setMinimumSize(200, 150);
+widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+```
+
+---
+
+## Spacing, Radius, and Typography Token Reference
+
+### Spacing Usage Guide
+
+| Token | Value | When to Use |
+|---|---|---|
+| `xs` (4px) | Tight gaps: indicator-to-label, checkbox-to-text, inner padding |
+| `sm` (8px) | Default spacing between controls, horizontal padding in inputs, layout element spacing |
+| `md` (12px) | Layout margins, card internal padding, section separations |
+| `lg` (16px) | Tab horizontal padding, section headers, group box title horizontal offset |
+| `xl` (24px) | Dialog margins, large panel separations |
+
+### Radius Usage Guide
+
+| Token | Value | When to Use |
+|---|---|---|
+| `none` (0px) | Never use for interactive controls |
+| `sm` (4px) | Buttons, inputs, combo boxes, spin boxes, tabs, menus, line edits, tooltips, item views |
+| `md` (8px) | Group boxes, cards, banners |
+| `lg` (12px) | Process shell cards, elevated panels |
+| `xl` (14px) | Large overlay panels, prominent floating UI |
+
+### Typography Usage Guide
+
+| Token | When to Use |
+|---|---|
+| `heading1` | Page/process titles |
+| `heading2` | Section headings |
+| `heading3` | Subsection headings, header views |
+| `body` | All body text, default application font |
+| `caption` | Secondary info, timestamps, footnotes |
+| `monospace` | Code, paths, technical values |
+
+---
+
+## Color Token Reference
+
+### State-Based Color Selection
+
+The proxy style follows consistent patterns for widget states. Follow these when implementing new controls:
+
+| State | Background | Border | Text |
+|---|---|---|---|
+| **Normal** | `bgCard` / `bgInput` | `borderPrimary` / `borderSubtle` | `textPrimary` |
+| **Hover** | `bgCard` (border-only highlight) | `textAccent` | `textPrimary` |
+| **Pressed** | `bgCardSecondary` | `borderPrimary` | `textPrimary` |
+| **Focused** | (unchanged) | `borderFocus` | `textPrimary` |
+| **Disabled** | `bgSurface` / `bgCard` | `borderSubtle` | `textTertiary` |
+| **Selected** | `accentPrimary` (alpha-blended) | `borderFocus` | `textAccent` |
+
+### Primary (Accent) Button States
+
+| State | Background | Border | Text |
+|---|---|---|---|
+| Normal | `accentPrimary` | `accentPrimary` | `textOnAccent` |
+| Hover | `accentHover` | `accentHover` | `textOnAccent` |
+| Pressed | `accentPressed` | `accentPressed` | `textOnAccent` |
+| Disabled | Computed blend | Computed blend | Best-contrast auto |
+
+### Danger Button States
+
+| State | Background | Border | Text |
+|---|---|---|---|
+| Normal | `statusError` | `statusError` | Auto (white/black by contrast) |
+| Hover | `statusError.lighter(112)` | Same | Auto |
+| Pressed | `statusError.darker(112)` | Same | Auto |
+| Disabled | Computed blend | Computed blend | Best-contrast auto |
+
+---
+
+## Contrast Validation & Accessibility
+
+### WCAG Compliance
+
+In debug builds, the token resolution pipeline validates contrast ratios against WCAG 2.1 guidelines:
+
+| Pair | Minimum Ratio |
+|---|---|
+| `textPrimary` on `bgSurface` | 4.5:1 |
+| `textPrimary` on `bgCardPrimary` | 4.5:1 |
+| `textSecondary` on `bgSurface` | 3.0:1 |
+| `textSecondary` on `bgCardPrimary` | 3.0:1 |
+| `textAccent` on `bgSurface` | 3.0:1 |
+| `textOnAccent` on `accentPrimary` | 4.5:1 |
+| Status text on status background (all 4) | 3.0:1 |
+
+**`textOnAccent` is auto-computed** — white when white reaches 4.5:1 against `accentPrimary`, otherwise whichever of white and black contrasts more.
+
+### Best-Contrast Text Helper
+
+For situations where you need to pick the best text color against an arbitrary background, use `an::ui::bestContrastTextColor`, exported from `theme/AnDesignTokens.h` with `compositeOver` and `contrastRatio`:
+
+```cpp
+QColor textColor = bestContrastTextColor(
+    background,
+    preferred,     // try this first
+    fallbackA,     // if preferred fails minimum ratio
+    fallbackB,     // if fallbackA also fails
+    minimumRatio   // default 3.0
+);
+```
+
+---
+
+## Checklist for New Controls
+
+Before submitting a new control or widget, verify:
+
+- [ ] **No `setStyleSheet()` calls anywhere in the implementation**
+- [ ] **All colors from `an::ui::tokens().colors`** — no hardcoded hex/RGB values
+- [ ] **All spacing from `an::ui::tokens().spacing`** — no hardcoded pixel values (except for sub-pixel antialiasing adjustments like `0.5`)
+- [ ] **All radii from `an::ui::tokens().radius`**
+- [ ] **All fonts from `an::ui::tokens().typography`** — no `QFont` constructed with literal family/size
+- [ ] **Animations gated through `AnimationUtils::duration()`**
+- [ ] **Disabled state handled** — uses `textTertiary`, `bgSurface`, `borderSubtle`
+- [ ] **Hover state handled** (if interactive) — `WA_Hover` enabled
+- [ ] **Focus state handled** (if focusable) — uses `borderFocus`
+- [ ] **`QSizePolicy` set appropriately** — no `setFixedSize()` without strong justification
+- [ ] **Tested at 1080p resolution** — fully functional
+- [ ] **Tested at 720p resolution** — remains usable (no overflow, no inaccessible controls)
+- [ ] **Theme switch tested** — widget updates correctly when dark↔light is toggled
+- [ ] **Surface tint tested** — card backgrounds reflect the active tint family (if applicable)
+- [ ] **Accent family tested** — accent-colored elements reflect the active accent (if applicable)
+- [ ] **Contrast profiles tested** — widget remains readable in High and Soft profiles
+- [ ] **`PainterGuard` used** for all `QPainter::save()`/`restore()` cycles
+- [ ] **`QPainter::Antialiasing` enabled** for all rounded shapes
+
+---
+
+## Appendix: Helper Utilities Available in AnProxyStyle
+
+These helpers are file-local to `AnProxyStyle.cpp` and can be reused when adding new draw methods; outside the style use the exported `compositeOver`, `contrastRatio` and `bestContrastTextColor` from `theme/AnDesignTokens.h`:
+
+| Function | Purpose |
+|---|---|
+| `roundedRectPath(rect, radius)` | Creates a `QPainterPath` for a rounded rect |
+| `blendRgb(base, tint, ratio)` | Linear RGB blend (preserves base alpha) |
+| `compositeOver(foreground, background)` | Alpha-composite foreground over background |
+| `contrastRatio(a, b)` | WCAG relative luminance contrast ratio |
+| `bestContrastTextColor(bg, preferred, fallbackA, fallbackB, minRatio)` | Pick best contrast text |
+| `stripMnemonicMarkers(text)` | Remove `&` mnemonic markers from label text |
+| `hasProperty(widget, name, value)` | Check dynamic property string equality |
+| `hasParentProperty(widget, name, value)` | Walk ancestors checking dynamic property |
+| `intPropertyOrDefault(widget, name, default)` | Read integer property with fallback |
+| `colorizePixmap(source, color)` | Recolor a pixmap using `CompositionMode_SourceIn` |
+| `iconFromManager(iconName)` | Get a themed icon through `appContext()->getIconProvider()` |
+| `isHovered/isPressed/isFocused/isEnabled/isSelected/isChecked` | State flag checks |

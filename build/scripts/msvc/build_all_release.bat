@@ -1,0 +1,9 @@
+@echo off
+cd /d "%~dp0"
+
+REM You need to run this from a Visual Studio Developer Command Prompt (for msbuild.exe)
+call 01-create_project_files.bat
+call 02-install_msvc_deps.bat
+call 03a-build_3rdparty_libs_release.bat
+call 04a-deploy_deps_release.bat
+call 05a-build_afternight_release.bat

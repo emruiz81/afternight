@@ -1,0 +1,112 @@
+{
+ "format": 1,
+ "note": "Every place the runtime SDK contract the runtime module answers (runtime-bindings-current.json) differs from the recorded reference contract (runtime-bindings.json), by the path of the difference, with its class and its reason. RuntimeContractTest holds the two records to this register in both directions.",
+ "differences": [
+  {
+   "path": "contract.calls[image_from_numpy metadata].result",
+   "class": "intentional change",
+   "reason": "The metadata dictionary lists the cards the image carries. The structural cards a writer derives from the samples - SIMPLE, BITPIX, NAXISn, EXTEND, BZERO, BSCALE - describe a file rather than the image and are not listed; the reference lists the ones its header model initialized."
+  },
+  {
+   "path": "contract.calls[_RuntimeImage.set_metadata].result",
+   "class": "intentional change",
+   "reason": "As for image_from_numpy: the structural cards are not part of an image's metadata."
+  },
+  {
+   "path": "contract.calls[convert_pixel_type int8]",
+   "class": "precision change",
+   "reason": "A conversion rounds to the nearest code where the reference truncates toward zero; a signed integer is read and written as a fraction counted from its smallest code in both."
+  },
+  {
+   "path": "contract.calls[convert_pixel_type uint8]",
+   "class": "precision change",
+   "reason": "A conversion rounds to the nearest code where the reference truncates toward zero."
+  },
+  {
+   "path": "contract.calls[convert_pixel_type int16]",
+   "class": "precision change",
+   "reason": "A conversion rounds to the nearest code where the reference truncates toward zero; a signed integer is read and written as a fraction counted from its smallest code in both."
+  },
+  {
+   "path": "contract.calls[convert_pixel_type uint16]",
+   "class": "precision change",
+   "reason": "A conversion rounds to the nearest code where the reference truncates toward zero."
+  },
+  {
+   "path": "contract.calls[convert_pixel_type int32]",
+   "class": "defect repair",
+   "reason": "The 32-bit conversion scales in double precision and saturates: a sample at or above full scale is the largest code and one below zero the smallest, where the reference's single-precision scale lands up to 128 codes away and wraps a full-scale sample to the lowest code."
+  },
+  {
+   "path": "contract.calls[convert_pixel_type uint32]",
+   "class": "defect repair",
+   "reason": "As for int32: double-precision scaling, and a sample above full scale saturates to the largest code where the reference wraps it to zero."
+  },
+  {
+   "path": "contract.calls[apply_linear_transform defaults]",
+   "class": "precision change",
+   "reason": "The source is converted to the destination's representation rounding to the nearest code, where the reference truncates."
+  },
+  {
+   "path": "contract.calls[apply_linear_transform scale 2 offset 0.1]",
+   "class": "precision change",
+   "reason": "As for the defaults: the conversion before the transform rounds to the nearest code."
+  },
+  {
+   "path": "contract.calls[load_image .png]",
+   "class": "precision change",
+   "reason": "A Float32 image written to PNG is converted to sixteen bits rounding to the nearest code, where the reference truncates."
+  },
+  {
+   "path": "contract.calls[load_image refuses a missing file]",
+   "class": "representation change",
+   "reason": "The refusal names the binding, the path and the engine's reason; the reference passes CFITSIO's own text through. The exception is RuntimeError in both."
+  },
+  {
+   "path": "contract.calls[find_stars defaults].result",
+   "class": "algorithm change",
+   "reason": "The stars are the engine's detector's: each star reports its signal-to-noise ratio, which the reference's finder leaves at zero on this path, and the two saturated stars are fitted on a box one sample smaller, which moves their fitted figures; the unsaturated stars agree to within a few parts in a million."
+  },
+  {
+   "path": "contract.calls[find_stars max_stars 3].result",
+   "class": "algorithm change",
+   "reason": "As for the defaults."
+  },
+  {
+   "path": "contract.calls[richardson_lucy_star_deconvolution defaults].result",
+   "class": "algorithm change",
+   "reason": "The PSF is composed from the engine's star fits, whose saturated stars differ as find_stars records; the deconvolved samples move by a few parts in a hundred thousand."
+  },
+  {
+   "path": "contract.calls[register_sequence_paths defaults].result.frames[0].registration",
+   "class": "algorithm change",
+   "reason": "The reference frame's star figures are the engine's detector's."
+  },
+  {
+   "path": "contract.calls[register_sequence_paths defaults].result.frames[1].registration",
+   "class": "algorithm change",
+   "reason": "The frame's star figures are the engine's detector's."
+  },
+  {
+   "path": "contract.calls[register_sequence_paths defaults].result.frames[2].registration",
+   "class": "algorithm change",
+   "reason": "The frame's star figures are the engine's detector's."
+  },
+  {
+   "path": "contract.calls[register_sequence_paths defaults].result.frames[1].error_message",
+   "class": "defect repair",
+   "reason": "The frame fails to register in both records: its five detected stars give fewer matched pairs than the transform needs. The message states that reason; the reference reports every frame the registration failed as \"Failed to load image metadata\", a failure that did not happen."
+  },
+  {
+   "path": "contract.calls[register_sequence_paths defaults].result.frames[2].error_message",
+   "class": "defect repair",
+   "reason": "As for frame 1."
+  },
+  {
+   "path": "contract.package_signatures",
+   "exact": true,
+   "class": "representation change",
+   "reason": "The record also states the signatures of the sequence helpers, of the extension base classes' public methods and of the protocol-side modules every host serves - afternight.lite, afternight.protocol, afternight.ui and afternight.ui_protocol, their properties read through their getters - which the behaviour matrix holds their keywords to; the signatures both records state are unchanged."
+  }
+ ]
+}

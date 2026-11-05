@@ -1,0 +1,195 @@
+name: Cache Linux Dependencies
+
+on:
+  workflow_call:
+    inputs:
+      variant:
+        description: 'Distinguishes two callers of this workflow inside one workflow run'
+        required: false
+        default: ''
+        type: string
+    outputs:
+      vcpkg_key:
+        description: 'The key the installed vcpkg ports are cached under'
+        value: ${{ jobs.cache.outputs.vcpkg_key }}
+      kddockwidgets_key:
+        description: 'The key the KDDockWidgets build is cached under'
+        value: ${{ jobs.cache.outputs.kddockwidgets_key }}
+      openxisf_key:
+        description: 'The key the OpenXISF build is cached under'
+        value: ${{ jobs.cache.outputs.openxisf_key }}
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Distinguishes two callers of this workflow inside one workflow run'
+        required: false
+        default: ''
+        type: string
+  # Weekly, so the caches every pull request restores are touched before the seven days without access that evict
+  # them, and a cache whose key moved is rebuilt on main before a pull request needs it.
+  schedule:
+    - cron: '23 3 * * 1'
+
+# The caches are written with the runner's own cache token, not the repository token, which only reads.
+permissions:
+  contents: read
+
+env:
+  # Keep in sync with .github/workflows/build-linux.yml
+  QT_VERSION: "6.10.3"
+  PYTHON_VERSION: "3.14.7"
+  PYTHON_BUILD_DATE: "20260814"
+
+# Keyed by the caller, the caller's variant and the ref. A reusable workflow inherits the caller's
+# context, so with the ref alone two workflows triggered by one pull request land in the same group
+# and the second cancels the first.
+#
+# The workflow name alone is not enough either, and that cost real coverage rather than a rerun: one
+# workflow may call this twice in a single run, and then both calls carry the same name and the same
+# ref, so the second cancels the first *within one run*. A sanitizer workflow that ran two
+# configurations as two calls once lost one that way on every push: whichever cache job started later
+# cancelled the other, which cancelled the sanitizer job waiting on it, and the run reported cancelled
+# rather than failed. The variant is what tells two calls of one workflow apart; redundant runs of the
+# same workflow and variant on a ref are still cancelled.
+concurrency:
+  group: cache-linux-deps-${{ github.workflow }}-${{ inputs.variant }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# A pull request restores what main saved, and saves a tree only when its key missed - when the pull request moved
+# it, by changing a script, a pin or a version the key is made of. Its build job is on another runner and receives the
+# tree through the cache alone, restoring it with fail-on-cache-miss, so without the save that pull request could never
+# pass. A cache a pull request saves is scoped to it, its own later jobs and re-runs; an ordinary pull request saves
+# nothing, so main's caches keep the repository's quota.
+jobs:
+  cache:
+    # The distribution the Linux build is validated on.
+    runs-on: ubuntu-26.04
+    outputs:
+      vcpkg_key: ${{ steps.keys.outputs.vcpkg }}
+      kddockwidgets_key: ${{ steps.keys.outputs.kddockwidgets }}
+      openxisf_key: ${{ steps.keys.outputs.openxisf }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      # What is installed is decided by the runner image, the vcpkg checkout the repository pins, the install
+      # scripts and the overlay ports and triplets, so the key is made of exactly those: a change to any of them
+      # installs afresh instead of restoring a tree that no longer matches the scripts. KDDockWidgets is built by
+      # the image's compiler from the submodule's commit, by the script and the run-path editor named in its key.
+      # OpenXISF is built by its script, which pins the release, against the archives the vcpkg key names, so its key
+      # is the script's and the vcpkg key's.
+      - name: Compute the cache keys
+        id: keys
+        run: |
+          vcpkg_key="vcpkg-${ImageOS}-x64-linux-$(git rev-parse HEAD:vcpkg)-${{ hashFiles('build/scripts/linux/02-install_linux_deps.sh', 'build/scripts/linux/install_raw_deps.sh', 'build/scripts/linux/vcpkg/**', 'build/vcpkg/**') }}"
+          echo "vcpkg=$vcpkg_key" >> "$GITHUB_OUTPUT"
+          echo "openxisf=openxisf-release-${{ hashFiles('build/scripts/linux/_build_openxisf.sh') }}-$vcpkg_key" >> "$GITHUB_OUTPUT"
+          echo "kddockwidgets=kddockwidgets-${ImageOS}-release-${QT_VERSION}-$(git rev-parse HEAD:kddockwidgets)-${{ hashFiles('build/scripts/linux/_build_kddockwidgets.sh', 'build/scripts/linux/set_run_path.cmake') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Qt cache
+        id: cache-qt
+        uses: actions/cache/restore@v5
+        with:
+          path: Qt6
+          key: qt-linux-${{ env.QT_VERSION }}-clang-linux_gcc_64-v1
+
+      - name: Restore Embedded Python cache
+        id: cache-python
+        uses: actions/cache/restore@v5
+        with:
+          path: python/python/tools_linux
+          key: python-linux-${{ env.PYTHON_VERSION }}-${{ env.PYTHON_BUILD_DATE }}-${{ hashFiles('build/scripts/python/**') }}
+
+      - name: Restore vcpkg installed packages cache
+        id: cache-vcpkg
+        uses: actions/cache/restore@v5
+        with:
+          path: vcpkg/installed
+          key: ${{ steps.keys.outputs.vcpkg }}
+
+      - name: Restore KDDockWidgets cache
+        id: cache-kddockwidgets
+        uses: actions/cache/restore@v5
+        with:
+          path: kddockwidgets/build-clang-install
+          key: ${{ steps.keys.outputs.kddockwidgets }}
+
+      - name: Restore OpenXISF cache
+        id: cache-openxisf
+        uses: actions/cache/restore@v5
+        with:
+          path: openxisf/build-clang-install
+          key: ${{ steps.keys.outputs.openxisf }}
+
+      # The distribution packages, exactly as a development machine installs them; anything rebuilt below needs them.
+      - name: Install system dependencies
+        if: steps.cache-qt.outputs.cache-hit != 'true' || steps.cache-python.outputs.cache-hit != 'true' || steps.cache-vcpkg.outputs.cache-hit != 'true' || steps.cache-kddockwidgets.outputs.cache-hit != 'true' || steps.cache-openxisf.outputs.cache-hit != 'true'
+        run: build/scripts/linux/02-install_linux_deps.sh system
+
+      - name: Install Qt
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/aqt"
+          "$RUNNER_TEMP/aqt/bin/python" -m pip install aqtinstall
+          "$RUNNER_TEMP/aqt/bin/python" -m aqt install-qt linux desktop ${{ env.QT_VERSION }} linux_gcc_64 -O Qt6
+
+      - name: Save Qt cache
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: Qt6
+          key: qt-linux-${{ env.QT_VERSION }}-clang-linux_gcc_64-v1
+
+      - name: Install Embedded Python
+        if: steps.cache-python.outputs.cache-hit != 'true'
+        run: |
+          cd build/scripts/python
+          ./setup_python_linux.sh
+
+      - name: Save Embedded Python cache
+        if: steps.cache-python.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: python/python/tools_linux
+          key: python-linux-${{ env.PYTHON_VERSION }}-${{ env.PYTHON_BUILD_DATE }}-${{ hashFiles('build/scripts/python/**') }}
+
+      # The ports and the private RAW packages, exactly as a development machine installs them.
+      - name: Install vcpkg packages
+        if: steps.cache-vcpkg.outputs.cache-hit != 'true'
+        run: build/scripts/linux/02-install_linux_deps.sh vcpkg
+
+      - name: Save vcpkg installed packages cache
+        if: steps.cache-vcpkg.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: vcpkg/installed
+          key: ${{ steps.keys.outputs.vcpkg }}
+
+      # OpenXISF from its published release, against the vcpkg archives restored or installed above.
+      - name: Build OpenXISF (release-only)
+        if: steps.cache-openxisf.outputs.cache-hit != 'true'
+        run: build/scripts/linux/_build_openxisf.sh release
+
+      - name: Save OpenXISF cache
+        if: steps.cache-openxisf.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: openxisf/build-clang-install
+          key: ${{ steps.keys.outputs.openxisf }}
+
+      # The build a development machine makes, release only: KDAB's CMake installs each library with the runner's Qt
+      # directory in its run path, which the script sets to $ORIGIN/../lib alone, so the AppImage names no directory of
+      # the runner.
+      - name: Build KDDockWidgets (release-only)
+        if: steps.cache-kddockwidgets.outputs.cache-hit != 'true'
+        run: build/scripts/linux/_build_kddockwidgets.sh release
+
+      - name: Save KDDockWidgets cache
+        if: steps.cache-kddockwidgets.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: kddockwidgets/build-clang-install
+          key: ${{ steps.keys.outputs.kddockwidgets }}

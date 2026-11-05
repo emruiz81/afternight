@@ -1,0 +1,1358 @@
+{
+    "contract": {
+        "calls": [
+            {
+                "call": "sidecar.solved-grey",
+                "result": {
+                    "descriptor": {
+                        "access_mode": "read_write",
+                        "buffer_role": "source",
+                        "byte_size": 192,
+                        "channels": 1,
+                        "color_space": "grayscale",
+                        "height": 6,
+                        "pixel_format": "mono",
+                        "pixel_type": "float32",
+                        "plane_stride": 192,
+                        "row_stride": 32,
+                        "symbolic_name": "source",
+                        "width": 8
+                    },
+                    "sidecar": {
+                        "A_0_2": "1.5E-07",
+                        "A_1_1": "-2.0E-07",
+                        "A_2_0": "3.0E-07",
+                        "A_ORDER": "2",
+                        "BITPIX": "-32",
+                        "BSCALE": "1.0",
+                        "BZERO": "0.0",
+                        "B_0_2": "-1.0E-07",
+                        "B_1_1": "2.5E-07",
+                        "B_2_0": "1.0E-07",
+                        "B_ORDER": "2",
+                        "CD1_1": "-2.777777777E-04",
+                        "CD1_2": "1.0E-06",
+                        "CD2_1": "-1.0E-06",
+                        "CD2_2": "2.777777777E-04",
+                        "CRPIX1": "4.5",
+                        "CRPIX2": "3.5",
+                        "CRVAL1": "210.123456",
+                        "CRVAL2": "-12.25",
+                        "CTYPE1": "'RA---TAN-SIP'",
+                        "CTYPE2": "'DEC--TAN-SIP'",
+                        "EQUINOX": "2000.0",
+                        "EXPTIME": "120.0",
+                        "FILENAME": "sidecar-solved-grey.fits",
+                        "FILTER": "'L       '",
+                        "GAIN": "100",
+                        "NAXIS": "2",
+                        "NAXIS1": "8",
+                        "NAXIS2": "6",
+                        "NAXIS3": "1",
+                        "OBJECT": "'M42     '",
+                        "PLTSOLVR": "'ASTAP   '",
+                        "RADESYS": "'ICRS    '",
+                        "ROWORDER": "'TOP-DOWN'",
+                        "SIMPLE": "T",
+                        "astrometry": {
+                            "crval_dec_deg": -12.25,
+                            "crval_ra_deg": 210.123456,
+                            "equinox": "2000.0",
+                            "field_center_dec_deg": -12.249861611057563,
+                            "field_center_ra_deg": 210.12331438679033,
+                            "field_of_view_height_arcmin": 0.10000064796990067,
+                            "field_of_view_width_arcmin": 0.1333341972932009,
+                            "has_solution": true,
+                            "height": 6,
+                            "image_scale_arcsec_per_pixel": 1.0000064796990067,
+                            "projection": {
+                                "ctype1": "RA---TAN-SIP",
+                                "ctype2": "DEC--TAN-SIP"
+                            },
+                            "rotation_degrees": 179.7937360847522,
+                            "sip": {
+                                "A": [
+                                    [
+                                        0,
+                                        0,
+                                        1.5e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        -2e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        3e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ]
+                                ],
+                                "AP": [
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ]
+                                ],
+                                "B": [
+                                    [
+                                        0,
+                                        0,
+                                        -1e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        2.5e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        1e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ]
+                                ],
+                                "BP": [
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ]
+                                ],
+                                "a_order": 2,
+                                "ap_order": 0,
+                                "b_order": 2,
+                                "bp_order": 0,
+                                "crpix1": 4.5,
+                                "crpix2": 3.5,
+                                "description": "SIP forward A_ORDER=2, B_ORDER=2, CRPIX=(4.5, 3.5)",
+                                "has_forward_model": true,
+                                "has_inverse_model": false
+                            },
+                            "width": 8
+                        },
+                        "fits_cards": [
+                            {
+                                "comment": "a FITS file",
+                                "key": "SIMPLE",
+                                "raw": "SIMPLE  =                    T / a FITS file",
+                                "value": "T"
+                            },
+                            {
+                                "key": "BITPIX",
+                                "raw": "BITPIX  =                  -32 / ",
+                                "value": "-32"
+                            },
+                            {
+                                "key": "NAXIS",
+                                "raw": "NAXIS   =                    2",
+                                "value": "2"
+                            },
+                            {
+                                "comment": "columns",
+                                "key": "NAXIS1",
+                                "raw": "NAXIS1  =                    8 / columns",
+                                "value": "8"
+                            },
+                            {
+                                "comment": "rows",
+                                "key": "NAXIS2",
+                                "raw": "NAXIS2  =                    6 / rows",
+                                "value": "6"
+                            },
+                            {
+                                "comment": "row zero is stored first",
+                                "key": "ROWORDER",
+                                "raw": "ROWORDER= 'TOP-DOWN' / row zero is stored first",
+                                "value": "'TOP-DOWN'"
+                            },
+                            {
+                                "comment": "target",
+                                "key": "OBJECT",
+                                "raw": "OBJECT  = 'M42     ' / target",
+                                "value": "'M42     '"
+                            },
+                            {
+                                "comment": "seconds",
+                                "key": "EXPTIME",
+                                "raw": "EXPTIME =                120.0 / seconds",
+                                "value": "120.0"
+                            },
+                            {
+                                "key": "GAIN",
+                                "raw": "GAIN    =                  100",
+                                "value": "100"
+                            },
+                            {
+                                "key": "FILTER",
+                                "raw": "FILTER  = 'L       '",
+                                "value": "'L       '"
+                            },
+                            {
+                                "key": "CTYPE1",
+                                "raw": "CTYPE1  = 'RA---TAN-SIP'",
+                                "value": "'RA---TAN-SIP'"
+                            },
+                            {
+                                "key": "CTYPE2",
+                                "raw": "CTYPE2  = 'DEC--TAN-SIP'",
+                                "value": "'DEC--TAN-SIP'"
+                            },
+                            {
+                                "key": "EQUINOX",
+                                "raw": "EQUINOX =               2000.0",
+                                "value": "2000.0"
+                            },
+                            {
+                                "key": "RADESYS",
+                                "raw": "RADESYS = 'ICRS    '",
+                                "value": "'ICRS    '"
+                            },
+                            {
+                                "key": "CRVAL1",
+                                "raw": "CRVAL1  =           210.123456",
+                                "value": "210.123456"
+                            },
+                            {
+                                "key": "CRVAL2",
+                                "raw": "CRVAL2  =               -12.25",
+                                "value": "-12.25"
+                            },
+                            {
+                                "key": "CRPIX1",
+                                "raw": "CRPIX1  =                  4.5",
+                                "value": "4.5"
+                            },
+                            {
+                                "key": "CRPIX2",
+                                "raw": "CRPIX2  =                  3.5",
+                                "value": "3.5"
+                            },
+                            {
+                                "key": "CD1_1",
+                                "raw": "CD1_1   =     -2.777777777E-04",
+                                "value": "-2.777777777E-04"
+                            },
+                            {
+                                "key": "CD1_2",
+                                "raw": "CD1_2   =              1.0E-06",
+                                "value": "1.0E-06"
+                            },
+                            {
+                                "key": "CD2_1",
+                                "raw": "CD2_1   =             -1.0E-06",
+                                "value": "-1.0E-06"
+                            },
+                            {
+                                "key": "CD2_2",
+                                "raw": "CD2_2   =      2.777777777E-04",
+                                "value": "2.777777777E-04"
+                            },
+                            {
+                                "key": "A_ORDER",
+                                "raw": "A_ORDER =                    2",
+                                "value": "2"
+                            },
+                            {
+                                "key": "A_0_2",
+                                "raw": "A_0_2   =              1.5E-07",
+                                "value": "1.5E-07"
+                            },
+                            {
+                                "key": "A_1_1",
+                                "raw": "A_1_1   =             -2.0E-07",
+                                "value": "-2.0E-07"
+                            },
+                            {
+                                "key": "A_2_0",
+                                "raw": "A_2_0   =              3.0E-07",
+                                "value": "3.0E-07"
+                            },
+                            {
+                                "key": "B_ORDER",
+                                "raw": "B_ORDER =                    2",
+                                "value": "2"
+                            },
+                            {
+                                "key": "B_0_2",
+                                "raw": "B_0_2   =             -1.0E-07",
+                                "value": "-1.0E-07"
+                            },
+                            {
+                                "key": "B_1_1",
+                                "raw": "B_1_1   =              2.5E-07",
+                                "value": "2.5E-07"
+                            },
+                            {
+                                "key": "B_2_0",
+                                "raw": "B_2_0   =              1.0E-07",
+                                "value": "1.0E-07"
+                            },
+                            {
+                                "key": "PLTSOLVR",
+                                "raw": "PLTSOLVR= 'ASTAP   '",
+                                "value": "'ASTAP   '"
+                            },
+                            {
+                                "key": "BZERO",
+                                "raw": "BZERO   =                  0.0 / ",
+                                "value": "0.0"
+                            },
+                            {
+                                "key": "BSCALE",
+                                "raw": "BSCALE  =                  1.0 / ",
+                                "value": "1.0"
+                            },
+                            {
+                                "key": "NAXIS3",
+                                "raw": "NAXIS3  =                    1 / ",
+                                "value": "1"
+                            }
+                        ],
+                        "fits_header": {
+                            "A_0_2": "1.5E-07",
+                            "A_1_1": "-2.0E-07",
+                            "A_2_0": "3.0E-07",
+                            "A_ORDER": "2",
+                            "BITPIX": "-32",
+                            "BSCALE": "1.0",
+                            "BZERO": "0.0",
+                            "B_0_2": "-1.0E-07",
+                            "B_1_1": "2.5E-07",
+                            "B_2_0": "1.0E-07",
+                            "B_ORDER": "2",
+                            "CD1_1": "-2.777777777E-04",
+                            "CD1_2": "1.0E-06",
+                            "CD2_1": "-1.0E-06",
+                            "CD2_2": "2.777777777E-04",
+                            "CRPIX1": "4.5",
+                            "CRPIX2": "3.5",
+                            "CRVAL1": "210.123456",
+                            "CRVAL2": "-12.25",
+                            "CTYPE1": "'RA---TAN-SIP'",
+                            "CTYPE2": "'DEC--TAN-SIP'",
+                            "EQUINOX": "2000.0",
+                            "EXPTIME": "120.0",
+                            "FILTER": "'L       '",
+                            "GAIN": "100",
+                            "NAXIS": "2",
+                            "NAXIS1": "8",
+                            "NAXIS2": "6",
+                            "NAXIS3": "1",
+                            "OBJECT": "'M42     '",
+                            "PLTSOLVR": "'ASTAP   '",
+                            "RADESYS": "'ICRS    '",
+                            "ROWORDER": "'TOP-DOWN'",
+                            "SIMPLE": "T"
+                        }
+                    }
+                }
+            },
+            {
+                "call": "sidecar.colour",
+                "result": {
+                    "descriptor": {
+                        "access_mode": "read_write",
+                        "buffer_role": "source",
+                        "byte_size": 144,
+                        "channels": 3,
+                        "color_space": "linear",
+                        "height": 3,
+                        "pixel_format": "rgb",
+                        "pixel_type": "float32",
+                        "plane_stride": 48,
+                        "row_stride": 16,
+                        "symbolic_name": "source",
+                        "width": 4
+                    },
+                    "sidecar": {
+                        "BITPIX": "-32",
+                        "BSCALE": "1.0",
+                        "BZERO": "0.0",
+                        "EXPTIME": "300.0",
+                        "FILENAME": "sidecar-colour.fits",
+                        "NAXIS": "3",
+                        "NAXIS1": "4",
+                        "NAXIS2": "3",
+                        "NAXIS3": "3",
+                        "OBJECT": "'NGC 7000'",
+                        "ROWORDER": "'TOP-DOWN'",
+                        "SIMPLE": "T",
+                        "fits_cards": [
+                            {
+                                "comment": "a FITS file",
+                                "key": "SIMPLE",
+                                "raw": "SIMPLE  =                    T / a FITS file",
+                                "value": "T"
+                            },
+                            {
+                                "key": "BITPIX",
+                                "raw": "BITPIX  =                  -32 / ",
+                                "value": "-32"
+                            },
+                            {
+                                "key": "NAXIS",
+                                "raw": "NAXIS   =                    3",
+                                "value": "3"
+                            },
+                            {
+                                "comment": "columns",
+                                "key": "NAXIS1",
+                                "raw": "NAXIS1  =                    4 / columns",
+                                "value": "4"
+                            },
+                            {
+                                "comment": "rows",
+                                "key": "NAXIS2",
+                                "raw": "NAXIS2  =                    3 / rows",
+                                "value": "3"
+                            },
+                            {
+                                "comment": "channel planes",
+                                "key": "NAXIS3",
+                                "raw": "NAXIS3  =                    3 / channel planes",
+                                "value": "3"
+                            },
+                            {
+                                "comment": "row zero is stored first",
+                                "key": "ROWORDER",
+                                "raw": "ROWORDER= 'TOP-DOWN' / row zero is stored first",
+                                "value": "'TOP-DOWN'"
+                            },
+                            {
+                                "key": "OBJECT",
+                                "raw": "OBJECT  = 'NGC 7000'",
+                                "value": "'NGC 7000'"
+                            },
+                            {
+                                "key": "EXPTIME",
+                                "raw": "EXPTIME =                300.0",
+                                "value": "300.0"
+                            },
+                            {
+                                "key": "BZERO",
+                                "raw": "BZERO   =                  0.0 / ",
+                                "value": "0.0"
+                            },
+                            {
+                                "key": "BSCALE",
+                                "raw": "BSCALE  =                  1.0 / ",
+                                "value": "1.0"
+                            }
+                        ],
+                        "fits_header": {
+                            "BITPIX": "-32",
+                            "BSCALE": "1.0",
+                            "BZERO": "0.0",
+                            "EXPTIME": "300.0",
+                            "NAXIS": "3",
+                            "NAXIS1": "4",
+                            "NAXIS2": "3",
+                            "NAXIS3": "3",
+                            "OBJECT": "'NGC 7000'",
+                            "ROWORDER": "'TOP-DOWN'",
+                            "SIMPLE": "T"
+                        }
+                    }
+                }
+            },
+            {
+                "call": "sidecar.mosaic",
+                "result": {
+                    "descriptor": {
+                        "access_mode": "read_write",
+                        "buffer_role": "source",
+                        "byte_size": 48,
+                        "channels": 1,
+                        "color_space": "grayscale",
+                        "height": 4,
+                        "pixel_format": "mono",
+                        "pixel_type": "uint16",
+                        "plane_stride": 48,
+                        "row_stride": 12,
+                        "symbolic_name": "source",
+                        "width": 6
+                    },
+                    "sidecar": {
+                        "BAYERPAT": "'RGGB    '",
+                        "BITPIX": "16",
+                        "BSCALE": "1",
+                        "BZERO": "0",
+                        "FILENAME": "sidecar-mosaic.fits",
+                        "GAIN": "120",
+                        "NAXIS": "2",
+                        "NAXIS1": "6",
+                        "NAXIS2": "4",
+                        "NAXIS3": "1",
+                        "OBJECT": "'M31     '",
+                        "ROWORDER": "'TOP-DOWN'",
+                        "SIMPLE": "T",
+                        "fits_cards": [
+                            {
+                                "comment": "a FITS file",
+                                "key": "SIMPLE",
+                                "raw": "SIMPLE  =                    T / a FITS file",
+                                "value": "T"
+                            },
+                            {
+                                "key": "BITPIX",
+                                "raw": "BITPIX  =                   16 / ",
+                                "value": "16"
+                            },
+                            {
+                                "key": "NAXIS",
+                                "raw": "NAXIS   =                    2",
+                                "value": "2"
+                            },
+                            {
+                                "comment": "columns",
+                                "key": "NAXIS1",
+                                "raw": "NAXIS1  =                    6 / columns",
+                                "value": "6"
+                            },
+                            {
+                                "comment": "rows",
+                                "key": "NAXIS2",
+                                "raw": "NAXIS2  =                    4 / rows",
+                                "value": "4"
+                            },
+                            {
+                                "comment": "stored + BZERO",
+                                "key": "BZERO",
+                                "raw": "BZERO   =                    0 / stored + BZERO",
+                                "value": "0"
+                            },
+                            {
+                                "key": "BSCALE",
+                                "raw": "BSCALE  =                    1 / ",
+                                "value": "1"
+                            },
+                            {
+                                "comment": "row zero is stored first",
+                                "key": "ROWORDER",
+                                "raw": "ROWORDER= 'TOP-DOWN' / row zero is stored first",
+                                "value": "'TOP-DOWN'"
+                            },
+                            {
+                                "comment": "filter array",
+                                "key": "BAYERPAT",
+                                "raw": "BAYERPAT= 'RGGB    ' / filter array",
+                                "value": "'RGGB    '"
+                            },
+                            {
+                                "key": "OBJECT",
+                                "raw": "OBJECT  = 'M31     '",
+                                "value": "'M31     '"
+                            },
+                            {
+                                "key": "GAIN",
+                                "raw": "GAIN    =                  120",
+                                "value": "120"
+                            },
+                            {
+                                "key": "NAXIS3",
+                                "raw": "NAXIS3  =                    1 / ",
+                                "value": "1"
+                            }
+                        ],
+                        "fits_header": {
+                            "BAYERPAT": "'RGGB    '",
+                            "BITPIX": "16",
+                            "BSCALE": "1",
+                            "BZERO": "0",
+                            "GAIN": "120",
+                            "NAXIS": "2",
+                            "NAXIS1": "6",
+                            "NAXIS2": "4",
+                            "NAXIS3": "1",
+                            "OBJECT": "'M31     '",
+                            "ROWORDER": "'TOP-DOWN'",
+                            "SIMPLE": "T"
+                        }
+                    }
+                }
+            },
+            {
+                "call": "sidecar.solved-grey-region",
+                "result": {
+                    "descriptor": {
+                        "access_mode": "read_write",
+                        "buffer_role": "source",
+                        "byte_size": 48,
+                        "channels": 1,
+                        "color_space": "grayscale",
+                        "height": 3,
+                        "offset_x": 2,
+                        "offset_y": 1,
+                        "pixel_format": "mono",
+                        "pixel_type": "float32",
+                        "plane_stride": 48,
+                        "row_stride": 16,
+                        "source_height": 6,
+                        "source_width": 8,
+                        "symbolic_name": "source",
+                        "width": 4
+                    },
+                    "sidecar": {
+                        "A_0_2": "1.5E-07",
+                        "A_1_1": "-2.0E-07",
+                        "A_2_0": "3.0E-07",
+                        "A_ORDER": "2",
+                        "BITPIX": "-32",
+                        "BSCALE": "1.0",
+                        "BZERO": "0.0",
+                        "B_0_2": "-1.0E-07",
+                        "B_1_1": "2.5E-07",
+                        "B_2_0": "1.0E-07",
+                        "B_ORDER": "2",
+                        "CD1_1": "-2.777777777E-04",
+                        "CD1_2": "1.0E-06",
+                        "CD2_1": "-1.0E-06",
+                        "CD2_2": "2.777777777E-04",
+                        "CRPIX1": "2.5",
+                        "CRPIX2": "2.5",
+                        "CRVAL1": "210.123456",
+                        "CRVAL2": "-12.25",
+                        "CTYPE1": "'RA---TAN-SIP'",
+                        "CTYPE2": "'DEC--TAN-SIP'",
+                        "EQUINOX": "2000.0",
+                        "EXPTIME": "120.0",
+                        "FILENAME": "sidecar-solved-grey.fits",
+                        "FILTER": "'L       '",
+                        "GAIN": "100",
+                        "NAXIS": "2",
+                        "NAXIS1": "4",
+                        "NAXIS2": "3",
+                        "NAXIS3": "1",
+                        "OBJECT": "'M42     '",
+                        "PLTSOLVR": "'ASTAP   '",
+                        "RADESYS": "'ICRS    '",
+                        "ROWORDER": "'TOP-DOWN'",
+                        "SIMPLE": "T",
+                        "astrometry": {
+                            "crval_dec_deg": -12.25,
+                            "crval_ra_deg": 210.123456,
+                            "equinox": "2000.0",
+                            "field_center_dec_deg": -12.25000049995658,
+                            "field_center_ra_deg": 210.1233138750625,
+                            "field_of_view_height_arcmin": 0.050000323984950336,
+                            "field_of_view_width_arcmin": 0.06666709864660045,
+                            "has_solution": true,
+                            "height": 3,
+                            "image_scale_arcsec_per_pixel": 1.0000064796990067,
+                            "projection": {
+                                "ctype1": "RA---TAN-SIP",
+                                "ctype2": "DEC--TAN-SIP"
+                            },
+                            "rotation_degrees": 179.7937360847522,
+                            "sip": {
+                                "A": [
+                                    [
+                                        0,
+                                        0,
+                                        1.5e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        -2e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        3e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ]
+                                ],
+                                "AP": [
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ]
+                                ],
+                                "B": [
+                                    [
+                                        0,
+                                        0,
+                                        -1e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        2.5e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        1e-07,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ]
+                                ],
+                                "BP": [
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ],
+                                    [
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    ]
+                                ],
+                                "a_order": 2,
+                                "ap_order": 0,
+                                "b_order": 2,
+                                "bp_order": 0,
+                                "crpix1": 2.5,
+                                "crpix2": 2.5,
+                                "description": "SIP forward A_ORDER=2, B_ORDER=2, CRPIX=(2.5, 2.5)",
+                                "has_forward_model": true,
+                                "has_inverse_model": false
+                            },
+                            "width": 4
+                        },
+                        "fits_cards": [
+                            {
+                                "comment": "a FITS file",
+                                "key": "SIMPLE",
+                                "raw": "SIMPLE  =                    T / a FITS file",
+                                "value": "T"
+                            },
+                            {
+                                "key": "BITPIX",
+                                "raw": "BITPIX  =                  -32 / ",
+                                "value": "-32"
+                            },
+                            {
+                                "key": "NAXIS",
+                                "raw": "NAXIS   =                    2 / ",
+                                "value": "2"
+                            },
+                            {
+                                "comment": "columns",
+                                "key": "NAXIS1",
+                                "raw": "NAXIS1  =                    4 / columns",
+                                "value": "4"
+                            },
+                            {
+                                "comment": "rows",
+                                "key": "NAXIS2",
+                                "raw": "NAXIS2  =                    3 / rows",
+                                "value": "3"
+                            },
+                            {
+                                "comment": "row zero is stored first",
+                                "key": "ROWORDER",
+                                "raw": "ROWORDER= 'TOP-DOWN' / row zero is stored first",
+                                "value": "'TOP-DOWN'"
+                            },
+                            {
+                                "comment": "target",
+                                "key": "OBJECT",
+                                "raw": "OBJECT  = 'M42     ' / target",
+                                "value": "'M42     '"
+                            },
+                            {
+                                "comment": "seconds",
+                                "key": "EXPTIME",
+                                "raw": "EXPTIME =                120.0 / seconds",
+                                "value": "120.0"
+                            },
+                            {
+                                "key": "GAIN",
+                                "raw": "GAIN    =                  100",
+                                "value": "100"
+                            },
+                            {
+                                "key": "FILTER",
+                                "raw": "FILTER  = 'L       '",
+                                "value": "'L       '"
+                            },
+                            {
+                                "key": "CTYPE1",
+                                "raw": "CTYPE1  = 'RA---TAN-SIP'",
+                                "value": "'RA---TAN-SIP'"
+                            },
+                            {
+                                "key": "CTYPE2",
+                                "raw": "CTYPE2  = 'DEC--TAN-SIP'",
+                                "value": "'DEC--TAN-SIP'"
+                            },
+                            {
+                                "key": "EQUINOX",
+                                "raw": "EQUINOX =               2000.0",
+                                "value": "2000.0"
+                            },
+                            {
+                                "key": "RADESYS",
+                                "raw": "RADESYS = 'ICRS    '",
+                                "value": "'ICRS    '"
+                            },
+                            {
+                                "key": "CRVAL1",
+                                "raw": "CRVAL1  =           210.123456",
+                                "value": "210.123456"
+                            },
+                            {
+                                "key": "CRVAL2",
+                                "raw": "CRVAL2  =               -12.25",
+                                "value": "-12.25"
+                            },
+                            {
+                                "key": "CRPIX1",
+                                "raw": "CRPIX1  =                  2.5 / ",
+                                "value": "2.5"
+                            },
+                            {
+                                "key": "CRPIX2",
+                                "raw": "CRPIX2  =                  2.5 / ",
+                                "value": "2.5"
+                            },
+                            {
+                                "key": "CD1_1",
+                                "raw": "CD1_1   =     -2.777777777E-04",
+                                "value": "-2.777777777E-04"
+                            },
+                            {
+                                "key": "CD1_2",
+                                "raw": "CD1_2   =              1.0E-06",
+                                "value": "1.0E-06"
+                            },
+                            {
+                                "key": "CD2_1",
+                                "raw": "CD2_1   =             -1.0E-06",
+                                "value": "-1.0E-06"
+                            },
+                            {
+                                "key": "CD2_2",
+                                "raw": "CD2_2   =      2.777777777E-04",
+                                "value": "2.777777777E-04"
+                            },
+                            {
+                                "key": "A_ORDER",
+                                "raw": "A_ORDER =                    2",
+                                "value": "2"
+                            },
+                            {
+                                "key": "A_0_2",
+                                "raw": "A_0_2   =              1.5E-07",
+                                "value": "1.5E-07"
+                            },
+                            {
+                                "key": "A_1_1",
+                                "raw": "A_1_1   =             -2.0E-07",
+                                "value": "-2.0E-07"
+                            },
+                            {
+                                "key": "A_2_0",
+                                "raw": "A_2_0   =              3.0E-07",
+                                "value": "3.0E-07"
+                            },
+                            {
+                                "key": "B_ORDER",
+                                "raw": "B_ORDER =                    2",
+                                "value": "2"
+                            },
+                            {
+                                "key": "B_0_2",
+                                "raw": "B_0_2   =             -1.0E-07",
+                                "value": "-1.0E-07"
+                            },
+                            {
+                                "key": "B_1_1",
+                                "raw": "B_1_1   =              2.5E-07",
+                                "value": "2.5E-07"
+                            },
+                            {
+                                "key": "B_2_0",
+                                "raw": "B_2_0   =              1.0E-07",
+                                "value": "1.0E-07"
+                            },
+                            {
+                                "key": "PLTSOLVR",
+                                "raw": "PLTSOLVR= 'ASTAP   '",
+                                "value": "'ASTAP   '"
+                            },
+                            {
+                                "key": "BZERO",
+                                "raw": "BZERO   =                  0.0 / ",
+                                "value": "0.0"
+                            },
+                            {
+                                "key": "BSCALE",
+                                "raw": "BSCALE  =                  1.0 / ",
+                                "value": "1.0"
+                            },
+                            {
+                                "key": "NAXIS3",
+                                "raw": "NAXIS3  =                    1 / ",
+                                "value": "1"
+                            }
+                        ],
+                        "fits_header": {
+                            "A_0_2": "1.5E-07",
+                            "A_1_1": "-2.0E-07",
+                            "A_2_0": "3.0E-07",
+                            "A_ORDER": "2",
+                            "BITPIX": "-32",
+                            "BSCALE": "1.0",
+                            "BZERO": "0.0",
+                            "B_0_2": "-1.0E-07",
+                            "B_1_1": "2.5E-07",
+                            "B_2_0": "1.0E-07",
+                            "B_ORDER": "2",
+                            "CD1_1": "-2.777777777E-04",
+                            "CD1_2": "1.0E-06",
+                            "CD2_1": "-1.0E-06",
+                            "CD2_2": "2.777777777E-04",
+                            "CRPIX1": "2.5",
+                            "CRPIX2": "2.5",
+                            "CRVAL1": "210.123456",
+                            "CRVAL2": "-12.25",
+                            "CTYPE1": "'RA---TAN-SIP'",
+                            "CTYPE2": "'DEC--TAN-SIP'",
+                            "EQUINOX": "2000.0",
+                            "EXPTIME": "120.0",
+                            "FILTER": "'L       '",
+                            "GAIN": "100",
+                            "NAXIS": "2",
+                            "NAXIS1": "4",
+                            "NAXIS2": "3",
+                            "NAXIS3": "1",
+                            "OBJECT": "'M42     '",
+                            "PLTSOLVR": "'ASTAP   '",
+                            "RADESYS": "'ICRS    '",
+                            "ROWORDER": "'TOP-DOWN'",
+                            "SIMPLE": "T"
+                        }
+                    }
+                }
+            }
+        ]
+    },
+    "provenance": {
+        "captured": "2026-10-15",
+        "commit": "ed24e8d5d",
+        "producer": "AfterNightEngine through the shared buffer manager's writer",
+        "producer_version": "0.6.0"
+    }
+}

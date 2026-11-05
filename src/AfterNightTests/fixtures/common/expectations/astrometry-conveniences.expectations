@@ -1,0 +1,980 @@
+# Reference expectations of the fixture layers: each record states its input, the engine that produced it
+# and how a result is compared with it. See docs/dev/guides/TESTING.md.
+
+expectation  sexagesimal.parse-ra/ra-hours-spaces
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-hours-spaces description=e5156d8d5518b0acf4da394f98d6cca26e33faa5ca7f1fa554ca25fc4e3cf368 samples=754966dbe0f261a5fa67fa13fbaecac15014c6fa4bc8c42c5b5e70a950c83641
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=9891b489be971d40c5732e0c2e41c024938b27e67a98c0702a335f2084b21f96
+row          0 0 1 83.63308333333333
+end
+
+expectation  sexagesimal.parse-ra/ra-hours-colons
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-hours-colons description=0602316e81c12ce63e556a4c91c86c3b27927c7ecbe3775b056175198fc7d884 samples=3dea699cdbbbd36e533e25d66c0ab28524f4a77b56cbd2237a916566c4e9caaf
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=9891b489be971d40c5732e0c2e41c024938b27e67a98c0702a335f2084b21f96
+row          0 0 1 83.63308333333333
+end
+
+expectation  sexagesimal.parse-ra/ra-hours-letters
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-hours-letters description=c6bf1271c9dd9d09058c647dac5668c0363ceda193b52f12663f53a141342343 samples=bdc8513be5b3f2b0cbb374cde8874fc97d802266b6722a9f3237262155a1abd0
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=9891b489be971d40c5732e0c2e41c024938b27e67a98c0702a335f2084b21f96
+row          0 0 1 83.63308333333333
+end
+
+expectation  sexagesimal.parse-ra/ra-fits-string
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-fits-string description=5e3faaeea55ec9094407f2baf39e0e4958f50ded205d7027e0989ec699b5590f samples=2de1b1a1a65a73ade329c780e215715ebc83c8911ad80a78556c9b7f7ad8e604
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=9891b489be971d40c5732e0c2e41c024938b27e67a98c0702a335f2084b21f96
+row          0 0 1 83.63308333333333
+end
+
+expectation  sexagesimal.parse-ra/ra-decimal-degrees
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-decimal-degrees description=0b03d1fbb3e30ff961989c94b02c6473960968b3d53e1fe0b880ea2428e36a41 samples=132270cad9b7cd1470dec80b196b71f16b3880c6902af6e1f6b53145284b6a48
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=4c9ad8941c60cd0189af598f1c3da824d852ea743ba9e29fd194d6a6f6b7b108
+row          0 0 1 83.6331
+end
+
+expectation  sexagesimal.parse-ra/ra-decimal-minutes
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-decimal-minutes description=99fb49fef6dc43d401d666fad95475ec480dbf4692e10cd93d99786ffec36254 samples=08cc38971ab0e21dc8d34c6c851b45407a5962152b8e9a5574867271c9261ac4
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=5a45bc2002d1e741bdfbf9f27fe8613a2b5df57137053a968f563306724af0a1
+row          0 0 1 83.625
+end
+
+expectation  sexagesimal.parse-ra/ra-negative
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-negative description=636f3395d57d771cba542ab46338b592d52bff5f1c9a185750dd6e4380eeeb5f samples=676b6d4806fdbae6a19b0d3337c23d9277bcd86173b318ebd8afbb8cad1b1299
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb
+row          0 0 0 0
+end
+
+expectation  sexagesimal.parse-ra/ra-not-an-angle
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-not-an-angle description=02ee7614306aa2a3d02f941feee39e638bf7e8ebc4dce00fdcfb984a25db667b samples=ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb
+row          0 0 0 0
+end
+
+expectation  sexagesimal.parse-ra/ra-twenty-four-hours
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-twenty-four-hours description=d316316b4d8524742aceb10edad3c2144577253779d3acb3f9da0fa2da09cf2c samples=498af35d5b2e4c12384b2eb6d6d7d188c0508c3120bbc4b51a70e4e8a8f10fec
+class        accepted
+accepted     twenty-four hours is the start of the next turn, so it reads as 0 degrees rather than 360
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=d5e9bc4130d7868287f6c5a673e537edca6504e79108a38986c655082405e84e
+row          0 0 1 360
+end
+
+expectation  sexagesimal.parse-ra/ra-full-turn-degrees
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-full-turn-degrees description=ccdbf431389b52d7ed646bf079f59dadab655158eea75e5439e1c133ab172852 samples=838f461c2fa673cec73e6eecdafa88b127802d6cb0a61c53175197a122cb645a
+class        accepted
+accepted     360 decimal degrees reads as 0, the start of the half-open turn every direction is folded into
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=d5e9bc4130d7868287f6c5a673e537edca6504e79108a38986c655082405e84e
+row          0 0 1 360
+end
+
+expectation  sexagesimal.parse-ra/ra-fractional-hours
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-fractional-hours description=9b8a8a6b703fe77aef14e878563f4d6984690eefe064fd07ed09e657a24fb0a2 samples=44561da4489444d118ecd0a1149c3f71d231d8b7a5a5938ca03f1508c5e3ad4d
+class        accepted
+accepted     a fraction in a field another field follows is refused rather than added to it
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=351303dfe157750a41b248dfa56f3d101dc5bc6b420e4882ea51b88270debda4
+row          0 0 1 195
+end
+
+expectation  sexagesimal.parse-ra/ra-upper-case-letters
+operation    the plate solve reads a right ascension from text, decimal degrees or hours
+input        ra-upper-case-letters description=c62ac72fcc35ba31be10b1f7c8277ef41b7f90145f49d00166cf61ba1ec647c8 samples=a6573b02cef744798ecf590913174327c6a49a56aacce9d6690b3c19379e17c8
+class        accepted
+accepted     the unit letters are read in either case; the record refuses the upper-case spelling
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb
+row          0 0 0 0
+end
+
+expectation  sexagesimal.parse-dec/dec-signed-spaces
+operation    the plate solve reads a declination from text, decimal degrees or signed degrees
+input        dec-signed-spaces description=f723ea28b299ffd3eb0b8cac9d44a4f640c5f4487262e3324dd3b4a07394808a samples=1b59265e67f6bd9e29db04d8ff98d6b41c1b019fe98a1564c613e27ae64c4214
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=dd41864557ba2219249c0d1c0d1b994bcb600bb058d7a2cb15f09cc33cbb67ab
+row          0 0 1 22.0145
+end
+
+expectation  sexagesimal.parse-dec/dec-south-spaces
+operation    the plate solve reads a declination from text, decimal degrees or signed degrees
+input        dec-south-spaces description=34db8971fdd47f3d35b31c13e2da91d1cee840a13ee47595b8876a018284c48e samples=dd6b747e6186ef1f5ece59885ad2abf446a1fd6f9f05db8e8b5f291ab562d587
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=195399b38683bbec9e335497c8fe8e1e18c5113970a4076f210f76da50ed1ef1
+row          0 0 1 -5.391111111111112
+end
+
+expectation  sexagesimal.parse-dec/dec-negative-zero-degrees
+operation    the plate solve reads a declination from text, decimal degrees or signed degrees
+input        dec-negative-zero-degrees description=231e0cd19e65ee79ff5b3094aae7e1e44cdc3fc77036fefb0f9670c7b3e4f555 samples=263c309f407b7336624b45999b135f72862e38ff3945710a72644cdad3eba631
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=b75ba3b875def5d2f34361fcc7cbea9b45aa3f9ef590f96ad71c90a955800533
+row          0 0 1 -0.5
+end
+
+expectation  sexagesimal.parse-dec/dec-letters
+operation    the plate solve reads a declination from text, decimal degrees or signed degrees
+input        dec-letters description=eea8d3b48420a49ad0ece993d4f27bc639556048ed2aa0f22f74032614f549c5 samples=8c6a4871d114e1c0ee966ec774e957c9c2cca31a4b908b459701d01d4d3893f3
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=dd41864557ba2219249c0d1c0d1b994bcb600bb058d7a2cb15f09cc33cbb67ab
+row          0 0 1 22.0145
+end
+
+expectation  sexagesimal.parse-dec/dec-colons
+operation    the plate solve reads a declination from text, decimal degrees or signed degrees
+input        dec-colons description=0955acef958dd8cd5204bd00929e8e855766644ff81c74d49895e7b5a6fec7f9 samples=b9dea1238e2cb2139982c2174054e177705e32eaa540810711ea7de9a2464596
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=dd41864557ba2219249c0d1c0d1b994bcb600bb058d7a2cb15f09cc33cbb67ab
+row          0 0 1 22.0145
+end
+
+expectation  sexagesimal.parse-dec/dec-decimal-degrees
+operation    the plate solve reads a declination from text, decimal degrees or signed degrees
+input        dec-decimal-degrees description=cae95133596ce8c067268b4e641bd2de65eda6f5b6d26a90d100c7fcc9eee42a samples=3d14388e51453060fe234796f4a46a0eeb722ada01de344f84f39a39d29d00cb
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=fda8839ffe07ec723154ee47ab08e9213b7b4d919d89e0a2cf6e3a31ada08028
+row          0 0 1 -5.391111
+end
+
+expectation  sexagesimal.parse-dec/dec-fits-string
+operation    the plate solve reads a declination from text, decimal degrees or signed degrees
+input        dec-fits-string description=bda92b649e308eed3a99e652a2eb29e3562510934767cb5acf0b1992aa492169 samples=a0208c1a69c9034302266edf88f987642038f6b4af4cebbd2e59a7e5f417555c
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=0f68191187cf4bc67e54f0eb8dfd1fbedb615be95d82d21220b7ec25600f5264
+row          0 0 1 41.26916666666666
+end
+
+expectation  sexagesimal.parse-dec/dec-past-the-pole
+operation    the plate solve reads a declination from text, decimal degrees or signed degrees
+input        dec-past-the-pole description=79edb171870f8a6464f2a8360730416609952e0832e4e9cdf6f173c9e91be4e0 samples=42a7774820f93e27e4efe7e1431bc4d34c9546ce895813c9a6428d545d522b64
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb
+row          0 0 0 0
+end
+
+expectation  sexagesimal.parse-dec/dec-degree-sign
+operation    the plate solve reads a declination from text, decimal degrees or signed degrees
+input        dec-degree-sign description=3b45626510ef083041ea86fb0b6147b721ff117804e8a4bfb9dc36d476a89c18 samples=cfe47e63a98315a52635ad71589bbf233b1e05f92f80f68304262a89ad052a83
+class        accepted
+accepted     the degree sign and the arcminute and arcsecond marks separate fields; the record refuses them
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb
+row          0 0 0 0
+end
+
+expectation  sexagesimal.format-ra/ra-orion
+operation    the mosaic writer spells a right ascension as hours, minutes and seconds to three decimals
+input        ra-orion description=d36c3856c6cb2d9cd813acc9fb4755154e013bf932b0b34793bcb5df43608f59 samples=dbb80cb66146793af5cfffb34230144027b9fd186b824e59dd2d5a1309b67f0b
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       12 1 1 uint8 sha256=d8caf1a67d6e493faf8121e0a7c81d06b998dbbdfe02fee0cae1a690ed3e35df
+row          0 0 48 53 32 51 52 32 51 49 46 57 52 48
+end
+
+expectation  sexagesimal.format-ra/ra-almost-a-turn
+operation    the mosaic writer spells a right ascension as hours, minutes and seconds to three decimals
+input        ra-almost-a-turn description=9525693873e0fe6332b49ae4157076a175790661f8c30533cf1cb58561eee2f9 samples=b567328fc0bd1833cea3ef3bc82a4bbc8d698ebb6c059da67d62d5366097f2ec
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       12 1 1 uint8 sha256=46f125fd7f838e8f1c4abc002f5308c134c08f96a5b74e6d01cecc0489c75e1d
+row          0 0 48 48 32 48 48 32 48 48 46 48 48 48
+end
+
+expectation  sexagesimal.format-ra/ra-zero
+operation    the mosaic writer spells a right ascension as hours, minutes and seconds to three decimals
+input        ra-zero description=5411ddcc3accb2dd3fcda820d62c9f736cb737fa2816ac9880b69193c6998482 samples=af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       12 1 1 uint8 sha256=46f125fd7f838e8f1c4abc002f5308c134c08f96a5b74e6d01cecc0489c75e1d
+row          0 0 48 48 32 48 48 32 48 48 46 48 48 48
+end
+
+expectation  sexagesimal.format-dec/dec-orion
+operation    the mosaic writer spells a declination as signed degrees, minutes and seconds to three decimals
+input        dec-orion description=f6c192bb52ffff8bdee6e10f5170477beb7a73062b280fc3f0444f321588a0d0 samples=2ed9158b76724e73918884a476ce35fe43c4af817eabfeb35c348448688fa588
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       13 1 1 uint8 sha256=97ae3c3f321d3442e2bacd486d6740d7e72d2b8d46dcb4b35cae60e957f61880
+row          0 0 45 48 53 32 50 51 32 50 56 46 48 48 48
+end
+
+expectation  sexagesimal.format-dec/dec-almost-the-pole
+operation    the mosaic writer spells a declination as signed degrees, minutes and seconds to three decimals
+input        dec-almost-the-pole description=e9a4fa875d60f77b42be8d03ee4a82e7f0499b519812232a15ff9a6d73f612b0 samples=b6cad33fae3da28f0ff21aa1322662f7dc94f5cd5a43e145568ba8fa980fe0aa
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       13 1 1 uint8 sha256=739fc9eec2d4b692fbbb4b28f5badec54a7c04d0a63f2a7f08422b5fd2bd5698
+row          0 0 43 57 48 32 48 48 32 48 48 46 48 48 48
+end
+
+expectation  sexagesimal.format-dec/dec-andromeda
+operation    the mosaic writer spells a declination as signed degrees, minutes and seconds to three decimals
+input        dec-andromeda description=08be62e1474de9922f50f07d1010ff9aceea36cafa19550eee5ec8e47d9f381c samples=af29a0d6f0e2c854ef0da5e5b7732bcb31d946b218fb75019016ca0da9ad60f0
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       13 1 1 uint8 sha256=e9152d19e3ec1afda0bd0f3dd289bd3b1b359a033fca940ea0f0cc7dc5e12c1d
+row          0 0 43 52 49 32 49 54 32 48 57 46 48 48 49
+end
+
+expectation  sexagesimal.format-dec/dec-negative-zero
+operation    the mosaic writer spells a declination as signed degrees, minutes and seconds to three decimals
+input        dec-negative-zero description=4996ccd2cabcf16f3a909de95bd59ab946d4a84548c30ca254a95468a8c5ae6f samples=e6ad6c9a3a3b7658c35bacf6553fcb8ffe34387534a648fe18f875b8f7a86ddb
+class        accepted
+accepted     a declination that rounds to zero is written with a plus sign; the record has a minus for any negative angle, negative zero included
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       13 1 1 uint8 sha256=07207822b8c5bda9941e06db04f6ad624b0615dcefdb263d541d2d38e5db90d4
+row          0 0 45 48 48 32 48 48 32 48 48 46 48 48 48
+end
+
+expectation  sexagesimal.format-dec/dec-tiny-negative
+operation    the mosaic writer spells a declination as signed degrees, minutes and seconds to three decimals
+input        dec-tiny-negative description=6af216f846d8ada213efb7fa3b95c5c7097c18c3d271b19d4b1cabb08141e07c samples=a17fd26cac4a4c0a589bbaaa5f729d6c3697c906c29725571f28ade011657800
+class        accepted
+accepted     a declination that rounds to zero is written with a plus sign; the record has a minus for any negative angle, negative zero included
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       13 1 1 uint8 sha256=07207822b8c5bda9941e06db04f6ad624b0615dcefdb263d541d2d38e5db90d4
+row          0 0 45 48 48 32 48 48 32 48 48 46 48 48 48
+end
+
+expectation  hint.plate-solve/hint-every-pair
+operation    the plate solve takes its position hint from the first pair of cards that reads
+input        hint-every-pair description=cdff5a942c5276f00b752cfd51b3ec6ebec672478c26591657b061b26f11e10b samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=bd9652f7177708eb31efd3ea24d42609c0a3bf4a7e524def424eeedec42c8452
+row          0 0 1 83.822083 -5.391111 0
+end
+
+expectation  hint.plate-solve/hint-object-pair
+operation    the plate solve takes its position hint from the first pair of cards that reads
+input        hint-object-pair description=f5e5257a35c53dd9db41bf3fb09c6da3c3eda8bb41e39628f9555a4aaedfd121 samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=8eb18353b77d57da5d1e2b3453ba57218296d58e57670cc3e0c4c7a0f947a0d3
+row          0 0 1 83.82208333333332 -5.391111111111112 2
+end
+
+expectation  hint.plate-solve/hint-passes-over
+operation    the plate solve takes its position hint from the first pair of cards that reads
+input        hint-passes-over description=83689e45a91df3757b7e51d08d4e1e686e0c223d4b1fecd54ba3b38433745767 samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=509120548ad592199b5e3eec6a878cbc4ca6308325b457129027b30f96663aa7
+row          0 0 1 187.5 41.26916666666666 3
+end
+
+expectation  hint.plate-solve/hint-telescope
+operation    the plate solve takes its position hint from the first pair of cards that reads
+input        hint-telescope description=e0670649eb8515bf156e7a985e6423897a7beaac580294c000810a085d5e32da samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=2402ed436b51679cdd1007e34ab36d5c3e39ff419aea8c603566541f59506ce9
+row          0 0 1 1.5 2.5 4
+end
+
+expectation  hint.plate-solve/hint-none
+operation    the plate solve takes its position hint from the first pair of cards that reads
+input        hint-none description=edaff7e2e63251db78c7aa5b8262cdf8fad9186f611c2d5d46e8ae2e37d94eeb samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=4994160d63aa8527a811947c80c7e0d26783c73d0e63be23418286ee842c9e92
+row          0 0 0 0 0 -1
+end
+
+expectation  hint.plate-solve/hint-unit-letters
+operation    the plate solve takes its position hint from the first pair of cards that reads
+input        hint-unit-letters description=8700d3f43b07d0197476806ad032c0ceedcfeca9a05baeb75a33f93c1f856958 samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=8eb18353b77d57da5d1e2b3453ba57218296d58e57670cc3e0c4c7a0f947a0d3
+row          0 0 1 83.82208333333332 -5.391111111111112 2
+end
+
+expectation  hint.plate-solve/hint-full-turn
+operation    the plate solve takes its position hint from the first pair of cards that reads
+input        hint-full-turn description=ddc47db15c2e4954b37c25ed96de73ea4e8c7f4ea2149d275b9c919309de0742 samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        accepted
+accepted     a right ascension of 360 is folded to 0, as every direction is
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=a43341dfbb737d28006e71e4a6cf60f0ec1b7f549e693d467385e3c444436f19
+row          0 0 1 360 0 1
+end
+
+expectation  hint.observed/hint-every-pair
+operation    a mosaic reads each panel's observed pointing from the cards, never a solution's reference
+input        hint-every-pair description=cdff5a942c5276f00b752cfd51b3ec6ebec672478c26591657b061b26f11e10b samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=a41c4b4392bd377c08b98136b348a34e7fc26656ed0b94e83695ff7c52f0990c
+row          0 0 1 83.8221 -5.3911 1
+end
+
+expectation  hint.observed/hint-object-pair
+operation    a mosaic reads each panel's observed pointing from the cards, never a solution's reference
+input        hint-object-pair description=f5e5257a35c53dd9db41bf3fb09c6da3c3eda8bb41e39628f9555a4aaedfd121 samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=8eb18353b77d57da5d1e2b3453ba57218296d58e57670cc3e0c4c7a0f947a0d3
+row          0 0 1 83.82208333333332 -5.391111111111112 2
+end
+
+expectation  hint.observed/hint-none
+operation    a mosaic reads each panel's observed pointing from the cards, never a solution's reference
+input        hint-none description=edaff7e2e63251db78c7aa5b8262cdf8fad9186f611c2d5d46e8ae2e37d94eeb samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=4994160d63aa8527a811947c80c7e0d26783c73d0e63be23418286ee842c9e92
+row          0 0 0 0 0 -1
+end
+
+expectation  scale.hint/optics-focal-and-pixel
+operation    the plate solve's scale hint from a drizzled scale, or the pixel size behind the focal length
+input        optics-focal-and-pixel description=7faf9bf6369038d0de2d2f6a7010b80af9f932446bdfd9c66c5d7e32247815ed samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        accepted
+accepted     the pixel scale is the small-angle relation with 180 times 3600 over pi arcseconds a radian; the record multiplies by 206.265, that constant to six figures
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=22969a2a9b6e46a998e8ae3c4c761424660cb1cd2fe679692f299edcb1ba0495
+row          0 0 1 1.463313962264151
+end
+
+expectation  scale.hint/optics-drizzle-multiplier
+operation    the plate solve's scale hint from a drizzled scale, or the pixel size behind the focal length
+input        optics-drizzle-multiplier description=cdf93b33e02b979e0acc4f050eb5ebdaca84b942393dd52cb618166247d70a6d samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        accepted
+accepted     the pixel scale is the small-angle relation with 180 times 3600 over pi arcseconds a radian; the record multiplies by 206.265, that constant to six figures
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=6cadf71c4cf4983a8d53e1e71270e70e64fac1c2b93a84af7a94d3358d6f92cc
+row          0 0 1 1.1937586875
+end
+
+expectation  scale.hint/optics-fallback-keywords
+operation    the plate solve's scale hint from a drizzled scale, or the pixel size behind the focal length
+input        optics-fallback-keywords description=57fbb9719667046c1d69a4c755e305c543915679c66444efdccb9717163ed4e2 samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        accepted
+accepted     the pixel scale is the small-angle relation with 180 times 3600 over pi arcseconds a radian; the record multiplies by 206.265, that constant to six figures
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=22969a2a9b6e46a998e8ae3c4c761424660cb1cd2fe679692f299edcb1ba0495
+row          0 0 1 1.463313962264151
+end
+
+expectation  scale.hint/optics-quoted-pixel
+operation    the plate solve's scale hint from a drizzled scale, or the pixel size behind the focal length
+input        optics-quoted-pixel description=1c64d0df137f62ba2140010612e73a59bed43da8c63f8a648bd27e5a1f381550 samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        accepted
+accepted     the pixel scale is the small-angle relation with 180 times 3600 over pi arcseconds a radian; the record multiplies by 206.265, that constant to six figures
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=f3ed0f006d620b4f0ceed3c469a0c7b48f40863a1beccf98fd650040f2e0e195
+row          0 0 1 0.9550069499999998
+end
+
+expectation  scale.hint/optics-drizzle-scale
+operation    the plate solve's scale hint from a drizzled scale, or the pixel size behind the focal length
+input        optics-drizzle-scale description=2e8b2b34e6d2386f6bf7db6134f74c7e1d8c32d99e7b99900d7e81270fb5fb1b samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=f28e3e7c5f8af1f5ac73eaf5836af0ff5005676a4482a2f8f7e567f9a3fcb303
+row          0 0 1 0.7314
+end
+
+expectation  scale.hint/optics-focal-only
+operation    the plate solve's scale hint from a drizzled scale, or the pixel size behind the focal length
+input        optics-focal-only description=206940e521a0e0913f9ce24042b4828133d958ff35e511a2414b9cbb5b90148c samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb
+row          0 0 0 0
+end
+
+expectation  scale.derived-focal/optics-focal-and-pixel
+operation    a solved frame's focal length from its scale and the drizzled pixel size
+input        optics-focal-and-pixel description=7faf9bf6369038d0de2d2f6a7010b80af9f932446bdfd9c66c5d7e32247815ed samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        accepted
+accepted     the pixel scale is the small-angle relation with 180 times 3600 over pi arcseconds a radian; the record multiplies by 206.265, that constant to six figures
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=46078dc00cd94914f4de29eba61cda5945e969b688fb5646fdc732683cb37011
+row          0 0 1 530.0050570628032
+end
+
+expectation  scale.derived-focal/optics-pixel-multiplier
+operation    a solved frame's focal length from its scale and the drizzled pixel size
+input        optics-pixel-multiplier description=3a22df841c624e1a00adbd40aeb542bbd6b01a9a27088e261e1323d77b93551f samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        accepted
+accepted     the pixel scale is the small-angle relation with 180 times 3600 over pi arcseconds a radian; the record multiplies by 206.265, that constant to six figures
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=38f716375fc99c65b0b7408576a20f7460fa577564944f1770847c96253d44fd
+row          0 0 1 531.2030136986301
+end
+
+expectation  scale.derived-focal/optics-native-drizzle
+operation    a solved frame's focal length from its scale and the drizzled pixel size
+input        optics-native-drizzle description=da49da7dce5faaa6bc5d380cb26566fd58f64316287012a444ddafb6d03dae4e samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        accepted
+accepted     the pixel scale is the small-angle relation with 180 times 3600 over pi arcseconds a radian; the record multiplies by 206.265, that constant to six figures
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=e93a522459dceb6fe28f33fcd8d1fb90a5c65b9c07a853ceacc4511cd06dda63
+row          0 0 1 509.61538461538447
+end
+
+expectation  scale.derived-focal/optics-focal-only
+operation    a solved frame's focal length from its scale and the drizzled pixel size
+input        optics-focal-only description=206940e521a0e0913f9ce24042b4828133d958ff35e511a2414b9cbb5b90148c samples=df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb
+row          0 0 0 0
+end
+
+expectation  mosaic.centre/panels-orion
+operation    a mosaic is centred on the mean of its panels' unit vectors
+input        panels-orion description=e9da2b4638471786f648f302031844e440f63e04a1170d6c208ca7c6fd80fe17 samples=641733a5db077c7a2d2d04eb1fb617a3aeda46ac7e2b38c2f5ad922ccc79a03b
+class        tolerance
+tolerance    absolute=1e-12 relative=0
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       3 1 1 float64 sha256=185fee0bc1ccf10af8469a9cccb28ac44afcd945b2e1da965733c829e91e05c6
+row          0 0 1 83.59992993709015 -5.260222115383235
+end
+
+expectation  mosaic.centre/panels-across-zero-hours
+operation    a mosaic is centred on the mean of its panels' unit vectors
+input        panels-across-zero-hours description=272aa4aea70dcb23e451c7432396b1eb23df3f9c2d7b4b7dea082d62af62bee0 samples=4b2a97fd0615108165785e160146123ae0a9da0f6326e90f94b6be081ebc500a
+class        tolerance
+tolerance    absolute=1e-12 relative=0
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       3 1 1 float64 sha256=aed301d4b5209b0152fa1665cb2aa0fcd17151fe1ab6d89f7d8f6d8865d469c3
+row          0 0 1 8.528539694339554e-15 10.00037309751093
+end
+
+expectation  mosaic.centre/panels-around-the-pole
+operation    a mosaic is centred on the mean of its panels' unit vectors
+input        panels-around-the-pole description=76ab7a611d80f3f87347b2d4d5ad8e732abf34deb5b4a904115455a16604d80d samples=102d3fa20874456404234bf42c3654803b7494376cc5822fb18de0a59acd433c
+class        tolerance
+tolerance    absolute=1e-12 relative=0
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       3 1 1 float64 sha256=ffdf416c460406df4f23931de1a17589c771608bf541fddb4923758da7b60059
+row          0 0 1 132.7352407929073 90
+end
+
+expectation  mosaic.centre/panels-opposite
+operation    a mosaic is centred on the mean of its panels' unit vectors
+input        panels-opposite description=373cff23b30d9e1a8abe847b86708f374719db9d6b917eeb05b92067169c5720 samples=86c4b1f337cb583a86b76b2cd1b389229f6bbc55bd58553e20b5629ed63ba321
+class        tolerance
+tolerance    absolute=1e-12 relative=0
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       3 1 1 float64 sha256=9d908ecfb6b256def8b49a7c504e6c889c4b0e41fe6ce3e01863dd7b61a20aa0
+row          0 0 0 0 0
+end
+
+expectation  mosaic.centre/panels-single
+operation    a mosaic is centred on the mean of its panels' unit vectors
+input        panels-single description=fa7bab383141999b40feec332a72aae12a5a6b4831a783c1d7ddb52a62e5033d samples=abad6749f0e11aac5cc10646390effd545835969327d9cce7ea65b9765e4ad18
+class        tolerance
+tolerance    absolute=1e-12 relative=0
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       3 1 1 float64 sha256=a0faed53c0a36065b6291fe6ba2e0cc4f837cc8960e8aba3f77964e4b9b81ad5
+row          0 0 1 210.802 54.349
+end
+
+expectation  epoch.year/date-with-fraction
+operation    the catalog's proper motions are carried to the Julian year of DATE-OBS
+input        date-with-fraction description=6280d870d91c2cb6fcd4f6e33354304a83df665f9d28b53061d6dbf631c91d4b samples=a8c7c45681e05e3a1396a78420222788d762cdcaf892e1adf45d8a404baa3954
+class        accepted
+accepted     the Julian year counts from J2000.0, 2000-01-01T12:00:00; the record counts from midnight, half a day earlier
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=029fbba2f449315079178826230f42f505a0b753f8dd97c01e89c356fab63e03
+row          0 0 1 2024.0408644985678
+end
+
+expectation  epoch.year/date-gaia-epoch
+operation    the catalog's proper motions are carried to the Julian year of DATE-OBS
+input        date-gaia-epoch description=b7606c1a4bf7f98cdad2ed75c8ba8ca12958f095adfc7fedf2724b7f91c17dec samples=ed77c39535c9903fecbe4eaca9acb6f07e47b15e13003bb650014acade66b0cc
+class        accepted
+accepted     the Julian year counts from J2000.0, 2000-01-01T12:00:00; the record counts from midnight, half a day earlier
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=4d2dc7b77e65e0f1b6d983809955ee4dc3ccc671cdb5ed4f9e92f35eaebd0474
+row          0 0 1 2016.0013689253935
+end
+
+expectation  epoch.year/date-millennium
+operation    the catalog's proper motions are carried to the Julian year of DATE-OBS
+input        date-millennium description=2dc0ca868193e1fbebd38ccadf776d0883cb56c4a1c11b0688957d8a3c036ddb samples=395672a511e7bcd9cde6c2fedb5eefc61ac488ad2f5d02f0b82a48e0c2d1fa91
+class        accepted
+accepted     the Julian year counts from J2000.0, 2000-01-01T12:00:00; the record counts from midnight, half a day earlier
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=c503b01cfaf9ad7a7c0524b15139732da187ff6650355d570e136ddefd52145d
+row          0 0 1 2000
+end
+
+expectation  epoch.year/date-not-a-date
+operation    the catalog's proper motions are carried to the Julian year of DATE-OBS
+input        date-not-a-date description=c7f2feca9b4ba64d3b7e9ccfe9cce3ebacc57c51f8f2abe0de88c481bba255ef samples=db0d8a91faf27093fbb263e462feba0110c65fee66d1e243816f5e139b46551f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       2 1 1 float64 sha256=374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb
+row          0 0 0 0
+end
+
+expectation  header.cards/header-astrometry-net
+operation    the cards of a solver's header-only output, read as records or as lines
+input        header-astrometry-net description=58ef6c753bda0e6afd753dd9c80f1f38df23e84122c1ebe1b9c06a35ab3d765c samples=1fde30b3494f8252b675a47455ac6decb01d33c7646b51a7c2039ef3a0ba1cd9
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       15 1 1 float64 sha256=1cb94adc35040a41b718e285969cef08a0bba35c5e6eb6cfcfadb94aa8988b91
+row          0 0 32 1024.5 768.5 83.822083 -5.391111 -0.000611111111 1.2e-06 1.1e-06 0.000611111111 2 2 8.9146e-07 -1.3437e-06 2048 1536
+end
+
+expectation  header.cards/header-astap
+operation    the cards of a solver's header-only output, read as records or as lines
+input        header-astap description=28bbb62aa296de3744e66060916316e798e97c8559b6351c4e51d582ac40ae2d samples=5f4d6e0d6168932ab58f27da58548d4debeba6983005bb88c86745a71ab4e796
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       15 1 1 float64 sha256=247f723505912e1be8e6940a70ee4f0675a68d25e603193986160cf4fb953d50
+row          0 0 25 1024.5 768.5 83.822083 -5.391111 -0.0006111099999 1.2e-06 1.1e-06 0.0006111099999 nan nan nan nan nan nan
+end
+
+expectation  header.cards/header-astrometry-net-lines
+operation    the cards of a solver's header-only output, read as records or as lines
+input        header-astrometry-net-lines description=e3fe9cb8bba7a490d676677959e78b2811d1e494aada4c4949637a413a0847a7 samples=daf2429a228c3a131a928483e11ddcd843eb603c33c37ce43711063d56bca01b
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       15 1 1 float64 sha256=1cb94adc35040a41b718e285969cef08a0bba35c5e6eb6cfcfadb94aa8988b91
+row          0 0 32 1024.5 768.5 83.822083 -5.391111 -0.000611111111 1.2e-06 1.1e-06 0.000611111111 2 2 8.9146e-07 -1.3437e-06 2048 1536
+end
+
+expectation  header.cards/header-truncated
+operation    the cards of a solver's header-only output, read as records or as lines
+input        header-truncated description=1fa1807261e97411c1bf6715e661661c0274f151a55172367147181121252526 samples=b564fbfcc7d53890a483095dcced76b5f8207f318cc71740f3435b5bbd54467e
+class        accepted
+accepted     a header without an END record is refused, since its last cards may be missing; the record holds whatever cards were there
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       15 1 1 float64 sha256=1cb94adc35040a41b718e285969cef08a0bba35c5e6eb6cfcfadb94aa8988b91
+row          0 0 32 1024.5 768.5 83.822083 -5.391111 -0.000611111111 1.2e-06 1.1e-06 0.000611111111 2 2 8.9146e-07 -1.3437e-06 2048 1536
+end
+
+expectation  header.cards/header-cards-after-end
+operation    the cards of a solver's header-only output, read as records or as lines
+input        header-cards-after-end description=544542d7b97365a11346a3da8768626c9da594d9c77dd75ec5c2d7f234caaf5a samples=d1dd21f9e91956e61ff81e9b020a7aad68d7f9c263f149ae17161d2e577c073f
+class        accepted
+accepted     nothing after the END record is read; the record reads on and lets a later card replace an earlier one
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       15 1 1 float64 sha256=3c055e98f566426c81a045fdfe400809d62e32c406d28df265b9017f957ac20d
+row          0 0 33 1024.5 768.5 83.822083 -5.391111 -0.000611111111 1.2e-06 1.1e-06 0.000611111111 2 2 8.9146e-07 -1.3437e-06 9999 1536
+end
+
+expectation  header.cards/header-duplicated-keyword
+operation    the cards of a solver's header-only output, read as records or as lines
+input        header-duplicated-keyword description=8f51b167c3259380893c467e9f84117211b00e6b3a602ffad1c411ec06693d12 samples=e1925783a53abf06fb5175b3e32deaa1ac39262864a12de820e72bdb4d697f41
+class        accepted
+accepted     every card is kept in order, and the bridge refuses two values for one keyword; the record keeps the last card of a keyword and drops the others
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       15 1 1 float64 sha256=a323379f3ffe4f7881335d56d4667eb9ae30d5da1271c657a514979619cb26ed
+row          0 0 32 1024.5 768.5 84 -5.391111 -0.000611111111 1.2e-06 1.1e-06 0.000611111111 2 2 8.9146e-07 -1.3437e-06 2048 1536
+end
+
+expectation  detection.policy/stars-every-channel
+operation    the overlay detects in green, then red when green gives fewer than 25 stars, and keeps the channel that gave more
+input        stars-every-channel description=084ac1f6217636af90120a54b64f72a3442af80ee2d0b924381a494e7bbf0c4f samples=f1055187a80655932a8b656d72911c1cda6bd7973ed68fbf153e238149f5af5a
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=d7dffb0eea2d91a18d23835936bc545654df2ee77816e462622e58942329fcac
+row          0 0 1 1 -1 1
+end
+
+expectation  detection.policy/stars-red-only
+operation    the overlay detects in green, then red when green gives fewer than 25 stars, and keeps the channel that gave more
+input        stars-red-only description=94f5d14f6fcdc4957f71dfb2bbc21b6627b5417a47a4c2670239d12ec4eb1a59 samples=8c558b90efa07b196a99afd3efc3f14fa1b575bb3c567b16015b0490fa60db23
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=172ceea2dfbc82ffa214c2bcccfc30c185ef93e8d9bc9c8cc69c448350f06779
+row          0 0 2 1 0 0
+end
+
+expectation  detection.policy/stars-none
+operation    the overlay detects in green, then red when green gives fewer than 25 stars, and keeps the channel that gave more
+input        stars-none description=1b37241c1c80f85cc8271f7ea21bee5f4a3115661e937e2d139afad1466c8ebd samples=11b2f738b586f8f1f26e2be6f1b8a83880d32b11af3989890047df9a164fdf17
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=d43102492dfe2c327205e3d7177f644a4cd017d4a6c05e1afbdaaf66c7042520
+row          0 0 2 1 0 1
+end
+
+expectation  detection.policy/stars-mono
+operation    the overlay detects in green, then red when green gives fewer than 25 stars, and keeps the channel that gave more
+input        stars-mono description=d30bd76ce71dbe626c4daa78231affdb93d004a7f63c172239a004352a9f0395 samples=4e18b72788bfbf1c46883021462dbbf3f221c6ab70397d73aef5db3b8e394e8a
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       4 1 1 float64 sha256=f22632020555098d523f7f407516ba415cf32b8192c8759925bc03e305be5f56
+row          0 0 1 0 -1 0
+end

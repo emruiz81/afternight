@@ -1,0 +1,6 @@
+# Findings gitleaks reports that were read and are not secrets: one fingerprint each, after the reason.
+# Run from the root of the tree: gitleaks dir . --redact
+
+# Vendored G'MIC's CImg: a keyboard case label of its image viewer (the page-up key changes the frame timing),
+# which the generic rule reads as a key assigned a value.
+3rdparty/src/gmic/CImg.h:generic-api-key:60497

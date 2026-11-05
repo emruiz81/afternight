@@ -1,0 +1,28 @@
+{
+  "id": "example.settings_diagnostics_process",
+  "name": "Example Settings Diagnostics Process",
+  "version": "1.0.0",
+  "summary": "Template for extension settings, logs, session metadata, and artifact output.",
+  "description": "A repository-ready AfterNight extension package that demonstrates the currently shipped diagnostics surface.",
+  "author": "Example Author",
+  "license": "GPL-3.0-or-later",
+  "publisher_id": "example.author",
+  "type": "python",
+  "entry_point": "settings_diagnostics_process",
+  "process_class": "ExampleSettingsDiagnosticsProcess",
+  "category": "filters",
+  "launch_mode": "single_image",
+  "sdk_backend": "runtime",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "tags": [
+    "template",
+    "settings",
+    "diagnostics"
+  ],
+  "capabilities": {
+    "execute": true
+  }
+}

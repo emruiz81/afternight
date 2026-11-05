@@ -1,0 +1,2517 @@
+{
+ "contract": {
+  "calls": [
+   {
+    "call": "available_pixel_types",
+    "result": [
+     "int8",
+     "uint8",
+     "int16",
+     "uint16",
+     "int32",
+     "uint32",
+     "float32",
+     "float64"
+    ]
+   },
+   {
+    "call": "image_from_numpy mono int8",
+    "result": {
+     "image": {
+      "dtype": "int8",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int8",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono uint8",
+    "result": {
+     "image": {
+      "dtype": "uint8",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint8",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono int16",
+    "result": {
+     "image": {
+      "dtype": "int16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono uint16",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono int32",
+    "result": {
+     "image": {
+      "dtype": "int32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono uint32",
+    "result": {
+     "image": {
+      "dtype": "uint32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono float32",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0.0,
+       0.11428571492433548,
+       0.22857142984867096,
+       0.34285715222358704,
+       0.22857142984867096,
+       0.34285715222358704,
+       0.4571428596973419,
+       0.5714285969734192,
+       0.4571428596973419,
+       0.5714285969734192,
+       0.6857143044471741,
+       0.800000011920929
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy mono float64",
+    "result": {
+     "image": {
+      "dtype": "float64",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0.0,
+       0.1142857142857143,
+       0.2285714285714286,
+       0.3428571428571429,
+       0.2285714285714286,
+       0.3428571428571429,
+       0.4571428571428572,
+       0.5714285714285714,
+       0.4571428571428572,
+       0.5714285714285714,
+       0.6857142857142858,
+       0.8
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "float64",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy colour hwc",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       4,
+       3
+      ],
+      "values": [
+       0.0,
+       0.25,
+       1.0,
+       0.1428571492433548,
+       0.3214285671710968,
+       0.8571428656578064,
+       0.2857142984867096,
+       0.3928571343421936,
+       0.7142857313156128,
+       0.4285714328289032,
+       0.4642857015132904,
+       0.5714285969734192,
+       0.2857142984867096,
+       0.3928571343421936,
+       0.7142857313156128,
+       0.4285714328289032,
+       0.4642857015132904,
+       0.5714285969734192,
+       0.5714285969734192,
+       0.5357142686843872,
+       0.4285714328289032,
+       0.7142857313156128,
+       0.6071428656578064,
+       0.2857142984867096,
+       0.5714285969734192,
+       0.5357142686843872,
+       0.4285714328289032,
+       0.7142857313156128,
+       0.6071428656578064,
+       0.2857142984867096,
+       0.8571428656578064,
+       0.6785714030265808,
+       0.1428571492433548,
+       1.0,
+       0.75,
+       0.0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 3,
+      "height": 3,
+      "pixel_format": "rgb",
+      "pixel_type": "float32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy colour chw",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       3,
+       4
+      ],
+      "values": [
+       0.0,
+       0.1428571492433548,
+       0.2857142984867096,
+       0.4285714328289032,
+       0.2857142984867096,
+       0.4285714328289032,
+       0.5714285969734192,
+       0.7142857313156128,
+       0.5714285969734192,
+       0.7142857313156128,
+       0.8571428656578064,
+       1.0,
+       0.25,
+       0.3214285671710968,
+       0.3928571343421936,
+       0.4642857015132904,
+       0.3928571343421936,
+       0.4642857015132904,
+       0.5357142686843872,
+       0.6071428656578064,
+       0.5357142686843872,
+       0.6071428656578064,
+       0.6785714030265808,
+       0.75,
+       1.0,
+       0.8571428656578064,
+       0.7142857313156128,
+       0.5714285969734192,
+       0.7142857313156128,
+       0.5714285969734192,
+       0.4285714328289032,
+       0.2857142984867096,
+       0.4285714328289032,
+       0.2857142984867096,
+       0.1428571492433548,
+       0.0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 4,
+      "height": 3,
+      "pixel_format": "rgba",
+      "pixel_type": "float32",
+      "width": 3
+     }
+    }
+   },
+   {
+    "call": "image_from_numpy metadata",
+    "result": {
+     "EXPTIME": "30",
+     "OBJECT": "M31"
+    }
+   },
+   {
+    "call": "image_from_numpy refuses a complex array",
+    "message": "NumPy arrays must use int8/uint8/int16/uint16/int32/uint32/float32/float64",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "image_from_numpy refuses four dimensions",
+    "message": "Runtime images require a 2D mono or 3D color NumPy array",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "image_from_numpy refuses five channels",
+    "message": "3D NumPy arrays must use (H, W, C) or (C, H, W) layout with 1, 3, or 4 channels",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "_RuntimeImage.to_numpy",
+    "result": {
+     "array": {
+      "dtype": "float32",
+      "shape": [
+       4,
+       5,
+       3
+      ],
+      "values": [
+       0.0,
+       0.25,
+       1.0,
+       0.10000000149011612,
+       0.30000001192092896,
+       0.8999999761581421,
+       0.20000000298023224,
+       0.3499999940395355,
+       0.800000011920929,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.699999988079071,
+       0.4000000059604645,
+       0.44999998807907104,
+       0.6000000238418579,
+       0.20000000298023224,
+       0.3499999940395355,
+       0.800000011920929,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.699999988079071,
+       0.4000000059604645,
+       0.44999998807907104,
+       0.6000000238418579,
+       0.5,
+       0.5,
+       0.5,
+       0.6000000238418579,
+       0.550000011920929,
+       0.4000000059604645,
+       0.4000000059604645,
+       0.44999998807907104,
+       0.6000000238418579,
+       0.5,
+       0.5,
+       0.5,
+       0.6000000238418579,
+       0.550000011920929,
+       0.4000000059604645,
+       0.699999988079071,
+       0.6000000238418579,
+       0.30000001192092896,
+       0.800000011920929,
+       0.6499999761581421,
+       0.20000000298023224,
+       0.6000000238418579,
+       0.550000011920929,
+       0.4000000059604645,
+       0.699999988079071,
+       0.6000000238418579,
+       0.30000001192092896,
+       0.800000011920929,
+       0.6499999761581421,
+       0.20000000298023224,
+       0.8999999761581421,
+       0.699999988079071,
+       0.10000000149011612,
+       1.0,
+       0.75,
+       0.0
+      ]
+     },
+     "c_contiguous": false,
+     "writeable": true
+    }
+   },
+   {
+    "call": "_RuntimeImage.properties",
+    "result": {
+     "backend": "runtime",
+     "channels": 3,
+     "height": 4,
+     "pixel_format": "rgb",
+     "pixel_type": "float32",
+     "width": 5
+    }
+   },
+   {
+    "call": "_RuntimeImage.metadata",
+    "result": {}
+   },
+   {
+    "call": "_RuntimeImage.set_metadata",
+    "result": {
+     "NOTE": "",
+     "OBSERVER": "someone"
+    }
+   },
+   {
+    "call": "_RuntimeImage.set_metadata refuses a reserved key",
+    "message": "Metadata key is reserved and cannot be changed: BITPIX",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "_RuntimeImage.set_metadata refuses an empty key",
+    "message": "Metadata key cannot be empty",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "_RuntimeImage.clone",
+    "result": {
+     "copy": {
+      "image": {
+       "dtype": "float32",
+       "shape": [
+        4,
+        5,
+        3
+       ],
+       "values": [
+        0.0,
+        0.25,
+        1.0,
+        0.10000000149011612,
+        0.30000001192092896,
+        0.8999999761581421,
+        0.20000000298023224,
+        0.3499999940395355,
+        0.800000011920929,
+        0.30000001192092896,
+        0.4000000059604645,
+        0.699999988079071,
+        0.4000000059604645,
+        0.44999998807907104,
+        0.6000000238418579,
+        0.20000000298023224,
+        0.3499999940395355,
+        0.800000011920929,
+        0.30000001192092896,
+        0.4000000059604645,
+        0.699999988079071,
+        0.4000000059604645,
+        0.44999998807907104,
+        0.6000000238418579,
+        0.5,
+        0.5,
+        0.5,
+        0.6000000238418579,
+        0.550000011920929,
+        0.4000000059604645,
+        0.4000000059604645,
+        0.44999998807907104,
+        0.6000000238418579,
+        0.5,
+        0.5,
+        0.5,
+        0.6000000238418579,
+        0.550000011920929,
+        0.4000000059604645,
+        0.699999988079071,
+        0.6000000238418579,
+        0.30000001192092896,
+        0.800000011920929,
+        0.6499999761581421,
+        0.20000000298023224,
+        0.6000000238418579,
+        0.550000011920929,
+        0.4000000059604645,
+        0.699999988079071,
+        0.6000000238418579,
+        0.30000001192092896,
+        0.800000011920929,
+        0.6499999761581421,
+        0.20000000298023224,
+        0.8999999761581421,
+        0.699999988079071,
+        0.10000000149011612,
+        1.0,
+        0.75,
+        0.0
+       ]
+      },
+      "properties": {
+       "backend": "runtime",
+       "channels": 3,
+       "height": 4,
+       "pixel_format": "rgb",
+       "pixel_type": "float32",
+       "width": 5
+      }
+     },
+     "equal": true
+    }
+   },
+   {
+    "call": "_RuntimeImage.from_numpy",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       2,
+       3
+      ],
+      "values": [
+       0,
+       16384,
+       32768,
+       32768,
+       49151,
+       65535
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 2,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 3
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type int8",
+    "result": {
+     "image": {
+      "dtype": "int8",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       -128,
+       -128,
+       -82,
+       -28,
+       -82,
+       -28,
+       27,
+       81,
+       27,
+       81,
+       127,
+       127
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int8",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type uint8",
+    "result": {
+     "image": {
+      "dtype": "uint8",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       0,
+       46,
+       100,
+       46,
+       100,
+       155,
+       209,
+       155,
+       209,
+       255,
+       255
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint8",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type int16",
+    "result": {
+     "image": {
+      "dtype": "int16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       -32768,
+       -32768,
+       -21065,
+       -7022,
+       -21065,
+       -7022,
+       7021,
+       21064,
+       7021,
+       21064,
+       32767,
+       32767
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type uint16",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       0,
+       11703,
+       25746,
+       11703,
+       25746,
+       39789,
+       53832,
+       39789,
+       53832,
+       65535,
+       65535
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type int32",
+    "result": {
+     "image": {
+      "dtype": "int32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       -2147483648,
+       -2147483648,
+       -1380525184,
+       -460175104,
+       -1380525184,
+       -460175104,
+       460175103,
+       1380525311,
+       460175103,
+       1380525311,
+       2147483647,
+       2147483647
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "int32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type uint32",
+    "result": {
+     "image": {
+      "dtype": "uint32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       0,
+       766958464,
+       1687308544,
+       766958464,
+       1687308544,
+       2607658751,
+       3528008959,
+       2607658751,
+       3528008959,
+       4294967295,
+       4294967295
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type float32",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       -0.25,
+       -0.0357142873108387,
+       0.1785714328289032,
+       0.3928571343421936,
+       0.1785714328289032,
+       0.3928571343421936,
+       0.6071428656578064,
+       0.8214285969734192,
+       0.6071428656578064,
+       0.8214285969734192,
+       1.0357142686843872,
+       1.25
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type float64",
+    "result": {
+     "image": {
+      "dtype": "float64",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       -0.25,
+       -0.0357142873108387,
+       0.1785714328289032,
+       0.3928571343421936,
+       0.1785714328289032,
+       0.3928571343421936,
+       0.6071428656578064,
+       0.8214285969734192,
+       0.6071428656578064,
+       0.8214285969734192,
+       1.0357142686843872,
+       1.25
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "float64",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "convert_pixel_type refuses an unknown type",
+    "message": "Unsupported pixel type: int64",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "apply_linear_transform defaults",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       0,
+       11703,
+       25746,
+       11703,
+       25746,
+       39789,
+       53832,
+       39789,
+       53832,
+       65535,
+       65535
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "apply_linear_transform scale 2 offset 0.1",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0,
+       0,
+       23406,
+       51492,
+       23406,
+       51492,
+       65535,
+       65535,
+       65535,
+       65535,
+       65535,
+       65535
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "apply_linear_transform refuses another extent",
+    "message": "apply_linear_transform() requires source and destination images to share dimensions and channels",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "extract_channel 1",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       4
+      ],
+      "values": [
+       0.25,
+       0.3214285671710968,
+       0.3928571343421936,
+       0.4642857015132904,
+       0.3928571343421936,
+       0.4642857015132904,
+       0.5357142686843872,
+       0.6071428656578064,
+       0.5357142686843872,
+       0.6071428656578064,
+       0.6785714030265808,
+       0.75
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 3,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "extract_channel refuses channel 3",
+    "message": "Channel index is out of range",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "extract_channels",
+    "result": [
+     {
+      "image": {
+       "dtype": "float32",
+       "shape": [
+        3,
+        4
+       ],
+       "values": [
+        0.0,
+        0.1428571492433548,
+        0.2857142984867096,
+        0.4285714328289032,
+        0.2857142984867096,
+        0.4285714328289032,
+        0.5714285969734192,
+        0.7142857313156128,
+        0.5714285969734192,
+        0.7142857313156128,
+        0.8571428656578064,
+        1.0
+       ]
+      },
+      "properties": {
+       "backend": "runtime",
+       "channels": 1,
+       "height": 3,
+       "pixel_format": "gray",
+       "pixel_type": "float32",
+       "width": 4
+      }
+     },
+     {
+      "image": {
+       "dtype": "float32",
+       "shape": [
+        3,
+        4
+       ],
+       "values": [
+        0.25,
+        0.3214285671710968,
+        0.3928571343421936,
+        0.4642857015132904,
+        0.3928571343421936,
+        0.4642857015132904,
+        0.5357142686843872,
+        0.6071428656578064,
+        0.5357142686843872,
+        0.6071428656578064,
+        0.6785714030265808,
+        0.75
+       ]
+      },
+      "properties": {
+       "backend": "runtime",
+       "channels": 1,
+       "height": 3,
+       "pixel_format": "gray",
+       "pixel_type": "float32",
+       "width": 4
+      }
+     },
+     {
+      "image": {
+       "dtype": "float32",
+       "shape": [
+        3,
+        4
+       ],
+       "values": [
+        1.0,
+        0.8571428656578064,
+        0.7142857313156128,
+        0.5714285969734192,
+        0.7142857313156128,
+        0.5714285969734192,
+        0.4285714328289032,
+        0.2857142984867096,
+        0.4285714328289032,
+        0.2857142984867096,
+        0.1428571492433548,
+        0.0
+       ]
+      },
+      "properties": {
+       "backend": "runtime",
+       "channels": 1,
+       "height": 3,
+       "pixel_format": "gray",
+       "pixel_type": "float32",
+       "width": 4
+      }
+     }
+    ]
+   },
+   {
+    "call": "compose_rgb",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       3,
+       4,
+       3
+      ],
+      "values": [
+       0.0,
+       0.25,
+       1.0,
+       0.1428571492433548,
+       0.3214285671710968,
+       0.8571428656578064,
+       0.2857142984867096,
+       0.3928571343421936,
+       0.7142857313156128,
+       0.4285714328289032,
+       0.4642857015132904,
+       0.5714285969734192,
+       0.2857142984867096,
+       0.3928571343421936,
+       0.7142857313156128,
+       0.4285714328289032,
+       0.4642857015132904,
+       0.5714285969734192,
+       0.5714285969734192,
+       0.5357142686843872,
+       0.4285714328289032,
+       0.7142857313156128,
+       0.6071428656578064,
+       0.2857142984867096,
+       0.5714285969734192,
+       0.5357142686843872,
+       0.4285714328289032,
+       0.7142857313156128,
+       0.6071428656578064,
+       0.2857142984867096,
+       0.8571428656578064,
+       0.6785714030265808,
+       0.1428571492433548,
+       1.0,
+       0.75,
+       0.0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 3,
+      "height": 3,
+      "pixel_format": "rgb",
+      "pixel_type": "float32",
+      "width": 4
+     }
+    }
+   },
+   {
+    "call": "compose_rgb refuses a colour plane",
+    "message": "compose_rgb() requires mono channel images",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "compose_rgb refuses another extent",
+    "message": "compose_rgb() requires all channels to share the same dimensions",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "is_supported_path .fits",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .fit",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .fts",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .xisf",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .tif",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .tiff",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .png",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .jpg",
+    "result": true
+   },
+   {
+    "call": "is_supported_path .ser",
+    "result": false
+   },
+   {
+    "call": "is_supported_path .avi",
+    "result": false
+   },
+   {
+    "call": "is_supported_path .txt",
+    "result": false
+   },
+   {
+    "call": "is_supported_path no suffix",
+    "result": false
+   },
+   {
+    "call": "save_image .fits",
+    "result": true
+   },
+   {
+    "call": "load_image .fits",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       4,
+       5
+      ],
+      "values": [
+       0.0,
+       0.10000000149011612,
+       0.20000000298023224,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.20000000298023224,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.5,
+       0.6000000238418579,
+       0.4000000059604645,
+       0.5,
+       0.6000000238418579,
+       0.699999988079071,
+       0.800000011920929,
+       0.6000000238418579,
+       0.699999988079071,
+       0.800000011920929,
+       0.8999999761581421,
+       1.0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "file_name": "<work>/saved.fits",
+      "height": 4,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 5
+     }
+    }
+   },
+   {
+    "call": "load_image without metadata .fits",
+    "result": {
+     "FILENAME": "<work>/saved.fits"
+    }
+   },
+   {
+    "call": "save_image .tif",
+    "result": true
+   },
+   {
+    "call": "load_image .tif",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "shape": [
+       4,
+       5
+      ],
+      "values": [
+       0.0,
+       0.10000000149011612,
+       0.20000000298023224,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.20000000298023224,
+       0.30000001192092896,
+       0.4000000059604645,
+       0.5,
+       0.6000000238418579,
+       0.4000000059604645,
+       0.5,
+       0.6000000238418579,
+       0.699999988079071,
+       0.800000011920929,
+       0.6000000238418579,
+       0.699999988079071,
+       0.800000011920929,
+       0.8999999761581421,
+       1.0
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "file_name": "<work>/saved.tif",
+      "height": 4,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 5
+     }
+    }
+   },
+   {
+    "call": "load_image without metadata .tif",
+    "result": {
+     "FILENAME": "<work>/saved.tif"
+    }
+   },
+   {
+    "call": "save_image .png",
+    "result": true
+   },
+   {
+    "call": "load_image .png",
+    "result": {
+     "image": {
+      "dtype": "uint16",
+      "shape": [
+       4,
+       5
+      ],
+      "values": [
+       0,
+       6554,
+       13107,
+       19661,
+       26214,
+       13107,
+       19661,
+       26214,
+       32768,
+       39321,
+       26214,
+       32768,
+       39321,
+       45874,
+       52428,
+       39321,
+       45874,
+       52428,
+       58981,
+       65535
+      ]
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "file_name": "<work>/saved.png",
+      "height": 4,
+      "pixel_format": "gray",
+      "pixel_type": "uint16",
+      "width": 5
+     }
+    }
+   },
+   {
+    "call": "load_image without metadata .png",
+    "result": {
+     "FILENAME": "<work>/saved.png"
+    }
+   },
+   {
+    "call": "save_image with options",
+    "result": true
+   },
+   {
+    "call": "load_image refuses a missing file",
+    "message": "load_image() could not read '<work>/missing.fits': ExternalFailure: something outside the engine failed (because: could not open the named file)",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "save_image refuses an unknown format",
+    "message": "File extension not supported by any codec",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "detect_fwhm defaults",
+    "result": 2.900535064581019
+   },
+   {
+    "call": "find_stars defaults",
+    "result": [
+     {
+      "amplitude": 0.8990907255517814,
+      "angle_degrees": -10.306715433698775,
+      "background": 0.10584488289630106,
+      "beta": -1.0,
+      "box_radius": 9,
+      "channel": 0,
+      "circularity": 8.389499493613041,
+      "dec": 0.0,
+      "fwhm": 3.34293935121552,
+      "fwhm_x": 3.3465236398990266,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 3.339355062532014,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.6408120365872105,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.03722433626199663,
+      "roundness": 0.9978579032636898,
+      "saturated": true,
+      "saturation": 1.0,
+      "snr": 59.32333642772493,
+      "sx": 1.4211377412733008,
+      "sy": 1.418093526755872,
+      "units": "px",
+      "x": 22.60075151489214,
+      "x0": 9.600751514892139,
+      "y": 30.902993305033345,
+      "y0": 9.902993305033345
+     },
+     {
+      "amplitude": 0.7989054300747757,
+      "angle_degrees": 44.21708463048661,
+      "background": 0.08809839864304896,
+      "beta": -1.0,
+      "box_radius": 10,
+      "channel": 0,
+      "circularity": 7.028105593640773,
+      "dec": 0.0,
+      "fwhm": 3.001431077010735,
+      "fwhm_x": 3.0082675473390723,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 2.994594606682397,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.278538341729706,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.0036629856583998703,
+      "roundness": 0.9954548787827168,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 52.71296239117155,
+      "sx": 1.2774936045275374,
+      "sy": 1.2716872412406557,
+      "units": "px",
+      "x": 12.803944508351028,
+      "x0": 10.803944508351028,
+      "y": 11.100150931029376,
+      "y0": 10.100150931029376
+     },
+     {
+      "amplitude": 0.6990841024665859,
+      "angle_degrees": -25.10908065290921,
+      "background": 0.09522345430966414,
+      "beta": -1.0,
+      "box_radius": 9,
+      "channel": 0,
+      "circularity": 6.264835954162866,
+      "dec": 0.0,
+      "fwhm": 3.0994379385617004,
+      "fwhm_x": 3.105232224923026,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 3.0936436522003743,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.2034564799409027,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.0038397125000754167,
+      "roundness": 0.9962680495746372,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 46.12660349315427,
+      "sx": 1.3186707117925294,
+      "sy": 1.3137494980687419,
+      "units": "px",
+      "x": 9.906288485083493,
+      "x0": 9.906288485083493,
+      "y": 38.60315196243862,
+      "y0": 9.603151962438625
+     },
+     {
+      "amplitude": 0.5498960369305086,
+      "angle_degrees": -19.749764225907967,
+      "background": 0.09996393600500354,
+      "beta": -1.0,
+      "box_radius": 6,
+      "channel": 0,
+      "circularity": 5.491869173397358,
+      "dec": 0.0,
+      "fwhm": 2.689725196566318,
+      "fwhm_x": 2.6897897574260528,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 2.689660635706583,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -1.6350866646724533,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.010759305378638985,
+      "roundness": 0.9999519956089084,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 36.282954180270245,
+      "sx": 1.1422485395871451,
+      "sy": 1.1421937066415269,
+      "units": "px",
+      "x": 41.80845632171771,
+      "x0": 6.8084563217177125,
+      "y": 7.7016818164174845,
+      "y0": 6.7016818164174845
+     },
+     {
+      "amplitude": 0.4987317746564756,
+      "angle_degrees": -10.128811729470405,
+      "background": 0.10644680804381891,
+      "beta": -1.0,
+      "box_radius": 9,
+      "channel": 0,
+      "circularity": 4.5702714768010875,
+      "dec": 0.0,
+      "fwhm": 2.799639052151303,
+      "fwhm_x": 2.8042016505864353,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 2.7950764537161703,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -1.6158535648874917,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.003273600940871238,
+      "roundness": 0.9967458842097334,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 32.90706044930549,
+      "sx": 1.190834797123833,
+      "sy": 1.1869596828069136,
+      "units": "px",
+      "x": 38.710319361329994,
+      "x0": 9.71031936132999,
+      "y": 37.20638986376537,
+      "y0": 9.206389863765365
+     },
+     {
+      "amplitude": 0.5983823107314409,
+      "angle_degrees": 75.75985483775884,
+      "background": 0.1121945406990712,
+      "beta": -1.0,
+      "box_radius": 11,
+      "channel": 0,
+      "circularity": 4.91824276144484,
+      "dec": 0.0,
+      "fwhm": 2.4832724729242717,
+      "fwhm_x": 2.494105410596878,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 2.4724395352516657,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -1.5533357894988016,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.0564687139541231,
+      "roundness": 0.9913131677381561,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 39.48215026924584,
+      "sx": 1.0591490487185418,
+      "sy": 1.0499483985920324,
+      "units": "px",
+      "x": 34.00139207883066,
+      "x0": 11.001392078830666,
+      "y": 14.705042995481485,
+      "y0": 11.705042995481485
+     }
+    ]
+   },
+   {
+    "call": "find_stars max_stars 3",
+    "result": [
+     {
+      "amplitude": 0.8990907255517814,
+      "angle_degrees": -10.306715433698775,
+      "background": 0.10584488289630106,
+      "beta": -1.0,
+      "box_radius": 9,
+      "channel": 0,
+      "circularity": 8.389499493613041,
+      "dec": 0.0,
+      "fwhm": 3.34293935121552,
+      "fwhm_x": 3.3465236398990266,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 3.339355062532014,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.6408120365872105,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.03722433626199663,
+      "roundness": 0.9978579032636898,
+      "saturated": true,
+      "saturation": 1.0,
+      "snr": 59.32333642772493,
+      "sx": 1.4211377412733008,
+      "sy": 1.418093526755872,
+      "units": "px",
+      "x": 22.60075151489214,
+      "x0": 9.600751514892139,
+      "y": 30.902993305033345,
+      "y0": 9.902993305033345
+     },
+     {
+      "amplitude": 0.7989054300747757,
+      "angle_degrees": 44.21708463048661,
+      "background": 0.08809839864304896,
+      "beta": -1.0,
+      "box_radius": 10,
+      "channel": 0,
+      "circularity": 7.028105593640773,
+      "dec": 0.0,
+      "fwhm": 3.001431077010735,
+      "fwhm_x": 3.0082675473390723,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 2.994594606682397,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.278538341729706,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.0036629856583998703,
+      "roundness": 0.9954548787827168,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 52.71296239117155,
+      "sx": 1.2774936045275374,
+      "sy": 1.2716872412406557,
+      "units": "px",
+      "x": 12.803944508351028,
+      "x0": 10.803944508351028,
+      "y": 11.100150931029376,
+      "y0": 10.100150931029376
+     },
+     {
+      "amplitude": 0.6990841024665859,
+      "angle_degrees": -25.10908065290921,
+      "background": 0.09522345430966414,
+      "beta": -1.0,
+      "box_radius": 9,
+      "channel": 0,
+      "circularity": 6.264835954162866,
+      "dec": 0.0,
+      "fwhm": 3.0994379385617004,
+      "fwhm_x": 3.105232224923026,
+      "fwhm_x_arcsec": 0.0,
+      "fwhm_y": 3.0936436522003743,
+      "fwhm_y_arcsec": 0.0,
+      "has_world_coordinates": false,
+      "magnitude": -2.2034564799409027,
+      "name": "",
+      "profile": "gaussian",
+      "ra": 0.0,
+      "rmse": 0.0038397125000754167,
+      "roundness": 0.9962680495746372,
+      "saturated": false,
+      "saturation": 1.0,
+      "snr": 46.12660349315427,
+      "sx": 1.3186707117925294,
+      "sy": 1.3137494980687419,
+      "units": "px",
+      "x": 9.906288485083493,
+      "x0": 9.906288485083493,
+      "y": 38.60315196243862,
+      "y0": 9.603151962438625
+     }
+    ]
+   },
+   {
+    "call": "find_stars refuses no stars",
+    "message": "find_stars() max_stars must be greater than zero",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "find_stars refuses channel 2 of a mono image",
+    "message": "find_stars() channel is out of range",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "find_stars refuses a zero radius",
+    "message": "Star finder radius must be greater than zero",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "richardson_lucy_deconvolution defaults",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "finite": 576,
+      "max": 1.0,
+      "min": 0.07536175101995468,
+      "samples": [
+       0.08005357533693314,
+       0.08485020697116852,
+       0.08960894495248795,
+       0.08886849880218506,
+       0.09294480830430984,
+       0.08674118667840958,
+       0.09153208881616592,
+       0.09537896513938904
+      ],
+      "shape": [
+       24,
+       24
+      ],
+      "sum": 58.27190858125687,
+      "sum_of_squares": 10.295481011627754
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 24,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 24
+     }
+    }
+   },
+   {
+    "call": "richardson_lucy_deconvolution refuses the automatic profile",
+    "message": "Automatic deconvolution PSF profile requires fitted stars",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "richardson_lucy_deconvolution refuses no iterations",
+    "message": "Richardson-Lucy iterations must be greater than zero",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "wiener_deconvolution defaults",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "finite": 576,
+      "max": 1.0,
+      "min": 0.07233867049217224,
+      "samples": [
+       0.07233867049217224,
+       0.08475468307733536,
+       0.09017136693000793,
+       0.0938805490732193,
+       0.0930805578827858,
+       0.08757967501878738,
+       0.09228070080280304,
+       0.08641217648983002
+      ],
+      "shape": [
+       24,
+       24
+      ],
+      "sum": 58.41457358002663,
+      "sum_of_squares": 10.524896906087676
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 24,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 24
+     }
+    }
+   },
+   {
+    "call": "wiener_deconvolution refuses no regularization",
+    "message": "Wiener deconvolution regularization must be greater than zero",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "richardson_lucy_star_deconvolution defaults",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "finite": 2304,
+      "max": 1.0,
+      "min": 0.042209018021821976,
+      "samples": [
+       0.08083432912826538,
+       0.3148672878742218,
+       0.4212133586406708,
+       0.06996408849954605,
+       0.06498456001281738,
+       0.11296495795249939,
+       0.11754688620567322,
+       0.11241401731967926
+      ],
+      "shape": [
+       48,
+       48
+      ],
+      "sum": 257.74523128941655,
+      "sum_of_squares": 51.703140234820566
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "height": 48,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 48
+     }
+    }
+   },
+   {
+    "call": "richardson_lucy_star_deconvolution refuses a field without stars",
+    "message": "Star-derived deconvolution PSF does not have enough usable fitted stars.",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "create_calibration_masters_paths defaults",
+    "result": {
+     "bias": {
+      "frame_count": 3,
+      "metadata": {
+       "FILTER": "L",
+       "FRAMECNT": 3,
+       "IMAGETYP": "MASTER_BIAS",
+       "STACKMTH": "average"
+      },
+      "method": "average",
+      "native": true,
+      "path": "<work>/masters/master_bias_L.xisf"
+     },
+     "dark": {
+      "frame_count": 3,
+      "metadata": {
+       "FILTER": "L",
+       "FRAMECNT": 3,
+       "IMAGETYP": "MASTER_DARK",
+       "STACKMTH": "average"
+      },
+      "method": "average",
+      "native": true,
+      "path": "<work>/masters/master_dark_L.xisf"
+     },
+     "flat": {
+      "frame_count": 3,
+      "metadata": {
+       "FILTER": "L",
+       "FRAMECNT": 3,
+       "IMAGETYP": "MASTER_FLAT",
+       "STACKMTH": "average"
+      },
+      "method": "average",
+      "native": true,
+      "path": "<work>/masters/master_flat_L.xisf"
+     }
+    }
+   },
+   {
+    "call": "create_calibration_masters_paths refuses no output directory",
+    "message": "create_calibration_masters_paths() output_dir must not be empty",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "calibrate_sequence_paths defaults",
+    "result": {
+     "failed_count": 0,
+     "frames": [
+      {
+       "error_message": "",
+       "index": 0,
+       "input_path": "<work>/light_0.fits",
+       "output_path": "<work>/calibrated/image_0000.fits",
+       "succeeded": true
+      },
+      {
+       "error_message": "",
+       "index": 1,
+       "input_path": "<work>/light_1.fits",
+       "output_path": "<work>/calibrated/image_0001.fits",
+       "succeeded": true
+      },
+      {
+       "error_message": "",
+       "index": 2,
+       "input_path": "<work>/light_2.fits",
+       "output_path": "<work>/calibrated/image_0002.fits",
+       "succeeded": true
+      }
+     ],
+     "output_paths": [
+      "<work>/calibrated/image_0000.fits",
+      "<work>/calibrated/image_0001.fits",
+      "<work>/calibrated/image_0002.fits"
+     ],
+     "skipped_count": 0,
+     "succeeded_count": 3,
+     "total_count": 3,
+     "was_cancelled": false
+    }
+   },
+   {
+    "call": "register_sequence_paths defaults",
+    "result": {
+     "canvas_height": 48,
+     "canvas_width": 48,
+     "failed_count": 0,
+     "failed_registration_paths": [
+      "<work>/light_1.fits",
+      "<work>/light_2.fits"
+     ],
+     "frames": [
+      {
+       "error_message": "",
+       "index": 0,
+       "input_path": "<work>/light_0.fits",
+       "output_path": "<work>/registered/image_0000.fits",
+       "registration": {
+        "background": 0.09841286763548851,
+        "background_noise": 0.015155768028104177,
+        "dx": 0.0,
+        "dy": 0.0,
+        "fwhm": 2.900535064581019,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "reference",
+        "on_error": false,
+        "quality": 1.77927945534458,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.9965069668921853,
+        "scale": 1.0,
+        "snr": 39.48215026924584,
+        "star_count": 6,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": true
+      },
+      {
+       "error_message": "EmptySelection: triangle consensus produced fewer point pairs than the request requires",
+       "index": 1,
+       "input_path": "<work>/light_1.fits",
+       "output_path": "",
+       "registration": {
+        "background": 0.09827350452542305,
+        "background_noise": 0.015129493110435776,
+        "dx": 0.0,
+        "dy": 0.0,
+        "fwhm": 2.992193429177611,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "failed",
+        "on_error": true,
+        "quality": 1.3817157434824987,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.9983663184862299,
+        "scale": 1.0,
+        "snr": 42.846217308180094,
+        "star_count": 5,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": false
+      },
+      {
+       "error_message": "EmptySelection: triangle consensus produced fewer point pairs than the request requires",
+       "index": 2,
+       "input_path": "<work>/light_2.fits",
+       "output_path": "",
+       "registration": {
+        "background": 0.09829338639974594,
+        "background_noise": 0.015102218743282584,
+        "dx": 0.0,
+        "dy": 0.0,
+        "fwhm": 2.9991488085240228,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "failed",
+        "on_error": true,
+        "quality": 1.376029993252107,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.9999691813497146,
+        "scale": 1.0,
+        "snr": 43.03726849709415,
+        "star_count": 5,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": false
+      }
+     ],
+     "reference_index": 0,
+     "reference_path": "<work>/light_0.fits",
+     "skipped_count": 2,
+     "succeeded_count": 1,
+     "total_count": 3
+    }
+   },
+   {
+    "call": "register_sequence_paths refuses no frames",
+    "message": "register_sequence_paths() requires at least one source path",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "apply_registration_paths defaults",
+    "result": {
+     "canvas_height": 48,
+     "canvas_width": 48,
+     "failed_count": 0,
+     "frames": [
+      {
+       "error_message": "",
+       "index": 0,
+       "input_path": "<work>/light_0.fits",
+       "output_path": "<work>/aligned/image_0000.fits",
+       "registration": {
+        "background": 0.0,
+        "background_noise": 0.0,
+        "dx": 0.0,
+        "dy": 0.0,
+        "fwhm": 0.0,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "reference",
+        "on_error": false,
+        "quality": 0.0,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.0,
+        "scale": 1.0,
+        "snr": 0.0,
+        "star_count": 0,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": true
+      },
+      {
+       "error_message": "",
+       "index": 1,
+       "input_path": "<work>/light_1.fits",
+       "output_path": "<work>/aligned/image_0001.fits",
+       "registration": {
+        "background": 0.0,
+        "background_noise": 0.0,
+        "dx": -1.5,
+        "dy": 1.0,
+        "fwhm": 0.0,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          -1.5
+         ],
+         [
+          0.0,
+          1.0,
+          1.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "star_matching",
+        "on_error": false,
+        "quality": 0.0,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.0,
+        "scale": 1.0,
+        "snr": 0.0,
+        "star_count": 0,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": true
+      },
+      {
+       "error_message": "",
+       "index": 2,
+       "input_path": "<work>/light_2.fits",
+       "output_path": "<work>/aligned/image_0002.fits",
+       "registration": {
+        "background": 0.0,
+        "background_noise": 0.0,
+        "dx": -3.0,
+        "dy": 2.0,
+        "fwhm": 0.0,
+        "matched_stars": 0,
+        "matrix": [
+         [
+          1.0,
+          0.0,
+          -3.0
+         ],
+         [
+          0.0,
+          1.0,
+          2.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0
+         ]
+        ],
+        "method": "star_matching",
+        "on_error": false,
+        "quality": 0.0,
+        "rms_pixels": 0.0,
+        "rotation_degrees": 0.0,
+        "roundness": 0.0,
+        "scale": 1.0,
+        "snr": 0.0,
+        "star_count": 0,
+        "transform_type": "similarity"
+       },
+       "sip_correction_applied": false,
+       "succeeded": true
+      }
+     ],
+     "reference_index": 0,
+     "reference_path": "<work>/light_0.fits",
+     "skipped_count": 0,
+     "succeeded_count": 3,
+     "total_count": 3,
+     "was_cancelled": false
+    }
+   },
+   {
+    "call": "apply_registration_paths refuses mismatched lists",
+    "message": "apply_registration_paths() paths and registrations must have the same length",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "stack_sequence_paths defaults",
+    "result": {
+     "frame_count": 3,
+     "method": "average",
+     "native": true,
+     "path": "<work>/stacked.fits"
+    }
+   },
+   {
+    "call": "stack_sequence_paths refuses no frames",
+    "message": "stack_sequence_paths() requires at least one source path",
+    "raises": "RuntimeError"
+   },
+   {
+    "call": "stack result",
+    "result": {
+     "image": {
+      "dtype": "float32",
+      "finite": 2304,
+      "max": 0.6570944786071777,
+      "min": 0.07865263521671295,
+      "samples": [
+       0.08006838709115982,
+       0.25684070587158203,
+       0.34027186036109924,
+       0.11587712913751602,
+       0.10573507100343704,
+       0.1641530692577362,
+       0.09229057282209396,
+       0.11199074983596802
+      ],
+      "shape": [
+       48,
+       48
+      ],
+      "sum": 266.03309781104326,
+      "sum_of_squares": 39.92248271757853
+     },
+     "properties": {
+      "backend": "runtime",
+      "channels": 1,
+      "file_name": "<work>/stacked.fits",
+      "height": 48,
+      "pixel_format": "gray",
+      "pixel_type": "float32",
+      "width": 48
+     }
+    }
+   },
+   {
+    "call": "drizzle_stack_sequence_paths defaults",
+    "result": {
+     "drizzle": {
+      "enabled": true,
+      "kernel": "square",
+      "output_height": 96,
+      "output_width": 96,
+      "pixel_fraction": 0.9,
+      "scale": 2.0,
+      "trim_offset_x": 0,
+      "trim_offset_y": 0
+     },
+     "frame_count": 3,
+     "method": "average",
+     "native": true,
+     "path": "<work>/drizzled.fits"
+    }
+   }
+  ],
+  "format": 1,
+  "native_signatures": {
+   "apply_linear_transform": "apply_linear_transform(source: _afternight_runtime._RuntimeImage, destination: _afternight_runtime._RuntimeImage, scale: typing.SupportsFloat | typing.SupportsIndex = 1.0, offset: typing.SupportsFloat | typing.SupportsIndex = 0.0) -> None",
+   "apply_registration_paths": "apply_registration_paths(paths: collections.abc.Sequence, registrations: collections.abc.Sequence, output_dir: str, reference_index: typing.SupportsInt | typing.SupportsIndex = 0, interpolation: str = 'lanczos4', alignment_mode: str = 'standard', output_options: object = None) -> dict",
+   "available_pixel_types": "available_pixel_types() -> list",
+   "calibrate_sequence_paths": "calibrate_sequence_paths(paths: collections.abc.Sequence, masters: dict, output_dir: str, params: object = None, output_options: object = None) -> dict",
+   "compose_rgb": "compose_rgb(red: _afternight_runtime._RuntimeImage, green: _afternight_runtime._RuntimeImage, blue: _afternight_runtime._RuntimeImage) -> _afternight_runtime._RuntimeImage",
+   "convert_pixel_type": "convert_pixel_type(image: _afternight_runtime._RuntimeImage, pixel_type: str) -> _afternight_runtime._RuntimeImage",
+   "create_calibration_masters_paths": "create_calibration_masters_paths(role_paths: dict, output_dir: str, filter_name: str = 'L', method: str = 'average', params: object = None, save_options: object = None) -> dict",
+   "detect_fwhm": "detect_fwhm(image: _afternight_runtime._RuntimeImage, channel: typing.SupportsInt | typing.SupportsIndex = -1) -> float",
+   "drizzle_stack_sequence_paths": "drizzle_stack_sequence_paths(paths: collections.abc.Sequence, registrations: collections.abc.Sequence, output_path: str, method: str = 'average', params: object = None, metadata: object = None, save_options: object = None, reference_index: typing.SupportsInt | typing.SupportsIndex = 0, interpolation: str = 'lanczos4', alignment_mode: str = 'standard') -> dict",
+   "extract_channel": "extract_channel(image: _afternight_runtime._RuntimeImage, channel: typing.SupportsInt | typing.SupportsIndex) -> _afternight_runtime._RuntimeImage",
+   "extract_channels": "extract_channels(image: _afternight_runtime._RuntimeImage) -> list",
+   "find_stars": "find_stars(image: _afternight_runtime._RuntimeImage, channel: typing.SupportsInt | typing.SupportsIndex = -1, max_stars: typing.SupportsInt | typing.SupportsIndex = 512, params: object = None) -> list",
+   "image_from_numpy": "image_from_numpy(array: numpy.ndarray, metadata: object = None) -> _afternight_runtime._RuntimeImage",
+   "is_supported_path": "is_supported_path(arg0: str) -> bool",
+   "load_image": "load_image(path: str, load_metadata: bool = True) -> _afternight_runtime._RuntimeImage",
+   "register_sequence_paths": "register_sequence_paths(paths: collections.abc.Sequence, output_dir: str, reference_index: typing.SupportsInt | typing.SupportsIndex = 0, max_stars: typing.SupportsInt | typing.SupportsIndex = 512, min_stars: typing.SupportsInt | typing.SupportsIndex = 6, params: object = None, transform_type: str = 'similarity', polynomial_order: typing.SupportsInt | typing.SupportsIndex = 0, auto_select_polynomial_order: bool = False, interpolation: str = 'lanczos4') -> dict",
+   "richardson_lucy_deconvolution": "richardson_lucy_deconvolution(image: _afternight_runtime._RuntimeImage, fwhm_x: typing.SupportsFloat | typing.SupportsIndex, fwhm_y: typing.SupportsFloat | typing.SupportsIndex = 0.0, angle_degrees: typing.SupportsFloat | typing.SupportsIndex = 0.0, iterations: typing.SupportsInt | typing.SupportsIndex = 20, tv_regularization: typing.SupportsFloat | typing.SupportsIndex = 0.0, damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, stopping_delta: typing.SupportsFloat | typing.SupportsIndex = 0.0, psf_size: typing.SupportsInt | typing.SupportsIndex = 0, output_pixel_type: str = 'float32', preserve_flux: bool = True, clamp_to_unit_range: bool = True, profile: str = 'gaussian', beta: typing.SupportsFloat | typing.SupportsIndex = 4.5, relative_stopping_delta: typing.SupportsFloat | typing.SupportsIndex = 0.0, edge_taper_radius: typing.SupportsFloat | typing.SupportsIndex = 0.0, convolution_backend: str = 'auto', color_mode: str = 'auto', edge_taper_mode: str = 'auto', edge_taper_iterations: typing.SupportsInt | typing.SupportsIndex = 3, regularization_mode: str = 'total_variation', update_method: str = 'multiplicative', gradient_descent_step: typing.SupportsFloat | typing.SupportsIndex = 0.0003) -> _afternight_runtime._RuntimeImage",
+   "richardson_lucy_star_deconvolution": "richardson_lucy_star_deconvolution(image: _afternight_runtime._RuntimeImage, channel: typing.SupportsInt | typing.SupportsIndex = -1, max_stars: typing.SupportsInt | typing.SupportsIndex = 512, star_params: object = None, iterations: typing.SupportsInt | typing.SupportsIndex = 20, tv_regularization: typing.SupportsFloat | typing.SupportsIndex = 0.0, damping: typing.SupportsFloat | typing.SupportsIndex = 0.0, stopping_delta: typing.SupportsFloat | typing.SupportsIndex = 0.0, psf_size: typing.SupportsInt | typing.SupportsIndex = 0, output_pixel_type: str = 'float32', preserve_flux: bool = True, clamp_to_unit_range: bool = True, profile: str = 'auto', minimum_star_count: typing.SupportsInt | typing.SupportsIndex = 3, ignore_saturated: bool = True, circularize: bool = False, relative_stopping_delta: typing.SupportsFloat | typing.SupportsIndex = 0.0, edge_taper_radius: typing.SupportsFloat | typing.SupportsIndex = 0.0, convolution_backend: str = 'auto', color_mode: str = 'auto', edge_taper_mode: str = 'auto', edge_taper_iterations: typing.SupportsInt | typing.SupportsIndex = 3, regularization_mode: str = 'total_variation', update_method: str = 'multiplicative', gradient_descent_step: typing.SupportsFloat | typing.SupportsIndex = 0.0003) -> _afternight_runtime._RuntimeImage",
+   "save_image": "save_image(image: _afternight_runtime._RuntimeImage, path: str, options: object = None) -> None",
+   "stack_sequence_paths": "stack_sequence_paths(paths: collections.abc.Sequence, output_path: str, method: str = 'average', params: object = None, metadata: object = None, save_options: object = None) -> dict",
+   "wiener_deconvolution": "wiener_deconvolution(image: _afternight_runtime._RuntimeImage, fwhm_x: typing.SupportsFloat | typing.SupportsIndex, fwhm_y: typing.SupportsFloat | typing.SupportsIndex = 0.0, angle_degrees: typing.SupportsFloat | typing.SupportsIndex = 0.0, regularization: typing.SupportsFloat | typing.SupportsIndex = 0.01, psf_size: typing.SupportsInt | typing.SupportsIndex = 0, output_pixel_type: str = 'float32', preserve_flux: bool = True, clamp_to_unit_range: bool = True, profile: str = 'gaussian', beta: typing.SupportsFloat | typing.SupportsIndex = 4.5, edge_taper_radius: typing.SupportsFloat | typing.SupportsIndex = 0.0, color_mode: str = 'auto', edge_taper_mode: str = 'auto', edge_taper_iterations: typing.SupportsInt | typing.SupportsIndex = 3) -> _afternight_runtime._RuntimeImage"
+  },
+  "package_signatures": {
+   "afternight.calibration.calibrate_lights": "(sequence: 'SequenceHandle', masters: 'dict[str, dict[str, Any]]', output_dir: 'str', *, filter_name: 'str' = 'L', name: 'str' = 'calibrated_lights', params=None, output_options=None)",
+   "afternight.calibration.create_masters": "(sequence: 'SequenceHandle', output_dir: 'str', filter_name: 'str' = 'L', *, method: 'str' = 'average', params=None, save_options=None)",
+   "afternight.core.apply_linear_transform": "(source, destination, scale=1.0, offset=0.0)",
+   "afternight.core.available_pixel_types": "()",
+   "afternight.core.compose_rgb": "(red, green, blue)",
+   "afternight.core.convert_pixel_type": "(image, pixel_type)",
+   "afternight.core.detect_fwhm": "(image, channel=-1)",
+   "afternight.core.extract_channel": "(image, channel)",
+   "afternight.core.extract_channels": "(image)",
+   "afternight.core.from_numpy": "(array, metadata=None)",
+   "afternight.core.richardson_lucy_deconvolution": "(image, *, fwhm, fwhm_y=None, angle_degrees=0.0, iterations=20, tv_regularization=0.0, regularization_mode='total_variation', update_method='multiplicative', gradient_descent_step=0.0003, damping=0.0, stopping_delta=0.0, relative_stopping_delta=0.0, edge_taper_radius=0.0, edge_taper_mode='auto', edge_taper_iterations=3, convolution_backend='auto', color_mode='auto', psf_size=0, output_pixel_type='float32', preserve_flux=True, clamp_to_unit_range=True, profile='gaussian', beta=4.5)",
+   "afternight.core.richardson_lucy_star_deconvolution": "(image, *, channel=-1, max_stars=512, star_params=None, iterations=20, tv_regularization=0.0, regularization_mode='total_variation', update_method='multiplicative', gradient_descent_step=0.0003, damping=0.0, stopping_delta=0.0, relative_stopping_delta=0.0, edge_taper_radius=0.0, edge_taper_mode='auto', edge_taper_iterations=3, convolution_backend='auto', color_mode='auto', psf_size=0, output_pixel_type='float32', preserve_flux=True, clamp_to_unit_range=True, profile='auto', minimum_star_count=3, ignore_saturated=True, circularize=False)",
+   "afternight.core.wiener_deconvolution": "(image, *, fwhm, fwhm_y=None, angle_degrees=0.0, regularization=0.01, edge_taper_radius=0.0, edge_taper_mode='auto', edge_taper_iterations=3, color_mode='auto', psf_size=0, output_pixel_type='float32', preserve_flux=True, clamp_to_unit_range=True, profile='gaussian', beta=4.5)",
+   "afternight.io.is_supported_path": "(path)",
+   "afternight.io.load": "(path, load_metadata=True)",
+   "afternight.io.save": "(image, path, options=None)",
+   "afternight.lite.LiteExtension.active_view": "(self)",
+   "afternight.lite.LiteExtension.get_params": "(self)",
+   "afternight.lite.LiteExtension.get_settings_params": "(self)",
+   "afternight.lite.LiteExtension.is_cancelled": "(self)",
+   "afternight.lite.LiteExtension.list_views": "(self)",
+   "afternight.lite.LiteExtension.log_debug": "(self, message, component='extension')",
+   "afternight.lite.LiteExtension.log_error": "(self, message, component='extension')",
+   "afternight.lite.LiteExtension.log_info": "(self, message, component='extension')",
+   "afternight.lite.LiteExtension.log_trace": "(self, message, component='extension')",
+   "afternight.lite.LiteExtension.log_warning": "(self, message, component='extension')",
+   "afternight.lite.LiteExtension.on_active_view_changed": "(self, view)",
+   "afternight.lite.LiteExtension.on_cancel": "(self)",
+   "afternight.lite.LiteExtension.on_close": "(self, reason)",
+   "afternight.lite.LiteExtension.on_launch": "(self)",
+   "afternight.lite.LiteExtension.on_view_created": "(self, view)",
+   "afternight.lite.LiteExtension.on_view_modified": "(self, view)",
+   "afternight.lite.LiteExtension.on_view_removed": "(self, view_id)",
+   "afternight.lite.LiteExtension.on_view_renamed": "(self, view)",
+   "afternight.lite.LiteExtension.run": "(self, params=None, progress=None)",
+   "afternight.lite.LiteExtension.session_info": "(self)",
+   "afternight.lite.LiteExtension.session_paths": "(self)",
+   "afternight.lite.LiteExtension.set_progress": "(self, value=None, text=None)",
+   "afternight.lite.LiteExtension.snapshot_view": "(self, view_name=None)",
+   "afternight.lite.is_lite_backend": "(backend=None)",
+   "afternight.lite.require_lite_backend": "()",
+   "afternight.protocol.ExtensionContext.get": "(self, key, default=None)",
+   "afternight.protocol.ExtensionContext.keys": "(self)",
+   "afternight.protocol.ExtensionContext.remove": "(self, key)",
+   "afternight.protocol.ExtensionContext.session_info": "(self)",
+   "afternight.protocol.ExtensionContext.session_paths": "(self)",
+   "afternight.protocol.ExtensionContext.set": "(self, key, value)",
+   "afternight.protocol.ImageHandle.clone": "(self)",
+   "afternight.protocol.ImageHandle.copy_from": "(self, other)",
+   "afternight.protocol.ImageHandle.from_numpy": "(self, array)",
+   "afternight.protocol.ImageHandle.metadata": "(self)",
+   "afternight.protocol.ImageHandle.properties": "(self)",
+   "afternight.protocol.ImageHandle.set_metadata": "(self, key, value)",
+   "afternight.protocol.ImageHandle.to_numpy": "(self)",
+   "afternight.protocol.Progress.is_cancelled": "(self)",
+   "afternight.protocol.Progress.set_text": "(self, text)",
+   "afternight.protocol.Progress.set_value": "(self, value)",
+   "afternight.protocol.SessionPaths.artifacts_dir": "(self)",
+   "afternight.protocol.SessionPaths.temp_dir": "(self)",
+   "afternight.protocol.Settings.get": "(self, key, default=None)",
+   "afternight.protocol.Settings.keys": "(self)",
+   "afternight.protocol.Settings.remove": "(self, key)",
+   "afternight.protocol.Settings.set": "(self, key, value)",
+   "afternight.protocol.ViewRef.auxiliary_images": "(self)",
+   "afternight.protocol.ViewRef.channels": "(self)",
+   "afternight.protocol.ViewRef.display_settings": "(self)",
+   "afternight.protocol.ViewRef.height": "(self)",
+   "afternight.protocol.ViewRef.masks": "(self)",
+   "afternight.protocol.ViewRef.metadata": "(self)",
+   "afternight.protocol.ViewRef.pixel_type": "(self)",
+   "afternight.protocol.ViewRef.source_image": "(self)",
+   "afternight.protocol.ViewRef.weights": "(self)",
+   "afternight.protocol.ViewRef.width": "(self)",
+   "afternight.protocol.WorkflowContext.get_sequences": "(self)",
+   "afternight.protocol.WorkflowContext.get_working_dir": "(self)",
+   "afternight.protocol.WorkflowContext.open_result_sequence": "(self, path)",
+   "afternight.protocol.WorkflowContext.output_path": "(self, name)",
+   "afternight.protocol.WorkflowContext.set_working_dir": "(self, path)",
+   "afternight.protocol.WorkflowContext.temp_dir": "(self)",
+   "afternight.protocol.WorkflowProgress.set_stage": "(self, name, weight=1.0)",
+   "afternight.protocol.WorkflowProgress.set_text": "(self, text)",
+   "afternight.protocol.WorkflowProgress.set_value": "(self, fraction)",
+   "afternight.protocol.current_session": "()",
+   "afternight.protocol.emit_settings_action_update": "(result)",
+   "afternight.protocol.list_views": "()",
+   "afternight.protocol.log": "(severity, message, component='extension')",
+   "afternight.protocol.log_debug": "(message, component='extension')",
+   "afternight.protocol.log_error": "(message, component='extension')",
+   "afternight.protocol.log_info": "(message, component='extension')",
+   "afternight.protocol.log_trace": "(message, component='extension')",
+   "afternight.protocol.log_warning": "(message, component='extension')",
+   "afternight.protocol.session_paths": "()",
+   "afternight.protocol.snapshot_view": "(view_name=None)",
+   "afternight.registration.apply": "(sequence: 'SequenceHandle', output_dir: 'str', *, manifest_name: 'str' = 'applied_registration.sequence.json', name: 'str' = 'applied_registered_lights', reference_index: 'int' = 0, interpolation: 'str' = 'lanczos4', alignment_mode: 'str' = 'standard', output_options=None)",
+   "afternight.registration.find_stars": "(image, *, channel: 'int' = -1, max_stars: 'int' = 512, params=None, **overrides)",
+   "afternight.registration.register": "(sequence: 'SequenceHandle', output_dir: 'str', *, manifest_name: 'str' = 'L.sequence.json', name: 'str' = 'registered_lights', reference_index: 'int' = 0, max_stars: 'int' = 512, min_stars: 'int' = 6, star_params=None, transform_type: 'str' = 'similarity', polynomial_order: 'int' = 0, auto_select_polynomial_order: 'bool' = False, interpolation: 'str' = 'lanczos4')",
+   "afternight.runtime.ProcessExtension.execute": "(self, target, src_image, dst_image, params, progress, masks=None, weights=None, output_masks=None)",
+   "afternight.runtime.ProcessExtension.get_params": "(self)",
+   "afternight.runtime.ProcessExtension.get_settings_params": "(self)",
+   "afternight.runtime.ProcessExtension.handle_settings_action": "(self, action_id, settings_snapshot)",
+   "afternight.runtime.ProcessExtension.on_execution_cancelled": "(self)",
+   "afternight.runtime.ProcessExtension.on_input_changed": "(self, input_metadata)",
+   "afternight.runtime.ProcessExtension.on_parameters_changed": "(self, params, changed_keys, reason)",
+   "afternight.runtime.ProcessExtension.on_preset_loaded": "(self, params, preset_metadata)",
+   "afternight.runtime.ProcessExtension.on_preset_saved": "(self, params, preset_metadata)",
+   "afternight.runtime.ProcessExtension.on_process_close": "(self, reason)",
+   "afternight.runtime.ProcessExtension.on_process_launch": "(self)",
+   "afternight.runtime.ProcessExtension.validate_process": "(self, params, input_metadata)",
+   "afternight.runtime.RTPreviewExtension.execute_preview": "(self, target, src_image, preview_image, params, progress, masks=None, weights=None)",
+   "afternight.runtime.WorkflowExtension.execute_workflow": "(self, workflow, params, progress)",
+   "afternight.runtime.WorkflowExtension.get_params": "(self)",
+   "afternight.runtime.WorkflowExtension.get_settings_params": "(self)",
+   "afternight.runtime.WorkflowExtension.handle_settings_action": "(self, action_id, settings_snapshot)",
+   "afternight.runtime.WorkflowExtension.on_execution_cancelled": "(self)",
+   "afternight.runtime.WorkflowExtension.on_input_changed": "(self, input_metadata)",
+   "afternight.runtime.WorkflowExtension.on_parameters_changed": "(self, params, changed_keys, reason)",
+   "afternight.runtime.WorkflowExtension.on_preset_loaded": "(self, params, preset_metadata)",
+   "afternight.runtime.WorkflowExtension.on_preset_saved": "(self, params, preset_metadata)",
+   "afternight.runtime.WorkflowExtension.on_process_close": "(self, reason)",
+   "afternight.runtime.WorkflowExtension.on_process_launch": "(self)",
+   "afternight.runtime.WorkflowExtension.validate_process": "(self, params, input_metadata)",
+   "afternight.sequences.SequenceHandle.add_frame": "(self, frame=None, *, path='', image=None, metadata=None, registration=None, included=True)",
+   "afternight.sequences.SequenceHandle.exclude_frame": "(self, index)",
+   "afternight.sequences.SequenceHandle.frames": "(self)",
+   "afternight.sequences.SequenceHandle.get_frame": "(self, index)",
+   "afternight.sequences.SequenceHandle.get_frame_metadata": "(self, index)",
+   "afternight.sequences.SequenceHandle.get_frame_pixels": "(self, index)",
+   "afternight.sequences.SequenceHandle.get_frame_registration": "(self, index)",
+   "afternight.sequences.SequenceHandle.include_frame": "(self, index)",
+   "afternight.sequences.SequenceHandle.included_frames": "(self)",
+   "afternight.sequences.SequenceHandle.set_frame_included": "(self, index, included)",
+   "afternight.sequences.create": "(name='sequence', frames=None)",
+   "afternight.sequences.from_paths": "(paths, name=None, load_metadata=False)",
+   "afternight.sequences.list_sequences": "()",
+   "afternight.stacking.average": "(sequence: 'SequenceHandle', output_path: 'str', *, metadata=None, params=None, save_options=None)",
+   "afternight.stacking.drizzle": "(sequence: 'SequenceHandle', output_path: 'str', *, method: 'str' = 'average', metadata=None, params=None, save_options=None, reference_index: 'int' = 0, interpolation: 'str' = 'lanczos4', alignment_mode: 'str' = 'standard')",
+   "afternight.stacking.stack": "(sequence: 'SequenceHandle', output_path: 'str', *, method: 'str' = 'average', metadata=None, params=None, save_options=None)",
+   "afternight.ui.close_process_window": "()",
+   "afternight.ui.hide_process_window": "()",
+   "afternight.ui.process_window_meta": "(*, panel_variant='native', size=None, fixed_size=None, resizable=None, preview_surface=None, preview_area=None, sub_area=False, sub_area_default_enabled=None, sub_area_size=None, sub_area_label=None, controls_panel_width=None, preview_hq_default=None, preview_autostretch=None, preview_autostretch_default=None, header_progress=None, target_selector=False, target_channel_filter=None, target_selector_label=None, target_selector_position=None, tool_configuration=None)",
+   "afternight.ui_protocol.commit_image": "(image_or_array, history_step_name='Extension Apply', history_step_description='Applied extension execution result', metadata=None, allow_resized_output=False)",
+   "afternight.ui_protocol.confirm": "(message, title='Extension Confirmation', warn=False)",
+   "afternight.ui_protocol.open_image": "(image_or_array, title='Extension Image', metadata=None)",
+   "afternight.ui_protocol.show_error": "(message, title='Extension Error')",
+   "afternight.ui_protocol.show_info": "(message, title='Extension Message')",
+   "afternight.ui_protocol.show_warning": "(message, title='Extension Warning')",
+   "afternight.ui_protocol.tokens": "()"
+  }
+ },
+ "provenance": {
+  "captured": "2026-10-13",
+  "commit": "3f1811f76",
+  "numpy": "2.5.3",
+  "package_signatures": {
+   "captured": "2026-10-15",
+   "commit": "ed24e8d5d",
+   "note": "the protocol-side modules' signatures were added from this capture; every other entry is the record above",
+   "platform": "windows-amd64",
+   "python": "3.14.7"
+  },
+  "platform": "linux-x86_64",
+  "producer": "AfterNightEngine through an_extension_runtime_backend",
+  "python": "3.14.7"
+ }
+}

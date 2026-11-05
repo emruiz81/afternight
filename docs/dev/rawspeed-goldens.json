@@ -1,0 +1,4974 @@
+{
+  "schema": 1,
+  "librawVersion": "0.22.1",
+  "rawspeedRevision": "de70ef5fbc62cde91009c8cff7a206272abe631e",
+  "correctionRevision": 1,
+  "manifestSha256": "5e51ac43b691399a3cd1351e7ded481895a47336ce61e9e77c18332e53a25bbf",
+  "sensorScope": "Complete uncropped width by height UInt16 mosaic samples; alignment padding excluded. Full-colour sensors have no raw_image plane and record the empty sensor digest; these are native-only.",
+  "cases": [
+    {
+      "id": "_MG_6827",
+      "sourceSha256": "5e3f7b6e3aaea837d9906df32c2b704f106144ab283c37163b8c25ea9198ea37",
+      "sensorSha256": "60f20c54c16607e8329038c67520500c2ea9f848bad00803fc2e75be46063486",
+      "visibleSha256": "e0aab1e22bf63865ec15e78964bedbf301a3abbc1b5dddbc91d3808ee0093815",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 0.0,
+          "asShotApplied": false,
+          "black": 2047,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2106.0,
+            1024.0,
+            1594.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.9125416278839111,
+              -1.058656096458435,
+              0.14611440896987915,
+              0.0
+            ],
+            [
+              -0.22485682368278503,
+              1.6465790271759033,
+              -0.4217221736907959,
+              0.0
+            ],
+            [
+              0.00986511167138815,
+              -0.5092886090278625,
+              1.4994235038757324,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.7034000158309937,
+              -0.0803999975323677,
+              -0.10140000283718109
+            ],
+            [
+              -0.44200000166893005,
+              1.2563999891281128,
+              0.20579999685287476
+            ],
+            [
+              -0.08510000258684158,
+              0.19939999282360077,
+              0.5758000016212463
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.0931308269500732,
+            0.9430638551712036,
+            1.3414475917816162,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 0.0,
+          "iso": 800.0,
+          "orientation": 0,
+          "white": 15490
+        },
+        "description": "",
+        "exposure": 89.80000305175781,
+        "instrument": "Canon EOS 6D",
+        "timestampNanoseconds": 1646286926000000000
+      },
+      "descriptorText": "extent=5496x3670x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "_MG_6842",
+      "sourceSha256": "2167b130e0667dc81b345ec403439955cd84a68bc345ccfb794e53a5a3dbe9d9",
+      "sensorSha256": "bf351fbb488376722375026efef6032ab599a372dc272b15a8c4b335c2ac1eb2",
+      "visibleSha256": "05640a35ca6e5c6eee954ff1cb6370314bab254c1f73a606e1bdda32dc40d036",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 0.0,
+          "asShotApplied": false,
+          "black": 2046,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2106.0,
+            1024.0,
+            1594.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.9125416278839111,
+              -1.058656096458435,
+              0.14611440896987915,
+              0.0
+            ],
+            [
+              -0.22485682368278503,
+              1.6465790271759033,
+              -0.4217221736907959,
+              0.0
+            ],
+            [
+              0.00986511167138815,
+              -0.5092886090278625,
+              1.4994235038757324,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.7034000158309937,
+              -0.0803999975323677,
+              -0.10140000283718109
+            ],
+            [
+              -0.44200000166893005,
+              1.2563999891281128,
+              0.20579999685287476
+            ],
+            [
+              -0.08510000258684158,
+              0.19939999282360077,
+              0.5758000016212463
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            1,
+            1,
+            1
+          ],
+          "daylightMultipliers": [
+            2.0931308269500732,
+            0.9430638551712036,
+            1.3414475917816162,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 0.0,
+          "iso": 800.0,
+          "orientation": 0,
+          "white": 15490
+        },
+        "description": "",
+        "exposure": 89.80000305175781,
+        "instrument": "Canon EOS 6D",
+        "timestampNanoseconds": 1646288390000000000
+      },
+      "descriptorText": "extent=5496x3670x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "_MG_6856",
+      "sourceSha256": "d598439fb84d5fa13e66360e61b33aaf980379a611d70ace449be1449f1bcbf0",
+      "sensorSha256": "e4a758a2dbc046cd67499d2578f644bbb39e732b16c18f30609b5c77d8329986",
+      "visibleSha256": "0dd54cb1dd43be4852270ff75d2d1aa261590fca482e918d7a61d04191565487",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 0.0,
+          "asShotApplied": false,
+          "black": 2047,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2106.0,
+            1024.0,
+            1591.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.9125416278839111,
+              -1.058656096458435,
+              0.14611440896987915,
+              0.0
+            ],
+            [
+              -0.22485682368278503,
+              1.6465790271759033,
+              -0.4217221736907959,
+              0.0
+            ],
+            [
+              0.00986511167138815,
+              -0.5092886090278625,
+              1.4994235038757324,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.7034000158309937,
+              -0.0803999975323677,
+              -0.10140000283718109
+            ],
+            [
+              -0.44200000166893005,
+              1.2563999891281128,
+              0.20579999685287476
+            ],
+            [
+              -0.08510000258684158,
+              0.19939999282360077,
+              0.5758000016212463
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.0931308269500732,
+            0.9430638551712036,
+            1.3414475917816162,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 0.0,
+          "iso": 800.0,
+          "orientation": 0,
+          "white": 15490
+        },
+        "description": "",
+        "exposure": 89.80000305175781,
+        "instrument": "Canon EOS 6D",
+        "timestampNanoseconds": 1646289734000000000
+      },
+      "descriptorText": "extent=5496x3670x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "_DSC0329",
+      "sourceSha256": "2e79dfb5942899819291002ad4af13ebef63bdfddf289e68aa6b57ee91e1e9de",
+      "sensorSha256": "e45eafce952c6f5b438938256be6fff275bf46e22041e734ebf9250bdff2926d",
+      "visibleSha256": "13bd6452d3d175dedae0cc34db57614517bb4749d91b1979f06a2a05452b2bc1",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 0.0,
+          "asShotApplied": false,
+          "black": 600,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2.00390625,
+            1.0,
+            1.4296875,
+            1.0
+          ],
+          "cameraToRgb": [
+            [
+              1.5910961627960205,
+              -0.4272039532661438,
+              -0.1638922095298767,
+              0.0
+            ],
+            [
+              -0.1977117657661438,
+              1.6073418855667114,
+              -0.40963014960289,
+              0.0
+            ],
+            [
+              0.016627568751573563,
+              -0.4125094413757324,
+              1.3958818912506104,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.882099986076355,
+              -0.2937999963760376,
+              -0.07850000262260437
+            ],
+            [
+              -0.41780000925064087,
+              1.2142000198364258,
+              0.22869999706745148
+            ],
+            [
+              -0.08240000158548355,
+              0.16509999334812164,
+              0.6859999895095825
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.178002119064331,
+            0.9379902482032776,
+            1.199445366859436,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 0.0,
+          "iso": 800.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "",
+        "exposure": 240.3000030517578,
+        "instrument": "Nikon D5500",
+        "timestampNanoseconds": 1654225715000000000
+      },
+      "descriptorText": "extent=6016x4016x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "_DSC0338",
+      "sourceSha256": "6ef0c235ff9c2b3ab3c33800b3ce817e6fe59b6a753562055f6fe1fb4280e493",
+      "sensorSha256": "b5c760f0fc9dde2e5eb2d4fb156c396e5a6b70fd82a03e2855377ba31ece8a19",
+      "visibleSha256": "c18b2bb444e9eb51e772351133966bf7843413311b0a1217bcc69119ad85af2b",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 0.0,
+          "asShotApplied": false,
+          "black": 600,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2.00390625,
+            1.0,
+            1.4296875,
+            1.0
+          ],
+          "cameraToRgb": [
+            [
+              1.5910961627960205,
+              -0.4272039532661438,
+              -0.1638922095298767,
+              0.0
+            ],
+            [
+              -0.1977117657661438,
+              1.6073418855667114,
+              -0.40963014960289,
+              0.0
+            ],
+            [
+              0.016627568751573563,
+              -0.4125094413757324,
+              1.3958818912506104,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.882099986076355,
+              -0.2937999963760376,
+              -0.07850000262260437
+            ],
+            [
+              -0.41780000925064087,
+              1.2142000198364258,
+              0.22869999706745148
+            ],
+            [
+              -0.08240000158548355,
+              0.16509999334812164,
+              0.6859999895095825
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.178002119064331,
+            0.9379902482032776,
+            1.199445366859436,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 0.0,
+          "iso": 800.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "",
+        "exposure": 240.3000030517578,
+        "instrument": "Nikon D5500",
+        "timestampNanoseconds": 1654227947000000000
+      },
+      "descriptorText": "extent=6016x4016x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "_DSC0346",
+      "sourceSha256": "534c542b9ee5663f50a34a72d52e6defe6439adcfa5adc9d8b8d0e19d70ad3b1",
+      "sensorSha256": "3a13ed922dd08307ea820b0801d50099b617dce9281d5817ba2e830401b4482d",
+      "visibleSha256": "1f33980aa59587d90e6d092a022445842a370d1b02232fcdd91835d01567d534",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 0.0,
+          "asShotApplied": false,
+          "black": 600,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2.00390625,
+            1.0,
+            1.4296875,
+            1.0
+          ],
+          "cameraToRgb": [
+            [
+              1.5910961627960205,
+              -0.4272039532661438,
+              -0.1638922095298767,
+              0.0
+            ],
+            [
+              -0.1977117657661438,
+              1.6073418855667114,
+              -0.40963014960289,
+              0.0
+            ],
+            [
+              0.016627568751573563,
+              -0.4125094413757324,
+              1.3958818912506104,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.882099986076355,
+              -0.2937999963760376,
+              -0.07850000262260437
+            ],
+            [
+              -0.41780000925064087,
+              1.2142000198364258,
+              0.22869999706745148
+            ],
+            [
+              -0.08240000158548355,
+              0.16509999334812164,
+              0.6859999895095825
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.178002119064331,
+            0.9379902482032776,
+            1.199445366859436,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 0.0,
+          "iso": 800.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "",
+        "exposure": 240.3000030517578,
+        "instrument": "Nikon D5500",
+        "timestampNanoseconds": 1654229931000000000
+      },
+      "descriptorText": "extent=6016x4016x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "Fujifilm_X-Pro1_DSCF2131",
+      "sourceSha256": "0b1046c299d9eb222a8f003bd047f2a34f507da0d1704ac32cefbc82f799d121",
+      "sensorSha256": "d8a7542c288c9b4cd5e20dcb66c9a174bd2e028874cd82c7e44a86cadfc92a02",
+      "visibleSha256": "41b64f0d1b21f9f746a5acc96dc0096a90644e4600aa4c2d373bda0d2c90ece4",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 7.099999904632568,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 6,
+          "blackRows": 6,
+          "blackTile": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "cameraMultipliers": [
+            553.0,
+            302.0,
+            522.0,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.447500467300415,
+              -0.27643004059791565,
+              -0.17107044160366058,
+              0.0
+            ],
+            [
+              -0.20270656049251556,
+              1.6521223783493042,
+              -0.44941583275794983,
+              0.0
+            ],
+            [
+              0.019445963203907013,
+              -0.4447435140609741,
+              1.425297498703003,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              1.0413000583648682,
+              -0.39959999918937683,
+              -0.09929999709129333
+            ],
+            [
+              -0.37209999561309814,
+              1.1640000343322754,
+              0.2361000031232834
+            ],
+            [
+              -0.07329999655485153,
+              0.15399999916553497,
+              0.6011000275611877
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.0746731758117676,
+            0.9368532299995422,
+            1.353498101234436,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 24.0,
+          "iso": 200.0,
+          "orientation": 0,
+          "white": 4095
+        },
+        "description": "",
+        "exposure": 0.0024999999441206455,
+        "instrument": "Fujifilm X-Pro1",
+        "timestampNanoseconds": 1468937770000000000
+      },
+      "descriptorText": "extent=4952x3288x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=XTrans@0,0:GGRGGBGGBGGRBRGRBGGGBGGRGGRGGBRBGBRG origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          2
+        ],
+        [
+          1,
+          1,
+          2,
+          1,
+          1,
+          0
+        ],
+        [
+          2,
+          0,
+          1,
+          0,
+          2,
+          1
+        ],
+        [
+          1,
+          1,
+          2,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          2
+        ],
+        [
+          0,
+          2,
+          1,
+          2,
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "Fujifilm_X-T50_DSCF0120",
+      "sourceSha256": "3a8a9ac6d92274969aaa1f55ea669191b98bb8f588d00ec8ec17afd8b3963dea",
+      "sensorSha256": "bd430683e65c1e2dc31dcc4d714d848bde6d32b83f0c70098cd2ad238a2939cf",
+      "visibleSha256": "b2edb723ebbe8ee990d548db5c2151e9933dbd46632a24cb896fb6860d871196",
+      "metadata": {
+        "artist": "                                                               ",
+        "camera": {
+          "aperture": 5.0,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 6,
+          "blackRows": 6,
+          "blackTile": [
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020,
+            1020
+          ],
+          "cameraMultipliers": [
+            581.0,
+            302.0,
+            559.0,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.2560474872589111,
+              -0.04212497919797897,
+              -0.21392254531383514,
+              0.0
+            ],
+            [
+              -0.1496393233537674,
+              1.549781084060669,
+              -0.40014177560806274,
+              0.0
+            ],
+            [
+              0.004586819093674421,
+              -0.36177071928977966,
+              1.3571839332580566,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              1.180899977684021,
+              -0.5357999801635742,
+              -0.11410000175237656
+            ],
+            [
+              -0.42480000853538513,
+              1.2164000272750854,
+              0.23430000245571136
+            ],
+            [
+              -0.05139999836683273,
+              0.10970000177621841,
+              0.5848000049591064
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.1627492904663086,
+            0.9365458488464355,
+            1.4334993362426758,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 35.0,
+          "iso": 250.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "",
+        "exposure": 0.001176470541395247,
+        "instrument": "Fujifilm X-T50",
+        "timestampNanoseconds": 1719397678000000000
+      },
+      "descriptorText": "extent=7752x5178x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=XTrans@0,0:GGRGGBGGBGGRBRGRBGGGBGGRGGRGGBRBGBRG origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          2
+        ],
+        [
+          1,
+          1,
+          2,
+          1,
+          1,
+          0
+        ],
+        [
+          2,
+          0,
+          1,
+          0,
+          2,
+          1
+        ],
+        [
+          1,
+          1,
+          2,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          2
+        ],
+        [
+          0,
+          2,
+          1,
+          2,
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "Sigma_DP1_1116",
+      "sourceSha256": "44508f7df4191aacaecb6461e1841dae002e5b71a4f95a00aa3f52d1c6d6bc5f",
+      "sensorSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "visibleSha256": "7a3967bb84b3d05b2cd8548e543ae5200cae80aa476df63818abc70e6850d96a",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 4.0,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              2.0675714015960693,
+              -0.6368162631988525,
+              -0.4307551681995392,
+              0.0
+            ],
+            [
+              -0.2216722071170807,
+              1.2146981954574585,
+              0.0069740028120577335,
+              0.0
+            ],
+            [
+              -0.01475429255515337,
+              -0.13827066123485565,
+              1.1530249118804932,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              1.277400016784668,
+              -0.2590999901294708,
+              -0.039400000125169754
+            ],
+            [
+              -0.53329998254776,
+              1.4675999879837036,
+              0.02070000022649765
+            ],
+            [
+              0.001500000013038516,
+              -0.002099999925121665,
+              1.2127000093460083
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            1.0963343381881714,
+            1.0170319080352783,
+            0.7577193379402161,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 16.600000381469727,
+          "iso": 400.0,
+          "orientation": 0,
+          "white": 2100
+        },
+        "description": "",
+        "exposure": 0.016669999808073044,
+        "instrument": "Sigma DP1",
+        "timestampNanoseconds": 1265012852000000000
+      },
+      "descriptorText": "extent=2651x1767x3 sample=UInt16 channels=Rgb color=LinearRgb domain=NormalizedLinear cfa=None@0,0 origin=TopLeft aspect=1"
+    },
+    {
+      "id": "967",
+      "sourceSha256": "891b098c6cad16f01af4cbbe229d89652008b0108ad343079a4fc688b320fa14",
+      "sensorSha256": "c0b58392f73a7f8189d03db0035f02355ab76d0446831c54b3a8eeb4b55f5385",
+      "visibleSha256": "e045634865fbd6a89e5e7ed8a6711400df70e0d3d02d346830e7e3e4747c029c",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 0.0,
+          "asShotApplied": false,
+          "black": 512,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2468.0,
+            1024.0,
+            1552.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              2.0123703479766846,
+              -0.9048599004745483,
+              -0.10751038044691086,
+              0.0
+            ],
+            [
+              -0.11959943920373917,
+              1.5639913082122803,
+              -0.4443918466567993,
+              0.0
+            ],
+            [
+              0.04015884920954704,
+              -0.46075329184532166,
+              1.4205944538116455,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.5271000266075134,
+              -0.07119999825954437,
+              -0.034699998795986176
+            ],
+            [
+              -0.6152999997138977,
+              1.3653000593185425,
+              0.27630001306533813
+            ],
+            [
+              -0.16009999811649323,
+              0.23659999668598175,
+              0.7242000102996826
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.550952911376953,
+            0.9247958064079285,
+            1.1455272436141968,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 0.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "                               ",
+        "exposure": 0.004000000189989805,
+        "instrument": "Sony ILCE-7M2",
+        "timestampNanoseconds": 1455551629000000000
+      },
+      "descriptorText": "extent=6024x4024x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "851",
+      "sourceSha256": "a37752f65c1fabb48178bfbe2a81f1e7dc705a3363652e984792527b43700ada",
+      "sensorSha256": "4882b5178d0b5647eb61dcf444557da3618c1fb930cda9e3eba8f4f5f27bb75d",
+      "visibleSha256": "85293be48520cb76da93ae03a7319f22f87658fb611879a17ce773b261c3d7a0",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 22.0,
+          "asShotApplied": false,
+          "black": 512,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2964.0,
+            1024.0,
+            1236.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              2.0123703479766846,
+              -0.9048599004745483,
+              -0.10751038044691086,
+              0.0
+            ],
+            [
+              -0.11959943920373917,
+              1.5639913082122803,
+              -0.4443918466567993,
+              0.0
+            ],
+            [
+              0.04015884920954704,
+              -0.46075329184532166,
+              1.4205944538116455,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.5271000266075134,
+              -0.07119999825954437,
+              -0.034699998795986176
+            ],
+            [
+              -0.6152999997138977,
+              1.3653000593185425,
+              0.27630001306533813
+            ],
+            [
+              -0.16009999811649323,
+              0.23659999668598175,
+              0.7242000102996826
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.550952911376953,
+            0.9247958064079285,
+            1.1455272436141968,
+            0.0
+          ],
+          "exifColorSpace": 2,
+          "focalLength": 25.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "                               ",
+        "exposure": 1.2999999523162842,
+        "instrument": "Sony ILCE-7M2",
+        "timestampNanoseconds": 1452276481000000000
+      },
+      "descriptorText": "extent=6024x4024x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "979",
+      "sourceSha256": "d96dc154ed8811d52548dab52d32f9e25a654b574ce702325fae47c86e2a624a",
+      "sensorSha256": "6b47423555fa91536a73ad3f9ab0eb50bcb4517b967a8db3bbcdac8eb87ace29",
+      "visibleSha256": "fe9cd77a8a5d77f12f4b2778c9a429de0d562c3bc1d02614862473c27c882c82",
+      "metadata": {
+        "artist": "Lior Segev",
+        "camera": {
+          "aperture": 5.599999904632568,
+          "asShotApplied": false,
+          "black": 512,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2772.0,
+            1024.0,
+            1768.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.7792819738388062,
+              -0.5805404186248779,
+              -0.19874149560928345,
+              0.0
+            ],
+            [
+              -0.24179956316947937,
+              1.6651071310043335,
+              -0.42330753803253174,
+              0.0
+            ],
+            [
+              0.017155859619379044,
+              -0.4280436336994171,
+              1.4108877182006836,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.5972999930381775,
+              -0.16949999332427979,
+              -0.04190000146627426
+            ],
+            [
+              -0.38260000944137573,
+              1.1797000169754028,
+              0.22930000722408295
+            ],
+            [
+              -0.06390000134706497,
+              0.13979999721050262,
+              0.5788999795913696
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.836125373840332,
+            0.9383336305618286,
+            1.409664511680603,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 30.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "                               ",
+        "exposure": 0.00800000037997961,
+        "instrument": "Sony ILCE-6300",
+        "timestampNanoseconds": 1485426793000000000
+      },
+      "descriptorText": "extent=6024x4024x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "6929",
+      "sourceSha256": "851b43c2116c4139104a5036f83ac3b6a148789b2142214dd7192c13972b25b6",
+      "sensorSha256": "1ae99c2cf42747bdc5cefb8f545f5756108141800282d789a903b7fa9896843f",
+      "visibleSha256": "0d6cb7aa5d1ca9730c7aa4cc87849dcbef9437059d2217338228a4d5517358e4",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 5.599999904632568,
+          "asShotApplied": false,
+          "black": 512,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2425.0,
+            1024.0,
+            1800.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.6360617876052856,
+              -0.44861873984336853,
+              -0.18744300305843353,
+              0.0
+            ],
+            [
+              -0.11516476422548294,
+              1.4889707565307617,
+              -0.37380602955818176,
+              0.0
+            ],
+            [
+              -0.004740227945148945,
+              -0.32360124588012695,
+              1.3283414840698242,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.7459999918937683,
+              -0.23649999499320984,
+              -0.058800000697374344
+            ],
+            [
+              -0.5687000155448914,
+              1.3442000150680542,
+              0.24740000069141388
+            ],
+            [
+              -0.06239999830722809,
+              0.11559999734163284,
+              0.6583999991416931
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.4478163719177246,
+            0.9319279193878174,
+            1.2933659553527832,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 50.0,
+          "iso": 250.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "                               ",
+        "exposure": 0.019999999552965164,
+        "instrument": "Sony ILCE-7M4",
+        "timestampNanoseconds": 1697742828000000000
+      },
+      "descriptorText": "extent=7028x4688x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "6931",
+      "sourceSha256": "cbbd0930c7d8706dff84c68a2004454266e6fd0d8354f5f76a106b5d776e0223",
+      "sensorSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "visibleSha256": "e05cb2af66982768f44f6562413574eafbf349d623b2ed9e715e2f3f70fc2872",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 5.599999904632568,
+          "asShotApplied": true,
+          "black": 1024,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2423.0,
+            1024.0,
+            1800.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.6360617876052856,
+              -0.44861873984336853,
+              -0.18744300305843353,
+              0.0
+            ],
+            [
+              -0.11516476422548294,
+              1.4889707565307617,
+              -0.37380602955818176,
+              0.0
+            ],
+            [
+              -0.004740227945148945,
+              -0.32360124588012695,
+              1.3283414840698242,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.7459999918937683,
+              -0.23649999499320984,
+              -0.058800000697374344
+            ],
+            [
+              -0.5687000155448914,
+              1.3442000150680542,
+              0.24740000069141388
+            ],
+            [
+              -0.06239999830722809,
+              0.11559999734163284,
+              0.6583999991416931
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.4478163719177246,
+            0.9319279193878174,
+            1.2933659553527832,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 50.0,
+          "iso": 250.0,
+          "orientation": 0,
+          "white": 17536
+        },
+        "description": "                               ",
+        "exposure": 0.019999999552965164,
+        "instrument": "Sony ILCE-7M4",
+        "timestampNanoseconds": 1697742900000000000
+      },
+      "descriptorText": "extent=3516x2344x3 sample=UInt16 channels=Rgb color=LinearRgb domain=NormalizedLinear cfa=None@0,0 origin=TopLeft aspect=1"
+    },
+    {
+      "id": "915",
+      "sourceSha256": "845fee4f09c832af3728778737f5ae9b99124debb821b6e2066b94aed1daa91c",
+      "sensorSha256": "d1ce3d661f51cd27d77485f18fa38907a7064705636539f0c3f4f241edcf2e7b",
+      "visibleSha256": "cfc5428320ee0b527bed67ccec6589e1f06c6c6976fb8892cc5366da03248d9f",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 2.200000047683716,
+          "asShotApplied": false,
+          "black": 528,
+          "blackColumns": 1,
+          "blackRows": 1,
+          "blackTile": [
+            0
+          ],
+          "cameraMultipliers": [
+            2.1572265625,
+            1.0,
+            1.653564453125,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.7474316358566284,
+              -0.4289694130420685,
+              -0.3184622526168823,
+              0.0
+            ],
+            [
+              -0.06771232187747955,
+              1.5520933866500854,
+              -0.4843810200691223,
+              0.0
+            ],
+            [
+              0.037883564829826355,
+              -0.35654279589653015,
+              1.3186591863632202,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.3617019653320312,
+            0.9984248876571655,
+            1.502532720565796,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 4.150000095367432,
+          "iso": 25.0,
+          "orientation": 0,
+          "white": 4095
+        },
+        "description": "",
+        "exposure": 0.00018198361794929951,
+        "instrument": "Apple iPhone8,2 back camera",
+        "timestampNanoseconds": 1482171015000000000
+      },
+      "descriptorText": "extent=4032x3024x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "3372",
+      "sourceSha256": "50bc64ee8cfbbfb6c0531e29ab428ff985506a16fe2d1d2e74656f21b54505f6",
+      "sensorSha256": "1657cd68947bbfd174c3c0e5728531b10aea7208fd1df1177d2e6f7a7c72c54a",
+      "visibleSha256": "101e897e35bd5c44b732474f930001d2edbbeb9731b1c44ea0238d3b08ba1f9a",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 1.7999999523162842,
+          "asShotApplied": false,
+          "black": 528,
+          "blackColumns": 1,
+          "blackRows": 1,
+          "blackTile": [
+            0
+          ],
+          "cameraMultipliers": [
+            2.306396484375,
+            1.0,
+            1.9379881620407104,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.5755774974822998,
+              -0.5263692736625671,
+              -0.049208201467990875,
+              0.0
+            ],
+            [
+              -0.16799801588058472,
+              1.528244972229004,
+              -0.3602469563484192,
+              0.0
+            ],
+            [
+              0.031884875148534775,
+              -0.423027366399765,
+              1.39114248752594,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.5769433975219727,
+            0.997675895690918,
+            1.744163990020752,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 4.25,
+          "iso": 25.0,
+          "orientation": 0,
+          "white": 4095
+        },
+        "description": "",
+        "exposure": 0.002222222276031971,
+        "instrument": "Apple iPhone11,2 back camera",
+        "timestampNanoseconds": 1567894480000000000
+      },
+      "descriptorText": "extent=4032x3024x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "4264",
+      "sourceSha256": "e91e77a4533ed7cce551d83330676ea5c47dd5e55fb38adda7819366afdbdfc2",
+      "sensorSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "visibleSha256": "ff19142a4b144773677622e5ab3d4927c14db8978f3436f6c64b833d20a0e828",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 1.600000023841858,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2.227294921875,
+            1.0,
+            1.848876953125,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.3842709064483643,
+              -0.3266567885875702,
+              -0.05761417746543884,
+              0.0
+            ],
+            [
+              -0.18470636010169983,
+              1.389467477798462,
+              -0.20476116240024567,
+              0.0
+            ],
+            [
+              0.033095188438892365,
+              -0.607588529586792,
+              1.5744932889938354,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.441518545150757,
+            0.9950241446495056,
+            1.6583387851715088,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 4.199999809265137,
+          "iso": 32.0,
+          "orientation": 6,
+          "white": 65535
+        },
+        "description": "",
+        "exposure": 0.00017998559633269906,
+        "instrument": "Apple iPhone13,3 back camera",
+        "timestampNanoseconds": 1609262685000000000
+      },
+      "descriptorText": "extent=4032x3024x3 sample=UInt16 channels=Rgb color=LinearRgb domain=NormalizedLinear cfa=None@0,0 origin=TopLeft aspect=1"
+    },
+    {
+      "id": "1103",
+      "sourceSha256": "c92496d31742e61918ca9f30148c630a61581db0cff512995d54ae5b473f1d4f",
+      "sensorSha256": "1b1c9ae471da849fb2734dc8734637596a2f39c0a6f4ce984da4bd2a1a9ea6ec",
+      "visibleSha256": "0d51a2dd8c02217f975e402e8d754a0a439208eb5f03621633866306003a4fe4",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 2.0,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 2,
+          "blackRows": 2,
+          "blackTile": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "cameraMultipliers": [
+            1.8550724983215332,
+            1.0,
+            1.580246925354004,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.9328367710113525,
+              -0.9458821415901184,
+              0.01304530631750822,
+              0.0
+            ],
+            [
+              -0.22254256904125214,
+              1.4960449934005737,
+              -0.2735024094581604,
+              0.0
+            ],
+            [
+              0.019383423030376434,
+              -0.5691267848014832,
+              1.5497432947158813,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.1466097831726074,
+            0.9966332912445068,
+            1.4022034406661987,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 3.819999933242798,
+          "iso": 0.0,
+          "orientation": 0,
+          "white": 1023
+        },
+        "description": "Camera FV-5",
+        "exposure": 0.0007720660069026053,
+        "instrument": "Motorola Nexus 6",
+        "timestampNanoseconds": 1486926872000000000
+      },
+      "descriptorText": "extent=4208x3120x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Bggr@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "2456",
+      "sourceSha256": "dc54074b5b71d727cd62aca2d99ffe322ccb0ee6d8572f392edde62cf41c30fe",
+      "sensorSha256": "ed5acf786bc132078d8653b157efa1cb74baa31bde8021d133100f3952982b1e",
+      "visibleSha256": "f369f605f11a49c1b071455e64eafbea337d2a8cea4bbff0057a3f714f1bc7d7",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 2.0,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 2,
+          "blackRows": 2,
+          "blackTile": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "cameraMultipliers": [
+            2.133333444595337,
+            1.0,
+            1.7534246444702148,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.0136951208114624,
+              -0.006504248362034559,
+              -0.007190853822976351,
+              0.0
+            ],
+            [
+              5.6104374380083755e-05,
+              0.9976052045822144,
+              0.0023387146648019552,
+              0.0
+            ],
+            [
+              0.002192089334130287,
+              0.0030548495706170797,
+              0.9947530627250671,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.3125808238983154,
+            1.0032457113265991,
+            1.686841368675232,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 3.5899999141693115,
+          "iso": 0.0,
+          "orientation": 0,
+          "white": 1023
+        },
+        "description": "",
+        "exposure": 0.0011794869787991047,
+        "instrument": "Motorola Moto G (5S) Plus",
+        "timestampNanoseconds": 1522261374000000000
+      },
+      "descriptorText": "extent=4208x3120x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Grbg@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "3554",
+      "sourceSha256": "d46953b116ee7a88b99fb28edc7b2f1b631ed09d66f73391c4ccc2e2ec959575",
+      "sensorSha256": "376ce759834ec20faac9217fb7d1127996dd17ec2a7ca693283ba5410243f6d7",
+      "visibleSha256": "4b6bc9ababdce57bf70852fe4d889997afd5c3097750e3a066565ffd4cc1cffe",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 2.0,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 2,
+          "blackRows": 2,
+          "blackTile": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "cameraMultipliers": [
+            2.2857143878936768,
+            1.0,
+            1.3473684787750244,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              0.9932536482810974,
+              8.159837307175621e-06,
+              0.006738212890923023,
+              0.0
+            ],
+            [
+              5.421041714726016e-05,
+              0.9976011514663696,
+              0.0023446199484169483,
+              0.0
+            ],
+            [
+              0.0018235720926895738,
+              0.0012097940780222416,
+              0.9969666600227356,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.4326012134552,
+            1.0032457113265991,
+            1.3483837842941284,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 3.5399999618530273,
+          "iso": 0.0,
+          "orientation": 0,
+          "white": 1023
+        },
+        "description": "",
+        "exposure": 0.0009815950179472566,
+        "instrument": "Motorola moto g(7) play",
+        "timestampNanoseconds": 1573733822000000000
+      },
+      "descriptorText": "extent=4208x3120x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Grbg@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "2206",
+      "sourceSha256": "5541093a369f0487fef92bcd1f5fef1be6e4e3cec2aa4d52ad38d2211f3309d7",
+      "sensorSha256": "aa3c857a01736e1adcfe782d9993f2eabce9c65eaf2dd691d21c84701c659666",
+      "visibleSha256": "2cb59c2ec38176ecfac0ac944a549161d2115fcf4c772648cb62168e3bd3898d",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 1.7999999523162842,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 2,
+          "blackRows": 2,
+          "blackTile": [
+            63,
+            63,
+            63,
+            63
+          ],
+          "cameraMultipliers": [
+            1.8550724983215332,
+            1.0,
+            1.7777777910232544,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.6386809349060059,
+              -0.5907813310623169,
+              -0.04789955914020538,
+              0.0
+            ],
+            [
+              -0.13473403453826904,
+              1.182615876197815,
+              -0.047881852835416794,
+              0.0
+            ],
+            [
+              0.027098145335912704,
+              -0.6436371803283691,
+              1.6165390014648438,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.221752405166626,
+            0.9971389174461365,
+            1.4314557313919067,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 4.449999809265137,
+          "iso": 0.0,
+          "orientation": 0,
+          "white": 1023
+        },
+        "description": "",
+        "exposure": 0.00047019601333886385,
+        "instrument": "Google Pixel 2 XL",
+        "timestampNanoseconds": 1515495989000000000
+      },
+      "descriptorText": "extent=4032x3024x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Bggr@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "6168",
+      "sourceSha256": "6b921558944db5fdb4f1c63dc64919b6666ef700857a187e18500099c6e7c6c6",
+      "sensorSha256": "eb6d1a0159c5fe1a72669d5b200de83d196b38a65962cb491abeec5a7f8907e7",
+      "visibleSha256": "80f2f4963f0d40156d51bd4d42e9d3cdeb9a8958921604cc571a86df1687f01c",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 3.5,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 2,
+          "blackRows": 2,
+          "blackTile": [
+            1024,
+            1024,
+            1024,
+            1024
+          ],
+          "cameraMultipliers": [
+            1.5560908317565918,
+            1.0,
+            1.7886687517166138,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.000044822692871,
+              -5.614656038233079e-05,
+              1.1269748029008042e-05,
+              0.0
+            ],
+            [
+              3.55124611814972e-05,
+              1.0000324249267578,
+              -6.792372005293146e-05,
+              0.0
+            ],
+            [
+              -8.333410733030178e-06,
+              -2.8008427761960775e-05,
+              1.000036358833313,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            1.9089690446853638,
+            1.1763911247253418,
+            2.0626823902130127,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 19.0,
+          "iso": 142.0,
+          "orientation": 3,
+          "white": 16368
+        },
+        "description": "",
+        "exposure": 0.042007677257061005,
+        "instrument": "Google Pixel 7 Pro",
+        "timestampNanoseconds": 1670182291000000000
+      },
+      "descriptorText": "extent=3882x2924x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Bggr@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          1,
+          2,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "6261",
+      "sourceSha256": "53e7f83a94c965495ba32d3ea6021ef08ed02244ce64d111d1329bbd01fd5581",
+      "sensorSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "visibleSha256": "ad28cab736f68ec1f255649807b087bc89ee811d753eeace1af1d69bd8fe94a1",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 1.7999999523162842,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            1.5125553607940674,
+            1.0,
+            1.744463324546814,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.6887106895446777,
+              -0.6238349676132202,
+              -0.06487574428319931,
+              0.0
+            ],
+            [
+              -0.1947636753320694,
+              1.3615589141845703,
+              -0.1667952835559845,
+              0.0
+            ],
+            [
+              0.002247086726129055,
+              -0.6409865021705627,
+              1.6387394666671753,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            1.9592080116271973,
+            0.999304473400116,
+            1.547988772392273,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 6.400000095367432,
+          "iso": 12.0,
+          "orientation": 0,
+          "white": 65535
+        },
+        "description": "",
+        "exposure": 0.001114827231504023,
+        "instrument": "Samsung SM-S908U1",
+        "timestampNanoseconds": 1671979443000000000
+      },
+      "descriptorText": "extent=4000x3000x3 sample=UInt16 channels=Rgb color=LinearRgb domain=NormalizedLinear cfa=None@0,0 origin=TopLeft aspect=1"
+    },
+    {
+      "id": "1328",
+      "sourceSha256": "15c937245f419d7e8dd24d232dd9565b397c57460434fe15b1570b6a07fe9d68",
+      "sensorSha256": "b06c9646c7f67b2dccce934bea9687e169cac317b9a1578f74293a5a6148f13a",
+      "visibleSha256": "b06c9646c7f67b2dccce934bea9687e169cac317b9a1578f74293a5a6148f13a",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 2.0,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 2,
+          "blackRows": 2,
+          "blackTile": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "cameraMultipliers": [
+            2.064516067504883,
+            1.0,
+            1.5609755516052246,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.0016967058181763,
+              0.0023735633585602045,
+              -0.00407022750005126,
+              0.0
+            ],
+            [
+              4.470799831324257e-05,
+              0.9975854754447937,
+              0.0023698427248746157,
+              0.0
+            ],
+            [
+              -0.00239804876036942,
+              -0.005526261869817972,
+              1.0079243183135986,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.450261116027832,
+            1.0032457113265991,
+            1.462618350982666,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 4.260000228881836,
+          "iso": 0.0,
+          "orientation": 0,
+          "white": 1023
+        },
+        "description": "",
+        "exposure": 0.00039352799649350345,
+        "instrument": "OnePlus A3003",
+        "timestampNanoseconds": 1489682758000000000
+      },
+      "descriptorText": "extent=4656x3496x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "771",
+      "sourceSha256": "ec069b178b9383d80c72f8cdc1b79bd54ca451e7c20793b109d8ad73bef6bdf6",
+      "sensorSha256": "d4f894f5e3414125ffa2b8a94637ab44034f9de931a6ca3ef6025c97cbd28a8d",
+      "visibleSha256": "6a8bb07e9587f7d3b43e6d3cc5ce16aaf013ee4cff1ca7242a35a66eb1f2f182",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 2.799999952316284,
+          "asShotApplied": false,
+          "black": 2047,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            1689.0,
+            1024.0,
+            2217.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.9643921852111816,
+              -1.11971116065979,
+              0.15531888604164124,
+              0.0
+            ],
+            [
+              -0.24116037786006927,
+              1.6737557649612427,
+              -0.4325953423976898,
+              0.0
+            ],
+            [
+              0.013886491768062115,
+              -0.5497812032699585,
+              1.535894751548767,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.6722000241279602,
+              -0.06350000202655792,
+              -0.09629999846220016
+            ],
+            [
+              -0.4287000000476837,
+              1.246000051498413,
+              0.20280000567436218
+            ],
+            [
+              -0.09080000221729279,
+              0.21619999408721924,
+              0.5667999982833862
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "daylightMultipliers": [
+            2.1251654624938965,
+            0.9439764618873596,
+            1.338605284690857,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 70.0,
+          "iso": 200.0,
+          "orientation": 0,
+          "white": 15488
+        },
+        "description": "",
+        "exposure": 0.00800000037997961,
+        "instrument": "Canon EOS 5D Mark III",
+        "timestampNanoseconds": 1483635175000000000
+      },
+      "descriptorText": "extent=5796x3870x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "772",
+      "sourceSha256": "bca87871cd91523e0ff4450a51a1a677de9241c3110b213b99198b9ed3751f66",
+      "sensorSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "visibleSha256": "09e301bc52fb094592e15a83e430f152bc0353bac266301e3ea7e80333537cb2",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 2.799999952316284,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            1670.0,
+            1024.0,
+            2250.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.9643921852111816,
+              -1.11971116065979,
+              0.15531888604164124,
+              0.0
+            ],
+            [
+              -0.24116037786006927,
+              1.6737557649612427,
+              -0.4325953423976898,
+              0.0
+            ],
+            [
+              0.013886491768062115,
+              -0.5497812032699585,
+              1.535894751548767,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.6722000241279602,
+              -0.06350000202655792,
+              -0.09629999846220016
+            ],
+            [
+              -0.4287000000476837,
+              1.246000051498413,
+              0.20280000567436218
+            ],
+            [
+              -0.09080000221729279,
+              0.21619999408721924,
+              0.5667999982833862
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.1251654624938965,
+            0.9439764618873596,
+            1.338605284690857,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 70.0,
+          "iso": 200.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "",
+        "exposure": 0.00800000037997961,
+        "instrument": "Canon EOS 5D Mark III",
+        "timestampNanoseconds": 1483635209000000000
+      },
+      "descriptorText": "extent=3960x2640x3 sample=UInt16 channels=Rgb color=LinearRgb domain=NormalizedLinear cfa=None@0,0 origin=TopLeft aspect=1"
+    },
+    {
+      "id": "784",
+      "sourceSha256": "00e42517013bd043b7145001399bbc320a8ff235a6dcd16033580d8a130bee1e",
+      "sensorSha256": "6bf21527878aadfe9ff2464d3ddf9be5d204a9ea58264dd7e9706c601f0bbb83",
+      "visibleSha256": "2d65da3c8fd48a5f5e954550c42282ada11a72e98339c422c2f6ffd13d3c8604",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 5.599999904632568,
+          "asShotApplied": false,
+          "black": 2048,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2241.0,
+            1024.0,
+            1628.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.9125416278839111,
+              -1.058656096458435,
+              0.14611440896987915,
+              0.0
+            ],
+            [
+              -0.22485682368278503,
+              1.6465790271759033,
+              -0.4217221736907959,
+              0.0
+            ],
+            [
+              0.00986511167138815,
+              -0.5092886090278625,
+              1.4994235038757324,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.7034000158309937,
+              -0.0803999975323677,
+              -0.10140000283718109
+            ],
+            [
+              -0.44200000166893005,
+              1.2563999891281128,
+              0.20579999685287476
+            ],
+            [
+              -0.08510000258684158,
+              0.19939999282360077,
+              0.5758000016212463
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.0931308269500732,
+            0.9430638551712036,
+            1.3414475917816162,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 24.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 15303
+        },
+        "description": "",
+        "exposure": 0.0015625000232830644,
+        "instrument": "Canon EOS 70D",
+        "timestampNanoseconds": 1483797617000000000
+      },
+      "descriptorText": "extent=5496x3670x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "1035",
+      "sourceSha256": "f390e0ba566f0be9af2d8e7f955b815996630c0c3cb13fcfb95d98baec1890f6",
+      "sensorSha256": "b343e958d2bcfa7f98a633a1729d0ecb484b6334c6f6c187e3387e82b6e76d01",
+      "visibleSha256": "c736257ebebb827886c5ffbbb21536bbf5f474efd648472aa6ace256af1a6018",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 5.599999904632568,
+          "asShotApplied": false,
+          "black": 2048,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2097.0,
+            1024.0,
+            1678.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.8749819993972778,
+              -0.9947147965431213,
+              0.11973277479410172,
+              0.0
+            ],
+            [
+              -0.23612600564956665,
+              1.7776240110397339,
+              -0.541498064994812,
+              0.0
+            ],
+            [
+              -0.020155780017375946,
+              -0.46781474351882935,
+              1.4879704713821411,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.694100022315979,
+              -0.11640000343322754,
+              -0.08569999784231186
+            ],
+            [
+              -0.3824999928474426,
+              1.1597000360488892,
+              0.2533999979496002
+            ],
+            [
+              -0.041600000113248825,
+              0.15399999916553497,
+              0.6039000153541565
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.222180128097534,
+            0.932788074016571,
+            1.2953284978866577,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 135.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 15831
+        },
+        "description": "",
+        "exposure": 0.0020000000949949026,
+        "instrument": "Canon EOS 550D",
+        "timestampNanoseconds": 1410984517000000000
+      },
+      "descriptorText": "extent=5202x3464x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Gbrg@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "1294",
+      "sourceSha256": "8f28465cee09844ffad95dbd3ec91923717a329c5ec4f3f405f5b4fce83aaea3",
+      "sensorSha256": "e134ed67fe75e7976d6236f778d6b28cde3c80de7e9264e1ba684846f99fad27",
+      "visibleSha256": "d498fc70642eaf6fed913e99b1687da0178a612bddfc09ab75d75e6fe3607530",
+      "metadata": {
+        "artist": "S.J.Morgenroth",
+        "camera": {
+          "aperture": 3.5,
+          "asShotApplied": false,
+          "black": 511,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            1771.0,
+            1024.0,
+            1827.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.987941861152649,
+              -1.1597687005996704,
+              0.1718268245458603,
+              0.0
+            ],
+            [
+              -0.19817782938480377,
+              1.7509959936141968,
+              -0.5528181791305542,
+              0.0
+            ],
+            [
+              0.032044265419244766,
+              -0.621062695980072,
+              1.58901846408844,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.7457000017166138,
+              -0.06710000336170197,
+              -0.09369999915361404
+            ],
+            [
+              -0.48489999771118164,
+              1.249500036239624,
+              0.26429998874664307
+            ],
+            [
+              -0.12129999697208405,
+              0.2354000061750412,
+              0.5491999983787537
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "daylightMultipliers": [
+            1.8530800342559814,
+            0.9290269613265991,
+            1.3925764560699463,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 24.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "",
+        "exposure": 0.0062500000931322575,
+        "instrument": "Canon EOS 80D",
+        "timestampNanoseconds": 1491226946000000000
+      },
+      "descriptorText": "extent=6024x4020x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "2101",
+      "sourceSha256": "775c806358fedddec7622113a5e399a3330bd5a65e35e37ae1108d8bf58067be",
+      "sensorSha256": "d16b75257b95bab402a386749255eb0bc0c802fa526185bffbebdc3095e7fc95",
+      "visibleSha256": "0362481b8c18570c35a7ba8c517d05d24d7841a6b99ee7284fa2f7fe943119e9",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 8.0,
+          "asShotApplied": false,
+          "black": 1023,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            1921.0,
+            1171.0,
+            2241.0,
+            1171.0
+          ],
+          "cameraToRgb": [
+            [
+              1.7819147109985352,
+              -0.8649997711181641,
+              0.08308503776788712,
+              0.0
+            ],
+            [
+              -0.04575071111321449,
+              1.3749853372573853,
+              -0.32923462986946106,
+              0.0
+            ],
+            [
+              0.05303739756345749,
+              -0.42008519172668457,
+              1.3670477867126465,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.6071000099182129,
+              -0.0746999979019165,
+              -0.08560000360012054
+            ],
+            [
+              -0.7652999758720398,
+              1.5364999771118164,
+              0.24410000443458557
+            ],
+            [
+              -0.20250000059604645,
+              0.25529998540878296,
+              0.7315000295639038
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            1,
+            1,
+            0
+          ],
+          "daylightMultipliers": [
+            2.4442317485809326,
+            0.9303287267684937,
+            1.163725733757019,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 38.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 16224
+        },
+        "description": "",
+        "exposure": 1.2999999523162842,
+        "instrument": "Canon EOS 40D",
+        "timestampNanoseconds": 1513638305000000000
+      },
+      "descriptorText": "extent=3908x2602x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "895",
+      "sourceSha256": "e4a3f85e014275fc0a47600a373af95ec850872a5f6cf87649bcaa42b77ef2e4",
+      "sensorSha256": "74fb3f357e7ec7181386c9d864e1bd47f6d4903f92436a042400db2c618048be",
+      "visibleSha256": "9e54987213111d51cbb0abb866410cd89fda0374585d4bd0e3c2d7090ff3b85e",
+      "metadata": {
+        "artist": "<withheld>",
+        "camera": {
+          "aperture": 1.7999999523162842,
+          "asShotApplied": false,
+          "black": 150,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2.0703125,
+            1.0,
+            1.21484375,
+            1.0
+          ],
+          "cameraToRgb": [
+            [
+              1.6467698812484741,
+              -0.4497508704662323,
+              -0.19701895117759705,
+              0.0
+            ],
+            [
+              -0.18240487575531006,
+              1.5973149538040161,
+              -0.41491007804870605,
+              0.0
+            ],
+            [
+              0.011959388852119446,
+              -0.4379329979419708,
+              1.425973653793335,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.9020000100135803,
+              -0.289000004529953,
+              -0.07150000333786011
+            ],
+            [
+              -0.45350000262260437,
+              1.2436000108718872,
+              0.23479999601840973
+            ],
+            [
+              -0.0934000015258789,
+              0.19189999997615814,
+              0.7085999846458435
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.0388500690460205,
+            0.9361373782157898,
+            1.143286943435669,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 35.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 4095
+        },
+        "description": "",
+        "exposure": 0.03333333507180214,
+        "instrument": "Nikon D750",
+        "timestampNanoseconds": 1484527123000000000
+      },
+      "descriptorText": "extent=6032x4032x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "896",
+      "sourceSha256": "3389da2bd0997be2f8e1408d8d0fba09f5062de05c4017a0bbf2849d8f0cd2a1",
+      "sensorSha256": "7d6f999233100b415cbc24ddc78160a3b15f232c890076eef7ff4242c438496c",
+      "visibleSha256": "53f477aca6b2392dd6cfa9417a39c725324d656c7ad96504e548eb202658e681",
+      "metadata": {
+        "artist": "<withheld>",
+        "camera": {
+          "aperture": 1.7999999523162842,
+          "asShotApplied": false,
+          "black": 600,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2.07421875,
+            1.0,
+            1.2109375,
+            1.0
+          ],
+          "cameraToRgb": [
+            [
+              1.6467698812484741,
+              -0.4497508704662323,
+              -0.19701895117759705,
+              0.0
+            ],
+            [
+              -0.18240487575531006,
+              1.5973149538040161,
+              -0.41491007804870605,
+              0.0
+            ],
+            [
+              0.011959388852119446,
+              -0.4379329979419708,
+              1.425973653793335,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.9020000100135803,
+              -0.289000004529953,
+              -0.07150000333786011
+            ],
+            [
+              -0.45350000262260437,
+              1.2436000108718872,
+              0.23479999601840973
+            ],
+            [
+              -0.0934000015258789,
+              0.19189999997615814,
+              0.7085999846458435
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.0388500690460205,
+            0.9361373782157898,
+            1.143286943435669,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 35.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "",
+        "exposure": 0.03333333507180214,
+        "instrument": "Nikon D750",
+        "timestampNanoseconds": 1484527132000000000
+      },
+      "descriptorText": "extent=6032x4032x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "897",
+      "sourceSha256": "baae8dfc05a81a4a4034831a49ed99d129e797858ad876d31173a46d33b7d3ea",
+      "sensorSha256": "ffdb0cb4440b2cd86c6ad644fd109f2990a5228dabf0d94955a8094e5a1c2db8",
+      "visibleSha256": "55f79171441acb477de57d531936a4aa90d36da20b7a264042e18a2a524f381f",
+      "metadata": {
+        "artist": "<withheld>",
+        "camera": {
+          "aperture": 1.7999999523162842,
+          "asShotApplied": false,
+          "black": 150,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2.0859375,
+            1.0,
+            1.20703125,
+            1.0
+          ],
+          "cameraToRgb": [
+            [
+              1.6467698812484741,
+              -0.4497508704662323,
+              -0.19701895117759705,
+              0.0
+            ],
+            [
+              -0.18240487575531006,
+              1.5973149538040161,
+              -0.41491007804870605,
+              0.0
+            ],
+            [
+              0.011959388852119446,
+              -0.4379329979419708,
+              1.425973653793335,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.9020000100135803,
+              -0.289000004529953,
+              -0.07150000333786011
+            ],
+            [
+              -0.45350000262260437,
+              1.2436000108718872,
+              0.23479999601840973
+            ],
+            [
+              -0.0934000015258789,
+              0.19189999997615814,
+              0.7085999846458435
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.0388500690460205,
+            0.9361373782157898,
+            1.143286943435669,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 35.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 4095
+        },
+        "description": "",
+        "exposure": 0.03333333507180214,
+        "instrument": "Nikon D750",
+        "timestampNanoseconds": 1484527073000000000
+      },
+      "descriptorText": "extent=6032x4032x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "898",
+      "sourceSha256": "f90deb2819863f5a6ca9913c255fdd83a94963f4284eb88df9d389da7a6c7665",
+      "sensorSha256": "c1107b4670dc965e6d2b5578d93956b8e698a1f8c3519355af9c5e63cb0cb0a2",
+      "visibleSha256": "fae8eca4063584f8390e385ad2d09aa61cd4e836392a4380072291b5747d3803",
+      "metadata": {
+        "artist": "<withheld>",
+        "camera": {
+          "aperture": 1.7999999523162842,
+          "asShotApplied": false,
+          "black": 600,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2.078125,
+            1.0,
+            1.20703125,
+            1.0
+          ],
+          "cameraToRgb": [
+            [
+              1.6467698812484741,
+              -0.4497508704662323,
+              -0.19701895117759705,
+              0.0
+            ],
+            [
+              -0.18240487575531006,
+              1.5973149538040161,
+              -0.41491007804870605,
+              0.0
+            ],
+            [
+              0.011959388852119446,
+              -0.4379329979419708,
+              1.425973653793335,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.9020000100135803,
+              -0.289000004529953,
+              -0.07150000333786011
+            ],
+            [
+              -0.45350000262260437,
+              1.2436000108718872,
+              0.23479999601840973
+            ],
+            [
+              -0.0934000015258789,
+              0.19189999997615814,
+              0.7085999846458435
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.0388500690460205,
+            0.9361373782157898,
+            1.143286943435669,
+            0.0
+          ],
+          "exifColorSpace": 255,
+          "focalLength": 35.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "",
+        "exposure": 0.03333333507180214,
+        "instrument": "Nikon D750",
+        "timestampNanoseconds": 1484527107000000000
+      },
+      "descriptorText": "extent=6032x4032x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "1310",
+      "sourceSha256": "a606ebf1dcc6704f03f2966326c60a87dd6bdb3704464b3897c10349a10d3a19",
+      "sensorSha256": "8b65af40069385e2c56574d13bb27b8630e823595d1bfc3fb6901b562dd2700a",
+      "visibleSha256": "6d57085fa86eb3c59c1632f7310e4abb18c9520f6f1490c395fcf6e90dd92e20",
+      "metadata": {
+        "artist": "Kelvie Wong",
+        "camera": {
+          "aperture": 13.0,
+          "asShotApplied": false,
+          "black": 512,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2640.0,
+            1024.0,
+            1484.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.7436001300811768,
+              -0.5660224556922913,
+              -0.1775776743888855,
+              0.0
+            ],
+            [
+              -0.1791556477546692,
+              1.6221001148223877,
+              -0.4429444968700409,
+              0.0
+            ],
+            [
+              -0.0013240835396572948,
+              -0.3898463249206543,
+              1.3911703824996948,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.6628999710083008,
+              -0.1899999976158142,
+              -0.04830000177025795
+            ],
+            [
+              -0.4618000090122223,
+              1.2348999977111816,
+              0.2549999952316284
+            ],
+            [
+              -0.062199998646974564,
+              0.13809999823570251,
+              0.6514000296592712
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.5808048248291016,
+            0.9314241409301758,
+            1.2686415910720825,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 51.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "                               ",
+        "exposure": 0.1666666716337204,
+        "instrument": "Sony ILCE-7RM2",
+        "timestampNanoseconds": 1491515071000000000
+      },
+      "descriptorText": "extent=7968x5320x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "1312",
+      "sourceSha256": "f067629e2b36706e8173e37f3e6e903b4501d97f51ce7ceb43e9d71da929aa54",
+      "sensorSha256": "3fdf3f32cf084f8eab085f5a4d43a5ac4ec74d2b47fe560d15b2008061a94aa3",
+      "visibleSha256": "20e5d5963ddcefdf1b8ed3e5a508dacbbca3534bf3105cfb18566ba555d3dd71",
+      "metadata": {
+        "artist": "Kelvie Wong",
+        "camera": {
+          "aperture": 13.0,
+          "asShotApplied": false,
+          "black": 512,
+          "blackColumns": 0,
+          "blackRows": 0,
+          "blackTile": [],
+          "cameraMultipliers": [
+            2640.0,
+            1024.0,
+            1484.0,
+            1024.0
+          ],
+          "cameraToRgb": [
+            [
+              1.7436001300811768,
+              -0.5660224556922913,
+              -0.1775776743888855,
+              0.0
+            ],
+            [
+              -0.1791556477546692,
+              1.6221001148223877,
+              -0.4429444968700409,
+              0.0
+            ],
+            [
+              -0.0013240835396572948,
+              -0.3898463249206543,
+              1.3911703824996948,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              0.6628999710083008,
+              -0.1899999976158142,
+              -0.04830000177025795
+            ],
+            [
+              -0.4618000090122223,
+              1.2348999977111816,
+              0.2549999952316284
+            ],
+            [
+              -0.062199998646974564,
+              0.13809999823570251,
+              0.6514000296592712
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.5808048248291016,
+            0.9314241409301758,
+            1.2686415910720825,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 51.0,
+          "iso": 100.0,
+          "orientation": 0,
+          "white": 16383
+        },
+        "description": "                               ",
+        "exposure": 0.1666666716337204,
+        "instrument": "Sony ILCE-7RM2",
+        "timestampNanoseconds": 1491515078000000000
+      },
+      "descriptorText": "extent=7968x5320x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=Rggb@0,0 origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "id": "3098",
+      "sourceSha256": "0fa01fa1a674bcfa40f659225b4e66c5bedf15d2f78407ca1966dc8f38cd0e9f",
+      "sensorSha256": "cec30e8f5d7346c2a27a71cbd4bf27551e6b797100c52b4f67681a1d5aa05d88",
+      "visibleSha256": "42d4d472ce7601cf543b6f85a3dcdf175a55527b3156aac256bcb33faa4137c4",
+      "metadata": {
+        "artist": "",
+        "camera": {
+          "aperture": 2.799999952316284,
+          "asShotApplied": false,
+          "black": 0,
+          "blackColumns": 6,
+          "blackRows": 6,
+          "blackTile": [
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255,
+            255
+          ],
+          "cameraMultipliers": [
+            409.0,
+            302.0,
+            708.0,
+            0.0
+          ],
+          "cameraToRgb": [
+            [
+              1.447500467300415,
+              -0.27643004059791565,
+              -0.17107044160366058,
+              0.0
+            ],
+            [
+              -0.20270656049251556,
+              1.6521223783493042,
+              -0.44941583275794983,
+              0.0
+            ],
+            [
+              0.019445963203907013,
+              -0.4447435140609741,
+              1.425297498703003,
+              0.0
+            ]
+          ],
+          "cameraToXyz": [
+            [
+              1.0413000583648682,
+              -0.39959999918937683,
+              -0.09929999709129333
+            ],
+            [
+              -0.37209999561309814,
+              1.1640000343322754,
+              0.2361000031232834
+            ],
+            [
+              -0.07329999655485153,
+              0.15399999916553497,
+              0.6011000275611877
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "channelBlack": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "daylightMultipliers": [
+            2.0746731758117676,
+            0.9368532299995422,
+            1.353498101234436,
+            0.0
+          ],
+          "exifColorSpace": 1,
+          "focalLength": 18.0,
+          "iso": 500.0,
+          "orientation": 0,
+          "white": 4095
+        },
+        "description": "",
+        "exposure": 0.02631578966975212,
+        "instrument": "Fujifilm X-E1",
+        "timestampNanoseconds": 1555928587000000000
+      },
+      "descriptorText": "extent=4952x3288x1 sample=UInt16 channels=Mono color=Unspecified domain=RawSensorCode cfa=XTrans@0,0:GGRGGBGGBGGRBRGRBGGGBGGRGGRGGBRBGBRG origin=TopLeft aspect=1",
+      "cfaColors": [
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          2
+        ],
+        [
+          1,
+          1,
+          2,
+          1,
+          1,
+          0
+        ],
+        [
+          2,
+          0,
+          1,
+          0,
+          2,
+          1
+        ],
+        [
+          1,
+          1,
+          2,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          2
+        ],
+        [
+          0,
+          2,
+          1,
+          2,
+          0,
+          1
+        ]
+      ]
+    }
+  ]
+}

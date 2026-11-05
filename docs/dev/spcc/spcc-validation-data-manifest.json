@@ -1,0 +1,173 @@
+{
+  "external_comparison_outputs": [],
+  "fixture_catalogs": [
+    {
+      "catalog_family_id": "spcc_gaia_dr3_xp_sampled",
+      "checksum_policy": "Catalog chunk, manifest, coverage, transcript, and source-id-index checksums are generated per output directory and validated by tools/validate_spcc_catalog.py.",
+      "expected_metrics": {
+        "flux_error_samples": "present",
+        "minimum_records": 1,
+        "record_size_bytes": 1536,
+        "wavelength_sample_count": 343
+      },
+      "generation_command": "python tools/generate_spcc_catalog.py <output-dir> --fixture --fixture-source-count 6 --manifest-id spcc-fixture-manifest-2026a",
+      "generator": "tools/generate_spcc_catalog.py",
+      "generator_version": "spcc-catalog-tooling-phase3-v1",
+      "id": "spcc-fixture-manifest-2026a",
+      "license": "synthetic-fixture",
+      "rights_review_status": "private-local",
+      "source_kind": "synthetic-fixture",
+      "tolerance_version": "spcc-fixture-v1",
+      "validation_command": "python tools/validate_spcc_catalog.py <output-dir> --sample-count 3"
+    }
+  ],
+  "gaia_validation_artifacts": [
+    {
+      "catalog_generation_command": "python tools/generate_spcc_catalog.py catalogs/spcc_validation/tiny_gaia_xp_sampled/catalog --input-jsonl catalogs/spcc_validation/tiny_gaia_xp_sampled/tiny_gaia_spcc_sources.jsonl --source-transcript catalogs/spcc_validation/tiny_gaia_xp_sampled/gaia_validation_transcript.json --manifest-id spcc-gaia-dr3-xp-sampled-tiny-validation-20260510 --access-profile local-full --rights-review-status private-local",
+      "generation_command": "python tools/fetch_spcc_gaia_validation_fixture.py catalogs/spcc_validation/tiny_gaia_xp_sampled --source-count 3 --probe-datalink",
+      "id": "tiny-gaia-datalink-validation",
+      "notes": "The official Gaia DataLink data-server endpoint returned HTTP 503 during the 2026-05-10 run. The validation therefore used the official Gaia DR3 xp_sampled_mean_spectrum bulk ECSV product for the same table and records the DataLink 503 probes in the transcript.",
+      "required_inputs": [
+        "official Gaia TAP source transcript",
+        "official Gaia DR3 xp_sampled_mean_spectrum output",
+        "generated miniature .anxp catalog",
+        "tools/validate_spcc_catalog.py --gaia-validation-transcript output"
+      ],
+      "rights_review_status": "private-local",
+      "source_kind": "gaia-dr3-xp-sampled",
+      "status": "completed-with-official-bulk-xp-fallback",
+      "transcript": "docs/dev/spcc/spcc-gaia-validation-transcript-2026-05-10.json",
+      "transcript_sha256": "dc972e084b6821cef763f9b291bf6fbe2aa4841b7c718c2fd8ea890706ab13a3",
+      "validation_command": "python tools/validate_spcc_catalog.py catalogs/spcc_validation/tiny_gaia_xp_sampled/catalog --sample-count 3 --gaia-validation-transcript catalogs/spcc_validation/tiny_gaia_xp_sampled/gaia_validation_transcript.json"
+    },
+    {
+      "catalog_generation_command": "python tools/generate_spcc_catalog.py catalogs/spcc_validation/m31_region/catalog --input-jsonl catalogs/spcc_validation/m31_region/m31_region_spcc_sources.jsonl --source-transcript catalogs/spcc_validation/m31_region/gaia_validation_transcript.json --manifest-id spcc-gaia-dr3-xp-sampled-m31-region-20260510 --preset sampled-region --rights-review-status private-local",
+      "dataset_staging_command": "python tools/build_spcc_hf_dataset.py catalogs/spcc_hf_validation_dataset catalogs/spcc_validation/tiny_gaia_xp_sampled/catalog catalogs/spcc_validation/m31_region/catalog --repo-id emruiz81/afternight-spcc-catalogs --clean",
+      "expected_metrics": {
+        "access_profile": "installed-regional-cache",
+        "chunk_count": 1,
+        "minimum_bp_rp_p10_p90_span": 0.75,
+        "observed_bp_rp_p10_p90_span": 1.156212,
+        "records": 120
+      },
+      "generation_command": "python tools/fetch_spcc_gaia_validation_fixture.py catalogs/spcc_validation/m31_region --source-count 120 --artifact-prefix m31_region --region-name m31-core --ra-deg 10.6847083 --dec-deg 41.26875 --radius-deg 1.5 --mag-min 9 --mag-max 16 --min-bp-rp-snr 20 --timeout-seconds 240",
+      "hosted_dataset_commit": "f9fb983879273650cc9bc787551b86b524d61ece",
+      "hosted_dataset_manifest_sha256": "8ef86ea7ad9f69ec47c78eb7cbde20725359664e5e084e66c896bb25f7a8c9b0",
+      "hosted_dataset_verify_command": "python tools/verify_spcc_hf_dataset.py https://huggingface.co/datasets/emruiz81/afternight-spcc-catalogs/resolve/main/spcc_dataset_manifest.json --chunk-policy all",
+      "hosted_mirror_manifest_sha256": "06995fcc9dd04e1b79a939c59dc6c59f5f4db87fcc27094289873169cd5c0c5c",
+      "id": "m31-regional-cache-validation",
+      "notes": "Private M31-core regional-cache validation pack generated from official Gaia TAP metadata and official Gaia DR3 xp_sampled_mean_spectrum bulk spectra. It is suitable for private hosted smoke tests only until redistribution review is approved.",
+      "rights_review_status": "private-local",
+      "source_kind": "gaia-dr3-xp-sampled",
+      "status": "completed-with-official-bulk-xp-fallback",
+      "transcript": "catalogs/spcc_validation/m31_region/gaia_validation_transcript.json",
+      "transcript_sha256": "ea9a8601fcd820df77726d28a53f3986b99a3c2b714dec58121580dedfd295ed",
+      "validation_command": "python tools/validate_spcc_catalog.py catalogs/spcc_validation/m31_region/catalog --sample-count 8 --gaia-validation-transcript catalogs/spcc_validation/m31_region/gaia_validation_transcript.json"
+    },
+    {
+      "catalog_generation_command": "python tools/build_spcc_full_xp_sampled_catalog.py <production-root>\\full_sampled_2026a\\catalog --input-manifest <production-root>\\full_sampled_2026a\\prejoined\\spcc_full_xp_sampled_source_export_manifest.json --manifest-id spcc-gaia-dr3-xp-sampled-full-2026a --cap-per-healpix8 127 --rights-review-status private-local",
+      "dataset_staging_command": "python tools\\build_spcc_hf_dataset.py <production-root>\\full_sampled_2026a\\hf_dataset_public <production-root>\\full_sampled_2026a\\catalog --repo-id emruiz81/afternight-spcc-catalogs --publication-mode public-production --mirror-hosting-policy approved-public --strict-production-review --sample-count 64 --clean",
+      "expected_metrics": {
+        "access_profile": "local-full",
+        "bp_rp_p10_p90_span": 1.0205602645874023,
+        "catalog_meta_sha256": "0bc2fc504a9fc94a978d89a270559d41c03b3c1169a272637371efea6bea0003",
+        "chunk_count": 192,
+        "coverage_summary_sha256": "dce3b3245908093f93435c1d35c586ecde37805d83591c54c0a758df0a0d5958",
+        "dataset_file_count": 197,
+        "dataset_total_size_bytes": 7394478036,
+        "metadata_export_manifest_sha256": "3d626549d09911b38f4c86673f3d8b471d104b6908eb6fea7106533b5f99b395",
+        "prejoin_manifest_sha256": "74384e0e6e5ac7a81890c26ec7a5d8bf7c101030956cb0af179992dceb3ff3ff",
+        "records": 4601105,
+        "xp_sampled_download_manifest_sha256": "619b540850ba58a367cf79e2177437a78b33a88ce89d91fcc38f2ae5f5b25685"
+      },
+      "generation_command": "python tools\\export_spcc_gaia_xp_metadata.py <production-root>\\full_sampled_2026a\\metadata --tap-official --healpix8-start 0 --healpix8-end 196608 --healpix8-step 64 && python tools\\download_spcc_gaia_xp_sampled_files.py <production-root>\\full_sampled_2026a\\xp_sampled && python tools\\export_spcc_gaia_full_xp_sampled_sources.py <production-root>\\full_sampled_2026a\\prejoined --metadata-manifest <production-root>\\full_sampled_2026a\\metadata\\spcc_gaia_xp_metadata_export_manifest.json --xp-sampled-manifest <production-root>\\full_sampled_2026a\\xp_sampled\\spcc_gaia_xp_sampled_download_manifest.json --partition-count 4096",
+      "hosted_catalog_mirror_config_sha256": "4f095b8b21a7862c9b59c66731ca118e3a1cf18d62479b398fa658e9ca65ee5e",
+      "hosted_catalog_mirror_config_verify_command": "python tools\\verify_spcc_catalog_mirror_config.py https://huggingface.co/datasets/emruiz81/afternight-spcc-catalogs/resolve/main/spcc_catalog_mirrors.json --chunk-policy first",
+      "hosted_dataset_commit": "e7cc3666ed33854cd04a24d72e3f0cdb2a74ee30",
+      "hosted_dataset_manifest_sha256": "7f6006c69bf52d03ff8f0e696abab8f685f476a27153c21c9c1ec52d386dfc66",
+      "hosted_dataset_url": "https://huggingface.co/datasets/emruiz81/afternight-spcc-catalogs/resolve/main/spcc_dataset_manifest.json",
+      "hosted_dataset_verify_command": "python tools\\verify_spcc_hf_dataset.py https://huggingface.co/datasets/emruiz81/afternight-spcc-catalogs/resolve/main/spcc_dataset_manifest.json --chunk-policy first",
+      "hosted_mirror_manifest_sha256": "9edd2ab51fe7ed2a8727e879ddd67bf2846a6d3aaf6c83974f97db6f2b1f3be3",
+      "hosted_verification": {
+        "app_config_descriptor_count": 1,
+        "app_config_result": "SPCC catalog mirror config verification passed: 1 descriptor(s)",
+        "dataset_result": "SPCC hosted dataset verification passed",
+        "verified_at_utc": "2026-05-14T05:31:38Z"
+      },
+      "id": "full-sampled-xp-managed-download-2026a",
+      "notes": "Full-sky Gaia DR3 XP sampled local-full catalog generated from official Gaia TAP metadata and official Gaia DR3 xp_sampled_mean_spectrum bulk spectra. Hosted public-production bytes are verified and the app-facing descriptor config exposes one approved managed-download catalog pack.",
+      "rights_review": {
+        "official_credit_url": "https://gea.esac.esa.int/archive/documentation/GDR3/Miscellaneous/sec_credit_and_citation_instructions/",
+        "required_credit": "ESA/Gaia/DPAC",
+        "review_basis": "Gaia DR3 data are open and free to use with ESA/Gaia/DPAC credit and the required Gaia mission, Gaia DR3 release, and product-specific citations; this derived AfterNight SPCC catalog preserves those requirements in catalog and dataset manifests.",
+        "reviewed_at_utc": "2026-05-14T05:14:36Z",
+        "reviewed_by": "AfterNight Gaia DR3 rights review"
+      },
+      "rights_review_status": "approved-for-managed-download",
+      "rights_update_command": "python tools\\approve_spcc_catalog_rights.py <production-root>\\full_sampled_2026a\\catalog --reviewer \"AfterNight Gaia DR3 rights review\"",
+      "source_kind": "gaia-dr3-xp-sampled",
+      "status": "public-production-hosted-verified",
+      "transcript": "<production-root>/full_sampled_2026a/catalog/source_count_transcript.json",
+      "transcript_sha256": "253f376cbc6e814800c88b9d9760ad262de97a61bfabde898035c331efb155ec",
+      "validation_command": "python tools\\validate_spcc_catalog.py <production-root>\\full_sampled_2026a\\catalog --sample-count 64 --strict-production-review && python tools\\verify_spcc_hf_dataset.py https://huggingface.co/datasets/emruiz81/afternight-spcc-catalogs/resolve/main/spcc_dataset_manifest.json --chunk-policy first && python tools\\verify_spcc_catalog_mirror_config.py https://huggingface.co/datasets/emruiz81/afternight-spcc-catalogs/resolve/main/spcc_catalog_mirrors.json --chunk-policy first"
+    }
+  ],
+  "packaged_qa_reports": [],
+  "purpose": "Tracks deterministic SPCC fixtures, response fixtures, generated catalog artifacts, support-envelope reports, real-image references, external comparison outputs, packaged QA reports, licenses, checksums, expected metrics, and tolerance versions.",
+  "real_image_reference_sets": [],
+  "response_repositories": [
+    {
+      "checksum_policy": "Each normalized response asset stores data_sha256 and file_sha256; the deployed/runtime validator recomputes both.",
+      "expected_metrics": {
+        "minimum_components": 1,
+        "minimum_throughput_profiles": 1,
+        "minimum_white_references": 1,
+        "wavelength_unit": "nm"
+      },
+      "generator": "tools/normalize_spcc_response_repository.py",
+      "id": "spcc-response-fixture",
+      "license": "synthetic-fixture",
+      "rights_review_status": "private-local",
+      "tolerance_version": "spcc-response-fixture-v1",
+      "validation_command": "python tools/validate_spcc_response_repository.py <repository-dir> --runtime-root"
+    },
+    {
+      "descriptor_config": {
+        "path": "spcc_response_repositories.json",
+        "schema_version": "spcc-response-repository-config-v1",
+        "sha256": "ce259f8b1e7121e3020884ffbf50cecceb3235a693244fc4bd51413e13e30fa3"
+      },
+      "expected_metrics": {
+        "component_count": 245,
+        "deployment_scope": "managed-cache",
+        "minimum_components": 1,
+        "minimum_throughput_profiles": 1,
+        "minimum_white_references": 1,
+        "throughput_profile_count": 2342,
+        "white_reference_count": 145
+      },
+      "generator": "tools/normalize_spcc_response_repository.py",
+      "hosted_verification": {
+        "result": "Pending upload of the neutralized AfterNight SPCC response baseline.",
+        "url": "https://huggingface.co/datasets/emruiz81/afternight-spcc-responses/resolve/main/spcc_response_repositories.json",
+        "verify_command": "python tools\\verify_spcc_response_repository_config.py https://huggingface.co/datasets/emruiz81/afternight-spcc-responses/resolve/main/spcc_response_repositories.json"
+      },
+      "id": "afternight-spcc-response-baseline-2026a",
+      "license": "GPL-3.0-only",
+      "repository_id": "afternight-spcc-response-baseline",
+      "response_meta": {
+        "path": "responses/afternight-spcc-response-baseline/2026a/response_meta.json",
+        "schema_version": "spcc-response-repository-v1",
+        "sha256": "df045b7fa54894c368cbcfaa72a01a298f657a21c71b2bbc5cde470f0589e354"
+      },
+      "rights_review_status": "approved-for-managed-download",
+      "tolerance_version": "spcc-response-repository-v1",
+      "validation_command": "python tools/validate_spcc_response_repository.py <repository-dir> --runtime-root && python tools/validate_spcc_response_repository.py <repository-dir> --strict-production-review",
+      "version": "2026a"
+    }
+  ],
+  "schema_version": "spcc-validation-data-manifest-v1",
+  "support_envelope_reports": [],
+  "updated_at_utc": "2026-05-19T05:18:25Z",
+  "validation_command": "python tools/validate_spcc_validation_manifest.py docs/dev/spcc/spcc-validation-data-manifest.json"
+}

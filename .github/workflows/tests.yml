@@ -1,0 +1,46 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_linux:
+        description: 'Run Linux tests'
+        required: false
+        default: true
+        type: boolean
+      run_windows:
+        description: 'Run Windows tests (MSVC)'
+        required: false
+        default: true
+        type: boolean
+      skip_tests:
+        description: 'Tests to skip (space-separated, e.g., Test_ImageIntegration)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests-linux:
+    name: Linux Tests
+    if: ${{ inputs.run_linux }}
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      run_tests: true
+      build_installer: false
+      skip_tests: ${{ inputs.skip_tests || '' }}
+
+  tests-windows:
+    name: Windows Tests
+    if: ${{ inputs.run_windows }}
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      run_tests: true
+      build_installer: false
+      skip_tests: ${{ inputs.skip_tests || '' }}

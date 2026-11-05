@@ -1,0 +1,1087 @@
+# The provenance register: every third-party library and every ported subsystem the engine retains,
+# with the eight things somebody has to be able to look up about each of them.
+#
+# The scope is the engine and nothing else: `AfterNightEngine`, its two optional adapters, the
+# opt-in GPU backend, the suites that link them and the benchmark layer that measures them. A library
+# only the product links is outside it.
+#
+# It is a file rather than a page of prose because a provenance record written once describes the
+# tree it was written against. Three things drift, and each of them drifts silently:
+#
+#   - a library arrives. A link line gains an entry, a codec gains an include, and nobody decides
+#     that this engine now depends on something;
+#   - a library leaves, and its record stays - so the register claims a dependency that is not
+#     there, which is worse than no register at all because it reads like coverage; and
+#   - a version moves. The number recorded here and the number inside the binary stop agreeing, and
+#     the difference is invisible until somebody has to answer whether an advisory applies.
+#
+# `build/scripts/tools/check_dependency_provenance.py` reads this file; nothing else does. It reads
+# the generated projects, the install and deploy scripts, the include lines of every engine source,
+# the engine's own dependency report and the suite that pins it, and fails when any of them names
+# something this file does not - or when this file names something they do not. `--installed`
+# additionally compares every packaged version below against the package database of the host it is
+# run on, which is the one check that needs a provisioned machine and is recorded per host.
+#
+# The engine reports the second half of this for itself. `Core/DependencyReport.h` answers, for the
+# binary that is actually loaded, which libraries are inside it and at which versions - the version
+# its headers declared and the version the loaded copy reports about itself. The `reported` field
+# below is that report's shape, and the check holds it against both the engine and its suite.
+#
+# Record types, one per line, fields indented under their record. Lines starting with '#' and blank
+# lines are ignored.
+#
+#   library <name>
+#       role        <one sentence: what this engine uses it for>
+#       kind        packaged | fetched | vendored | distribution | embedded | transitive
+#       linkage     shared | static | header-only | mixed
+#       version     <what is pinned, per platform where the two differ>
+#       source      <where the artifact comes from: a package port, a vendored path, a download>
+#       upstream    <the project's own home>
+#       license     <the licence as shipped, and whose copyright where that matters>
+#       security    <where an advisory about this library is read, and what this build pins>
+#       build       <the script that installs or builds it>
+#       deploy      <the script that puts its runtime beside the binaries, or why nothing does>
+#       artifacts   <the tokens that script names, comma-separated, or `none` when nothing is
+#                    deployed; they are checked against the script's own text, so a glob or a
+#                    formatted name is written the way the script writes it>
+#       boundary    <the only place in this tree that may reach it>
+#       targets     <the engine-side targets that acquire it>
+#       links       <the link tokens that name it, comma-separated, or none; a token followed by
+#                    `(SWITCH)` is one only a tree generated with that switch carries>
+#       reported    compiled=<yes|no> loaded=<yes|no>   (only for a library the engine reports)
+#
+#   ported <name>
+#       role        <one sentence: what it does here>
+#       files       <the repository paths that carry it, comma-separated>
+#       marker      <a phrase every one of those files contains, so the attribution cannot be lost;
+#                    `none` on a not-carried record, which has no attribution to keep>
+#       upstream    <the project and work it came from>
+#       author      <who holds the copyright upstream>
+#       license     <the licence the upstream work carries>
+#       relation    adapted | re-derived | replaced | not-carried
+#       divergence  <who owns the difference between this and upstream, and what it is>
+#       record      <where the audit's conclusions are written: a guide or a provenance note, beside
+#                    the module comment of every file the record names>
+#
+# `kind` says where the artifact comes from and is what decides how a version is pinned. `packaged`
+# is a vcpkg port at a version this repository's vcpkg checkout fixes; `fetched` is an upstream's
+# published release, named as `owner/repository@tag` with the commit that tag resolves to, which build
+# scripts of this repository fetch, verify and build, each naming that repository, tag and commit;
+# `distribution` is a package
+# the nominated Linux host installs, whose version moves with that host and is checked on that host
+# rather than pinned here; `vendored` is a copy of somebody else's sources inside this repository;
+# `embedded` is a runtime this repository downloads and ships beside itself; `transitive` is a library
+# no source of this engine includes and a build of it links anyway, behind one that does.
+#
+# `relation` on a ported record says what was actually carried. `adapted` means upstream code is here
+# and changed; `re-derived` means the method is here and none of the code is, written from a
+# publication or a specification; `replaced` means the same, and specifically that upstream code was
+# looked at and rejected for a stated reason; `not-carried` means an audit happened and nothing came
+# across at all, which is worth a record because the alternative is a reader assuming it did.
+
+# =============================================================================================
+# Libraries the engine links, and reports for itself
+# =============================================================================================
+
+library onetbb
+    role        The only parallelism library in the engine; every operation's task arena is one of its.
+    kind        packaged
+    linkage     shared
+    version     2023.1.0 on Windows; the nominated Linux host's libtbb-dev
+    source      vcpkg port `tbb[hwloc]` on Windows; the distribution's libtbb-dev on Linux
+    upstream    https://github.com/uxlfoundation/oneTBB
+    license     Apache-2.0
+    security    Upstream releases and the distribution's own advisories; this build pins the vcpkg port on
+                Windows and follows the Linux host's package elsewhere
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies tbb12.dll; the Linux runtime is the
+                distribution's
+    artifacts   tbb12.dll
+    boundary    include group `onetbb`, allowed to the runtime and memory layers only; nothing above them
+                sees a oneTBB type, and Runtime/TaskScheduler.h is the whole of the engine's use of it
+    targets     AfterNightEngine
+    links       tbb12, tbb
+    reported    compiled=yes loaded=yes
+
+library highway
+    role        The portable vector abstraction every compiled CPU kernel is written against.
+    kind        packaged
+    linkage     header-only
+    version     1.4.0
+    source      vcpkg port `highway[contrib]` on both platforms rather than a distribution package, so both
+                hosts compile the same port version; the contrib feature carries the vectorized
+                transcendentals and is installed with the port so the two cannot disagree about a version
+    upstream    https://github.com/google/highway
+    license     Apache-2.0 OR BSD-3-Clause
+    security    Upstream releases; the port version is the whole of what this build contains, because the
+                library is compiled into this engine and there is nothing to load
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      nothing to deploy: header-only for the way this engine uses it - per-target compilation and
+                this engine's own dispatch table, never the library's own runtime dispatch
+    artifacts   none
+    boundary    include group `simd`, allowed to the backends/cpu and backends/gpu layers only
+    targets     AfterNightEngine
+    links       none
+    reported    compiled=yes loaded=no
+
+library cfitsio
+    role        Reads and writes the FITS container behind the FITS codec.
+    kind        packaged
+    linkage     shared on Windows, static on Linux
+    version     4.6.4
+    source      vcpkg port `cfitsio[pthreads]` on both platforms. Linux takes the packaged archive rather
+                than the distribution's shared object, because that distribution ships the runtime without
+                a development link
+    upstream    https://heasarc.gsfc.nasa.gov/fitsio/
+    license     CFITSIO licence (permissive); copyright unpublished, U.S. Government as represented by the
+                Administrator of NASA
+    security    Upstream release notes at heasarc.gsfc.nasa.gov; this build pins the vcpkg port on both
+                platforms, so a system update cannot move it
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies cfitsio.dll; the Linux archive is
+                inside the engine and stays out of its dynamic symbol table
+    artifacts   cfitsio.dll
+    boundary    include group `codecs`, and within it the io/fits directory alone
+    targets     AfterNightEngine
+    links       cfitsio
+    reported    compiled=yes loaded=yes
+
+library libtiff
+    role        Reads and writes the TIFF container behind the TIFF codec.
+    kind        packaged
+    linkage     shared
+    version     4.7.2 on Windows; the nominated Linux host's libtiff-dev
+    source      vcpkg port `tiff[jpeg,lerc,libdeflate,lzma,webp,zip,zstd]` on Windows; the distribution's
+                libtiff-dev on Linux
+    upstream    http://www.simplesystems.org/libtiff/
+    license     libtiff licence (BSD-like); copyright 1988-1997 Sam Leffler and Silicon Graphics, Inc.
+    security    Upstream releases and the distribution's advisories; libtiff carries CVEs regularly, and the
+                engine's report is what says which copy a given process actually loaded
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies tiff.dll; the Linux runtime is the
+                distribution's
+    artifacts   tiff.dll
+    boundary    include group `codecs`, and within it the io/tiff directory alone
+    targets     AfterNightEngine
+    links       tiff
+    reported    compiled=yes loaded=yes
+
+library libpng
+    role        Reads and writes the PNG container behind the PNG codec.
+    kind        packaged
+    linkage     shared
+    version     1.6.58 on Windows; the nominated Linux host's libpng-dev
+    source      vcpkg port `libpng` on Windows; the distribution's libpng-dev on Linux
+    upstream    http://www.libpng.org/pub/png/libpng.html
+    license     libpng-2.0 (PNG Reference Library License version 2)
+    security    Upstream releases and the distribution's advisories
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies libpng16.dll; the Linux runtime is
+                the distribution's
+    artifacts   libpng16.dll
+    boundary    include group `codecs`, and within it the io/png directory alone
+    targets     AfterNightEngine
+    links       png16, png
+    reported    compiled=yes loaded=yes
+
+library libjpeg-turbo
+    role        Reads and writes the JPEG container behind the JPEG codec, and is what libtiff and LibRaw
+                decode their own JPEG payloads with.
+    kind        packaged
+    linkage     shared
+    version     3.2.0 on Windows; the nominated Linux host's libjpeg-dev
+    source      vcpkg port `libjpeg-turbo[jpeg8]` on Windows; the distribution's libjpeg-dev on Linux
+    upstream    https://libjpeg-turbo.org/
+    license     IJG AND BSD-3-Clause AND Zlib
+    security    Upstream releases and the distribution's advisories
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies jpeg8.dll; the Linux runtime is the
+                distribution's
+    artifacts   jpeg8.dll
+    boundary    include group `codecs`, and within it the io/jpeg directory alone
+    targets     AfterNightEngine
+    links       jpeg
+    reported    compiled=yes loaded=no
+
+library libraw
+    role        Decodes camera RAW containers behind the RAW codec.
+    kind        packaged
+    linkage     shared on Windows, static on Linux
+    version     0.22.1 in both ports: the stock `libraw` port, and the private `afternight-libraw` port a
+                tree generated with AFTERNIGHT_RAWSPEED uses instead
+    source      vcpkg port `libraw[dng-lossy,x3f]` through build/vcpkg/overlay-ports/libraw by default; the
+                private `afternight-libraw` port, which is that release with three recorded patches and a
+                reentrant boundary, in the RawSpeed configuration
+    upstream    https://www.libraw.org
+    license     LGPL-2.1-only OR CDDL-1.0; copyright 2008-2025 LibRaw LLC
+    security    Upstream releases at libraw.org; both ports pin the same upstream release, and
+                build/vcpkg/overlay-ports/afternight-libraw carries the patches this repository applies to it
+    build       build/scripts/msvc/02-install_msvc_deps.bat and build/scripts/msvc/install_raw_deps.bat;
+                build/scripts/linux/02-install_linux_deps.sh and build/scripts/linux/install_raw_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies raw_r.dll, and
+                build/scripts/tools/deploy_raw_deps.py places the private port's runtime; the Linux archive
+                is inside the engine
+    artifacts   raw_r.dll, afternight_libraw_r{suffix}.dll
+    boundary    include group `codecs`, and within it the io/raw directory alone
+    targets     AfterNightEngine, Test_EngineLibraryParity
+    links       raw_r, afternight_libraw_r (AFTERNIGHT_RAWSPEED)
+    reported    compiled=yes loaded=yes
+
+library openxisf
+    role        Reads and writes the XISF container behind the XISF codec.
+    kind        fetched
+    linkage     shared
+    version     1.1.0 on both platforms
+    source      release `astroformats/openxisf@v1.1.0`, commit ceca3adcfc06b66face78dd22a1422cc3ccd85cd, which
+                the build scripts clone and verify and build with the library's own CMake project as a shared
+                library, against the vcpkg ports of pugixml, LZ4, Zstandard and zlib, into
+                openxisf/build-msvc-install and openxisf/build-clang-install. Built without its optional oneTBB
+                and OpenSSL features. When the vcpkg registry carries the library it becomes a packaged port
+    upstream    https://github.com/astroformats/openxisf
+    license     Apache-2.0; copyright 2026 Ezequiel Ruiz, stated in every file header and in its NOTICE
+    security    Upstream releases. The maintainer's own library, so a defect is reported and repaired at the
+                source and consumed by moving the release and the commit the build scripts pin, which no
+                build resolves for itself
+    build       build/scripts/msvc/_build_openxisf.bat and build/scripts/linux/_build_openxisf.sh, which each
+                platform's dependency step runs
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies openxisf-1.1.dll and
+                build/scripts/msvc/04b-deploy_deps_debug.bat copies openxisf-1.1d.dll; on Linux the engine's
+                own build copies libopenxisf.so.1.1 and libopenxisfd.so.1.1 beside the engine
+                (build/premake/afternight-pm5.lua), so the library is there when a target linking the engine
+                is linked and when a suite runs. The Linux library carries the pugixml, LZ4, Zstandard and
+                zlib archives it was built against and exports none of their symbols
+    artifacts   openxisf-1.1.dll, openxisf-1.1d.dll, libopenxisf.so.1.1, libopenxisfd.so.1.1
+    boundary    include group `codecs`, and within it the io/xisf directory alone; the spelling is
+                <openxisf/...> and nothing else. The XISF suites of Test_EngineImage link it too, to write
+                the forms of a unit the adapter is held to reading and to read back what it writes
+    targets     AfterNightEngine, Test_EngineImage
+    links       openxisf
+    reported    compiled=yes loaded=yes
+
+library exiv2
+    role        Reads and writes the Exif and XMP blocks the raster codecs carry.
+    kind        packaged
+    linkage     shared on Windows, static on Linux
+    version     0.28.8 on both platforms
+    source      vcpkg port `exiv2[bmff,nls,png,xmp]` on Windows and `exiv2[bmff,png,xmp]` on Linux; Linux
+                omits only the command-line tools' translated messages and links the library plus its XML
+                closure as position-independent static archives
+    upstream    https://exiv2.org
+    license     GPL-2.0-or-later
+    security    Upstream releases and the distribution's advisories; Exiv2 carries CVEs regularly, which is
+                why the metadata adapter translates its exceptions at the boundary rather than letting one
+                cross into the engine
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies exiv2.dll; the Linux archive is inside
+                the engine and excluded from its dynamic symbol table
+    artifacts   exiv2.dll
+    boundary    include group `exiv2`, and within it the interop/exiv2 directory alone; a codec domain sees
+                cards and bytes and never an Exiv2 type
+    targets     AfterNightEngine
+    links       exiv2
+    reported    compiled=yes loaded=yes
+
+library fftw3
+    role        The single-precision real transform behind phase correlation and the guided shrinkage.
+    kind        packaged
+    linkage     shared
+    version     vcpkg port 3.3.11 on Windows, whose built library identifies itself as 3.3.10 - the two are
+                different facts and the engine's report carries the second; the nominated Linux host's
+                libfftw3-dev otherwise
+    source      vcpkg port `fftw3[avx,avx2,sse,sse2,threads]` on Windows; the distribution's libfftw3-dev on
+                Linux
+    upstream    https://www.fftw.org
+    license     GPL-2.0-or-later
+    security    Upstream releases at fftw.org and the distribution's advisories
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies fftw3f.dll; the Linux runtime is the
+                distribution's
+    artifacts   fftw3f.dll
+    boundary    include group `fftw`, and within it the interop/fftw directory alone
+    targets     AfterNightEngine
+    links       fftw3f
+    reported    compiled=no loaded=yes
+
+library gsl
+    role        The Student-t inverse distribution the rejection estimators need; one function, behind an
+                adapter of its own.
+    kind        packaged
+    linkage     shared
+    version     2.8 on Windows; the nominated Linux host's libgsl-dev
+    source      vcpkg port `gsl` on Windows; the distribution's libgsl-dev on Linux
+    upstream    https://www.gnu.org/software/gsl/
+    license     GPL-3.0-or-later
+    security    Upstream releases and the distribution's advisories
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies gsl.dll and gslcblas.dll; the Linux
+                runtime is the distribution's
+    artifacts   gsl.dll, gslcblas.dll
+    boundary    include group `gsl`, and within it the interop/gsl directory alone
+    targets     AfterNightEngine, Test_EngineLibraryParity
+    links       gsl, gslcblas
+    reported    compiled=yes loaded=yes
+
+library nlohmann-json
+    role        Reads and writes the engine's persisted JSON documents: a star profile, and the
+                colour-calibration record a product's header carries hex-encoded.
+    kind        packaged
+    linkage     header-only
+    version     3.12.0
+    source      vcpkg port `nlohmann-json` on both platforms
+    upstream    https://github.com/nlohmann/json
+    license     MIT; copyright (c) 2013-2025 Niels Lohmann
+    security    Upstream releases; the port version is the whole of what this build contains, because the
+                library is compiled into this engine and there is nothing to load
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      nothing to deploy: header-only
+    artifacts   none
+    boundary    include group `json`, and within it the interop/json directory alone; its value type stays
+                inside that directory and the domains that own those documents see plain records and text
+    targets     AfterNightEngine
+    links       none
+    reported    compiled=yes loaded=no
+
+library ffmpeg
+    role        Decodes and encodes the video containers behind the video sequence source and sinks.
+    kind        packaged
+    linkage     shared on Windows, static on Linux
+    version     8.1.3 on both platforms
+    source      vcpkg port `ffmpeg[aom,avcodec,avdevice,avfilter,avformat,swresample,swscale,webp,x264,x265,vpx,nvcodec,qsv,amf]`
+                on Windows, taken from build/vcpkg/overlay-ports/ffmpeg because the pinned vcpkg checkout
+                carries 8.1.2, which is inside advisories for code this engine reaches from a file; Linux uses
+                that overlay's `ffmpeg[core,avcodec,avformat,swresample,swscale,vpx,x264,x265]` port as
+                position-independent static archives
+    upstream    https://ffmpeg.org
+    license     GPL-2.0-or-later as built here. FFmpeg's own core is LGPL-2.1-or-later, and the x264 and
+                x265 features this install enables are GPL, which makes the built libraries GPL. That is
+                compatible with AfterNight, which is a GPL product, and it is not compatible with the
+                Apache-2.0 extension-protocol boundary - which nothing here reaches, because the layer
+                checker refuses an engine include from the protocol library
+    security    Upstream releases and security advisories at ffmpeg.org, and the distribution's advisories
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies avcodec-62.dll, avformat-62.dll,
+                avutil-60.dll and swscale-9.dll; the Linux archives are inside the engine and its dynamic
+                symbol table excludes them
+    artifacts   avcodec-62.dll, avformat-62.dll, avutil-60.dll, swscale-9.dll
+    boundary    include group `ffmpeg`, allowed below the io/sequences/ffmpeg directory alone, so an FFmpeg
+                type cannot reach another format adapter, the sequence handles or any published header
+    targets     AfterNightEngine, Test_EngineImage, AfterNightEngineBench
+    links       avcodec, avformat, avutil, swresample, swscale
+    reported    compiled=yes loaded=yes
+
+# =============================================================================================
+# Libraries every build links and no source of this engine includes
+#
+# Each of these arrives behind one of the libraries above. They are here because a link line and a
+# deployed directory carry them whatever the include lines say, so a licence question and an advisory
+# apply to this engine exactly as much as they do to the libraries that pull them in.
+# =============================================================================================
+
+library libvpx
+    role        The VP9 software encoder selected by the video sink through FFmpeg.
+    kind        transitive
+    linkage     static
+    version     1.17.0
+    source      vcpkg port `libvpx`, pinned by build/vcpkg/overlay-ports/libvpx and pulled in by the FFmpeg
+                port's `vpx` feature on both platforms; 1.16.0 was rejected at the Linux safety gate because
+                it predates the upstream repair for CVE-2026-2447
+    upstream    https://chromium.googlesource.com/webm/libvpx/
+    license     BSD-3-Clause; copyright 2010 The WebM project authors
+    security    NVD and upstream releases; the static archive is part of the engine rather than a loaded module
+    build       pulled in by FFmpeg from build/scripts/msvc/02-install_msvc_deps.bat and
+                build/scripts/linux/02-install_linux_deps.sh
+    deploy      nothing to deploy: the archive is inside the engine and excluded from its dynamic symbol table
+    artifacts   none
+    boundary    none: no source of this engine includes it; FFmpeg owns the encoder boundary
+    targets     AfterNightEngine, Test_EngineImage
+    links       vpx
+
+library x264
+    role        The H.264 software encoder selected by the video sink through FFmpeg.
+    kind        transitive
+    linkage     shared on Windows, static on Linux
+    version     0.164.3108
+    source      vcpkg port `x264[asm,gpl]`, patched by build/vcpkg/overlay-ports/x264 - its AVX-512 macroblock-tree
+                pass read past a row - and pulled in by the FFmpeg port's `x264` feature
+    upstream    https://code.videolan.org/videolan/x264
+    license     GPL-2.0-or-later; copyright the x264 project authors
+    security    NVD and upstream commits
+    build       pulled in by FFmpeg from build/scripts/msvc/02-install_msvc_deps.bat and
+                build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies libx264-164.dll; the Linux archive is
+                inside the engine and excluded from its dynamic symbol table
+    artifacts   libx264-164.dll
+    boundary    none: no source of this engine includes it; FFmpeg owns the encoder boundary
+    targets     AfterNightEngine, Test_EngineImage
+    links       x264
+
+library x265
+    role        The H.265 software encoder selected by the video sink through FFmpeg.
+    kind        transitive
+    linkage     shared on Windows, static on Linux
+    version     4.2
+    source      vcpkg port `x265`, pulled in by the FFmpeg port's `x265` feature
+    upstream    https://bitbucket.org/multicoreware/x265_git/
+    license     GPL-2.0-or-later; copyright the x265 project authors
+    security    NVD and upstream releases
+    build       pulled in by FFmpeg from build/scripts/msvc/02-install_msvc_deps.bat and
+                build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies libx265.dll; the Linux archive is inside
+                the engine and excluded from its dynamic symbol table
+    artifacts   libx265.dll
+    boundary    none: no source of this engine includes it; FFmpeg owns the encoder boundary
+    targets     AfterNightEngine, Test_EngineImage
+    links       x265
+
+library zlib
+    role        The deflate stream inside compressed FITS images, TIFF payloads, XISF blocks and LibRaw's
+                own containers.
+    kind        transitive
+    linkage     shared on Windows, static on Linux
+    version     1.3.2
+    source      vcpkg port `zlib`, pulled in by cfitsio, tiff and libraw, and built into OpenXISF
+    upstream    https://zlib.net
+    license     Zlib; copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler
+    security    Upstream releases and the distribution's advisories
+    build       installed with the ports that depend on it by build/scripts/msvc/02-install_msvc_deps.bat
+                and build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies z.dll
+    artifacts   z.dll
+    boundary    none: no source of this engine includes it, and its include spelling stays in the `codecs`
+                group so that a file which started to would have to be granted it
+    targets     AfterNightEngine
+    links       z
+
+library expat
+    role        Parses the XMP XML that Exiv2 extracts from raster metadata.
+    kind        transitive
+    linkage     shared on Windows, static on Linux
+    version     2.8.5
+    source      vcpkg port `expat`, pinned by build/vcpkg/overlay-ports/expat and pulled in by Exiv2
+    upstream    https://libexpat.github.io
+    license     MIT
+    security    Upstream releases and security advisories; the Linux distribution's 2.7.4 package was rejected
+                because Ubuntu still marks reachable parser defects vulnerable
+    build       installed with Exiv2 by build/scripts/msvc/02-install_msvc_deps.bat and
+                build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies libexpat.dll; the Linux archive is inside
+                the engine and excluded from its dynamic symbol table
+    artifacts   libexpat.dll
+    boundary    none: Exiv2 owns the XML boundary and no engine source includes an Expat header
+    targets     AfterNightEngine
+    links       expat
+
+library brotli
+    role        Decompresses metadata payloads reached through Exiv2.
+    kind        transitive
+    linkage     shared on Windows, static on Linux
+    version     1.2.0
+    source      vcpkg port `brotli`, pulled in by Exiv2
+    upstream    https://github.com/google/brotli
+    license     MIT
+    security    Upstream releases and security advisories
+    build       installed with Exiv2 by build/scripts/msvc/02-install_msvc_deps.bat and
+                build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies brotlidec.dll and brotlicommon.dll; the
+                Linux archives are inside the engine and excluded from its dynamic symbol table
+    artifacts   brotlidec.dll, brotlicommon.dll
+    boundary    none: Exiv2 owns the compressed metadata boundary and no engine source includes a Brotli header
+    targets     AfterNightEngine
+    links       brotlidec, brotlicommon
+
+library inih
+    role        Reads the configuration records Exiv2 uses internally.
+    kind        transitive
+    linkage     static
+    version     62
+    source      vcpkg port `inih[core,cpp]`, pulled in by Exiv2
+    upstream    https://github.com/benhoyt/inih
+    license     BSD-3-Clause
+    security    Upstream releases and security advisories
+    build       installed with Exiv2 by build/scripts/linux/02-install_linux_deps.sh
+    deploy      nothing to deploy: the archives are inside the engine and excluded from its dynamic symbol table
+    artifacts   none
+    boundary    none: Exiv2 owns the configuration boundary and no engine source includes an inih header
+    targets     AfterNightEngine
+    links       INIReader, inih
+
+library lcms
+    role        LibRaw's colour transform.
+    kind        transitive
+    linkage     shared on Windows, static on Linux
+    version     2.19.1
+    source      vcpkg port `lcms`, pulled in by both LibRaw ports
+    upstream    https://littlecms.com
+    license     MIT; copyright (c) 2023 Marti Maria Saguer
+    security    Upstream releases and the distribution's advisories
+    build       installed with LibRaw by build/scripts/msvc/install_raw_deps.bat and
+                build/scripts/linux/install_raw_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies lcms2-2.dll
+    artifacts   lcms2-2.dll
+    boundary    none: no source of this engine includes it
+    targets     AfterNightEngine, Test_EngineLibraryParity
+    links       lcms2
+
+library jasper
+    role        The JPEG 2000 payload inside the RED and some DNG raw containers, behind the stock LibRaw
+                port.
+    kind        transitive
+    linkage     static
+    version     4.2.9
+    source      vcpkg port `jasper`, pulled in by the stock `libraw` port; the private `afternight-libraw`
+                port does not depend on it
+    upstream    https://github.com/jasper-software/jasper
+    license     JasPer License Version 2.0; copyright (c) 2001-2016 Michael David Adams and others
+    security    Upstream releases; JasPer has a long CVE history, which is one reason the RAW codec bounds
+                what it hands the decoder and translates its failures at the boundary
+    build       installed with LibRaw by build/scripts/msvc/02-install_msvc_deps.bat and
+                build/scripts/linux/02-install_linux_deps.sh
+    deploy      nothing to deploy: it is inside the LibRaw artifact on both platforms
+    artifacts   none
+    boundary    none: no source of this engine includes it
+    targets     AfterNightEngine, Test_EngineLibraryParity
+    links       jasper
+
+library pugixml
+    role        The camera-definition XML inside the private RawSpeed port, and the XISF header inside OpenXISF.
+    kind        transitive
+    linkage     shared on Windows, static on Linux
+    version     1.16
+    source      vcpkg port `pugixml`, installed for OpenXISF's build and pulled in by the private
+                `afternight-rawspeed` port
+    upstream    https://pugixml.org
+    license     MIT; copyright (c) 2006-2026 Arseny Kapoulkine
+    security    Upstream releases
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies pugixml.dll
+    artifacts   pugixml.dll
+    boundary    none: no source of this engine includes it
+    targets     AfterNightEngine
+    links       none
+
+library lz4
+    role        One of the two block compressors the XISF container offers.
+    kind        transitive
+    linkage     shared on Windows, static on Linux
+    version     1.10.0
+    source      vcpkg port `lz4`, linked by OpenXISF, shared on Windows and inside OpenXISF's shared library on
+                Linux
+    upstream    https://lz4.org
+    license     BSD-2-Clause; copyright (c) 2011-2020 Yann Collet
+    security    Upstream releases
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies lz4.dll
+    artifacts   lz4.dll
+    boundary    none: no source of this engine includes it
+    targets     AfterNightEngine
+    links       none
+
+library zstd
+    role        The other block compressor the XISF container offers.
+    kind        transitive
+    linkage     shared on Windows, static on Linux
+    version     1.5.7
+    source      vcpkg port `zstd`, linked by OpenXISF, shared on Windows and inside OpenXISF's shared library on
+                Linux
+    upstream    https://facebook.github.io/zstd/
+    license     BSD-3-Clause OR GPL-2.0-only; copyright (c) Meta Platforms, Inc. and affiliates
+    security    Upstream releases and the distribution's advisories
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies zstd.dll
+    artifacts   zstd.dll
+    boundary    none: no source of this engine includes it
+    targets     AfterNightEngine
+    links       none
+
+# =============================================================================================
+# Libraries only an optional module or a suite acquires
+#
+# None of these is inside the engine, and that is the property each of them is here to keep. A
+# consumer that links AfterNightEngine acquires no Python runtime, no G'MIC interpreter, no GPU
+# SDK and no test framework, which build/scripts/tools/check_build_graph.py and
+# build/scripts/tools/check_gpu_backend_optionality.py enforce from the other side.
+# =============================================================================================
+
+library python
+    role        The interpreter the optional Python adapter puts behind this engine's vocabulary.
+    kind        embedded
+    linkage     shared
+    version     3.14.7, from the python-build-standalone release dated 20260814
+    source      downloaded into python/python/tools_msvc and python/python/tools_linux by the setup scripts,
+                which state the artifact's name and its SHA-256
+    upstream    https://www.python.org, packaged by https://github.com/astral-sh/python-build-standalone
+    license     PSF-2.0 (Python Software Foundation License)
+    security    Upstream CPython security releases; the setup scripts pin the artifact and check its digest,
+                so a moved or re-exported download is detected rather than silently substituted
+    build       build/scripts/python/setup_python_msvc.bat and build/scripts/python/setup_python_linux.sh,
+                run from build/scripts/msvc/02-install_msvc_deps.bat and its Linux counterpart
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies python3*.dll and the interpreter's
+                library tree; the adapter itself never reaches an installer payload, which
+                build/scripts/tools/check_installer_payload.py enforces
+    artifacts   python3*.dll
+    boundary    include group `python`, allowed inside src/AfterNightEnginePythonAdapter alone; the
+                adapter's own published surface carries no Python type either, so a consumer compiles
+                against it without a Python toolchain
+    targets     AfterNightEnginePythonAdapter
+    links       python314, python3.14
+
+library gmic
+    role        The image-processing interpreter the optional G'MIC adapter puts behind this engine's
+                vocabulary.
+    kind        vendored
+    linkage     shared
+    version     3.5.4, from the `gmic_version` constant in the vendored header
+    source      3rdparty/src/gmic, built as the `cgmic` project; only the library's C bridge is compiled
+                against, which is why the adapter's include root is the vendored source directory and not
+                the interpreter's own header directory. The copy is not upstream's. `gmic_libc` carries two
+                local changes: an `output_capacity` field the caller states, on which the bridge exports
+                nothing when a command left more images than the caller reserved room for, so its own list
+                releases them rather than writing past the caller's array, and `refuse_unfit_names`, on
+                which it copies back no image whose name its field cannot hold. The interpreter carries two
+                repairs the address sanitizer found: CImg's formatting on Microsoft's runtime declares its
+                own `_vsnprintf` ahead of `_snprintf`, which otherwise called the runtime's and left a
+                truncated string unterminated, and `pass` shares a parent's buffer only when the shared
+                state is asked for, since a `foreach` that moved the image owning it freed it under the
+                passed copy. `gmic_afternight_patch_level` reports 3 for all four, and the adapter refuses
+                a bridge below it, so a `cgmic.dll` built before a change fails to load rather than
+                carrying what it repaired
+    upstream    https://gmic.eu
+    license     CeCILL-2.1 OR CeCILL-C, at the user's choice; CeCILL-2.1 is compatible with the GNU GPL
+    security    Upstream releases at gmic.eu; the copy is pinned by being in this repository rather than
+                resolved at build time, so an update carries the four local changes forward or reintroduces
+                the write past the caller's array, the unbounded name copy, the unterminated title and the
+                read of a freed buffer they repair
+    build       build/premake/afternight-3rdparty-pm5.lua builds project `cgmic`;
+                build/scripts/msvc/03a-build_3rdparty_libs_release.bat and its Linux counterpart run it
+    deploy      build/scripts/msvc/04a-deploy_deps_release.bat copies 3rdparty/bin/msvc/release/*.dll, which
+                is cgmic.dll among them; the adapter itself never reaches an installer payload
+    artifacts   3rdparty/bin/msvc/release/*.dll
+    boundary    include group `gmic`, allowed inside src/AfterNightEngineGmicAdapter alone; the
+                adapter's own published surface carries no G'MIC type
+    targets     AfterNightEngineGmicAdapter
+    links       cgmic
+
+library opencl
+    role        The headers and loader the opt-in GPU proof backend compiles and links against.
+    kind        packaged
+    linkage     shared
+    version     2024.10.24
+    source      vcpkg port `opencl` installed into the x64-windows-opencl triplet, which no default project
+                names; build/scripts/msvc/install_opencl_backend_deps.bat is the only thing that installs it
+                and build/scripts/msvc/02-install_msvc_deps.bat never does
+    upstream    https://github.com/KhronosGroup/OpenCL-SDK
+    license     Apache-2.0
+    security    Khronos releases. The loader built here is used for its import library only; at run time the
+                backend loads the OpenCL.dll the graphics driver installed, which is the operating system's
+                to update
+    build       build/scripts/msvc/install_opencl_backend_deps.bat, run by hand before a tree is generated
+                with AFTERNIGHT_OPENCL=1
+    deploy      nothing to deploy: the loader built here is never copied beside the binaries, and
+                build/scripts/tools/check_installer_payload.py refuses the backend in either packager
+    artifacts   none
+    boundary    include group `gpu`, allowed inside src/AfterNightEngineOpenClBackend and the engine's
+                own backends/gpu layer alone; the backend's published surface names nothing of OpenCL
+    targets     AfterNightEngineOpenClBackend
+    links       OpenCL (AFTERNIGHT_OPENCL)
+
+library afternight-rawspeed
+    role        The alternative RAW decompressor the private LibRaw port selects between, in a tree
+                generated with AFTERNIGHT_RAWSPEED.
+    kind        transitive
+    linkage     shared on Windows, static on Linux
+    version     private port dated 2026-09-11, tracking upstream RawSpeed
+    source      build/vcpkg/overlay-ports/afternight-rawspeed, a private port carrying a serial
+                decompressor and an exact-output C boundary; installed into the x64-windows-raw and
+                x64-linux-raw triplets alone
+    upstream    https://github.com/darktable-org/rawspeed
+    license     LGPL-2.1-or-later
+    security    Upstream releases; the port fixes the revision and this repository owns the patches, which
+                are in the port directory
+    build       build/scripts/msvc/install_raw_deps.bat, build/scripts/linux/install_raw_deps.sh
+    deploy      build/scripts/tools/deploy_raw_deps.py places afternight_rawspeed.dll beside the binaries on
+                Windows; the Linux archive is inside the LibRaw artifact
+    artifacts   afternight_rawspeed{suffix}.dll
+    boundary    none in this engine's sources: it is reached only through LibRaw's own selection, behind the
+                io/raw directory, and no include of it appears anywhere in this tree
+    targets     AfterNightEngine
+    links       afternight_rawspeed (AFTERNIGHT_RAWSPEED)
+
+library gtest
+    role        The test framework every direct engine suite links; no engine, adapter or backend does.
+    kind        packaged
+    linkage     static
+    version     1.17.0 on Windows; the nominated Linux host's libgtest-dev
+    source      vcpkg port `gtest` on Windows; the distribution's libgtest-dev on Linux
+    upstream    https://github.com/google/googletest
+    license     BSD-3-Clause; copyright 2008 Google Inc.
+    security    Upstream releases. It is in no shipped artifact and in no engine binary
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      nothing to deploy: it is linked into each suite executable
+    artifacts   none
+    boundary    none in this engine's sources: a suite includes it and nothing else does
+    targets     the direct engine suites
+    links       gtest
+
+library opencv4
+    role        The library the parity sweep asks for a second answer, for every operation this engine
+                computes itself that OpenCV also provides.
+    kind        packaged
+    linkage     shared
+    version     4.12.0 on Windows; the nominated Linux host's libopencv-dev
+    source      vcpkg port `opencv4[dnn,eigen,ipp,jpeg,nonfree,openexr,png,tbb,tiff,webp]` on Windows; the
+                distribution's libopencv-dev on Linux
+    upstream    https://opencv.org
+    license     Apache-2.0
+    security    Upstream releases and the distribution's advisories. It is in no engine binary: the engine
+                describes OpenCV's structure through Interop/OpenCvAdapter.h without including it, so a
+                consumer that never uses OpenCV never acquires its headers
+    build       build/scripts/msvc/02-install_msvc_deps.bat, build/scripts/linux/02-install_linux_deps.sh
+    deploy      build/scripts/msvc/09a-build_afternight_tests_release.bat and
+                build/scripts/msvc/09b-build_afternight_tests_debug.bat copy opencv_core4.dll and
+                opencv_imgproc4.dll with the tests, because the library parity suite is the only target that
+                links them and nothing that ships imports them
+    artifacts   opencv_core4.dll, opencv_imgproc4.dll
+    boundary    none in the engine's own sources: the engine describes OpenCV's structure through
+                Interop/OpenCvAdapter.h without including it, and Test_EngineLibraryParity is the only
+                engine-side target that includes the library
+    targets     Test_EngineLibraryParity
+    links       opencv_core4, opencv_imgproc4, opencv_core, opencv_imgproc
+
+# =============================================================================================
+# Ported subsystems
+#
+# Code in this engine whose method, and sometimes whose arithmetic, came from somewhere else. The
+# `relation` field is what separates them, and it is the field worth reading first: eleven of these
+# carry upstream code and the rest carry none, which is a licence question before it is a design one.
+# =============================================================================================
+
+ported demosaic-rawtherapee
+    role        Every demosaic method this engine offers except bilinear, which is its own: the
+                gradient-weighted estimate, AMaZE, RCD, LMMSE, luminance-only AHD, VNG4, Markesteijn in
+                both of its passes, and the fast X-Trans average.
+    files       src/AfterNightEngine/src/kernels/reference/DemosaicKernelsFast.cpp,
+                src/AfterNightEngine/src/kernels/reference/DemosaicKernelsAmaze.cpp,
+                src/AfterNightEngine/src/kernels/reference/DemosaicKernelsRcd.cpp,
+                src/AfterNightEngine/src/kernels/reference/DemosaicKernelsLmmse.cpp,
+                src/AfterNightEngine/src/kernels/reference/DemosaicKernelsLuminanceAhd.cpp,
+                src/AfterNightEngine/src/backends/cpu/DemosaicLuminanceAhdCpu.cpp,
+                src/AfterNightEngine/src/kernels/reference/DemosaicKernelsVng4.cpp,
+                src/AfterNightEngine/src/kernels/reference/DemosaicKernelsMarkesteijn.cpp,
+                src/AfterNightEngine/src/kernels/reference/DemosaicKernelsXTransFast.cpp,
+                src/AfterNightEngine/src/kernels/reference/DemosaicKernels.cpp,
+                src/AfterNightEngine/src/kernels/reference/DemosaicBayerKernel.h,
+                src/AfterNightEngine/src/backends/cpu/DemosaicFastCpu.cpp,
+                src/AfterNightEngine/src/backends/cpu/DemosaicAmazeCpu.cpp,
+                src/AfterNightEngine/src/backends/cpu/DemosaicRcdCpu.cpp,
+                src/AfterNightEngine/src/backends/cpu/DemosaicMarkesteijnOneCpu.cpp,
+                src/AfterNightEngine/src/backends/cpu/DemosaicMarkesteijnThreeCpu.cpp,
+                src/AfterNightEngine/src/backends/cpu/DemosaicMarkesteijnCpuTarget.inl,
+                src/AfterNightEngine/src/backends/cpu/DemosaicXTransFastCpu.cpp
+    marker      RawTherapee
+    upstream    RawTherapee and the librtprocess extraction of it, several methods of which descend from
+                dcraw; https://github.com/Beep6581/RawTherapee and https://github.com/CarVac/librtprocess.
+                The copy the port followed recorded no commit; the credits were read again at librtprocess
+                9a858270acb2096e2e403d932760ee688fcac425 (0.12.0-6-g9a85827), whose demosaic files match
+                every credit the provenance note quotes
+    author      Emil Martinec (fast, AMaZE), Ingo Weyrich (the tiled AMaZE form, RCD, AHD, VNG4, the
+                RawTherapee Markesteijn adaptation, the faster LMMSE), Gabor Horvath (LMMSE, the border
+                fills), Jacques Desmis (the RawTherapee LMMSE adaptation), Luis Sanz Rodriguez (RCD),
+                Frank Markesteijn (the X-Trans method)
+    license     GPL-3.0-or-later, which is compatible with this engine and with the product, and is not
+                compatible with the Apache-2.0 extension-protocol boundary that nothing here reaches
+    relation    adapted
+    divergence  Owned here. Each file states what changed and why, and the changes are defects rather than
+                preferences: a clip threshold that was a statement about a sixteen-bit code rather than
+                about the samples, a tile origin that was only correct for odd columns, a hidden gamma pass
+                that silently changed the numeric domain, a 65,536-entry lookup replaced by domain-scaled
+                arithmetic, and frame-sized buffers replaced by bounded tile planes. The compiled kernels
+                are lane-wise spellings of the reference passes, held to them by conformance cases, and
+                the border rule is one kernel for both mosaics
+    record      docs/dev/DEMOSAIC_PROVENANCE.md and the module comment of each file
+
+ported nl-bayes-patch-estimator
+    role        The two-pass patch estimator behind patch denoising.
+    files       src/AfterNightEngine/src/algorithms/noisereduction/PatchEstimator.cpp,
+                src/AfterNightEngine/src/algorithms/noisereduction/PatchDenoise.cpp
+    marker      Copyright (c) 2013, Marc Lebrun
+    upstream    IPOL, "Implementation of the Non-Local Bayes (NL-Bayes) Image Denoising Algorithm";
+                https://www.ipol.im/pub/art/2013/16/, the archive nl-bayes_20130617.tar.gz, whose hashes
+                docs/dev/PATCH_DENOISE_PROVENANCE.md records
+    author      Marc Lebrun
+    license     GPL-3.0-or-later, as every file of the IPOL implementation states it
+    relation    adapted
+    divergence  Owned here. What was carried is the mathematics - the parameter tables, the colour
+                decorrelation, the similarity search, the featureless-group shortcut, the
+                barycentre-centred covariance, the Cholesky inverse, the paste trick and the aggregation.
+                What was not is every line of scaffolding around it, and two behaviours changed
+                deliberately: ties in the similarity order are broken by position so two standard
+                libraries agree, and the tile grid is a function of the frame rather than of the host's
+                core count so two hosts agree
+    record      docs/dev/PATCH_DENOISE_PROVENANCE.md and the module comment of each file
+
+ported da3d-guided-shrinkage
+    role        The guided dual-domain shrinkage that finishes patch denoising.
+    files       src/AfterNightEngine/src/algorithms/noisereduction/DualDomainShrinkage.cpp
+    marker      DA3D: Data Adaptive Dual Domain Denoising
+    upstream    IPOL, "DA3D: Data Adaptive Dual Domain Denoising"; https://www.ipol.im/pub/art/2017/203/
+    author      Nicola Pierazzo, Gabriele Facciolo
+    license     not applicable: no upstream code is carried. The copy of the implementation that was
+                audited carried no licence text at all - its README is an algorithm description and a
+                build recipe - and a copy with no licence text grants nothing. The archive IPOL publishes,
+                da3d.v3.tgz, carries a LICENSE file with the two-clause BSD terms (BSD-2-Clause) under
+                the authors' 2017 copyright lines; it was read after the method was written, and it
+                changes nothing here, because nothing of it is carried
+    relation    replaced
+    divergence  Owned here, and there is no upstream code to diverge from: no line of DA3D.cpp,
+                DftPatch.hpp, Image.hpp, Utils.cpp or WeightMap.cpp is present. The implementation follows
+                the published method through the paper's numbered lines and is written against this
+                engine's structures
+    record      docs/dev/PATCH_DENOISE_PROVENANCE.md and the module comment of the file
+
+ported healpix-indexing
+    role        The HEALPix pixel index and the cone query the Gaia catalog reader selects chunks with.
+    files       src/AfterNightEngine/src/algorithms/catalog/Healpix.cpp
+    marker      HEALPix
+    upstream    The published HEALPix definition, Gorski et al., "HEALPix: A Framework for High Resolution
+                Discretization"; https://healpix.sourceforge.io
+    author      the HEALPix authors
+    license     not applicable: the definition is a publication, and no HEALPix library or source is in
+                this tree
+    relation    re-derived
+    divergence  Owned here. The equations are adapted to this engine's checked types from the published
+                definition and are differentially guarded against the HEALPix 3.83 reference values; no
+                HEALPix library, and no process-wide state of one, is linked into the engine
+    record      docs/dev/guides/DEPENDENCIES.md and the module comment of the file
+
+ported akima-interpolation
+    role        The interpolant and its quadrature behind synthetic photometry.
+    files       src/AfterNightEngine/src/algorithms/spectrophotometry/AkimaSpline.h
+    marker      Akima
+    upstream    Akima's 1970 method, as the GNU Scientific Library computes it
+    author      Hiroshi Akima (the method); the GNU Project (the implementation it is judged against)
+    license     not applicable: no GSL source is here. The library itself remains a linked dependency for
+                one unrelated function, which the `gsl` record above covers
+    relation    re-derived
+    divergence  Owned here. It is written to compute the slope rule, the boundary extrapolation and the
+                piecewise cubic quadrature exactly as that library does, so the synthetic photometry
+                integrates to the same numbers, and it does so over caller scratch rather than with an
+                allocation per call and a process-wide error handler. The two are bit-identical on the
+                fixtures that judge them
+    record      docs/dev/guides/DEPENDENCIES.md and the module comment of the file
+
+ported video-containers
+    role        The AVI, SER and MP4 containers the sequence sources and sinks read and write.
+    files       src/AfterNightEngine/src/io/sequences/AviLayout.cpp,
+                src/AfterNightEngine/src/io/sequences/SerFormat.cpp
+    marker      none
+    upstream    none carried. Ten container files from PIPP, Chris Garry's Planetary Imaging PreProcessor,
+                and an MP4 writer of Siril lineage were audited, and neither set is here
+    author      Chris Garry (the PIPP files that were audited and not carried)
+    license     GPL-3.0-or-later on the PIPP files that state one; the rest of that set states none, and
+                neither set records the upstream revision it was taken from
+    relation    not-carried
+    divergence  Not applicable: the implementation is engine-owned code written against the published
+                container documents, because porting either set would have brought the defects the audit
+                found with it
+    record      docs/dev/guides/DEPENDENCIES.md
+
+ported median-networks
+    role        The four selection networks behind the order filter's all-valid Float32 3x3, 5x5, 7x7 and
+                9x9 medians.
+    files       src/AfterNightEngine/src/algorithms/spatial/MedianNetworks.h
+    marker      Copyright (c) 2004-2010 Gabor Horvath
+    upstream    RawTherapee's median.h, as librtprocess carries it in a snapshot that states no version;
+                https://github.com/Beep6581/RawTherapee and https://github.com/CarVac/librtprocess
+    author      Flössie and Ingo Weyrich (the median networks); the file's copyright line names Gabor
+                Horvath
+    license     GPL-3.0-or-later, which is compatible with this engine and with the product, and is not
+                compatible with the Apache-2.0 extension-protocol boundary that nothing here reaches
+    relation    adapted
+    divergence  Owned here. The four functions are unchanged apart from the namespace and the inlining macro,
+                and the order filter scans a plane for a non-finite sample before it calls them, because a
+                minimum or maximum involving a NaN depends on argument order
+    record      docs/dev/MEDIAN_NETWORKS_PROVENANCE.md and the module comment of the file
+
+ported drizzle-corner-interpolation
+    role        The square drop's four-corner interpolation over a coordinate map.
+    files       src/AfterNightEngine/src/algorithms/drizzle/DrizzlePixmap.cpp
+    marker      Copyright (C) 2011,2014 Association of Universities for Research in Astronomy (AURA)
+    upstream    Siril's interpolate_four_points, src/drizzle/cdrizzlemap.c, compared at commit
+                07d942814b1fc1052765cf18fa9c524b4e8a269c of https://gitlab.com/free-astro/siril; it is the
+                single-precision form of the routine of the same name in the STScI drizzle library,
+                src/cdrizzlemap.c of https://github.com/spacetelescope/drizzle; https://siril.org
+    author      the Association of Universities for Research in Astronomy (AURA), whose copyright line the
+                drizzle code carries, and team free-astro, who modified it for Siril
+    license     BSD-3-Clause, as the drizzle code's notice states it in both the STScI library and the
+                Siril file that carries it, inside Siril, which is GPL-3.0-or-later. Compatible with this
+                engine and with the product, which distribute the adapted routine under the GPL with the
+                notice kept, and not reached by the Apache-2.0 extension-protocol boundary
+    relation    adapted
+    divergence  Owned here. The 3x3 weighting, the four sums and the Float32 tap order are kept; the checked
+                views, the halo checks, the border cells and the typed failures around them are this
+                engine's
+    record      docs/dev/DRIZZLE_CORNER_INTERPOLATION_PROVENANCE.md and the module comment of the file
+
+ported deepskystacker-weighted-mean
+    role        The auto-adaptive weighted mean the sample-history combination offers.
+    files       src/AfterNightEngine/src/kernels/reference/StackMethodRow.inl,
+                src/AfterNightEngine/src/backends/cpu/StackMethodCpu.cpp,
+                src/AfterNightBench/common/StackingOracle.cpp
+    marker      Copyright (c) 2006-2019, LucCoiffier
+    upstream    AutoAdaptiveWeightedAverage in DeepSkyStackerKernel/DSSTools.h of DeepSkyStacker, read at
+                commit 4dc1c5c45b4bd7bf8d1a5830f1780ddafee1d43f of https://github.com/deepskystacker/DSS;
+                the routine follows Peter B. Stetson's 1989 lectures on non-Gaussian error distributions
+    author      David C. Partridge, with Michael A. Covington and Simon C. Smith, as the routine states;
+                the repository's licence names Luc Coiffier and the DeepSkyStacker contributors
+    license     BSD-3-Clause, as the repository's LICENSE states it. Compatible with this engine and with
+                the product, which distribute the adapted routine under the GPL with the notice kept, and
+                not reached by the Apache-2.0 extension-protocol boundary
+    relation    adapted
+    divergence  Owned here. The scaled sum, the plain mean, the root mean squared deviation, the weight
+                1 / (1 + (r / sigma)^2), the iteration, the small-sigma escape and the three-sample
+                minimum are the routine's; the frames' validity rules, the compiled row held to the scalar
+                row bit for bit, and a column whose largest sample is not positive taking its robust mean
+                rather than zero are this engine's
+    record      docs/dev/DEEPSKYSTACKER_PROVENANCE.md and the module comment of each file
+
+ported deepskystacker-star-mask
+    role        The six falloff shapes a shaped star mask paints.
+    files       src/AfterNightEngine/include/AfterNightEngine/Algorithms/Stars/StarMask.h,
+                src/AfterNightEngine/src/algorithms/stars/StarMask.cpp
+    marker      Copyright (c) 2006-2019, LucCoiffier
+    upstream    The CStarMaskFunction shapes of DeepSkyStackerKernel/StarMask.h and the painting of
+                DeepSkyStackerKernel/StarMask.cpp in DeepSkyStacker, read at commit
+                4dc1c5c45b4bd7bf8d1a5830f1780ddafee1d43f of https://github.com/deepskystacker/DSS
+    author      Luc Coiffier and the DeepSkyStacker contributors, as the repository's licence names them
+    license     BSD-3-Clause, as the repository's LICENSE states it. Compatible with this engine and with
+                the product, which distribute the adapted shapes under the GPL with the notice kept, and
+                not reached by the Apache-2.0 extension-protocol boundary
+    relation    adapted
+    divergence  Owned here. The six shapes - the bell, the bell scaled by 1 / exp(-0.5) and clipped, the
+                cone over three radii, the cone scaled by one and a half and clipped, the cubic and the
+                quartic - their reach of three radii and the largest contribution kept where stars
+                overlap are DeepSkyStacker's; the radius from a star's larger full width, the Float32 and
+                Float64 coverage in caller storage, the solid ellipse and its stated boundary rule, and an
+                answer independent of list order and thread count are this engine's
+    record      docs/dev/DEEPSKYSTACKER_PROVENANCE.md and the module comment of each file
+
+ported siril-star-detection
+    role        The star detector's candidate scan and rejections, and the point-spread-function fit's
+                starting point, models and parameterisation.
+    files       src/AfterNightEngine/src/algorithms/stars/StarDetection.cpp,
+                src/AfterNightEngine/src/algorithms/stars/PsfFit.cpp,
+                src/AfterNightEngine/src/backends/cpu/PsfFitCpu.cpp
+    marker      Copyright (C) 2005-2011 Francois Meyer
+    upstream    Siril's star finder and PSF fit, src/algos/star_finder.c and src/algos/PSF.c, compared at
+                commit 07d942814b1fc1052765cf18fa9c524b4e8a269c of https://gitlab.com/free-astro/siril;
+                https://siril.org
+    author      Francois Meyer and team free-astro, as the files' copyright lines state
+    license     GPL-3.0-or-later, as both files state it. Compatible with this engine and with the
+                product, and not reached by the Apache-2.0 extension-protocol boundary
+    relation    adapted
+    divergence  Owned here. The search-box maximum and its tie rule, the bright-neighbour support, the
+                saturated-plateau edge walk, the second-derivative zero crossings, the energy-density
+                cut-off, the saturation fractions, the duplicate radius, the symmetry and residual
+                rejections, the half-maximum trace and its moments and the bounded parameterisation of
+                the models are Siril's; the banded scan whose answer does not depend on the thread count,
+                the sky substituted for a rejected sample, the trust-region iteration written without the
+                GNU Scientific Library's workspace and the typed failures are this engine's
+    record      docs/dev/STAR_DETECTION_PROVENANCE.md and the module comment of each file
+
+ported siril-background-sampling
+    role        The background grid's site acceptance and the thin-plate spline's kernel and smoothing.
+    files       src/AfterNightEngine/src/algorithms/background/BackgroundSampling.cpp,
+                src/AfterNightEngine/src/algorithms/background/BackgroundModel.cpp,
+                src/AfterNightEngine/src/algorithms/background/BackgroundInternal.cpp
+    marker      Copyright (C) 2005-2011 Francois Meyer
+    upstream    Siril's background extraction, src/algos/background_extraction.c, compared at commit
+                07d942814b1fc1052765cf18fa9c524b4e8a269c of https://gitlab.com/free-astro/siril, and at
+                ef048278814067d24178f01067870d8896d9633d, the revision the user guide reviewed;
+                https://siril.org
+    author      Francois Meyer and team free-astro, as the file's copyright lines state
+    license     GPL-3.0-or-later, as the file states it. Compatible with this engine and with the product,
+                and not reached by the Apache-2.0 extension-protocol boundary
+    relation    adapted
+    divergence  Owned here. The twenty-five-pixel site, its median, the acceptance at a median plus the
+                tolerance times the median absolute deviation, the thin-plate kernel and the smoothing
+                mapping are Siril's; the statistics taken over the sites' own luminances, the validity
+                rule, the spline's two linear terms, the polynomial fit, the solvers and the correction
+                fused into the write are this engine's
+    record      docs/dev/BACKGROUND_SAMPLING_PROVENANCE.md and the module comment of each file
+
+ported histogram-percentile-search
+    role        The histogram search the stack rejection's median absolute deviation is taken with.
+    files       src/AfterNightEngine/src/algorithms/stacking/RejectionEstimators.cpp
+    marker      attributed there to Ingo Weyrich
+    upstream    findMinMaxPercentile, under its author's 2017 copyright line
+    author      Ingo Weyrich
+    license     none stated at the routine; not applicable here, because only the method is re-derived
+                and none of the routine's text is carried
+    relation    re-derived
+    divergence  Owned here. The method is kept to its answers - Float32 absolute deviations, at most
+                65,536 bins between the extremes, and linear interpolation inside the bin where the count
+                reaches half - and runs single-threaded on the worker's scratch rather than with a
+                histogram per thread
+    record      docs/dev/guides/DEPENDENCIES.md and the module comment of the file
+
+ported siril-auto-gradient-removal
+    role        The automatic background estimate and its removal: the block-average reduction, the
+                inpainted low-pass and polynomial models, the robust rejection, the structure protection
+                and the bilinear return to full resolution.
+    files       src/AfterNightEngine/include/AfterNightEngine/Algorithms/Background/AutoBackground.h,
+                src/AfterNightEngine/src/algorithms/background/AutoBackground.cpp
+    marker      Copyright (C) 2026 Cyril Richard
+    upstream    AutoGradientRemoval 1.0.0, a script of the Siril project,
+                processing/AutoGradientRemoval.py at commit ca21c1425b14eeaff2f94e315e683240e28b86ce of
+                https://gitlab.com/free-astro/siril-scripts; https://siril.org
+    author      Cyril Richard
+    license     GPL-3.0-or-later, declared by the script file itself; the repository's root licence file
+                says MIT, and the file's own declaration is taken as controlling. Compatible with this
+                engine and with the product, and not reached by the Apache-2.0 extension-protocol
+                boundary
+    relation    adapted
+    divergence  Owned here. The method is restated over this engine's planes. The reduction, the models, the
+                rejection and the protection are the script's; the validity rule resolved at the
+                reduction, the reported figures, the correction fused into the write and the threshold
+                in the image's own units are this engine's, and the structure protection accumulates
+                across rounds where the script recomputed it each round
+    record      docs/dev/AUTO_GRADIENT_REMOVAL_PROVENANCE.md
+
+ported cosmic-photons-nbcolormapper
+    role        The layered narrowband colour mapper: each layer's black point and midtones transfer, the
+                four modification modes, HSV colourization, the screen blend, the background
+                neutralization window and the output stretch.
+    files       src/AfterNightEngine/include/AfterNightEngine/Algorithms/Color/NarrowbandColorMap.h,
+                src/AfterNightEngine/src/algorithms/color/NarrowbandColorMap.cpp
+    marker      Copyright (C) 2023, 2024 Mike Cranfield
+    upstream    NBColorMapper 2.2, a PixInsight script of Cosmic Photons - NBColorMapper.js and its
+                lib/NBCM*.js files, the snapshot docs/dev/NBCOLORMAPPER_PROVENANCE.md hashes;
+                https://cosmicphotons.com/scripts/
+    author      Mike Cranfield
+    license     The GNU General Public License, version 3, as the reviewed script states it. Compatible
+                with this engine and with the product, and not reached by the Apache-2.0
+                extension-protocol boundary
+    relation    adapted
+    divergence  Owned here. The formulas and constants are the script's; the fused row pass, the
+                bounded rank memory, the borrowed layers and the validity rule are this engine's. No
+                PixInsight, PJSR or Pleiades code, interface or asset is carried
+    record      docs/dev/NBCOLORMAPPER_PROVENANCE.md
+
+ported setiastro-narrowband-palettes
+    role        The twelve emission-line palettes: their names, order and equations, the substitution of a
+                missing H-alpha or SII channel, the clamp and the normalization by the frame maximum.
+    files       src/AfterNightEngine/include/AfterNightEngine/Algorithms/Color/NarrowbandPalette.h,
+                src/AfterNightEngine/src/algorithms/color/NarrowbandPalette.cpp
+    marker      Franklin Marek
+    upstream    The narrowband palette process of Seti Astro Suite Pro (SASPro), the snapshot
+                docs/dev/NARROWBAND_PALETTE_COMPOSER_PROVENANCE.md hashes;
+                https://github.com/setiastro/setiastrosuitepro
+    author      Franklin Marek
+    license     GPL-3.0, as the package metadata of the reviewed snapshot declares it. Compatible with this
+                engine and with the product, and not reached by the Apache-2.0 extension-protocol
+                boundary
+    relation    adapted
+    divergence  Owned here. The equations are the process's; the typed row passes, the maximum
+                found while the pixels are written and the validity rule are this engine's. No Python,
+                PyQt or SASPro asset is carried
+    record      docs/dev/NARROWBAND_PALETTE_COMPOSER_PROVENANCE.md

@@ -1,0 +1,351 @@
+# The sanitizer campaign's matrix: which instrumented configuration runs which tests, under which
+# options, and what is deliberately not run and why.
+#
+# It is a file rather than a paragraph because a sanitizer run is worthless unless three things are
+# known about it together: that the binary was instrumented, that the tests it ran were the ones the
+# campaign claims, and that no option quietly turned a check off. A recipe typed into a shell
+# establishes none of the three, and a clean run over an uninstrumented binary looks exactly like a
+# clean run over an instrumented one.
+#
+# build/scripts/tools/run_sanitizer_campaign.py reads this file; nothing else does. The fuzz targets
+# are not here: they carry their own instrumented build and their own budget in fuzz_targets.txt.
+#
+# Record types, one per line. Lines starting with '#' and blank lines are ignored.
+#
+#   configuration <name> build=<address|thread> hosts=<windows,linux> timeout=<seconds>
+#
+#       Declares a configuration. `build` is the value AFTERNIGHT_SANITIZE was generated with, and
+#       the runner refuses a binary that does not carry that instrumentation. `hosts` is where the
+#       configuration can be run at all - Microsoft's compiler has no UndefinedBehaviorSanitizer and
+#       no ThreadSanitizer, so those are Linux rows and saying so here is what keeps a Windows run
+#       from reporting a coverage it never had. `timeout` is the per-row wall-clock bound; a row that
+#       exceeds it is a finding, because a deadlock is what half of this campaign is looking for.
+#
+#   option <configuration> <VARIABLE>=<value>
+#
+#       An environment variable every row of that configuration is run with.
+#
+#   weakened <configuration> <token> <reason...>
+#
+#       States why an option that turns a check off or lets a refusal through is set. Every such
+#       token in the options above must have one of these, and a token that is no longer in the
+#       options must not - so the reasons cannot drift away from the configuration they explain.
+#
+#   run <configuration> <label> <target> <selection> [repeat=<n>] [shuffle]
+#
+#       One row. `label` is `suite.<name>` for a direct suite or `pipeline.<name>` for a focused
+#       pipeline, and is unique within its configuration. `selection` is `whole`, `filter=<gtest
+#       filter>`, or `skip=<reason...>`, and a row that runs no test at all is a failure rather than
+#       a pass.
+#
+# Every direct engine suite the generated tree defines must appear exactly once as a `suite.` row in
+# every configuration, run or skipped with a reason, and every configuration must have at least one
+# pipeline row. Both are checked, because a suite that quietly leaves the matrix is the way a
+# campaign stops covering something without anybody deciding to stop covering it.
+
+# ---------------------------------------------------------------------------------------------
+# address - the address sanitizer, and on Clang the undefined-behaviour sanitizer with it.
+#
+# This is the configuration Windows and Linux both run. It owns ownership, bounds and lifetime
+# everywhere, and on Linux it additionally owns conversion, overflow, shift, alignment and invalid
+# value. Windows contributes the address half only: Microsoft's compiler has no UBSan.
+# ---------------------------------------------------------------------------------------------
+
+configuration address build=address hosts=windows,linux timeout=5400
+
+option address ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:detect_leaks=0:allocator_may_return_null=1
+option address UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+
+weakened address detect_leaks=0 Leak detection is the `leak` configuration below, which is the same build run again with it on. Keeping it off here is not what makes leaks unreported; running this configuration alone would be.
+weakened address allocator_may_return_null=1 Test_EngineRuntime deliberately asks the platform allocator for an impossible size and requires the engine to return an allocation-free failure. Without this the sanitizer runtime aborts that `nothrow` request instead of returning null, and the case never reaches the behaviour it tests.
+
+run address suite.core Test_EngineCore whole
+run address suite.runtime Test_EngineRuntime whole
+run address suite.image Test_EngineImage whole
+run address suite.imageops Test_EngineImageOps whole
+run address suite.calibration Test_EngineCalibration whole
+run address suite.stars Test_EngineStars whole
+run address suite.registration Test_EngineRegistration whole
+run address suite.astrometry Test_EngineAstrometry whole
+run address suite.color Test_EngineColor whole
+run address suite.stacking Test_EngineStacking whole
+run address suite.interop Test_EngineInterop whole
+run address suite.kernels Test_EngineKernels whole
+run address suite.faults Test_EngineFaults whole
+run address suite.fixturebridge Test_EngineFixtureBridge whole
+run address suite.publicheaders Test_EnginePublicHeaders whole
+run address suite.consumerprobes Test_EngineConsumerProbes whole
+run address suite.libraryparity Test_EngineLibraryParity whole
+run address suite.pythonadapter Test_EnginePythonAdapter whole
+run address suite.gmicadapter Test_EngineGmicAdapter whole
+run address suite.openclbackend Test_EngineOpenClBackend skip=The opt-in proof backend is non-shipping, absent from a default tree, and its work runs inside a vendor driver this campaign did not compile. A report from there would be the driver's and there would be nothing to fix in this engine.
+
+run address pipeline.orchestration Test_EngineConsumerProbes whole repeat=2
+run address pipeline.streaming Test_EngineImage filter=FrameStream*:FrameCache*:FrameBatch*:Sequence*:SerSequence*:ImageList*:Boundary/* repeat=2 shuffle
+run address pipeline.codec Test_EngineImage filter=OutputTransactionTest.*:FitsCodecTest.*:XisfCodecTest.*:XisfInteropTest.*:TiffCodecTest.*:PngCodecTest.*:JpegCodecTest.*:RawCodecTest.*:DumpCodec* repeat=2 shuffle
+run address pipeline.stacking Test_EngineStacking filter=StackExecutorTest.*:StackSourceTest.*:StackWorkingSetTest.*:DrizzleExecutorTest.*:DrizzleStackWorkflowTest.* repeat=2 shuffle
+run address pipeline.cancellation Test_EngineRuntime filter=ExecutionCancellationTest.*:ExecutionSinksTest.*:ExecutionContextTest.*:EngineContextLeaseTest.*:MultiInstanceIsolationTest.* repeat=2 shuffle
+run address pipeline.scheduler Test_EngineRuntime filter=ParallelForTest.*:ParallelForConcurrencyTest.*:ParallelReduceTest.*:ParallelExecutorTest.*:TaskSchedulerGrainTest.*:ConcurrencyAdmissionTest.*:ScratchArenaTest.*:MemoryResourceTest.* repeat=2 shuffle
+run address pipeline.device Test_EngineKernels filter=*Device* repeat=2 shuffle
+run address pipeline.faults Test_EngineFaults filter=FaultCampaign.*Stream*:FaultCampaign.*ShareOneContext repeat=2 shuffle
+
+# ---------------------------------------------------------------------------------------------
+# leak - the same address build, run again with LeakSanitizer on.
+#
+# Linux only, because the address sanitizer on Windows has no leak detection to turn on. It is a
+# configuration of its own rather than an option of the one above so that a leak is attributed to a
+# row and a suppression is attributed to a library, instead of both disappearing into one run that
+# everybody stops reading. The address configuration above runs with detect_leaks=0, so this is the
+# configuration whose rows say anything about leaks.
+# ---------------------------------------------------------------------------------------------
+
+configuration leak build=address hosts=linux timeout=5400
+
+option leak ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:detect_leaks=1:allocator_may_return_null=1
+option leak UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+option leak LSAN_OPTIONS=report_objects=1:print_suppressions=0:suppressions=build/scripts/tools/leak_suppressions.txt
+
+weakened leak allocator_may_return_null=1 The same impossible-allocation case as the address configuration above, for the same reason.
+weakened leak suppressions= The full host and the runtime backend's suite finalize the interpreter they started, and CPython, NumPy, pybind11 and PySide6 do not give back what an interpreter kept when it is finalized. The file names their allocators and nothing of AfterNight's own, each entry with its reason. print_suppressions=0, because an extension host the suites start inherits these options and the cases read its output, which the table of suppressions would otherwise end.
+
+run leak suite.core Test_EngineCore whole
+run leak suite.runtime Test_EngineRuntime whole
+run leak suite.image Test_EngineImage whole
+run leak suite.imageops Test_EngineImageOps whole
+run leak suite.calibration Test_EngineCalibration whole
+run leak suite.stars Test_EngineStars whole
+run leak suite.registration Test_EngineRegistration whole
+run leak suite.astrometry Test_EngineAstrometry whole
+run leak suite.color Test_EngineColor whole
+run leak suite.stacking Test_EngineStacking whole
+run leak suite.interop Test_EngineInterop whole
+run leak suite.kernels Test_EngineKernels whole
+run leak suite.faults Test_EngineFaults whole
+run leak suite.fixturebridge Test_EngineFixtureBridge whole
+run leak suite.publicheaders Test_EnginePublicHeaders whole
+run leak suite.consumerprobes Test_EngineConsumerProbes whole
+run leak suite.libraryparity Test_EngineLibraryParity whole
+run leak suite.pythonadapter Test_EnginePythonAdapter skip=An interpreter that has been initialised in a process never gives every allocation back, and CPython says so itself. What the adapter owns is proved by the address and thread rows; a leak row here would report the interpreter.
+run leak suite.gmicadapter Test_EngineGmicAdapter skip=The library builds its command list once per process and never gives it back, and says so: every block this row reports is allocated inside gmic::_gmic and its own image lists, with no frame of this engine at any depth. What the adapter owns is proved by the address and thread rows, as it is for the interpreter above.
+run leak suite.openclbackend Test_EngineOpenClBackend skip=The opt-in proof backend is non-shipping and absent from a default tree, and a vendor driver's own allocations are not this engine's.
+
+run leak pipeline.orchestration Test_EngineConsumerProbes whole
+run leak pipeline.streaming Test_EngineImage filter=FrameStream*:FrameCache*:FrameBatch*:Sequence*:SerSequence*:ImageList*:Boundary/*
+run leak pipeline.codec Test_EngineImage filter=OutputTransactionTest.*:FitsCodecTest.*:XisfCodecTest.*:XisfInteropTest.*:TiffCodecTest.*:PngCodecTest.*:JpegCodecTest.*:RawCodecTest.*:DumpCodec*
+run leak pipeline.stacking Test_EngineStacking filter=StackExecutorTest.*:StackSourceTest.*:StackWorkingSetTest.*:DrizzleExecutorTest.*:DrizzleStackWorkflowTest.*
+run leak pipeline.cancellation Test_EngineRuntime filter=ExecutionCancellationTest.*:ExecutionSinksTest.*:ExecutionContextTest.*:EngineContextLeaseTest.*:MultiInstanceIsolationTest.*
+run leak pipeline.scheduler Test_EngineRuntime filter=ParallelForTest.*:ParallelForConcurrencyTest.*:ParallelReduceTest.*:ParallelExecutorTest.*:TaskSchedulerGrainTest.*:ConcurrencyAdmissionTest.*:ScratchArenaTest.*:MemoryResourceTest.*
+run leak pipeline.device Test_EngineKernels filter=*Device*
+run leak pipeline.faults Test_EngineFaults filter=FaultCampaign.*Stream*:FaultCampaign.*ShareOneContext
+
+# ---------------------------------------------------------------------------------------------
+# thread - ThreadSanitizer.
+#
+# Linux only. It needs the separately instrumented oneTBB that build/scripts/linux/build_tsan_onetbb.sh
+# builds, first in LD_LIBRARY_PATH, because a sanitizer proves a happens-before edge by watching the
+# code that establishes it and this engine's edges are established inside that library. The runner
+# refuses to start a thread row without it, rather than producing races that are an uninstrumented
+# library's synchronisation being invisible.
+#
+# That same rule is why three suites are skipped here: their concurrency crosses into a library
+# nobody has built an instrumented copy of, so what the run would report is the library's edges being
+# unreadable rather than this engine's being absent.
+# ---------------------------------------------------------------------------------------------
+
+configuration thread build=thread hosts=linux timeout=7200
+
+option thread TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1:allocator_may_return_null=1
+
+weakened thread allocator_may_return_null=1 The same impossible-allocation case as the address configuration above, for the same reason.
+
+run thread suite.core Test_EngineCore skip=It replaces the global allocation functions, which the ThreadSanitizer runtime also replaces, and it is the one suite required to contain no thread-starting code - so there is nothing here for this configuration to watch and one runtime too many to watch it with.
+run thread suite.runtime Test_EngineRuntime whole
+run thread suite.image Test_EngineImage whole
+run thread suite.imageops Test_EngineImageOps whole
+run thread suite.calibration Test_EngineCalibration whole
+run thread suite.stars Test_EngineStars filter=StarDetectionTest.*:PsfFitTest.*:StarMaskTest.*
+run thread suite.registration Test_EngineRegistration filter=StarReductionExecutionTest.*:AstrometricRegistrationTest.*:ChannelAlignmentTest.*:CometRegistrationTest.*:CometDetectionTest.*
+run thread suite.astrometry Test_EngineAstrometry filter=PlateSolverTest.*:PlateSolveStageTest.*:GaiaChunkReaderTest.*:SkyCatalogTest.*
+run thread suite.color Test_EngineColor filter=SpectrophotometricColorCalibrationTest.*:PhotometricColorCalibrationTest.*:ColorCalibrationCompositionTest.*:AperturePhotometryTest.*
+run thread suite.stacking Test_EngineStacking filter=StackExecutorTest.*:StackSourceTest.*:StackWorkingSetTest.*:StackAccumulatorsTest.*:DrizzleExecutorTest.*:DrizzleStackWorkflowTest.*:DrizzleAccumulationTest.*
+run thread suite.interop Test_EngineInterop whole
+run thread suite.kernels Test_EngineKernels whole
+run thread suite.faults Test_EngineFaults whole
+run thread suite.fixturebridge Test_EngineFixtureBridge whole
+run thread suite.publicheaders Test_EnginePublicHeaders whole
+run thread suite.consumerprobes Test_EngineConsumerProbes whole
+run thread suite.libraryparity Test_EngineLibraryParity skip=It compares this engine against OpenCV, whose own parallel backend is not instrumented here, so the races reported would be that library's synchronisation being invisible rather than this engine's being absent.
+run thread suite.pythonadapter Test_EnginePythonAdapter skip=Its concurrency is CPython's, which is not instrumented here; the interpreter's own lock would read as unsynchronised. What the adapter serialises for itself is covered by the address configuration.
+run thread suite.gmicadapter Test_EngineGmicAdapter skip=Its concurrency is the G'MIC library's own threads, which are not instrumented here. The seat the adapter holds around them is covered by the address configuration.
+run thread suite.openclbackend Test_EngineOpenClBackend skip=The opt-in proof backend is non-shipping and absent from a default tree, and a vendor driver's threads are not instrumented.
+
+run thread pipeline.orchestration Test_EngineConsumerProbes whole repeat=2
+run thread pipeline.streaming Test_EngineImage filter=FrameStream*:FrameCache*:FrameBatch*:Sequence*:SerSequence*:ImageList*:Boundary/* repeat=2 shuffle
+run thread pipeline.codec Test_EngineImage filter=OutputTransactionTest.*:FitsCodecTest.*:XisfCodecTest.*:XisfInteropTest.*:TiffCodecTest.*:PngCodecTest.*:JpegCodecTest.*:RawCodecTest.*:DumpCodec* repeat=2 shuffle
+run thread pipeline.stacking Test_EngineStacking filter=StackExecutorTest.*:StackSourceTest.*:StackWorkingSetTest.*:DrizzleExecutorTest.*:DrizzleStackWorkflowTest.* repeat=2 shuffle
+run thread pipeline.cancellation Test_EngineRuntime filter=ExecutionCancellationTest.*:ExecutionSinksTest.*:ExecutionContextTest.*:EngineContextLeaseTest.*:MultiInstanceIsolationTest.* repeat=2 shuffle
+run thread pipeline.scheduler Test_EngineRuntime filter=ParallelForTest.*:ParallelForConcurrencyTest.*:ParallelReduceTest.*:ParallelExecutorTest.*:TaskSchedulerGrainTest.*:ConcurrencyAdmissionTest.*:ScratchArenaTest.*:MemoryResourceTest.* repeat=2 shuffle
+run thread pipeline.device Test_EngineKernels filter=*Device* repeat=2 shuffle
+run thread pipeline.faults Test_EngineFaults filter=FaultCampaign.*Stream*:FaultCampaign.*ShareOneContext repeat=2 shuffle
+run thread pipeline.firstcall Test_EngineRuntime filter=CpuCapabilitiesTest.DetectionIsSafeToRaceOn
+
+# The consumer closures: every active consumer suite the target registry names, run against the consumer
+# libraries and the engine instrumented together, and focused pipelines over the consumer's lifetimes,
+# deliveries, closes, hand-offs, publications and fault sweeps. The runner requires each consumer library a
+# suite links to carry the instrumentation beside it, as it requires the engine.
+
+run address suite.consumer.afterNightApp Test_AfterNightApp whole
+run address suite.consumer.afterNightCLI Test_AfterNightCLI whole
+run address suite.consumer.consumerFaults Test_ConsumerFaults whole
+run address suite.consumer.consumerRuntime Test_ConsumerRuntime whole
+run address suite.consumer.controlsAstrometry Test_ControlsAstrometry whole
+run address suite.consumer.controlsDialogs Test_ControlsDialogs whole
+run address suite.consumer.controlsExtensionSeam Test_ControlsExtensionSeam whole
+run address suite.consumer.controlsFiles Test_ControlsFiles whole
+run address suite.consumer.controlsHistory Test_ControlsHistory whole
+run address suite.consumer.controlsProcessFramework Test_ControlsProcessFramework whole
+run address suite.consumer.controlsSeams Test_ControlsSeams whole
+run address suite.consumer.controlsSequences Test_ControlsSequences whole
+run address suite.consumer.controlsServices Test_ControlsServices whole
+run address suite.consumer.controlsSession Test_ControlsSession whole
+run address suite.consumer.controlsStatistics Test_ControlsStatistics whole
+run address suite.consumer.controlsViewer Test_ControlsViewer whole
+run address suite.consumer.extensionHostNative Test_ExtensionHostNative whole
+run address suite.consumer.extensionRuntimeBackend Test_ExtensionRuntimeBackend whole
+run address suite.consumer.fixtureNeutral Test_FixtureNeutral whole
+run address suite.consumer.fixtureEngine Test_FixtureEngine whole
+run address suite.consumer.imageIntegration Test_ImageIntegration whole
+run address suite.consumer.imageProcessControl Test_ImageProcessControl whole
+run address suite.consumer.imageRTPreviewControl Test_ImageRTPreviewControl whole
+run address suite.consumer.imageViewControl Test_ImageViewControl whole
+run address suite.consumer.mainDashboard Test_MainDashboard whole
+run address suite.consumer.maskDrawing Test_MaskDrawing whole
+run address suite.consumer.persistence Test_Persistence whole
+run address suite.consumer.platform Test_Platform whole
+run address suite.consumer.processFramework Test_ProcessFramework whole
+run address suite.consumer.processesChannels Test_ProcessesChannels whole
+run address suite.consumer.processesColorTools Test_ProcessesColorTools whole
+run address suite.consumer.processesCombinations Test_ProcessesCombinations whole
+run address suite.consumer.processesExternalTools Test_ProcessesExternalTools whole
+run address suite.consumer.processesGeometry Test_ProcessesGeometry whole
+run address suite.consumer.processesMasks Test_ProcessesMasks whole
+run address suite.consumer.processesPhotometric Test_ProcessesPhotometric whole
+run address suite.consumer.processesPixelMath Test_ProcessesPixelMath whole
+run address suite.consumer.processesPointwise Test_ProcessesPointwise whole
+run address suite.consumer.processesShared Test_ProcessesShared whole
+run address suite.consumer.processesSpatial Test_ProcessesSpatial whole
+run address suite.consumer.processesStarProfilers Test_ProcessesStarProfilers whole
+run address suite.consumer.processesStretching Test_ProcessesStretching whole
+run address suite.consumer.processesWorkflowTools Test_ProcessesWorkflowTools whole
+run address suite.consumer.systemInformationPanel Test_SystemInformationPanel whole
+run address suite.consumer.themeSystem Test_ThemeSystem whole
+run address suite.consumer.widgets Test_Widgets whole
+run address pipeline.consumer.faults Test_ConsumerFaults whole repeat=2
+run address pipeline.consumer.lifetime Test_ConsumerRuntime filter=ImageAssetTest.*:EngineSessionTest.*:AdmissionTest.*:OperationScopeTest.* repeat=2 shuffle
+run address pipeline.consumer.delivery Test_ControlsSession filter=ExecutionScopeTest.*:CompletionFlowTest.*:CommitTicketTest.*:ImageDocumentTest.* repeat=2 shuffle
+run address pipeline.consumer.close Test_ControlsSeams whole repeat=2
+run address pipeline.consumer.handoff Test_ControlsExtensionSeam filter=ExtensionHandoffTest.* repeat=2 shuffle
+run address pipeline.consumer.hostsessions Test_ProcessFramework filter=ExtensionHostManagerTest.* repeat=2 shuffle
+run address pipeline.consumer.publication Test_ImageIntegration filter=DocumentPublicationTest.*:DocumentEnvelopeTest.*:SessionDatabaseFormatTest.*:RegistrationMetricsFormatTest.*:WorkflowExecutor.*:WorkflowCancellationTest.*:NormalizationDocumentTest.* repeat=2 shuffle
+
+run leak suite.consumer.afterNightApp Test_AfterNightApp whole
+run leak suite.consumer.afterNightCLI Test_AfterNightCLI whole
+run leak suite.consumer.consumerFaults Test_ConsumerFaults whole
+run leak suite.consumer.consumerRuntime Test_ConsumerRuntime whole
+run leak suite.consumer.controlsAstrometry Test_ControlsAstrometry whole
+run leak suite.consumer.controlsDialogs Test_ControlsDialogs whole
+run leak suite.consumer.controlsExtensionSeam Test_ControlsExtensionSeam whole
+run leak suite.consumer.controlsFiles Test_ControlsFiles whole
+run leak suite.consumer.controlsHistory Test_ControlsHistory whole
+run leak suite.consumer.controlsProcessFramework Test_ControlsProcessFramework whole
+run leak suite.consumer.controlsSeams Test_ControlsSeams whole
+run leak suite.consumer.controlsSequences Test_ControlsSequences whole
+run leak suite.consumer.controlsServices Test_ControlsServices whole
+run leak suite.consumer.controlsSession Test_ControlsSession whole
+run leak suite.consumer.controlsStatistics Test_ControlsStatistics whole
+run leak suite.consumer.controlsViewer Test_ControlsViewer whole
+run leak suite.consumer.extensionHostNative Test_ExtensionHostNative whole
+run leak suite.consumer.extensionRuntimeBackend Test_ExtensionRuntimeBackend whole
+run leak suite.consumer.fixtureNeutral Test_FixtureNeutral whole
+run leak suite.consumer.fixtureEngine Test_FixtureEngine whole
+run leak suite.consumer.imageIntegration Test_ImageIntegration whole
+run leak suite.consumer.imageProcessControl Test_ImageProcessControl whole
+run leak suite.consumer.imageRTPreviewControl Test_ImageRTPreviewControl whole
+run leak suite.consumer.imageViewControl Test_ImageViewControl whole
+run leak suite.consumer.mainDashboard Test_MainDashboard whole
+run leak suite.consumer.maskDrawing Test_MaskDrawing whole
+run leak suite.consumer.persistence Test_Persistence whole
+run leak suite.consumer.platform Test_Platform whole
+run leak suite.consumer.processFramework Test_ProcessFramework whole
+run leak suite.consumer.processesChannels Test_ProcessesChannels whole
+run leak suite.consumer.processesColorTools Test_ProcessesColorTools whole
+run leak suite.consumer.processesCombinations Test_ProcessesCombinations whole
+run leak suite.consumer.processesExternalTools Test_ProcessesExternalTools whole
+run leak suite.consumer.processesGeometry Test_ProcessesGeometry whole
+run leak suite.consumer.processesMasks Test_ProcessesMasks whole
+run leak suite.consumer.processesPhotometric Test_ProcessesPhotometric whole
+run leak suite.consumer.processesPixelMath Test_ProcessesPixelMath whole
+run leak suite.consumer.processesPointwise Test_ProcessesPointwise whole
+run leak suite.consumer.processesShared Test_ProcessesShared whole
+run leak suite.consumer.processesSpatial Test_ProcessesSpatial whole
+run leak suite.consumer.processesStarProfilers Test_ProcessesStarProfilers whole
+run leak suite.consumer.processesStretching Test_ProcessesStretching whole
+run leak suite.consumer.processesWorkflowTools Test_ProcessesWorkflowTools whole
+run leak suite.consumer.systemInformationPanel Test_SystemInformationPanel whole
+run leak suite.consumer.themeSystem Test_ThemeSystem whole
+run leak suite.consumer.widgets Test_Widgets whole
+run leak pipeline.consumer.faults Test_ConsumerFaults whole
+run leak pipeline.consumer.lifetime Test_ConsumerRuntime filter=ImageAssetTest.*:EngineSessionTest.*:AdmissionTest.*:OperationScopeTest.*
+run leak pipeline.consumer.delivery Test_ControlsSession filter=ExecutionScopeTest.*:CompletionFlowTest.*:CommitTicketTest.*:ImageDocumentTest.*
+run leak pipeline.consumer.close Test_ControlsSeams whole
+run leak pipeline.consumer.handoff Test_ControlsExtensionSeam filter=ExtensionHandoffTest.*
+run leak pipeline.consumer.hostsessions Test_ProcessFramework filter=ExtensionHostManagerTest.*
+run leak pipeline.consumer.publication Test_ImageIntegration filter=DocumentPublicationTest.*:DocumentEnvelopeTest.*:SessionDatabaseFormatTest.*:RegistrationMetricsFormatTest.*:WorkflowExecutor.*:WorkflowCancellationTest.*:NormalizationDocumentTest.*
+
+run thread suite.consumer.afterNightApp Test_AfterNightApp skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.afterNightCLI Test_AfterNightCLI whole
+run thread suite.consumer.consumerFaults Test_ConsumerFaults skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.consumerRuntime Test_ConsumerRuntime whole
+run thread suite.consumer.controlsAstrometry Test_ControlsAstrometry skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsDialogs Test_ControlsDialogs skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsExtensionSeam Test_ControlsExtensionSeam skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsFiles Test_ControlsFiles skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsHistory Test_ControlsHistory skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsProcessFramework Test_ControlsProcessFramework skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsSeams Test_ControlsSeams skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsSequences Test_ControlsSequences skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsServices Test_ControlsServices skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsSession Test_ControlsSession skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsStatistics Test_ControlsStatistics skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsViewer Test_ControlsViewer skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.extensionHostNative Test_ExtensionHostNative skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.extensionRuntimeBackend Test_ExtensionRuntimeBackend skip=Its concurrency is CPython's, which is not instrumented here; the interpreter's own lock would read as unsynchronised. The address configuration covers what the backend serialises for itself.
+run thread suite.consumer.fixtureNeutral Test_FixtureNeutral whole
+run thread suite.consumer.fixtureEngine Test_FixtureEngine whole
+run thread suite.consumer.imageIntegration Test_ImageIntegration skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.imageProcessControl Test_ImageProcessControl skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.imageRTPreviewControl Test_ImageRTPreviewControl skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.imageViewControl Test_ImageViewControl skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.mainDashboard Test_MainDashboard skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.maskDrawing Test_MaskDrawing skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.persistence Test_Persistence skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.platform Test_Platform whole
+run thread suite.consumer.processFramework Test_ProcessFramework skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesChannels Test_ProcessesChannels skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesColorTools Test_ProcessesColorTools skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesCombinations Test_ProcessesCombinations skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesExternalTools Test_ProcessesExternalTools skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesGeometry Test_ProcessesGeometry skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesMasks Test_ProcessesMasks skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesPhotometric Test_ProcessesPhotometric skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesPixelMath Test_ProcessesPixelMath skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesPointwise Test_ProcessesPointwise skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesShared Test_ProcessesShared skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesSpatial Test_ProcessesSpatial skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesStarProfilers Test_ProcessesStarProfilers skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesStretching Test_ProcessesStretching skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.processesWorkflowTools Test_ProcessesWorkflowTools skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.systemInformationPanel Test_SystemInformationPanel skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.themeSystem Test_ThemeSystem skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.widgets Test_Widgets skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread pipeline.consumer.lifetime Test_ConsumerRuntime filter=ImageAssetTest.*:EngineSessionTest.*:AdmissionTest.*:OperationScopeTest.* repeat=2 shuffle

@@ -1,0 +1,1810 @@
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
+
+#include "stdafx.hpp"
+#include "WorkflowArchiver.h"
+
+#include "processes/ImageIntegration/ImageIntegrationConstants.h"
+#include "processes/ImageIntegration/model/IntegrationError.h"
+#include "processes/ImageIntegration/model/GroupingKeys.h"
+#include "processes/ImageIntegration/core/FilenameUtils.h"
+#include "processes/ImageIntegration/core/RejectionMapUtils.h"
+#include "processes/ImageIntegration/core/SqliteConnection.h"
+#include "processes/ImageIntegration/reporting/MarkdownHtmlRenderer.h"
+#include "processes/ImageIntegration/reporting/WorkflowReportBuilder.h"
+#include "processes/ImageIntegration/workflow/ArtifactSchema.h"
+#include "processes/ImageIntegration/workflow/PreviewThumbnailGenerator.h"
+#include "processes/ImageIntegration/workflow/WorkflowFileOperations.h"
+
+#include <AfterNightPlatform/Logging.h>
+
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QDateTime>
+#include <QTimeZone>
+#include <QDirIterator>
+#include <QCoreApplication>
+#include <QBuffer>
+#include <QHash>
+#include <QImage>
+#include <QImageReader>
+#include <QPainter>
+#include <QPen>
+#include <QSaveFile>
+#include <QSet>
+#include <QSqlQuery>
+#include <QTemporaryFile>
+#include <QUuid>
+#include <algorithm>
+#include <chrono>
+#include <limits>
+
+namespace
+{
+[[nodiscard]] QString workflowReportHtmlTitle(const WorkflowManifest& manifest);
+[[nodiscard]] bool shouldGenerateWorkflowReport(const WorkflowManifest& manifest,
+                                                const WorkflowExecutor::Result& result);
+
+[[nodiscard]] Qt::CaseSensitivity archivePathCaseSensitivity()
+{
+#ifdef Q_OS_WIN
+    return Qt::CaseInsensitive;
+#else
+    return Qt::CaseSensitive;
+#endif
+}
+
+[[nodiscard]] bool isPathContainedBy(const QString& parent_path, const QString& candidate_path)
+{
+    QString parent = QDir::cleanPath(QFileInfo(parent_path).absoluteFilePath());
+    const QString candidate = QDir::cleanPath(QFileInfo(candidate_path).absoluteFilePath());
+    if (!parent.endsWith(QLatin1Char('/')))
+    {
+        parent.append(QLatin1Char('/'));
+    }
+    return candidate.startsWith(parent, archivePathCaseSensitivity());
+}
+
+[[nodiscard]] bool isSafeArchivePathComponent(const QString& value)
+{
+    return !value.isEmpty() && value == value.trimmed() && value != QStringLiteral(".") &&
+           value != QStringLiteral("..") && !QDir::isAbsolutePath(value) && !value.contains(QLatin1Char('/')) &&
+           !value.contains(QLatin1Char('\\')) && !value.contains(QLatin1Char(':'));
+}
+
+[[nodiscard]] qint64 saturatingAddBytes(const qint64 left, const qint64 right)
+{
+    constexpr qint64 kMaximum = (std::numeric_limits<qint64>::max)();
+    if (left < 0 || right < 0 || left > kMaximum - right)
+    {
+        return kMaximum;
+    }
+    return left + right;
+}
+
+[[nodiscard]] qint64 directorySizeBytes(const QString& path)
+{
+    qint64 total = 0;
+    QDirIterator it(path, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext())
+    {
+        it.next();
+        total = saturatingAddBytes(total, (std::max)(static_cast<qint64>(0), it.fileInfo().size()));
+    }
+    return total;
+}
+
+[[nodiscard]] qint64 pendingMandatoryMetadataBytes(const WorkflowManifest& manifest,
+                                                   const WorkflowExecutor::Result& result)
+{
+    // Account for unbounded runtime strings and quality data explicitly. Render a conservative
+    // metadata-only report before payload admission so HTML expansion cannot trigger copy-then-delete.
+    constexpr qint64 kReportAndManifestEnvelope = 32 * 1024;
+    constexpr qint64 kPerGroupEnvelope = 8 * 1024;
+    constexpr qint64 kPerStageEnvelope = 2 * 1024;
+
+    QJsonObject variableMetadata;
+    QJsonArray warnings;
+    for (const auto& warning : result.warnings)
+    {
+        warnings.append(warning);
+    }
+    variableMetadata[QStringLiteral("warnings")] = warnings;
+
+    QJsonArray errors;
+    for (const auto& error : result.errors)
+    {
+        errors.append(error);
+    }
+    variableMetadata[QStringLiteral("errors")] = errors;
+    variableMetadata[QStringLiteral("errorMessage")] = result.errorMessage;
+
+    QJsonArray groups;
+    for (const auto& group : result.integrationGroupResults)
+    {
+        QJsonObject groupMetadata;
+        groupMetadata[QStringLiteral("groupKey")] = group.groupKey;
+        groupMetadata[QStringLiteral("outputPath")] = group.outputPath;
+        groupMetadata[QStringLiteral("outputFilename")] = group.outputFilename;
+        groupMetadata[QStringLiteral("outputRetentionReason")] = group.outputRetentionReason;
+        groupMetadata[QStringLiteral("registrationGroupKey")] = group.registrationGroupKey;
+        groupMetadata[QStringLiteral("registrationInputPolicy")] = group.registrationInputPolicy;
+        groupMetadata[QStringLiteral("masterSolution")] = masterSolutionOutcomeToString(group.masterSolution);
+        groupMetadata[QStringLiteral("masterSolutionDetail")] = group.masterSolutionDetail;
+        if (group.qualityReport.valid)
+        {
+            groupMetadata[QStringLiteral("qualityReport")] = stackingQualityReportToJson(group.qualityReport);
+        }
+        groups.append(groupMetadata);
+    }
+    variableMetadata[QStringLiteral("groups")] = groups;
+
+    QJsonArray stages;
+    for (const auto& stage : result.stageResults)
+    {
+        QJsonObject stageMetadata;
+        stageMetadata[QStringLiteral("name")] = stage.stageName;
+        stageMetadata[QStringLiteral("status")] = stage.status;
+        stages.append(stageMetadata);
+    }
+    variableMetadata[QStringLiteral("stages")] = stages;
+
+    const QByteArray serializedManifest = QJsonDocument(manifest.toJson()).toJson(QJsonDocument::Indented);
+    const QByteArray serializedVariableMetadata = QJsonDocument(variableMetadata).toJson(QJsonDocument::Indented);
+    const QByteArray metadataMarkdown = QByteArrayLiteral("```json\n") + serializedManifest +
+                                        QByteArrayLiteral("\n```") + QByteArrayLiteral("\n```json\n") +
+                                        serializedVariableMetadata + QByteArrayLiteral("\n```\n");
+
+    qint64 total = result.capturedLog.toUtf8().size();
+    total = saturatingAddBytes(total, serializedManifest.size());
+    total = saturatingAddBytes(total, serializedVariableMetadata.size());
+    if (shouldGenerateWorkflowReport(manifest, result))
+    {
+        total = saturatingAddBytes(total, metadataMarkdown.size());
+        QTemporaryFile renderedMetadataHtml(
+            QDir(QDir::tempPath()).filePath(QStringLiteral("afternight-retention-metadata-XXXXXX.html")));
+        if (renderedMetadataHtml.open())
+        {
+            const QString htmlPath = renderedMetadataHtml.fileName();
+            renderedMetadataHtml.close();
+            QString htmlError;
+            if (ImageIntegration::Reporting::writeStyledHtmlFromMarkdown(QString::fromUtf8(metadataMarkdown), htmlPath,
+                                                                         workflowReportHtmlTitle(manifest), &htmlError))
+            {
+                total = saturatingAddBytes(total, (std::max)(static_cast<qint64>(0), QFileInfo(htmlPath).size()));
+            }
+            else
+            {
+                total =
+                    saturatingAddBytes(total, saturatingAddBytes(metadataMarkdown.size(), kReportAndManifestEnvelope));
+            }
+        }
+        else
+        {
+            total = saturatingAddBytes(total, saturatingAddBytes(metadataMarkdown.size(), kReportAndManifestEnvelope));
+        }
+    }
+    total = saturatingAddBytes(total, kReportAndManifestEnvelope);
+    total = saturatingAddBytes(total, static_cast<qint64>(result.integrationGroupResults.size()) * kPerGroupEnvelope);
+    total = saturatingAddBytes(total, static_cast<qint64>(result.stageResults.size()) * kPerStageEnvelope);
+    return total;
+}
+
+[[nodiscard]] std::vector<QFileInfo> sortedHistoryRunDirectories(const QDir& historyDir,
+                                                                 const QString& excludedRunPath = {})
+{
+    std::vector<QFileInfo> runDirs;
+    const QString normalizedExcluded = QDir::cleanPath(excludedRunPath);
+    const QFileInfoList entries = historyDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    runDirs.reserve(static_cast<size_t>(entries.size()));
+    for (const auto& entry : entries)
+    {
+        if (!normalizedExcluded.isEmpty() && QDir::cleanPath(entry.absoluteFilePath()) == normalizedExcluded)
+        {
+            continue;
+        }
+        runDirs.push_back(entry);
+    }
+
+    std::sort(runDirs.begin(), runDirs.end(), [](const QFileInfo& left, const QFileInfo& right) {
+        const qint64 leftTime = left.lastModified().toMSecsSinceEpoch();
+        const qint64 rightTime = right.lastModified().toMSecsSinceEpoch();
+        return leftTime == rightTime ? left.fileName() < right.fileName() : leftTime < rightTime;
+    });
+    return runDirs;
+}
+
+struct ArchiveRetentionPreflight
+{
+    bool retainPayloads = false;
+    QString reason;
+};
+
+[[nodiscard]] ArchiveRetentionPreflight preflightArchiveRetention(const QDir& historyDir, const QString& currentRunPath,
+                                                                  const qint64 knownCurrentRunBytes,
+                                                                  const int maxHistoryEntries,
+                                                                  const qint64 maxHistoryBytes)
+{
+    if (knownCurrentRunBytes > maxHistoryBytes)
+    {
+        return {false,
+                QStringLiteral("known archive data (%1 bytes) exceeds the configured history byte limit (%2 bytes)")
+                    .arg(knownCurrentRunBytes)
+                    .arg(maxHistoryBytes)};
+    }
+
+    std::vector<QFileInfo> oldRuns = sortedHistoryRunDirectories(historyDir, currentRunPath);
+    qint64 oldBytes = 0;
+    for (const auto& run : oldRuns)
+    {
+        oldBytes = saturatingAddBytes(oldBytes, directorySizeBytes(run.absoluteFilePath()));
+    }
+
+    const auto exceedsHistoryPolicy = [&]() {
+        return static_cast<int>(oldRuns.size()) + 1 > maxHistoryEntries ||
+               saturatingAddBytes(oldBytes, knownCurrentRunBytes) > maxHistoryBytes;
+    };
+
+    while (exceedsHistoryPolicy() && !oldRuns.empty())
+    {
+        const QFileInfo oldest = oldRuns.front();
+        const qint64 oldestBytes = directorySizeBytes(oldest.absoluteFilePath());
+        oldBytes = (std::max)(static_cast<qint64>(0), oldBytes - oldestBytes);
+        oldRuns.erase(oldRuns.begin());
+    }
+
+    if (exceedsHistoryPolicy())
+    {
+        return {false, QStringLiteral("the configured history retention policy cannot retain this run")};
+    }
+
+    return {true, {}};
+}
+
+constexpr QSize kMaximumReportPreviewSize{2048, 2048};
+
+[[nodiscard]] bool isValidPreparedReportPreview(const QByteArray& jpegBytes, const QSize& declaredSize)
+{
+    if (jpegBytes.isEmpty() || !declaredSize.isValid() || declaredSize.width() > kMaximumReportPreviewSize.width() ||
+        declaredSize.height() > kMaximumReportPreviewSize.height())
+    {
+        return false;
+    }
+
+    QBuffer buffer;
+    buffer.setData(jpegBytes);
+    if (!buffer.open(QIODevice::ReadOnly))
+    {
+        return false;
+    }
+
+    QImageReader reader(&buffer, "jpeg");
+    reader.setAutoTransform(false);
+    if (!reader.canRead() || reader.size() != declaredSize)
+    {
+        return false;
+    }
+
+    const QImage decoded = reader.read();
+    return !decoded.isNull() && decoded.size() == declaredSize;
+}
+
+[[nodiscard]] bool writeAtomicFile(const QString& path, const QByteArray& payload,
+                                   QIODevice::OpenMode extraMode = QIODevice::NotOpen)
+{
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | extraMode))
+    {
+        return false;
+    }
+
+    if (file.write(payload) != payload.size())
+    {
+        file.cancelWriting();
+        return false;
+    }
+
+    return file.commit();
+}
+
+[[nodiscard]] ImageIntegration::ArchiveFileTransportResult
+snapshotSqliteDatabase(const QString& source_path, const QString& destination_path,
+                       WorkflowExecutionCounterAccumulator* counters)
+{
+    ImageIntegration::ArchiveFileTransportResult result;
+    if (!QFileInfo(source_path).isFile())
+    {
+        result.error = QStringLiteral("SQLite snapshot source does not exist");
+        return result;
+    }
+    if (!QDir().mkpath(QFileInfo(destination_path).absolutePath()) ||
+        (QFile::exists(destination_path) && !QFile::remove(destination_path)))
+    {
+        result.error = QStringLiteral("Could not prepare SQLite snapshot destination");
+        return result;
+    }
+
+    core::SqliteConnection source(source_path, QStringLiteral("WorkflowArchiveSqliteSnapshot"));
+    QString open_error;
+    if (!source.open(&open_error))
+    {
+        result.error = open_error;
+        return result;
+    }
+
+    QString escaped_destination = QDir::toNativeSeparators(QFileInfo(destination_path).absoluteFilePath());
+    escaped_destination.replace(QLatin1Char('\''), QStringLiteral("''"));
+    QSqlQuery snapshot_query(source.db());
+    if (counters != nullptr)
+        counters->recordSqliteStatementExecution();
+    if (!snapshot_query.exec(QStringLiteral("VACUUM INTO '%1'").arg(escaped_destination)))
+    {
+        result.error = snapshot_query.lastError().text();
+        QFile::remove(destination_path);
+        return result;
+    }
+
+    core::SqliteConnection validation(destination_path, QStringLiteral("WorkflowArchiveSqliteValidation"));
+    QSqlQuery integrity_query;
+    if (!validation.open(&result.error))
+    {
+        QFile::remove(destination_path);
+        return result;
+    }
+    integrity_query = QSqlQuery(validation.db());
+    if (counters != nullptr)
+        counters->recordSqliteStatementExecution();
+    if (!integrity_query.exec(QStringLiteral("PRAGMA integrity_check")) || !integrity_query.next() ||
+        integrity_query.value(0).toString() != QStringLiteral("ok"))
+    {
+        result.error = integrity_query.lastError().text().isEmpty() ? QStringLiteral("SQLite integrity check failed")
+                                                                    : integrity_query.lastError().text();
+        validation.close();
+        QFile::remove(destination_path);
+        return result;
+    }
+
+    const std::uint64_t snapshot_bytes =
+        static_cast<std::uint64_t>((std::max)(qint64{0}, QFileInfo(destination_path).size()));
+    if (counters != nullptr)
+        counters->addBytesCopied(snapshot_bytes);
+    result.outcome = ImageIntegration::ArchiveFileTransportOutcome::NonImmutableSourceCopySucceeded;
+    result.diagnostics.ordinaryCopyBytes = snapshot_bytes;
+    result.diagnostics.selectedTransport = ImageIntegration::ArchiveSelectedTransport::OrdinaryCopy;
+    result.diagnostics.fallbackReason = ImageIntegration::ArchiveFallbackReason::NonImmutableSource;
+    return result;
+}
+
+[[nodiscard]] QJsonObject workflowExecutionCountersToJson(const WorkflowExecutionCounters& counters)
+{
+    QJsonObject object;
+    object[QStringLiteral("bytesHashed")] = QString::number(counters.bytesHashed());
+    object[QStringLiteral("bytesCopied")] = QString::number(counters.bytesCopied());
+    object[QStringLiteral("sqliteStatementExecutions")] = QString::number(counters.sqliteStatementExecutions());
+    object[QStringLiteral("sqliteTransactionsStarted")] = QString::number(counters.sqliteTransactionsStarted());
+    object[QStringLiteral("sqliteTransactionsCommitted")] = QString::number(counters.sqliteTransactionsCommitted());
+    object[QStringLiteral("sqliteTransactionsRolledBack")] = QString::number(counters.sqliteTransactionsRolledBack());
+    object[QStringLiteral("inputDecodeOperations")] = QString::number(counters.inputDecodeOperations());
+    object[QStringLiteral("scientificOutputEncodeCompletions")] =
+        QString::number(counters.scientificOutputEncodeCompletions());
+    object[QStringLiteral("inputPassesStarted")] = QString::number(counters.inputPassesStarted());
+    object[QStringLiteral("tilePassesStarted")] = QString::number(counters.tilePassesStarted());
+    object[QStringLiteral("stackLoaderRequests")] = QString::number(counters.stackLoaderRequests());
+    object[QStringLiteral("roiSubsetReads")] = QString::number(counters.roiSubsetReads());
+    object[QStringLiteral("fullFrameFallbackReads")] = QString::number(counters.fullFrameFallbackReads());
+    object[QStringLiteral("logicalDecodedPixelBytes")] = QString::number(counters.logicalDecodedPixelBytes());
+    object[QStringLiteral("calibrationInvocations")] = QString::number(counters.calibrationInvocations());
+    object[QStringLiteral("calibratedSpillFilesCreated")] = QString::number(counters.calibratedSpillFilesCreated());
+    object[QStringLiteral("calibratedSpillBytesWritten")] = QString::number(counters.calibratedSpillBytesWritten());
+    object[QStringLiteral("calibratedSpillBytesRead")] = QString::number(counters.calibratedSpillBytesRead());
+    object[QStringLiteral("calibratedSpillRoiReads")] = QString::number(counters.calibratedSpillRoiReads());
+    object[QStringLiteral("calibratedSpillCleanupSuccesses")] =
+        QString::number(counters.calibratedSpillCleanupSuccesses());
+    object[QStringLiteral("calibratedSpillCleanupFailures")] =
+        QString::number(counters.calibratedSpillCleanupFailures());
+    object[QStringLiteral("dumpBytesRead")] = QString::number(counters.dumpBytesRead());
+    object[QStringLiteral("dumpBytesWritten")] = QString::number(counters.dumpBytesWritten());
+    object[QStringLiteral("pixmapBytesRead")] = QString::number(counters.pixmapBytesRead());
+    object[QStringLiteral("pixmapBytesWritten")] = QString::number(counters.pixmapBytesWritten());
+    object[QStringLiteral("descriptorProviderHits")] = QString::number(counters.descriptorProviderHits());
+    object[QStringLiteral("denseProviderHits")] = QString::number(counters.denseProviderHits());
+    object[QStringLiteral("sipLazyProviderHits")] = QString::number(counters.sipLazyProviderHits());
+    object[QStringLiteral("polynomialLazyProviderHits")] = QString::number(counters.polynomialLazyProviderHits());
+    object[QStringLiteral("sipCoordinatesEvaluated")] = QString::number(counters.sipCoordinatesEvaluated());
+    object[QStringLiteral("sharedSipPowerTableBuilds")] = QString::number(counters.sharedSipPowerTableBuilds());
+    object[QStringLiteral("explicitSipInverseEvaluations")] = QString::number(counters.explicitSipInverseEvaluations());
+    object[QStringLiteral("sipNewtonFallbackIterations")] = QString::number(counters.sipNewtonFallbackIterations());
+    object[QStringLiteral("polynomialCoordinatesEvaluated")] =
+        QString::number(counters.polynomialCoordinatesEvaluated());
+    object[QStringLiteral("sharedPolynomialPowerTableBuilds")] =
+        QString::number(counters.sharedPolynomialPowerTableBuilds());
+    object[QStringLiteral("lazyBlocksGenerated")] = QString::number(counters.lazyBlocksGenerated());
+    object[QStringLiteral("lazyCoordinatePairsGenerated")] = QString::number(counters.lazyCoordinatePairsGenerated());
+    object[QStringLiteral("peakLazyCoordinateBytes")] = QString::number(counters.peakLazyCoordinateBytes());
+    object[QStringLiteral("denseFallbackCount")] = QString::number(counters.denseFallbackCount());
+    object[QStringLiteral("lazyMapCancellations")] = QString::number(counters.lazyMapCancellations());
+    object[QStringLiteral("lazyMapFailures")] = QString::number(counters.lazyMapFailures());
+    return object;
+}
+
+[[nodiscard]] QString workflowReportHtmlTitle(const WorkflowManifest& manifest)
+{
+    const QString processLabel = manifest.processLabel.trimmed();
+    return processLabel.isEmpty() ? QStringLiteral("AfterNight Workflow Report")
+                                  : QStringLiteral("AfterNight %1 Report").arg(processLabel);
+}
+
+[[nodiscard]] bool shouldGenerateWorkflowReport(const WorkflowManifest& manifest,
+                                                const WorkflowExecutor::Result& result)
+{
+    const QString scope = manifest.executionScope.trimmed().toLower();
+    if (manifest.executionMode == ExecutionMode::RegistrationOnly || scope == QStringLiteral("registration_all") ||
+        scope == QStringLiteral("registration_group"))
+    {
+        return false;
+    }
+
+    if (scope.isEmpty() || scope == QStringLiteral("full") || scope == QStringLiteral("integration_group"))
+    {
+        return true;
+    }
+
+    return !manifest.integrationGroups.empty() || !result.integrationGroupResults.empty();
+}
+
+/// The file a staged copy was staged from: the staged path less its ".tmp_archive_<uuid>" suffix, or an empty string
+/// for a path that has no such suffix.
+[[nodiscard]] QString originalPathForStagedArchivePath(const QString& stagedPath)
+{
+    const QString uuidSuffixPrefix = QStringLiteral(".tmp_archive_");
+    const int suffixStart = stagedPath.lastIndexOf(uuidSuffixPrefix);
+    if (suffixStart < 0)
+    {
+        return {};
+    }
+
+    const QString uuidText = stagedPath.mid(suffixStart + uuidSuffixPrefix.size());
+    if (uuidText.isEmpty())
+    {
+        return {};
+    }
+
+    const QUuid uuid(QStringLiteral("{%1}").arg(uuidText));
+    if (uuid.isNull())
+    {
+        return {};
+    }
+
+    return stagedPath.left(suffixStart);
+}
+
+std::vector<RejectionMapResult> detectRejectionMapsForOutput(const QString& outputPath)
+{
+    std::vector<RejectionMapResult> maps;
+
+    const QFileInfo outInfo(outputPath);
+    if (!outInfo.exists())
+    {
+        return maps;
+    }
+
+    QSet<QString> seen;
+    const ArtifactTracker tracker(outInfo.absolutePath());
+    auto appendSpecs = [&](const QVector<ImageIntegration::RejectionMapSpec>& specs) {
+        for (const auto& spec : specs)
+        {
+            const QString mapPath = outInfo.dir().filePath(spec.filename);
+            const QFileInfo mapInfo(mapPath);
+            if (!mapInfo.exists())
+            {
+                continue;
+            }
+            if (!ImageIntegration::isStackingAuxiliaryOutputCurrent(tracker, outInfo.absoluteFilePath(), mapPath))
+            {
+                continue;
+            }
+            if (seen.contains(mapInfo.absoluteFilePath()))
+            {
+                continue;
+            }
+            seen.insert(mapInfo.absoluteFilePath());
+            maps.push_back(RejectionMapResult{spec.title, mapInfo.absoluteFilePath(), {}});
+        }
+    };
+
+    appendSpecs(ImageIntegration::rejectionMapsForOutput(outInfo, true));
+    appendSpecs(ImageIntegration::rejectionMapsForOutput(outInfo, false));
+
+    return maps;
+}
+
+std::vector<QualityMapResult> detectQualityMapsForOutput(const QString& outputPath)
+{
+    std::vector<QualityMapResult> maps;
+
+    const QFileInfo outInfo(outputPath);
+    if (!outInfo.exists())
+    {
+        return maps;
+    }
+
+    QSet<QString> seen;
+    const ArtifactTracker tracker(outInfo.absolutePath());
+    const auto specs = ImageIntegration::qualityMapsForOutput(outInfo, true);
+    for (const auto& spec : specs)
+    {
+        const QString mapPath = outInfo.dir().filePath(spec.filename);
+        const QFileInfo mapInfo(mapPath);
+        if (!mapInfo.exists())
+        {
+            continue;
+        }
+        if (!ImageIntegration::isStackingAuxiliaryOutputCurrent(tracker, outInfo.absoluteFilePath(), mapPath))
+        {
+            continue;
+        }
+        if (seen.contains(mapInfo.absoluteFilePath()))
+        {
+            continue;
+        }
+        seen.insert(mapInfo.absoluteFilePath());
+        maps.push_back(QualityMapResult{spec.title, mapInfo.absoluteFilePath(), {}});
+    }
+
+    return maps;
+}
+
+[[nodiscard]] RejectionClusterMapKind rejectionMapKindForTitle(const QString& title)
+{
+    const QString normalized = title.trimmed().toLower();
+    if (normalized.contains(QStringLiteral("low")))
+    {
+        return RejectionClusterMapKind::Low;
+    }
+    if (normalized.contains(QStringLiteral("high")))
+    {
+        return RejectionClusterMapKind::High;
+    }
+    return RejectionClusterMapKind::Merged;
+}
+
+void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRecord& qualityReport,
+                                const RejectionClusterMapKind mapKind)
+{
+    if (!qualityReport.hasSpatialRejectionClusters || qualityReport.spatialClusters.empty())
+    {
+        return;
+    }
+
+    QImage preview(previewPath);
+    if (preview.isNull())
+    {
+        return;
+    }
+
+    // Intentionally fixed colours, NOT theme tokens. These are painted into a PNG that is baked into
+    // the archived workflow report, so they have to stay stable and legible on their own: the file
+    // outlives the session, is read outside the app (and printed), and would otherwise encode
+    // whichever theme happened to be active when the run finished. Two reports of the same data
+    // must not differ because the user switched themes between them. This is not themed UI - do not
+    // route it through an::ui::tokens().
+    QColor stroke = QColor(255, 170, 0);
+    if (mapKind == RejectionClusterMapKind::Low)
+    {
+        stroke = QColor(64, 224, 255);
+    }
+    else if (mapKind == RejectionClusterMapKind::High)
+    {
+        stroke = QColor(255, 96, 96);
+    }
+
+    QPainter painter(&preview);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(stroke);
+    pen.setWidth(2);
+    painter.setPen(pen);
+
+    int labels_drawn = 0;
+    for (const auto& cluster : qualityReport.spatialClusters)
+    {
+        if (cluster.mapKind != mapKind)
+        {
+            continue;
+        }
+
+        const QRect rect(QPoint(cluster.minX, cluster.minY), QPoint(cluster.maxX, cluster.maxY));
+        painter.drawRect(rect);
+
+        if (labels_drawn < 6)
+        {
+            const QString label = QStringLiteral("%1 px").arg(static_cast<qulonglong>(cluster.pixelCount));
+            const QRect textRect(cluster.minX, (std::max)(0, cluster.minY - 16), 72, 14);
+            painter.fillRect(textRect.adjusted(-1, -1, 1, 1), QColor(0, 0, 0, 160));
+            painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, label);
+            ++labels_drawn;
+        }
+    }
+
+    preview.save(previewPath);
+}
+} // namespace
+
+WorkflowArchiver::WorkflowArchiver(const QString& outputDir, WorkflowExecutionCounterAccumulator* counters)
+    : m_outputDir(outputDir), m_maxHistoryEntries(ImageIntegration::Config::kRunHistoryMaxEntries),
+      m_maxHistoryBytes(static_cast<qint64>(ImageIntegration::Config::kRunHistoryMaxTotalBytes)), m_counters(counters)
+{
+}
+
+WorkflowArchiver::WorkflowArchiver(const QString& outputDir, WorkflowExecutionCounterAccumulator* counters,
+                                   ImageIntegration::ArchiveFileTransport archiveTransport)
+    : m_outputDir(outputDir), m_maxHistoryEntries(ImageIntegration::Config::kRunHistoryMaxEntries),
+      m_maxHistoryBytes(static_cast<qint64>(ImageIntegration::Config::kRunHistoryMaxTotalBytes)), m_counters(counters),
+      m_archiveTransport(std::move(archiveTransport))
+{
+}
+
+WorkflowArchiver::WorkflowArchiver(const QString& outputDir, WorkflowExecutionCounterAccumulator* counters,
+                                   WorkflowLogWriter workflowLogWriter)
+    : m_outputDir(outputDir), m_maxHistoryEntries(ImageIntegration::Config::kRunHistoryMaxEntries),
+      m_maxHistoryBytes(static_cast<qint64>(ImageIntegration::Config::kRunHistoryMaxTotalBytes)), m_counters(counters),
+      m_workflowLogWriter(std::move(workflowLogWriter))
+{
+}
+
+WorkflowArchiver::WorkflowArchiver(const QString& outputDir, int maxHistoryEntries, qint64 maxHistoryBytes,
+                                   WorkflowExecutionCounterAccumulator* counters)
+    : m_outputDir(outputDir), m_maxHistoryEntries((std::max)(1, maxHistoryEntries)),
+      m_maxHistoryBytes((std::max)(static_cast<qint64>(1), maxHistoryBytes)), m_counters(counters)
+{
+}
+
+WorkflowArchiver::WorkflowArchiver(const QString& outputDir, const int maxHistoryEntries, const qint64 maxHistoryBytes,
+                                   WorkflowExecutionCounterAccumulator* counters,
+                                   ImageIntegration::ArchiveFileTransport archiveTransport)
+    : m_outputDir(outputDir), m_maxHistoryEntries((std::max)(1, maxHistoryEntries)),
+      m_maxHistoryBytes((std::max)(static_cast<qint64>(1), maxHistoryBytes)), m_counters(counters),
+      m_archiveTransport(std::move(archiveTransport))
+{
+}
+
+void WorkflowArchiver::setEngineSession(const an::consumer::EngineSession* session)
+{
+    m_session = session;
+}
+
+int WorkflowArchiver::cleanupOrphanedStagedFiles(const QString& outputDir)
+{
+    const QString trimmedOutputDir = outputDir.trimmed();
+    if (trimmedOutputDir.isEmpty())
+    {
+        return 0;
+    }
+
+    const QDir root(trimmedOutputDir);
+    if (!root.exists())
+    {
+        return 0;
+    }
+
+    const QString kStagedSuffix = QStringLiteral(".tmp_archive");
+    const QString historyPrefix = QDir(trimmedOutputDir).filePath(QStringLiteral("history/"));
+    int processed = 0;
+
+    QDirIterator it(trimmedOutputDir, QStringList{QStringLiteral("*%1*").arg(kStagedSuffix)}, QDir::Files,
+                    QDirIterator::Subdirectories);
+    while (it.hasNext())
+    {
+        const QString stagedPath = it.next();
+        if (stagedPath.startsWith(historyPrefix))
+        {
+            continue;
+        }
+
+        const QString originalPath = originalPathForStagedArchivePath(stagedPath);
+        if (originalPath.isEmpty())
+        {
+            continue;
+        }
+
+        const bool originalExists = QFileInfo::exists(originalPath);
+
+        if (originalExists)
+        {
+            if (!QFile::remove(stagedPath))
+            {
+                LOG_WARNING("WorkflowArchiver: failed to remove orphaned staged file '{}'", stagedPath.toStdString());
+                continue;
+            }
+            ++processed;
+            continue;
+        }
+
+        if (QFile::rename(stagedPath, originalPath))
+        {
+            ++processed;
+            continue;
+        }
+        if (copyWorkflowFile(stagedPath, originalPath))
+        {
+            QFile::remove(stagedPath);
+            ++processed;
+            continue;
+        }
+
+        LOG_WARNING("WorkflowArchiver: failed to restore orphaned staged file '{}' to '{}'", stagedPath.toStdString(),
+                    originalPath.toStdString());
+    }
+
+    if (processed > 0)
+    {
+        LOG_INFO("WorkflowArchiver: cleaned {} orphaned staged file(s)", processed);
+    }
+    return processed;
+}
+
+WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest& manifest,
+                                                         WorkflowExecutor::Result& result)
+{
+    auto last_boundary = std::chrono::steady_clock::now();
+    const auto capture_phase_duration = [&last_boundary]() {
+        const auto current = std::chrono::steady_clock::now();
+        const qint64 duration_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(current - last_boundary).count();
+        last_boundary = current;
+        return (std::max)(static_cast<qint64>(0), duration_ms);
+    };
+    ArchiveResult archiveResult = commit(manifest, result, capture_phase_duration);
+    WorkflowExecutor::Result finalizedResult = result;
+    if (m_counters != nullptr)
+    {
+        finalizedResult.executionCounters = m_counters->snapshot();
+    }
+    finalizeTimingArtifacts(finalizedResult);
+    return archiveResult;
+}
+
+WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest& manifest,
+                                                         const WorkflowExecutor::Result& result)
+{
+    WorkflowExecutor::Result mutableResult = result;
+    return commit(manifest, mutableResult);
+}
+
+WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest& manifest,
+                                                         WorkflowExecutor::Result& result,
+                                                         const CapturePhaseDuration& capturePhaseDuration)
+{
+    ArchiveResult archiveResult;
+    m_reportMarkdownPath.clear();
+    m_reportHtmlPath.clear();
+    m_reportMarkdownTemplate.clear();
+    m_reportHtmlTemplate.clear();
+    m_manifestPath.clear();
+    m_logPath.clear();
+
+    const auto finish_archive_phase = [&]() { archiveResult.archiveMs += capturePhaseDuration(); };
+
+    if (m_outputDir.isEmpty())
+    {
+        archiveResult.error = "Output directory is empty.";
+        finish_archive_phase();
+        return archiveResult;
+    }
+
+    // 1. Create history/executionId directory
+    QDir outputRoot(m_outputDir);
+    if (!outputRoot.exists())
+    {
+        outputRoot.mkpath(".");
+    }
+
+    const QString historyPath = outputRoot.filePath("history");
+    QDir historyDir(historyPath);
+    if (!historyDir.exists() && !historyDir.mkpath("."))
+    {
+        archiveResult.error = "Failed to create history directory.";
+        finish_archive_phase();
+        return archiveResult;
+    }
+
+    const QString executionDirName = manifest.executionId;
+    if (!isSafeArchivePathComponent(executionDirName))
+    {
+        archiveResult.error = "Execution ID is missing or contains unsafe path characters.";
+        finish_archive_phase();
+        return archiveResult;
+    }
+
+    const QString runDirPath = historyDir.filePath(executionDirName);
+    if (!isPathContainedBy(historyPath, runDirPath))
+    {
+        archiveResult.error = "Execution archive path escapes the history directory.";
+        finish_archive_phase();
+        return archiveResult;
+    }
+    if (QFileInfo::exists(runDirPath))
+    {
+        archiveResult.error = "Execution archive directory already exists.";
+        finish_archive_phase();
+        return archiveResult;
+    }
+    QDir runDir(runDirPath);
+    if (!historyDir.mkdir(executionDirName) || !runDir.exists())
+    {
+        archiveResult.error = "Failed to create run directory.";
+        finish_archive_phase();
+        return archiveResult;
+    }
+    archiveResult.archivePath = runDirPath;
+    const auto abort_archive_transaction = [&](const QString& error) {
+        archiveResult.error = error;
+        archiveResult.success = false;
+        revertStagedFiles(result);
+        if (QFileInfo::exists(runDirPath) && !QDir(runDirPath).removeRecursively())
+        {
+            LOG_WARNING("WorkflowArchiver: Failed to remove incomplete archive {}", runDirPath.toStdString());
+        }
+        m_manifestPath.clear();
+        m_reportMarkdownPath.clear();
+        m_reportHtmlPath.clear();
+        m_logPath.clear();
+    };
+    const WorkflowManifest persistedManifest = manifest.redactedForPersistence();
+
+    // 2. Materialize previews and collect archive metadata before payload retention is decided.
+    WorkflowExecutor::Result reportResult = result;
+    int itemsArchived = 0;
+    bool hasStagedFiles = false;
+    QHash<QString, QJsonArray> archivedFilesByGroup;
+    QHash<QString, QString> archivedPreviewByGroup;
+    QHash<QString, QJsonArray> archivedRejectionMapsByGroup;
+    QHash<QString, QJsonArray> archivedQualityMapsByGroup;
+    std::vector<QString> groupDirNames;
+    groupDirNames.reserve(result.integrationGroupResults.size());
+
+    auto moveFile = [this](const QString& src, const QString& dst) -> bool {
+        if (QFile::exists(dst))
+            QFile::remove(dst);
+
+        QFileInfo dstInfo(dst);
+        QDir dstDir = dstInfo.dir();
+        if (!dstDir.exists())
+            dstDir.mkpath(".");
+
+        if (QFile::rename(src, dst))
+            return true;
+        if (copyWorkflowFile(src, dst, m_counters))
+        {
+            QFile::remove(src);
+            return true;
+        }
+        return false;
+    };
+
+    QHash<QString, int> groupDirBaseCounts;
+    for (const auto& groupResult : result.integrationGroupResults)
+    {
+        const QString baseName = ImageIntegration::sanitizeFilename(groupResult.groupKey);
+        groupDirBaseCounts[baseName] = groupDirBaseCounts.value(baseName, 0) + 1;
+    }
+
+    QSet<QString> usedGroupDirNames;
+    for (int groupIndex = 0; groupIndex < static_cast<int>(result.integrationGroupResults.size()); ++groupIndex)
+    {
+        auto& groupResult = result.integrationGroupResults[groupIndex];
+        auto& reportGroupResult = reportResult.integrationGroupResults[groupIndex];
+
+        const QString baseGroupDirName = ImageIntegration::sanitizeFilename(groupResult.groupKey);
+        QString groupDirName = baseGroupDirName;
+        if (groupDirBaseCounts.value(baseGroupDirName, 0) > 1)
+        {
+            groupDirName = QStringLiteral("%1_%2").arg(baseGroupDirName,
+                                                       ImageIntegration::stableShortHash(groupResult.groupKey, 8));
+            int dedupeIndex = 2;
+            while (usedGroupDirNames.contains(groupDirName))
+            {
+                groupDirName = QStringLiteral("%1_%2_%3")
+                                   .arg(baseGroupDirName, ImageIntegration::stableShortHash(groupResult.groupKey, 8))
+                                   .arg(dedupeIndex);
+                ++dedupeIndex;
+            }
+
+            LOG_WARNING("WorkflowArchiver: group directory collision detected for '{}'; using '{}'",
+                        groupResult.groupKey.toStdString(), groupDirName.toStdString());
+        }
+        usedGroupDirNames.insert(groupDirName);
+        groupDirNames.push_back(groupDirName);
+        const QString groupDirPath = runDir.filePath("groups/" + groupDirName);
+        QDir groupDir(groupDirPath);
+        if (!groupDir.exists())
+        {
+            groupDir.mkpath(".");
+        }
+
+        const QString reportPreviewDirPath = runDir.filePath(QStringLiteral("report_previews/%1").arg(groupDirName));
+        QDir reportPreviewDir(reportPreviewDirPath);
+        if (!reportPreviewDir.exists())
+        {
+            reportPreviewDir.mkpath(QStringLiteral("."));
+        }
+
+        QJsonArray archivedFilesJson;
+
+        if (!groupResult.previewPath.trimmed().isEmpty() && QFile::exists(groupResult.previewPath))
+        {
+            const QString previewDest = groupDir.filePath("preview.png");
+            if (moveFile(groupResult.previewPath, previewDest))
+            {
+                const QString archivedPreviewPath = QStringLiteral("groups/%1/preview.png").arg(groupDirName);
+                archivedPreviewByGroup.insert(groupResult.groupKey, archivedPreviewPath);
+                reportGroupResult.previewPath = archivedPreviewPath;
+            }
+            else
+            {
+                LOG_WARNING("WorkflowArchiver: Failed to move preview {} to {}", groupResult.previewPath.toStdString(),
+                            previewDest.toStdString());
+            }
+        }
+
+        // Reuse P1-02's compact resident-master JPEG exactly when it is valid.
+        // Compatibility fallback is bounded so it cannot recreate the old full-resolution allocation.
+        const QString reportPreviewPath = reportPreviewDir.filePath(QStringLiteral("master.jpg"));
+        const bool preparedPreviewIsValid =
+            isValidPreparedReportPreview(groupResult.reportPreviewJpeg, groupResult.reportPreviewSize);
+        if (preparedPreviewIsValid)
+        {
+            if (!writeAtomicFile(reportPreviewPath, groupResult.reportPreviewJpeg))
+            {
+                LOG_WARNING("WorkflowArchiver: Failed to write prepared report preview for group {}",
+                            groupResult.groupKey.toStdString());
+            }
+        }
+        else if (!groupResult.reportPreviewJpeg.isEmpty())
+        {
+            LOG_WARNING("WorkflowArchiver: Ignoring invalid prepared report preview for group {}",
+                        groupResult.groupKey.toStdString());
+        }
+
+        // Without a session no image is read: the report shows the previews the run prepared and nothing else.
+        if (m_session != nullptr && !preparedPreviewIsValid && !groupResult.reportPreviewPreparedForCurrentRun &&
+            !groupResult.outputPath.trimmed().isEmpty() && QFile::exists(groupResult.outputPath))
+        {
+            ImageIntegration::generateReportPreviewJpeg(*m_session, groupResult.outputPath, reportPreviewDirPath,
+                                                        QStringLiteral("master.jpg"), kMaximumReportPreviewSize);
+        }
+        groupResult.reportPreviewJpeg.clear();
+        groupResult.reportPreviewSize = {};
+        reportGroupResult.reportPreviewJpeg.clear();
+        reportGroupResult.reportPreviewSize = {};
+
+        archivedFilesByGroup.insert(groupResult.groupKey, archivedFilesJson);
+
+        std::vector<RejectionMapResult> rejectionMaps = groupResult.rejectionMaps;
+        if (rejectionMaps.empty() && groupResult.success)
+        {
+            rejectionMaps = detectRejectionMapsForOutput(groupResult.outputPath);
+        }
+
+        QJsonArray rejectionMapsJson;
+        std::vector<RejectionMapResult> reportRejectionMaps;
+        reportRejectionMaps.reserve(rejectionMaps.size());
+
+        int rejectionPreviewIndex = 1;
+        for (auto rejectionMap : rejectionMaps)
+        {
+            QJsonObject rejectionJson;
+            rejectionJson["title"] = rejectionMap.title;
+            rejectionJson["path"] = rejectionMap.path;
+
+            const QFileInfo mapInfo(rejectionMap.path);
+            if (mapInfo.exists())
+            {
+                rejectionJson["sizeBytes"] = mapInfo.size();
+
+                // Report-grade rejection map preview JPEG, bounded like the master preview.
+                const QString previewName = QStringLiteral("rejection_map_%1.jpg").arg(rejectionPreviewIndex);
+                if (m_session != nullptr &&
+                    ImageIntegration::generateReportPreviewJpeg(*m_session, rejectionMap.path, reportPreviewDirPath,
+                                                                previewName, kMaximumReportPreviewSize))
+                {
+                    applySpatialClusterOverlay(QDir(reportPreviewDirPath).filePath(previewName),
+                                               groupResult.qualityReport, rejectionMapKindForTitle(rejectionMap.title));
+                }
+            }
+
+            reportRejectionMaps.push_back(std::move(rejectionMap));
+            rejectionMapsJson.append(rejectionJson);
+            ++rejectionPreviewIndex;
+        }
+
+        reportGroupResult.rejectionMaps = std::move(reportRejectionMaps);
+        archivedRejectionMapsByGroup.insert(groupResult.groupKey, rejectionMapsJson);
+
+        std::vector<QualityMapResult> qualityMaps = groupResult.qualityMaps;
+        if (qualityMaps.empty() && groupResult.success)
+        {
+            qualityMaps = detectQualityMapsForOutput(groupResult.outputPath);
+        }
+
+        QJsonArray qualityMapsJson;
+        std::vector<QualityMapResult> reportQualityMaps;
+        reportQualityMaps.reserve(qualityMaps.size());
+
+        int qualityPreviewIndex = 1;
+        for (auto qualityMap : qualityMaps)
+        {
+            QJsonObject qualityJson;
+            qualityJson["title"] = qualityMap.title;
+            qualityJson["path"] = qualityMap.path;
+
+            const QFileInfo mapInfo(qualityMap.path);
+            if (mapInfo.exists())
+            {
+                qualityJson["sizeBytes"] = mapInfo.size();
+
+                if (m_session != nullptr)
+                {
+                    ImageIntegration::generateReportPreviewJpeg(
+                        *m_session, qualityMap.path, reportPreviewDirPath,
+                        QStringLiteral("quality_map_%1.jpg").arg(qualityPreviewIndex), kMaximumReportPreviewSize);
+                }
+            }
+
+            reportQualityMaps.push_back(std::move(qualityMap));
+            qualityMapsJson.append(qualityJson);
+            ++qualityPreviewIndex;
+        }
+
+        reportGroupResult.qualityMaps = std::move(reportQualityMaps);
+        archivedQualityMapsByGroup.insert(groupResult.groupKey, qualityMapsJson);
+    }
+
+    qint64 knownCurrentRunBytes = directorySizeBytes(runDirPath);
+    QSet<QString> accountedPayloadPaths;
+    const auto accountKnownPayload = [&knownCurrentRunBytes, &accountedPayloadPaths](const QString& path) {
+        const QFileInfo info(path);
+        if (!info.exists() || !info.isFile())
+        {
+            return;
+        }
+
+        const QString normalizedPath = QDir::cleanPath(info.absoluteFilePath());
+        if (accountedPayloadPaths.contains(normalizedPath))
+        {
+            return;
+        }
+        accountedPayloadPaths.insert(normalizedPath);
+        knownCurrentRunBytes =
+            saturatingAddBytes(knownCurrentRunBytes, (std::max)(static_cast<qint64>(0), info.size()));
+    };
+
+    for (const auto& groupResult : result.integrationGroupResults)
+    {
+        if (groupResult.success)
+        {
+            accountKnownPayload(groupResult.outputPath);
+        }
+        for (const auto& staged : groupResult.stagedFiles)
+        {
+            if (QFileInfo::exists(staged.stagedPath))
+            {
+                hasStagedFiles = true;
+                accountKnownPayload(staged.stagedPath);
+            }
+        }
+    }
+
+    const QString metricsSnapshotSource = outputRoot.filePath(QStringLiteral("registration_metrics.db"));
+    // VACUUM INTO includes committed pages that have not yet been checkpointed from the WAL.
+    // Count the WAL sidecar before deciding whether this run fits the retention budget.
+    accountKnownPayload(metricsSnapshotSource);
+    accountKnownPayload(metricsSnapshotSource + QStringLiteral("-wal"));
+    knownCurrentRunBytes =
+        saturatingAddBytes(knownCurrentRunBytes, pendingMandatoryMetadataBytes(persistedManifest, reportResult));
+    const ArchiveRetentionPreflight retention =
+        preflightArchiveRetention(historyDir, runDirPath, knownCurrentRunBytes, m_maxHistoryEntries, m_maxHistoryBytes);
+
+    const auto write_group_summary = [&](const int groupIndex) {
+        const auto& groupResult = result.integrationGroupResults[static_cast<size_t>(groupIndex)];
+        const auto& reportGroupResult = reportResult.integrationGroupResults[static_cast<size_t>(groupIndex)];
+        QJsonObject groupSummary;
+        groupSummary[QStringLiteral("schemaVersion")] = 1;
+        groupSummary[QStringLiteral("groupKey")] = groupResult.groupKey;
+        groupSummary[QStringLiteral("outputPath")] = reportGroupResult.outputPath;
+        groupSummary[QStringLiteral("outputFilename")] = groupResult.outputFilename;
+        groupSummary[QStringLiteral("outputBytes")] = groupResult.outputBytes;
+        groupSummary[QStringLiteral("previewPath")] =
+            archivedPreviewByGroup.value(groupResult.groupKey, groupResult.previewPath);
+        groupSummary[QStringLiteral("outputRetentionStatus")] =
+            outputRetentionStatusToString(groupResult.outputRetentionStatus);
+        if (!groupResult.outputRetentionReason.trimmed().isEmpty())
+        {
+            groupSummary[QStringLiteral("outputRetentionReason")] = groupResult.outputRetentionReason;
+        }
+        groupSummary[QStringLiteral("lightFrameCount")] = groupResult.lightFrameCount;
+        groupSummary[QStringLiteral("registrationGroupKey")] = groupResult.registrationGroupKey;
+        groupSummary[QStringLiteral("registrationInputPolicy")] = groupResult.registrationInputPolicy;
+        groupSummary[QStringLiteral("masterSolution")] = masterSolutionOutcomeToString(groupResult.masterSolution);
+        if (!groupResult.masterSolutionDetail.isEmpty())
+        {
+            groupSummary[QStringLiteral("masterSolutionDetail")] = groupResult.masterSolutionDetail;
+        }
+        groupSummary[QStringLiteral("durationMs")] = groupResult.durationMs;
+        groupSummary[QStringLiteral("result")] =
+            groupResult.success ? QStringLiteral("success") : QStringLiteral("failed");
+        if (groupResult.finalizationTiming.captured)
+        {
+            groupSummary[QStringLiteral("finalizationTiming")] =
+                stackGroupFinalizationTimingToJson(groupResult.finalizationTiming);
+        }
+        groupSummary[QStringLiteral("archivedFiles")] = archivedFilesByGroup.value(groupResult.groupKey);
+        groupSummary[QStringLiteral("rejectionMaps")] = archivedRejectionMapsByGroup.value(groupResult.groupKey);
+        groupSummary[QStringLiteral("qualityMaps")] = archivedQualityMapsByGroup.value(groupResult.groupKey);
+        if (groupResult.qualityReport.valid)
+        {
+            groupSummary[QStringLiteral("qualityReport")] = stackingQualityReportToJson(groupResult.qualityReport);
+        }
+
+        const QString groupSummaryPath =
+            QDir(runDir.filePath(QStringLiteral("groups/%1").arg(groupDirNames[static_cast<size_t>(groupIndex)])))
+                .filePath(QStringLiteral("group_summary.json"));
+        if (!writeAtomicFile(groupSummaryPath, QJsonDocument(groupSummary).toJson(QJsonDocument::Indented)))
+        {
+            LOG_WARNING("WorkflowArchiver: Failed to write group_summary.json for group {}",
+                        groupResult.groupKey.toStdString());
+        }
+    };
+
+    for (int groupIndex = 0; groupIndex < static_cast<int>(result.integrationGroupResults.size()); ++groupIndex)
+    {
+        auto& groupResult = result.integrationGroupResults[groupIndex];
+        auto& reportGroupResult = reportResult.integrationGroupResults[groupIndex];
+        const QFileInfo outputInfo(groupResult.outputPath);
+
+        if (groupResult.success && outputInfo.exists() && outputInfo.isFile())
+        {
+            if (!retention.retainPayloads)
+            {
+                groupResult.outputRetentionStatus = OutputRetentionStatus::NotRetainedByPolicy;
+                groupResult.outputRetentionReason = retention.reason;
+            }
+            else
+            {
+                const bool committed_snapshot_matches =
+                    !groupResult.committedArtifact.has_value() ||
+                    groupResult.committedArtifact->matchesFileSnapshot(outputInfo.absoluteFilePath());
+                if (!committed_snapshot_matches)
+                {
+                    LOG_WARNING("WorkflowArchiver: current output no longer matches committed snapshot {}",
+                                outputInfo.absoluteFilePath().toStdString());
+                    groupResult.outputRetentionStatus = OutputRetentionStatus::NotRetainedByArchiveFailure;
+                    groupResult.outputRetentionReason =
+                        QStringLiteral("the scientific output changed after it was committed");
+                }
+                else
+                {
+                    const QString fileName = outputInfo.fileName();
+                    const QString groupArchivePath = runDir.filePath(
+                        QStringLiteral("groups/%1").arg(groupDirNames[static_cast<size_t>(groupIndex)]));
+                    const QString destPath = QDir(groupArchivePath).filePath(fileName);
+                    if (fileName.isEmpty() || !isPathContainedBy(groupArchivePath, destPath))
+                    {
+                        groupResult.outputRetentionStatus = OutputRetentionStatus::NotRetainedByArchiveFailure;
+                        groupResult.outputRetentionReason = QStringLiteral("the scientific output path is unsafe");
+                        continue;
+                    }
+                    const ImageIntegration::ArchiveFileTransportRequest transportRequest =
+                        groupResult.committedArtifact.has_value()
+                            ? ImageIntegration::ArchiveFileTransportRequest::forImmutableArtifact(
+                                  *groupResult.committedArtifact, destPath, m_counters)
+                            : ImageIntegration::ArchiveFileTransportRequest::forOrdinaryCopy(
+                                  outputInfo.absoluteFilePath(), destPath, m_counters);
+                    ImageIntegration::ArchiveFileTransportResult transportResult =
+                        m_archiveTransport.transport(transportRequest);
+                    archiveResult.transportDiagnostics.accumulate(transportResult.diagnostics);
+                    archiveResult.payloadTransports.push_back(transportResult);
+                    if (transportResult.succeeded())
+                    {
+                        const QFileInfo archivedInfo(destPath);
+                        ++itemsArchived;
+                        QJsonObject archivedObject;
+                        archivedObject[QStringLiteral("filename")] = archivedInfo.fileName();
+                        archivedObject[QStringLiteral("sizeBytes")] = archivedInfo.size();
+                        if (groupResult.committedArtifact.has_value())
+                        {
+                            archivedObject[QStringLiteral("sha256")] = groupResult.committedArtifact->digest().sha256();
+                            archivedObject[QStringLiteral("digestProvenance")] = QString::fromLatin1(
+                                ImageIntegration::schema::kArtifactDigestProvenanceCurrentRunCommitted);
+                            archivedObject[QStringLiteral("sourceModifiedAtUtc")] =
+                                groupResult.committedArtifact->modificationTimestamp().toUTC().toString(
+                                    Qt::ISODateWithMs);
+                        }
+                        archivedFilesByGroup.insert(groupResult.groupKey, QJsonArray{archivedObject});
+                        reportGroupResult.outputPath =
+                            QStringLiteral("groups/%1/%2")
+                                .arg(groupDirNames[static_cast<size_t>(groupIndex)], fileName);
+                        groupResult.outputRetentionStatus = OutputRetentionStatus::RetainedInHistory;
+                        groupResult.outputRetentionReason.clear();
+                    }
+                    else
+                    {
+                        LOG_WARNING("WorkflowArchiver: Failed to transport current output {} to {}: {}",
+                                    outputInfo.absoluteFilePath().toStdString(), destPath.toStdString(),
+                                    transportResult.error.toStdString());
+                        groupResult.outputRetentionStatus = OutputRetentionStatus::NotRetainedByArchiveFailure;
+                        if (transportResult.outcome ==
+                            ImageIntegration::ArchiveFileTransportOutcome::SourceChangedBeforeTransfer)
+                        {
+                            groupResult.outputRetentionReason =
+                                QStringLiteral("the scientific output changed after it was committed");
+                        }
+                        else if (transportResult.outcome ==
+                                 ImageIntegration::ArchiveFileTransportOutcome::SourceChangedDuringTransfer)
+                        {
+                            groupResult.outputRetentionReason =
+                                QStringLiteral("the scientific output changed while it was being archived");
+                        }
+                        else
+                        {
+                            groupResult.outputRetentionReason =
+                                QStringLiteral("the history copy could not be completed");
+                        }
+                    }
+                }
+            }
+        }
+        else if (groupResult.success && !groupResult.outputPath.trimmed().isEmpty())
+        {
+            groupResult.outputRetentionStatus = OutputRetentionStatus::NotRetainedByArchiveFailure;
+            groupResult.outputRetentionReason =
+                QStringLiteral("the scientific output file was unavailable for archiving");
+        }
+
+        reportGroupResult.outputRetentionStatus = groupResult.outputRetentionStatus;
+        reportGroupResult.outputRetentionReason = groupResult.outputRetentionReason;
+
+        write_group_summary(groupIndex);
+    }
+
+    const QDateTime archiveNow = QDateTime::currentDateTime();
+
+    QJsonObject reportContext;
+    reportContext[QStringLiteral("schemaVersion")] = 3;
+    reportContext[QStringLiteral("executionId")] = manifest.executionId;
+    reportContext[QStringLiteral("archivedAtUtc")] = archiveNow.toUTC().toString(Qt::ISODateWithMs);
+    reportContext[QStringLiteral("archivedAtLocal")] = archiveNow.toString(Qt::ISODateWithMs);
+    reportContext[QStringLiteral("timeZoneId")] = QString::fromUtf8(QTimeZone::systemTimeZoneId());
+    reportContext[QStringLiteral("utcOffsetSeconds")] = archiveNow.offsetFromUtc();
+    if (qApp)
+    {
+        reportContext[QStringLiteral("appVersion")] = qApp->applicationVersion();
+    }
+    reportContext[QStringLiteral("deferWorkflowTiming")] = result.executorTiming.captured;
+
+    // 3. Write workflow_log.txt
+    m_logPath = runDir.filePath(QStringLiteral("workflow_log.txt"));
+    bool workflowLogPersisted = true;
+    if (!reportResult.capturedLog.isEmpty())
+    {
+        const QByteArray workflowLogBytes = reportResult.capturedLog.toUtf8();
+        workflowLogPersisted = m_workflowLogWriter ? m_workflowLogWriter(m_logPath, workflowLogBytes)
+                                                   : writeAtomicFile(m_logPath, workflowLogBytes, QIODevice::Text);
+        if (!workflowLogPersisted)
+        {
+            LOG_ERROR("WorkflowArchiver: Failed to write workflow_log.txt");
+            abort_archive_transaction(QStringLiteral("Failed to write workflow_log.txt"));
+            finish_archive_phase();
+            return archiveResult;
+        }
+    }
+
+    if (retention.retainPayloads && QFile::exists(metricsSnapshotSource))
+    {
+        const QString metricsSnapshotDest = runDir.filePath(QStringLiteral("registration_metrics.db"));
+        ImageIntegration::ArchiveFileTransportResult transportResult =
+            snapshotSqliteDatabase(metricsSnapshotSource, metricsSnapshotDest, m_counters);
+        archiveResult.transportDiagnostics.accumulate(transportResult.diagnostics);
+        archiveResult.payloadTransports.push_back(transportResult);
+        if (!transportResult.succeeded())
+        {
+            LOG_WARNING("WorkflowArchiver: Failed to snapshot registration_metrics.db into archive '{}'",
+                        metricsSnapshotDest.toStdString());
+        }
+    }
+
+    const auto write_workflow_report = [&]() {
+        if (!shouldGenerateWorkflowReport(persistedManifest, reportResult))
+        {
+            return;
+        }
+
+        finish_archive_phase();
+
+        ImageIntegration::Reporting::WorkflowReportBuilder reportBuilder(persistedManifest, reportResult, runDirPath,
+                                                                         reportContext, m_counters, m_session);
+        const QString reportContent = reportBuilder.build();
+        const QString reportPath = runDir.filePath(QStringLiteral("workflow_report.md"));
+        if (writeAtomicFile(reportPath, reportContent.toUtf8(), QIODevice::Text))
+        {
+            m_reportMarkdownPath = reportPath;
+            m_reportMarkdownTemplate = reportContent;
+            archiveResult.reportPath = reportPath;
+
+            const QString reportHtmlPath = runDir.filePath("workflow_report.html");
+            m_reportHtmlPath = reportHtmlPath;
+            QString htmlError;
+            if (!ImageIntegration::Reporting::writeStyledHtmlFromMarkdown(
+                    reportContent, reportHtmlPath, workflowReportHtmlTitle(persistedManifest), &htmlError))
+            {
+                LOG_WARNING("WorkflowArchiver: Failed to write workflow_report.html: {}", htmlError.toStdString());
+            }
+            else
+            {
+                QFile htmlFile(reportHtmlPath);
+                if (htmlFile.open(QIODevice::ReadOnly | QIODevice::Text))
+                {
+                    m_reportHtmlTemplate = QString::fromUtf8(htmlFile.readAll());
+                }
+            }
+        }
+        else
+        {
+            LOG_WARNING("WorkflowArchiver: Failed to write workflow_report.md");
+        }
+
+        archiveResult.reportMs += capturePhaseDuration();
+    };
+
+    // 3b. Write workflow_report.md for integration executions only.
+    write_workflow_report();
+
+    // 4. Write workflow_manifest.json (v3)
+    QJsonObject root;
+    root["schemaVersion"] = 3;
+    root["executionId"] = manifest.executionId;
+
+    root["archivedAtUtc"] = archiveNow.toUTC().toString(Qt::ISODateWithMs);
+    root["archivedAtLocal"] = archiveNow.toString(Qt::ISODateWithMs);
+    root["timeZoneId"] = QString::fromUtf8(QTimeZone::systemTimeZoneId());
+    root["utcOffsetSeconds"] = archiveNow.offsetFromUtc();
+
+    if (qApp)
+    {
+        root["appVersion"] = qApp->applicationVersion();
+    }
+    root["archiveReason"] = hasStagedFiles ? "overwrite" : "run";
+
+    QString modeStr = "Full";
+    if (manifest.executionMode == ExecutionMode::Incremental)
+        modeStr = "Incremental";
+    else if (manifest.executionMode == ExecutionMode::RegistrationOnly)
+        modeStr = "RegistrationOnly";
+
+    root["executionMode"] = modeStr;
+    root["executionScope"] = manifest.executionScope;
+    if (!persistedManifest.processLabel.trimmed().isEmpty())
+    {
+        root[QStringLiteral("processLabel")] = persistedManifest.processLabel.trimmed();
+    }
+    if (!persistedManifest.processingProfileId.trimmed().isEmpty() ||
+        !persistedManifest.processingProfileLabel.trimmed().isEmpty())
+    {
+        QJsonObject processingProfile;
+        if (!persistedManifest.processingProfileId.trimmed().isEmpty())
+        {
+            processingProfile.insert(QStringLiteral("id"), persistedManifest.processingProfileId.trimmed());
+        }
+        if (!persistedManifest.processingProfileLabel.trimmed().isEmpty())
+        {
+            processingProfile.insert(QStringLiteral("label"), persistedManifest.processingProfileLabel.trimmed());
+        }
+        root[QStringLiteral("processingProfile")] = processingProfile;
+    }
+    root["totalDurationMs"] = result.totalDurationMs;
+    if (result.preparationTiming.hasMeasurements())
+    {
+        QJsonObject preparationTiming;
+        preparationTiming[QStringLiteral("manifestBuildMs")] = result.preparationTiming.manifestBuildMs;
+        preparationTiming[QStringLiteral("planAndValidationMs")] = result.preparationTiming.planAndValidationMs;
+        root[QStringLiteral("preparationTiming")] = preparationTiming;
+    }
+    if (result.executorTiming.captured)
+    {
+        QJsonObject executorTiming;
+        executorTiming[QStringLiteral("stageExecutionMs")] = result.executorTiming.stageExecutionMs;
+        executorTiming[QStringLiteral("stateCommitMs")] = result.executorTiming.stateCommitMs;
+        executorTiming[QStringLiteral("archiveMs")] = result.executorTiming.archiveMs;
+        executorTiming[QStringLiteral("reportMs")] = result.executorTiming.reportMs;
+        root[QStringLiteral("executorTiming")] = executorTiming;
+    }
+    if (m_counters != nullptr)
+    {
+        root[QStringLiteral("executionCounters")] = workflowExecutionCountersToJson(m_counters->snapshot());
+    }
+    else if (result.executionCounters.has_value())
+    {
+        root[QStringLiteral("executionCounters")] = workflowExecutionCountersToJson(result.executionCounters.value());
+    }
+    root["overallResult"] = result.success ? "success" : (result.cancelled ? "cancelled" : "failed");
+    root["warningCount"] = result.warningCount;
+
+    root["manifest"] = persistedManifest.toJson();
+
+    QJsonArray stageResultsJson;
+    for (const auto& sr : result.stageResults)
+    {
+        QJsonObject s;
+        s["stage"] = sr.stageName;
+        s["status"] = sr.status;
+        s["durationMs"] = sr.durationMs;
+        if (sr.groupsProcessed > 0)
+            s["groupsProcessed"] = sr.groupsProcessed;
+        stageResultsJson.append(s);
+    }
+    root["stageResults"] = stageResultsJson;
+
+    const auto build_group_results_json = [&]() {
+        QJsonArray groupResultsJson;
+        for (const auto& gr : reportResult.integrationGroupResults)
+        {
+            QJsonObject g;
+            g["groupKey"] = gr.groupKey;
+            g["outputPath"] = gr.outputPath;
+            g["outputFilename"] = gr.outputFilename;
+            g["outputBytes"] = gr.outputBytes;
+            g["previewPath"] = archivedPreviewByGroup.value(gr.groupKey, gr.previewPath);
+            g["outputRetentionStatus"] = outputRetentionStatusToString(gr.outputRetentionStatus);
+            if (!gr.outputRetentionReason.trimmed().isEmpty())
+            {
+                g["outputRetentionReason"] = gr.outputRetentionReason;
+            }
+            g["lightFrameCount"] = gr.lightFrameCount;
+            g["registrationGroupKey"] = gr.registrationGroupKey;
+            g["registrationInputPolicy"] = gr.registrationInputPolicy;
+            g["masterSolution"] = masterSolutionOutcomeToString(gr.masterSolution);
+            if (!gr.masterSolutionDetail.isEmpty())
+            {
+                g["masterSolutionDetail"] = gr.masterSolutionDetail;
+            }
+            g["durationMs"] = gr.durationMs;
+            g["result"] = gr.success ? "success" : "failed";
+            if (gr.finalizationTiming.captured)
+            {
+                g["finalizationTiming"] = stackGroupFinalizationTimingToJson(gr.finalizationTiming);
+            }
+
+            g["archivedFiles"] = archivedFilesByGroup.value(gr.groupKey);
+            g["rejectionMaps"] = archivedRejectionMapsByGroup.value(gr.groupKey);
+            g["qualityMaps"] = archivedQualityMapsByGroup.value(gr.groupKey);
+            if (gr.qualityReport.valid)
+            {
+                g["qualityReport"] = stackingQualityReportToJson(gr.qualityReport);
+            }
+
+            groupResultsJson.append(g);
+        }
+        return groupResultsJson;
+    };
+    root["integrationGroupResults"] = build_group_results_json();
+
+    QJsonArray calibrationResultsJson;
+    for (const auto& calibrationResult : result.calibrationGroupResults)
+    {
+        QJsonObject c;
+        c["type"] = calibrationResult.type;
+        c["groupKey"] = calibrationResult.groupKey;
+        c["masterPath"] = calibrationResult.masterPath;
+        c["inputCount"] = calibrationResult.inputCount;
+        c["result"] = calibrationResult.success ? "success" : "failed";
+        calibrationResultsJson.append(c);
+    }
+    root["calibrationGroupResults"] = calibrationResultsJson;
+
+    QJsonArray alignmentResultsJson;
+    for (const auto& ar : result.alignmentGroupResults)
+    {
+        QJsonObject a;
+        a[QStringLiteral("groupKey")] = ar.groupKey;
+        a[QStringLiteral("totalAligned")] = ar.totalAligned;
+        a[QStringLiteral("sipCorrectedCount")] = ar.sipCorrectedCount;
+        a[QStringLiteral("caCorrectedCount")] = ar.caCorrectedCount;
+        a[QStringLiteral("caPassthroughCount")] = ar.caPassthroughCount;
+        alignmentResultsJson.append(a);
+    }
+    if (!alignmentResultsJson.isEmpty())
+    {
+        root[QStringLiteral("alignmentGroupResults")] = alignmentResultsJson;
+    }
+
+    QJsonArray warningsJson;
+    for (const auto& w : result.warnings)
+        warningsJson.append(w);
+    root["warnings"] = warningsJson;
+
+    QJsonArray errorsJson;
+    for (const auto& e : result.errors)
+        errorsJson.append(e);
+    root["errors"] = errorsJson;
+
+    const QString manifestPath = runDir.filePath(QStringLiteral("workflow_manifest.json"));
+    if (writeAtomicFile(manifestPath, QJsonDocument(root).toJson(QJsonDocument::Indented)))
+    {
+        m_manifestPath = manifestPath;
+        archiveResult.manifestPath = manifestPath;
+        archiveResult.success = true;
+    }
+    else
+    {
+        abort_archive_transaction(QStringLiteral("Failed to write workflow_manifest.json"));
+        finish_archive_phase();
+        return archiveResult;
+    }
+
+    if (archiveResult.success)
+    {
+        for (int groupIndex = 0; groupIndex < static_cast<int>(result.integrationGroupResults.size()); ++groupIndex)
+        {
+            const auto& groupResult = result.integrationGroupResults[groupIndex];
+            const QDir groupDir(
+                runDir.filePath(QStringLiteral("groups/%1").arg(groupDirNames[static_cast<size_t>(groupIndex)])));
+            for (const auto& staged : groupResult.stagedFiles)
+            {
+                if (!QFile::exists(staged.stagedPath))
+                {
+                    continue;
+                }
+
+                if (retention.retainPayloads)
+                {
+                    const QString fileName = QFileInfo(staged.originalPath).fileName();
+                    const QString destination = groupDir.filePath(QStringLiteral("previous/%1").arg(fileName));
+                    if (moveFile(staged.stagedPath, destination))
+                    {
+                        ++itemsArchived;
+                    }
+                    else
+                    {
+                        LOG_WARNING("WorkflowArchiver: Failed to move staged file {} to {}",
+                                    staged.stagedPath.toStdString(), destination.toStdString());
+                        (void)cleanupOrphanedStagedFiles(m_outputDir);
+                        if (QFile::exists(staged.stagedPath))
+                        {
+                            LOG_ERROR("WorkflowArchiver: Failed to resolve staged file {} after archive move failure",
+                                      staged.stagedPath.toStdString());
+                        }
+                    }
+                    continue;
+                }
+
+                // A metadata-only archive deliberately drops displaced history payloads after its
+                // manifest is durable; the successful current scientific output stays in place.
+                if (!QFile::remove(staged.stagedPath))
+                {
+                    (void)cleanupOrphanedStagedFiles(m_outputDir);
+                    if (QFile::exists(staged.stagedPath))
+                    {
+                        LOG_ERROR("WorkflowArchiver: Failed to resolve staged file {} for metadata-only archive",
+                                  staged.stagedPath.toStdString());
+                    }
+                }
+            }
+        }
+    }
+
+    archiveResult.itemsArchived = itemsArchived;
+    if (archiveResult.success)
+        cleanupOldArchives(runDirPath);
+    finish_archive_phase();
+    return archiveResult;
+}
+
+void WorkflowArchiver::finalizeTimingArtifacts(const WorkflowExecutor::Result& result) const
+{
+    if (!m_reportMarkdownPath.isEmpty() && !m_reportMarkdownTemplate.isEmpty())
+    {
+        const QString markdown = ImageIntegration::Reporting::WorkflowReportBuilder::finalizeTimingPlaceholders(
+            m_reportMarkdownTemplate, result);
+        if (!writeAtomicFile(m_reportMarkdownPath, markdown.toUtf8(), QIODevice::Text))
+        {
+            LOG_WARNING("WorkflowArchiver: Failed to finalize timing in workflow_report.md");
+        }
+    }
+
+    if (!m_reportHtmlPath.isEmpty() && !m_reportHtmlTemplate.isEmpty())
+    {
+        const QString html = ImageIntegration::Reporting::WorkflowReportBuilder::finalizeTimingPlaceholders(
+            m_reportHtmlTemplate, result);
+        if (!writeAtomicFile(m_reportHtmlPath, html.toUtf8(), QIODevice::Text))
+        {
+            LOG_WARNING("WorkflowArchiver: Failed to finalize timing in workflow_report.html");
+        }
+    }
+
+    if (m_manifestPath.isEmpty())
+    {
+        return;
+    }
+
+    QFile archive_file(m_manifestPath);
+    if (!archive_file.open(QIODevice::ReadOnly))
+    {
+        return;
+    }
+    const QJsonDocument document = QJsonDocument::fromJson(archive_file.readAll());
+    archive_file.close();
+    if (!document.isObject())
+    {
+        return;
+    }
+
+    QJsonObject root = document.object();
+    root[QStringLiteral("totalDurationMs")] = result.totalDurationMs;
+    if (result.executorTiming.captured)
+    {
+        QJsonObject executorTiming;
+        executorTiming[QStringLiteral("stageExecutionMs")] = result.executorTiming.stageExecutionMs;
+        executorTiming[QStringLiteral("stateCommitMs")] = result.executorTiming.stateCommitMs;
+        executorTiming[QStringLiteral("archiveMs")] = result.executorTiming.archiveMs;
+        executorTiming[QStringLiteral("reportMs")] = result.executorTiming.reportMs;
+        root[QStringLiteral("executorTiming")] = executorTiming;
+    }
+    else
+    {
+        root.remove(QStringLiteral("executorTiming"));
+    }
+    if (result.executionCounters.has_value())
+    {
+        root[QStringLiteral("executionCounters")] = workflowExecutionCountersToJson(result.executionCounters.value());
+    }
+    else
+    {
+        root.remove(QStringLiteral("executionCounters"));
+    }
+
+    if (!writeAtomicFile(m_manifestPath, QJsonDocument(root).toJson(QJsonDocument::Indented)))
+    {
+        LOG_WARNING("WorkflowArchiver: Failed to finalize timing in workflow_manifest.json");
+    }
+}
+
+void WorkflowArchiver::finalizeLogArtifact(const WorkflowExecutor::Result& result) const
+{
+    if (m_logPath.isEmpty() || result.capturedLog.isEmpty())
+    {
+        return;
+    }
+
+    if (!writeAtomicFile(m_logPath, result.capturedLog.toUtf8(), QIODevice::Text))
+    {
+        LOG_WARNING("WorkflowArchiver: Failed to finalize workflow_log.txt");
+    }
+}
+
+void WorkflowArchiver::revertStagedFiles(const WorkflowExecutor::Result& result)
+{
+    for (const auto& groupResult : result.integrationGroupResults)
+    {
+        for (const auto& staged : groupResult.stagedFiles)
+        {
+            if (QFile::exists(staged.stagedPath))
+            {
+                if (QFile::exists(staged.originalPath))
+                {
+                    QFile::remove(staged.originalPath);
+                }
+
+                if (!QFile::rename(staged.stagedPath, staged.originalPath))
+                {
+                    if (copyWorkflowFile(staged.stagedPath, staged.originalPath, m_counters))
+                    {
+                        QFile::remove(staged.stagedPath);
+                    }
+                    else
+                    {
+                        LOG_ERROR("WorkflowArchiver: Failed to restore staged file {} to {}",
+                                  staged.stagedPath.toStdString(), staged.originalPath.toStdString());
+                    }
+                }
+            }
+        }
+    }
+}
+
+void WorkflowArchiver::cleanupOldArchives(const QString& protectedRunPath)
+{
+    const QString historyPath = QDir(m_outputDir).filePath("history");
+    QDir historyDir(historyPath);
+    if (!historyDir.exists())
+        return;
+
+    std::vector<QFileInfo> runDirs = sortedHistoryRunDirectories(historyDir);
+    const QString normalizedProtectedPath = QDir::cleanPath(protectedRunPath);
+
+    qint64 totalBytes = 0;
+    for (const auto& info : runDirs)
+    {
+        totalBytes = saturatingAddBytes(totalBytes, directorySizeBytes(info.absoluteFilePath()));
+    }
+
+    auto shouldTrim = [&]() {
+        return static_cast<int>(runDirs.size()) > m_maxHistoryEntries || totalBytes > m_maxHistoryBytes;
+    };
+
+    while (shouldTrim() && !runDirs.empty())
+    {
+        const auto oldestIt =
+            std::find_if(runDirs.begin(), runDirs.end(), [&normalizedProtectedPath](const QFileInfo& run) {
+                return normalizedProtectedPath.isEmpty() ||
+                       QDir::cleanPath(run.absoluteFilePath()) != normalizedProtectedPath;
+            });
+        if (oldestIt == runDirs.end())
+        {
+            break;
+        }
+
+        const QFileInfo oldest = *oldestIt;
+        const qint64 size = directorySizeBytes(oldest.absoluteFilePath());
+        if (!QDir(oldest.absoluteFilePath()).removeRecursively())
+        {
+            LOG_WARNING("WorkflowArchiver: Failed to remove old history archive {}",
+                        oldest.absoluteFilePath().toStdString());
+            break;
+        }
+        totalBytes = (std::max)(static_cast<qint64>(0), totalBytes - size);
+        runDirs.erase(oldestIt);
+    }
+}
+
+/// The archiver behind the interface the executor commits a run through.
+class WorkflowArchiverRunArchive final : public IWorkflowRunArchive
+{
+public:
+    WorkflowArchiverRunArchive(const QString& outputDir, WorkflowExecutionCounterAccumulator* counters,
+                               const an::consumer::EngineSession* session)
+        : m_archiver(outputDir, counters)
+    {
+        m_archiver.setEngineSession(session);
+    }
+
+    CommitOutcome commit(const WorkflowManifest& manifest, WorkflowExecutor::Result& result,
+                         const CapturePhaseDuration& capturePhase) override
+    {
+        const WorkflowArchiver::ArchiveResult archived = m_archiver.commit(manifest, result, capturePhase);
+        CommitOutcome outcome;
+        outcome.success = archived.success;
+        outcome.reportPath = archived.reportPath;
+        outcome.error = archived.error;
+        outcome.archiveMs = archived.archiveMs;
+        outcome.reportMs = archived.reportMs;
+        return outcome;
+    }
+
+    void revertStagedFiles(const WorkflowExecutor::Result& result) override
+    {
+        m_archiver.revertStagedFiles(result);
+    }
+
+    void finalizeTimingArtifacts(const WorkflowExecutor::Result& result) override
+    {
+        m_archiver.finalizeTimingArtifacts(result);
+    }
+
+    void finalizeLogArtifact(const WorkflowExecutor::Result& result) override
+    {
+        m_archiver.finalizeLogArtifact(result);
+    }
+
+private:
+    WorkflowArchiver m_archiver;
+};
+
+std::unique_ptr<IWorkflowRunArchive> makeWorkflowArchiverRunArchive(const QString& outputDir,
+                                                                    WorkflowExecutionCounterAccumulator* counters,
+                                                                    const an::consumer::EngineSession* session)
+{
+    return std::make_unique<WorkflowArchiverRunArchive>(outputDir, counters, session);
+}

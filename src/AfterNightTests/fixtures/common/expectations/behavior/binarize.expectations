@@ -1,0 +1,138 @@
+# Reference expectations of the fixture layers: each record states its input, the engine that produced it
+# and how a result is compared with it. See docs/dev/guides/TESTING.md.
+
+expectation  binarize.default/scene-rgb-float32
+operation    every channel at 0.5 - the dialog's values
+input        scene-rgb-float32 description=99710b0f7a37867694da3d4807f7e82851e0c679702383ae43df167acd5eacde samples=6bee224076e080f1f88a7fcbfac482b0582b8f05fe04ff7b516a2a18853e7241
+class        tolerance
+tolerance    absolute=1e-06 relative=1e-06
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-09-29
+commit       -
+result       12 8 3 float32 sha256=2ea2489555d88b880d81978048d31942c340aa96411242d904a77783845e4439
+row          0 0 0 0 0 0 0 0 0 0 1 1 1 1
+row          0 1 0 0 0 0 0 0 0 0 1 1 1 1
+row          0 2 0 0 0 0 0 0 0 0 1 1 1 1
+row          0 3 0 0 0 0 0 0 0 1 1 1 1 1
+row          0 4 0 0 0 0 0 0 1 1 1 1 1 1
+row          0 5 0 0 0 0 0 0 1 1 1 1 1 1
+row          0 6 0 0 0 0 0 0 1 1 1 1 1 1
+row          0 7 0 0 0 0 0 0 1 1 1 1 1 1
+row          1 0 0 0 0 0 0 0 0 0 0 0 0 0
+row          1 1 0 0 0 0 0 0 0 0 0 0 0 0
+row          1 2 0 0 0 0 0 0 0 0 0 0 1 1
+row          1 3 0 0 0 0 0 0 0 0 0 1 1 1
+row          1 4 0 0 0 0 0 0 1 1 1 1 1 1
+row          1 5 0 0 0 0 0 0 1 1 1 1 1 1
+row          1 6 0 0 0 1 1 1 1 1 1 1 1 1
+row          1 7 0 1 1 1 1 1 1 1 1 1 1 1
+row          2 0 1 1 1 0 0 0 0 0 0 0 0 0
+row          2 1 1 1 1 1 1 0 0 0 0 0 0 0
+row          2 2 1 1 1 1 1 0 0 0 0 0 0 0
+row          2 3 1 1 1 1 0 0 0 0 0 0 0 0
+row          2 4 1 1 1 1 1 0 0 0 0 0 0 0
+row          2 5 1 1 1 1 1 1 0 0 0 0 0 0
+row          2 6 1 1 1 1 1 1 0 0 0 0 0 0
+row          2 7 1 1 1 1 1 1 1 0 0 0 0 0
+end
+
+expectation  binarize.default/scene-rgb-uint16
+operation    every channel at 0.5 - the dialog's values
+input        scene-rgb-uint16 description=3ea4136069ff94330a518695915d7e9e7768b513771fee40d876b47af2d51b9d samples=205675a657c36227a69af223e3eefaf796fe2ab63dc939bfdf9c9f30d3623470
+class        tolerance
+tolerance    absolute=1 relative=0
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-09-29
+commit       -
+result       12 8 3 uint16 sha256=4b46d5a6febf048e97d5dc3c5a811aad0b9bd985ef11d5c2dc9e3a2901a3aaf3
+row          0 0 0 0 0 0 0 0 0 0 0 0 0 0
+row          0 1 0 0 0 0 0 0 0 0 0 0 0 65535
+row          0 2 0 0 0 0 0 0 0 0 0 0 0 65535
+row          0 3 0 0 0 0 0 0 0 0 0 0 65535 65535
+row          0 4 0 0 0 0 0 0 0 0 0 65535 65535 65535
+row          0 5 0 0 0 0 0 0 0 0 0 65535 65535 65535
+row          0 6 0 0 0 0 0 0 0 0 0 65535 65535 65535
+row          0 7 0 0 0 0 0 0 0 0 65535 65535 65535 65535
+row          1 0 0 0 0 0 0 0 0 0 0 0 0 0
+row          1 1 0 0 0 0 0 0 0 0 0 0 0 0
+row          1 2 0 0 0 0 0 0 0 0 0 0 0 0
+row          1 3 0 0 0 0 0 0 0 0 0 0 0 0
+row          1 4 0 0 0 0 0 0 0 0 0 0 0 65535
+row          1 5 0 0 0 0 0 0 0 0 65535 65535 65535 65535
+row          1 6 0 0 0 0 0 65535 65535 65535 65535 65535 65535 65535
+row          1 7 0 0 0 65535 65535 65535 65535 65535 65535 65535 65535 65535
+row          2 0 65535 65535 65535 65535 65535 65535 65535 0 0 0 0 0
+row          2 1 65535 65535 65535 65535 65535 65535 65535 0 0 0 0 0
+row          2 2 65535 65535 65535 65535 65535 65535 65535 65535 0 0 0 0
+row          2 3 65535 65535 65535 65535 65535 65535 65535 65535 0 0 0 0
+row          2 4 65535 65535 65535 65535 65535 65535 65535 65535 0 0 0 0
+row          2 5 65535 65535 65535 65535 65535 65535 65535 65535 65535 0 0 0
+row          2 6 65535 65535 65535 65535 65535 65535 65535 65535 65535 0 0 0
+row          2 7 65535 65535 65535 65535 65535 65535 65535 65535 65535 0 0 0
+end
+
+expectation  binarize.default/scene-mono-float32
+operation    every channel at 0.5 - the dialog's values
+input        scene-mono-float32 description=90d248b2a295b5fdef5bfa2b27922ea2964ec534d1d8b80b8e7de969ac2307b2 samples=0eae8590195868d36faed6ff8520ac0fa701ee692113887bf169eca6949442ab
+class        tolerance
+tolerance    absolute=1e-06 relative=1e-06
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-09-29
+commit       -
+result       12 8 1 float32 sha256=0f3a5ffdd5f6118275a204d11e80065797094393dd4d89b455b9086ec270504f
+row          0 0 0 0 0 0 0 0 0 0 1 1 1 1
+row          0 1 0 0 0 0 0 0 0 0 1 1 1 1
+row          0 2 0 0 0 0 0 0 0 0 1 1 1 1
+row          0 3 0 0 0 0 0 0 1 1 1 1 1 1
+row          0 4 0 0 0 0 0 1 1 1 1 1 1 1
+row          0 5 0 0 0 0 1 0 1 1 1 1 1 1
+row          0 6 0 0 0 0 1 1 1 1 1 1 1 1
+row          0 7 0 0 0 1 1 1 1 1 1 1 1 1
+end
+
+expectation  binarize.individual-0.4-0.5-0.6/scene-rgb-float32
+operation    red at 0.4, green at 0.5, blue at 0.6
+input        scene-rgb-float32 description=99710b0f7a37867694da3d4807f7e82851e0c679702383ae43df167acd5eacde samples=6bee224076e080f1f88a7fcbfac482b0582b8f05fe04ff7b516a2a18853e7241
+class        tolerance
+tolerance    absolute=1e-06 relative=1e-06
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-09-29
+commit       -
+result       12 8 3 float32 sha256=c2e473cfa3e194710bb9bd4d37b6900e8b1fa13529f6bfc8c10394f659b8d133
+row          0 0 0 0 0 0 0 0 1 1 1 1 1 1
+row          0 1 0 0 0 0 0 0 1 1 1 1 1 1
+row          0 2 0 0 0 0 0 1 1 1 1 1 1 1
+row          0 3 0 0 0 0 0 1 1 1 1 1 1 1
+row          0 4 0 0 0 0 0 1 1 1 1 1 1 1
+row          0 5 0 0 0 0 0 1 1 1 1 1 1 1
+row          0 6 0 0 0 0 1 1 1 1 1 1 1 1
+row          0 7 0 0 0 0 1 1 1 1 1 1 1 1
+row          1 0 0 0 0 0 0 0 0 0 0 0 0 0
+row          1 1 0 0 0 0 0 0 0 0 0 0 0 0
+row          1 2 0 0 0 0 0 0 0 0 0 0 1 1
+row          1 3 0 0 0 0 0 0 0 0 0 1 1 1
+row          1 4 0 0 0 0 0 0 1 1 1 1 1 1
+row          1 5 0 0 0 0 0 0 1 1 1 1 1 1
+row          1 6 0 0 0 1 1 1 1 1 1 1 1 1
+row          1 7 0 1 1 1 1 1 1 1 1 1 1 1
+row          2 0 1 0 0 0 0 0 0 0 0 0 0 0
+row          2 1 1 0 0 0 0 0 0 0 0 0 0 0
+row          2 2 1 1 0 0 0 0 0 0 0 0 0 0
+row          2 3 1 1 0 0 0 0 0 0 0 0 0 0
+row          2 4 1 1 1 0 0 0 0 0 0 0 0 0
+row          2 5 1 1 1 0 0 0 0 0 0 0 0 0
+row          2 6 1 1 1 1 0 0 0 0 0 0 0 0
+row          2 7 1 1 1 1 0 0 0 0 0 0 0 0
+end

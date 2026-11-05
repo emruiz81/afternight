@@ -1,0 +1,374 @@
+{
+  "schemaVersion": 1,
+  "publicProvenance": "rawspeed-public-samples.json",
+  "existingProvenance": "raw-codec-corpus.json",
+  "fixtures": [
+    {
+      "id": "_MG_6827",
+      "path": "Integration Samples/Carina Nebula - Canon 6D/lights/_MG_6827.CR2",
+      "filename": "_MG_6827.CR2",
+      "bytes": 24773321,
+      "sha256": "5e3f7b6e3aaea837d9906df32c2b704f106144ab283c37163b8c25ea9198ea37",
+      "license": "maintainer-owned; authorized for local use only",
+      "requiredAcceleration": true,
+      "environment": "AFTERNIGHT_TEST_RAW_CANON"
+    },
+    {
+      "id": "_MG_6842",
+      "path": "Integration Samples/Carina Nebula - Canon 6D/lights/_MG_6842.CR2",
+      "filename": "_MG_6842.CR2",
+      "bytes": 24642183,
+      "sha256": "2167b130e0667dc81b345ec403439955cd84a68bc345ccfb794e53a5a3dbe9d9",
+      "license": "maintainer-owned; authorized for local use only",
+      "requiredAcceleration": true,
+      "environment": "AFTERNIGHT_TEST_RAW_CANON_CHANNEL_BLACK"
+    },
+    {
+      "id": "_MG_6856",
+      "path": "Integration Samples/Carina Nebula - Canon 6D/lights/_MG_6856.CR2",
+      "filename": "_MG_6856.CR2",
+      "bytes": 24583728,
+      "sha256": "d598439fb84d5fa13e66360e61b33aaf980379a611d70ace449be1449f1bcbf0",
+      "license": "maintainer-owned; authorized for local use only",
+      "requiredAcceleration": true
+    },
+    {
+      "id": "_DSC0329",
+      "path": "Integration Samples/M83 - Nikon D5500/lights/_DSC0329.NEF",
+      "filename": "_DSC0329.NEF",
+      "bytes": 29941851,
+      "sha256": "2e79dfb5942899819291002ad4af13ebef63bdfddf289e68aa6b57ee91e1e9de",
+      "license": "maintainer-owned; authorized for local use only",
+      "requiredAcceleration": true,
+      "environment": "AFTERNIGHT_TEST_RAW_NIKON"
+    },
+    {
+      "id": "_DSC0338",
+      "path": "Integration Samples/M83 - Nikon D5500/lights/_DSC0338.NEF",
+      "filename": "_DSC0338.NEF",
+      "bytes": 30129026,
+      "sha256": "6ef0c235ff9c2b3ab3c33800b3ce817e6fe59b6a753562055f6fe1fb4280e493",
+      "license": "maintainer-owned; authorized for local use only",
+      "requiredAcceleration": true
+    },
+    {
+      "id": "_DSC0346",
+      "path": "Integration Samples/M83 - Nikon D5500/lights/_DSC0346.NEF",
+      "filename": "_DSC0346.NEF",
+      "bytes": 30195679,
+      "sha256": "534c542b9ee5663f50a34a72d52e6defe6439adcfa5adc9d8b8d0e19d70ad3b1",
+      "license": "maintainer-owned; authorized for local use only",
+      "requiredAcceleration": true
+    },
+    {
+      "id": "Fujifilm_X-Pro1_DSCF2131",
+      "path": "PublicDomain/RAW-XTrans/Fujifilm_X-Pro1_DSCF2131.RAF",
+      "filename": "Fujifilm_X-Pro1_DSCF2131.RAF",
+      "bytes": 26146816,
+      "sha256": "0b1046c299d9eb222a8f003bd047f2a34f507da0d1704ac32cefbc82f799d121",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "environment": "AFTERNIGHT_TEST_RAW_XPRO1"
+    },
+    {
+      "id": "Fujifilm_X-T50_DSCF0120",
+      "path": "PublicDomain/RAW-XTrans/Fujifilm_X-T50_DSCF0120.RAF",
+      "filename": "Fujifilm_X-T50_DSCF0120.RAF",
+      "bytes": 29651152,
+      "sha256": "3a8a9ac6d92274969aaa1f55ea669191b98bb8f588d00ec8ec17afd8b3963dea",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "environment": "AFTERNIGHT_TEST_RAW_XT50"
+    },
+    {
+      "id": "Sigma_DP1_1116",
+      "path": "PublicDomain/RAW-FullColor/Sigma_DP1_1116.X3F",
+      "filename": "Sigma_DP1_1116.X3F",
+      "bytes": 10317264,
+      "sha256": "44508f7df4191aacaecb6461e1841dae002e5b71a4f95a00aa3f52d1c6d6bc5f",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "environment": "AFTERNIGHT_TEST_RAW_FOVEON"
+    },
+    {
+      "id": "967",
+      "path": "967_Sony_ILCE-7M2.arw",
+      "filename": "967_Sony_ILCE-7M2.arw",
+      "bytes": 25165824,
+      "sha256": "891b098c6cad16f01af4cbbe229d89652008b0108ad343079a4fc688b320fa14",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/967/nice/Sony%20-%20ILCE-7M2%20-%2014bit%2014bit%20compressed%20%283:2%29.arw"
+    },
+    {
+      "id": "851",
+      "path": "851_Sony_ILCE-7M2.ARW",
+      "filename": "851_Sony_ILCE-7M2.ARW",
+      "bytes": 49512448,
+      "sha256": "a37752f65c1fabb48178bfbe2a81f1e7dc705a3363652e984792527b43700ada",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/851/nice/Sony%20-%20ILCE-7M2%20-%2014bit%2014bit%20uncompressed%20%283:2%29.ARW"
+    },
+    {
+      "id": "979",
+      "path": "979_Sony_ILCE-6300.ARW",
+      "filename": "979_Sony_ILCE-6300.ARW",
+      "bytes": 25296896,
+      "sha256": "d96dc154ed8811d52548dab52d32f9e25a654b574ce702325fae47c86e2a624a",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/979/nice/Sony%20-%20ILCE-6300%20-%2014bit%2014bit%20compressed%20%283:2%29.ARW"
+    },
+    {
+      "id": "6929",
+      "path": "6929_Sony_ILCE-7M4.ARW",
+      "filename": "6929_Sony_ILCE-7M4.ARW",
+      "bytes": 49184768,
+      "sha256": "851b43c2116c4139104a5036f83ac3b6a148789b2142214dd7192c13972b25b6",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/6929/nice/Sony%20-%20ILCE-7M4%20-%2014bit%20%284:3%29.ARW"
+    },
+    {
+      "id": "6931",
+      "path": "6931_Sony_ILCE-7M4.ARW",
+      "filename": "6931_Sony_ILCE-7M4.ARW",
+      "bytes": 22933504,
+      "sha256": "cbbd0930c7d8706dff84c68a2004454266e6fd0d8354f5f76a106b5d776e0223",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/6931/nice/Sony%20-%20ILCE-7M4%20-%204:3.ARW"
+    },
+    {
+      "id": "915",
+      "path": "915_Apple_iPhone_6s_Plus.DNG",
+      "filename": "915_Apple_iPhone_6s_Plus.DNG",
+      "bytes": 10227467,
+      "sha256": "845fee4f09c832af3728778737f5ae9b99124debb821b6e2066b94aed1daa91c",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/915/nice/Apple%20-%20iPhone%206s%20Plus%20-%2016bit%20%284:3%29.DNG"
+    },
+    {
+      "id": "3372",
+      "path": "3372_Apple_iPhone_XS.dng",
+      "filename": "3372_Apple_iPhone_XS.dng",
+      "bytes": 10290665,
+      "sha256": "50bc64ee8cfbbfb6c0531e29ab428ff985506a16fe2d1d2e74656f21b54505f6",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/3372/nice/Apple%20-%20iPhone%20XS%20-%2016bit%20%284:3%29.dng"
+    },
+    {
+      "id": "4264",
+      "path": "4264_Apple_iPhone_12_Pro.DNG",
+      "filename": "4264_Apple_iPhone_12_Pro.DNG",
+      "bytes": 29195592,
+      "sha256": "e91e77a4533ed7cce551d83330676ea5c47dd5e55fb38adda7819366afdbdfc2",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/4264/nice/Apple%20-%20iPhone%2012%20Pro%20-%208bit%20%284:3%29.DNG"
+    },
+    {
+      "id": "1103",
+      "path": "1103_motorola_Nexus_6.DNG",
+      "filename": "1103_motorola_Nexus_6.DNG",
+      "bytes": 26288408,
+      "sha256": "c92496d31742e61918ca9f30148c630a61581db0cff512995d54ae5b473f1d4f",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/1103/nice/motorola%20-%20Nexus%206%20-%2016bit%20%284:3%29.DNG"
+    },
+    {
+      "id": "2456",
+      "path": "2456_motorola_Moto_G_5S_Plus.dng",
+      "filename": "2456_motorola_Moto_G_5S_Plus.dng",
+      "bytes": 26286796,
+      "sha256": "dc54074b5b71d727cd62aca2d99ffe322ccb0ee6d8572f392edde62cf41c30fe",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/2456/nice/motorola%20-%20Moto%20G%20%285S%29%20Plus%20-%2016bit%20%284:3%29.dng"
+    },
+    {
+      "id": "3554",
+      "path": "3554_motorola_moto_g_7_play.dng",
+      "filename": "3554_motorola_moto_g_7_play.dng",
+      "bytes": 26286800,
+      "sha256": "d46953b116ee7a88b99fb28edc7b2f1b631ed09d66f73391c4ccc2e2ec959575",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/3554/nice/motorola%20-%20moto%20g%287%29%20play%20-%2016bit%20%284:3%29.dng"
+    },
+    {
+      "id": "2206",
+      "path": "2206_Google_Pixel_2_XL.dng",
+      "filename": "2206_Google_Pixel_2_XL.dng",
+      "bytes": 24479668,
+      "sha256": "5541093a369f0487fef92bcd1f5fef1be6e4e3cec2aa4d52ad38d2211f3309d7",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/2206/nice/Google%20-%20Pixel%202%20XL%20-%2016bit%20%284:3%29.dng"
+    },
+    {
+      "id": "6168",
+      "path": "6168_Google_Pixel_7_Pro.dng",
+      "filename": "6168_Google_Pixel_7_Pro.dng",
+      "bytes": 12243982,
+      "sha256": "6b921558944db5fdb4f1c63dc64919b6666ef700857a187e18500099c6e7c6c6",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/6168/nice/Google%20-%20Pixel%207%20Pro%20-%2016bit%20%284:3%29.dng"
+    },
+    {
+      "id": "6261",
+      "path": "6261_Samsung_Galaxy_S22_Ulra.dng",
+      "filename": "6261_Samsung_Galaxy_S22_Ulra.dng",
+      "bytes": 34404577,
+      "sha256": "53e7f83a94c965495ba32d3ea6021ef08ed02244ce64d111d1329bbd01fd5581",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/6261/nice/Samsung%20-%20Galaxy%20S22%20Ulra%20-%204:3.dng"
+    },
+    {
+      "id": "1328",
+      "path": "1328_OnePlus_ONEPLUS_A3003.dng",
+      "filename": "1328_OnePlus_ONEPLUS_A3003.dng",
+      "bytes": 32584348,
+      "sha256": "15c937245f419d7e8dd24d232dd9565b397c57460434fe15b1570b6a07fe9d68",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/1328/nice/OnePlus%20-%20ONEPLUS%20A3003%20-%2016bit%20%284:3%29.dng"
+    },
+    {
+      "id": "771",
+      "path": "771_Canon_EOS_5D_Mark_III.CR2",
+      "filename": "771_Canon_EOS_5D_Mark_III.CR2",
+      "bytes": 25965009,
+      "sha256": "ec069b178b9383d80c72f8cdc1b79bd54ca451e7c20793b109d8ad73bef6bdf6",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/771/nice/Canon%20-%20EOS%205D%20Mark%20III.CR2"
+    },
+    {
+      "id": "772",
+      "path": "772_Canon_EOS_5D_Mark_III.CR2",
+      "filename": "772_Canon_EOS_5D_Mark_III.CR2",
+      "bytes": 15573918,
+      "sha256": "bca87871cd91523e0ff4450a51a1a677de9241c3110b213b99198b9ed3751f66",
+      "license": "CC0-1.0",
+      "requiredAcceleration": false,
+      "source": "https://raw.pixls.us/getfile.php/772/nice/Canon%20-%20EOS%205D%20Mark%20III%20-%20sRAW1%20%28mRAW%29.CR2"
+    },
+    {
+      "id": "784",
+      "path": "784_Canon_EOS_70D.CR2",
+      "filename": "784_Canon_EOS_70D.CR2",
+      "bytes": 24646050,
+      "sha256": "00e42517013bd043b7145001399bbc320a8ff235a6dcd16033580d8a130bee1e",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/784/nice/Canon%20-%20EOS%2070D%20-%20RAW.CR2"
+    },
+    {
+      "id": "1035",
+      "path": "1035_Canon_EOS_550D.CR2",
+      "filename": "1035_Canon_EOS_550D.CR2",
+      "bytes": 22447269,
+      "sha256": "f390e0ba566f0be9af2d8e7f955b815996630c0c3cb13fcfb95d98baec1890f6",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/1035/nice/Canon%20-%20EOS%20550D%20-%20RAW%20%283:2%29.CR2"
+    },
+    {
+      "id": "1294",
+      "path": "1294_Canon_EOS_80D.CR2",
+      "filename": "1294_Canon_EOS_80D.CR2",
+      "bytes": 36489482,
+      "sha256": "8f28465cee09844ffad95dbd3ec91923717a329c5ec4f3f405f5b4fce83aaea3",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/1294/nice/Canon%20-%20EOS%2080D%20-%20RAW%20%283:2%29.CR2"
+    },
+    {
+      "id": "2101",
+      "path": "2101_Canon_EOS_40D.CR2",
+      "filename": "2101_Canon_EOS_40D.CR2",
+      "bytes": 10931826,
+      "sha256": "775c806358fedddec7622113a5e399a3330bd5a65e35e37ae1108d8bf58067be",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/2101/nice/Canon%20-%20EOS%2040D%20-%20RAW%20%283:2%29.CR2"
+    },
+    {
+      "id": "895",
+      "path": "895_Nikon_D750.NEF",
+      "filename": "895_Nikon_D750.NEF",
+      "bytes": 18031834,
+      "sha256": "e4a3f85e014275fc0a47600a373af95ec850872a5f6cf87649bcaa42b77ef2e4",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/895/nice/Nikon%20-%20D750%20-%2012bit%2012bit%20compressed%20%28Lossy%20%28type%202%29%29%20%283:2%29.NEF"
+    },
+    {
+      "id": "896",
+      "path": "896_Nikon_D750.NEF",
+      "filename": "896_Nikon_D750.NEF",
+      "bytes": 22861674,
+      "sha256": "3389da2bd0997be2f8e1408d8d0fba09f5062de05c4017a0bbf2849d8f0cd2a1",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/896/nice/Nikon%20-%20D750%20-%2014bit%2014bit%20compressed%20%28Lossy%20%28type%202%29%29%20%283:2%29.NEF"
+    },
+    {
+      "id": "897",
+      "path": "897_Nikon_D750.NEF",
+      "filename": "897_Nikon_D750.NEF",
+      "bytes": 20095707,
+      "sha256": "baae8dfc05a81a4a4034831a49ed99d129e797858ad876d31173a46d33b7d3ea",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/897/nice/Nikon%20-%20D750%20-%2012bit%2012bit%20compressed%20%28Lossless%29%20%283:2%29.NEF"
+    },
+    {
+      "id": "898",
+      "path": "898_Nikon_D750.NEF",
+      "filename": "898_Nikon_D750.NEF",
+      "bytes": 26336302,
+      "sha256": "f90deb2819863f5a6ca9913c255fdd83a94963f4284eb88df9d389da7a6c7665",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/898/nice/Nikon%20-%20D750%20-%2014bit%2014bit%20compressed%20%28Lossless%29%20%283:2%29.NEF"
+    },
+    {
+      "id": "1310",
+      "path": "1310_Sony_ILCE-7RM2.ARW",
+      "filename": "1310_Sony_ILCE-7RM2.ARW",
+      "bytes": 43286528,
+      "sha256": "a606ebf1dcc6704f03f2966326c60a87dd6bdb3704464b3897c10349a10d3a19",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/1310/nice/Sony%20-%20ILCE-7RM2%20-%2012bit%2012bit%20compressed%20%283:2%29.ARW"
+    },
+    {
+      "id": "1312",
+      "path": "1312_Sony_ILCE-7RM2.ARW",
+      "filename": "1312_Sony_ILCE-7RM2.ARW",
+      "bytes": 43319296,
+      "sha256": "f067629e2b36706e8173e37f3e6e903b4501d97f51ce7ceb43e9d71da929aa54",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/1312/nice/Sony%20-%20ILCE-7RM2%20-%2014bit%2014bit%20compressed%20%283:2%29.ARW"
+    },
+    {
+      "id": "3098",
+      "path": "3098_Fujifilm_X-E1.RAF",
+      "filename": "3098_Fujifilm_X-E1.RAF",
+      "bytes": 26146816,
+      "sha256": "0fa01fa1a674bcfa40f659225b4e66c5bedf15d2f78407ca1966dc8f38cd0e9f",
+      "license": "CC0-1.0",
+      "requiredAcceleration": true,
+      "source": "https://raw.pixls.us/getfile.php/3098/nice/Fujifilm%20-%20X-E1%20-%2012bit%2012bit%20uncompressed%20%283:2%29.RAF"
+    }
+  ]
+}

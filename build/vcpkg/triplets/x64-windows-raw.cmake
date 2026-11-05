@@ -1,0 +1,22 @@
+set(VCPKG_TARGET_ARCHITECTURE x64)
+set(VCPKG_CRT_LINKAGE dynamic)
+# Transitive codecs have no shared ABI with the application. Static copies avoid DLL collisions.
+set(VCPKG_LIBRARY_LINKAGE static)
+if(PORT MATCHES "^afternight-(rawspeed|libraw)$")
+    set(VCPKG_LIBRARY_LINKAGE dynamic)
+endif()
+set(VCPKG_ENV_PASSTHROUGH AN_RAW_CLANG_CL)
+set(VCPKG_LOAD_VCVARS_ENV ON)
+if(PORT MATCHES "^(afternight-rawspeed|pugixml)$")
+    # These two packages share a private C++ boundary. LibRaw only sees their C wrapper.
+    # Avoid MSVC debug-container allocations inside noexcept constructors on OOM.
+    set(VCPKG_CXX_FLAGS_DEBUG "-D_ITERATOR_DEBUG_LEVEL=0")
+    set(VCPKG_C_FLAGS_DEBUG "-D_ITERATOR_DEBUG_LEVEL=0")
+endif()
+if(PORT STREQUAL "afternight-rawspeed")
+    if(NOT EXISTS "$ENV{AN_RAW_CLANG_CL}")
+        message(FATAL_ERROR "AN_RAW_CLANG_CL must name the nominated VS clang-cl executable; run install_raw_deps.bat")
+    endif()
+    set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/raw-clang-cl.cmake")
+    set(VCPKG_HASH_ADDITIONAL_FILES "$ENV{AN_RAW_CLANG_CL}" "${VCPKG_CHAINLOAD_TOOLCHAIN_FILE}")
+endif()

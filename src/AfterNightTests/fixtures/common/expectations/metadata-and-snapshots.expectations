@@ -1,0 +1,500 @@
+# Reference expectations of the fixture layers: each record states its input, the engine that produced it
+# and how a result is compared with it. See docs/dev/guides/TESTING.md.
+
+expectation  frame.kind/kind-light-frame
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-light-frame description=f3b428c3c2fa8a26658921b75fed09138350085e7550f25d1ebc4d9949dd49ab samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=161f4c0b1a18a0501127332c387e782b5acc10c6c7a9f7e494c1e3394c49bad5
+row          0 0 3
+end
+
+expectation  frame.kind/kind-master-dark
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-master-dark description=ead5da95348ebf77c51fe2c7e5a0af9dd1ece92731c4da72c95919507dbbeb6f samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=6c3c396ed6b5c36dcae172271f462051b1266b851e92df3deea8ac65478fd712
+row          0 0 1
+end
+
+expectation  frame.kind/kind-flat-field
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-flat-field description=a4dff17d191319243dea29fbdf12e25c77639070323ed5b151683dfb755d10eb samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=3f710ac088db33363087de2b9a657541fe5447821debaa9fe5cbd538eb1a5f29
+row          0 0 2
+end
+
+expectation  frame.kind/kind-bias-frame
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-bias-frame description=0d3f6380d8aa9af429d91a2e7434ff8f041b0a3a98983557f4e6c9e496fd0743 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc
+row          0 0 0
+end
+
+expectation  frame.kind/kind-zero
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-zero description=dbc3a12067e339f9d0dee27076305de3df0abefe1cfaac7ca1e01d590f797131 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc
+row          0 0 0
+end
+
+expectation  frame.kind/kind-science
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-science description=911d67ff6880e31ccc7d5490719e2245a7109bfc706431029fce742f450eb7b5 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=161f4c0b1a18a0501127332c387e782b5acc10c6c7a9f7e494c1e3394c49bad5
+row          0 0 3
+end
+
+expectation  frame.kind/kind-dark-flat
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-dark-flat description=96149659758ffca97f2a376ce57d50fd7ad607f797dd679b1215d9410bdb2b6e samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=6c3c396ed6b5c36dcae172271f462051b1266b851e92df3deea8ac65478fd712
+row          0 0 1
+end
+
+expectation  frame.kind/kind-offset
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-offset description=5bc66094a666aac913cfce70a298d53ef82503389b79bfb5f41deacb4ef44c8e samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc
+row          0 0 0
+end
+
+expectation  frame.kind/kind-indi-and-imagetyp
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-indi-and-imagetyp description=9af1203c8c0b80d0dae3daefa44a7603b9e6a76bc1c31cfadf2dacbe2678ee01 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=6c3c396ed6b5c36dcae172271f462051b1266b851e92df3deea8ac65478fd712
+row          0 0 1
+end
+
+expectation  frame.kind/kind-unrecognised
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-unrecognised description=e567ee511636eae43626726fcc8161ca809c3a092d48209673ee2aa57d7d711b samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=e77817b649821c634355a917817c1224a360514b1244fe09e832bac4e8ea4440
+row          0 0 -1
+end
+
+expectation  frame.kind/kind-none
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-none description=ef5eb2a877d0ab77e081c4021d14b361b0b5be0f84a28a3f30b0495d207b0254 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=e77817b649821c634355a917817c1224a360514b1244fe09e832bac4e8ea4440
+row          0 0 -1
+end
+
+expectation  frame.kind/kind-master-offset
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-master-offset description=fcaa6edf5476fd70a54883f23a005138c34c45e3e80f34544aae724752d18d79 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        accepted
+accepted     OFFSET names a bias wherever it appears in the value; the record maps only a value that is OFFSET and nothing else
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=e77817b649821c634355a917817c1224a360514b1244fe09e832bac4e8ea4440
+row          0 0 -1
+end
+
+expectation  frame.kind/kind-indi-frame
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-indi-frame description=cba5eb925ede7bea8a310a33bdee16db4f521772c6863d700aa132a16dbdb68b samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        accepted
+accepted     the FRAME card INDI drivers write is read after IMAGETYP; the record reads IMAGETYP only
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=e77817b649821c634355a917817c1224a360514b1244fe09e832bac4e8ea4440
+row          0 0 -1
+end
+
+expectation  frame.kind/kind-unrecognised-then-frame
+operation    the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science
+input        kind-unrecognised-then-frame description=b23ae330834d0ed52ce9818e00dd45d0cf6198c995268db2906db2a2ecff0d2c samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        accepted
+accepted     an IMAGETYP that names no kind is passed over for the FRAME card; the record reads IMAGETYP only
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       1 1 1 float64 sha256=e77817b649821c634355a917817c1224a360514b1244fe09e832bac4e8ea4440
+row          0 0 -1
+end
+
+expectation  combine.metadata/combine-luminance-1
+operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
+input        combine-luminance-1 description=df671ec33bcf4369093a2cf7c3f7ff0ab252681eaa082249f178f27b3a1532ee samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        accepted
+accepted     a card is kept only when every source states it the same way, the exposure cards go because the combination's exposure is none of its sources', and the filter stays when every source shares it; the record keeps its first source's observation time, airmass and EXPTIME - which then contradict the EXPOSURE it states - and always removes the filter
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       31 1 1 float64 sha256=1a7739a193c6efb9d05eca794f469370f7066e1260b3a5ef7e19b8cb98a25c67
+row          0 0 600 1 nan 1 nan 1 nan 0 nan 1 -10 1 nan 1 100 1 50 1 40.1 1 250 1 nan 1 1.21 1 300 0 nan 1 83.822
+end
+
+expectation  combine.lrgb/combine-luminance-1
+operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
+input        combine-luminance-1 description=df671ec33bcf4369093a2cf7c3f7ff0ab252681eaa082249f178f27b3a1532ee samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        accepted
+accepted     a card is kept only when every source states it the same way, the exposure cards go because the combination's exposure is none of its sources', and the filter stays when every source shares it; the record keeps its first source's observation time, airmass and EXPTIME - which then contradict the EXPOSURE it states - and always removes the filter
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       31 1 1 float64 sha256=af7a63de38a63ead7dfd3d36b5010c64adb68adf5a4e5b7be107a7c1e44cd342
+row          0 0 420 1 nan 0 nan 1 nan 0 nan 0 nan 1 nan 0 nan 0 nan 1 40.1 1 250 1 nan 1 1.21 1 300 0 nan 1 83.822
+end
+
+expectation  combine.metadata/combine-ha-1
+operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
+input        combine-ha-1 description=3d9bc5ea3dedd6b80067ec26c597d0d48eb1f076986e8607353ce41e26abc66f samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        accepted
+accepted     a card is kept only when every source states it the same way, the exposure cards go because the combination's exposure is none of its sources', and the filter stays when every source shares it; the record keeps its first source's observation time, airmass and EXPTIME - which then contradict the EXPOSURE it states - and always removes the filter
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       31 1 1 float64 sha256=56300d48a5a6ec66d24a3a9a6a4ac1225ad2b962798ad21dbd10f79468aac8de
+row          0 0 1200 1 nan 0 nan 0 nan 0 nan 0 nan 1 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 1 600 0 nan 0 nan
+end
+
+expectation  combine.metadata/combine-ha-2
+operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
+input        combine-ha-2 description=70fb3f431951c65c6bb79312d09b87eff4c9ff4d6e3be875429847e2e954f679 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        accepted
+accepted     a card is kept only when every source states it the same way, the exposure cards go because the combination's exposure is none of its sources', and the filter stays when every source shares it; the record keeps its first source's observation time, airmass and EXPTIME - which then contradict the EXPOSURE it states - and always removes the filter
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       31 1 1 float64 sha256=276fb68179187fbeff62a28562b18b57a88a50eeec43ddcdeb8963de02f1fc47
+row          0 0 600 1 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 1 600 0 nan 0 nan
+end
+
+expectation  combine.metadata/combine-unexposed-1
+operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
+input        combine-unexposed-1 description=365486043be02b0fe64afb3f54d0f90fc4e1aada15ced7f4040f47f2e5f398f1 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       31 1 1 float64 sha256=ca843955fe54ea74dbc2d373a3ad3677494c69a8d169a9d57a323967481fa074
+row          0 0 nan 1 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan
+end
+
+expectation  combine.metadata/combine-exposure-card
+operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
+input        combine-exposure-card description=0e20e3e2e9dcf9d3b43cb7346aa4b87c2e3f4924436cb788ccb606e772d6fd96 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       31 1 1 float64 sha256=c91ab321c354a1a75cb9baf274375c317dcc4712fe33dd89915f23188a83c396
+row          0 0 120 1 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan 0 nan
+end
+
+expectation  history.round-trip/history-u8
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-u8 description=be4b0445a8b475edfd751b8149fbb8df4d35f52e073313bc8281f9c73e197e99 samples=aab7d8baf41362e55ded476f063a6b152a001f6fa2e00b88d3a10c13f480f88e
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       7 5 1 uint8 sha256=aab7d8baf41362e55ded476f063a6b152a001f6fa2e00b88d3a10c13f480f88e
+row          0 0 0 38 53 61 74 90 104
+row          0 1 31 45 60 74 84 95 112
+row          0 2 39 55 67 81 92 103 117
+row          0 3 48 62 72 89 99 115 126
+row          0 4 54 67 80 92 106 119 255
+end
+
+expectation  history.round-trip/history-i8
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-i8 description=f1cadf31d5bed6a5c0272d361ebcf5ca4d8b12a363df0f80d4168ce285f020e5 samples=92ea7228e930d8e90006ff1a904ecee8e7f7b9f4224d4abe2e48d538296a98f0
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       7 5 1 int8 sha256=92ea7228e930d8e90006ff1a904ecee8e7f7b9f4224d4abe2e48d538296a98f0
+row          0 0 -128 -90 -76 -64 -52 -37 -25
+row          0 1 -97 -82 -70 -56 -43 -33 -20
+row          0 2 -85 -73 -63 -50 -36 -21 -12
+row          0 3 -77 -68 -55 -40 -31 -18 -2
+row          0 4 -72 -58 -45 -33 -20 -8 127
+end
+
+expectation  history.round-trip/history-u16
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-u16 description=6414cbc6390868cb8b1d3fce166ea2aed1b534b3432e2966b2e499035ebd4e10 samples=4eab918d3b50335ebf8e86d7cabc9e74ba7441f94bdba6325199f23df31bb6f9
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       7 5 1 uint16 sha256=4eab918d3b50335ebf8e86d7cabc9e74ba7441f94bdba6325199f23df31bb6f9
+row          0 0 0 9972 13609 16380 19112 22534 26828
+row          0 1 9084 12360 15474 18401 21263 25377 28350
+row          0 2 10812 13197 17139 20318 23398 26942 29943
+row          0 3 12582 15491 19566 22600 25378 29398 31471
+row          0 4 14643 17553 20548 23608 27441 31432 65535
+end
+
+expectation  history.round-trip/history-i16
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-i16 description=d0bc97a6daff4b1934d7265e7f6b92088beeb663c3bb4aaa49619f00d0cbcc5e samples=b11de568a06633de353219c66e7ba17707bf1f7383347f1419a83cfda06adb7b
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       7 5 1 int16 sha256=b11de568a06633de353219c66e7ba17707bf1f7383347f1419a83cfda06adb7b
+row          0 0 -32768 -22582 -20089 -16001 -12707 -9904 -6458
+row          0 1 -23760 -20361 -17269 -14103 -11020 -8498 -4455
+row          0 2 -22410 -19213 -15777 -12516 -9012 -5303 -2572
+row          0 3 -19864 -17521 -13841 -10033 -6577 -3397 -862
+row          0 4 -18379 -15669 -12027 -8670 -5433 -1580 32767
+end
+
+expectation  history.round-trip/history-u32
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-u32 description=5dc6331ec9293ce8a4ab80754ee5ac8c567b8982d5a8a12f599789ee4dabcc3c samples=6f6c205c3b3027d6728d432e8cd07d54145266d8877bc613b17838880ce2570c
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       7 5 1 uint32 sha256=6f6c205c3b3027d6728d432e8cd07d54145266d8877bc613b17838880ce2570c
+row          0 0 0 619386991 816705620 1091850051 1246927778 1529231636 1707138455
+row          0 1 544750825 770521084 969662836 1179723118 1383665289 1648990302 1855075614
+row          0 2 679044112 940275289 1152680563 1351143905 1563964776 1769654343 1959540026
+row          0 3 849096165 1005578183 1276839660 1496423782 1689690563 1907281436 2085711048
+row          0 4 982470132 1116778643 1364651385 1607586290 1843840925 1987970529 4294967295
+end
+
+expectation  history.round-trip/history-i32
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-i32 description=82a81e4e7b7600778f3866145e9cb32e3babc8b1b8a6002de8218999ef2b5fd1 samples=7add7f9af4d735017d0527e93371255b6ff146e01210cc3eb2253fdc98bd92dd
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       7 5 1 int32 sha256=7add7f9af4d735017d0527e93371255b6ff146e01210cc3eb2253fdc98bd92dd
+row          0 0 -2147483648 -1543689924 -1310221062 -1094280308 -876242970 -617395183 -386699127
+row          0 1 -1567503298 -1371706251 -1187542739 -919473910 -720856707 -479016043 -287250086
+row          0 2 -1440331729 -1203106241 -1060150003 -830829283 -604353218 -413078559 -138816941
+row          0 3 -1290222350 -1151627092 -922785484 -649259005 -472466135 -254129232 -20977018
+row          0 4 -1201626372 -1008834049 -740560899 -546194888 -357444543 -91940251 2147483647
+end
+
+expectation  history.round-trip/history-f32
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-f32 description=6dd24ed72adb5cf5296a31989bbb04dedb3cc9c3c949a3702ce3d8144e9e1076 samples=527de1f92a36d259a760b1dea3b3469a1a5d8287586905169ac38fdd00494f4e
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       7 5 1 float32 sha256=527de1f92a36d259a760b1dea3b3469a1a5d8287586905169ac38fdd00494f4e
+row          0 0 -3.4028235e+38 -0 inf -inf 1e-45 0.34792337 0.3937928
+row          0 1 0.12486308 0.17665374 0.22205172 0.27303702 0.33030054 0.3774105 0.42570457
+row          0 2 0.15579055 0.21422449 0.25856727 0.30320537 0.357378 0.41430017 0.46764946
+row          0 3 0.18297686 0.24970496 0.2961082 0.3470052 0.39034098 0.44806653 0.49123535
+row          0 4 0.21551967 0.27352896 0.31808972 0.36429146 0.42766342 0.4640081 3.4028235e+38
+end
+
+expectation  history.round-trip/history-f64
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-f64 description=d6d80fe0c56531b5e130590e9bfc39280a3e9005dbd9b96bb522da3696bdc33f samples=7e33d9b43782a73e4528beab486736afd9610854c5315a7e401789eeb27f84c6
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       7 5 1 float64 sha256=7e33d9b43782a73e4528beab486736afd9610854c5315a7e401789eeb27f84c6
+row          0 0 -1.7976931348623157e+308 -0 inf -inf 5e-324 0.3505939177211814 0.39387485700708735
+row          0 1 0.13867075853553038 0.17300070637029885 0.22746462964971262 0.2883492414654452 0.32852871457306554 0.38778833315455086 0.4388065050312117
+row          0 2 0.16240453175124728 0.2086497579826876 0.25191700083595314 0.3181439030803644 0.35225525745779607 0.419128885583501 0.45913629804111
+row          0 3 0.1828933334784206 0.23767523625139095 0.284639923583252 0.33230775011824887 0.39502032302490436 0.4450608367382542 0.49438116709421603
+row          0 4 0.21151052017565325 0.26614160177767643 0.329673509319709 0.3688817922838376 0.42075490076916505 0.47422002802317864 1.7976931348623157e+308
+end
+
+expectation  history.round-trip/history-rgb-f32
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-rgb-f32 description=ae96d0d5c9a96663d14b39c25a20bbbf9ee9c8ebdfafdf8e3f0bb17539125975 samples=b5e150357a2b67055b99df74b6bced1292cfc68a15cf26f6b00abe9d0968319b
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       6 4 3 float32 sha256=b5e150357a2b67055b99df74b6bced1292cfc68a15cf26f6b00abe9d0968319b
+row          0 0 -3.4028235e+38 -0 inf -inf 1e-45 0.34792337
+row          0 1 0.12486308 0.17665374 0.22205172 0.27303702 0.33030054 0.3774105
+row          0 2 0.15579055 0.21422449 0.25856727 0.30320537 0.357378 0.41430017
+row          0 3 0.18297686 0.24970496 0.2961082 0.3470052 0.39034098 3.4028235e+38
+row          1 0 0.29249123 0.34087008 0.40013874 0.44002488 0.49847344 0.5433355
+row          1 1 0.3316626 0.37684512 0.4377259 0.4780193 0.5302818 0.5725616
+row          1 2 0.36433107 0.40662798 0.45965242 0.5046536 0.5552763 0.6005025
+row          1 3 0.38059857 0.43716273 0.48835313 0.54255927 0.58285165 0.6424091
+row          2 0 0.4957048 0.5441173 0.6011053 0.64474714 0.70725226 0.7466708
+row          2 1 0.52808315 0.57165956 0.62069196 0.67306334 0.7246611 0.78463036
+row          2 2 0.558847 0.6128298 0.6583511 0.715221 0.7688196 0.8197791
+row          2 3 0.5940879 0.6340169 0.6853467 0.7407127 0.7887712 0.8312549
+end
+
+expectation  history.round-trip/history-rgb-u16
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-rgb-u16 description=767a5fdc18cd05689e685639ce1e5a9e4050505145f180eda720410153e502c4 samples=e862b373840bb8e12e1dcfad349e60bd5392e93cf950fbb00f99f442471d087a
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       6 4 3 uint16 sha256=e862b373840bb8e12e1dcfad349e60bd5392e93cf950fbb00f99f442471d087a
+row          0 0 0 9972 13609 16380 19112 22534
+row          0 1 9084 12360 15474 18401 21263 25377
+row          0 2 10812 13197 17139 20318 23398 26942
+row          0 3 12582 15491 19566 22600 25378 65535
+row          1 0 19765 22530 26792 29235 32243 35498
+row          1 1 21091 25155 28585 30957 34294 38221
+row          1 2 23285 26558 29944 33173 37052 39411
+row          1 3 25506 28779 31999 36014 39245 42188
+row          2 0 33250 35521 39875 42519 45654 49698
+row          2 1 34825 37474 41425 45140 47862 51306
+row          2 2 36364 39916 43477 46663 50164 52982
+row          2 3 38919 42096 45777 47897 52021 55244
+end
+
+expectation  history.round-trip/history-mosaic-u16
+operation    a history step keeps the image's samples in a file and restores them before an undo
+input        history-mosaic-u16 description=e21be854efbc47f5977b89c6d79faa98188e178ce928fcb8d237b0feada10af1 samples=099a203302f0a91d040f15a5638318be869634005996981dd69666649a7198fa
+class        exact
+producer     AfterNightEngine reference abi=-
+configuration Release
+compiler     msvc 19.51.36252
+platform     windows-x64
+captured     2026-10-03
+commit       -
+result       6 4 1 uint16 sha256=099a203302f0a91d040f15a5638318be869634005996981dd69666649a7198fa
+row          0 0 0 9972 13609 16380 19112 22534
+row          0 1 9084 12360 15474 18401 21263 25377
+row          0 2 10812 13197 17139 20318 23398 26942
+row          0 3 12582 15491 19566 22600 25378 65535
+end

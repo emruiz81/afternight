@@ -1,0 +1,17 @@
+diff --git a/common/x86/mc-c.c b/common/x86/mc-c.c
+index ad202b9..c2c91b8 100644
+--- a/common/x86/mc-c.c
++++ b/common/x86/mc-c.c
+@@ -787,6 +787,12 @@ static void mbtree_propagate_list_avx512( x264_t *h, uint16_t *ref_costs, int16_
+                                           int16_t *propagate_amount, uint16_t *lowres_costs,
+                                           int bipred_weight, int mb_y, int len, int list )
+ {
++    /* The assembly handles eight macroblocks per iteration and masks no lane past len, so a lane beyond the row
++     * would add its propagate amount - whatever the buffer holds there - to the reference costs it points at.
++     * A zero amount gives every such lane a zero weight, which the assembly skips. The buffer is the mbtree
++     * scratch buffer, aligned to NATIVE_ALIGN bytes and so holding at least len rounded up to eight entries. */
++    for( int i = len; i < ((len + 7) & ~7); i++ )
++        propagate_amount[i] = 0;
+     x264_mbtree_propagate_list_internal_avx512( len, ref_costs, mvs, propagate_amount, lowres_costs, bipred_weight << 9,
+                                                 mb_y << 16, h->mb.i_mb_width, h->mb.i_mb_height, h->mb.i_mb_stride,
+                                                 (1 << LOWRES_COST_SHIFT) << list );

@@ -1,0 +1,6 @@
+[submodule "vcpkg"]
+	path = vcpkg
+	url = https://github.com/microsoft/vcpkg.git
+[submodule "kddockwidgets"]
+	path = kddockwidgets
+	url = https://github.com/KDAB/KDDockWidgets

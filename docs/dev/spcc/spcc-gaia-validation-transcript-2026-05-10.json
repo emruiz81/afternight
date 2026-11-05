@@ -1,0 +1,172 @@
+{
+  "datalink_attempts": [
+    {
+      "error_reason": "Service Unavailable",
+      "source_id": "2851858288640",
+      "status_code": 503,
+      "url": "https://gea.esac.esa.int/data-server/data?ID=2851858288640&RELEASE=Gaia+DR3&RETRIEVAL_TYPE=XP_SAMPLED&FORMAT=csv"
+    },
+    {
+      "error_reason": "Service Unavailable",
+      "source_id": "3332894779520",
+      "status_code": 503,
+      "url": "https://gea.esac.esa.int/data-server/data?ID=3332894779520&RELEASE=Gaia+DR3&RETRIEVAL_TYPE=XP_SAMPLED&FORMAT=csv"
+    },
+    {
+      "error_reason": "Service Unavailable",
+      "source_id": "13301514552192",
+      "status_code": 503,
+      "url": "https://gea.esac.esa.int/data-server/data?ID=13301514552192&RELEASE=Gaia+DR3&RETRIEVAL_TYPE=XP_SAMPLED&FORMAT=csv"
+    }
+  ],
+  "generated_at_utc": "2026-05-10T20:40:18Z",
+  "generated_catalog": {
+    "catalog_meta_sha256": "b8d69d489e0a7ad0b190d36488b47169d65dd0a2b6066db40eaeba97f9c2f4e6",
+    "chunk_manifest_sha256": "976e285ba0104d50dc99dc1c31bbe5dd7d4bac5fe023e8d99c146c1a04f7b91b",
+    "chunks": [
+      {
+        "chunk_index": 0,
+        "file": "chunks/spcc_gaia_dr3_xp_sampled_chunk_0000.anxp",
+        "first_tile": 0,
+        "record_count": 3,
+        "sha256": "1d18002d3bbce4b42f008c5d33f3ce2152dd150de9f34d41b2b1530488ad18ee",
+        "size_bytes": 4885,
+        "tile_count": 64
+      }
+    ],
+    "coverage_summary_sha256": "2759c1d65a19319fcf916c500ef32862f188781c21bc169be6fe8a054da1ff91",
+    "generation_command": "python tools/generate_spcc_catalog.py catalogs/spcc_validation/tiny_gaia_xp_sampled/catalog --input-jsonl catalogs/spcc_validation/tiny_gaia_xp_sampled/tiny_gaia_spcc_sources.jsonl --manifest-id spcc-gaia-dr3-xp-sampled-tiny-validation-20260510 --access-profile local-full --rights-review-status private-local",
+    "local_path": "catalogs/spcc_validation/tiny_gaia_xp_sampled/catalog",
+    "manifest_id": "spcc-gaia-dr3-xp-sampled-tiny-validation-20260510",
+    "source_id_index_sha256": "25b4b51f60725613d53e3ae4fa34b426bd5af6d963ad577a2e5209d510c49237",
+    "validation_command": "python tools/validate_spcc_catalog.py catalogs/spcc_validation/tiny_gaia_xp_sampled/catalog --sample-count 3 --gaia-validation-transcript catalogs/spcc_validation/tiny_gaia_xp_sampled/gaia_validation_transcript.json"
+  },
+  "input_jsonl": "tiny_gaia_spcc_sources.jsonl",
+  "input_jsonl_sha256": "7c6f61708fe5cac13b152514a748d752e82b5fb3a52d697ab4f0520b5519cb81",
+  "rights": {
+    "redistribution_policy": "private-only-development-artifact",
+    "required_credit": [
+      "ESA/Gaia/DPAC credit and Gaia DR3 citation requirements apply."
+    ],
+    "review_status": "private-local",
+    "source_terms_urls": [
+      "https://gea.esac.esa.int/archive/documentation/credits.html",
+      "https://www.cosmos.esa.int/web/gaia-users/archive"
+    ]
+  },
+  "schema_version": "spcc-gaia-validation-transcript-v1",
+  "sources": [
+    {
+      "flux_error_sample_count": 343,
+      "flux_error_sha256": "6b7731e1f672159bb8609be87272b21740a2aa69b68e117bfb6b7e1f14dc7910",
+      "flux_sample_count": 343,
+      "flux_sha256": "22f39a5e1fa6a6c2d15c2c098687983c8e5eda75777b04aef2905b473ea6d574",
+      "packed_record_sha256": "8cd994172fbff1c5f70925dffa285e287f5fef6ecc52b12816ab793d6097c1fd",
+      "source_id": "2851858288640",
+      "tap_quality_fields": {
+        "bp_chi_squared": "1024.5073",
+        "bp_n_measurements": "929",
+        "bp_n_rejected_measurements": "4",
+        "bp_n_relevant_bases": "9",
+        "duplicated_source": "false",
+        "has_xp_sampled": "true",
+        "ipd_frac_multi_peak": "0",
+        "non_single_star": "0",
+        "phot_bp_mean_flux_over_error": "1141.0261",
+        "phot_bp_rp_excess_factor": "1.2014503",
+        "phot_g_mean_flux_over_error": "3210.6833",
+        "phot_rp_mean_flux_over_error": "2099.6726",
+        "phot_variable_flag": "NOT_AVAILABLE",
+        "rp_chi_squared": "1224.9178",
+        "rp_n_measurements": "1093",
+        "rp_n_rejected_measurements": "13",
+        "rp_n_relevant_bases": "4",
+        "ruwe": "1.213301"
+      },
+      "xp_sampled_solution_id": "4545469030156206080"
+    },
+    {
+      "flux_error_sample_count": 343,
+      "flux_error_sha256": "6e5eb31a3bb9cf980c4b40b65a1d17f5c62a6ddcf84ddce4f743a44cdb57f847",
+      "flux_sample_count": 343,
+      "flux_sha256": "8a50cb3b80fb7fab97a7d95bb41f63576855714cf16883ffd269f77c754e9250",
+      "packed_record_sha256": "db4052596f8f4c099b21286af9a8154fcd5856fc232d7b4822371983bc8efd96",
+      "source_id": "3332894779520",
+      "tap_quality_fields": {
+        "bp_chi_squared": "1035.6045",
+        "bp_n_measurements": "997",
+        "bp_n_rejected_measurements": "0",
+        "bp_n_relevant_bases": "9",
+        "duplicated_source": "false",
+        "has_xp_sampled": "true",
+        "ipd_frac_multi_peak": "0",
+        "non_single_star": "0",
+        "phot_bp_mean_flux_over_error": "1515.5035",
+        "phot_bp_rp_excess_factor": "1.233742",
+        "phot_g_mean_flux_over_error": "3438.6492",
+        "phot_rp_mean_flux_over_error": "1634.6084",
+        "phot_variable_flag": "NOT_AVAILABLE",
+        "rp_chi_squared": "1336.5364",
+        "rp_n_measurements": "1254",
+        "rp_n_rejected_measurements": "25",
+        "rp_n_relevant_bases": "10",
+        "ruwe": "1.142625"
+      },
+      "xp_sampled_solution_id": "4545469030156206081"
+    },
+    {
+      "flux_error_sample_count": 343,
+      "flux_error_sha256": "fe1b8ec885e118499146f61555e15ae4700fbc3e643ed2b4e35938e8d6d1e12f",
+      "flux_sample_count": 343,
+      "flux_sha256": "e21c4a5a95656b9df93ed294d80f9f3cb7142552697d01994b8b08f8f36bf8f6",
+      "packed_record_sha256": "6f407e37157eaf7009395553a6c0235fc09053e0259da382871ea4e98eb55746",
+      "source_id": "13301514552192",
+      "tap_quality_fields": {
+        "bp_chi_squared": "1408.6484",
+        "bp_n_measurements": "920",
+        "bp_n_rejected_measurements": "11",
+        "bp_n_relevant_bases": "6",
+        "duplicated_source": "false",
+        "has_xp_sampled": "true",
+        "ipd_frac_multi_peak": "0",
+        "non_single_star": "0",
+        "phot_bp_mean_flux_over_error": "1011.10254",
+        "phot_bp_rp_excess_factor": "1.1848973",
+        "phot_g_mean_flux_over_error": "3889.9622",
+        "phot_rp_mean_flux_over_error": "2707.425",
+        "phot_variable_flag": "NOT_AVAILABLE",
+        "rp_chi_squared": "1457.5496",
+        "rp_n_measurements": "1034",
+        "rp_n_rejected_measurements": "7",
+        "rp_n_relevant_bases": "12",
+        "ruwe": "1.1067307"
+      },
+      "xp_sampled_solution_id": "4545469030156206080"
+    }
+  ],
+  "spectrum_retrieval": {
+    "files": [
+      {
+        "healpix_end": 3111,
+        "healpix_start": 0,
+        "key": "Gaia/gdr3/Spectroscopy/xp_sampled_mean_spectrum/XpSampledMeanSpectrum_000000-003111.csv.gz",
+        "last_modified": "2024-11-13T13:13:52.092Z",
+        "size_bytes": 77036292,
+        "url": "https://cdn.gea.esac.esa.int/Gaia/gdr3/Spectroscopy/xp_sampled_mean_spectrum/XpSampledMeanSpectrum_000000-003111.csv.gz"
+      }
+    ],
+    "method": "official-gaia-cdn-bulk-xp-sampled",
+    "note": "Used the official Gaia DR3 xp_sampled_mean_spectrum bulk product. The Gaia DataLink data-server probe is recorded separately when --probe-datalink is used."
+  },
+  "tap": {
+    "adql": "SELECT TOP 3\n  s.source_id, s.ra, s.dec, s.ref_epoch, s.pmra, s.pmdec,\n  s.phot_g_mean_mag, s.phot_bp_mean_mag, s.phot_rp_mean_mag,\n  s.phot_g_mean_flux_over_error, s.phot_bp_mean_flux_over_error, s.phot_rp_mean_flux_over_error,\n  s.phot_bp_rp_excess_factor, s.phot_bp_n_contaminated_transits, s.phot_bp_n_blended_transits,\n  s.phot_rp_n_contaminated_transits, s.phot_rp_n_blended_transits,\n  s.ruwe, s.duplicated_source, s.non_single_star, s.phot_variable_flag, s.ipd_frac_multi_peak, s.has_xp_sampled,\n  x.bp_n_relevant_bases, x.bp_n_measurements, x.bp_n_rejected_measurements, x.bp_chi_squared,\n  x.bp_n_transits, x.bp_n_contaminated_transits, x.bp_n_blended_transits,\n  x.rp_n_relevant_bases, x.rp_n_measurements, x.rp_n_rejected_measurements, x.rp_chi_squared,\n  x.rp_n_transits, x.rp_n_contaminated_transits, x.rp_n_blended_transits\nFROM gaiadr3.gaia_source AS s\nJOIN gaiadr3.xp_summary AS x ON s.source_id = x.source_id\nWHERE s.has_xp_sampled = 'true'\n  AND s.source_id < 27373441485111296\n  AND s.phot_g_mean_mag BETWEEN 10 AND 13\n  AND s.phot_bp_mean_flux_over_error > 50\n  AND s.phot_rp_mean_flux_over_error > 50\nORDER BY s.source_id ASC",
+    "gaia_tables": [
+      "gaiadr3.gaia_source",
+      "gaiadr3.xp_summary"
+    ],
+    "returned_count": 3,
+    "service_url": "https://gea.esac.esa.int/tap-server/tap"
+  },
+  "tool": "fetch_spcc_gaia_validation_fixture.py",
+  "tool_version": "spcc-gaia-validation-fetcher-phase3-v1"
+}

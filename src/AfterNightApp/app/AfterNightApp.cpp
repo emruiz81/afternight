@@ -1,0 +1,5044 @@
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
+
+#include "stdafx.hpp"
+#include "common.h"
+#include "app/AfterNightApp.h"
+#include "app/AfterNightAppContext.h"
+#include "app/ApplicationSession.h"
+#include "app/AfterNightAppUiBuilder.h"
+#include "app/ModernizationFeatureFlags.h"
+#include "app/ExtensionManager.h"
+#include "app/ExtensionEnvironmentManager.h"
+#include "app/ExtensionHostManager.h"
+#include "app/ExtensionLaunchPreparations.h"
+#include "app/SharedBufferManager.h"
+#include "app/ProcessRegistry.h"
+#include "app/ProcessLauncher.h"
+#include "app/ProcessMenuState.h"
+#include "app/ChannelExtractor.h"
+#include "app/ThemeManager.h"
+#include "app/MenuActionManager.h"
+#include "app/FileCompanions.h"
+#include "app/FileManager.h"
+#include "app/FileDialogUtils.h"
+#include "app/ViewControlCoordinator.h"
+#include "app/ViewCreationCoordinator.h"
+#include "app/ImageOperationsCoordinator.h"
+#include "app/MaskOverlayCoordinator.h"
+#include "app/DialogOrchestrationCoordinator.h"
+#include "app/RuntimeStorageCoordinator.h"
+#include "app/UiBootstrapCoordinator.h"
+#include "app/ActionStateCoordinator.h"
+#include "app/WindowLayoutCoordinator.h"
+#include "app/AppLifecycleCoordinator.h"
+#include "app/PersistenceCoordinator.h"
+#include "app/ExtensionCommon.h"
+#include "theme/AnDesignTokens.h"
+#include "theme/AnProxyStyle.h"
+#include "controls/ImageViewControl.h"
+#include "controls/ImageViewControlManager.h"
+#include "controls/ProgressDialogControl.h"
+#include "controls/MainDashboard.h"
+#include "controls/LogViewerControl.h"
+#include "controls/settings/ExtensionStatusPage.h"
+#include "controls/settings/ProcessingLimits.h"
+#include "controls/ThumbnailPersistence.h"
+#include "controls/FolderTrackerPersistence.h"
+#include "controls/ProcessSettingsPersistence.h"
+#include "controls/GlobalSettingsPersistence.h"
+#include "controls/PersistenceDbExecutor.h"
+#include "controls/TopLevelProcessBaseControl.h"
+#include "widgets/ImageInfoStatusBarWidget.h"
+#include "controls/ExportSequenceControl.h"
+#include "controls/NewSequenceControl.h"
+#include "controls/settings/SettingsKeys.h"
+#include "controls/settings/SettingsDefaults.h"
+#include "controls/KDDockWidgetsHelper.h"
+#include "controls/ImageProcessControl.h"
+#include "controls/ImageHistogramControl.h"
+#include "controls/ImageSelectorTooltipBuilder.h"
+#include "controls/DashboardUtils.h"
+#include "session/IEngineSessionProvider.h"
+#include "session/ImageDocument.h"
+
+#include <AfterNightPlatform/Text.h>
+#include <AfterNightPlatform/Logging.h>
+
+#include <AfterNightConsumerRuntime/ImageAsset.h>
+#include <AfterNightEngine/Core/Result.h>
+#include <AfterNightEngine/Core/Status.h>
+#include <AfterNightEngine/IO/CodecFormat.h>
+#include <AfterNightEngine/IO/SequenceDescriptor.h>
+#include <AfterNightEngine/IO/SequenceSelection.h>
+#include <AfterNightEngine/Image/ImageDescriptor.h>
+#include <AfterNightEngine/Image/OutputIntent.h>
+
+#include <kddockwidgets/Config.h>
+#include "kddockwidgets/core/FloatingWindow.h"
+#include "kddockwidgets/core/MainWindow.h"
+#include "kddockwidgets/core/DropArea.h"
+#include "kddockwidgets/core/DockWidget.h"
+
+#include <QList>
+#include <QAction>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDesktopServices>
+#include <QFileInfo>
+#include <QFileSystemWatcher>
+#include <QLineEdit>
+#include <QListWidget>
+#include <QMenu>
+#include <QPointer>
+#include <QUuid>
+#include <QUrl>
+#include <QScreen>
+#include <QThreadPool>
+#include <QTimer>
+#include <QVBoxLayout>
+#include <QtSql/QSqlError>
+#include <QtSql/QSqlQuery>
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cmath>
+#include <map>
+
+namespace
+{
+
+// Default limit for recent files if setting not available
+constexpr size_t DEFAULT_RECENT_FILES_LIMIT = 20;
+constexpr size_t DEFAULT_RECENT_PROCESSES_LIMIT = 10;
+constexpr const char* kExtensionProcessMenuActionProperty = "anExtensionProcessMenuAction";
+constexpr const char* kExtensionFamilyMenuActionProperty = "anExtensionFamilyMenuAction";
+bool cleanupMissingStoredProcessIdsOnNextRefresh = false;
+
+std::string viewControlModeName(const ViewControlMode mode)
+{
+    switch (mode)
+    {
+    case ViewControlMode::standard:
+        return "standard";
+    case ViewControlMode::rt_preview:
+        return "rt_preview";
+    case ViewControlMode::st_preview:
+        return "st_preview";
+    }
+    return "unknown";
+}
+
+std::string imageChannelViewModeName(const ImageChannelViewMode mode)
+{
+    switch (mode)
+    {
+    case ImageChannelViewMode::RGB_K_MODE:
+        return "rgb";
+    case ImageChannelViewMode::RGB_R_MODE:
+        return "rgb_r";
+    case ImageChannelViewMode::RGB_G_MODE:
+        return "rgb_g";
+    case ImageChannelViewMode::RGB_B_MODE:
+        return "rgb_b";
+    case ImageChannelViewMode::CIE_AB_MODE:
+        return "cie_ab";
+    case ImageChannelViewMode::CIE_L_MODE:
+        return "cie_l";
+    case ImageChannelViewMode::CIE_a_MODE:
+        return "cie_a";
+    case ImageChannelViewMode::CIE_b_MODE:
+        return "cie_b";
+    case ImageChannelViewMode::CIE_c_MODE:
+        return "cie_c";
+    case ImageChannelViewMode::CIE_h_MODE:
+        return "cie_h";
+    case ImageChannelViewMode::CIE_X_MODE:
+        return "cie_x";
+    case ImageChannelViewMode::CIE_Y_MODE:
+        return "cie_y";
+    case ImageChannelViewMode::CIE_Z_MODE:
+        return "cie_z";
+    case ImageChannelViewMode::HSL_H_MODE:
+        return "hsl_h";
+    case ImageChannelViewMode::HSL_S_MODE:
+        return "hsl_s";
+    case ImageChannelViewMode::HSL_L_MODE:
+        return "hsl_l";
+    case ImageChannelViewMode::HSV_H_MODE:
+        return "hsv_h";
+    case ImageChannelViewMode::HSV_S_MODE:
+        return "hsv_s";
+    case ImageChannelViewMode::HSV_V_MODE:
+        return "hsv_v";
+    case ImageChannelViewMode::HSI_H_MODE:
+        return "hsi_h";
+    case ImageChannelViewMode::HSI_S_MODE:
+        return "hsi_s";
+    case ImageChannelViewMode::HSI_I_MODE:
+        return "hsi_i";
+    case ImageChannelViewMode::YCBCR_Y_MODE:
+        return "ycbcr_y";
+    case ImageChannelViewMode::YCBCR_CB_MODE:
+        return "ycbcr_cb";
+    case ImageChannelViewMode::YCBCR_CR_MODE:
+        return "ycbcr_cr";
+    }
+    return "unknown";
+}
+
+std::string imageDisplayModeName(const ImageViewMode mode)
+{
+    switch (mode)
+    {
+    case ImageViewMode::LINEAR_MODE:
+        return "linear";
+    case ImageViewMode::AUTOSTRETCH_MODE:
+        return "autostretch";
+    }
+    return "unknown";
+}
+
+std::string maskRenderingModeName(const MaskRenderingMode mode)
+{
+    switch (mode)
+    {
+    case MaskRenderingMode::red_mode:
+        return "red";
+    case MaskRenderingMode::green_mode:
+        return "green";
+    case MaskRenderingMode::blue_mode:
+        return "blue";
+    case MaskRenderingMode::yellow_mode:
+        return "yellow";
+    case MaskRenderingMode::magenta_mode:
+        return "magenta";
+    case MaskRenderingMode::cyan_mode:
+        return "cyan";
+    case MaskRenderingMode::replace_mode:
+        return "replace";
+    case MaskRenderingMode::multiply_mode:
+        return "multiply";
+    }
+    return "unknown";
+}
+
+QString colorTokenHex(const QColor& color)
+{
+    return color.name(QColor::HexArgb);
+}
+
+QCborMap fontTokenToCborMap(const QFont& font)
+{
+    return QCborMap{
+        {QStringLiteral("family"), font.family()},       {QStringLiteral("point_size"), font.pointSizeF()},
+        {QStringLiteral("weight"), font.weight()},       {QStringLiteral("italic"), font.italic()},
+        {QStringLiteral("underline"), font.underline()}, {QStringLiteral("fixed_pitch"), font.fixedPitch()}};
+}
+
+QCborMap currentExtensionThemeTokens()
+{
+    const auto& token_set = an::ui::tokens();
+    return QCborMap{{QStringLiteral("is_dark"), an::ui::isDarkTheme()},
+                    {QStringLiteral("contrast_profile"), static_cast<int>(an::ui::themeContrastProfile())},
+                    {QStringLiteral("accent_family"), static_cast<int>(an::ui::themeAccentFamily())},
+                    {QStringLiteral("surface_tint_family"), static_cast<int>(an::ui::themeSurfaceTintFamily())},
+                    {QStringLiteral("colors"),
+                     QCborMap{{QStringLiteral("bgPrimary"), colorTokenHex(token_set.colors.bgPrimary)},
+                              {QStringLiteral("bgSurface"), colorTokenHex(token_set.colors.bgSurface)},
+                              {QStringLiteral("bgCard"), colorTokenHex(token_set.colors.bgCard)},
+                              {QStringLiteral("textPrimary"), colorTokenHex(token_set.colors.textPrimary)},
+                              {QStringLiteral("textSecondary"), colorTokenHex(token_set.colors.textSecondary)},
+                              {QStringLiteral("textTertiary"), colorTokenHex(token_set.colors.textTertiary)},
+                              {QStringLiteral("textOnAccent"), colorTokenHex(token_set.colors.textOnAccent)},
+                              {QStringLiteral("accentPrimary"), colorTokenHex(token_set.colors.accentPrimary)},
+                              {QStringLiteral("accentHover"), colorTokenHex(token_set.colors.accentHover)},
+                              {QStringLiteral("borderPrimary"), colorTokenHex(token_set.colors.borderPrimary)},
+                              {QStringLiteral("borderSubtle"), colorTokenHex(token_set.colors.borderSubtle)},
+                              {QStringLiteral("statusSuccess"), colorTokenHex(token_set.colors.statusSuccess)},
+                              {QStringLiteral("statusWarning"), colorTokenHex(token_set.colors.statusWarning)},
+                              {QStringLiteral("statusError"), colorTokenHex(token_set.colors.statusError)},
+                              {QStringLiteral("statusInfo"), colorTokenHex(token_set.colors.statusInfo)}}},
+                    {QStringLiteral("spacing"), QCborMap{{QStringLiteral("xs"), token_set.spacing.xs},
+                                                         {QStringLiteral("sm"), token_set.spacing.sm},
+                                                         {QStringLiteral("md"), token_set.spacing.md},
+                                                         {QStringLiteral("lg"), token_set.spacing.lg},
+                                                         {QStringLiteral("xl"), token_set.spacing.xl}}},
+                    {QStringLiteral("radius"), QCborMap{{QStringLiteral("none"), token_set.radius.none},
+                                                        {QStringLiteral("sm"), token_set.radius.sm},
+                                                        {QStringLiteral("md"), token_set.radius.md},
+                                                        {QStringLiteral("lg"), token_set.radius.lg},
+                                                        {QStringLiteral("xl"), token_set.radius.xl}}},
+                    {QStringLiteral("typography"),
+                     QCborMap{{QStringLiteral("heading1"), fontTokenToCborMap(token_set.typography.heading1)},
+                              {QStringLiteral("heading2"), fontTokenToCborMap(token_set.typography.heading2)},
+                              {QStringLiteral("heading3"), fontTokenToCborMap(token_set.typography.heading3)},
+                              {QStringLiteral("body"), fontTokenToCborMap(token_set.typography.body)},
+                              {QStringLiteral("caption"), fontTokenToCborMap(token_set.typography.caption)},
+                              {QStringLiteral("monospace"), fontTokenToCborMap(token_set.typography.monospace)}}}};
+}
+
+an::ui::extensions::ExtensionThemeSnapshot currentExtensionThemeSnapshot()
+{
+    an::ui::extensions::ExtensionThemeSnapshot snapshot;
+    snapshot.theme_name = an::ui::isDarkTheme() ? "AfterNight Dark" : "AfterNight Light";
+    snapshot.tokens = currentExtensionThemeTokens();
+    return snapshot;
+}
+
+void logModernizationFeatureFlags()
+{
+    using an::ui::modernization::ModernizationFeatureFlags;
+
+    LOG_DEBUG("Modernization feature flags: "
+              "AN_UI_TOKENS_ENABLED={} (default={}), "
+              "AN_UI_PROGRAMMATIC_PROCESSES={} (default={}), "
+              "AN_DIALOG_MODERN_STYLE_ENABLED={} (default={}), "
+              "AN_PERSISTENCE_THREADSAFE_ENABLED={} (default={})",
+              ModernizationFeatureFlags::uiTokensEnabled(), ModernizationFeatureFlags::kUiTokensEnabledDefault,
+              ModernizationFeatureFlags::programmaticProcessesEnabled(),
+              ModernizationFeatureFlags::kProgrammaticProcessesEnabledDefault,
+              ModernizationFeatureFlags::dialogModernStyleEnabled(),
+              ModernizationFeatureFlags::kDialogModernStyleEnabledDefault,
+              ModernizationFeatureFlags::persistenceThreadsafeEnabled(),
+              ModernizationFeatureFlags::kPersistenceThreadsafeEnabledDefault);
+}
+
+QMenu* extensionMenuForCategory(an::ui::app::AfterNightAppUiElements& ui, const std::string_view category)
+{
+    if (category == "tone_brightness")
+    {
+        return ui.menuAdjustments;
+    }
+    if (category == "filters")
+    {
+        return ui.menuFilters;
+    }
+    if (category == "geometry")
+    {
+        return ui.menuGeometry_2;
+    }
+    if (category == "color")
+    {
+        return ui.menuColor_Calibration;
+    }
+    if (category == "denoising")
+    {
+        return ui.menuNoise_Reduction;
+    }
+    if (category == "sharpening_enhancement")
+    {
+        return ui.menuDetails;
+    }
+    if (category == "star_object")
+    {
+        return ui.menuStar_Processing;
+    }
+    if (category == "background_extraction")
+    {
+        return ui.menuBackground_Modelization;
+    }
+    if (category == "transforms")
+    {
+        return ui.menuIntensity_Transformations;
+    }
+    if (category == "sensor_calibration" || category == "multi_image_stacking")
+    {
+        return ui.menuPreprocess;
+    }
+    if (category == "mask_generation")
+    {
+        return ui.menuMask_Generation;
+    }
+
+    return nullptr;
+}
+
+[[nodiscard]] QString extensionStatusPageTitle()
+{
+    return QCoreApplication::translate("ExtensionStatusPage", "Extensions");
+}
+
+[[nodiscard]] QString extensionManagerPageTitle()
+{
+    return QCoreApplication::translate("ExtensionManagerPage", "Extension Manager");
+}
+
+[[nodiscard]] QString extensionBrowseTabTitle()
+{
+    return QCoreApplication::translate("ExtensionsDialog", "Browse");
+}
+
+[[nodiscard]] QString extensionInstalledTabTitle()
+{
+    return QCoreApplication::translate("ExtensionsDialog", "Installed");
+}
+
+[[nodiscard]] bool isExtensionDialogPageTitle(const QString& page_name)
+{
+    const QString requested = page_name.trimmed();
+    return QString::compare(requested, extensionStatusPageTitle(), Qt::CaseInsensitive) == 0 ||
+           QString::compare(requested, extensionManagerPageTitle(), Qt::CaseInsensitive) == 0 ||
+           QString::compare(requested, extensionBrowseTabTitle(), Qt::CaseInsensitive) == 0 ||
+           QString::compare(requested, extensionInstalledTabTitle(), Qt::CaseInsensitive) == 0;
+}
+
+void removeMenuActionsByProperty(QMenu* menu, const char* propertyName)
+{
+    if (!menu || !propertyName)
+    {
+        return;
+    }
+
+    const QList<QAction*> actions = menu->actions();
+    for (QAction* action : actions)
+    {
+        if (!action)
+        {
+            continue;
+        }
+
+        if (action->property(propertyName).toBool())
+        {
+            QMenu* submenu = action->menu();
+            menu->removeAction(action);
+            if (submenu)
+            {
+                delete submenu;
+            }
+            else
+            {
+                delete action;
+            }
+            continue;
+        }
+
+        removeMenuActionsByProperty(action->menu(), propertyName);
+    }
+}
+
+void clearDiscoveredExtensionProcessActions(an::ui::app::AfterNightAppUiElements& ui)
+{
+    removeMenuActionsByProperty(ui.menuProcess, kExtensionProcessMenuActionProperty);
+}
+
+void clearDiscoveredExtensionFamilyMenus(an::ui::app::AfterNightAppUiElements& ui)
+{
+    removeMenuActionsByProperty(ui.menuExtensions, kExtensionFamilyMenuActionProperty);
+}
+
+[[nodiscard]] QString extensionFamilyDisplayName(const an::ui::extensions::ExtensionManifest& manifest)
+{
+    if (!manifest.name.empty())
+    {
+        return QString::fromUtf8(manifest.name);
+    }
+    if (!manifest.id.empty())
+    {
+        return QString::fromUtf8(manifest.id);
+    }
+    return QCoreApplication::translate("AfterNightAppClass", "Extension");
+}
+
+struct ExtensionFamilyMenuEntry
+{
+    QString display_name;
+    std::string homepage_url;
+    std::string repository_url;
+    std::string support_url;
+};
+
+[[nodiscard]] std::vector<ExtensionFamilyMenuEntry>
+extensionFamilyMenuEntries(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered)
+{
+    std::map<std::string, ExtensionFamilyMenuEntry, std::less<>> entries_by_id;
+    for (const auto& result : discovered)
+    {
+        if (!result.manifest || result.status == an::ui::extensions::ExtensionLoadStatus::Invalid)
+        {
+            continue;
+        }
+
+        const auto& manifest = *result.manifest;
+        if (manifest.id.empty())
+        {
+            continue;
+        }
+
+        auto& entry = entries_by_id[manifest.id];
+        entry.display_name = extensionFamilyDisplayName(manifest);
+        entry.homepage_url = manifest.repository_metadata.homepage_url;
+        entry.repository_url = manifest.repository_metadata.repository_url;
+        entry.support_url = manifest.repository_metadata.support_url;
+    }
+
+    std::vector<ExtensionFamilyMenuEntry> entries;
+    entries.reserve(entries_by_id.size());
+    for (auto& item : entries_by_id)
+    {
+        entries.push_back(std::move(item.second));
+    }
+
+    std::sort(entries.begin(), entries.end(), [](const auto& lhs, const auto& rhs) {
+        return QString::compare(lhs.display_name, rhs.display_name, Qt::CaseInsensitive) < 0;
+    });
+    return entries;
+}
+
+void addExternalUrlAction(QMenu* menu, const QString& text, const std::string& url)
+{
+    if (!menu || url.empty())
+    {
+        return;
+    }
+
+    auto* action = menu->addAction(text);
+    const QString qurl = QString::fromUtf8(url);
+    action->setStatusTip(qurl);
+    action->setToolTip(qurl);
+    QObject::connect(action, &QAction::triggered, menu, [qurl]() { QDesktopServices::openUrl(QUrl(qurl)); });
+}
+
+void appendDiscoveredExtensionFamilyMenus(AfterNightApp* app, an::ui::app::AfterNightAppUiElements& ui,
+                                          const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered)
+{
+    clearDiscoveredExtensionFamilyMenus(ui);
+    if (!app || !ui.menuExtensions)
+    {
+        return;
+    }
+
+    const std::vector<ExtensionFamilyMenuEntry> entries = extensionFamilyMenuEntries(discovered);
+    if (entries.empty())
+    {
+        return;
+    }
+
+    QAction* separator = ui.menuExtensions->addSeparator();
+    separator->setProperty(kExtensionFamilyMenuActionProperty, true);
+
+    QPointer<AfterNightApp> app_guard(app);
+    for (const ExtensionFamilyMenuEntry& entry : entries)
+    {
+        auto* family_menu = new QMenu(entry.display_name, ui.menuExtensions);
+        QAction* family_action = ui.menuExtensions->addMenu(family_menu);
+        family_action->setProperty(kExtensionFamilyMenuActionProperty, true);
+
+        auto* manage_action = family_menu->addAction(QCoreApplication::translate("AfterNightAppClass", "Manage..."));
+        QObject::connect(manage_action, &QAction::triggered, app, [app_guard]() {
+            if (app_guard)
+            {
+                app_guard->openSettingsAt(extensionStatusPageTitle());
+            }
+        });
+
+        addExternalUrlAction(family_menu, QCoreApplication::translate("AfterNightAppClass", "Homepage"),
+                             entry.homepage_url);
+        addExternalUrlAction(family_menu, QCoreApplication::translate("AfterNightAppClass", "Repository"),
+                             entry.repository_url);
+        addExternalUrlAction(family_menu, QCoreApplication::translate("AfterNightAppClass", "Support"),
+                             entry.support_url);
+    }
+}
+
+an::ui::extensions::ExtensionDiscoveryOptions buildDefaultExtensionDiscoveryOptions(
+    const bool eager_settings_schema_inspection = true,
+    const an::ui::extensions::ExtensionOperationCancellationToken& cancellation_token = {})
+{
+    auto options = an::ui::extensions::default_extension_discovery_options();
+    options.context.eager_settings_schema_inspection = eager_settings_schema_inspection;
+    options.cancellation_token = cancellation_token;
+    return options;
+}
+
+[[nodiscard]] an::ui::process_registry::ProcessAvailability
+refreshedExtensionProcessAvailability(const an::ui::extensions::ExtensionLoadResult& result)
+{
+    using an::ui::extensions::ExtensionEnvironmentState;
+    using an::ui::extensions::ExtensionLoadStatus;
+    using an::ui::process_registry::ProcessAvailability;
+
+    if (result.status == ExtensionLoadStatus::Incompatible)
+    {
+        return ProcessAvailability::Incompatible;
+    }
+    if (!result.environment)
+    {
+        return ProcessAvailability::Unavailable;
+    }
+
+    switch (result.environment->state)
+    {
+    case ExtensionEnvironmentState::Ready:
+        return ProcessAvailability::Available;
+    case ExtensionEnvironmentState::Bootstrapping:
+        return ProcessAvailability::Bootstrapping;
+    case ExtensionEnvironmentState::Missing:
+        return ProcessAvailability::InstallNeeded;
+    case ExtensionEnvironmentState::Stale:
+    case ExtensionEnvironmentState::Failed:
+        return ProcessAvailability::RepairNeeded;
+    }
+
+    return ProcessAvailability::Unavailable;
+}
+
+[[nodiscard]] std::string refreshedExtensionAvailabilityReason(const an::ui::extensions::ExtensionLoadResult& result)
+{
+    using an::ui::extensions::ExtensionEnvironmentState;
+    using an::ui::extensions::ExtensionLoadStatus;
+
+    if (result.status == ExtensionLoadStatus::Ready && result.environment &&
+        result.environment->state == ExtensionEnvironmentState::Ready)
+    {
+        return {};
+    }
+
+    if (!result.diagnostic.empty())
+    {
+        return result.diagnostic;
+    }
+    if (result.environment && !result.environment->diagnostic.empty())
+    {
+        return result.environment->diagnostic;
+    }
+
+    return "Extension process launch is not wired into this build yet.";
+}
+
+void refreshRegisteredExtensionDescriptors(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered)
+{
+    auto& registry = an::ui::process_registry::ProcessRegistry::instance();
+
+    for (const auto& result : discovered)
+    {
+        if (!result.manifest || result.status == an::ui::extensions::ExtensionLoadStatus::Invalid)
+        {
+            continue;
+        }
+
+        const auto availability = refreshedExtensionProcessAvailability(result);
+        const std::string availability_reason = refreshedExtensionAvailabilityReason(result);
+        for (const auto& process : result.manifest->processes)
+        {
+            auto* descriptor = registry.findMutable(process.id);
+            if (!descriptor)
+            {
+                continue;
+            }
+
+            descriptor->availability = availability;
+            descriptor->availability_reason = availability_reason;
+            descriptor->source_channel_filter = process.capabilities.source_channel_filter;
+            if (!descriptor->is_available())
+            {
+                descriptor->launch_single_image_checked = {};
+                descriptor->launch_top_level = {};
+            }
+        }
+    }
+}
+
+void refreshDiscoveredExtensionActions(AfterNightApp* app, an::ui::MenuActionManager* menuActionManager,
+                                       const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered)
+{
+    if (!app || !menuActionManager)
+    {
+        return;
+    }
+
+    for (const auto& result : discovered)
+    {
+        if (!result.manifest || result.status == an::ui::extensions::ExtensionLoadStatus::Invalid)
+        {
+            continue;
+        }
+
+        for (const auto& process : result.manifest->processes)
+        {
+            if (auto* action = app->findChild<QAction*>(QString::fromStdString(process.action_object_name)))
+            {
+                action->setProperty("anRegistryDescriptorId", QString::fromStdString(process.id));
+                menuActionManager->bindRegistryAction(action, process.category, process.id);
+            }
+        }
+    }
+}
+
+void appendDiscoveredExtensionActions(AfterNightApp* app, an::ui::MenuActionManager* menuActionManager,
+                                      an::ui::app::AfterNightAppUiElements& ui,
+                                      const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered)
+{
+    if (!app || !menuActionManager)
+    {
+        return;
+    }
+
+    clearDiscoveredExtensionProcessActions(ui);
+    appendDiscoveredExtensionFamilyMenus(app, ui, discovered);
+
+    std::set<QMenu*> menus_with_extension_entries;
+    auto& registry = an::ui::process_registry::ProcessRegistry::instance();
+
+    for (const auto& result : discovered)
+    {
+        if (!result.manifest || result.status == an::ui::extensions::ExtensionLoadStatus::Invalid)
+        {
+            continue;
+        }
+
+        for (const auto& process : result.manifest->processes)
+        {
+            QMenu* menu = extensionMenuForCategory(ui, process.category);
+            if (!menu)
+            {
+                if (an::platform::isLoggingInitialized())
+                {
+                    LOG_WARNING("No process-menu target is defined for extension category='{}'", process.category);
+                }
+                continue;
+            }
+
+            if (auto* existing_action = app->findChild<QAction*>(QString::fromStdString(process.action_object_name)))
+            {
+                existing_action->setProperty("anRegistryDescriptorId", QString::fromStdString(process.id));
+                menuActionManager->bindRegistryAction(existing_action, process.category, process.id);
+                continue;
+            }
+
+            const auto* descriptor = registry.find(process.id);
+            if (!descriptor)
+            {
+                if (an::platform::isLoggingInitialized())
+                {
+                    LOG_WARNING("Extension descriptor missing after registration, id={}", process.id);
+                }
+                continue;
+            }
+
+            if (menus_with_extension_entries.insert(menu).second)
+            {
+                QAction* separator = menu->addSeparator();
+                separator->setProperty(kExtensionProcessMenuActionProperty, true);
+            }
+
+            auto* action = new QAction(menu);
+            action->setObjectName(QString::fromStdString(process.action_object_name));
+            action->setText(QString::fromUtf8(descriptor->display_name.c_str()));
+            action->setProperty("anRegistryDescriptorId", QString::fromStdString(process.id));
+            action->setProperty(kExtensionProcessMenuActionProperty, true);
+            menu->addAction(action);
+            menuActionManager->bindRegistryAction(action, descriptor->category, process.id);
+        }
+    }
+}
+
+void bindDiscoveredExtensionLaunches(an::ui::extensions::ExtensionHostLaunchCoordinator* coordinator,
+                                     const std::filesystem::path& app_dir,
+                                     const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered)
+{
+    if (!coordinator)
+    {
+        return;
+    }
+
+    auto& registry = an::ui::process_registry::ProcessRegistry::instance();
+    const std::filesystem::path host_executable =
+        an::ui::extensions::bundled_extension_host_executable_for_app_dir(app_dir);
+    const std::filesystem::path lite_host_executable =
+        an::ui::extensions::bundled_extension_host_lite_executable_for_app_dir(app_dir);
+
+    for (const auto& result : discovered)
+    {
+        if (!result.manifest || result.status != an::ui::extensions::ExtensionLoadStatus::Ready ||
+            !result.environment || result.environment->state != an::ui::extensions::ExtensionEnvironmentState::Ready)
+        {
+            continue;
+        }
+
+        const auto sdk_backend = result.manifest->sdk_backend;
+        if (sdk_backend == an::ui::extensions::ExtensionSdkBackend::Rpc)
+        {
+            continue;
+        }
+        const bool protocol_backend = sdk_backend == an::ui::extensions::ExtensionSdkBackend::Protocol;
+        const std::filesystem::path selected_host_executable =
+            protocol_backend ? lite_host_executable : host_executable;
+        if (selected_host_executable.empty())
+        {
+            continue;
+        }
+
+        for (const auto& process : result.manifest->processes)
+        {
+            auto* descriptor = registry.findMutable(process.id);
+            if (!descriptor)
+            {
+                continue;
+            }
+
+            an::ui::extensions::ExtensionHostLaunchBinding binding;
+            binding.descriptor_id = process.id;
+            binding.extension_id = result.manifest->id;
+            binding.display_name = descriptor->display_name;
+            binding.sdk_backend = protocol_backend ? "protocol" : "runtime";
+            binding.launch_mode = result.manifest->launch_mode;
+            binding.host_version = QCoreApplication::applicationVersion().isEmpty()
+                                       ? "dev"
+                                       : QCoreApplication::applicationVersion().toStdString();
+            binding.host_arguments.push_back("--extension-package-root");
+            binding.host_arguments.push_back(result.manifest->package_root);
+            binding.host_arguments.push_back("--entry-point");
+            binding.host_arguments.push_back(result.manifest->entry_point);
+            binding.host_arguments.push_back("--process-class");
+            binding.host_arguments.push_back(process.class_name);
+            binding.host_arguments.push_back("--environment-root");
+            binding.host_arguments.push_back(result.environment->environment_path.string());
+            binding.host_arguments.push_back("--runtime-root");
+            binding.host_arguments.push_back((app_dir / "PythonLib").string());
+            const bool workflow_launch =
+                result.manifest->launch_mode == an::ui::extensions::ExtensionLaunchMode::Workflow;
+            if (process.capabilities.execute || workflow_launch)
+            {
+                binding.capabilities.push_back("execute");
+            }
+            if (process.capabilities.preview)
+            {
+                binding.capabilities.push_back("preview");
+            }
+            if (process.capabilities.keep_open)
+            {
+                binding.capabilities.push_back("keep_open");
+            }
+            if (workflow_launch)
+            {
+                binding.capabilities.push_back("workflow");
+            }
+            binding.process_capabilities = process.capabilities;
+            binding.host_executable = selected_host_executable;
+            binding.extension_host_owns_process_window = !protocol_backend;
+            if (!protocol_backend && result.settings_schema &&
+                result.settings_schema->state == an::ui::extensions::ExtensionSettingsSchemaState::Ready)
+            {
+                const auto params_schema = result.settings_schema->process_params_schemas.find(process.class_name);
+                if (params_schema != result.settings_schema->process_params_schemas.end())
+                {
+                    binding.has_cached_native_param_schema = true;
+                    binding.cached_native_param_schema = params_schema->second;
+                }
+            }
+            if (workflow_launch)
+            {
+                coordinator->bindWorkflowDescriptor(descriptor, binding);
+            }
+            else
+            {
+                coordinator->bindSingleImageDescriptor(descriptor, binding);
+            }
+        }
+    }
+}
+
+[[nodiscard]] bool hasCachedNativeParameterSchemas(const an::ui::extensions::ExtensionLoadResult& result)
+{
+    if (!result.manifest)
+    {
+        return false;
+    }
+    if (result.manifest->sdk_backend != an::ui::extensions::ExtensionSdkBackend::Runtime)
+    {
+        return true;
+    }
+    if (!result.settings_schema ||
+        result.settings_schema->state != an::ui::extensions::ExtensionSettingsSchemaState::Ready)
+    {
+        return false;
+    }
+
+    return std::all_of(result.manifest->processes.begin(), result.manifest->processes.end(),
+                       [&result](const an::ui::extensions::ExtensionProcessManifest& process) {
+                           return result.settings_schema->process_params_schemas.contains(process.class_name);
+                       });
+}
+
+// Primes the startup caches of every ready package whose native parameter schemas are not cached - one whose
+// environment was just refreshed, taken over or provisioned has none for what it is now - and says whether any was.
+[[nodiscard]] bool
+primeMissingNativeParameterSchemas(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered,
+                                   const an::ui::extensions::ExtensionDiscoveryOptions& discoveryOptions)
+{
+    bool cachesUpdated = false;
+    for (const auto& result : discovered)
+    {
+        if (discoveryOptions.cancellation_token.isCancellationRequested())
+        {
+            return cachesUpdated;
+        }
+        if (result.status != an::ui::extensions::ExtensionLoadStatus::Ready || !result.environment ||
+            result.environment->state != an::ui::extensions::ExtensionEnvironmentState::Ready ||
+            hasCachedNativeParameterSchemas(result))
+        {
+            continue;
+        }
+
+        an::ui::extensions::ExtensionStartupCachePrimingOptions primingOptions;
+        primingOptions.context = discoveryOptions.context;
+        primingOptions.require_settings_schema = true;
+        primingOptions.cancellation_token = discoveryOptions.cancellation_token;
+        const auto primingResult = an::ui::extensions::prime_extension_startup_caches(result, primingOptions);
+        cachesUpdated = cachesUpdated || primingResult.success;
+        if (!primingResult.success && !discoveryOptions.cancellation_token.isCancellationRequested() &&
+            an::platform::isLoggingInitialized())
+        {
+            LOG_WARNING("Failed to refresh native parameter cache extension id='{}': {}",
+                        result.manifest ? result.manifest->id : std::string(), primingResult.diagnostic);
+        }
+    }
+    return cachesUpdated;
+}
+
+void cleanupUnusedExtensionEnvironmentsAtStartup(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered,
+                                                 const an::ui::extensions::ExtensionDiscoveryOptions& discovery_options)
+{
+    an::ui::extensions::ExtensionEnvironmentManager environment_manager;
+
+    // An environment a ready one of the same package's context replaced goes at once; one no installed package's
+    // context names waits for the grace period.
+    std::vector<std::filesystem::path> replacedPaths;
+    std::uintmax_t replacedBytes = 0;
+    if (environment_manager.removeReplacedEnvironments(discovered, discovery_options.context, &replacedPaths,
+                                                       &replacedBytes, discovery_options.cancellation_token) &&
+        !replacedPaths.empty() && an::platform::isLoggingInitialized())
+    {
+        LOG_INFO("Removed {} replaced extension environment(s) and reclaimed {} byte(s)", replacedPaths.size(),
+                 replacedBytes);
+    }
+    if (discovery_options.cancellation_token.isCancellationRequested())
+    {
+        return;
+    }
+
+    std::vector<std::filesystem::path> removed_paths;
+    std::uintmax_t reclaimed_bytes = 0;
+    std::string error;
+    if (!environment_manager.removeUnusedEnvironments(
+            discovered, discovery_options.context, an::ui::extensions::automatic_extension_environment_cleanup_policy(),
+            &removed_paths, &reclaimed_bytes, &error, discovery_options.cancellation_token))
+    {
+        if (!discovery_options.cancellation_token.isCancellationRequested() && an::platform::isLoggingInitialized())
+        {
+            LOG_WARNING("Automatic extension environment cleanup failed: {}", error);
+        }
+        return;
+    }
+
+    if (!removed_paths.empty() && an::platform::isLoggingInitialized())
+    {
+        LOG_INFO("Automatic extension environment cleanup removed {} environment(s) and reclaimed {} byte(s)",
+                 removed_paths.size(), reclaimed_bytes);
+    }
+}
+
+void registerDiscoveredExtensions(AfterNightApp* app,
+                                  an::ui::extensions::ExtensionHostLaunchCoordinator* extensionLaunchCoordinator,
+                                  an::ui::MenuActionManager* menuActionManager,
+                                  an::ui::app::AfterNightAppUiElements& ui,
+                                  const an::ui::extensions::ExtensionOperationCancellationToken& cancellation_token)
+{
+    if (!app || !menuActionManager)
+    {
+        return;
+    }
+
+    const auto discovery_options = buildDefaultExtensionDiscoveryOptions(false, cancellation_token);
+    const std::filesystem::path app_dir(QCoreApplication::applicationDirPath().toStdString());
+    const bool automatic_environment_cleanup_enabled =
+        !app->getGlobalSettingsPersistence() ||
+        app->getGlobalSettingsPersistence()->select(
+            QString::fromLatin1(an::ui::extensions::kAutomaticExtensionEnvironmentCleanupSetting),
+            QStringLiteral("1")) != QStringLiteral("0");
+
+    // The catalog is intentionally a small, guarded snapshot of only known-ready
+    // installations. It avoids recalculating package dependency/source hashes on
+    // the UI thread before extension actions and launch bindings are available.
+    const auto startup_catalog = an::ui::extensions::load_ready_extension_startup_catalog(discovery_options);
+    if (!startup_catalog.empty())
+    {
+        an::ui::extensions::ExtensionManager extensionManager;
+        extensionManager.registerDiscoveredProcesses(startup_catalog,
+                                                     an::ui::process_registry::ProcessRegistry::instance());
+        bindDiscoveredExtensionLaunches(extensionLaunchCoordinator, app_dir, startup_catalog);
+        appendDiscoveredExtensionActions(app, menuActionManager, ui, startup_catalog);
+        cleanupMissingStoredProcessIdsOnNextRefresh = true;
+        app->refreshStoredProcessMenus();
+        app->updateActiveImageActions();
+    }
+
+    QPointer<AfterNightApp> app_guard(app);
+    auto* ui_ptr = &ui;
+    QThreadPool::globalInstance()->start([app_guard, extensionLaunchCoordinator, menuActionManager, ui_ptr, app_dir,
+                                          discovery_options, automatic_environment_cleanup_enabled,
+                                          startup_catalog_for_cleanup = startup_catalog]() mutable {
+        const auto cancellation_requested = [&discovery_options]() {
+            return discovery_options.cancellation_token.isCancellationRequested();
+        };
+        an::ui::extensions::ExtensionManager extensionManager;
+        auto discovered = extensionManager.discoverExtensions(discovery_options);
+        if (cancellation_requested())
+        {
+            return;
+        }
+        if (automatic_environment_cleanup_enabled)
+        {
+            auto cleanup_discovered = discovered;
+            cleanup_discovered.insert(cleanup_discovered.end(), startup_catalog_for_cleanup.begin(),
+                                      startup_catalog_for_cleanup.end());
+            cleanupUnusedExtensionEnvironmentsAtStartup(cleanup_discovered, discovery_options);
+        }
+        if (cancellation_requested())
+        {
+            return;
+        }
+        if (!an::ui::extensions::store_ready_extension_startup_catalog(discovered, discovery_options.context) &&
+            an::platform::isLoggingInitialized())
+        {
+            LOG_WARNING("Failed to update the extension startup activation catalog");
+        }
+        if (discovered.empty())
+        {
+            if (app_guard)
+            {
+                QMetaObject::invokeMethod(
+                    app_guard.data(),
+                    [app_guard, menuActionManager, ui_ptr, discovered = std::move(discovered)]() mutable {
+                        if (!app_guard || !menuActionManager || !ui_ptr)
+                        {
+                            return;
+                        }
+
+                        an::ui::extensions::ExtensionManager extensionManager;
+                        extensionManager.registerDiscoveredProcesses(
+                            discovered, an::ui::process_registry::ProcessRegistry::instance());
+                        appendDiscoveredExtensionActions(app_guard.data(), menuActionManager, *ui_ptr, discovered);
+                        cleanupMissingStoredProcessIdsOnNextRefresh = true;
+                        app_guard->refreshStoredProcessMenus();
+                        app_guard->updateActiveImageActions();
+                    },
+                    Qt::QueuedConnection);
+            }
+            return;
+        }
+
+        // Every installed package's environment that is not ready is prepared in the background, whatever its source:
+        // refreshed in place for this build, taken over from an earlier version of the extension, or provisioned -
+        // from an index only while the run may reach one.
+        an::ui::extensions::ExtensionEnvironmentManager environmentManager;
+        std::string bootstrap_error;
+        const int queued_bootstraps = environmentManager.queueEnvironmentMaintenance(
+            discovered, !an::ui::extensions::extensionNetworkDisabledByPolicy(), &bootstrap_error,
+            discovery_options.cancellation_token);
+        if (cancellation_requested())
+        {
+            return;
+        }
+        if (!bootstrap_error.empty() && an::platform::isLoggingInitialized())
+        {
+            LOG_WARNING("Extension environment maintenance queueing reported: {}", bootstrap_error);
+        }
+        else if (queued_bootstraps > 0 && an::platform::isLoggingInitialized())
+        {
+            LOG_INFO("Queued {} extension environment maintenance operation(s)", queued_bootstraps);
+        }
+
+        if (app_guard)
+        {
+            auto discovered_for_ui = discovered;
+            QMetaObject::invokeMethod(
+                app_guard.data(),
+                [app_guard, extensionLaunchCoordinator, menuActionManager, ui_ptr, app_dir,
+                 discovered_for_ui = std::move(discovered_for_ui)]() mutable {
+                    if (!app_guard || !menuActionManager || !extensionLaunchCoordinator || !ui_ptr)
+                    {
+                        return;
+                    }
+
+                    an::ui::extensions::ExtensionManager extensionManager;
+                    extensionManager.registerDiscoveredProcesses(discovered_for_ui,
+                                                                 an::ui::process_registry::ProcessRegistry::instance());
+                    bindDiscoveredExtensionLaunches(extensionLaunchCoordinator, app_dir, discovered_for_ui);
+                    appendDiscoveredExtensionActions(app_guard.data(), menuActionManager, *ui_ptr, discovered_for_ui);
+                    cleanupMissingStoredProcessIdsOnNextRefresh = true;
+                    app_guard->refreshStoredProcessMenus();
+                    app_guard->updateActiveImageActions();
+                },
+                Qt::QueuedConnection);
+        }
+
+        bool requires_native_param_cache_migration = false;
+        for (const auto& result : discovered)
+        {
+            if (cancellation_requested())
+            {
+                return;
+            }
+            if (result.status == an::ui::extensions::ExtensionLoadStatus::Ready && result.environment &&
+                result.environment->state == an::ui::extensions::ExtensionEnvironmentState::Ready &&
+                !hasCachedNativeParameterSchemas(result))
+            {
+                requires_native_param_cache_migration = true;
+                break;
+            }
+        }
+
+        if (requires_native_param_cache_migration)
+        {
+            const bool caches_updated = primeMissingNativeParameterSchemas(discovered, discovery_options);
+            if (cancellation_requested())
+            {
+                return;
+            }
+
+            if (caches_updated && app_guard)
+            {
+                an::ui::extensions::ExtensionManager refreshed_manager;
+                auto refreshed_discovered = refreshed_manager.discoverExtensions(discovery_options);
+                if (cancellation_requested())
+                {
+                    return;
+                }
+                QMetaObject::invokeMethod(
+                    app_guard.data(),
+                    [app_guard, extensionLaunchCoordinator, app_dir,
+                     refreshed_discovered = std::move(refreshed_discovered)]() mutable {
+                        if (!app_guard || !extensionLaunchCoordinator)
+                        {
+                            return;
+                        }
+
+                        bindDiscoveredExtensionLaunches(extensionLaunchCoordinator, app_dir, refreshed_discovered);
+                    },
+                    Qt::QueuedConnection);
+            }
+        }
+
+        if (queued_bootstraps <= 0)
+        {
+            return;
+        }
+
+        std::string worker_error;
+        const int processed_bootstraps = environmentManager.processQueuedEnvironmentMaintenance(
+            discovered, &worker_error, discovery_options.cancellation_token);
+        if (cancellation_requested())
+        {
+            return;
+        }
+        if (!worker_error.empty())
+        {
+            if (an::platform::isLoggingInitialized())
+            {
+                LOG_WARNING("Extension environment maintenance processing reported: {}", worker_error);
+            }
+        }
+        else if (processed_bootstraps > 0 && an::platform::isLoggingInitialized())
+        {
+            LOG_INFO("Processed {} extension environment maintenance operation(s)", processed_bootstraps);
+        }
+
+        if (!app_guard)
+        {
+            return;
+        }
+
+        an::ui::extensions::ExtensionManager refresh_manager;
+        auto refreshed_discovered = refresh_manager.discoverExtensions(discovery_options);
+        if (cancellation_requested())
+        {
+            return;
+        }
+        // An environment the maintenance made ready has no native parameter schemas cached for what it is now.
+        if (primeMissingNativeParameterSchemas(refreshed_discovered, discovery_options))
+        {
+            if (cancellation_requested())
+            {
+                return;
+            }
+            refreshed_discovered = refresh_manager.discoverExtensions(discovery_options);
+            if (cancellation_requested())
+            {
+                return;
+            }
+        }
+        if (automatic_environment_cleanup_enabled)
+        {
+            auto cleanup_discovered = refreshed_discovered;
+            cleanup_discovered.insert(cleanup_discovered.end(), startup_catalog_for_cleanup.begin(),
+                                      startup_catalog_for_cleanup.end());
+            cleanupUnusedExtensionEnvironmentsAtStartup(cleanup_discovered, discovery_options);
+        }
+        if (cancellation_requested())
+        {
+            return;
+        }
+        if (!an::ui::extensions::store_ready_extension_startup_catalog(refreshed_discovered,
+                                                                       discovery_options.context) &&
+            an::platform::isLoggingInitialized())
+        {
+            LOG_WARNING("Failed to refresh the extension startup activation catalog after bootstrap");
+        }
+        if (refreshed_discovered.empty())
+        {
+            return;
+        }
+
+        QMetaObject::invokeMethod(
+            app_guard.data(),
+            [app_guard, extensionLaunchCoordinator, menuActionManager, app_dir,
+             refreshed_discovered = std::move(refreshed_discovered)]() mutable {
+                if (!app_guard || !menuActionManager || !extensionLaunchCoordinator)
+                {
+                    return;
+                }
+
+                refreshRegisteredExtensionDescriptors(refreshed_discovered);
+                bindDiscoveredExtensionLaunches(extensionLaunchCoordinator, app_dir, refreshed_discovered);
+                refreshDiscoveredExtensionActions(app_guard.data(), menuActionManager, refreshed_discovered);
+                cleanupMissingStoredProcessIdsOnNextRefresh = true;
+                app_guard->refreshStoredProcessMenus();
+                app_guard->updateActiveImageActions();
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void refreshInstalledExtensionMenus(AfterNightApp* app,
+                                    an::ui::extensions::ExtensionHostLaunchCoordinator* extensionLaunchCoordinator,
+                                    an::ui::MenuActionManager* menuActionManager,
+                                    an::ui::app::AfterNightAppUiElements& ui,
+                                    const an::ui::extensions::ExtensionOperationCancellationToken& cancellation_token)
+{
+    if (!app || !extensionLaunchCoordinator || !menuActionManager)
+    {
+        return;
+    }
+
+    an::ui::invalidateInstalledExtensionStatusCache(true);
+
+    const auto discovery_options = buildDefaultExtensionDiscoveryOptions(false, cancellation_token);
+    const std::filesystem::path app_dir(QCoreApplication::applicationDirPath().toStdString());
+    QPointer<AfterNightApp> app_guard(app);
+    auto* ui_ptr = &ui;
+    QThreadPool::globalInstance()->start(
+        [app_guard, extensionLaunchCoordinator, menuActionManager, ui_ptr, app_dir, discovery_options]() mutable {
+            an::ui::extensions::ExtensionManager extensionManager;
+            auto discovered = extensionManager.discoverExtensions(discovery_options);
+            if (discovery_options.cancellation_token.isCancellationRequested())
+            {
+                return;
+            }
+            if (!an::ui::extensions::store_ready_extension_startup_catalog(discovered, discovery_options.context) &&
+                an::platform::isLoggingInitialized())
+            {
+                LOG_WARNING("Failed to refresh the extension startup activation catalog after extension changes");
+            }
+            if (!app_guard)
+            {
+                return;
+            }
+
+            QMetaObject::invokeMethod(
+                app_guard.data(),
+                [app_guard, extensionLaunchCoordinator, menuActionManager, ui_ptr, app_dir,
+                 discovered = std::move(discovered)]() mutable {
+                    if (!app_guard || !extensionLaunchCoordinator || !menuActionManager || !ui_ptr)
+                    {
+                        return;
+                    }
+
+                    an::ui::extensions::ExtensionManager extensionManager;
+                    extensionManager.registerDiscoveredProcesses(discovered,
+                                                                 an::ui::process_registry::ProcessRegistry::instance());
+                    bindDiscoveredExtensionLaunches(extensionLaunchCoordinator, app_dir, discovered);
+                    appendDiscoveredExtensionActions(app_guard.data(), menuActionManager, *ui_ptr, discovered);
+                    cleanupMissingStoredProcessIdsOnNextRefresh = true;
+                    app_guard->refreshStoredProcessMenus();
+                    app_guard->updateActiveImageActions();
+                },
+                Qt::QueuedConnection);
+        });
+}
+
+} // anonymous namespace
+
+namespace
+{
+
+// A document around an asset an extension produced, shown under `name`; an empty name leaves the view's name to the
+// view creation coordinator.
+std::optional<an::ui::ImageDocument> documentOfAsset(an::consumer::ImageAsset&& asset, const std::string& name)
+{
+    an::ui::DocumentNames names;
+    names.displayName = QString::fromStdString(name);
+    an::Result<an::ui::ImageDocument> document = an::ui::ImageDocument::create(std::move(asset), std::move(names));
+    if (!document.hasValue())
+    {
+        LOG_WARNING("An extension's image could not be shown: {}", document.status().message());
+        return std::nullopt;
+    }
+    return std::move(*document);
+}
+
+// An image of a description with every sample zero, a new asset of the session.
+an::Result<an::consumer::ImageAsset> zeroedImageOf(const an::consumer::EngineSession& session,
+                                                   const an::ImageDescriptor& descriptor)
+{
+    an::Result<an::consumer::SessionHold> hold = session.hold();
+    if (!hold.hasValue())
+    {
+        return hold.status();
+    }
+
+    an::Result<an::consumer::AnyImage> image =
+        an::Status::failure(an::ErrorCode::Unsupported, "the image's samples are of no representation it can hold");
+    (void)an::dispatchSampleType(descriptor.sampleType(), [&]<typename SampleT>() {
+        an::Result<an::Image<SampleT>> created = an::Image<SampleT>::create(
+            hold->engine(), descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed);
+        image = created.hasValue() ? an::Result<an::consumer::AnyImage>(an::consumer::AnyImage(std::move(*created)))
+                                   : an::Result<an::consumer::AnyImage>(created.status());
+    });
+    if (!image.hasValue())
+    {
+        return image.status();
+    }
+    return an::consumer::ImageAsset::adopt(session, std::move(*image));
+}
+
+// Exports what a document holds to a new shared buffer, read under a lease taken without waiting: a document a worker
+// is writing is refused rather than waited for on the GUI thread.
+std::optional<an::ui::extensions::SharedBufferDescriptor>
+exportDocumentSnapshot(const an::ui::ImageDocument& document, const an::ui::extensions::ImageExportRequest& request,
+                       std::string* error)
+{
+    an::Result<an::consumer::AssetReadLease> lease = document.tryRead();
+    if (!lease.hasValue())
+    {
+        if (error)
+        {
+            *error = lease.status().code() == an::ErrorCode::Busy
+                         ? std::string("Requested view is being changed; ask for its snapshot again")
+                         : std::string("Requested view has no exportable image: ") + lease.status().message();
+        }
+        return std::nullopt;
+    }
+
+    const an::ui::extensions::SharedBufferManager shared_buffer_manager;
+    an::Result<an::ui::extensions::SharedImageBuffer> buffer =
+        shared_buffer_manager.exportImage(lease->image(), request);
+    if (!buffer.hasValue())
+    {
+        if (error)
+        {
+            *error = std::string("Requested view could not be exported: ") + buffer.status().message();
+        }
+        return std::nullopt;
+    }
+    return buffer->descriptor();
+}
+
+// Opens a sequence a workflow wrote on a worker and shows it on the GUI thread, under the file's name; a sequence that
+// cannot be read or shown is said and logged there. The session outlives the pool's work: the application drains the
+// pool before it shuts the session down.
+void openWorkflowSequenceOutput(AfterNightApp* app, const an::consumer::EngineSession& session, const QString& path,
+                                const an::SequenceFormat format)
+{
+    QPointer<AfterNightApp> guard(app);
+    QThreadPool::globalInstance()->start([guard, &session, path, format]() {
+        auto opened = std::make_shared<an::Result<an::ui::ImageDocument>>(
+            an::ui::openSequenceDocument(session, path, format, {}));
+        QMetaObject::invokeMethod(
+            qApp,
+            [guard, opened, path]() {
+                if (!guard)
+                {
+                    return;
+                }
+
+                const std::string path_text = path.toStdString();
+                if (!opened->hasValue())
+                {
+                    LOG_WARNING("Failed to load workflow sequence output '{}': {}", path_text,
+                                opened->status().message());
+                    guard->notifyErrorMessage(guard.data(), QStringLiteral("Workflow Output"),
+                                              QStringLiteral("Failed to load workflow sequence output: %1\n%2")
+                                                  .arg(path, QString::fromUtf8(opened->status().message())));
+                    return;
+                }
+
+                an::ui::ImageDocument document = std::move(**opened);
+                an::ui::DocumentNames names = document.names();
+                names.displayName = QFileInfo(path).completeBaseName();
+                names.sourcePath = path;
+                document.setNames(std::move(names));
+                ImageViewControl* const created_control = guard->createNewImageViewControlFromSequence(
+                    nullptr, std::move(document), guard.data(), false,
+                    fmt::format("Workflow sequence loaded from '{}'", path_text), ViewControlMode::standard, nullptr,
+                    false, false);
+                if (!created_control)
+                {
+                    if (document.valid())
+                    {
+                        document.close();
+                    }
+                    LOG_WARNING("Failed to create a view for workflow sequence output '{}'", path_text);
+                    guard->notifyErrorMessage(
+                        guard.data(), QStringLiteral("Workflow Output"),
+                        QStringLiteral("Failed to create a view for workflow sequence output: %1").arg(path));
+                    return;
+                }
+
+                created_control->fitToWindowAsync();
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+// Makes a view of an image document on the GUI thread. The document travels in the event, so the thread that made it
+// never waits for the GUI thread; when no view is made, the event closes it.
+class CreateNewImageViewControlFromImageEvent : public AfterNightEvent
+{
+public:
+    CreateNewImageViewControlFromImageEvent(ImageViewControl* customViewControl, an::ui::ImageDocument&& document,
+                                            QWidget* parent, const std::string& historyDesc, const ViewControlMode mode,
+                                            ImageViewControl* neighbour, bool keepFocusedNeighbour,
+                                            const bool pendingChanges, std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_CustomViewControl(customViewControl), m_Document(std::move(document)),
+          m_Parent(parent), m_HistoryDesc(historyDesc), m_Mode(mode), m_Neighbour(neighbour),
+          m_KeepFocusedNeighbour(keepFocusedNeighbour), m_PendingChanges(pendingChanges)
+    {
+    }
+
+private:
+    void runImpl() override
+    {
+        ImageViewControl* const created = AfterNightApp::getInstance()->createNewImageViewControlFromImage(
+            m_CustomViewControl, std::move(m_Document), m_Parent.data(), m_HistoryDesc, m_Mode, m_Neighbour,
+            m_KeepFocusedNeighbour, m_PendingChanges);
+        if (!created && m_Document.valid())
+        {
+            m_Document.close();
+        }
+    }
+
+    ImageViewControl* m_CustomViewControl;
+    an::ui::ImageDocument m_Document;
+    QPointer<QWidget> m_Parent;
+    std::string m_HistoryDesc;
+    ViewControlMode m_Mode;
+    ImageViewControl* m_Neighbour;
+    bool m_KeepFocusedNeighbour;
+    bool m_PendingChanges;
+};
+
+// Makes a view of a sequence document on the GUI thread, as the image event does.
+class CreateNewImageViewControlFromSequenceEvent : public AfterNightEvent
+{
+public:
+    CreateNewImageViewControlFromSequenceEvent(ImageViewControl* customViewControl, an::ui::ImageDocument&& document,
+                                               QWidget* parent, const bool autoDebayer, const std::string& historyDesc,
+                                               const ViewControlMode mode, ImageViewControl* neighbour,
+                                               bool keepFocusedNeighbour, const bool pendingChanges,
+                                               std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_CustomViewControl(customViewControl), m_Document(std::move(document)),
+          m_Parent(parent), m_AutoDebayer(autoDebayer), m_HistoryDesc(historyDesc), m_Mode(mode),
+          m_Neighbour(neighbour), m_KeepFocusedNeighbour(keepFocusedNeighbour), m_PendingChanges(pendingChanges)
+    {
+    }
+
+private:
+    void runImpl() override
+    {
+        ImageViewControl* const created = AfterNightApp::getInstance()->createNewImageViewControlFromSequence(
+            m_CustomViewControl, std::move(m_Document), m_Parent.data(), m_AutoDebayer, m_HistoryDesc, m_Mode,
+            m_Neighbour, m_KeepFocusedNeighbour, m_PendingChanges);
+        if (!created && m_Document.valid())
+        {
+            m_Document.close();
+        }
+    }
+
+    ImageViewControl* m_CustomViewControl;
+    an::ui::ImageDocument m_Document;
+    QPointer<QWidget> m_Parent;
+    bool m_AutoDebayer;
+    std::string m_HistoryDesc;
+    ViewControlMode m_Mode;
+    ImageViewControl* m_Neighbour;
+    bool m_KeepFocusedNeighbour;
+    bool m_PendingChanges;
+};
+
+class AddImageViewControlAsyncEvent : public AfterNightEvent
+{
+public:
+    AddImageViewControlAsyncEvent(ImageViewControl* control, std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_ViewControl(control)
+    {
+    }
+
+    ImageViewControl* m_ViewControl;
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->addImageViewControl(m_ViewControl);
+    }
+};
+
+class RemoveImageViewControlAsyncEvent : public AfterNightEvent
+{
+public:
+    RemoveImageViewControlAsyncEvent(ImageViewControl* control, bool deleteObject, std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_ViewControl(control), m_DeleteObject(deleteObject)
+    {
+    }
+
+    ImageViewControl* m_ViewControl;
+    bool m_DeleteObject;
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->removeImageViewControl(m_ViewControl, m_DeleteObject);
+    }
+};
+
+class UpdateImageViewControlListEvent : public AfterNightEvent
+{
+public:
+    UpdateImageViewControlListEvent(std::atomic_bool* finished) : AfterNightEvent(finished) {}
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->updateImageViewControlList();
+    }
+};
+
+class UpdateActiveImageActionsEvent : public AfterNightEvent
+{
+public:
+    UpdateActiveImageActionsEvent(std::atomic_bool* finished) : AfterNightEvent(finished) {}
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->updateActiveImageActions();
+    }
+};
+
+class AddRecentFileEvent : public AfterNightEvent
+{
+public:
+    AddRecentFileEvent(const std::string& fileName, std::shared_ptr<const an::consumer::ImageAsset> image,
+                       std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_FileName(fileName), m_Image(std::move(image))
+    {
+    }
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->addRecentFile(m_FileName, m_Image);
+    }
+
+    std::string m_FileName;
+    std::shared_ptr<const an::consumer::ImageAsset> m_Image;
+};
+
+class RemoveRecentFileEvent : public AfterNightEvent
+{
+public:
+    RemoveRecentFileEvent(const std::string& fileName, std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_FileName(fileName)
+    {
+    }
+
+    std::string m_FileName;
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->removeRecentFile(m_FileName);
+    }
+};
+
+class NotifyErrorMessageEvent : public AfterNightEvent
+{
+public:
+    NotifyErrorMessageEvent(QWidget* parent, const QString& title, const QString& text, std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_Parent(parent), m_Title(title), m_Text(text)
+    {
+    }
+
+    QPointer<QWidget> m_Parent;
+    QString m_Title;
+    QString m_Text;
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->notifyErrorMessage(m_Parent.data(), m_Title, m_Text);
+    }
+};
+
+class NotifyWarnMessageEvent : public AfterNightEvent
+{
+public:
+    NotifyWarnMessageEvent(QWidget* parent, const QString& title, const QString& text, std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_Parent(parent), m_Title(title), m_Text(text)
+    {
+    }
+
+    QPointer<QWidget> m_Parent;
+    QString m_Title;
+    QString m_Text;
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->notifyWarnMessage(m_Parent.data(), m_Title, m_Text);
+    }
+};
+
+class NotifyInfoMessageEvent : public AfterNightEvent
+{
+public:
+    NotifyInfoMessageEvent(QWidget* parent, const QString& title, const QString& text, std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_Parent(parent), m_Title(title), m_Text(text)
+    {
+    }
+
+    QPointer<QWidget> m_Parent;
+    QString m_Title;
+    QString m_Text;
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->notifyInfoMessage(m_Parent.data(), m_Title, m_Text);
+    }
+};
+
+class MessageBoxYesNoEvent : public AfterNightEvent
+{
+public:
+    MessageBoxYesNoEvent(QWidget* parent, const QString& title, const QString& text, bool warn, int* ret,
+                         std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_Parent(parent), m_Title(title), m_Text(text), m_Warn(warn), m_Ret(ret)
+    {
+    }
+
+    QPointer<QWidget> m_Parent;
+    QString m_Title;
+    QString m_Text;
+
+    bool m_Warn;
+
+    int* m_Ret;
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->messageBoxYesNo(m_Parent.data(), m_Title, m_Text, m_Warn, m_Ret);
+    }
+};
+
+class SetActiveViewControlEvent : public AfterNightEvent
+{
+public:
+    SetActiveViewControlEvent(ImageViewControl* control, std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_Control(control)
+    {
+    }
+
+    ImageViewControl* m_Control;
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->setActiveImageViewControl(m_Control);
+    }
+};
+
+class RunCustomCodeEvent : public AfterNightEvent
+{
+public:
+    RunCustomCodeEvent(const std::function<void()>& func, std::atomic_bool* finished)
+        : AfterNightEvent(finished), m_Func(func)
+    {
+    }
+
+    std::function<void()> m_Func;
+
+private:
+    void runImpl() override
+    {
+        AfterNightApp::getInstance()->runCustomCode(m_Func);
+    }
+};
+
+class ScopedTopLevelFlagRestorer
+{
+public:
+    ScopedTopLevelFlagRestorer(Qt::WindowFlags clearFlag = Qt::WindowStaysOnTopHint) : m_clearFlag(clearFlag)
+    {
+        const auto topLevels = QApplication::topLevelWidgets();
+        for (QWidget* w : topLevels)
+        {
+            if (!w || !w->isVisible())
+                continue;
+
+            Qt::WindowFlags flags = w->windowFlags();
+            if (flags & clearFlag)
+            {
+                m_originalFlags[w] = flags;
+                w->setWindowFlags(flags & ~clearFlag);
+                w->hide();
+                w->show(); // Apply new flags
+            }
+        }
+    }
+
+    ~ScopedTopLevelFlagRestorer()
+    {
+        for (auto it = m_originalFlags.begin(); it != m_originalFlags.end(); ++it)
+        {
+            QWidget* w = it.key();
+            Qt::WindowFlags flags = it.value();
+            if (w)
+            {
+                w->setWindowFlags(flags);
+                w->hide();
+                w->show(); // Restore original flags
+            }
+        }
+    }
+
+private:
+    QMap<QWidget*, Qt::WindowFlags> m_originalFlags;
+    Qt::WindowFlags m_clearFlag;
+};
+} // namespace
+
+struct AfterNightApp::Impl
+{
+    an::ui::app::AfterNightAppUiElements ui;
+
+    std::unique_ptr<ImageViewControlManager> m_ImageViewControlManager = std::make_unique<ImageViewControlManager>();
+    std::unique_ptr<an::ui::ProcessLauncher> m_ProcessLauncher;
+    std::unique_ptr<an::ui::ChannelExtractor> m_ChannelExtractor;
+    std::unique_ptr<an::ui::ThemeManager> m_ThemeManager;
+    std::unique_ptr<an::ui::MenuActionManager> m_MenuActionManager;
+    std::unique_ptr<an::ui::extensions::ExtensionHostLaunchCoordinator> m_ExtensionHostLaunchCoordinator;
+    std::unique_ptr<an::ui::FileManager> m_FileManager;
+    std::unique_ptr<an::ui::ViewControlCoordinator> m_ViewControlCoordinator;
+    std::unique_ptr<an::ui::ViewCreationCoordinator> m_ViewCreationCoordinator;
+    std::unique_ptr<an::ui::ImageOperationsCoordinator> m_ImageOperationsCoordinator;
+    std::unique_ptr<an::ui::MaskOverlayCoordinator> m_MaskOverlayCoordinator;
+    std::unique_ptr<an::ui::DialogOrchestrationCoordinator> m_DialogOrchestrationCoordinator;
+    std::unique_ptr<an::ui::RuntimeStorageCoordinator> m_RuntimeStorageCoordinator;
+    std::unique_ptr<an::ui::UiBootstrapCoordinator> m_UiBootstrapCoordinator;
+    std::unique_ptr<an::ui::ActionStateCoordinator> m_ActionStateCoordinator;
+    std::unique_ptr<an::ui::WindowLayoutCoordinator> m_WindowLayoutCoordinator;
+    std::unique_ptr<an::ui::AppLifecycleCoordinator> m_AppLifecycleCoordinator;
+    std::unique_ptr<an::ui::PersistenceCoordinator> m_PersistenceCoordinator;
+    std::unique_ptr<an::ui::AfterNightAppContext> m_AppContext;
+
+    // The session the caller of `initialize` owns and lends; it outlives this window.
+    an::ui::ApplicationSession* m_Session = nullptr;
+
+    std::unique_ptr<QComboBox> m_ImageViewControlListComboBox;
+    std::unique_ptr<ImageInfoStatusBarWidget> m_ImageInfoStatusBarWidget;
+    std::unique_ptr<QTimer> m_ExtensionHostPumpTimer;
+    bool m_ExtensionHostPumpWakePending = false;
+    std::unique_ptr<QFileSystemWatcher> m_ExtensionInstallWatcher;
+    std::unique_ptr<QTimer> m_ExtensionInstallRefreshTimer;
+    an::ui::extensions::ExtensionOperationCancellationToken m_ExtensionBackgroundWorkCancellationToken;
+
+    /// The environments launches are preparing, each extension's until its work has returned.
+    std::unique_ptr<an::ui::extensions::ExtensionLaunchPreparations> m_ExtensionLaunchPreparations;
+
+    /// Stops every preparation a launch started, as the application's background work is stopped.
+    void cancelExtensionPreparations()
+    {
+        if (m_ExtensionLaunchPreparations)
+        {
+            m_ExtensionLaunchPreparations->cancelAll();
+        }
+    }
+
+    std::mutex m_OpenProcessesMutex;
+    std::set<TopLevelProcessBaseControl*> m_OpenProcesses;
+
+    std::atomic_bool m_IsLayoutLocked = false;
+    bool m_UnlockLayoutWhenRestoring = false;
+
+    QRecursiveMutex m_ImageViewControlManagerLock;
+
+    QString m_LocalDataPath;
+
+    std::deque<std::string> m_RecentFiles;
+    std::deque<an::ui::RecentProcessEntryData> m_RecentProcesses;
+    std::set<std::string> m_FavoriteProcessIds;
+
+    std::string m_LastOpenDirectory;
+
+    std::set<AfterNightAppListener*> m_listeners;
+
+    LogViewerControl* m_LogViewerControl = nullptr;
+    // The console's destroyed handler, which reads this state: let go before the state goes, since the console is a
+    // child the window's base class deletes after it.
+    QMetaObject::Connection m_LogViewerClosedConnection;
+
+    bool m_DarkMode = false;
+
+    IconManagerSptr m_IconManager;
+
+    QToolBar* m_DockManagerToolBar = nullptr;
+    QToolButton* m_ToolbarLockLayout = nullptr;
+
+    KDDockWidgets::QtWidgets::MainWindow* m_DockMainWindow = nullptr;
+
+    MainDashboard* m_MainDashboard = nullptr;
+    QScrollArea* m_MainDashboardScrollArea = nullptr;
+
+    bool m_IsTerminating = false;
+
+    std::thread::id m_MainThreadId;
+
+    int m_MaxThreadsForBatchProcess = 0;
+    int m_MaxThreadsForPreviewProcess = 0;
+
+    std::unique_ptr<PersistenceDbExecutor> m_DBExecutor;
+    std::unique_ptr<ThumbnailPersistence> m_ThumbnailPersistence;
+    std::unique_ptr<FolderTrackerPersistence> m_FolderTrackerPersistence;
+    std::unique_ptr<ProcessSettingsPersistence> m_ProcessSettingsPersistence;
+    std::unique_ptr<GlobalSettingsPersistence> m_GlobalSettingsPersistence;
+};
+
+static_assert(sizeof(AfterNightApp) <= sizeof(QMainWindow) + sizeof(std::uintptr_t) * 2,
+              "AfterNightApp should stay thin: its state lives behind the pimpl.");
+
+AfterNightApp* AfterNightApp::m_Instance = nullptr;
+AfterNightApp* AfterNightApp::getInstance()
+{
+    if (!m_Instance)
+    {
+        m_Instance = new AfterNightApp();
+    }
+
+    return m_Instance;
+}
+
+AfterNightApp* AfterNightApp::instanceOrNull() noexcept
+{
+    return m_Instance;
+}
+
+void AfterNightApp::destroyInstance()
+{
+    if (m_Instance)
+    {
+        delete m_Instance;
+        m_Instance = nullptr;
+    }
+}
+
+AfterNightApp::AfterNightApp() : QMainWindow(nullptr), m_impl(std::make_unique<Impl>())
+{
+    m_impl->m_MainThreadId = std::this_thread::get_id();
+    // Install the process-global app context before constructing UI services so
+    // any control created during startup observes a live context.
+    m_impl->m_AppContext = std::make_unique<an::ui::AfterNightAppContext>(this);
+    an::ui::setAppContext(m_impl->m_AppContext.get());
+
+    m_impl->ui = an::ui::app::buildAfterNightAppUi(this);
+    setObjectName("afterNightMainWindow");
+    setMinimumSize(an::ui::kMainWindowMinimumWidth, an::ui::kMainWindowMinimumHeight);
+
+    m_impl->m_IconManager = std::make_shared<IconManager>();
+    m_impl->m_ProcessLauncher = std::make_unique<an::ui::ProcessLauncher>();
+    m_impl->m_ChannelExtractor = std::make_unique<an::ui::ChannelExtractor>();
+    an::ui::ThemeManager::Dependencies themeManagerDeps;
+    themeManagerDeps.darkMode = &m_impl->m_DarkMode;
+    themeManagerDeps.reloadIcons = [this](const an::ui::ThemeIconRefreshRequest& request) {
+        if (!m_impl->m_IconManager)
+        {
+            return;
+        }
+
+        m_impl->m_IconManager->setColors(request.normalIconColor, request.disabledIconColor);
+        m_impl->m_IconManager->setSemanticColors(request.infoIconColor, request.warningIconColor,
+                                                 request.errorIconColor, request.questionIconColor,
+                                                 request.successIconColor);
+        m_impl->m_IconManager->loadIcons(":/AfterNight/icons/SVG");
+        m_impl->m_IconManager->loadIcons(":/AfterNight/icons/PNG");
+    };
+    themeManagerDeps.setActionIcons = [this]() { setActionIcons(); };
+    themeManagerDeps.mainDashboard = &m_impl->m_MainDashboard;
+    themeManagerDeps.toolbarLockLayout = &m_impl->m_ToolbarLockLayout;
+    themeManagerDeps.isLayoutLocked = &m_impl->m_IsLayoutLocked;
+    themeManagerDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    themeManagerDeps.dockMainWindow = &m_impl->m_DockMainWindow;
+    themeManagerDeps.openProcessesMutex = &m_impl->m_OpenProcessesMutex;
+    themeManagerDeps.openProcesses = &m_impl->m_OpenProcesses;
+    themeManagerDeps.mainWindow = this;
+    themeManagerDeps.iconProvider = [this](const std::string& iconName) {
+        return m_impl->m_IconManager ? m_impl->m_IconManager->getIcon(QString::fromUtf8(iconName)) : QIcon();
+    };
+    m_impl->m_ThemeManager = std::make_unique<an::ui::ThemeManager>(themeManagerDeps);
+
+    // Create the image view channel combobox
+    m_impl->m_ImageViewControlListComboBox = std::make_unique<QComboBox>();
+    m_impl->m_ExtensionHostLaunchCoordinator = std::make_unique<an::ui::extensions::ExtensionHostLaunchCoordinator>();
+    m_impl->m_ExtensionLaunchPreparations = std::make_unique<an::ui::extensions::ExtensionLaunchPreparations>(
+        this,
+        [](const std::string& extensionId, const an::ui::extensions::ExtensionLaunchPreparations::Progress& progress,
+           const an::ui::extensions::ExtensionOperationCancellationToken& cancellation) {
+            return an::ui::extensions::prepareExtensionEnvironmentForLaunch(
+                extensionId, buildDefaultExtensionDiscoveryOptions(false), primeMissingNativeParameterSchemas, progress,
+                cancellation);
+        },
+        [appGuard = QPointer<AfterNightApp>(this)](const std::string& processId, const std::string& extensionId,
+                                                   an::ui::extensions::ExtensionLaunchPreparationOutcome outcome) {
+            if (appGuard)
+            {
+                appGuard->completePreparedExtensionLaunch(processId, extensionId, outcome);
+            }
+        });
+    m_impl->m_ExtensionHostLaunchCoordinator->setManagedImageHooks(
+        // An execute's result is an edit of the target view, recorded in its history before it is shown.
+        [](ImageViewControl* control, an::consumer::ImageAsset&& image, const std::string& historyStepName,
+           const std::string& historyStepDescription) {
+            if (!control || !image.valid())
+            {
+                return;
+            }
+
+            auto result = std::make_shared<an::consumer::ImageAsset>(std::move(image));
+            control->editImage(historyStepName, historyStepDescription,
+                               [result](const an::consumer::EngineSession&, const an::consumer::AssetWriteLease&,
+                                        std::stop_token) -> an::Result<an::consumer::ImageAsset> {
+                                   if (!result->valid())
+                                   {
+                                       return an::Status::failure(an::ErrorCode::InvalidState,
+                                                                  "the extension's result was already shown");
+                                   }
+                                   return std::move(*result);
+                               });
+        },
+        // A preview lands in the preview view the session keeps, made beside the target the first time.
+        [this](ImageViewControl* control, ImageViewControl* preview_control,
+               an::consumer::ImageAsset&& image) -> ImageViewControl* {
+            if (!control || !image.valid())
+            {
+                return preview_control;
+            }
+
+            if (preview_control)
+            {
+                preview_control->replaceImage(std::move(image), true);
+                return preview_control;
+            }
+
+            std::optional<an::ui::ImageDocument> document = documentOfAsset(std::move(image), std::string());
+            if (!document.has_value())
+            {
+                return nullptr;
+            }
+            ImageViewControl* const created_preview = createNewImageViewControlFromImage(
+                nullptr, std::move(*document), nullptr, std::string(), ViewControlMode::rt_preview, control);
+            if (created_preview)
+            {
+                created_preview->fitToWindowAsync();
+            }
+            return created_preview;
+        },
+        // The target's mask travels read-only as the selection; an execute also carries an output mask of the
+        // target's shape, every sample zero - nothing masked - for the extension to write.
+        [this](ImageViewControl* control,
+               const bool for_preview) -> std::vector<an::ui::extensions::ManagedAuxiliaryImage> {
+            std::vector<an::ui::extensions::ManagedAuxiliaryImage> auxiliary_images;
+            if (!control)
+            {
+                return auxiliary_images;
+            }
+
+            ImageViewControl* const current_mask = control->getCurrentMask();
+            if (current_mask)
+            {
+                if (std::shared_ptr<const an::consumer::ImageAsset> mask_image = current_mask->document().asset())
+                {
+                    auxiliary_images.push_back({an::ui::extensions::SharedBufferRole::Mask,
+                                                an::ui::extensions::SharedBufferAccessMode::ReadOnly, "selection",
+                                                std::move(mask_image)});
+                }
+            }
+
+            if (for_preview)
+            {
+                return auxiliary_images;
+            }
+
+            std::optional<an::ImageDescriptor> template_descriptor;
+            if (current_mask)
+            {
+                template_descriptor = current_mask->imageDescriptor();
+            }
+            if (!template_descriptor.has_value())
+            {
+                template_descriptor = control->imageDescriptor();
+            }
+            an::ui::IEngineSessionProvider* const provider = engineSessionProvider();
+            if (!template_descriptor.has_value() || provider == nullptr)
+            {
+                return auxiliary_images;
+            }
+
+            an::Result<an::consumer::ImageAsset> output_mask =
+                zeroedImageOf(provider->engineSession(), *template_descriptor);
+            if (!output_mask.hasValue())
+            {
+                LOG_WARNING("The extension's output mask could not be made: {}", output_mask.status().message());
+                return auxiliary_images;
+            }
+            auxiliary_images.push_back({an::ui::extensions::SharedBufferRole::Mask,
+                                        an::ui::extensions::SharedBufferAccessMode::ReadWrite, "output_mask",
+                                        std::make_shared<const an::consumer::ImageAsset>(std::move(*output_mask))});
+            return auxiliary_images;
+        },
+        // The masks an execute wrote open as views beside the target, and the first becomes its mask.
+        [this](ImageViewControl* control, std::vector<an::ui::extensions::ManagedNamedImageResult>&& output_masks) {
+            if (!control || output_masks.empty())
+            {
+                return;
+            }
+
+            ImageViewControl* first_mask_control = nullptr;
+            for (auto& output_mask : output_masks)
+            {
+                if (!output_mask.image.valid())
+                {
+                    continue;
+                }
+
+                const std::string symbolic_name =
+                    output_mask.symbolic_name.empty() ? std::string("output_mask") : output_mask.symbolic_name;
+                std::optional<an::ui::ImageDocument> document =
+                    documentOfAsset(std::move(output_mask.image), symbolic_name);
+                if (!document.has_value())
+                {
+                    continue;
+                }
+                ImageViewControl* const created_control = createNewImageViewControlFromImage(
+                    nullptr, std::move(*document), nullptr,
+                    fmt::format("Extension mask '{}' created from '{}'", symbolic_name, control->getUniqueName()),
+                    ViewControlMode::standard, control);
+                if (!first_mask_control && created_control)
+                {
+                    first_mask_control = created_control;
+                }
+            }
+
+            if (first_mask_control)
+            {
+                control->setCurrentMask(first_mask_control);
+                first_mask_control->fitToWindowAsync();
+            }
+        },
+        // A preview is computed over the selection, when the target's view has one.
+        [](ImageViewControl* control) -> std::optional<QRect> {
+            if (!control)
+            {
+                return std::nullopt;
+            }
+
+            auto* const view_widget = control->getViewWidget();
+            const std::optional<an::ImageDescriptor> descriptor = control->imageDescriptor();
+            if (!view_widget || !descriptor.has_value())
+            {
+                return std::nullopt;
+            }
+
+            return an::ui::extensions::normalizeManagedPreviewSubArea(
+                view_widget->isSelectionAreaEnabled(),
+                QSize(static_cast<int>(descriptor->extent().width()), static_cast<int>(descriptor->extent().height())),
+                view_widget->getCurrentSelectionArea());
+        },
+        // A result an extension generates rather than applies opens as a new view beside the target.
+        [this](ImageViewControl* control, an::consumer::ImageAsset&& image, const std::string& historyStepName,
+               const std::string& historyStepDescription) -> ImageViewControl* {
+            if (!control || !image.valid())
+            {
+                return nullptr;
+            }
+
+            const std::string history_description =
+                historyStepDescription.empty() ? historyStepName : historyStepDescription;
+            std::optional<an::ui::ImageDocument> document = documentOfAsset(std::move(image), historyStepName);
+            if (!document.has_value())
+            {
+                return nullptr;
+            }
+            ImageViewControl* const created_control = createNewImageViewControlFromImage(
+                nullptr, std::move(*document), nullptr, history_description, ViewControlMode::standard, control);
+            if (created_control)
+            {
+                created_control->fitToWindowAsync();
+            }
+            return created_control;
+        });
+    m_impl->m_ExtensionHostLaunchCoordinator->setManagedViewNameProvider(
+        [](ImageViewControl* control) { return control ? control->getUniqueName() : std::string(); });
+    m_impl->m_ExtensionHostLaunchCoordinator->setSessionPumpWakeCallback([this]() {
+        if (m_impl->m_ExtensionHostPumpWakePending)
+        {
+            return;
+        }
+
+        m_impl->m_ExtensionHostPumpWakePending = true;
+        QTimer::singleShot(0, this, [this]() {
+            m_impl->m_ExtensionHostPumpWakePending = false;
+            if (m_impl->m_ExtensionHostLaunchCoordinator)
+            {
+                m_impl->m_ExtensionHostLaunchCoordinator->pumpSessions();
+            }
+        });
+    });
+    m_impl->m_ExtensionHostPumpTimer = std::make_unique<QTimer>(this);
+    m_impl->m_ExtensionHostPumpTimer->setInterval(100);
+    QObject::connect(m_impl->m_ExtensionHostPumpTimer.get(), &QTimer::timeout, this, [this]() {
+        if (m_impl->m_ExtensionHostLaunchCoordinator)
+        {
+            m_impl->m_ExtensionHostLaunchCoordinator->pumpSessions();
+        }
+    });
+    m_impl->m_ExtensionHostPumpTimer->start();
+    an::ui::MenuActionManager::Dependencies menuActionDeps;
+    menuActionDeps.signalContext = this;
+    menuActionDeps.ui = &m_impl->ui;
+    menuActionDeps.imageSelector = m_impl->m_ImageViewControlListComboBox.get();
+    menuActionDeps.fileManager = [this]() -> an::ui::FileManager* { return m_impl->m_FileManager.get(); };
+    menuActionDeps.imageOperations = [this]() -> an::ui::ImageOperationsCoordinator* {
+        return m_impl->m_ImageOperationsCoordinator.get();
+    };
+    menuActionDeps.maskOverlay = [this]() -> an::ui::MaskOverlayCoordinator* {
+        return m_impl->m_MaskOverlayCoordinator.get();
+    };
+    menuActionDeps.tryLaunchRegistryProcessById = [this](const std::string& descriptorId) {
+        return tryLaunchRegistryProcessById(descriptorId);
+    };
+    menuActionDeps.onImageSelectorChanged = [this](const QString& text) {
+        on_imageViewControlListComboBox_currentTextChanged(text);
+    };
+    menuActionDeps.onNewSequenceRequested = [this]() { newSequence(); };
+    menuActionDeps.onLogViewerRequested = [this]() { on_LogViewerClicked(m_impl->ui.actionLog_Viewer->isChecked()); };
+    menuActionDeps.onOpenHelpRequested = [this]() { openHelp(); };
+    menuActionDeps.onAboutRequested = [this]() { about(); };
+    menuActionDeps.onSystemInformationRequested = [this]() { systemInformation(); };
+    menuActionDeps.onOpenSettingsRequested = [this]() { openSettings(); };
+    menuActionDeps.onOpenExtensionManagerRequested = [this]() { openSettingsAt(extensionManagerPageTitle()); };
+    menuActionDeps.onLockLayoutRequested = [this]() { lockLayout(); };
+    menuActionDeps.onUnlockLayoutRequested = [this]() { unlockLayout(); };
+    menuActionDeps.onGroupAllImagesRequested = [this]() { groupAllImages(); };
+    menuActionDeps.onSplitAllImagesRequested = [this]() { splitAllImages(); };
+    menuActionDeps.iconManager = [this]() { return getIconManager(); };
+    m_impl->m_MenuActionManager = std::make_unique<an::ui::MenuActionManager>(menuActionDeps);
+    registerDiscoveredExtensions(this, m_impl->m_ExtensionHostLaunchCoordinator.get(),
+                                 m_impl->m_MenuActionManager.get(), m_impl->ui,
+                                 m_impl->m_ExtensionBackgroundWorkCancellationToken);
+    m_impl->m_MenuActionManager->connectProcessActions();
+    m_impl->m_ExtensionInstallRefreshTimer = std::make_unique<QTimer>(this);
+    m_impl->m_ExtensionInstallRefreshTimer->setSingleShot(true);
+    m_impl->m_ExtensionInstallRefreshTimer->setInterval(250);
+    QObject::connect(m_impl->m_ExtensionInstallRefreshTimer.get(), &QTimer::timeout, this, [this]() {
+        refreshInstalledExtensionMenus(this, m_impl->m_ExtensionHostLaunchCoordinator.get(),
+                                       m_impl->m_MenuActionManager.get(), m_impl->ui,
+                                       m_impl->m_ExtensionBackgroundWorkCancellationToken);
+    });
+
+    m_impl->m_ExtensionInstallWatcher = std::make_unique<QFileSystemWatcher>(this);
+    const std::array<std::filesystem::path, 2> extension_watch_roots = {
+        an::ui::extensions::repository_extensions_root(), an::ui::extensions::user_extensions_root()};
+    for (const auto& watch_root : extension_watch_roots)
+    {
+        std::error_code ec;
+        std::filesystem::create_directories(watch_root, ec);
+        if (!ec)
+        {
+            m_impl->m_ExtensionInstallWatcher->addPath(QString::fromStdString(watch_root.string()));
+        }
+    }
+    QObject::connect(m_impl->m_ExtensionInstallWatcher.get(), &QFileSystemWatcher::directoryChanged, this,
+                     [this](const QString& path) {
+                         if (!m_impl->m_ExtensionInstallWatcher->directories().contains(path) &&
+                             QFileInfo::exists(path))
+                         {
+                             m_impl->m_ExtensionInstallWatcher->addPath(path);
+                         }
+                         m_impl->m_ExtensionInstallRefreshTimer->start();
+                     });
+    an::ui::FileManager::Dependencies fileManagerDeps;
+    fileManagerDeps.signalContext = this;
+    fileManagerDeps.ui = &m_impl->ui;
+    fileManagerDeps.recentFiles = &m_impl->m_RecentFiles;
+    fileManagerDeps.lastOpenDirectory = &m_impl->m_LastOpenDirectory;
+    fileManagerDeps.localDataPath = &m_impl->m_LocalDataPath;
+    fileManagerDeps.reloadRecentFilesThumbnails = [this]() {
+        if (m_impl->m_MainDashboard)
+        {
+            m_impl->m_MainDashboard->reloadRecentFilesThumbnails();
+        }
+    };
+    fileManagerDeps.notifyRecentFilesListDeleted = [this]() {
+        if (m_impl->m_MainDashboard)
+        {
+            m_impl->m_MainDashboard->notifyRecentFilesListDeleted();
+        }
+    };
+    fileManagerDeps.rawOpenPolicy = [this]() { return rawOpenPolicy(); };
+    fileManagerDeps.persistLastOpenDirectory = [this](const QString& path) { setLastOpenDirectoryAndPersist(path); };
+    fileManagerDeps.switchToDockManager = [this]() { switchToDockManager(); };
+    fileManagerDeps.thumbnailsDirPath = [this]() { return getThumbnailsDirPath(); };
+    fileManagerDeps.updateImageViewControlList = [this]() { updateImageViewControlList(); };
+    m_impl->m_FileManager = std::make_unique<an::ui::FileManager>(fileManagerDeps);
+    an::ui::ViewControlCoordinator::Dependencies viewControlDeps;
+    viewControlDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    viewControlDeps.imageViewControlManagerLock = &m_impl->m_ImageViewControlManagerLock;
+    viewControlDeps.imageViewControlListComboBox = m_impl->m_ImageViewControlListComboBox.get();
+    viewControlDeps.isTerminating = &m_impl->m_IsTerminating;
+    viewControlDeps.logViewerControl = &m_impl->m_LogViewerControl;
+    viewControlDeps.mainDashboard = &m_impl->m_MainDashboard;
+    viewControlDeps.updateActiveImageActions = [this]() { updateActiveImageActions(); };
+    viewControlDeps.updateActiveImageHistory = [this]() { updateActiveImageHistory(); };
+    viewControlDeps.updateImageInfoInStatusBar = [this]() { updateImageInfoInStatusBar(); };
+    viewControlDeps.notifyActiveViewControlChanged = [this](ImageViewControl* view) {
+        notifyActiveViewControlChanged(view);
+    };
+    viewControlDeps.switchToMainDashboard = [this]() { switchToMainDashboard(); };
+    viewControlDeps.notifyViewControlDestroyed = [this](const ImageViewControl* view) {
+        notifyViewControlDestroyed(view);
+    };
+    viewControlDeps.notifyViewControlRenamed = [this](const std::string& newName, const std::string& oldName,
+                                                      const ImageViewControl* view) {
+        notifyViewControlRenamed(newName, oldName, view);
+    };
+    viewControlDeps.getDockWidgetsByViewControlMap = [this]() { return getDockWidgetsByViewControlMap(); };
+    m_impl->m_ViewControlCoordinator = std::make_unique<an::ui::ViewControlCoordinator>(viewControlDeps);
+    an::ui::ViewCreationCoordinator::Dependencies viewCreationDeps;
+    viewCreationDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    viewCreationDeps.mainDashboardScrollArea = &m_impl->m_MainDashboardScrollArea;
+    viewCreationDeps.dockMainWindow = &m_impl->m_DockMainWindow;
+    viewCreationDeps.currentCentralWidget = [this]() -> QWidget* {
+        return m_impl->ui.centralWidget ? m_impl->ui.centralWidget->currentWidget() : nullptr;
+    };
+    viewCreationDeps.switchToDockManager = [this]() { switchToDockManager(); };
+    viewCreationDeps.iconProvider = [this](const std::string& iconName) {
+        return m_impl->m_IconManager ? m_impl->m_IconManager->getIcon(QString::fromUtf8(iconName)) : QIcon();
+    };
+    viewCreationDeps.updateActiveImageActions = [this]() { updateActiveImageActions(); };
+    viewCreationDeps.updateActiveImageHistory = [this]() { updateActiveImageHistory(); };
+    viewCreationDeps.updateImageInfoInStatusBar = [this]() { updateImageInfoInStatusBar(); };
+    viewCreationDeps.notifyViewControlCreated = [this](const ImageViewControl* view) {
+        notifyViewControlCreated(view);
+    };
+    m_impl->m_ViewCreationCoordinator = std::make_unique<an::ui::ViewCreationCoordinator>(viewCreationDeps);
+    an::ui::ImageOperationsCoordinator::Dependencies imageOperationsDeps;
+    imageOperationsDeps.activeViewControl = [this]() -> ImageViewControl* {
+        return m_impl->m_ImageViewControlManager ? m_impl->m_ImageViewControlManager->getActiveImageViewControl()
+                                                 : nullptr;
+    };
+    imageOperationsDeps.listViewControls = [this]() -> std::vector<ImageViewControl*> {
+        return m_impl->m_ImageViewControlManager ? m_impl->m_ImageViewControlManager->getListOfImageViewControls()
+                                                 : std::vector<ImageViewControl*>();
+    };
+    imageOperationsDeps.messageParent = [this]() -> QWidget* { return this; };
+    imageOperationsDeps.notifyErrorMessage = [this](const QString& title, const QString& text) {
+        notifyErrorMessage(this, title, text);
+    };
+    // The image menu's actions that open no window: the processes library's table, which the registry's own image
+    // operations run too.
+    imageOperationsDeps.nonInteractive = an::ui::nonInteractiveImageOperations();
+    // The image menu's Export opens the export window over the sequence the view shows.
+    imageOperationsDeps.exportSequence = [](ImageViewControl* control) {
+        if (control != nullptr)
+        {
+            (void)ExportSequenceControl::openFor(*control);
+        }
+    };
+    m_impl->m_ImageOperationsCoordinator = std::make_unique<an::ui::ImageOperationsCoordinator>(imageOperationsDeps);
+    an::ui::MaskOverlayCoordinator::Dependencies maskOverlayDeps;
+    maskOverlayDeps.ui = &m_impl->ui;
+    maskOverlayDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    maskOverlayDeps.notifyErrorMessage = [this](const QString& title, const QString& text) {
+        notifyErrorMessage(this, title, text);
+    };
+    m_impl->m_MaskOverlayCoordinator = std::make_unique<an::ui::MaskOverlayCoordinator>(maskOverlayDeps);
+    an::ui::DialogOrchestrationCoordinator::Dependencies dialogDeps;
+    dialogDeps.mainWindow = this;
+    dialogDeps.darkMode = &m_impl->m_DarkMode;
+    dialogDeps.extensionBackgroundWorkCancellationToken = m_impl->m_ExtensionBackgroundWorkCancellationToken;
+    dialogDeps.globalSettingsPersistence = [this]() { return m_impl->m_GlobalSettingsPersistence.get(); };
+    dialogDeps.recentFiles = &m_impl->m_RecentFiles;
+    dialogDeps.mainDashboard = &m_impl->m_MainDashboard;
+    dialogDeps.getRecentFilesLimit = [this]() { return getRecentFilesLimit(); };
+    dialogDeps.iconProvider = [this](const std::string& iconName) {
+        return m_impl->m_IconManager ? m_impl->m_IconManager->getIcon(QString::fromUtf8(iconName)) : QIcon();
+    };
+    dialogDeps.removeRecentFileThumbnail = [this](const std::string& fileName) {
+        if (m_impl->m_FileManager)
+        {
+            m_impl->m_FileManager->removeRecentFileThumbnail(fileName);
+        }
+    };
+    dialogDeps.persistRecentFiles = [this]() { persistRecentFiles(); };
+    dialogDeps.settingsApplied = [this]() {
+        if (m_impl->m_ExtensionHostLaunchCoordinator)
+        {
+            m_impl->m_ExtensionHostLaunchCoordinator->refreshPreviewFrameRate();
+        }
+    };
+    dialogDeps.updateRecentFilesMenuEntries = [this]() {
+        if (m_impl->m_FileManager)
+        {
+            m_impl->m_FileManager->updateRecentFilesMenuEntries();
+        }
+    };
+    m_impl->m_DialogOrchestrationCoordinator = std::make_unique<an::ui::DialogOrchestrationCoordinator>(dialogDeps);
+    an::ui::RuntimeStorageCoordinator::Dependencies runtimeStorageDeps;
+    runtimeStorageDeps.localDataPath = &m_impl->m_LocalDataPath;
+    runtimeStorageDeps.globalSettingsPersistence = [this]() { return m_impl->m_GlobalSettingsPersistence.get(); };
+    runtimeStorageDeps.createUuidToken = []() { return QUuid::createUuid().toString().toUtf8().toStdString(); };
+    m_impl->m_RuntimeStorageCoordinator = std::make_unique<an::ui::RuntimeStorageCoordinator>(runtimeStorageDeps);
+    an::ui::UiBootstrapCoordinator::Dependencies uiBootstrapDeps;
+    uiBootstrapDeps.ui = &m_impl->ui;
+    uiBootstrapDeps.mainWindow = this;
+    uiBootstrapDeps.imageViewControlListComboBox = m_impl->m_ImageViewControlListComboBox.get();
+    uiBootstrapDeps.imageInfoStatusBarWidget = &m_impl->m_ImageInfoStatusBarWidget;
+    uiBootstrapDeps.mainDashboard = &m_impl->m_MainDashboard;
+    uiBootstrapDeps.mainDashboardScrollArea = &m_impl->m_MainDashboardScrollArea;
+    uiBootstrapDeps.dockMainWindow = &m_impl->m_DockMainWindow;
+    uiBootstrapDeps.dockManagerToolBar = &m_impl->m_DockManagerToolBar;
+    uiBootstrapDeps.toolbarLockLayout = &m_impl->m_ToolbarLockLayout;
+    uiBootstrapDeps.connectActions = [this]() { connectActions(); };
+    uiBootstrapDeps.refreshTheme = [this]() { refreshTheme(); };
+    uiBootstrapDeps.onOpenFileRequested = [this]() {
+        if (m_impl->m_FileManager)
+        {
+            m_impl->m_FileManager->openFile();
+        }
+    };
+    uiBootstrapDeps.onNewSequenceRequested = [this]() { newSequence(); };
+    uiBootstrapDeps.onImageIntegrationRequested = [this]() {
+        if (!tryLaunchRegistryProcessById("multi_image_stacking.actionImage_Integration") && m_impl->m_ProcessLauncher)
+        {
+            m_impl->m_ProcessLauncher->executeImageIntegration();
+        }
+    };
+    uiBootstrapDeps.onOpenExtensionManagerRequested = [this]() { openSettingsAt(extensionManagerPageTitle()); };
+    uiBootstrapDeps.onClearRecentFilesRequested = [this]() {
+        if (m_impl->m_FileManager)
+        {
+            m_impl->m_FileManager->clearRecentFilesList();
+        }
+    };
+    uiBootstrapDeps.onOpenSettingsRequested = [this]() { openSettings(); };
+    uiBootstrapDeps.onSystemInformationRequested = [this]() { systemInformation(); };
+    uiBootstrapDeps.onAboutRequested = [this]() { about(); };
+    uiBootstrapDeps.onOpenHelpRequested = [this]() { openHelp(); };
+    uiBootstrapDeps.onOpenRecentFileRequested = [this](const QString& filePath) {
+        if (m_impl->m_FileManager)
+        {
+            m_impl->m_FileManager->openRecentSingleFile(filePath);
+        }
+    };
+    uiBootstrapDeps.onRemoveRecentFileRequested = [this](const QString& filePath) {
+        removeRecentFile(filePath.toStdString());
+    };
+    m_impl->m_UiBootstrapCoordinator = std::make_unique<an::ui::UiBootstrapCoordinator>(uiBootstrapDeps);
+    an::ui::ActionStateCoordinator::Dependencies actionStateDeps;
+    actionStateDeps.ui = &m_impl->ui;
+    actionStateDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    actionStateDeps.timerContext = this;
+    actionStateDeps.isTerminating = &m_impl->m_IsTerminating;
+    actionStateDeps.isMaximizedViewActive = [this]() { return isMaximizedViewActive(); };
+    actionStateDeps.iconProvider = [this](const std::string& iconName) {
+        return m_impl->m_IconManager ? m_impl->m_IconManager->getIcon(QString::fromUtf8(iconName)) : QIcon();
+    };
+    m_impl->m_ActionStateCoordinator = std::make_unique<an::ui::ActionStateCoordinator>(actionStateDeps);
+    an::ui::WindowLayoutCoordinator::Dependencies windowLayoutDeps;
+    windowLayoutDeps.ui = &m_impl->ui;
+    windowLayoutDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    windowLayoutDeps.imageViewControlListComboBox = m_impl->m_ImageViewControlListComboBox.get();
+    windowLayoutDeps.timerContext = this;
+    windowLayoutDeps.mainDashboard = &m_impl->m_MainDashboard;
+    windowLayoutDeps.mainDashboardScrollArea = &m_impl->m_MainDashboardScrollArea;
+    windowLayoutDeps.dockMainWindow = &m_impl->m_DockMainWindow;
+    windowLayoutDeps.dockManagerToolBar = &m_impl->m_DockManagerToolBar;
+    windowLayoutDeps.toolbarLockLayout = &m_impl->m_ToolbarLockLayout;
+    windowLayoutDeps.unlockLayoutWhenRestoring = &m_impl->m_UnlockLayoutWhenRestoring;
+    windowLayoutDeps.iconProvider = [this](const std::string& iconName) {
+        return m_impl->m_IconManager ? m_impl->m_IconManager->getIcon(QString::fromUtf8(iconName)) : QIcon();
+    };
+    windowLayoutDeps.setActiveImageViewControl = [this](ImageViewControl* control) {
+        setActiveImageViewControl(control);
+    };
+    windowLayoutDeps.addToolBar = [this](QToolBar* toolBar) { addToolBar(toolBar); };
+    windowLayoutDeps.toggleLayout = [this]() { toogleLayout(); };
+    windowLayoutDeps.lockLayout = [this]() { lockLayout(); };
+    windowLayoutDeps.unlockLayout = [this]() { unlockLayout(); };
+    windowLayoutDeps.layoutIsLocked = [this]() { return layoutIsLocked(); };
+    m_impl->m_WindowLayoutCoordinator = std::make_unique<an::ui::WindowLayoutCoordinator>(windowLayoutDeps);
+    an::ui::PersistenceCoordinator::Dependencies persistenceDeps;
+    persistenceDeps.localDataPath = &m_impl->m_LocalDataPath;
+    persistenceDeps.lastOpenDirectory = &m_impl->m_LastOpenDirectory;
+    persistenceDeps.dbExecutor = &m_impl->m_DBExecutor;
+    persistenceDeps.thumbnailPersistence = &m_impl->m_ThumbnailPersistence;
+    persistenceDeps.folderTrackerPersistence = &m_impl->m_FolderTrackerPersistence;
+    persistenceDeps.processSettingsPersistence = &m_impl->m_ProcessSettingsPersistence;
+    persistenceDeps.globalSettingsPersistence = &m_impl->m_GlobalSettingsPersistence;
+    persistenceDeps.setFileManagerPersistenceDependencies =
+        [this](ThumbnailPersistence* thumbnailPersistence, FolderTrackerPersistence* folderTrackerPersistence,
+               GlobalSettingsPersistence* globalSettingsPersistence) {
+            if (m_impl->m_FileManager)
+            {
+                m_impl->m_FileManager->setPersistenceDependencies(thumbnailPersistence, folderTrackerPersistence,
+                                                                  globalSettingsPersistence);
+            }
+        };
+    persistenceDeps.loadRecentFilesFromDisk = [this]() {
+        if (m_impl->m_FileManager)
+        {
+            m_impl->m_FileManager->loadRecentFilesFromDisk();
+        }
+    };
+    persistenceDeps.ensureTempDirCreated = [this]() { ensureTempDirCreated(); };
+    persistenceDeps.ensureThumbnailsDirCreated = [this]() { ensureThumbnailsDirCreated(); };
+    m_impl->m_PersistenceCoordinator = std::make_unique<an::ui::PersistenceCoordinator>(persistenceDeps);
+    an::ui::AppLifecycleCoordinator::Dependencies appLifecycleDeps;
+    appLifecycleDeps.mainWindow = this;
+    appLifecycleDeps.globalSettingsPersistence = [this]() { return m_impl->m_GlobalSettingsPersistence.get(); };
+    appLifecycleDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    appLifecycleDeps.isTerminating = &m_impl->m_IsTerminating;
+    appLifecycleDeps.maxThreadsForBatchProcess = &m_impl->m_MaxThreadsForBatchProcess;
+    appLifecycleDeps.maxThreadsForPreviewProcess = &m_impl->m_MaxThreadsForPreviewProcess;
+    appLifecycleDeps.logModernizationFeatureFlags = []() { logModernizationFeatureFlags(); };
+    appLifecycleDeps.initializePersistence = [this]() { initializePersistence(); };
+    appLifecycleDeps.cleanTemporaryFiles = [this]() { cleanTemporaryFiles(); };
+    appLifecycleDeps.cleanTemporaryFilesAsync = [this]() { cleanTemporaryFilesAsync(); };
+    appLifecycleDeps.cleanStaleScratchRootsAsync = [this]() { cleanStaleScratchRootsAsync(); };
+    appLifecycleDeps.applyTheme = [this](const QString& themeId) { applyTheme(themeId); };
+    appLifecycleDeps.loadIcons = [this]() { loadIcons(); };
+    appLifecycleDeps.setActionIcons = [this]() { setActionIcons(); };
+    appLifecycleDeps.refreshProxyStyleTokens = []() {
+        if (auto* proxyStyle = an::ui::installedAnProxyStyle())
+        {
+            proxyStyle->refreshThemeTokens();
+        }
+    };
+    appLifecycleDeps.createAuxToolBars = [this]() { createAuxToolBars(); };
+    appLifecycleDeps.setEnableImageActions = [this](const bool enable) { setEnableImageActions(enable); };
+    appLifecycleDeps.updateRecentFilesMenuEntries = [this]() {
+        if (m_impl->m_FileManager)
+        {
+            m_impl->m_FileManager->updateRecentFilesMenuEntries();
+        }
+    };
+    appLifecycleDeps.initializeMainDashboard = [this]() { initializeMainDashboard(); };
+    appLifecycleDeps.initializeDockManager = [this]() { initializeDockManager(); };
+    appLifecycleDeps.initializeMaximizedView = [this]() { initializeMaximizedView(); };
+    appLifecycleDeps.lockLayout = [this]() { lockLayout(); };
+    appLifecycleDeps.cancelBackgroundWork = [this]() {
+        m_impl->m_ExtensionBackgroundWorkCancellationToken.requestCancellation();
+        m_impl->cancelExtensionPreparations();
+    };
+    appLifecycleDeps.notifyApplicationClose = [this]() { notifyApplicationClose(); };
+    appLifecycleDeps.getNumOfOpenProcesses = [this]() { return getNumOfOpenProcesses(); };
+    appLifecycleDeps.closeOpenProcesses = [this]() { stopExtensionHostSessions(); };
+    appLifecycleDeps.messageBoxYesNo = [this](QWidget* parent, const QString& title, const QString& text,
+                                              const bool warn,
+                                              int* ret) { messageBoxYesNo(parent, title, text, warn, ret); };
+    appLifecycleDeps.availableScreenGeometries = []() {
+        QList<QRect> geometries;
+        for (QScreen* screen : QGuiApplication::screens())
+        {
+            if (screen)
+            {
+                geometries.push_back(screen->availableGeometry());
+            }
+        }
+        return geometries;
+    };
+    m_impl->m_AppLifecycleCoordinator = std::make_unique<an::ui::AppLifecycleCoordinator>(appLifecycleDeps);
+
+    if (m_impl->m_UiBootstrapCoordinator)
+    {
+        m_impl->m_UiBootstrapCoordinator->finalizeConstructorUiSetup();
+    }
+}
+
+void AfterNightApp::initialize(an::ui::ApplicationSession& session)
+{
+    // The session is opened once the settings store has been read, from the limits it states, before anything that
+    // reads or shows an image.
+    m_impl->m_Session = &session;
+
+    if (m_impl->m_AppLifecycleCoordinator)
+    {
+        m_impl->m_AppLifecycleCoordinator->initialize();
+    }
+
+    if (m_impl->m_ExtensionHostLaunchCoordinator)
+    {
+        an::ui::extensions::ExtensionSdkUiInteractionHandler ui_interaction_handler;
+        ui_interaction_handler.show_error = [this](const std::string_view, const std::string_view, const QString& title,
+                                                   const QString& message, std::string*) -> bool {
+            notifyErrorMessage(this, title, message);
+            return true;
+        };
+        ui_interaction_handler.show_warning = [this](const std::string_view, const std::string_view,
+                                                     const QString& title, const QString& message,
+                                                     std::string*) -> bool {
+            notifyWarnMessage(this, title, message);
+            return true;
+        };
+        ui_interaction_handler.show_info = [this](const std::string_view, const std::string_view, const QString& title,
+                                                  const QString& message, std::string*) -> bool {
+            notifyInfoMessage(this, title, message);
+            return true;
+        };
+        ui_interaction_handler.confirm = [this](const std::string_view, const std::string_view, const QString& title,
+                                                const QString& message, const bool warn,
+                                                an::ui::extensions::ExtensionSdkUiConfirmCompletion completion,
+                                                std::string* error) -> bool {
+            if (!completion)
+            {
+                if (error)
+                {
+                    *error = "Extension SDK confirmation completion is null";
+                }
+                return false;
+            }
+
+            if (!m_impl->m_DialogOrchestrationCoordinator)
+            {
+                if (error)
+                {
+                    *error = "Extension SDK confirmation dialog coordinator is unavailable";
+                }
+                return false;
+            }
+
+            m_impl->m_DialogOrchestrationCoordinator->openMessageBoxYesNo(
+                this, title, message, warn, [completion = std::move(completion)](const int response) mutable {
+                    completion(response == QMessageBox::Yes, {});
+                });
+            return true;
+        };
+        ui_interaction_handler.open_extension_settings =
+            [this](const std::string_view, const std::string_view, const std::string_view extension_id,
+                   an::ui::extensions::ExtensionSdkOpenExtensionSettingsCompletion completion,
+                   std::string* error) -> bool {
+            if (!completion)
+            {
+                if (error)
+                {
+                    *error = "Extension SDK settings completion is null";
+                }
+                return false;
+            }
+
+            if (!m_impl->m_DialogOrchestrationCoordinator)
+            {
+                if (error)
+                {
+                    *error = "Extension SDK settings dialog coordinator is unavailable";
+                }
+                return false;
+            }
+
+            const std::string extension_id_copy(extension_id);
+            QMetaObject::invokeMethod(
+                this,
+                [this, extension_id_copy, completion = std::move(completion)]() mutable {
+                    if (!m_impl->m_DialogOrchestrationCoordinator)
+                    {
+                        completion("Extension SDK settings dialog coordinator is unavailable");
+                        return;
+                    }
+
+                    QString diagnostic;
+                    if (!m_impl->m_DialogOrchestrationCoordinator->openExtensionSettingsDialog(extension_id_copy,
+                                                                                               &diagnostic))
+                    {
+                        completion(diagnostic.trimmed().isEmpty() ? "Could not open extension settings."
+                                                                  : diagnostic.toStdString());
+                        return;
+                    }
+
+                    completion({});
+                },
+                Qt::QueuedConnection);
+            return true;
+        };
+
+        m_impl->m_ExtensionHostLaunchCoordinator->configureSdkService(
+            m_impl->m_GlobalSettingsPersistence.get(),
+            [this]() -> std::vector<an::ui::extensions::ExtensionViewState> {
+                std::vector<an::ui::extensions::ExtensionViewState> view_states;
+                if (!m_impl->m_ImageViewControlManager)
+                {
+                    return view_states;
+                }
+
+                const auto controls = m_impl->m_ImageViewControlManager->getListOfImageViewControls();
+                view_states.reserve(controls.size());
+                const ImageViewControl* active_view = m_impl->m_ImageViewControlManager->getActiveImageViewControl();
+                for (ImageViewControl* control : controls)
+                {
+                    if (!control)
+                    {
+                        continue;
+                    }
+
+                    an::ui::extensions::ExtensionViewState view_state;
+                    const std::optional<an::ImageDescriptor> image = control->imageDescriptor();
+                    const bool has_sequence = control->document().sequence().has_value();
+                    const QPoint viewport_offset = control->getViewportOffset();
+                    view_state.view_name = control->getUniqueName();
+                    view_state.file_name = control->getFileName();
+                    view_state.selector_tooltip = an::ui::buildImageSelectorTooltip(control).toStdString();
+                    view_state.view_mode = viewControlModeName(control->getViewControlMode());
+                    view_state.image_display_mode = control->getViewWidget()
+                                                        ? imageDisplayModeName(control->getViewWidget()->getViewMode())
+                                                        : std::string();
+                    view_state.channel_view_mode =
+                        control->getViewWidget()
+                            ? imageChannelViewModeName(control->getViewWidget()->getChannelViewMode())
+                            : std::string();
+                    view_state.mask_rendering_mode = maskRenderingModeName(control->getMaskRenderingMode());
+                    view_state.width = image.has_value() ? static_cast<int>(image->extent().width()) : 0;
+                    view_state.height = image.has_value() ? static_cast<int>(image->extent().height()) : 0;
+                    view_state.channels = image.has_value() ? static_cast<int>(image->extent().channelCount()) : 0;
+                    view_state.zoom_percent = control->getCurrentZoom();
+                    view_state.viewport_offset_x = viewport_offset.x();
+                    view_state.viewport_offset_y = viewport_offset.y();
+                    view_state.is_active = control == active_view;
+                    view_state.has_image = image.has_value();
+                    view_state.has_sequence = has_sequence;
+                    view_state.has_mask = control->isMasked();
+                    view_state.mask_enabled = control->isMaskEnabled();
+                    view_state.show_mask = control->isShowMaskEnabled();
+                    view_state.mask_inverted = control->isMaskInverted();
+                    view_state.has_alternate_image = control->hasAlternateImage();
+                    if (auto* view_widget = control->getViewWidget())
+                    {
+                        const QRect selection_area = view_widget->getCurrentSelectionArea();
+                        view_state.selection_area_enabled = view_widget->isSelectionAreaEnabled();
+                        view_state.selection_area_x = selection_area.x();
+                        view_state.selection_area_y = selection_area.y();
+                        view_state.selection_area_width = selection_area.width();
+                        view_state.selection_area_height = selection_area.height();
+                    }
+                    view_states.push_back(std::move(view_state));
+                }
+
+                return view_states;
+            },
+            [this](const std::string_view session_id, const std::string_view request_id,
+                   const std::string_view view_name, an::ui::extensions::ExtensionViewSnapshot* out_snapshot,
+                   std::string* error) -> bool {
+                if (!out_snapshot)
+                {
+                    if (error)
+                    {
+                        *error = "Extension SDK snapshot output is null";
+                    }
+                    return false;
+                }
+                if (!m_impl->m_ImageViewControlManager)
+                {
+                    if (error)
+                    {
+                        *error = "ImageViewControlManager is unavailable";
+                    }
+                    return false;
+                }
+
+                ImageViewControl* control =
+                    m_impl->m_ImageViewControlManager->getImageViewControlByName(std::string(view_name));
+                if (!control)
+                {
+                    if (error)
+                    {
+                        *error = "Requested view no longer exists";
+                    }
+                    return false;
+                }
+
+                if (!control->hasImage())
+                {
+                    if (error)
+                    {
+                        *error = "Requested view has no exportable image";
+                    }
+                    return false;
+                }
+
+                *out_snapshot = an::ui::extensions::ExtensionViewSnapshot{};
+
+                an::ui::extensions::ImageExportRequest request;
+                request.sessionId = std::string(session_id);
+                request.role = an::ui::extensions::SharedBufferRole::Preview;
+                request.accessMode = an::ui::extensions::SharedBufferAccessMode::ReadOnly;
+                request.bufferId = std::string(request_id) + ".view_snapshot";
+                request.symbolicName = std::string(view_name) + ".snapshot";
+                request.fileName = control->getFileName();
+                std::optional<an::ui::extensions::SharedBufferDescriptor> source =
+                    exportDocumentSnapshot(control->document(), request, error);
+                if (!source.has_value())
+                {
+                    return false;
+                }
+                out_snapshot->source_buffer = std::move(*source);
+
+                if (ImageViewControl* const current_mask = control->getCurrentMask())
+                {
+                    if (current_mask->hasImage())
+                    {
+                        an::ui::extensions::ImageExportRequest mask_request;
+                        mask_request.sessionId = std::string(session_id);
+                        mask_request.role = an::ui::extensions::SharedBufferRole::Mask;
+                        mask_request.accessMode = an::ui::extensions::SharedBufferAccessMode::ReadOnly;
+                        mask_request.bufferId = std::string(request_id) + ".view_snapshot.selection";
+                        mask_request.symbolicName = "selection";
+                        std::optional<an::ui::extensions::SharedBufferDescriptor> mask =
+                            exportDocumentSnapshot(current_mask->document(), mask_request, error);
+                        if (!mask.has_value())
+                        {
+                            return false;
+                        }
+
+                        out_snapshot->auxiliary_buffers.push_back(std::move(*mask));
+                    }
+                }
+
+                return true;
+            },
+            []() -> an::ui::extensions::ExtensionThemeSnapshot { return currentExtensionThemeSnapshot(); },
+            std::move(ui_interaction_handler),
+            [this](const std::string_view session_id, const std::string_view view_name, std::string* error) -> bool {
+                if (!m_impl->m_ExtensionHostLaunchCoordinator)
+                {
+                    if (error)
+                    {
+                        *error = "Extension host launch coordinator is unavailable";
+                    }
+                    return false;
+                }
+
+                return m_impl->m_ExtensionHostLaunchCoordinator->bindSessionTargetView(session_id, view_name, error);
+            },
+            [this](const std::string_view, const std::string_view,
+                   const an::ui::extensions::SharedBufferDescriptor& buffer, const QString& title,
+                   std::string* error) -> bool {
+                an::ui::IEngineSessionProvider* const provider = engineSessionProvider();
+                if (provider == nullptr)
+                {
+                    if (error)
+                    {
+                        *error = "ui.open_image found no engine session to open the image in";
+                    }
+                    return false;
+                }
+
+                const an::ui::extensions::SharedBufferManager shared_buffer_manager(
+                    an::ui::extensions::extensionHostManagedRootPath());
+                an::Result<an::ui::extensions::ImportedImage> imported =
+                    shared_buffer_manager.importImage(provider->engineSession(), buffer);
+                if (!imported.hasValue())
+                {
+                    if (error)
+                    {
+                        *error =
+                            std::string("ui.open_image did not materialize an image: ") + imported.status().message();
+                    }
+                    return false;
+                }
+
+                std::optional<an::ui::ImageDocument> document = documentOfAsset(
+                    std::move(imported->asset), title.isEmpty() ? std::string("Extension Image") : title.toStdString());
+                if (!document.has_value())
+                {
+                    if (error)
+                    {
+                        *error = "ui.open_image did not materialize an image";
+                    }
+                    return false;
+                }
+
+                ImageViewControl* const created_control = createNewImageViewControlFromImage(
+                    nullptr, std::move(*document), this, "Opened extension-generated image", ViewControlMode::standard,
+                    nullptr, false, true);
+                if (!created_control)
+                {
+                    if (error)
+                    {
+                        *error = "Failed to create an image view for the generated extension image";
+                    }
+                    return false;
+                }
+
+                return true;
+            },
+            // A sequence a workflow wrote is opened on a worker and shown once it is read; a sequence that cannot be
+            // read or shown is said then, under the workflow's title, and logged.
+            [this](const std::string_view, const std::vector<an::ui::extensions::ExtensionWorkflowOutput>& outputs,
+                   std::string* error) -> bool {
+                for (const auto& output : outputs)
+                {
+                    if (output.kind != "sequence")
+                    {
+                        continue;
+                    }
+
+                    const QString output_path = QString::fromStdWString(output.path.wstring());
+                    const std::string output_path_text = output_path.toStdString();
+                    const std::optional<an::SequenceFormat> format = an::sequenceFormatForPath(output_path_text);
+                    if (!an::ui::dialogs::detail::isSupportedSequenceSuffix(QFileInfo(output_path).suffix()) ||
+                        !format.has_value())
+                    {
+                        LOG_INFO("Workflow output '{}' is not a supported sequence file; leaving it on disk.",
+                                 output_path_text);
+                        continue;
+                    }
+
+                    an::ui::IEngineSessionProvider* const provider = engineSessionProvider();
+                    if (provider == nullptr)
+                    {
+                        if (error)
+                        {
+                            *error = "Failed to open workflow sequence output: no engine session is open";
+                        }
+                        return false;
+                    }
+                    openWorkflowSequenceOutput(this, provider->engineSession(), output_path, *format);
+                }
+
+                return true;
+            });
+        // The settings store is open: the rate a native extension window previews at is read now, off the GUI thread,
+        // so the first launch passes the stored one.
+        m_impl->m_ExtensionHostLaunchCoordinator->refreshPreviewFrameRate();
+    }
+
+    refreshStoredProcessMenus();
+}
+
+void AfterNightApp::setActiveImageViewControl(ImageViewControl* view)
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->setActiveImageViewControl(view);
+    }
+}
+
+void AfterNightApp::setActiveImageViewControlAsync(ImageViewControl* view, std::atomic_bool* finished)
+{
+    auto evt = new SetActiveViewControlEvent(view, finished);
+    evt->schedule();
+}
+
+void AfterNightApp::setActiveImageViewControlByName(const std::string& name)
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->setActiveImageViewControlByName(
+            name, [this](ImageViewControl* view) { setActiveImageViewControl(view); });
+    }
+}
+
+void AfterNightApp::setActiveImageViewControlByNameAsync(const std::string& name, std::atomic_bool* finished)
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->setActiveImageViewControlByNameAsync(
+            name,
+            [this](ImageViewControl* view, std::atomic_bool* done) { setActiveImageViewControlAsync(view, done); },
+            finished);
+    }
+}
+
+void AfterNightApp::addImageViewControl(ImageViewControl* view)
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->addImageViewControl(view);
+    }
+}
+
+void AfterNightApp::addImageViewControlAsync(ImageViewControl* view)
+{
+    auto evt = new AddImageViewControlAsyncEvent(view, nullptr);
+    evt->schedule();
+}
+
+void AfterNightApp::removeImageViewControl(ImageViewControl* view, bool deleteObject)
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->removeImageViewControl(view, deleteObject);
+    }
+}
+
+void AfterNightApp::removeImageViewControlAsync(ImageViewControl* view, bool deleteObject)
+{
+    auto evt = new RemoveImageViewControlAsyncEvent(view, deleteObject, nullptr);
+    evt->schedule();
+}
+
+void AfterNightApp::renameImageViewControl(ImageViewControl* view)
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->renameImageViewControl(view);
+    }
+}
+
+void AfterNightApp::updateImageViewControlList()
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->updateImageViewControlList();
+    }
+}
+
+void AfterNightApp::updateImageViewControlListAsync(std::atomic_bool* finished)
+{
+    auto evt = new UpdateImageViewControlListEvent(finished);
+    evt->schedule();
+}
+
+ImageViewControlManager* AfterNightApp::getImageViewControlManager()
+{
+    return m_impl->m_ImageViewControlManager.get();
+}
+
+an::ui::ProcessLauncher* AfterNightApp::processLauncher() const
+{
+    return m_impl->m_ProcessLauncher.get();
+}
+
+an::ui::ChannelExtractor* AfterNightApp::channelExtractor() const
+{
+    return m_impl->m_ChannelExtractor.get();
+}
+
+an::ui::FileManager* AfterNightApp::fileManager() const
+{
+    return m_impl->m_FileManager.get();
+}
+
+an::ui::ImageOperationsCoordinator* AfterNightApp::imageOperations() const
+{
+    return m_impl->m_ImageOperationsCoordinator.get();
+}
+
+an::ui::MaskOverlayCoordinator* AfterNightApp::maskOverlay() const
+{
+    return m_impl->m_MaskOverlayCoordinator.get();
+}
+
+an::ui::WindowLayoutCoordinator* AfterNightApp::windowLayout() const
+{
+    return m_impl->m_WindowLayoutCoordinator.get();
+}
+
+an::ui::DialogOrchestrationCoordinator* AfterNightApp::dialogOrchestration() const
+{
+    return m_impl->m_DialogOrchestrationCoordinator.get();
+}
+
+an::ui::ActionStateCoordinator* AfterNightApp::actionState() const
+{
+    return m_impl->m_ActionStateCoordinator.get();
+}
+
+void AfterNightApp::createContextMenuForViewControl(ImageViewControl* view, QContextMenuEvent* event)
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->createContextMenuForViewControl(view, event);
+    }
+}
+
+ImageViewControl* AfterNightApp::createNewImageViewControl(const std::string& name, QWidget* parent,
+                                                           const ViewControlMode mode, const bool pendingChanges)
+{
+    return m_impl->m_ViewCreationCoordinator
+               ? m_impl->m_ViewCreationCoordinator->createNewImageViewControl(name, parent, mode, pendingChanges)
+               : nullptr;
+}
+
+ImageViewControl*
+AfterNightApp::createNewImageViewControlFromImage(ImageViewControl* customViewControl, an::ui::ImageDocument&& document,
+                                                  QWidget* parent, const std::string& historyDesc,
+                                                  const ViewControlMode mode, ImageViewControl* neighbour,
+                                                  bool keepFocusedNeighbour, const bool pendingChanges)
+{
+    return m_impl->m_ViewCreationCoordinator ? m_impl->m_ViewCreationCoordinator->createNewImageViewControlFromImage(
+                                                   customViewControl, std::move(document), parent, historyDesc, mode,
+                                                   neighbour, keepFocusedNeighbour, pendingChanges)
+                                             : nullptr;
+}
+
+ImageViewControl* AfterNightApp::createNewImageViewControlFromSequence(
+    ImageViewControl* customViewControl, an::ui::ImageDocument&& document, QWidget* parent, const bool autoDebayer,
+    const std::string& historyDesc, const ViewControlMode mode, ImageViewControl* neighbour, bool keepFocusedNeighbour,
+    const bool pendingChanges)
+{
+    return m_impl->m_ViewCreationCoordinator ? m_impl->m_ViewCreationCoordinator->createNewImageViewControlFromSequence(
+                                                   customViewControl, std::move(document), parent, autoDebayer,
+                                                   historyDesc, mode, neighbour, keepFocusedNeighbour, pendingChanges)
+                                             : nullptr;
+}
+
+void AfterNightApp::createNewImageViewControlFromImageAsync(ImageViewControl* customViewControl,
+                                                            an::ui::ImageDocument&& document, QWidget* parent,
+                                                            const std::string& historyDesc, const ViewControlMode mode,
+                                                            ImageViewControl* neighbour, bool keepFocusedNeighbour,
+                                                            const bool pendingChanges, std::atomic_bool* finished)
+{
+    auto evt =
+        new CreateNewImageViewControlFromImageEvent(customViewControl, std::move(document), parent, historyDesc, mode,
+                                                    neighbour, keepFocusedNeighbour, pendingChanges, finished);
+    evt->schedule();
+}
+
+void AfterNightApp::createNewImageViewControlFromSequenceAsync(ImageViewControl* customViewControl,
+                                                               an::ui::ImageDocument&& document, QWidget* parent,
+                                                               const bool autoDebayer, const std::string& historyDesc,
+                                                               const ViewControlMode mode, ImageViewControl* neighbour,
+                                                               bool keepFocusedNeighbour, const bool pendingChanges,
+                                                               std::atomic_bool* finished)
+{
+    auto evt = new CreateNewImageViewControlFromSequenceEvent(customViewControl, std::move(document), parent,
+                                                              autoDebayer, historyDesc, mode, neighbour,
+                                                              keepFocusedNeighbour, pendingChanges, finished);
+    evt->schedule();
+}
+
+void AfterNightApp::registerProcessInstance(TopLevelProcessBaseControl* process)
+{
+    // Process windows set Qt::WA_DeleteOnClose in their constructors; Qt deletes them
+    // when closed. m_OpenProcesses holds raw (non-owning) tracking pointers only.
+    std::lock_guard lock(m_impl->m_OpenProcessesMutex);
+    m_impl->m_OpenProcesses.insert(process);
+}
+
+void AfterNightApp::unregisterProcessInstance(TopLevelProcessBaseControl* process)
+{
+    std::lock_guard lock(m_impl->m_OpenProcessesMutex);
+    m_impl->m_OpenProcesses.erase(process);
+}
+
+size_t AfterNightApp::getNumOfOpenProcesses()
+{
+    const size_t extensionProcessCount =
+        m_impl->m_ExtensionHostLaunchCoordinator ? m_impl->m_ExtensionHostLaunchCoordinator->activeSessionCount() : 0;
+
+    std::lock_guard lock(m_impl->m_OpenProcessesMutex);
+    return m_impl->m_OpenProcesses.size() + extensionProcessCount;
+}
+
+void AfterNightApp::stopExtensionHostSessions()
+{
+    if (m_impl->m_ExtensionHostPumpTimer)
+    {
+        m_impl->m_ExtensionHostPumpTimer->stop();
+    }
+    if (m_impl->m_ExtensionHostLaunchCoordinator)
+    {
+        m_impl->m_ExtensionHostLaunchCoordinator->stopAllSessions();
+    }
+}
+
+KDDockWidgets::QtWidgets::MainWindow* AfterNightApp::getDockMainWindow()
+{
+    return m_impl->m_DockMainWindow;
+}
+
+ThumbnailPersistence* AfterNightApp::getThumbnailPersistence()
+{
+    return m_impl->m_ThumbnailPersistence.get();
+}
+
+FolderTrackerPersistence* AfterNightApp::getFolderTrackerPersistence()
+{
+    return m_impl->m_FolderTrackerPersistence.get();
+}
+
+ProcessSettingsPersistence* AfterNightApp::getProcessSettingsPersistence()
+{
+    return m_impl->m_ProcessSettingsPersistence.get();
+    ;
+}
+
+GlobalSettingsPersistence* AfterNightApp::getGlobalSettingsPersistence()
+{
+    return m_impl->m_GlobalSettingsPersistence.get();
+}
+
+bool AfterNightApp::isMaximizedViewActive() const
+{
+    return m_impl->ui.centralWidget->currentWidget() != m_impl->m_MainDashboardScrollArea &&
+           m_impl->ui.centralWidget->currentWidget() != m_impl->m_DockMainWindow;
+}
+
+AfterNightApp::~AfterNightApp()
+{
+    // A Session Console still open is a child the base class deletes once this window's state is gone, so its
+    // destroyed handler, which reads that state, must not run then.
+    disconnect(m_impl->m_LogViewerClosedConnection);
+    m_impl->m_ExtensionBackgroundWorkCancellationToken.requestCancellation();
+    m_impl->cancelExtensionPreparations();
+    stopExtensionHostSessions();
+
+    // The process windows go before the stores they read. A run's work calls its window's process body on a worker, so
+    // no window is deleted under its work: each stops what it still runs, the thread pool is drained while every window
+    // is still there, only then are they deleted, and the work their going leaves on the pool - a window's read of its
+    // settings among it - is drained in turn, while the settings stores are still there.
+    std::vector<QPointer<TopLevelProcessBaseControl>> openProcesses;
+    {
+        const std::lock_guard lock(m_impl->m_OpenProcessesMutex);
+        openProcesses.assign(m_impl->m_OpenProcesses.begin(), m_impl->m_OpenProcesses.end());
+    }
+    an::ui::destroyProcessWindowsAtExit(openProcesses);
+
+    // Ensure right order
+    m_impl->m_FolderTrackerPersistence.reset();
+    m_impl->m_ThumbnailPersistence.reset();
+    m_impl->m_ProcessSettingsPersistence.reset();
+    m_impl->m_GlobalSettingsPersistence.reset();
+    // Shut down the DB executors after all persistence objects that depend on them.
+    if (m_impl->m_DBExecutor)
+        m_impl->m_DBExecutor->shutdown();
+    m_impl->m_DBExecutor.reset();
+
+    // The context goes with this window, and the windows destroyed after it - its children - must find none rather
+    // than one on its way out.
+    if (an::ui::appContext() == m_impl->m_AppContext.get())
+    {
+        an::ui::clearAppContext();
+    }
+    m_impl->m_Session = nullptr;
+}
+
+an::ui::IEngineSessionProvider* AfterNightApp::engineSessionProvider() const noexcept
+{
+    return m_impl->m_Session != nullptr && m_impl->m_Session->isOpen() ? m_impl->m_Session : nullptr;
+}
+
+void AfterNightApp::on_imageViewControlListComboBox_currentTextChanged(const QString& text)
+{
+    auto control = m_impl->m_ImageViewControlManager->getImageViewControlByName(text.toUtf8().toStdString());
+
+    if (control)
+    {
+        if (viewControlInAMaximizedContainer(control) && !control->isMaximized() && !control->isInFloatingWindow())
+        {
+            control->switchMaximized();
+        }
+
+        setActiveImageViewControl(control);
+    }
+}
+
+void AfterNightApp::closeEvent(QCloseEvent* closeEvent)
+{
+    if (m_impl->m_AppLifecycleCoordinator && !m_impl->m_AppLifecycleCoordinator->prepareForClose())
+    {
+        closeEvent->ignore();
+        return;
+    }
+
+    QMainWindow::closeEvent(closeEvent);
+
+    // Some child dialogs (Histogram, Statistics, FITS viewer, etc.) are shown
+    // as independent top-level windows and would keep the process alive if they
+    // outlive the main window.  Quitting the application here ensures the
+    // event loop always exits once the main window has accepted its close event.
+    QApplication::quit();
+}
+
+void AfterNightApp::contextMenuEvent(QContextMenuEvent* contextMenuEvent)
+{
+    if (m_impl->m_ImageViewControlManager->getNumOfImageViewControls() == 0)
+        return;
+
+    QMenu menu(this);
+    menu.addAction(m_impl->ui.actionLock_Layout);
+    menu.addAction(m_impl->ui.actionUnlock_Layout);
+    menu.exec(contextMenuEvent->globalPos());
+}
+
+void AfterNightApp::dragEnterEvent(QDragEnterEvent* evt)
+{
+    auto urls = evt->mimeData()->urls();
+
+    bool atLeastOneSupported = false;
+    for (auto& url : urls)
+    {
+        auto path = url.toLocalFile();
+        if (an::ui::isLikelySupportedImagePath(path))
+        {
+            atLeastOneSupported = true;
+            break;
+        }
+    }
+
+    if (atLeastOneSupported)
+        evt->acceptProposedAction();
+}
+
+void AfterNightApp::dropEvent(QDropEvent* evt)
+{
+    if (!evt || !evt->mimeData())
+    {
+        return;
+    }
+
+    auto urls = evt->mimeData()->urls();
+    QStringList files;
+
+    for (auto& url : urls)
+    {
+        auto path = url.toLocalFile();
+        if (!path.isEmpty())
+        {
+            files.append(path);
+        }
+    }
+
+    if (files.isEmpty())
+    {
+        return;
+    }
+
+    openDroppedFiles(files);
+    evt->acceptProposedAction();
+}
+
+void AfterNightApp::openDroppedFiles(const QStringList& files)
+{
+    if (m_impl->m_FileManager)
+    {
+        m_impl->m_FileManager->openDroppedFiles(files);
+    }
+}
+
+void AfterNightApp::customEvent(QEvent* ev)
+{
+    if (ev->type() == AfterNightEvent::getEventType())
+    {
+        ev->accept();
+        auto customEvent = static_cast<AfterNightEvent*>(ev);
+
+        try
+        {
+            customEvent->run();
+        }
+        catch (std::exception& e)
+        {
+            std::string msg = fmt::format("Exception running async operation: {}", e.what());
+            notifyErrorMessage(this, "Async Operation Error", QString::fromStdString(msg));
+        }
+    }
+}
+
+bool AfterNightApp::tryLaunchRegistryProcessById(const std::string& processId)
+{
+    using namespace an::ui::process_registry;
+
+    const ProcessDescriptor* descriptor = ProcessRegistry::instance().find(processId);
+    if (!descriptor)
+    {
+        LOG_WARNING("Registry descriptor not found for id={}", processId);
+        return false;
+    }
+
+    const auto displayName = [&descriptor]() -> std::string {
+        if (!descriptor->display_name.empty())
+        {
+            return descriptor->display_name;
+        }
+        if (!descriptor->process_name.empty())
+        {
+            return descriptor->process_name;
+        }
+        if (!descriptor->action_object_name.empty())
+        {
+            return descriptor->action_object_name;
+        }
+        return descriptor->id;
+    }();
+
+    const auto availability = evaluateProcessAvailability(*descriptor);
+    if (!availability.ok())
+    {
+        // An extension whose environment is still to be installed, refreshed or repaired is prepared and then
+        // launched, rather than refused with what to do in the extension manager.
+        if (preparesBeforeLaunch(*descriptor))
+        {
+            m_impl->m_ExtensionLaunchPreparations->launch(processId, descriptor->extension_id, displayName);
+            return true;
+        }
+        notifyErrorMessage(this, QString::fromUtf8(availability.title.c_str()),
+                           QString::fromUtf8(availability.message.c_str()));
+        return false;
+    }
+
+    if (descriptor->launch_mode == ProcessLaunchMode::TopLevel)
+    {
+        if (!descriptor->launch_top_level)
+        {
+            LOG_WARNING("Registry descriptor id={} is missing a top-level launch handler", processId);
+            return false;
+        }
+
+        descriptor->launch_top_level();
+        recordRecentProcess(processId, displayName);
+        return true;
+    }
+
+    if (descriptor->launch_mode == ProcessLaunchMode::NonInteractive)
+    {
+        if (!descriptor->launch_non_interactive)
+        {
+            LOG_WARNING("Registry descriptor id={} is missing a non-interactive launch handler", processId);
+            return false;
+        }
+
+        descriptor->launch_non_interactive();
+        recordRecentProcess(processId, displayName);
+        return true;
+    }
+
+    if (!descriptor->launch_single_image && !descriptor->launch_single_image_checked)
+    {
+        LOG_WARNING("Registry descriptor id={} is missing a single-image launch handler", processId);
+        return false;
+    }
+
+    ImageViewControl* control =
+        m_impl->m_ImageViewControlManager ? m_impl->m_ImageViewControlManager->getActiveImageViewControl() : nullptr;
+
+    if (!control)
+    {
+        QString title = QString::fromUtf8(descriptor->process_name.c_str());
+        if (title.isEmpty())
+        {
+            title = QString::fromUtf8(descriptor->display_name.c_str());
+        }
+        if (title.isEmpty())
+        {
+            title = QStringLiteral("Process");
+        }
+
+        notifyErrorMessage(this, title, QStringLiteral("No selected image to process"));
+        return true;
+    }
+
+    // The guards read the view as the menu's action state and the launcher read it.
+    const LaunchGuardInput launchGuardInput = launchGuardInputFor(*descriptor, control);
+    const auto launchGuard = evaluateSingleImageLaunchGuards(*descriptor, launchGuardInput);
+    if (!launchGuard.ok())
+    {
+        notifyErrorMessage(this, QString::fromUtf8(launchGuard.title.c_str()),
+                           QString::fromUtf8(launchGuard.message.c_str()));
+        return false;
+    }
+
+    // Canonical duplicate/exclusive-access checks remain in ProcessLauncher,
+    // where real process metadata (static process name / exclusivity) is available.
+    if (descriptor->launch_single_image_checked)
+    {
+        std::string launch_error;
+        if (!descriptor->launch_single_image_checked(control, &launch_error))
+        {
+            notifyErrorMessage(this, QString::fromUtf8(displayName.c_str()), QString::fromUtf8(launch_error.c_str()));
+            return false;
+        }
+    }
+    else
+    {
+        descriptor->launch_single_image(control);
+    }
+    recordRecentProcess(processId, displayName);
+    return true;
+}
+
+void AfterNightApp::completePreparedExtensionLaunch(
+    const std::string& processId, const std::string& extensionId,
+    const an::ui::extensions::ExtensionLaunchPreparationOutcome& outcome)
+{
+    const std::filesystem::path appDir(QCoreApplication::applicationDirPath().toStdString());
+    refreshRegisteredExtensionDescriptors(outcome.discovered);
+    bindDiscoveredExtensionLaunches(m_impl->m_ExtensionHostLaunchCoordinator.get(), appDir, outcome.discovered);
+    refreshDiscoveredExtensionActions(this, m_impl->m_MenuActionManager.get(), outcome.discovered);
+    cleanupMissingStoredProcessIdsOnNextRefresh = true;
+    refreshStoredProcessMenus();
+    updateActiveImageActions();
+
+    const auto* descriptor = an::ui::process_registry::ProcessRegistry::instance().find(processId);
+    if (outcome.prepared && descriptor && descriptor->is_available())
+    {
+        tryLaunchRegistryProcessById(processId);
+        return;
+    }
+
+    // What still stands in the way is reported once, with where to deal with it, and not prepared again.
+    QString message = QString::fromStdString(!outcome.diagnostic.empty()
+                                                 ? outcome.diagnostic
+                                                 : (descriptor ? descriptor->availability_reason : std::string()));
+    if (message.isEmpty())
+    {
+        message = tr("The extension's environment could not be made ready.");
+    }
+    message +=
+        QStringLiteral("\n\n") + tr("Open Extensions > Manage Extensions... > Installed to install or repair it.");
+    notifyErrorMessage(this,
+                       QString::fromStdString(descriptor && !descriptor->display_name.empty() ? descriptor->display_name
+                                                                                              : extensionId),
+                       message);
+}
+
+void AfterNightApp::connectActions()
+{
+    if (m_impl->m_MenuActionManager)
+    {
+        m_impl->m_MenuActionManager->connectProcessActions();
+        m_impl->m_MenuActionManager->connectActions();
+    }
+}
+
+void AfterNightApp::setActionIcons()
+{
+    if (m_impl->m_MenuActionManager)
+    {
+        m_impl->m_MenuActionManager->setActionIcons();
+    }
+}
+
+void AfterNightApp::initializePersistence()
+{
+    if (m_impl->m_PersistenceCoordinator)
+    {
+        m_impl->m_PersistenceCoordinator->initializePersistence();
+        // A settings database of another format was set aside: the person is told where, once the window is up.
+        if (const QString notice = m_impl->m_PersistenceCoordinator->settingsStoreNotice(); !notice.isEmpty())
+        {
+            notifyInfoMessageAsync(this, tr("Settings"), notice);
+        }
+    }
+
+    if (m_impl->m_Session == nullptr || m_impl->m_Session->isOpen())
+    {
+        return;
+    }
+
+    GlobalSettingsPersistence* const settings = m_impl->m_GlobalSettingsPersistence.get();
+    const an::ui::ProcessingLimits limits =
+        settings != nullptr ? an::ui::readProcessingLimits([settings](const QString& key, const QString& fallback) {
+            return settings->select(key, fallback);
+        })
+                            : an::ui::ProcessingLimits{};
+    const an::Status opened = m_impl->m_Session->open(limits);
+    if (opened.failed())
+    {
+        const std::string message = fmt::format("The engine session cannot be opened: {}", opened.message());
+        LOG_ERROR(message);
+        throw std::runtime_error(message);
+    }
+}
+
+void AfterNightApp::persistLastOpenDir()
+{
+    if (m_impl->m_PersistenceCoordinator)
+    {
+        m_impl->m_PersistenceCoordinator->persistLastOpenDir();
+    }
+}
+
+void AfterNightApp::persistRecentFiles()
+{
+    if (m_impl->m_FileManager)
+    {
+        m_impl->m_FileManager->persistRecentFiles();
+    }
+}
+
+std::shared_ptr<const an::ui::RawOpenPolicy> AfterNightApp::rawOpenPolicy() const
+{
+    return m_impl->m_PersistenceCoordinator && m_impl->m_GlobalSettingsPersistence
+               ? m_impl->m_PersistenceCoordinator->rawOpenPolicy()
+               : nullptr;
+}
+
+an::Status AfterNightApp::setRawOpenSettings(const an::ui::RawOpenSettings& settings)
+{
+    if (!m_impl->m_PersistenceCoordinator || !m_impl->m_GlobalSettingsPersistence)
+    {
+        return an::Status::failure(an::ErrorCode::NotInitialized,
+                                   "the RAW settings cannot be stored before the settings store is open");
+    }
+    return m_impl->m_PersistenceCoordinator->setRawOpenSettings(settings);
+}
+
+an::Result<an::OutputIntent> AfterNightApp::buildOutputIntent(const an::ImageDescriptor& source,
+                                                              const an::CodecFormat container) const
+{
+    if (!m_impl->m_PersistenceCoordinator || !m_impl->m_GlobalSettingsPersistence)
+    {
+        return an::Status::failure(an::ErrorCode::NotInitialized,
+                                   "the export settings cannot be read before the settings store is open");
+    }
+    return m_impl->m_PersistenceCoordinator->buildOutputIntent(source, container);
+}
+
+void AfterNightApp::addRecentFile(const std::string& fileName,
+                                  const std::shared_ptr<const an::consumer::ImageAsset>& image)
+{
+    if (m_impl->m_FileManager)
+    {
+        m_impl->m_FileManager->addRecentFile(fileName, image);
+    }
+}
+
+void AfterNightApp::addRecentFileAsync(const std::string& fileName,
+                                       std::shared_ptr<const an::consumer::ImageAsset> image,
+                                       std::atomic_bool* finished)
+{
+    auto evt = new AddRecentFileEvent(fileName, std::move(image), finished);
+    evt->schedule();
+}
+
+void AfterNightApp::removeRecentFile(const std::string& fileName)
+{
+    if (m_impl->m_FileManager)
+    {
+        m_impl->m_FileManager->removeRecentFile(fileName);
+    }
+}
+
+void AfterNightApp::removeRecentFileAsync(const std::string& fileName, std::atomic_bool* finished)
+{
+    auto evt = new RemoveRecentFileEvent(fileName, finished);
+    evt->schedule();
+}
+
+void AfterNightApp::setLogViewerChecked(bool checked)
+{
+    QSignalBlocker blocker(m_impl->ui.actionLog_Viewer);
+    m_impl->ui.actionLog_Viewer->setChecked(checked);
+}
+
+void AfterNightApp::onLogViewerClosed()
+{
+    m_impl->m_LogViewerControl = nullptr;
+
+    // If no image is active, switch to main dashboard
+    if (m_impl->m_ImageViewControlManager->getNumOfImageViewControls() == 0)
+    {
+        switchToMainDashboard();
+    }
+}
+
+std::thread::id AfterNightApp::getMainThreadId() const
+{
+    return m_impl->m_MainThreadId;
+}
+
+bool AfterNightApp::isMainThread() const
+{
+    return std::this_thread::get_id() == m_impl->m_MainThreadId;
+}
+
+bool AfterNightApp::isTempFile(const std::string& fileName)
+{
+    return an::platform::startsWith(fileName, getTempDirPath().toUtf8().toStdString(),
+                                    an::platform::CaseSensitivity::Insensitive);
+}
+
+void AfterNightApp::loadSettings()
+{
+    if (m_impl->m_AppLifecycleCoordinator)
+    {
+        m_impl->m_AppLifecycleCoordinator->loadSettings();
+    }
+}
+
+void AfterNightApp::updateActiveImageActions()
+{
+    if (m_impl->m_ActionStateCoordinator)
+    {
+        m_impl->m_ActionStateCoordinator->updateActiveImageActions();
+    }
+}
+
+void AfterNightApp::updateActiveImageActionsAsync()
+{
+    UpdateActiveImageActionsEvent* evt = new UpdateActiveImageActionsEvent(nullptr);
+    evt->schedule();
+}
+
+void AfterNightApp::updateActiveImageHistory()
+{
+    if (m_impl->m_ActionStateCoordinator)
+    {
+        m_impl->m_ActionStateCoordinator->updateActiveImageHistory();
+    }
+}
+
+void AfterNightApp::setCustomImageActionEnabled(ImageViewControl* view, const GlobalViewControlActions action,
+                                                bool enable)
+{
+    auto control = m_impl->m_ImageViewControlManager->getActiveImageViewControl();
+    if (!control)
+    {
+        return;
+    }
+
+    if (control != view)
+    {
+        return;
+    }
+
+    if (action == GlobalViewControlActions::STATISTICS_ACTION)
+    {
+        m_impl->ui.actionStatistics->setEnabled(enable);
+    }
+    else if (action == GlobalViewControlActions::HISTOGRAM_ACTION)
+    {
+        m_impl->ui.actionHistogram->setEnabled(enable);
+    }
+    else if (action == GlobalViewControlActions::FITS_HEADER_ACTION)
+    {
+        m_impl->ui.actionFITSHeader->setEnabled(enable);
+    }
+    else if (action == GlobalViewControlActions::EXIF_ACTION)
+    {
+        m_impl->ui.actionImage_EXIFViewer->setEnabled(enable);
+    }
+    else if (action == GlobalViewControlActions::SUMMARY_ACTION)
+    {
+        m_impl->ui.actionSummary->setEnabled(enable);
+    }
+}
+
+void AfterNightApp::updateImageInfoInStatusBar()
+{
+    m_impl->m_ImageInfoStatusBarWidget->updateImageInfo(m_impl->m_ImageViewControlManager->getActiveImageViewControl());
+}
+
+void AfterNightApp::updateImageZoomInfoInStatusBar()
+{
+    m_impl->m_ImageInfoStatusBarWidget->updateImageZoomInfo(
+        m_impl->m_ImageViewControlManager->getActiveImageViewControl());
+}
+
+void AfterNightApp::updateImageCelestialCoordsInStatusBar(const double ra_deg, const double dec_deg)
+{
+    if (m_impl->m_ImageInfoStatusBarWidget)
+    {
+        m_impl->m_ImageInfoStatusBarWidget->updateCelestialCoords(ra_deg, dec_deg);
+    }
+}
+
+void AfterNightApp::clearImageCelestialCoordsInStatusBar()
+{
+    if (m_impl->m_ImageInfoStatusBarWidget)
+    {
+        m_impl->m_ImageInfoStatusBarWidget->clearCelestialCoords();
+    }
+}
+
+void AfterNightApp::subscribeListener(AfterNightAppListener* listener)
+{
+    m_impl->m_listeners.insert(listener);
+}
+
+void AfterNightApp::unsubscribeListener(AfterNightAppListener* listener)
+{
+    m_impl->m_listeners.erase(listener);
+}
+
+void AfterNightApp::notifyViewControlCreated(const ImageViewControl* ctrl)
+{
+    if (ctrl && m_impl->m_ExtensionHostLaunchCoordinator)
+    {
+        const std::string view_name = ctrl->getUniqueName();
+        m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlCreated(
+            ctrl, view_name, view_name, ctrl->getFileName(), an::ui::buildImageSelectorTooltip(ctrl).toStdString());
+    }
+
+    for (auto& listener : m_impl->m_listeners)
+    {
+        listener->onViewControlCreated(ctrl);
+    }
+}
+
+void AfterNightApp::notifyActiveViewControlChanged(ImageViewControl* ctrl)
+{
+    for (auto& listener : m_impl->m_listeners)
+    {
+        listener->onActiveViewControlChanged(ctrl);
+    }
+}
+
+void AfterNightApp::notifyViewControlDestroyed(const ImageViewControl* ctrl)
+{
+    if (ctrl && m_impl->m_ExtensionHostLaunchCoordinator)
+    {
+        m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlDestroyed(ctrl, ctrl->getUniqueName());
+    }
+
+    for (auto& listener : m_impl->m_listeners)
+    {
+        listener->onViewControlDestroyed(ctrl);
+    }
+}
+
+void AfterNightApp::notifyViewControlUpdated(const ImageViewControl* ctrl)
+{
+    if (ctrl && m_impl->m_ImageViewControlListComboBox)
+    {
+        const QString viewName = QString::fromUtf8(ctrl->getUniqueName());
+        const int itemId = m_impl->m_ImageViewControlListComboBox->findText(viewName);
+        if (itemId >= 0)
+        {
+            m_impl->m_ImageViewControlListComboBox->setItemData(itemId, an::ui::buildImageSelectorTooltip(ctrl),
+                                                                Qt::ToolTipRole);
+        }
+    }
+
+    if (m_impl->m_ExtensionHostLaunchCoordinator)
+    {
+        m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlUpdated(ctrl);
+    }
+
+    for (auto& listener : m_impl->m_listeners)
+    {
+        listener->onViewControlUpdated(ctrl);
+    }
+}
+
+void AfterNightApp::notifyViewControlRenamed(const std::string& newName, const std::string& oldName,
+                                             const ImageViewControl* ctrl)
+{
+    if (m_impl->m_ExtensionHostLaunchCoordinator)
+    {
+        m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlRenamed(
+            newName, oldName, ctrl, ctrl ? ctrl->getFileName() : std::string(),
+            ctrl ? an::ui::buildImageSelectorTooltip(ctrl).toStdString() : std::string());
+    }
+
+    for (auto& listener : m_impl->m_listeners)
+    {
+        listener->onViewControlRenamed(newName, oldName, ctrl);
+    }
+}
+
+void AfterNightApp::notifyProcessOpened(const std::string& processName, const ImageViewControl* targetCtrl)
+{
+    for (auto& listener : m_impl->m_listeners)
+    {
+        listener->onProcessOpened(processName, targetCtrl);
+    }
+}
+
+void AfterNightApp::notifyProcessExecuted(const std::string& processName, const ImageViewControl* targetCtrl)
+{
+    for (auto& listener : m_impl->m_listeners)
+    {
+        listener->onProcessExecuted(processName, targetCtrl);
+    }
+}
+
+void AfterNightApp::notifyApplicationClose()
+{
+    for (auto& listener : m_impl->m_listeners)
+    {
+        listener->onApplicationClose();
+    }
+}
+
+void AfterNightApp::setLastOpenDirectoryAndPersist(const QString& path)
+{
+    m_impl->m_LastOpenDirectory = path.toUtf8().toStdString();
+    persistLastOpenDir();
+}
+
+// onlySequences: 0 = disabled, 1 = ser, 2 = image list (anseq), 3 = avi
+static void initializeImageFileDialog(const std::string& defaultDir, const std::string& defaultFile,
+                                      QFileDialog& dialog, QFileDialog::AcceptMode acceptMode, bool acceptSequences,
+                                      int onlySequences, bool acceptMultipleFiles)
+{
+    if (acceptMode == QFileDialog::AcceptOpen)
+    {
+        an::ui::dialogs::applyCompactOpenFilterPresentation(dialog);
+    }
+
+    if (defaultDir.empty())
+    {
+        const QStringList picturesLocations = QStandardPaths::standardLocations(QStandardPaths::PicturesLocation);
+        dialog.setDirectory(picturesLocations.isEmpty() ? QDir::currentPath() : picturesLocations.last());
+    }
+    else
+    {
+        dialog.setDirectory(QString::fromUtf8(defaultDir));
+    }
+
+    dialog.setFileMode(acceptMultipleFiles ? QFileDialog::ExistingFiles : QFileDialog::ExistingFile);
+
+    QStringList allSupportedPatterns;
+    QStringList nameFilters;
+
+    if (!onlySequences)
+    {
+        // Common formats
+        nameFilters.append("PNG files (*.png)");
+        nameFilters.append("JPEG files (*.jpg *.jpeg)");
+        nameFilters.append("TIFF files (*.tif *.tiff)");
+        nameFilters.append("FITS files (*.fit *.fits)");
+        nameFilters.append("XISF files (*.xisf)");
+
+        allSupportedPatterns << "*.png" << "*.jpg" << "*.jpeg" << "*.tif" << "*.tiff" << "*.fit" << "*.fits"
+                             << "*.xisf";
+
+        if (acceptMode != QFileDialog::AcceptSave)
+        {
+            // RAW formats
+            nameFilters.append("Canon RAW (*.crw *.cr2 *.cr3)");
+            nameFilters.append("Nikon RAW (*.nef)");
+            nameFilters.append("Sony RAW (*.arw *.sr2 *.srf)");
+            nameFilters.append("Adobe DNG (*.dng)");
+            nameFilters.append("Kodak RAW (*.dcr *.k25 *.kdc)");
+            nameFilters.append("Epson RAW (*.erf)");
+            nameFilters.append("Minolta RAW (*.mrw)");
+            nameFilters.append("Olympus RAW (*.orf)");
+            nameFilters.append("Pentax RAW (*.pef)");
+            nameFilters.append("Fuji RAW (*.raf)");
+            nameFilters.append("Panasonic RAW (*.raw)");
+            nameFilters.append("Sigma RAW (*.x3f)");
+
+            allSupportedPatterns << "*.crw" << "*.cr2" << "*.cr3" << "*.nef" << "*.dng" << "*.arw" << "*.sr2" << "*.srf"
+                                 << "*.dcr" << "*.k25" << "*.kdc" << "*.erf" << "*.mrw" << "*.orf" << "*.pef" << "*.raf"
+                                 << "*.raw" << "*.x3f";
+        }
+    }
+
+    if (acceptSequences)
+    {
+        // TODO: Replace this with a more generic way to handle sequences
+        // For example, we should be able to chose the destination sequence type (SER, AVI, MP4, Image list, etc.)
+        // from any source sequence. Maybe show a dialog to chose the codec
+        if (acceptMode == QFileDialog::AcceptSave)
+        {
+            if (onlySequences == 1)
+                nameFilters.append("SER sequence (*.ser)");
+            else if (onlySequences == 2)
+                nameFilters.append("AfterNight sequence (*.anseq)");
+            else if (onlySequences == 3)
+            {
+                // TODO: Show a selection dialog to chose the codec (RAW, H264, H265, etc.)
+                nameFilters.append("RAW AVI Sequence (*.avi)");
+                nameFilters.append("MP4 sequence (*.mp4)");
+            }
+        }
+        else
+        {
+            nameFilters.append("SER sequence (*.ser)");
+            nameFilters.append("AVI sequence (*.avi)");
+            nameFilters.append("MP4 sequence (*.mp4)");
+            nameFilters.append("MOV sequence (*.mov)");
+            nameFilters.append("MKV sequence (*.mkv)");
+            nameFilters.append("MPG sequence (*.mpg)");
+            nameFilters.append("WEBM sequence (*.webm)");
+            nameFilters.append("MPEG sequence (*.mpeg)");
+            nameFilters.append("AfterNight sequence (*.anseq)");
+        }
+
+        allSupportedPatterns << "*.ser" << "*.anseq" << "*.mp4" << "*.avi" << "*.mov" << "*.mkv" << "*.mpg" << "*.mpeg"
+                             << "*.webm";
+    }
+
+    const QString allSupportedFilter = an::ui::dialogs::supportedFormatsNameFilter(allSupportedPatterns);
+    nameFilters.prepend(allSupportedFilter);
+
+    dialog.setNameFilters(nameFilters);
+    dialog.selectNameFilter(allSupportedFilter);
+    dialog.setAcceptMode(acceptMode);
+
+    if (acceptMode == QFileDialog::AcceptSave)
+    {
+        if (onlySequences == 1)
+        {
+            dialog.setDefaultSuffix("ser");
+        }
+        else if (onlySequences == 2)
+        {
+            dialog.setDefaultSuffix("anseq");
+        }
+        else
+        {
+            // Get default save format from settings
+            QString defaultFormat = QString(SettingsDefaults::GENERAL_DEFAULT_SAVE_FORMAT);
+            auto* settings = AfterNightApp::getInstance()->getGlobalSettingsPersistence();
+            if (settings)
+            {
+                defaultFormat = settings->select(SettingsKeys::GENERAL_DEFAULT_SAVE_FORMAT,
+                                                 QString(SettingsDefaults::GENERAL_DEFAULT_SAVE_FORMAT));
+            }
+
+            // Map format setting to file suffix and filter selection
+            QString suffix = "tiff";
+            QString filterToSelect;
+
+            if (defaultFormat == "tiff")
+            {
+                suffix = "tiff";
+                filterToSelect = "TIFF files (*.tif *.tiff)";
+            }
+            else if (defaultFormat == "fits")
+            {
+                suffix = "fits";
+                filterToSelect = "FITS files (*.fit *.fits)";
+            }
+            else if (defaultFormat == "png")
+            {
+                suffix = "png";
+                filterToSelect = "PNG files (*.png)";
+            }
+            else if (defaultFormat == "xisf")
+            {
+                suffix = "xisf";
+                filterToSelect = "XISF files (*.xisf)";
+            }
+            else if (defaultFormat == "jpeg" || defaultFormat == "jpg")
+            {
+                suffix = "jpg";
+                filterToSelect = "JPEG files (*.jpg *.jpeg)";
+            }
+
+            dialog.setDefaultSuffix(suffix);
+
+            // Select the matching filter if found
+            if (!filterToSelect.isEmpty())
+            {
+                dialog.selectNameFilter(filterToSelect);
+            }
+        }
+
+        dialog.selectFile(QString::fromUtf8(defaultFile));
+    }
+}
+
+QStringList AfterNightApp::selectImageFilesDlg(QWidget* parent, const QString& title, const QString& folderContext,
+                                               bool supportMultipleFiles)
+{
+    std::string folder = m_impl->m_LastOpenDirectory;
+
+    if (!folderContext.isEmpty())
+    {
+        auto savedFolder = m_impl->m_FolderTrackerPersistence->select(folderContext);
+
+        if (!savedFolder.isEmpty() && QDir(savedFolder).exists())
+        {
+            folder = savedFolder.toUtf8().toStdString();
+        }
+    }
+
+    QFileDialog dialog(parent, title);
+    initializeImageFileDialog(folder, std::string(), dialog, QFileDialog::AcceptOpen, false, 0, supportMultipleFiles);
+    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_GlobalSettingsPersistence.get());
+
+    {
+        ScopedTopLevelFlagRestorer _;
+
+        if (dialog.exec() == QDialog::Rejected)
+        {
+            return QStringList();
+        }
+    }
+
+    if (!folderContext.isEmpty())
+    {
+        auto dir = dialog.directory();
+
+        QString qtFolder = QString::fromUtf8(folder);
+        if (dir != qtFolder)
+        {
+            m_impl->m_FolderTrackerPersistence->upsert(folderContext, dir.path());
+        }
+    }
+
+    return an::ui::dialogs::filterSupportedImageOpenPaths(dialog.selectedFiles());
+}
+
+QStringList AfterNightApp::selectFilesDlg(QWidget* parent, const QString& title, const QString& folderContext,
+                                          const QStringList& fileExtensions)
+{
+    std::string folder = m_impl->m_LastOpenDirectory;
+
+    if (!folderContext.isEmpty())
+    {
+        auto savedFolder = m_impl->m_FolderTrackerPersistence->select(folderContext);
+
+        if (!savedFolder.isEmpty() && QDir(savedFolder).exists())
+        {
+            folder = savedFolder.toUtf8().toStdString();
+        }
+    }
+
+    QFileDialog dialog(parent, title);
+    const QString initialFolder = QString::fromUtf8(folder);
+    if (!initialFolder.isEmpty() && QDir(initialFolder).exists())
+    {
+        dialog.setDirectoryUrl(QUrl::fromLocalFile(initialFolder));
+    }
+    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_GlobalSettingsPersistence.get());
+
+#ifdef WIN32
+    dialog.setFilter(QDir::Executable | QDir::Files);
+#endif
+
+    if (!fileExtensions.isEmpty())
+    {
+        dialog.setNameFilters(fileExtensions);
+    }
+
+    {
+        ScopedTopLevelFlagRestorer _;
+
+        dialog.setWindowFlags(dialog.windowFlags() | Qt::WindowStaysOnTopHint | Qt::Window);
+
+        if (dialog.exec() == QDialog::Rejected)
+        {
+            return QStringList();
+        }
+    }
+
+    if (!folderContext.isEmpty())
+    {
+        auto dir = dialog.directory();
+
+        QString qtFolder = QString::fromUtf8(folder);
+        if (dir != qtFolder)
+        {
+            m_impl->m_FolderTrackerPersistence->upsert(folderContext, dir.path());
+        }
+    }
+
+    return dialog.selectedFiles();
+}
+
+QStringList AfterNightApp::saveFileDlg(QWidget* parent, const QString& title, const QString& defaultDir,
+                                       const QString& folderContext, const QStringList& fileExtensions)
+{
+    QFileDialog dialog(parent, title);
+    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_GlobalSettingsPersistence.get());
+
+    auto defaultDirWstr = defaultDir.toUtf8().toStdString();
+
+    if (!defaultDirWstr.empty() && std::filesystem::exists(defaultDirWstr) &&
+        std::filesystem::is_directory(defaultDirWstr))
+    {
+        dialog.setDirectory(defaultDir);
+    }
+    else if (!folderContext.isEmpty())
+    {
+        auto savedFolder = AfterNightApp::getInstance()->getFolderTrackerPersistence()->select(folderContext);
+
+        if (!savedFolder.isEmpty() && QDir(savedFolder).exists())
+        {
+            dialog.setDirectory(savedFolder);
+        }
+    }
+
+    dialog.setFilter(QDir::Executable | QDir::Files);
+
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+
+    if (!fileExtensions.isEmpty())
+    {
+        dialog.setNameFilters(fileExtensions);
+    }
+
+    {
+        ScopedTopLevelFlagRestorer _;
+
+        if (dialog.exec() == QDialog::Rejected)
+        {
+            return QStringList();
+        }
+    }
+
+    if (!folderContext.isEmpty())
+    {
+        m_impl->m_FolderTrackerPersistence->upsert(folderContext, dialog.directory().path());
+    }
+
+    return dialog.selectedFiles();
+}
+
+QString AfterNightApp::getExistingDirectory(QWidget* parent, const QString& title, const QString& dir,
+                                            QFileDialog::Options options)
+{
+    ScopedTopLevelFlagRestorer _;
+    return an::ui::dialogs::getExistingDirectory(m_impl->m_GlobalSettingsPersistence.get(), parent, title, dir,
+                                                 options);
+}
+
+void AfterNightApp::newSequence()
+{
+    NewSequenceControl* newSequenceCtrl = new NewSequenceControl(this);
+
+    newSequenceCtrl->show();
+}
+
+void AfterNightApp::on_LogViewerClicked(bool checked)
+{
+    if (checked)
+    {
+        // If we're on the main dashboard, we need to switch to dock manager first
+        // since the session console is a dock widget that belongs to the dock manager
+        if (m_impl->ui.centralWidget->currentWidget() == m_impl->m_MainDashboardScrollArea)
+        {
+            // We need to create a dummy view control to switch to dock manager
+            // This will be closed when the user returns to main dashboard
+            // For now, just switch to dock manager which will enable proper docking
+            switchToDockManager();
+        }
+
+        if (m_impl->m_LogViewerControl)
+        {
+            m_impl->m_LogViewerControl->show();
+            m_impl->m_LogViewerControl->getDockWidget()->show();
+            return;
+        }
+
+        m_impl->m_LogViewerControl = new LogViewerControl(this);
+
+        m_impl->m_LogViewerClosedConnection = connect(m_impl->m_LogViewerControl, &QObject::destroyed, this, [this]() {
+            setLogViewerChecked(false);
+            onLogViewerClosed();
+        });
+
+        m_impl->m_LogViewerControl->initialize();
+
+        auto dockWidget = m_impl->m_LogViewerControl->getDockWidget();
+
+        // New dock area
+        m_impl->m_DockMainWindow->addDockWidget(dockWidget, KDDockWidgets::Location_OnBottom);
+    }
+    else
+    {
+        if (!m_impl->m_LogViewerControl)
+        {
+            return;
+        }
+
+        m_impl->m_LogViewerControl->getDockWidget()->forceClose();
+        m_impl->m_LogViewerControl->close();
+        // Note: m_impl->m_LogViewerControl is cleared and dashboard switching is handled
+        // by the destroyed callback above.
+    }
+}
+
+void AfterNightApp::lockLayout()
+{
+    m_impl->ui.actionUnlock_Layout->setEnabled(true);
+    m_impl->ui.actionLock_Layout->setEnabled(false);
+    m_impl->m_ToolbarLockLayout->setIcon(m_impl->m_IconManager->getIcon("unlock"));
+    m_impl->m_ToolbarLockLayout->setToolTip("Unlock layout");
+
+    KDDockWidgets::Config::self().setDropIndicatorsInhibited(true);
+
+    KDDockWidgets::Config::self().setDragAboutToStartFunc(
+        [](KDDockWidgets::Core::Draggable* draggable) -> bool { return false; });
+
+    m_impl->m_IsLayoutLocked = true;
+}
+
+void AfterNightApp::unlockLayout()
+{
+    m_impl->ui.actionLock_Layout->setEnabled(true);
+    m_impl->ui.actionUnlock_Layout->setEnabled(false);
+    m_impl->m_ToolbarLockLayout->setIcon(m_impl->m_IconManager->getIcon("lock"));
+    m_impl->m_ToolbarLockLayout->setToolTip("Lock layout");
+
+    KDDockWidgets::Config::self().setDragAboutToStartFunc(nullptr);
+    KDDockWidgets::Config::self().setDropIndicatorsInhibited(false);
+
+    m_impl->m_IsLayoutLocked = false;
+}
+
+void AfterNightApp::toogleLayout()
+{
+    if (m_impl->ui.actionUnlock_Layout->isEnabled())
+    {
+        unlockLayout();
+    }
+    else
+    {
+        lockLayout();
+    }
+}
+
+bool AfterNightApp::layoutIsLocked() const
+{
+    return m_impl->m_IsLayoutLocked;
+}
+
+void AfterNightApp::about()
+{
+    if (m_impl->m_DialogOrchestrationCoordinator)
+    {
+        m_impl->m_DialogOrchestrationCoordinator->about();
+    }
+}
+
+void AfterNightApp::openHelp()
+{
+    if (m_impl->m_DialogOrchestrationCoordinator)
+    {
+        m_impl->m_DialogOrchestrationCoordinator->openHelp();
+    }
+}
+
+void AfterNightApp::openSettings()
+{
+    if (m_impl->m_DialogOrchestrationCoordinator)
+    {
+        m_impl->m_DialogOrchestrationCoordinator->openSettings();
+        loadRecentProcessesFromSettings();
+        enforceRecentProcessesLimit();
+        persistRecentProcessesToSettings();
+        updateRecentProcessesMenuEntries();
+        updateFavoriteProcessesMenuEntries();
+    }
+}
+
+void AfterNightApp::openSettingsAt(const QString& pageName)
+{
+    if (m_impl->m_DialogOrchestrationCoordinator)
+    {
+        if (isExtensionDialogPageTitle(pageName))
+        {
+            m_impl->m_DialogOrchestrationCoordinator->openExtensionsAt(pageName);
+            if (m_impl->m_ExtensionInstallRefreshTimer)
+            {
+                m_impl->m_ExtensionInstallRefreshTimer->start();
+            }
+            return;
+        }
+
+        m_impl->m_DialogOrchestrationCoordinator->openSettingsAt(pageName);
+        loadRecentProcessesFromSettings();
+        enforceRecentProcessesLimit();
+        persistRecentProcessesToSettings();
+        updateRecentProcessesMenuEntries();
+        updateFavoriteProcessesMenuEntries();
+    }
+}
+
+void AfterNightApp::systemInformation()
+{
+    if (m_impl->m_DialogOrchestrationCoordinator)
+    {
+        m_impl->m_DialogOrchestrationCoordinator->systemInformation();
+    }
+}
+
+void AfterNightApp::postAfterNightEvent(AfterNightEvent* evt, int priority)
+{
+    QApplication::postEvent(this, evt, priority);
+}
+
+void AfterNightApp::setEnableImageActions(bool enable)
+{
+    if (m_impl->m_ActionStateCoordinator)
+    {
+        m_impl->m_ActionStateCoordinator->setEnableImageActions(enable);
+    }
+}
+
+void AfterNightApp::refreshTheme()
+{
+    if (m_impl->m_ThemeManager)
+    {
+        m_impl->m_ThemeManager->refreshTheme();
+    }
+}
+
+void AfterNightApp::loadIcons()
+{
+    if (m_impl->m_ThemeManager)
+    {
+        m_impl->m_ThemeManager->loadIcons();
+    }
+}
+
+void AfterNightApp::initializeMainDashboard()
+{
+    if (m_impl->m_UiBootstrapCoordinator)
+    {
+        m_impl->m_UiBootstrapCoordinator->initializeMainDashboard();
+    }
+}
+
+void AfterNightApp::initializeDockManager()
+{
+    if (m_impl->m_UiBootstrapCoordinator)
+    {
+        m_impl->m_UiBootstrapCoordinator->initializeDockManager();
+    }
+}
+
+void AfterNightApp::initializeMaximizedView()
+{
+    if (m_impl->m_UiBootstrapCoordinator)
+    {
+        m_impl->m_UiBootstrapCoordinator->initializeMaximizedView();
+    }
+}
+
+void AfterNightApp::switchToMainDashboard()
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->switchToMainDashboard();
+    }
+}
+
+void AfterNightApp::switchToDockManager()
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->switchToDockManager();
+    }
+}
+
+std::deque<std::string> AfterNightApp::getRecentFilesList() const
+{
+    return m_impl->m_RecentFiles;
+}
+
+void AfterNightApp::refreshStoredProcessMenus()
+{
+    const bool cleanupMissingProcessIds = cleanupMissingStoredProcessIdsOnNextRefresh;
+    cleanupMissingStoredProcessIdsOnNextRefresh = false;
+
+    loadRecentProcessesFromSettings();
+    if (cleanupMissingProcessIds)
+    {
+        an::ui::pruneMissingRecentProcessEntries(m_impl->m_RecentProcesses, [](const std::string& processId) {
+            return an::ui::process_registry::ProcessRegistry::instance().find(processId);
+        });
+    }
+    enforceRecentProcessesLimit();
+    persistRecentProcessesToSettings();
+    updateRecentProcessesMenuEntries();
+
+    loadFavoriteProcessesFromSettings();
+    if (cleanupMissingProcessIds)
+    {
+        std::set<std::string> validFavoriteIds;
+        an::ui::buildFavoriteProcessEntries(
+            m_impl->m_FavoriteProcessIds,
+            [](const std::string& processId) {
+                return an::ui::process_registry::ProcessRegistry::instance().find(processId);
+            },
+            &validFavoriteIds);
+        if (validFavoriteIds != m_impl->m_FavoriteProcessIds)
+        {
+            m_impl->m_FavoriteProcessIds = validFavoriteIds;
+            persistFavoriteProcessesToSettings();
+        }
+    }
+    updateFavoriteProcessesMenuEntries();
+}
+
+size_t AfterNightApp::getRecentFilesLimit() const
+{
+    return m_impl->m_FileManager ? m_impl->m_FileManager->getRecentFilesLimit() : DEFAULT_RECENT_FILES_LIMIT;
+}
+
+size_t AfterNightApp::getRecentProcessesLimit() const
+{
+    if (m_impl->m_GlobalSettingsPersistence)
+    {
+        const QString limitStr = m_impl->m_GlobalSettingsPersistence->select(
+            SettingsKeys::GENERAL_RECENT_PROCESSES_LIMIT, QString::number(DEFAULT_RECENT_PROCESSES_LIMIT));
+        bool ok = false;
+        const int limit = limitStr.toInt(&ok);
+        if (ok && limit > 0)
+        {
+            return static_cast<size_t>(limit);
+        }
+    }
+
+    return DEFAULT_RECENT_PROCESSES_LIMIT;
+}
+
+void AfterNightApp::loadRecentProcessesFromSettings()
+{
+    if (!m_impl->m_GlobalSettingsPersistence)
+    {
+        m_impl->m_RecentProcesses.clear();
+        return;
+    }
+
+    const QString serializedIds = m_impl->m_GlobalSettingsPersistence->select(
+        SettingsKeys::INTERFACE_RECENT_PROCESS_IDS, QString(SettingsDefaults::INTERFACE_RECENT_PROCESS_IDS));
+    const std::vector<std::string> processIds = an::ui::deserializeOrderedProcessIdList(serializedIds);
+    m_impl->m_RecentProcesses = an::ui::buildRecentProcessEntries(processIds, [](const std::string& processId) {
+        return an::ui::process_registry::ProcessRegistry::instance().find(processId);
+    });
+}
+
+void AfterNightApp::persistRecentProcessesToSettings()
+{
+    if (!m_impl->m_GlobalSettingsPersistence)
+    {
+        return;
+    }
+
+    std::vector<std::string> processIds;
+    processIds.reserve(m_impl->m_RecentProcesses.size());
+    for (const auto& recentProcess : m_impl->m_RecentProcesses)
+    {
+        if (!recentProcess.id.empty())
+        {
+            processIds.push_back(recentProcess.id);
+        }
+    }
+
+    m_impl->m_GlobalSettingsPersistence->upsert(SettingsKeys::INTERFACE_RECENT_PROCESS_IDS,
+                                                an::ui::serializeOrderedProcessIdList(processIds));
+}
+
+void AfterNightApp::enforceRecentProcessesLimit()
+{
+    an::ui::enforceRecentProcessLimit(m_impl->m_RecentProcesses, getRecentProcessesLimit());
+}
+
+void AfterNightApp::recordRecentProcess(const std::string& processId, const std::string& displayName)
+{
+    const bool changed =
+        an::ui::updateRecentProcessList(m_impl->m_RecentProcesses, processId, displayName, getRecentProcessesLimit());
+    if (!changed)
+    {
+        return;
+    }
+
+    persistRecentProcessesToSettings();
+    updateRecentProcessesMenuEntries();
+}
+
+void AfterNightApp::updateRecentProcessesMenuEntries()
+{
+    if (!m_impl->ui.menuRecent_Processes)
+    {
+        return;
+    }
+
+    enforceRecentProcessesLimit();
+    m_impl->ui.menuRecent_Processes->clear();
+
+    if (m_impl->m_RecentProcesses.empty())
+    {
+        m_impl->ui.menuRecent_Processes->setEnabled(false);
+        return;
+    }
+
+    m_impl->ui.menuRecent_Processes->setEnabled(true);
+
+    for (const auto& recentProcess : m_impl->m_RecentProcesses)
+    {
+        const std::string processId = recentProcess.id;
+        QString actionText = QString::fromUtf8(recentProcess.displayName);
+        if (actionText.isEmpty())
+        {
+            actionText = QString::fromUtf8(processId);
+        }
+
+        auto* action = m_impl->ui.menuRecent_Processes->addAction(actionText);
+        action->setToolTip(QString::fromUtf8(processId));
+        const auto* descriptor = an::ui::process_registry::ProcessRegistry::instance().find(processId);
+        if (!descriptor)
+        {
+            const QString pending_reason =
+                QStringLiteral("This recent extension process is still loading and cannot be launched yet.");
+            action->setEnabled(false);
+            action->setToolTip(pending_reason);
+            action->setStatusTip(pending_reason);
+            action->setWhatsThis(pending_reason);
+        }
+        QObject::connect(action, &QAction::triggered, this, [this, processId]() {
+            if (!tryLaunchRegistryProcessById(processId))
+            {
+                LOG_WARNING("Recent process launch failed for descriptor id={}", processId);
+            }
+        });
+    }
+
+    m_impl->ui.menuRecent_Processes->addSeparator();
+    auto* clearAction = m_impl->ui.menuRecent_Processes->addAction(tr("Clear recent processes list"));
+    QObject::connect(clearAction, &QAction::triggered, this, [this]() { clearRecentProcessesList(); });
+}
+
+void AfterNightApp::clearRecentProcessesList()
+{
+    loadRecentProcessesFromSettings();
+    if (m_impl->m_RecentProcesses.empty())
+    {
+        persistRecentProcessesToSettings();
+        updateRecentProcessesMenuEntries();
+        return;
+    }
+
+    ScopedTopLevelFlagRestorer _;
+
+    QMessageBox msgBox;
+    msgBox.setText(tr("Are you sure you want to delete the recent used processes?"));
+    msgBox.setInformativeText(tr("The history of used processes will be lost"));
+    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    msgBox.setDefaultButton(QMessageBox::Yes);
+
+    if (msgBox.exec() != QMessageBox::Yes)
+    {
+        return;
+    }
+
+    m_impl->m_RecentProcesses.clear();
+    persistRecentProcessesToSettings();
+    updateRecentProcessesMenuEntries();
+}
+
+void AfterNightApp::loadFavoriteProcessesFromSettings()
+{
+    m_impl->m_FavoriteProcessIds.clear();
+    if (!m_impl->m_GlobalSettingsPersistence)
+    {
+        return;
+    }
+
+    const QString serializedIds = m_impl->m_GlobalSettingsPersistence->select(
+        SettingsKeys::INTERFACE_FAVORITE_PROCESS_IDS, QString(SettingsDefaults::INTERFACE_FAVORITE_PROCESS_IDS));
+    m_impl->m_FavoriteProcessIds = an::ui::deserializeProcessIdSet(serializedIds);
+}
+
+void AfterNightApp::persistFavoriteProcessesToSettings()
+{
+    if (!m_impl->m_GlobalSettingsPersistence)
+    {
+        return;
+    }
+
+    m_impl->m_GlobalSettingsPersistence->upsert(SettingsKeys::INTERFACE_FAVORITE_PROCESS_IDS,
+                                                an::ui::serializeProcessIdSet(m_impl->m_FavoriteProcessIds));
+}
+
+void AfterNightApp::updateFavoriteProcessesMenuEntries()
+{
+    if (!m_impl->ui.menuFavorite_Processes)
+    {
+        return;
+    }
+
+    loadFavoriteProcessesFromSettings();
+    m_impl->ui.menuFavorite_Processes->clear();
+
+    const std::vector<std::pair<QString, std::string>> favoriteEntries =
+        an::ui::buildFavoriteProcessEntries(m_impl->m_FavoriteProcessIds, [](const std::string& processId) {
+            return an::ui::process_registry::ProcessRegistry::instance().find(processId);
+        });
+
+    for (const auto& favoriteEntry : favoriteEntries)
+    {
+        const QString& displayName = favoriteEntry.first;
+        const std::string processId = favoriteEntry.second;
+
+        auto* action = m_impl->ui.menuFavorite_Processes->addAction(displayName);
+        action->setToolTip(QString::fromUtf8(processId));
+        QObject::connect(action, &QAction::triggered, this, [this, processId]() {
+            if (!tryLaunchRegistryProcessById(processId))
+            {
+                LOG_WARNING("Favorite process launch failed for descriptor id={}", processId);
+            }
+        });
+    }
+
+    const an::ui::FavoriteProcessMenuLayout menuLayout = an::ui::buildFavoriteProcessMenuLayout(favoriteEntries.size());
+    if (menuLayout.addSeparatorBeforeManage)
+    {
+        m_impl->ui.menuFavorite_Processes->addSeparator();
+    }
+
+    auto* manageAction = m_impl->ui.menuFavorite_Processes->addAction(tr("Manage Favorites..."));
+    QObject::connect(manageAction, &QAction::triggered, this, [this]() { openManageFavoriteProcessesDialog(); });
+
+    auto* clearAction = m_impl->ui.menuFavorite_Processes->addAction(tr("Clear favorites list"));
+    clearAction->setEnabled(menuLayout.clearEnabled);
+    QObject::connect(clearAction, &QAction::triggered, this, [this]() { clearFavoriteProcessesList(); });
+}
+
+void AfterNightApp::openManageFavoriteProcessesDialog()
+{
+    loadFavoriteProcessesFromSettings();
+
+    std::vector<std::pair<QString, std::string>> allProcesses;
+    const auto& descriptors = an::ui::process_registry::ProcessRegistry::instance().all();
+    allProcesses.reserve(descriptors.size());
+    for (const auto& descriptor : descriptors)
+    {
+        if (descriptor.id.empty())
+        {
+            continue;
+        }
+
+        const QString displayName = an::ui::processDisplayNameFromDescriptor(&descriptor, descriptor.id);
+        allProcesses.emplace_back(displayName, descriptor.id);
+    }
+
+    std::sort(allProcesses.begin(), allProcesses.end(), [](const auto& lhs, const auto& rhs) {
+        return QString::compare(lhs.first, rhs.first, Qt::CaseInsensitive) < 0;
+    });
+
+    ScopedTopLevelFlagRestorer _;
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Manage Favorite Processes"));
+    dialog.resize(540, 640);
+
+    auto* layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(8);
+
+    auto* searchInput = new QLineEdit(&dialog);
+    searchInput->setPlaceholderText(tr("Search processes..."));
+    layout->addWidget(searchInput);
+
+    auto* processList = new QListWidget(&dialog);
+    processList->setSelectionMode(QAbstractItemView::NoSelection);
+    layout->addWidget(processList);
+
+    for (const auto& process : allProcesses)
+    {
+        const QString& displayName = process.first;
+        const std::string& processId = process.second;
+
+        auto* item = new QListWidgetItem(displayName, processList);
+        item->setData(Qt::UserRole, QString::fromUtf8(processId));
+        item->setToolTip(QString::fromUtf8(processId));
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(m_impl->m_FavoriteProcessIds.contains(processId) ? Qt::CheckState::Checked
+                                                                             : Qt::CheckState::Unchecked);
+    }
+
+    connect(searchInput, &QLineEdit::textChanged, &dialog, [processList](const QString& text) {
+        const QString normalizedText = text.trimmed();
+        for (int i = 0; i < processList->count(); ++i)
+        {
+            QListWidgetItem* item = processList->item(i);
+            if (!item)
+            {
+                continue;
+            }
+
+            const bool matches = normalizedText.isEmpty() ||
+                                 item->text().contains(normalizedText, Qt::CaseInsensitive) ||
+                                 item->toolTip().contains(normalizedText, Qt::CaseInsensitive);
+            item->setHidden(!matches);
+        }
+    });
+
+    auto* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttonBox);
+
+    if (dialog.exec() != QDialog::Accepted)
+    {
+        return;
+    }
+
+    std::set<std::string> selectedFavoriteIds;
+    for (int i = 0; i < processList->count(); ++i)
+    {
+        QListWidgetItem* item = processList->item(i);
+        if (!item || item->checkState() != Qt::CheckState::Checked)
+        {
+            continue;
+        }
+
+        const QString processId = item->data(Qt::UserRole).toString();
+        if (!processId.isEmpty())
+        {
+            selectedFavoriteIds.insert(processId.toUtf8().toStdString());
+        }
+    }
+
+    m_impl->m_FavoriteProcessIds = std::move(selectedFavoriteIds);
+    persistFavoriteProcessesToSettings();
+    updateFavoriteProcessesMenuEntries();
+}
+
+void AfterNightApp::clearFavoriteProcessesList()
+{
+    loadFavoriteProcessesFromSettings();
+    if (m_impl->m_FavoriteProcessIds.empty())
+    {
+        updateFavoriteProcessesMenuEntries();
+        return;
+    }
+
+    ScopedTopLevelFlagRestorer _;
+
+    QMessageBox msgBox;
+    msgBox.setText(tr("Are you sure you want to delete the favorite processes list?"));
+    msgBox.setInformativeText(tr("The list of favorite processes will be lost"));
+    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    msgBox.setDefaultButton(QMessageBox::Yes);
+
+    if (msgBox.exec() != QMessageBox::Yes)
+    {
+        return;
+    }
+
+    m_impl->m_FavoriteProcessIds.clear();
+    persistFavoriteProcessesToSettings();
+    updateFavoriteProcessesMenuEntries();
+}
+
+void AfterNightApp::openRecentSingleFile(const QString& filePath)
+{
+    if (m_impl->m_FileManager)
+    {
+        m_impl->m_FileManager->openRecentSingleFile(filePath);
+    }
+}
+
+void AfterNightApp::createAuxToolBars()
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->createAuxToolBars();
+    }
+}
+
+void AfterNightApp::splitAllImages(ImageViewControl* currentViewControl)
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->splitAllImages(currentViewControl);
+    }
+}
+
+void AfterNightApp::groupAllImages(ImageViewControl* currentViewControl)
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->groupAllImages(currentViewControl);
+    }
+}
+
+void AfterNightApp::fitAllImagesToWindow(ImageViewControl* currentViewControl)
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->fitAllImagesToWindow(currentViewControl);
+    }
+}
+
+void AfterNightApp::splitAllImages()
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->splitAllImages();
+    }
+}
+
+void AfterNightApp::groupAllImages()
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->groupAllImages();
+    }
+}
+
+bool AfterNightApp::viewControlInAMaximizedContainer(ImageViewControl* control)
+{
+    return m_impl->m_WindowLayoutCoordinator
+               ? m_impl->m_WindowLayoutCoordinator->viewControlInAMaximizedContainer(control)
+               : false;
+}
+
+ImageViewControl* AfterNightApp::getviewControlInAMaximizedContainer(ImageViewControl* control)
+{
+    return m_impl->m_WindowLayoutCoordinator
+               ? m_impl->m_WindowLayoutCoordinator->getViewControlInAMaximizedContainer(control)
+               : nullptr;
+}
+
+std::map<KDDockWidgets::QtWidgets::DockWidget*, ImageViewControl*> AfterNightApp::getViewControlsByDockWidgetMap()
+{
+    return m_impl->m_WindowLayoutCoordinator ? m_impl->m_WindowLayoutCoordinator->getViewControlsByDockWidgetMap()
+                                             : std::map<KDDockWidgets::QtWidgets::DockWidget*, ImageViewControl*>();
+}
+
+std::map<ImageViewControl*, KDDockWidgets::QtWidgets::DockWidget*> AfterNightApp::getDockWidgetsByViewControlMap()
+{
+    return m_impl->m_WindowLayoutCoordinator ? m_impl->m_WindowLayoutCoordinator->getDockWidgetsByViewControlMap()
+                                             : std::map<ImageViewControl*, KDDockWidgets::QtWidgets::DockWidget*>();
+}
+
+std::list<ImageViewControl*> AfterNightApp::getListOfViewControls()
+{
+    return m_impl->m_WindowLayoutCoordinator ? m_impl->m_WindowLayoutCoordinator->getListOfViewControls()
+                                             : std::list<ImageViewControl*>();
+}
+
+std::list<ImageViewControl*>
+AfterNightApp::getListOfViewControlsSharingTheSameWindow(ImageViewControl* currentViewControl)
+{
+    return m_impl->m_WindowLayoutCoordinator
+               ? m_impl->m_WindowLayoutCoordinator->getListOfViewControlsSharingTheSameWindow(currentViewControl)
+               : std::list<ImageViewControl*>();
+}
+
+std::list<ImageViewControl*> AfterNightApp::getListOfMaximizedViewControls()
+{
+    return m_impl->m_WindowLayoutCoordinator ? m_impl->m_WindowLayoutCoordinator->getListOfMaximizedViewControls()
+                                             : std::list<ImageViewControl*>();
+}
+
+void AfterNightApp::notifyErrorMessage(QWidget* parent, const QString& title, const QString& text)
+{
+    if (m_impl->m_DialogOrchestrationCoordinator)
+    {
+        m_impl->m_DialogOrchestrationCoordinator->notifyErrorMessage(parent, title, text);
+    }
+}
+
+void AfterNightApp::notifyErrorMessageAsync(QWidget* parent, const QString& title, const QString& text)
+{
+    auto evt = new NotifyErrorMessageEvent(parent, title, text, nullptr);
+    evt->schedule();
+}
+
+void AfterNightApp::notifyWarnMessage(QWidget* parent, const QString& title, const QString& text)
+{
+    if (m_impl->m_DialogOrchestrationCoordinator)
+    {
+        m_impl->m_DialogOrchestrationCoordinator->notifyWarnMessage(parent, title, text);
+    }
+}
+
+void AfterNightApp::notifyWarnMessageAsync(QWidget* parent, const QString& title, const QString& text)
+{
+    auto evt = new NotifyWarnMessageEvent(parent, title, text, nullptr);
+    evt->schedule();
+}
+
+void AfterNightApp::notifyInfoMessage(QWidget* parent, const QString& title, const QString& text)
+{
+    if (m_impl->m_DialogOrchestrationCoordinator)
+    {
+        m_impl->m_DialogOrchestrationCoordinator->notifyInfoMessage(parent, title, text);
+    }
+}
+
+void AfterNightApp::notifyInfoMessageAsync(QWidget* parent, const QString& title, const QString& text)
+{
+    auto evt = new NotifyInfoMessageEvent(parent, title, text, nullptr);
+    evt->schedule();
+}
+
+void AfterNightApp::messageBoxYesNo(QWidget* parent, const QString& title, const QString& text, bool warn, int* ret)
+{
+    if (m_impl->m_DialogOrchestrationCoordinator)
+    {
+        m_impl->m_DialogOrchestrationCoordinator->messageBoxYesNo(parent, title, text, warn, ret);
+    }
+}
+
+void AfterNightApp::messageBoxYesNoAsync(QWidget* parent, const QString& title, const QString& text, bool warn,
+                                         int* ret, std::atomic_bool* finished)
+{
+    *finished = false;
+    auto evt = new MessageBoxYesNoEvent(parent, title, text, warn, ret, finished);
+    evt->schedule();
+}
+
+void AfterNightApp::runCustomCode(const std::function<void()>& func)
+{
+    if (func)
+    {
+        func();
+    }
+}
+
+void AfterNightApp::runCustomCodeAsync(const std::function<void()>& func)
+{
+    RunCustomCodeEvent* evt = new RunCustomCodeEvent(func, nullptr);
+    evt->schedule();
+}
+
+void AfterNightApp::cleanTemporaryFiles()
+{
+    if (m_impl->m_RuntimeStorageCoordinator)
+    {
+        m_impl->m_RuntimeStorageCoordinator->cleanTemporaryFiles();
+    }
+}
+
+void AfterNightApp::cleanTemporaryFilesAsync()
+{
+    if (m_impl->m_RuntimeStorageCoordinator)
+    {
+        m_impl->m_RuntimeStorageCoordinator->cleanTemporaryFilesAsync();
+    }
+}
+
+void AfterNightApp::cleanStaleScratchRootsAsync()
+{
+    if (m_impl->m_RuntimeStorageCoordinator)
+    {
+        m_impl->m_RuntimeStorageCoordinator->cleanStaleScratchRootsAsync();
+    }
+}
+
+void AfterNightApp::ensureTempDirCreated()
+{
+    if (m_impl->m_RuntimeStorageCoordinator)
+    {
+        m_impl->m_RuntimeStorageCoordinator->ensureTempDirCreated();
+    }
+}
+
+QString AfterNightApp::getTempDirPath() const
+{
+    return m_impl->m_RuntimeStorageCoordinator ? m_impl->m_RuntimeStorageCoordinator->getTempDirPath() : QString();
+}
+
+void AfterNightApp::ensureThumbnailsDirCreated()
+{
+    if (m_impl->m_RuntimeStorageCoordinator)
+    {
+        m_impl->m_RuntimeStorageCoordinator->ensureThumbnailsDirCreated();
+    }
+}
+
+QString AfterNightApp::getThumbnailsDirPath() const
+{
+    return m_impl->m_RuntimeStorageCoordinator ? m_impl->m_RuntimeStorageCoordinator->getThumbnailsDirPath()
+                                               : QString();
+}
+
+std::string AfterNightApp::createTempFilePathForNewSequence(const an::SequenceFormat format) const
+{
+    return m_impl->m_RuntimeStorageCoordinator
+               ? m_impl->m_RuntimeStorageCoordinator->createTempFilePathForNewSequence(format)
+               : std::string();
+}
+
+bool AfterNightApp::isDarkMode() const
+{
+    return m_impl->m_DarkMode;
+}
+
+void AfterNightApp::applyTheme(const QString& themeId)
+{
+    if (m_impl->m_ThemeManager)
+    {
+        m_impl->m_ThemeManager->applyTheme(themeId);
+    }
+    if (m_impl->m_ExtensionHostLaunchCoordinator)
+    {
+        m_impl->m_ExtensionHostLaunchCoordinator->handleThemeChanged();
+    }
+}
+
+void AfterNightApp::refreshAllZoomSettings()
+{
+    if (m_impl->m_ImageViewControlManager)
+    {
+        for (auto* viewControl : m_impl->m_ImageViewControlManager->getListOfImageViewControls())
+        {
+            if (viewControl)
+            {
+                viewControl->refreshZoomSettings();
+            }
+        }
+    }
+}
+
+void AfterNightApp::showWithSavedGeometry()
+{
+    if (m_impl->m_AppLifecycleCoordinator)
+    {
+        m_impl->m_AppLifecycleCoordinator->showWithSavedGeometry();
+    }
+    if (m_impl->m_DialogOrchestrationCoordinator)
+    {
+        m_impl->m_DialogOrchestrationCoordinator->checkExtensionUpdatesOnStartup();
+    }
+}
+
+void AfterNightApp::saveWindowGeometry()
+{
+    if (m_impl->m_AppLifecycleCoordinator)
+    {
+        m_impl->m_AppLifecycleCoordinator->saveWindowGeometry();
+    }
+}
+
+void AfterNightApp::maximizeViewControl(ImageViewControl* ctrl)
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->maximizeViewControl(ctrl);
+    }
+}
+
+void AfterNightApp::restoreViewControl(ImageViewControl* ctrl)
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->restoreViewControl(ctrl);
+    }
+}
+
+IconManagerSptr AfterNightApp::getIconManager()
+{
+    return m_impl->m_IconManager;
+}
+
+std::set<std::string> AfterNightApp::getListOfTemporaryDirs()
+{
+    return m_impl->m_RuntimeStorageCoordinator ? m_impl->m_RuntimeStorageCoordinator->getListOfTemporaryDirs()
+                                               : std::set<std::string>();
+}

@@ -1,0 +1,12 @@
+--- a/src/decoders/decoders_dcraw.cpp
++++ b/src/decoders/decoders_dcraw.cpp
+@@ -365,6 +365,9 @@ int LibRaw::ljpeg_diff(ushort *huff)
+     throw LIBRAW_EXCEPTION_IO_CORRUPT;
+ 
+   len = gethuff(huff);
++  // A zero-bit difference is zero; there is no sign bit to inspect.
++  if (len == 0)
++    return 0;
+   if (len == 16 && (!dng_version || dng_version >= 0x1010000))
+     return -32768;
+   diff = getbits(len);

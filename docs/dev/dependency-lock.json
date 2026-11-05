@@ -1,0 +1,35 @@
+{
+  "embeddedPython": [
+    {
+      "artifact": "cpython-3.14.7+20260814-x86_64-unknown-linux-gnu-install_only.tar.gz",
+      "buildDate": "20260814",
+      "platform": "linux-x64",
+      "sha256": "490953e4a7e97a6ed64d0f0bd04f2d4d9a7bb45368890d3fa32ba05d0ff5c48f",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260814/cpython-3.14.7+20260814-x86_64-unknown-linux-gnu-install_only.tar.gz",
+      "version": "3.14.7"
+    },
+    {
+      "artifact": "cpython-3.14.7+20260814-x86_64-pc-windows-msvc-install_only.tar.gz",
+      "buildDate": "20260814",
+      "platform": "windows-msvc",
+      "sha256": "870e9199dff4aa993c852c0733f7d36c359d127a67947f08f0755765ecf4232c",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260814/cpython-3.14.7+20260814-x86_64-pc-windows-msvc-install_only.tar.gz",
+      "version": "3.14.7"
+    }
+  ],
+  "qt": {
+    "msvcArch": "msvc2022_64",
+    "version": "6.10.3"
+  },
+  "schema": 1,
+  "submodules": [
+    {
+      "commit": "9e593bb18ea69cc5095e012465dcd675a822ed0d",
+      "path": "vcpkg"
+    },
+    {
+      "commit": "c1d28d25ef5ba077915bcb2b6fa9e14df2a361f8",
+      "path": "kddockwidgets"
+    }
+  ]
+}

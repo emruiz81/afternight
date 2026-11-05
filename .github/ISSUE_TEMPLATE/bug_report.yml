@@ -1,0 +1,73 @@
+name: Bug report
+description: Something AfterNight does wrong - a crash, a wrong result, a failure, or behaviour the user guide contradicts.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the report. A security vulnerability is not reported here: follow SECURITY.md instead.
+
+        Search the open issues first; if one describes the same problem, add what you know to it.
+  - type: input
+    id: version
+    attributes:
+      label: AfterNight version
+      description: As the About dialog shows it, and where you got it (an installer, the AppImage, or a build from source at a commit).
+      placeholder: 1.0.0, Windows installer
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Operating system
+      description: The system and its version, and the CPU and memory if the problem is about speed or memory.
+      placeholder: Windows 11 24H2, or Ubuntu 26.04
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, including the exact text of any message. A screenshot helps.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: From starting AfterNight, the steps that make it happen - the process or workflow, its settings, and the images it ran on.
+      placeholder: |
+        1. Open ...
+        2. Run ... with ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        Attach `AfterNight.log`. By default it is in `%LOCALAPPDATA%\AfterNight\logs\` on Windows and in `~/.local/share/AfterNight/logs/` on Linux; Settings > Logging shows the directory in use. Attach the whole file, or the part from the start of the session that went wrong. If AfterNight crashed, say so: its crash dump is in `%LOCALAPPDATA%\AfterNight\CrashDumps\reports\` or `~/.local/share/AfterNight/CrashDumps/pending/`, and the maintainer may ask for it.
+    validations:
+      required: true
+  - type: textarea
+    id: header
+    attributes:
+      label: The image's header
+      description: |
+        For a problem with an image, the header of the image involved: Image > Information > FITS Header (or EXIF Viewer for a camera file) - a screenshot of the table is fine. Say the image's format, size and sample type, which the status bar shows. If you can share the image itself, say so.
+    validations:
+      required: false
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Extensions installed, whether it happened before, whether it happens every time.
+    validations:
+      required: false

@@ -1,0 +1,596 @@
+# The consumer process-state register: every object with process lifetime that the product's own
+# libraries and executables declare, who owns it, how long it lives, how access to it is ordered, and
+# why it exists at all.
+#
+# `build/scripts/tools/check_consumer_state.py` reads this file and holds the tree to it in both
+# directions: an object the product declares with no entry here fails, and an entry naming an object
+# that is gone fails. It is the product's counterpart of the engine's process-state table, kept
+# separate so that neither set of rules bends the other. The categories and where each may live are
+# stated in that script.
+#
+# A value declared `const` at the head of its declaration is exempt and is not listed. A class's static
+# data member appears twice, once where the class declares it and once where its storage is defined,
+# because the reader sees both and a reviewer should too.
+#
+# Record format - one per object, fields indented four spaces, a field continuing onto any line indented
+# further:
+#
+#   state <path> <symbol>
+#       scope            <the function or class the declaration sits in, or ->
+#       category         platform-service | module-seat | application-seat | theme-service |
+#                        ui-registration | ui-state | identity | constant | pending-rehome
+#       owner            <what creates it and what ends it>
+#       lifetime         <from when to when it exists>
+#       synchronization  <how concurrent access is ordered; ui-state names the GUI thread or its lock>
+#       reason           <why the process needs it; for pending-rehome, what replaces or re-homes it>
+#
+# Lines starting with '#' and blank lines are ignored.
+
+# ---- Platform services: the logger, its configuration and the crash handler, in the platform library.
+
+state src/AfterNightPlatform/include/AfterNightPlatform/Logging.h gLogger
+    scope            an::platform::detail
+    category         platform-service
+    owner            an::platform::initializeLogging creates the logger; an::platform::shutdownLogging releases it
+    lifetime         from logging initialization in the application's main, or a tool's or suite's, to its shutdown
+    synchronization  written only by initializeLogging and shutdownLogging on the starting thread; spdlog's
+                     multi-threaded logger orders concurrent writes
+    reason           The declaration the LOG_* macros expand against, exported so every module logs through one
+                     logger without a call.
+
+state src/AfterNightPlatform/src/Logging.cpp gLogger
+    scope            an::platform::detail
+    category         platform-service
+    owner            an::platform::initializeLogging creates the logger; an::platform::shutdownLogging releases it
+    lifetime         from logging initialization to its shutdown
+    synchronization  written only by initializeLogging and shutdownLogging; spdlog's multi-threaded logger orders
+                     writes
+    reason           The storage behind the exported logger declaration.
+
+state src/AfterNightPlatform/src/Logging.cpp gFileSink
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            an::platform::initializeLogging, and reconfigureFileSink, which replaces its target
+    lifetime         from logging initialization to shutdown
+    synchronization  a replaceable sink that swaps its target under its own mutex
+    reason           The rotating log file, replaceable when the logging settings change without a restart.
+
+state src/AfterNightPlatform/src/Logging.cpp gRingBuffer
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            an::platform::initializeLogging
+    lifetime         from logging initialization to shutdown
+    synchronization  spdlog's multi-threaded ring-buffer sink
+    reason           The recent records recentLogMessages returns.
+
+state src/AfterNightPlatform/src/Logging.cpp gSessionConsoleSink
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            an::platform::initializeLogging creates it empty; SessionConsoleBridge installs and clears its
+                     target
+    lifetime         from logging initialization to shutdown
+    synchronization  a replaceable sink that swaps its target under its own mutex
+    reason           Lets the Qt session console receive log records without the logger depending on Qt.
+
+state src/AfterNightPlatform/src/Logging.cpp gInitialized
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            an::platform::initializeLogging sets it; an::platform::shutdownLogging clears it
+    lifetime         the whole process
+    synchronization  written by initializeLogging and shutdownLogging on the starting thread, before workers start
+                     and after they end
+    reason           isLoggingInitialized() guards callers that may run before or after logging exists, the twelve
+                     application sites among them.
+
+state src/AfterNightPlatform/src/CrashHandler.cpp gCrashpadClient
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            an::platform::initializeCrashHandler starts the handler process through it
+    lifetime         the whole process; Crashpad's client is designed to outlive every other object
+    synchronization  used by initializeCrashHandler once, before any other thread exists
+    reason           Crashpad's one client per process, which installs the exception handler.
+
+state src/AfterNightPlatform/src/CrashHandler.cpp gIsInitialized
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            an::platform::initializeCrashHandler sets it; an::platform::shutdownCrashHandler clears it
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           Refuses a second initialization and lets annotation calls before initialization do nothing.
+
+state src/AfterNightPlatform/src/CrashHandler.cpp gDatabasePath
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            an::platform::initializeCrashHandler sets it; an::platform::shutdownCrashHandler clears it
+    lifetime         the whole process
+    synchronization  written by initializeCrashHandler before any reader exists
+    reason           Where minidumps are written, reported by the settings page.
+
+state src/AfterNightPlatform/src/CrashHandler.cpp gAnnotationsMutex
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  it is the lock
+    reason           Orders annotation updates from any thread against each other and against shutdown.
+
+state src/AfterNightPlatform/src/CrashHandler.cpp gAnnotationKeys
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            the annotation setter appends; an::platform::shutdownCrashHandler clears it
+    lifetime         from the first annotation to crash-handler shutdown
+    synchronization  gAnnotationsMutex
+    reason           Crashpad keeps a pointer to each annotation's name, so the names need storage of their own.
+
+state src/AfterNightPlatform/src/CrashHandler.cpp gStringAnnotations
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            the annotation setter appends; an::platform::shutdownCrashHandler clears it
+    lifetime         from the first annotation to crash-handler shutdown
+    synchronization  gAnnotationsMutex
+    reason           The annotation objects Crashpad attaches to a crash report, at most sixty-four.
+
+state src/AfterNightPlatform/src/CrashHandler.cpp gAnnotationMap
+    scope            an::platform (anonymous namespace)
+    category         platform-service
+    owner            the annotation setter; an::platform::shutdownCrashHandler clears it
+    lifetime         from the first annotation to crash-handler shutdown
+    synchronization  gAnnotationsMutex
+    reason           Finds an existing annotation by key, so updating one does not create a second.
+
+# ---- Module seats: the runtime backend's handleless C ABI and each host's embedded interpreter bridge.
+
+state src/AfterNightExtensionRuntimeBackend/RuntimeSeat.cpp gRuntimeSeat
+    scope            an::sdk (anonymous namespace)
+    category         module-seat
+    owner            static initialization of the loaded module; an_runtime_backend_initialize opens the session it
+                     holds and an_runtime_backend_shutdown releases it once nothing holds it
+    lifetime         from the module's load to its unload
+    synchronization  its own mutex orders the five C exports and every read of the session; the session it holds is
+                     thread-safe
+    reason           The seat itself: the C ABI carries no handle, so the engine session the full host's native windows
+                     and its Python extensions share, and the last error the exports report, are process state of the
+                     loaded module. Ordinary callers are handed the session: the embedded module through the seat, the
+                     host through the session capsule.
+
+state src/AfterNightExtensionHost/main.cpp bridge
+    scope            currentPythonHostBridge
+    category         module-seat
+    owner            the host's execution paths bind and unbind it around Python work
+    lifetime         per thread, for the life of that thread
+    synchronization  thread-local: each thread sees only its own binding
+    reason           Python runs on a worker while PySide timers run on the GUI thread; each reaches the bridge of
+                     the work it belongs to without overwriting the other's.
+
+state src/AfterNightExtensionHostLite/main.cpp g_lite_python_bridge
+    scope            anonymous namespace
+    category         module-seat
+    owner            the Lite host's main binds it for the life of its interpreter and clears it on every exit
+                     path
+    lifetime         from interpreter start to finalization
+    synchronization  the Lite host's Python runs on one thread, under the interpreter lock
+    reason           The embedded `_afternight_host` module's C callbacks carry no user data; this is how they
+                     reach the host.
+
+state src/AfterNightExtensionHostLite/main.cpp kLiteHostModule
+    scope            anonymous namespace
+    category         module-seat
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  read by CPython when the module is imported, under the interpreter lock
+    reason           CPython requires a module definition with static storage duration.
+
+state src/AfterNightCLI/InterruptWatch.cpp interruptSeat
+    scope            an::cli (anonymous namespace)
+    category         module-seat
+    owner            an::cli::InterruptWatch's constructor fills it when it installs the console control handler; its
+                     destructor removes the handler and empties it
+    lifetime         the whole process; it holds a watch's state while that watch is installed, on Windows
+    synchronization  its own mutex; the handler copies the state out under it, so a watch going away while the handler
+                     runs cannot take the state from under it
+    reason           A console control handler is called with no context, so the command-line tool's interrupt watch
+                     is reached through one seat, which also keeps a second watch from installing.
+
+state src/AfterNightCLI/InterruptWatch.cpp interruptPipe
+    scope            an::cli (anonymous namespace)
+    category         module-seat
+    owner            an::cli::InterruptWatch's constructor moves it from -1 to its pipe's write end when it installs the
+                     SIGINT and SIGTERM handler; its destructor puts the previous handlers back and sets it to -1
+    lifetime         the whole process; it names a watch's pipe while that watch is installed, on Linux
+    synchronization  a lock-free atomic, the one kind of shared state a signal handler may read; installing is a
+                     compare-and-exchange from -1, so only one watch installs
+    reason           A signal handler is called with no context and may do almost nothing, so the command-line tool's
+                     handler writes one byte to the pipe this names and the watch's own thread stops the run.
+
+state src/AfterNightExtensionHostLite/main.cpp registered
+    scope            ensureLiteHostPythonModuleRegistered
+    category         module-seat
+    owner            the first registration sets it
+    lifetime         the whole process
+    synchronization  called on the Lite host's main thread before the interpreter starts
+    reason           The built-in module table may be appended to once, before the interpreter starts.
+
+# ---- Theme services the Qt framework needs process-wide.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_isDarkTheme
+    scope            anonymous namespace
+    category         theme-service
+    owner            the theme manager applies the user's preference; nothing destroys it
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           Every paintEvent resolves tokens for the active theme without a lock.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_isThemeInitialized
+    scope            anonymous namespace
+    category         theme-service
+    owner            theme initialization
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           Token reads before the theme exists fall back rather than read an unbuilt snapshot.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_themePreference
+    scope            anonymous namespace
+    category         theme-service
+    owner            the theme manager
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           The user's light, dark or system preference, which decides g_isDarkTheme.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_materialBackdropMode
+    scope            anonymous namespace
+    category         theme-service
+    owner            the theme manager
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           The window backdrop mode the style reads when it paints a window.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_themeContrastProfile
+    scope            anonymous namespace
+    category         theme-service
+    owner            the theme manager
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           The contrast profile the token resolution applies.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_themeAccentFamily
+    scope            anonymous namespace
+    category         theme-service
+    owner            the theme manager
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           The accent colour family the token resolution applies.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_themeSurfaceTintFamily
+    scope            anonymous namespace
+    category         theme-service
+    owner            the theme manager
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           The surface tint family the token resolution applies.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_nativeBackdropSupported
+    scope            anonymous namespace
+    category         theme-service
+    owner            static initialization detects it
+    lifetime         the whole process
+    synchronization  an atomic, written once at load
+    reason           Whether the operating system offers a native backdrop, detected once.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_activeResolvedTokens
+    scope            anonymous namespace
+    category         theme-service
+    owner            publishResolvedTokenSnapshot swaps it
+    lifetime         the whole process
+    synchronization  an atomic pointer to an immutable snapshot; retired snapshots are kept, so a reader never
+                     sees one freed
+    reason           Paint code on any thread reads a consistent token set without taking a lock.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_resolvedTokenSnapshotHistory
+    scope            anonymous namespace
+    category         theme-service
+    owner            publishResolvedTokenSnapshot appends
+    lifetime         the whole process
+    synchronization  g_resolvedTokenSnapshotHistoryMutex
+    reason           Keeps every published snapshot alive, which is what makes the lock-free read above safe. A
+                     refresh that resolves the sets already active publishes nothing, so it holds one snapshot per
+                     distinct theme a session shows.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_resolvedTokenSnapshotHistoryMutex
+    scope            anonymous namespace
+    category         theme-service
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  it is the lock
+    reason           Orders publications of new snapshots.
+
+state src/AfterNightControls/theme/AnProxyStyle.cpp g_installedStyle
+    scope            anonymous namespace
+    category         theme-service
+    owner            QApplication::setStyle owns the style; its constructor records it and its destructor clears it
+    lifetime         while the application style is installed
+    synchronization  GUI thread: styles are created, installed and destroyed there
+    reason           Controls that paint outside the style's own calls reach the installed style.
+
+state src/AfterNightControls/theme/KddwProxyStyle.cpp g_installedKddwStyle
+    scope            anonymous namespace
+    category         theme-service
+    owner            the docking framework's style; its constructor records it and its destructor clears it
+    lifetime         while the docking style is installed
+    synchronization  GUI thread
+    reason           The docking framework's widgets reach the style that paints them.
+
+# ---- UI registrations: built once, read afterwards.
+
+state src/AfterNightControls/app/ProcessRegistry.cpp registry
+    scope            ProcessRegistry::instance
+    category         ui-registration
+    owner            the first call to instance(); the built-in registrations fill it at startup
+    lifetime         from first use to process exit
+    synchronization  GUI thread: registration runs before the menus are wired, and every launch reads it there
+    reason           The process registry every menu, launcher and favourite list reads.
+
+state src/AfterNightControls/app/ExtensionManager.cpp registry
+    scope            ExtensionRuntimeStatusRegistry::instance
+    category         ui-registration
+    owner            the first call to instance()
+    lifetime         from first use to process exit
+    synchronization  its own mutex
+    reason           Records each extension's last launch and termination for the extension status page.
+
+state src/AfterNightControls/app/SessionConsoleBridge.cpp s_instance
+    scope            SessionConsoleBridge
+    category         ui-registration
+    owner            SessionConsoleBridge::initialize creates it under QCoreApplication; its destructor clears it
+                     and removes the logger's console sink
+    lifetime         from the application's startup to QCoreApplication's destruction
+    synchronization  GUI thread; records from other threads reach it through queued signals
+    reason           The one bridge between the logger's session-console sink and the console view.
+
+state src/AfterNightControls/controls/PixelMathEditControl.h m_functions_doc
+    scope            PixelMathEditControl
+    category         ui-registration
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  never written after initialization; read on the GUI thread
+    reason           Tooltip text for the PixelMath editor's functions. The editor's lists of names come from the engine's
+                     function table; the tooltips are the editor's own.
+
+state src/AfterNightControls/controls/PixelMathEditControl.h m_global_functions_doc
+    scope            PixelMathEditControl
+    category         ui-registration
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  never written after initialization; read on the GUI thread
+    reason           Tooltip text for the editor's global functions.
+
+state src/AfterNightControls/controls/PixelMathEditControl.h m_special_functions_doc
+    scope            PixelMathEditControl
+    category         ui-registration
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  never written after initialization; read on the GUI thread
+    reason           Tooltip text for the editor's special functions.
+
+state src/AfterNightControls/controls/PixelMathEditControl.h m_operators_doc
+    scope            PixelMathEditControl
+    category         ui-registration
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  never written after initialization; read on the GUI thread
+    reason           Tooltip text for the editor's operators.
+
+state src/AfterNightControls/controls/PixelMathEditControl.h m_formats_allowed_for_tooltips
+    scope            PixelMathEditControl
+    category         ui-registration
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  never written after initialization; read on the GUI thread
+    reason           The token formats the editor shows a tooltip for.
+
+state src/AfterNightControls/controls/PixelMathEditControl.cpp m_functions_doc
+    scope            PixelMathEditControl
+    category         ui-registration
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  never written after initialization; read on the GUI thread
+    reason           The storage behind the declaration of the same name.
+
+state src/AfterNightControls/controls/PixelMathEditControl.cpp m_global_functions_doc
+    scope            PixelMathEditControl
+    category         ui-registration
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  never written after initialization; read on the GUI thread
+    reason           The storage behind the declaration of the same name.
+
+state src/AfterNightControls/controls/PixelMathEditControl.cpp m_special_functions_doc
+    scope            PixelMathEditControl
+    category         ui-registration
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  never written after initialization; read on the GUI thread
+    reason           The storage behind the declaration of the same name.
+
+state src/AfterNightControls/controls/PixelMathEditControl.cpp m_operators_doc
+    scope            PixelMathEditControl
+    category         ui-registration
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  never written after initialization; read on the GUI thread
+    reason           The storage behind the declaration of the same name.
+
+state src/AfterNightControls/controls/PixelMathEditControl.cpp m_formats_allowed_for_tooltips
+    scope            PixelMathEditControl
+    category         ui-registration
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  never written after initialization; read on the GUI thread
+    reason           The storage behind the declaration of the same name.
+
+# ---- UI state kept between uses of a view.
+
+state src/AfterNightApp/app/AfterNightApp.cpp cleanupMissingStoredProcessIdsOnNextRefresh
+    scope            anonymous namespace
+    category         ui-state
+    owner            the application's menu refresh sets and consumes it
+    lifetime         the whole process
+    synchronization  GUI thread
+    reason           Defers pruning stored process identifiers until the next menu refresh, once every registry
+                     source has reported.
+
+state src/AfterNightControls/app/ExtensionEnvironmentManager.cpp g_environmentPreparations
+    scope            an::ui::extensions (anonymous namespace)
+    category         ui-state
+    owner            static initialization; each EnvironmentPreparationGuard enters the environment it prepares and
+                     removes it when it ends
+    lifetime         the whole process
+    synchronization  its own mutex orders every read and write of the environments being prepared; a guard waiting
+                     for one sleeps on the condition variable beside it, which every guard that ends notifies
+    reason           Lets one operation at a time prepare an environment - refresh it, take one over for it or
+                     provision it - so a second waits and finds what the first left. Every caller constructs its own
+                     ExtensionEnvironmentManager, so only state the process shares can order two of them; another
+                     process is kept off by the environment's lock file.
+
+state src/AfterNightControls/controls/settings/ExtensionStatusPage.cpp cache
+    scope            installedExtensionStatusCache
+    category         ui-state
+    owner            the settings page's first refresh
+    lifetime         from first use to process exit
+    synchronization  GUI thread: the discovery result arrives through a QFutureWatcher
+    reason           Discovering installed extensions reads every package from disk; reopening the settings page
+                     shows the last result while a fresh one is computed.
+
+state src/AfterNightControls/widgets/SubStageIndicatorWidget.cpp empty
+    scope            SubStageIndicatorWidget::getSubStageStats
+    category         ui-state
+    owner            static initialization of the function
+    lifetime         the whole process
+    synchronization  GUI thread; never written: it is the default value returned by const reference for an index
+                     out of range
+    reason           A reference to an empty record for a stage the widget does not show.
+
+state src/AfterNightProcesses/processes/ImageIntegration/tabs/CalibrationPanelUtils.cpp cache
+    scope            tintedSvgIcon
+    category         ui-state
+    owner            the first request for each tinted icon
+    lifetime         the whole process
+    synchronization  GUI thread: icons are built and read there
+    reason           Tinting an SVG icon renders it; the calibration panel asks for the same few icons repeatedly.
+
+state src/AfterNightProcesses/processes/ImageIntegration/tabs/CalibrationPanelUtils.cpp dispatcher
+    scope            DrizzleAnalysisDispatcher::instance
+    category         ui-state
+    owner            the first drizzle analysis request
+    lifetime         from first use to process exit
+    synchronization  its own QMutex; completions are posted to the GUI thread
+    reason           Coalesces concurrent requests for the same group's drizzle analysis into one background task
+                     and delivers its result to every requester.
+
+state src/AfterNightProcesses/processes/ImageIntegration/tabs/RegistrationTab.cpp g_qualitySortColumn
+    scope            anonymous namespace
+    category         ui-state
+    owner            the registration tab's quality table
+    lifetime         the whole process
+    synchronization  GUI thread
+    reason           Keeps the user's sort column when the tab is rebuilt.
+
+state src/AfterNightProcesses/processes/ImageIntegration/tabs/RegistrationTab.cpp g_qualitySortOrder
+    scope            anonymous namespace
+    category         ui-state
+    owner            the registration tab's quality table
+    lifetime         the whole process
+    synchronization  GUI thread
+    reason           Keeps the user's sort order when the tab is rebuilt.
+
+state src/AfterNightProcesses/processes/ImageIntegration/tabs/StackingTab.cpp g_groupsSortColumn
+    scope            anonymous namespace
+    category         ui-state
+    owner            the stacking tab's group table
+    lifetime         the whole process
+    synchronization  GUI thread
+    reason           Keeps the user's sort column when the tab is rebuilt.
+
+state src/AfterNightProcesses/processes/ImageIntegration/tabs/StackingTab.cpp g_groupsSortOrder
+    scope            anonymous namespace
+    category         ui-state
+    owner            the stacking tab's group table
+    lifetime         the whole process
+    synchronization  GUI thread
+    reason           Keeps the user's sort order when the tab is rebuilt.
+
+state src/AfterNightProcesses/processes/ImageIntegration/widgets/FrameQualityDashboard.cpp g_dashboardSortColumn
+    scope            anonymous namespace
+    category         ui-state
+    owner            the frame quality dashboard's table
+    lifetime         the whole process
+    synchronization  GUI thread
+    reason           Keeps the user's sort column when the dashboard is rebuilt.
+
+state src/AfterNightProcesses/processes/ImageIntegration/widgets/FrameQualityDashboard.cpp g_dashboardSortOrder
+    scope            anonymous namespace
+    category         ui-state
+    owner            the frame quality dashboard's table
+    lifetime         the whole process
+    synchronization  GUI thread
+    reason           Keeps the user's sort order when the dashboard is rebuilt.
+
+# ---- Identity.
+
+state src/AfterNightProcesses/processes/ImageIntegration/core/DatabaseUtils.h counter
+    scope            nextConnectionName
+    category         identity
+    owner            static initialization of the function
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           Qt's SQL connections are named per process; two workers opening the same database need two
+                     names.
+
+state src/AfterNightConsumerRuntime/src/ImageAsset.cpp counter
+    scope            nextAssetIdentity
+    category         identity
+    owner            static initialization of the function
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           An image asset's identity is unique in the process, so a result derived from one asset can never be
+                     taken for another's - not across sessions, and not when two assets' generations coincide.
+
+state src/AfterNightControls/session/ImageDocument.cpp counter
+    scope            nextDocumentIdentity
+    category         identity
+    owner            static initialization of the function
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           A document's identity is unique in the process and outlives the assets it holds, so a result derived
+                     from one document can never be taken for another's, whatever the cache that keeps it.
+
+# ---- Application seats: the main window and the context the Qt layers reach the application through.
+
+state src/AfterNightApp/app/AfterNightApp.h m_Instance
+    scope            AfterNightApp
+    category         application-seat
+    owner            AfterNightApp::getInstance() creates the main window on first call; destroyInstance() deletes it
+    lifetime         from the first call in main to the window's destruction before QApplication's
+    synchronization  GUI thread
+    reason           The main window's one owner, reached through getInstance() and instanceOrNull(). It holds no
+                     engine image, context or session: main.cpp's ApplicationSession owns the session, and the
+                     application context lends it.
+
+state src/AfterNightApp/app/AfterNightApp.cpp m_Instance
+    scope            AfterNightApp
+    category         application-seat
+    owner            AfterNightApp::getInstance() creates the main window on first call; destroyInstance() deletes it
+    lifetime         from the first call in main to the window's destruction before QApplication's
+    synchronization  GUI thread
+    reason           The storage behind the declaration above.
+
+state src/AfterNightControls/controls/IAppContext.cpp g_app_context
+    scope            anonymous namespace
+    category         application-seat
+    owner            the application or the full host calls setAppContext once at startup and clearAppContext at
+                     shutdown
+    lifetime         from startup to shutdown of the application or host
+    synchronization  written on the GUI thread before any control exists; read from any thread afterwards
+    reason           The locator through which every control and process reaches the application's services,
+                     the engine-session provider among them. It holds no engine image, context or session itself:
+                     the session it lends is owned by the application or the runtime backend.
+

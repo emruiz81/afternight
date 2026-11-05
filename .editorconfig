@@ -1,0 +1,34 @@
+root = true
+
+[*]
+end_of_line = crlf
+
+[build/scripts/linux/**]
+end_of_line = lf
+
+[build/premake/configure_linux.sh]
+end_of_line = lf
+
+[build/scripts/_build_user_guide_docs.sh]
+end_of_line = lf
+
+[build/scripts/check_clang_format.sh]
+end_of_line = lf
+
+[build/scripts/format_changed.sh]
+end_of_line = lf
+
+[build/scripts/python/setup_python_linux.sh]
+end_of_line = lf
+
+[installer/linux_packager.sh]
+end_of_line = lf
+
+[3rdparty/**]
+end_of_line = unset
+
+[kddockwidgets/**]
+end_of_line = unset
+
+[vcpkg/**]
+end_of_line = unset

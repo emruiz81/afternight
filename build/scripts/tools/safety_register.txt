@@ -1,0 +1,1190 @@
+# The safety register: what was read about the advisories of every library the engine loads, and each finding
+# about the engine's safety, with a severity and what became of it.
+#
+# `build/scripts/tools/check_safety_register.py` reads this file and holds it to the tree. A critical or high
+# finding is resolved only by a repair that names the test or the release that carries it, or by showing it
+# cannot happen in this engine - never by being accepted - and every advisory a review lists is answered by
+# exactly one finding filed against that library. Every library `dependencies.txt` registers is reviewed at
+# the version that register pins, and with `--binaries` every module the shipped engine binaries load from a
+# Release deployment is reviewed too, because the loader brings in more than a build links and a hostile file
+# reaches all of it.
+#
+# Record types, one per line, fields indented under their record. Lines starting with '#' and blank lines
+# are ignored. A field continues onto any following indented line that does not begin a field.
+#
+#   review <library>
+#       version     <the version the advisories were read against; for a library dependencies.txt
+#                    registers, a token of the version it pins>
+#       binaries    <the deployed files this library is loaded as, comma-separated, or none>
+#       reviewed    <YYYY-MM-DD>
+#       source      <where the advisories were read>
+#       advisories  <every advisory that names this library and whose stated range includes this version,
+#                    or that states no range yet, comma-separated, or none>
+#       outcome     <what the reading found>
+#
+#   finding <id>
+#       title       <one line>
+#       severity    critical | high | medium | low - what it can do in this engine, not a published score
+#       component   engine | python-adapter | gmic-adapter | opencl-backend | tests | tooling |
+#                   dependency <library>
+#       found       <what found it, and when>
+#       status      open | repaired | not-applicable | accepted
+#       advisories  <the advisories this finding answers, comma-separated, or none>
+#       evidence    <repaired: `test <Suite.Case>`, `test <file.py>::<name>` or `release <library> <version>`;
+#                    not-applicable: why it cannot happen here; open or accepted: who owns it and why>
+#       record      <the file of this tree that carries the guard or explains the finding: the module, the
+#                    overlay port's README or the guide>
+#
+# Severity is the effect in this engine:
+#
+#   critical    memory corruption or code execution reachable from a file, stream or buffer the engine is
+#               asked to read, with no mistake by the caller;
+#   high        memory corruption reachable through an argument a caller passes in ordinary use; a read
+#               outside a buffer, or disclosure of uninitialised memory, reachable from a file; a crash, a
+#               hang or unbounded resource use reachable from a file; a data race on a path an ordinary
+#               caller takes;
+#   medium      resource use a stated limit bounds and the engine's budget does not count; wrong output
+#               without memory unsafety; a failure only a caller breaking a documented rule can provoke; a
+#               deployment or tooling defect that can silently remove a protection;
+#   low         a gap in evidence, tooling or documentation with no effect on a running engine.
+#
+# An advisory that does not apply is rated by what it would do here if it did.
+
+# =============================================================================================
+# Reviews: libraries dependencies.txt registers
+# =============================================================================================
+
+review onetbb
+    version     2023.1.0
+    binaries    tbb12.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming intel:threading_building_blocks or intel:oneapi_threading_building_blocks,
+                with its version ranges evaluated here; and every CVE published since 2025-09-23 mentioning
+                "Threading Building Blocks" or "oneTBB" that NVD has not yet analysed
+    advisories  none
+    outcome     Seven CVEs name the product; none has a range that includes 2023.1.0, and no unanalysed one
+                concerns the library.
+
+review highway
+    version     1.4.0
+    binaries    none
+    reviewed    2026-09-23
+    source      NVD keyword search since 2025-09-23; the library has no CPE in NVD's dictionary
+    advisories  none
+    outcome     Header-only vector abstraction compiled into the engine. No advisory names it.
+
+review cfitsio
+    version     4.6.4
+    binaries    cfitsio.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming nasa:cfitsio with its ranges evaluated here, and keyword search since
+                2025-09-23
+    advisories  none
+    outcome     Five CVEs name CFITSIO; none includes 4.6.4. The two 4.6.4 defects the FITS adapter works
+                around are recorded below as a finding of their own.
+
+review libtiff
+    version     4.7.2
+    binaries    tiff.dll
+    reviewed    2026-09-23
+    source      NVD, 262 CVEs naming libtiff:libtiff with their ranges evaluated here, and every CVE since
+                2025-09-23 mentioning libtiff that NVD has not analysed
+    advisories  CVE-2025-9900, CVE-2026-12912, CVE-2026-18495, CVE-2026-52490, CVE-2026-52491, CVE-2026-52492
+    outcome     No analysed range includes 4.7.2. Six unanalysed CVEs concern the library itself - two in
+                the decoding library and four in command-line tools - and are answered below; two more that
+                mention it concern OpenSlide and libvips and are not advisories about libtiff.
+
+review libpng
+    version     1.6.58
+    binaries    libpng16.dll
+    reviewed    2026-09-23
+    source      NVD, 57 CVEs naming libpng:libpng with their ranges evaluated here, and keyword search since
+                2025-09-23
+    advisories  CVE-2026-3713, CVE-2026-40930
+    outcome     No analysed range includes 1.6.58. Two unanalysed CVEs concern the library and are answered
+                below; two more concern cups-filters and a Perl module.
+
+review libjpeg-turbo
+    version     3.2.0
+    binaries    jpeg8.dll
+    reviewed    2026-09-23
+    source      NVD, 16 CVEs naming libjpeg-turbo with their ranges evaluated here, and keyword search since
+                2025-09-23
+    advisories  CVE-2026-75466
+    outcome     No analysed range includes 3.2.0; one unanalysed CVE concerns 3.2.0 and is answered below.
+
+review libraw
+    version     0.22.1
+    binaries    afternight_libraw_r.dll
+    reviewed    2026-09-23
+    source      NVD, 63 CVEs naming libraw:libraw with their ranges evaluated here; the LibRaw 0.22.1
+                Changelog.txt in the source this repository builds; the oss-security announcement of
+                2026-04-11; libraw.org's release notes
+    advisories  CVE-2026-20884, CVE-2026-20911, CVE-2026-21413, CVE-2026-24450
+    outcome     NVD lists 0.22.1 itself for four Talos heap overflows; the release's own changelog lists the fixes,
+                so none applies. LibRaw 0.22.2 of 2026-07-16 adds further validation and allocation checks with no
+                advisory attached; moving both LibRaw ports to it needs the afternight-libraw port's three patches
+                rebased and the RAW qualification run again.
+
+review openxisf
+    version     1.1.0
+    binaries    openxisf-1.1.dll, libopenxisf.so.1.1
+    reviewed    2026-11-04
+    source      Web search for advisories naming OpenXISF or the XISF format, and the repository's security
+                advisories and security-labelled issues on GitHub, 2026-11-04; the library has no CPE yet, and as
+                the maintainer's own library a defect in it is recorded and repaired upstream before the release
+                the build scripts pin moves
+    advisories  none
+    outcome     No advisory names it. Every allocation it makes reading a file is bounded by limits the XISF
+                adapter derives from the engine's own, and it verifies the checksum of a data block before
+                using its data.
+
+review exiv2
+    version     0.28.8
+    binaries    exiv2.dll
+    reviewed    2026-09-23
+    source      NVD, 124 CVEs naming exiv2:exiv2 with their ranges evaluated here, and keyword search since
+                2025-09-23
+    advisories  CVE-2026-27631
+    outcome     One analysed range includes 0.28.8 by NVD's configuration, and is answered below.
+
+review fftw3
+    version     3.3.10
+    binaries    fftw3f.dll, fftw3.dll
+    reviewed    2026-09-23
+    source      NVD keyword search since 2025-09-23; the library has no CPE in NVD's dictionary
+    advisories  none
+    outcome     The vcpkg port is 3.3.11 and the built library identifies itself as 3.3.10; no advisory names
+                either.
+
+review gsl
+    version     2.8
+    binaries    gsl.dll, gslcblas.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming gnu:gnu_scientific_library or gnu:gsl, and keyword search since 2025-09-23
+    advisories  CVE-2024-50610
+    outcome     One CVE's range includes 2.8, and is answered below.
+
+review nlohmann-json
+    version     3.12.0
+    binaries    none
+    reviewed    2026-09-23
+    source      NVD, every CVE naming nlohmann:json, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Header-only. No advisory names it.
+
+review ffmpeg
+    version     8.1.3
+    binaries    avcodec-62.dll, avformat-62.dll, avutil-60.dll, swscale-9.dll, swresample-6.dll
+    reviewed    2026-09-23
+    source      NVD, 502 CVEs naming ffmpeg:ffmpeg with their ranges evaluated here, and every CVE since
+                2025-09-23 mentioning FFmpeg that NVD has not analysed; FFmpeg's release notes and the
+                n8.1.3 Changelog; each advisory's fix commit asked of the FFmpeg repository for whether n8.1.3
+                contains it or carries a backport of it; the n8.1.3 source; and the list of components the
+                vcpkg build's configure step enabled
+    advisories  CVE-2025-25468, CVE-2025-25469, CVE-2025-7700, CVE-2026-12706, CVE-2026-18393, CVE-2026-30754,
+                CVE-2026-38343, CVE-2026-38344, CVE-2026-38345, CVE-2026-38346, CVE-2026-38347, CVE-2026-38348,
+                CVE-2026-38349, CVE-2026-38350, CVE-2026-52295, CVE-2026-52296, CVE-2026-52297, CVE-2026-58049,
+                CVE-2026-6385, CVE-2026-66036, CVE-2026-66037, CVE-2026-70628, CVE-2026-70629, CVE-2026-70630,
+                CVE-2026-70631, CVE-2026-70632, CVE-2026-75141, CVE-2026-75142, CVE-2026-75143, CVE-2026-75144,
+                CVE-2026-75145, CVE-2026-75146, CVE-2026-75147, CVE-2026-8461, CVE-2026-90815, CVE-2026-90816
+    outcome     8.1.2 is inside 23 analysed advisories, and 8.1.3, pinned through an overlay port, carries the fix
+                for every one. Seven advisories NVD still attaches to 8.1.3 and 29 unanalysed ones about FFmpeg
+                itself are answered below by what the n8.1.3 tree contains, what this build compiles and what the
+                engine calls. 21 further CVEs mention FFmpeg and concern other software that invokes it.
+
+review libvpx
+    version     1.17.0
+    binaries    none
+    reviewed    2026-09-23
+    source      NVD, every CVE naming webmproject:libvpx with its ranges evaluated here; Ubuntu's
+                CVE-2026-2447 record and USN-8053-1; the upstream v1.17.0 tag, Changelog and commit graph
+    advisories  CVE-2026-2447
+    outcome     vcpkg's 1.16.0 port is inside the advisory, so 1.17.0 is pinned through an overlay port instead.
+                Ubuntu describes the advisory as a heap buffer overflow with a 8.8 CVSS score and identifies d5f35ac
+                as its upstream repair; d5f35ac is an ancestor of the signed v1.17.0 tag, whose Changelog also
+                records the relevant heap-buffer-overflow fixes.
+
+review zlib
+    version     1.3.2
+    binaries    z.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming zlib:zlib or gnu:zlib, and keyword search since 2025-09-23
+    advisories  CVE-2026-85091
+    outcome     No analysed range includes 1.3.2. One unanalysed CVE concerns zlib itself and is answered
+                below; nineteen more mention zlib and concern other software.
+
+review lcms
+    version     2.19.1
+    binaries    none
+    reviewed    2026-09-23
+    source      NVD, every CVE naming littlecms:little_cms or littlecms:little_cms_color_engine, and keyword
+                search since 2025-09-23
+    advisories  CVE-2026-42798
+    outcome     Linked into the private LibRaw build rather than loaded as a module of its own. One unanalysed
+                CVE concerns it and is answered below.
+
+review jasper
+    version     4.2.9
+    binaries    none
+    reviewed    2026-09-23
+    source      NVD, 101 CVEs naming jasper_project:jasper with their ranges evaluated here, and keyword search
+                since 2025-09-23
+    advisories  none
+    outcome     No range includes 4.2.9. The three unanalysed hits are JasperReports, a different product.
+
+review pugixml
+    version     1.16
+    binaries    pugixml.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming pugixml_project:pugixml, and keyword search since 2025-09-23
+    advisories  none
+    outcome     No advisory names it.
+
+review lz4
+    version     1.10.0
+    binaries    lz4.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming lz4_project:lz4, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Two CVEs name the product and neither includes 1.10.0; the five unanalysed hits concern the Java
+                port, NanaZip and the Linux kernel.
+
+review zstd
+    version     1.5.7
+    binaries    zstd.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming facebook:zstandard, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Four CVEs name the product and none includes 1.5.7; the seventeen unanalysed hits concern
+                zstd-jni, other software and the Linux kernel.
+
+review python
+    version     3.14.7
+    binaries    python314.dll, libpython3.14.so.1.0
+    reviewed    2026-09-23
+    source      NVD, 145 CVEs naming python:python with their ranges evaluated here, and keyword search for
+                "CPython" since 2025-09-23
+    advisories  CVE-2026-2297, CVE-2026-82049
+    outcome     No analysed range includes 3.14.7. Two unanalysed CVEs concern CPython and are answered below.
+
+review gmic
+    version     3.5.4
+    binaries    cgmic.dll, libcgmic.so
+    reviewed    2026-09-23
+    source      NVD keyword search for "G'MIC" and "gmic" since 2025-09-23; the library has no CPE; and the
+                vendored C bridge read line by line
+    advisories  none
+    outcome     No advisory names it. The vendored bridge and library carry local repairs, each held by a finding
+                below.
+
+review opencl
+    version     2024.10.24
+    binaries    none
+    reviewed    2026-09-23
+    source      NVD keyword search for "OpenCL ICD Loader" since 2025-09-23
+    advisories  none
+    outcome     Opt-in and non-shipping: no default build contains it.
+
+review afternight-rawspeed
+    version     2026-09-11
+    binaries    afternight_rawspeed.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming rawspeed:rawspeed or darktable:rawspeed, and keyword search since 2025-09-23
+    advisories  none
+    outcome     One CVE names RawSpeed, from before this revision; no range includes it.
+
+review gtest
+    version     1.17.0
+    binaries    none
+    reviewed    2026-09-23
+    source      NVD, every CVE naming google:googletest, and keyword search since 2025-09-23
+    advisories  none
+    outcome     In no shipped artifact and no engine binary.
+
+review opencv4
+    version     4.12.0
+    binaries    none
+    reviewed    2026-09-23
+    source      NVD, 35 CVEs naming opencv:opencv with their ranges evaluated here, and keyword search since
+                2025-09-23
+    advisories  none
+    outcome     No range includes 4.12.0; the two unanalysed hits concern OpenCVE. In no engine binary: only
+                the parity suite and the benchmark layer load it.
+
+# =============================================================================================
+# Reviews: libraries the loader brings in behind a registered one
+#
+# None of these is linked by a build of this engine, which is why dependencies.txt does not name them. Each is
+# loaded when the engine is: the codecs FFmpeg was built with, the compressors behind libtiff and the XISF
+# library, the XML and character-set libraries behind Exiv2, and the threads library behind CFITSIO.
+# =============================================================================================
+
+review aom
+    version     3.13.3
+    binaries    aom.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming aomedia:aomedia or aomedia:libaom, and keyword search since 2025-09-23
+    advisories  CVE-2021-30473, CVE-2021-30474, CVE-2021-30475, CVE-2026-56208, CVE-2026-56209, CVE-2026-56210,
+                CVE-2026-56211
+    outcome     Loaded by avcodec as FFmpeg's AV1 codec. Seven advisories answered below.
+
+review libvpl
+    version     2.17.0
+    binaries    libvpl.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming intel:onevpl or intel:libvpl, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Loaded by avcodec and avutil as the Quick Sync dispatcher. No advisory names it.
+
+review x264
+    version     0.164.3108
+    binaries    libx264-164.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming videolan:x264, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Loaded by avcodec; the video sinks' software H.264 encoder. No advisory names it.
+
+review x265
+    version     4.2
+    binaries    libx265.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming multicorewareinc:x265, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Loaded by avcodec; an HEVC encoder this engine never selects. No range includes 4.2.
+
+review libwebp
+    version     1.6.0
+    binaries    libwebp.dll, libwebpmux.dll, libsharpyuv.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming webmproject:libwebp or google:libwebp, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Loaded by libtiff and avcodec. No range includes 1.6.0; the unanalysed hit concerns a Perl module
+                that bundles its own copy.
+
+review expat
+    version     2.8.5
+    binaries    libexpat.dll
+    reviewed    2026-09-23
+    source      NVD, 64 CVEs naming libexpat_project:libexpat with their ranges evaluated here, keyword search
+                since 2025-09-23, and Expat's own Changes file for 2.8.3, 2.8.4 and 2.8.5
+    advisories  CVE-2026-72522, CVE-2026-76641, CVE-2026-93990
+    outcome     2.8.5 is pinned through an overlay port, and Linux links the same release statically with Exiv2
+                rather than Ubuntu's 2.7.4 package, because Exiv2 decodes an XMP packet through Expat wherever a
+                TIFF or an Exif block carries one. No analysed range includes 2.8.5; three unanalysed CVEs are fixed
+                by 2.8.3, 2.8.4 and 2.8.5 and are answered below. Expat's own release notes still say it has unfixed
+                security issues (libexpat issue 1160), recorded below.
+
+review brotli
+    version     1.2.0
+    binaries    brotlicommon.dll, brotlidec.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming google:brotli, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Loaded by Exiv2. One CVE names the product and does not include 1.2.0; the eight unanalysed hits
+                concern other software's use of Brotli.
+
+review inih
+    version     62
+    binaries    none
+    reviewed    2026-09-23
+    source      NVD keyword search for "inih" and every CVE naming benhoyt:inih since 2025-09-23
+    advisories  none
+    outcome     Linked statically behind Exiv2 on Linux. No advisory names the library or includes release 62.
+
+review libiconv
+    version     1.19
+    binaries    iconv-2.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming gnu:libiconv, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Loaded by Exiv2 and libintl. No advisory names it.
+
+review gettext
+    version     0.22.5
+    binaries    intl-8.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming gnu:gettext, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Loaded by Exiv2 as libintl. Two CVEs name the product and neither includes 0.22.5; the
+                unanalysed hits concern WordPress and JavaScript packages.
+
+review libdeflate
+    version     1.25
+    binaries    deflate.dll
+    reviewed    2026-09-23
+    source      NVD keyword search since 2025-09-23; the library has no CPE in NVD's dictionary
+    advisories  none
+    outcome     Loaded by libtiff. No advisory names it.
+
+review lerc
+    version     4.1.1
+    binaries    Lerc.dll
+    reviewed    2026-09-23
+    source      NVD keyword search since 2025-09-23; the library has no CPE in NVD's dictionary
+    advisories  none
+    outcome     Loaded by libtiff. No advisory names it.
+
+review liblzma
+    version     5.8.3
+    binaries    liblzma.dll
+    reviewed    2026-09-23
+    source      NVD, every CVE naming tukaani:xz, and keyword search since 2025-09-23
+    advisories  none
+    outcome     Loaded by libtiff. Five CVEs name the product and none includes 5.8.3.
+
+review pthreads
+    version     3.0.0
+    binaries    pthreadVC3.dll
+    reviewed    2026-09-23
+    source      NVD keyword search for "pthreads-win32" and "pthreads4w" since 2025-09-23
+    advisories  none
+    outcome     Loaded by CFITSIO. No advisory names it.
+
+# =============================================================================================
+# Findings: advisories the reviews list, answered
+# =============================================================================================
+
+finding libtiff-unreached-decode-paths
+    title       Two libtiff decode advisories sit in paths the engine never takes
+    severity    critical
+    component   dependency libtiff
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2025-9900, CVE-2026-12912
+    evidence    CVE-2025-9900 is in the RGBA reader of tif_getimage.c, TIFFReadRGBAImage and TIFFRGBAImage, which
+                no source of the engine calls: it reads through TIFFReadScanline and TIFFReadEncodedTile.
+                CVE-2026-12912 needs the PIXARLOGDATAFMT_8BITABGR output of PixarLog, which libtiff uses only
+                when the application sets TIFFTAG_PIXARLOGDATAFMT; nothing in the engine sets it, so PixarLog
+                chooses its format from the bits per sample and never chooses that one.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding libtiff-command-line-tools
+    title       Four libtiff advisories are in command-line tools this build does not contain
+    severity    critical
+    component   dependency libtiff
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-18495, CVE-2026-52490, CVE-2026-52491, CVE-2026-52492
+    evidence    tiff2pdf, tiffcrop, thumbnail and rgb2ycbcr are the tools of libtiff. The port is installed
+                without its tools feature, no deployed directory holds one, and the engine loads the library
+                alone.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding libpng-other-code
+    title       Two libpng advisories name an example program and another release line
+    severity    low
+    component   dependency libpng
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-3713, CVE-2026-40930
+    evidence    CVE-2026-3713 is in contrib/pngminus/pnm2png.c, an example program, and names releases up to
+                1.6.55. CVE-2026-40930 is in the frame-chunk handling of libpng 1.8.0, a release line this build
+                does not use.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding libjpeg-turbo-image-loader
+    title       A libjpeg-turbo advisory is in the TurboJPEG image-file loader, which the engine never calls
+    severity    high
+    component   dependency libjpeg-turbo
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-75466
+    evidence    The division by zero is in tj3LoadImage12 and tj3LoadImage16 reading a PNG. The engine uses
+                the libjpeg API alone, through io/jpeg, and no source of it names TurboJPEG.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding libraw-fixed-in-pinned-release
+    title       Four LibRaw heap overflows NVD lists against 0.22.1 are fixed in 0.22.1
+    severity    critical
+    component   dependency libraw
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-20884, CVE-2026-20911, CVE-2026-21413, CVE-2026-24450
+    evidence    The Changelog.txt of the 0.22.1 source this repository builds, dated 2026-04-06, lists the
+                fixes for TALOS-2026-2364 (CVE-2026-20884), TALOS-2026-2363 (CVE-2026-24450),
+                TALOS-2026-2331 (CVE-2026-21413) and TALOS-2026-2330 (CVE-2026-20911), and the oss-security
+                announcement of 2026-04-11 says the same. The configuration NVD records names the release that
+                fixed them.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding exiv2-preview-tool
+    title       An Exiv2 advisory NVD attaches to 0.28.8 names the releases before it
+    severity    low
+    component   dependency exiv2
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-27631
+    evidence    The text of the advisory names releases before 0.28.8 and the preview component the exiv2
+                command line reaches with -pp; the engine calls neither the tool nor the preview API.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding gsl-simulated-annealing
+    title       A GSL advisory is in the simulated-annealing solver, which the engine never calls
+    severity    medium
+    component   dependency gsl
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2024-50610
+    evidence    The signedness error is in gsl_siman_solve_many; no source of the engine or its adapters names
+                gsl_siman.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding ffmpeg-fixed-in-pinned-release
+    title       Twenty-five FFmpeg advisories that name 8.1.3 or no range at all are fixed in the n8.1.3 tree
+    severity    critical
+    component   dependency ffmpeg
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2025-25468, CVE-2025-25469, CVE-2025-7700, CVE-2026-12706, CVE-2026-18393, CVE-2026-30754,
+                CVE-2026-52297, CVE-2026-58049, CVE-2026-6385, CVE-2026-66037, CVE-2026-70628, CVE-2026-70629,
+                CVE-2026-70630, CVE-2026-70631, CVE-2026-70632, CVE-2026-75141, CVE-2026-75142, CVE-2026-75143,
+                CVE-2026-75144, CVE-2026-75145, CVE-2026-75146, CVE-2026-75147, CVE-2026-8461, CVE-2026-90815,
+                CVE-2026-90816
+    evidence    Each fix commit was asked of the FFmpeg repository. Ancestors of n8.1.3: CVE-2025-25468 and
+                CVE-2025-25469 (d5873be583), CVE-2025-7700 (35a6de137a), CVE-2026-90815 (8970658472) and
+                CVE-2026-90816, whose fix removed the HLS protocol (64fafd63f0). Backports the n8.1.3
+                Changelog names: CVE-2026-70628 (dvbsub_parser), CVE-2026-70629 (rscc), CVE-2026-70630
+                (screenpresso), CVE-2026-70631 (tiff), CVE-2026-70632 (cfhd), CVE-2026-58049 (rasc) and
+                CVE-2026-75141 to CVE-2026-75147 (hvcC, mpegenc, librist, two RTP packetizers and dashdec). Read
+                in the n8.1.3 source: iamf_parse bounds count_label by the bytes available (CVE-2026-66037),
+                tdsc bounds the cursor (CVE-2026-18393), dvdsub_parser refuses a length past INT_MAX less the
+                padding (CVE-2026-6385), decode_move in rasc starts its reader after decompression
+                (CVE-2026-12706), and mov_read_iacb allocates through ff_alloc_extradata, which pads
+                (CVE-2026-52297). CVE-2026-8461 was fixed in 8.1.2 by the FFmpeg security page, and
+                CVE-2026-30754 names releases before 8.1. The rasc, rscc, screenpresso and tdsc decoders are
+                not even compiled into this build, whose configure step disables zlib.
+    record      build/vcpkg/overlay-ports/ffmpeg/README.md
+
+finding libvpx-fixed-in-pinned-release
+    title       libvpx 1.16.0's VP9 encoder, which FFmpeg reaches, is inside CVE-2026-2447
+    severity    critical
+    component   dependency libvpx
+    found       the Linux loaded-module and static-link review, 2026-09-23
+    status      repaired
+    advisories  CVE-2026-2447
+    evidence    release libvpx 1.17.0; the overlay SHA512 pins the signed upstream tag, d5f35ac is an ancestor
+                of that tag, and Test_EngineImage exercises the VP9 sequence sink that reaches this encoder
+    record      build/vcpkg/overlay-ports/libvpx/README.md
+
+finding ffmpeg-unreached-components
+    title       Four FFmpeg advisories are in a muxer, an encoder and filters the engine never loads or selects
+    severity    high
+    component   dependency ffmpeg
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-38343, CVE-2026-52295, CVE-2026-52296, CVE-2026-66036
+    evidence    CVE-2026-38343 (vf_scale) and CVE-2026-66036 (vf_hqdn3d) are libavfilter filters, and
+                libavfilter is not in the import closure of the engine. CVE-2026-52295 is the IAMF muxer and
+                CVE-2026-52296 the WMA encoder; the video sinks write H.264 alone, with libx264 or a hardware
+                H.264 encoder.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding ffmpeg-swscale-fuzzer-reports
+    title       Seven swscale reports from a development snapshot describe parameters the engine never passes
+    severity    high
+    component   dependency ffmpeg
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-38344, CVE-2026-38345, CVE-2026-38346, CVE-2026-38347, CVE-2026-38348, CVE-2026-38349,
+                CVE-2026-38350
+    evidence    They name a master snapshot, carry no fix reference and are unanalysed, and each describes the
+                space the swscale fuzzer explores. The two conversions of the engine, in FfmpegDelivery.cpp and
+                FfmpegEncoding.cpp, keep the width and height of their source, so every scaling filter is the
+                identity; they pass fixed flags and never enable alpha blending, the only way
+                ff_sws_alphablendaway runs; and every frame reaching them has passed the image-size check of
+                FFmpeg and the extent limit of the engine. Closed by reasoning about the parameters rather than
+                by a test.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding aom-dated-snapshots
+    title       Three libaom advisories are ranged by 2021 snapshot dates that a release number sorts after
+    severity    critical
+    component   dependency aom
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2021-30473, CVE-2021-30474, CVE-2021-30475
+    evidence    NVD states the ranges as libaom snapshots before 2021-03-24 to 2021-04-07; 3.13.3 is a 2025
+                release descended from all three fixes. Comparing a dated snapshot with a release number is what
+                put them in range.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding aom-encoder
+    title       Four libaom advisories are in its AV1 encoder, which the engine never opens
+    severity    critical
+    component   dependency aom
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-56208, CVE-2026-56209, CVE-2026-56210, CVE-2026-56211
+    evidence    All four are in the look-ahead and scalable-video layer handling of the encoder. The video sinks
+                encode H.264 alone, and the sequence source decodes.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding zlib-gzwrite
+    title       A zlib advisory is in the non-blocking path of gzwrite, which nothing the engine loads calls
+    severity    high
+    component   dependency zlib
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-85091
+    evidence    The overflow is reached through gzprintf or gzvprintf after a write stall. No source of the
+                engine calls a gz function, and the CFITSIO, libtiff, libpng and Exiv2 sources this build
+                compiles call neither.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding lcms-fixed-in-pinned-release
+    title       A Little-CMS advisory names 2.16 to 2.18
+    severity    medium
+    component   dependency lcms
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-42798
+    evidence    The advisory names releases before 2.19; the pin is 2.19.1.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding python-sourceless-bytecode-and-tarfile
+    title       Two CPython advisories name an earlier release line and an audit hook the adapter never relies on
+    severity    medium
+    component   dependency python
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-2297, CVE-2026-82049
+    evidence    CVE-2026-82049 names CPython 3.13 and earlier. CVE-2026-2297 lets a .pyc file loaded without its
+                source bypass the io.open_code audit hook; the Python adapter runs code its caller supplies and
+                installs no audit hook, so the bypass takes away nothing it depends on.
+    record      docs/dev/guides/DEPENDENCIES.md
+
+finding expat-fixed-in-pinned-release
+    title       Three unanalysed Expat advisories are fixed in the pinned 2.8.5
+    severity    critical
+    component   dependency expat
+    found       the advisory review, 2026-09-23
+    status      not-applicable
+    advisories  CVE-2026-72522, CVE-2026-76641, CVE-2026-93990
+    evidence    The Changes file of Expat names CVE-2026-72522 fixed in 2.8.3, CVE-2026-76641 in 2.8.4 and
+                CVE-2026-93990 in 2.8.5.
+    record      build/vcpkg/overlay-ports/expat/README.md
+
+# =============================================================================================
+# Findings: releases pinned because the ones before them are inside advisories
+# =============================================================================================
+
+finding ffmpeg-812-advisories
+    title       FFmpeg 8.1.2 is inside 23 advisories for demuxers and decoders the engine reaches from a video file
+    severity    critical
+    component   dependency ffmpeg
+    found       the advisory review, 2026-09-23: CVE-2026-64830 to CVE-2026-64835, CVE-2026-65703 to
+                CVE-2026-65706, CVE-2026-66036 to CVE-2026-66041, CVE-2026-70628 to CVE-2026-70632 and two
+                earlier leak reports, among them heap overflows in the VobSub, TY and CFHD code a probed
+                container reaches
+    status      repaired
+    advisories  none
+    evidence    release ffmpeg 8.1.3, pinned through build/vcpkg/overlay-ports/ffmpeg, whose Changelog carries a
+                backported fix for every one.
+                test DependencyReportTest.EveryLoadedLibraryIsTheReleaseItsHeadersDescribe refuses an older copy
+                loaded in its place.
+    record      build/vcpkg/overlay-ports/ffmpeg/README.md
+
+finding expat-282-advisories
+    title       Expat 2.8.2 is inside six advisories, reached through the XMP decode of Exiv2 from a TIFF or JPEG
+    severity    critical
+    component   dependency expat
+    found       the advisory review, 2026-09-23: CVE-2026-72522, CVE-2026-66046, CVE-2026-76641,
+                CVE-2026-76956, CVE-2026-76957 and CVE-2026-93990
+    status      repaired
+    advisories  none
+    evidence    release expat 2.8.5, pinned through build/vcpkg/overlay-ports/expat; the deployed libexpat.dll
+                reports file version 2.8.5.0.
+    record      build/vcpkg/overlay-ports/expat/README.md
+
+finding expat-linux-distribution-advisories
+    title       Ubuntu's Expat 2.7.4 package is inside reachable XML parser advisories
+    severity    critical
+    component   dependency expat
+    found       the Linux distribution-package review, 2026-09-23: Ubuntu marks CVE-2026-72522, CVE-2026-66046,
+                CVE-2026-76641 and CVE-2026-76957 vulnerable, CVE-2026-93990 as needing evaluation, and only
+                CVE-2026-76956 as not affecting the package
+    status      repaired
+    advisories  none
+    evidence    release expat 2.8.5, pinned through build/vcpkg/overlay-ports/expat and linked privately with static
+                Exiv2 on Linux; the ELF closure contains neither libexiv2.so nor libexpat.so
+    record      build/scripts/linux/02-install_linux_deps.sh
+
+# =============================================================================================
+# Findings: the G'MIC bridge and library
+# =============================================================================================
+
+finding gmic-result-name-overrun
+    title       A result name longer than its field would be copied past the room the adapter reserves
+    severity    high
+    component   dependency gmic
+    found       a reading of the bridge, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    The bridge refuses a name its field cannot hold before copying any image back when asked, and the
+                adapter always asks; without it a 64 KiB name ends the process with exit 139.
+                test GmicSessionCase.ANameLongerThanAllTheRoomThisAdapterReservesIsRefusedBeforeItIsCopied
+                and test GmicSessionCase.ANameTheLibraryWritesPastItsOwnFieldIsDetectedRatherThanTrusted
+    record      3rdparty/src/gmic/gmic_libc.cpp
+
+finding gmic-result-count-overrun
+    title       A command that leaves more images than it was given would write results past the bridge's array
+    severity    high
+    component   dependency gmic
+    found       AddressSanitizer, 2026-09-18
+    status      repaired
+    advisories  none
+    evidence    output_capacity makes the bridge copy nothing back when the results outnumber the array.
+                test GmicSessionCase.ACommandThatLeavesSeveralImagesIsRefusedAndEveryBufferReleased
+    record      3rdparty/src/gmic/gmic_libc.cpp
+
+finding gmic-stale-bridge
+    title       A bridge built without the local repairs would accept their options and ignore them
+    severity    medium
+    component   dependency gmic
+    found       a stale cgmic build, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    The bridge exports gmic_afternight_patch_level and the adapter imports it and refuses a lower level,
+                so a stale bridge fails to load the adapter, with 0xC0000139 on Windows.
+                test GmicSessionCase.AnOpenSessionReportsItselfLoadedAndHoldsItsContext runs the check on the
+                patched bridge.
+    record      src/AfterNightEngineGmicAdapter/src/GmicSession.cpp
+
+finding gmic-unterminated-title
+    title       CImg's formatting on Microsoft's runtime would leave a truncated title unterminated
+    severity    high
+    component   dependency gmic
+    found       the address sanitizer campaign, 2026-10-18: a run of Multiscale Alpha Sharpen read 270 bytes from a
+                256-byte title through strlen
+    status      repaired
+    advisories  none
+    evidence    CImg's `_snprintf` must call CImg's own `_vsnprintf`: bound to the runtime's, which writes no
+                terminator when it truncates, it would leave a truncated string unterminated. The vendored copy
+                declares its own first.
+                test GmicSessionCase.AnImageInputFromValuesLongerThanItsTitleIsNamedInsideTheTitle fails without it
+                in an ordinary build as well, its name refused as one the field cannot hold
+    record      3rdparty/src/gmic/CImg.h
+
+finding gmic-pass-freed-buffer
+    title       A pass sharing a parent's buffer that a foreach frees would copy freed memory
+    severity    high
+    component   dependency gmic
+    found       the address sanitizer campaign, 2026-10-18: G'MIC's alpha splitting, which Multiscale Alpha Sharpen
+                runs over any image, read a whole frame of freed memory
+    status      repaired
+    advisories  none
+    evidence    The vendored interpreter shares a parent's image only when the shared state is asked for, so the
+                adaptive state copies.
+                test GmicSessionCase.AnImagePassedIntoAForeachOverTheImageThatOwnsItsBufferIsACopy, which the
+                address configuration fails without it; the bridge reports patch level 3 and the adapter refuses a
+                lower one
+    record      3rdparty/src/gmic/gmic.cpp
+
+# =============================================================================================
+# Findings: tooling
+# =============================================================================================
+
+finding public-api-export-table-reading
+    title       The Windows export-table reading would demand a vtable export the identity decoration removes
+    severity    medium
+    component   tooling
+    found       reading the Windows export tables, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    check_public_api.py owes no vtable export on Windows for the three decorated interface types, whose
+                decoration Core/Api.h makes empty there.
+                test check_public_api_test.py::test_an_export_table_owes_nothing_for_a_decorated_type and
+                test check_public_api_test.py::test_the_identity_decoration_is_empty_only_where_the_export_table_is_read_without_it
+    record      build/scripts/tools/check_public_api.py
+
+# =============================================================================================
+# Findings: what a file reaches through a dependency
+# =============================================================================================
+
+finding ffmpeg-whole-surface-reachable
+    title       Every demuxer and decoder FFmpeg is built with would be reachable from a video file
+    severity    medium
+    component   engine
+    found       the advisory review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    test FfmpegSequenceTest.AContainerOutsideTheAllowListIsRefused and
+                test FfmpegSequenceTest.ADecoderOutsideTheAllowListIsRefusedInsideAnAllowedContainer.
+                Every open and reopen sets the container and decoder allow-lists before stream discovery, and the
+                selected decoder is checked again before it is opened.
+    record      src/AfterNightEngine/src/io/sequences/ffmpeg/FfmpegInput.cpp
+
+finding expat-embargoed-issues
+    title       Expat's maintainer lists unfixed issues under embargo, reached through Exiv2's XMP decode
+    severity    medium
+    component   dependency expat
+    found       the advisory review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    test TiffCodecTest.XmpPacketsAreExcludedBeforeExifDecoding and
+                test JpegCodecTest.ExifKeepsCameraFieldsWithoutDecodingXmpInEitherByteOrder.
+                Root XMLPacket entries are excluded before Exiv2's TIFF and Exif decoder sees them and ignored on
+                output, so no file's XML reaches the library's XMP toolkit. This removes the engine's exposure, not
+                the upstream issues; Expat remains a dependency.
+    record      src/AfterNightEngine/src/interop/exiv2/ExifCards.cpp
+
+finding cfitsio-adapter-workarounds
+    title       Two CFITSIO 4.6.4 defects are worked around in the FITS adapter, not in the library
+    severity    medium
+    component   dependency cfitsio
+    found       the FITS codec's tests
+    status      accepted
+    advisories  none
+    evidence    The PLIO bound and the uninitialised null sentinel are set in the FITS adapter, the bound by its
+                writer and the sentinel in its private handle by its reader. A CFITSIO upgrade or a call path around
+                the adapter would lose them;
+                test FitsCodecTest.PlioTilesHaveSpaceForTheirHeaderAndWorstCaseCodes and
+                test FitsCodecTest.GzipKeepsFloatingNonfiniteSamplesWithoutNullSubstitution hold them.
+    record      src/AfterNightEngine/src/io/fits/FitsWrite.cpp
+
+# =============================================================================================
+# Findings: the engine
+# =============================================================================================
+
+finding fits-direct-encode-narrower-limits
+    title       A direct FITS encode under narrower limits would build its byte-swap workspace from an unchecked row
+    severity    high
+    component   engine
+    found       static analysis, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    The registry holds a frame to the writing context's limits, but the FITS codec is published and a
+                caller may encode through it directly from a context narrower than the one the frame was described
+                under; the one-row workspace would then be built by dereferencing a refused extent, and the call
+                would report success and write a file. It is a LimitExceeded refusal.
+                test FitsCodecTest.ADirectEncodeUnderNarrowerLimitsIsRefusedRatherThanWorkedAround
+    record      src/AfterNightEngine/src/io/fits/FitsWrite.cpp
+
+finding fits-row-offsets-raised-limits
+    title       A FITS row past four gibibytes would overflow 32-bit sample offsets in the byte swap
+    severity    high
+    component   engine
+    found       static analysis, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    Under a raised maxImageWidth a row can pass four gibibytes, and a byte swap computing its offsets in
+                32 bits would reverse a range whose end precedes its start, writing before its workspace. The
+                offsets are 64-bit. No suite can allocate such a row;
+                test FitsCodecTest.PlanarRgbPaddingAndForeignByteOrderAreExplicit runs the swap.
+    record      src/AfterNightEngine/src/io/fits/FitsWrite.cpp
+
+finding convolution-transform-extent-narrowing
+    title       A padded transform extent narrowed to 32 bits would disagree with the buffers sized from it
+    severity    high
+    component   engine
+    found       static analysis, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    Only reachable under raised width and byte limits with an image of tens of gigabytes, where the plan
+                would disagree with the buffers sized from the full value. A padded extent past what the transform
+                library can plan is refused with LimitExceeded before anything is sized. No suite can allocate such
+                an image;
+                test DeconvolutionTest.TheDirectAndTransformPathsAgree runs the planning it guards.
+    record      src/AfterNightEngine/src/algorithms/deconvolution/ConvolutionEngine.cpp
+
+finding frame-stream-cause-order
+    title       A frame-stream failure has to read its code before the call that moves the failure away
+    severity    low
+    component   engine
+    found       static analysis, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    The two arguments of that call have no fixed order, so the code is read first; moving a status keeps
+                its code, so nothing observable depends on the order.
+                test FrameStreamTest.DecoderWriterAndDelayedFinishFailuresAbortAndReleaseBothQueues holds the code
+                and context the path produces.
+    record      src/AfterNightEngine/src/io/streaming/FrameStream.cpp
+
+finding global-heap-exhaustion-in-noexcept
+    title       Exhausting the global heap inside a noexcept function would terminate the process
+    severity    medium
+    component   engine
+    found       static analysis, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    test PixelMathParserTest.HeapExhaustionDuringConstructionReturnsAllocationFailure,
+                test FrameCacheTest.HeapExhaustionDuringConstructionReturnsAllocationFailure and
+                test DeviceLifecycleTest.DeviceFailureCallbacksFinishWhenTheHeapIsExhausted.
+                Constructors propagate allocation failure to the public boundary, and PixelMath returns an
+                allocation-free failed parse. Device callbacks guard the construction of failure details, dependency
+                failures included, and finish events with a code-only fallback.
+    record      docs/dev/PUBLIC_API_CONTRACT.md
+
+finding spectrum-catalog-region-order
+    title       The spectrum catalog would sort a region with a comparator that is not a strict weak ordering
+    severity    critical
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    Two records whose magnitudes differ by less than a micromagnitude would compare equal while each
+                compares unequal to a third, and std::sort over such a comparator may read and move elements past
+                the range it sorts. The magnitudes come from the catalog's chunk files. The order is exact:
+                magnitude, then identifier.
+                test SpectrumCatalogTest.RegionOrderIsTotalWhenMagnitudesDifferByLessThanAMicromagnitude
+    record      src/AfterNightEngine/src/algorithms/catalog/SpectrumCatalog.cpp
+
+finding morphology-reads-unwritten-working-plane
+    title       Composite and iterated morphology would read working-plane samples no pass wrote
+    severity    high
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    Under a rule that judges values - non-finite, exact zero or a range - a pass skips a centre the rule
+                rejects and leaves that sample of its working plane unwritten, and the working planes come from the
+                engine context uninitialised. A later pass re-judging the plane would admit whatever the memory held
+                and carry it into the destination, so an open, a close, a gradient, a top-hat or any iterated
+                operation over an image with a NaN would disclose memory. Each plane a later pass reads is seeded
+                with what its own pass reads, as the order filter does, so a skipped centre carries its rejected
+                sample forward. The case fills every allocation with a marker and fails on the marker without the
+                seeding.
+                test GeneralFilterTest.CompositeMorphologyNeverReadsAWorkingPlaneItDidNotWrite
+    record      src/AfterNightEngine/src/algorithms/spatial/GeneralFilter.cpp
+
+finding background-apply-channel-overflow
+    title       A background correction of more than four channels would write a level past its result's array
+    severity    high
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    applyImageBackground checks the channel count against kMaxBackgroundChannels as well as one model
+                per channel; without it an image of five or more channels would write its applied level past the end
+                of a four-entry std::array in the result - a write outside a buffer through an ordinary argument,
+                since the engine's limits admit 4,096 channels. It refuses such an image as the sampling and the
+                automatic estimate do.
+                test BackgroundModelTest.ACorrectionRefusesAnImageWithMoreChannelsThanItsResultCarriesLevelsFor
+    record      src/AfterNightEngine/src/algorithms/background/BackgroundModel.cpp
+
+finding geometry-tabulated-mosaic-crop
+    title       Cropping a tabulated mosaic would dereference an empty optional
+    severity    high
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    The entry point that builds a mosaic's descriptor from a pattern's name refuses a tabulated pattern,
+                and an X-Trans frame from a raw file reaches a crop through an ordinary call. planCrop builds the
+                descriptor from the table and reduces the phase over the mosaic's own block, as the codec facade's
+                region decode does.
+                test GeometryOperationsTest.CropOfATabulatedMosaicKeepsItsTableAndMovesItsPhaseOverItsOwnBlock
+    record      src/AfterNightEngine/src/algorithms/geometry/Geometry.cpp
+
+finding geometry-tabulated-mosaic-resample
+    title       A CFA-aware integer resample would mix the filters of a mosaic that does not repeat over two pixels
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    planCfaIntegerResample refuses a mosaic whose block is not two pixels, so an X-Trans frame of even
+                extent is not resampled by two-by-two phase blocks.
+                test GeometryOperationsTest.CfaAwareResampleRefusesAMosaicThatDoesNotRepeatOverTwoPixels
+    record      src/AfterNightEngine/src/algorithms/geometry/Geometry.cpp
+
+finding total-variation-rejected-samples
+    title       Total-variation denoising would let a rejected non-finite sample into its solve
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    test TotalVariationDenoiseTest.RejectedNonFiniteSamplesDoNotEnterEitherSolveOrChangeTheDestination.
+                Both methods substitute zero before solving and leave rejected destinations untouched in planar and
+                gathered layouts, and the selected and written counts exclude rejected samples.
+    record      src/AfterNightEngine/src/algorithms/noisereduction/TotalVariationDenoise.cpp
+
+finding local-normalization-clipped-centre
+    title       A sigma-clipped local centre would be taken over overwritten values
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    test LocalNormalizationTest.AnUndersizedClippingPassPreservesThePreviousSampleSet.
+                Candidates are collected in existing scratch and committed only when at least eight survive, so both
+                the median and the mode keep the original set after an abandoned pass.
+    record      src/AfterNightEngine/src/algorithms/normalization/LocalNormalizationModel.cpp
+
+finding stack-quality-cluster-index-width
+    title       The stack quality's cluster flood fill needs pixel indices wider than 32 bits
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    test StackQualityTest.ClusterTraversalBudgetIncludesFullWidthIndices and
+                test StackExecutorTest.BudgetsFinalClusterScratchWithSmallTiles.
+                The traversal stack uses 64-bit indices, with a static assertion against the plane index width and
+                overflow-checked workspace sizing. The tests hold memory-budget admission; no suite traverses more
+                than 2^32 pixels.
+    record      src/AfterNightEngine/src/algorithms/stacking/StackQuality.cpp
+
+finding pointwise-fusion-table-remap
+    title       Fusing two pointwise programs would remap a table step's operand instead of its table
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    test PointwiseCanonicalizationTest.FusionRemapsEveryKindOfTableInLaterStages.
+                Fusion adjusts the table field and keeps the source operands, so a leading lookup table followed by
+                channel-matrix or sampled-curve stages agrees with sequential evaluation.
+    record      src/AfterNightEngine/src/algorithms/pointwise/PointwiseCanonicalization.cpp
+
+finding pixelmath-negative-zero-constant
+    title       The expression compiler's constant pool would merge -0 with 0
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    test PixelMathProgramTest.ConstantPoolingPreservesBothSignsOfZero.
+                Pool entries are compared by their double bit patterns, so either insertion order keeps positive and
+                negative zero and the signs of their reciprocals.
+    record      src/AfterNightEngine/src/algorithms/pixelmath/PixelMathProgram.cpp
+
+finding math-kernel-negative-zero-power
+    title       The reference and compiled power would disagree at a negative-zero base
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    The compiled power restores the zero base's sign at odd integral exponents, including negative
+                exponents producing infinity.
+                test MathPrimitivesTest.SignedZeroPowersAgreeAcrossProvidersAndVectorTails compares signs and values
+                across providers and partial vector tails, and
+                test MathPrimitivesTest.ExponentNarrowingCannotChangeSignedZeroClassification holds the scalar
+                fallback when narrowing the exponent changes its exceptional-value classification.
+    record      src/AfterNightEngine/src/algorithms/math/MathPrimitives.cpp
+
+finding image-adopts-mismatched-sample-type
+    title       An image would adopt storage under a descriptor naming another representation of the same width
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    Storage adoption and describing transitions refuse a descriptor whose exact sample type
+                differs from the image's, before ownership or metadata changes.
+                test ImageTest.SameWidthSampleTypeMismatchPreservesStorageAndDescription
+                and test ImageTest.ADescriptionThatDoesNotDescribeTheseSamplesIsRefused
+    record      src/AfterNightEngine/src/image/Image.cpp
+
+finding numeric-results-that-depend-on-the-path
+    title       Six operations whose answers would be wrong or would depend on the path taken
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    Dither is centred in manual and automatic correction; empty CLAHE tiles contribute identity; range
+                ramps share reciprocal arithmetic; collapsed tables keep contraction; star masks use detected-star
+                coordinates; and aliased narrowband passes keep their original admission.
+                test BackgroundModelTest.ADitherIsBoundedByItsWidthAndDoesNotDependOnTheThreadCount
+                test BackgroundModelTest.AutomaticRemovalDitherIsCentredAndReproducible
+                test GeneralFilterTest.EmptyClaheTileContributesIdentityInsteadOfBlack
+                test RangeSelectionTest.ValueValidityAndLayoutDoNotChangeRampBits
+                test PointwiseCanonicalizationTest.CollapsedLookupPreservesContractionAtEveryCode
+                test StarMaskTest.BothPaintingsAreCentredOnDetectedPixelCentres
+                test NarrowbandColorMapTest.InPlacePostProcessingUsesOriginalAdmission
+                test NarrowbandColorMapTest.AliasedAdmissionStorageIsBudgetedBeforeWriting
+    record      docs/dev/guides/NUMERIC_VALIDITY_METADATA.md
+
+finding checks-an-operation-does-not-make
+    title       Five operations would accept what they should refuse, or refuse what they should accept
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    Calibration checks the numeric domain and the destination's sample alignment; WCS construction
+                checks distortion reference pixels; an absent Gaia header count is optional without weakening the
+                manifest count; colorization declares its description change.
+                test PhotometricColorCalibrationTest.WholeCalibrationRefusesWhatItCannotCalibrate
+                test PhotometricColorCalibrationTest.ApplyRefusesMisalignedDestinationBeforeWriting
+                test WcsSolutionTest.DistortionMustShareTheLinearReferencePixel
+                test GaiaChunkReaderTest.OptionalHeaderCountDoesNotReplaceTheManifestCount
+                test ColorAdjustmentTest.ColorizationDeclaresTheMonoToRgbDescriptionChange
+    record      docs/dev/PUBLIC_API_CONTRACT.md
+
+finding star-detection-memory
+    title       Star detection would exceed its working bound, and its containers could throw across the boundary
+    severity    medium
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    The working bound includes maximum-box fitting scratch for every worker a context can admit, while
+                actual storage follows admitted concurrency and observed boxes. Container allocation failures return
+                AllocationFailed without publishing a partial result.
+                test StarDetectionTest.WorkingBoundCoversConcurrentFits
+                test StarDetectionTest.HeapExhaustionReturnsFailureWithoutPublishingAPartialResult
+    record      src/AfterNightEngine/src/algorithms/stars/StarDetection.cpp
+
+finding refusals-that-name-the-wrong-thing
+    title       Refusals would carry the wrong code, the wrong operation, or no detail
+    severity    low
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    Codes, operation names, parameters and limits identify the actual refusal; fractional normalization
+                limits keep their values in real-valued typed context; I/O preserves cancellation and the
+                representation and limit classifications, and sweep errors are returned.
+                test ImageLayoutTest.IntrinsicLayoutErrorsPrecedeConfiguredLimits
+                test ImageStorageTest.SampleChecksNameTheCallerAndAlignmentConflict
+                test AcquisitionMetadataTest.RawCameraRefusalsNameTheRejectedField
+                test PixelMathParserTest.NameLimitReportsNamesRatherThanNodes
+                test PixelMathResolutionTest.TooManyArgumentsReportsTheMaximum
+                test PixelMathLoweringTest.NonTonePowerRemainsAvailableToTheInterpreter
+                test LocalNormalizationTest.FractionalRefusalsCarryTheValueAndViolatedBound
+                test SpectrumCatalogTest.ChunkArrayDistinguishesMalformedDataFromTheEntryLimit
+                test StackRejectionTest.HistoryRefusalNamesTheRejectedCombination
+                test OutputTransactionTest.SweepReportsAPayloadItCannotRemove
+                test PngCodecTest.ConfiguredDimensionsAreLimitsRatherThanCorruptMetadata
+    record      docs/dev/PUBLIC_API_CONTRACT.md
+
+finding unenforced-preconditions
+    title       Preconditions nothing would enforce
+    severity    low
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    Invalid progress intervals install nothing; Wiener requires its inverse spectrum; every-border plans
+                choose Clamp; repeated context-block takes keep ownership; relaxed star fits still enforce amplitude
+                and beta; catalogue paths agree on parent components.
+                test KernelContractTest.EveryBorderCapabilityProducesASupportedDefault
+                test NarrowbandColorMapTest.AContextBlockRefusesASecondTakeWithoutLosingItsAllocation
+                test StarDetectionTest.RelaxingFitQualityStillEnforcesTheAmplitudeWindow
+                test GaiaCatalogManifestTest.DotsInsideAFileNameAreNotParentTraversal
+                test StackPlannerTest.ScratchFollowsTheRejectionFamilyAndTheWorkers
+    record      docs/dev/PUBLIC_API_CONTRACT.md
+
+finding ambiguous-behaviours-held-by-tests
+    title       Behaviours a reader could take two ways, each held to one by a test
+    severity    low
+    component   engine
+    found       source review, 2026-09-23
+    status      repaired
+    advisories  none
+    evidence    All determinism admits one worker; implicit GPU dispatch is reserved and unavailable; identity
+                normalization records its estimator; photometric transitions record the recipe and coefficients;
+                noise estimation excludes rejected pairs; the general Float32 median widens its middle pair;
+                plate-search rings use angular distances.
+                test ExecutionContextTest.AllReductionsUseAFixedAdmissionRegardlessOfTheRequestedWidth
+                test GlobalNormalizationTest.IdentityRetainsTheChosenEstimator
+                test PhotometricColorCalibrationTest.TransitionRecordsTheRecipeAndCoefficients
+                test PatchDenoiseTest.RejectedSamplesDoNotInventNoiseAtTheirBoundaries
+                test StackRejectionTest.GeneralFloatMedianDoesNotOverflowItsMiddlePair
+                test PlateSolverTest.HintedAngularRingsReachTheOppositeHemisphere
+    record      docs/dev/guides/NUMERIC_VALIDITY_METADATA.md

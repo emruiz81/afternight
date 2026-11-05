@@ -1,0 +1,9 @@
+candidate,object_bytes
+Scalar,10024
+Autovec,14680
+Highway,19784
+HighwayDynamic,115992
+Xsimd,14704
+Sleef,2296
+OpenCv,12872
+Main,46336

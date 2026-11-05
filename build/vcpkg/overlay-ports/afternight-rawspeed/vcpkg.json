@@ -1,0 +1,16 @@
+{
+  "name": "afternight-rawspeed",
+  "version-string": "2026-09-11",
+  "port-version": 5,
+  "description": "AfterNight private serial RawSpeed decompressor and exact-output C boundary",
+  "homepage": "https://github.com/darktable-org/rawspeed",
+  "license": null,
+  "supports": "x64 & (windows | linux) & !uwp",
+  "dependencies": [
+    "pugixml",
+    { "name": "libjpeg-turbo", "default-features": false, "features": ["jpeg8"] },
+    "zlib",
+    { "name": "vcpkg-cmake", "host": true },
+    { "name": "vcpkg-cmake-config", "host": true }
+  ]
+}

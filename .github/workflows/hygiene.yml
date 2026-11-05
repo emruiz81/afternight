@@ -1,0 +1,31 @@
+name: Documentation Links
+
+# Holds every developer document, the root documents and the .github templates to their links: a link names a file
+# that exists. It runs on every pull request whatever the pull request touches, because what it reads is
+# documentation, which the CI workflow does not build for. The user guide's links are held by its strict build.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: links-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  links:
+    name: Documentation Links
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Test the link check
+        run: python3 build/scripts/tools/check_markdown_links_test.py
+
+      - name: Check the documents' links
+        run: python3 build/scripts/tools/check_markdown_links.py

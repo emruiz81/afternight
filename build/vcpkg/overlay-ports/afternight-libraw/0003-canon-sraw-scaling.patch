@@ -1,0 +1,22 @@
+--- a/src/decoders/decoders_dcraw.cpp
++++ b/src/decoders/decoders_dcraw.cpp
+@@ -739,8 +739,8 @@
+             (unique_id == CanonID_EOS_1D_Mark_IV) ||
+             (unique_id == CanonID_EOS_60D))
+         {
+-          rp[1] = (rp[1] << 2) + hue;
+-          rp[2] = (rp[2] << 2) + hue;
++          rp[1] = rp[1] * 4 + hue;
++          rp[2] = rp[2] * 4 + hue;
+           pix[0] = rp[0] + ((50 * rp[1] + 22929 * rp[2]) >> 14);
+           pix[1] = rp[0] + ((-5640 * rp[1] - 11751 * rp[2]) >> 14);
+           pix[2] = rp[0] + ((29040 * rp[1] - 101 * rp[2]) >> 14);
+@@ -751,7 +751,7 @@
+             rp[0] -= 512;
+           pix[0] = rp[0] + rp[2];
+           pix[2] = rp[0] + rp[1];
+-          pix[1] = rp[0] + ((-778 * rp[1] - (rp[2] << 11)) >> 12);
++          pix[1] = rp[0] + ((-778 * rp[1] - (rp[2] * 2048)) >> 12);
+         }
+         FORC3 rp[c] = CLIP15(pix[c] * sraw_mul[c] >> 10);
+       }

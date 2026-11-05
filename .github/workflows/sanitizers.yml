@@ -1,0 +1,130 @@
+name: Sanitizers
+
+on:
+  workflow_dispatch:
+    inputs:
+      labels:
+        description: 'Campaign rows to run (space-separated labels from build/scripts/tools/sanitizer_matrix.txt); empty runs every row'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanitizers-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: "6.10.3"
+  PYTHON_VERSION: "3.14.7"
+  PYTHON_BUILD_DATE: "20260814"
+
+jobs:
+  prepare-cache:
+    uses: ./.github/workflows/cache-linux.yml
+    with:
+      variant: sanitizers
+
+  # The address and leak configurations of the sanitizer campaign, as docs/dev/LOCAL_VALIDATION.md runs them:
+  # the generated instrumentation, the whole active set built over it, and the campaign deciding every row from its
+  # output. The options each configuration applies are the matrix's, never typed here.
+  address:
+    name: Address and leak campaign
+    needs: prepare-cache
+    runs-on: ubuntu-26.04
+    timeout-minutes: 350
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost \
+            /usr/local/share/powershell /usr/local/lib/node_modules || true
+          sudo apt-get clean
+          df -h /
+
+      - name: Install system dependencies
+        run: build/scripts/linux/02-install_linux_deps.sh system
+
+      - name: Restore Qt cache
+        uses: actions/cache/restore@v5
+        with:
+          path: Qt6
+          key: qt-linux-${{ env.QT_VERSION }}-clang-linux_gcc_64-v1
+          fail-on-cache-miss: true
+
+      - name: Restore Embedded Python cache
+        uses: actions/cache/restore@v5
+        with:
+          path: python/python/tools_linux
+          key: python-linux-${{ env.PYTHON_VERSION }}-${{ env.PYTHON_BUILD_DATE }}-${{ hashFiles('build/scripts/python/**') }}
+          fail-on-cache-miss: true
+
+      - name: Restore vcpkg installed packages cache
+        uses: actions/cache/restore@v5
+        with:
+          path: vcpkg/installed
+          key: ${{ needs.prepare-cache.outputs.vcpkg_key }}
+          fail-on-cache-miss: true
+
+      - name: Restore KDDockWidgets cache
+        uses: actions/cache/restore@v5
+        with:
+          path: kddockwidgets/build-clang-install
+          key: ${{ needs.prepare-cache.outputs.kddockwidgets_key }}
+          fail-on-cache-miss: true
+
+      - name: Restore OpenXISF cache
+        uses: actions/cache/restore@v5
+        with:
+          path: openxisf/build-clang-install
+          key: ${{ needs.prepare-cache.outputs.openxisf_key }}
+          fail-on-cache-miss: true
+
+      - name: Generate the instrumented projects
+        run: AFTERNIGHT_SANITIZE=address build/scripts/linux/01-create_project_files.sh
+
+      - name: Build 3rd party libraries
+        run: build/scripts/linux/03a-build_3rdparty_libs_release.sh
+
+      # The suites are built with the active set, before the deployment that build-linux.yml runs ahead of them:
+      # building a suite reads nothing the deployment copies, only running one does.
+      - name: Build the active set and its tests
+        run: build/scripts/linux/build_active_targets.sh release --tests
+
+      - name: Deploy dependencies
+        run: build/scripts/linux/05a-deploy_all_deps_release.sh
+
+      - name: Run the address configuration
+        env:
+          LABELS: ${{ inputs.labels }}
+        run: |
+          selected=()
+          for label in $LABELS; do selected+=(--label "$label"); done
+          python3 build/scripts/tools/run_sanitizer_campaign.py --configuration address \
+            --output "$RUNNER_TEMP/sanitizers/address" "${selected[@]}"
+
+      - name: Run the leak configuration
+        if: ${{ !cancelled() }}
+        env:
+          LABELS: ${{ inputs.labels }}
+        run: |
+          selected=()
+          for label in $LABELS; do selected+=(--label "$label"); done
+          python3 build/scripts/tools/run_sanitizer_campaign.py --configuration leak \
+            --output "$RUNNER_TEMP/sanitizers/leak" "${selected[@]}"
+
+      - name: Upload the campaign output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: afternight-sanitizers-${{ github.sha }}
+          path: ${{ runner.temp }}/sanitizers/
+          retention-days: 7
+          if-no-files-found: ignore

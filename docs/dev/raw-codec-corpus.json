@@ -1,0 +1,46 @@
+{
+  "fixtures": [
+    {
+      "environment": "AFTERNIGHT_TEST_RAW_CANON_CHANNEL_BLACK",
+      "path": "Integration Samples/Carina Nebula - Canon 6D/lights/_MG_6842.CR2",
+      "bytes": 24642183,
+      "sha256": "2167b130e0667dc81b345ec403439955cd84a68bc345ccfb794e53a5a3dbe9d9",
+      "license": "maintainer-owned; authorized for local use only"
+    },
+    {
+      "environment": "AFTERNIGHT_TEST_RAW_CANON",
+      "path": "Integration Samples/Carina Nebula - Canon 6D/lights/_MG_6827.CR2",
+      "bytes": 24773321,
+      "sha256": "5e3f7b6e3aaea837d9906df32c2b704f106144ab283c37163b8c25ea9198ea37",
+      "license": "maintainer-owned; authorized for local use only"
+    },
+    {
+      "environment": "AFTERNIGHT_TEST_RAW_NIKON",
+      "path": "Integration Samples/M83 - Nikon D5500/lights/_DSC0329.NEF",
+      "bytes": 29941851,
+      "sha256": "2e79dfb5942899819291002ad4af13ebef63bdfddf289e68aa6b57ee91e1e9de",
+      "license": "maintainer-owned; authorized for local use only"
+    },
+    {
+      "environment": "AFTERNIGHT_TEST_RAW_XPRO1",
+      "path": "PublicDomain/RAW-XTrans/Fujifilm_X-Pro1_DSCF2131.RAF",
+      "bytes": 26146816,
+      "sha256": "0b1046c299d9eb222a8f003bd047f2a34f507da0d1704ac32cefbc82f799d121",
+      "license": "CC0-1.0"
+    },
+    {
+      "environment": "AFTERNIGHT_TEST_RAW_XT50",
+      "path": "PublicDomain/RAW-XTrans/Fujifilm_X-T50_DSCF0120.RAF",
+      "bytes": 29651152,
+      "sha256": "3a8a9ac6d92274969aaa1f55ea669191b98bb8f588d00ec8ec17afd8b3963dea",
+      "license": "CC0-1.0"
+    },
+    {
+      "environment": "AFTERNIGHT_TEST_RAW_FOVEON",
+      "path": "PublicDomain/RAW-FullColor/Sigma_DP1_1116.X3F",
+      "bytes": 10317264,
+      "sha256": "44508f7df4191aacaecb6461e1841dae002e5b71a4f95a00aa3f52d1c6d6bc5f",
+      "license": "CC0-1.0"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 2,
+  "reportHashScope": "structural-report-v1",
+  "reportSha256": "5b3ff2ea57494d5550dc848960c8a36e814be3593cee418f12ea372b8a469562",
+  "summary": {
+    "navigatedPages": 112,
+    "trackerPageRows": 112,
+    "registeredBuiltInActions": 122,
+    "registeredActionsWithoutMenu": 0,
+    "directWiredProcessMenuActions": 3,
+    "directWiredImageMenuActions": 32,
+    "parityFindings": 0,
+    "pagesMissingRequiredHeadings": 3,
+    "requiredHeadingFindings": 36,
+    "pagesWithoutCurrentSourceReviewDate": 3,
+    "pagesWithoutFullReviewedRevision": 3,
+    "pagesWithPartialSourceRecords": 0,
+    "pagesWithUnavailableSourceReview": 3,
+    "pagesMatchingGenericBoilerplate": 0,
+    "processParameterTables": {
+      "canonical": 77,
+      "noncanonicalShape": 0,
+      "missing": 0
+    }
+  },
+  "acceptedStartingFindings": [
+    "UG-61 is maintainer-approved Deferred because its historical physical-mono run and scoped proxies do not cover representative physical OSC or matched broadband-continuum branches; UG-62 through UG-64 are also maintainer-approved Deferred under their recorded release-scope decisions.",
+    "The 3 tracker rows still scheduled for later remediation have no recorded source-review dates or revisions.",
+    "The same 3 navigated pages are missing at least one heading required by their frozen UG-00 template.",
+    "Reviewed-source drift is reported dynamically and is intentionally excluded from the structural baseline. Phase-owned drift explanations remain in their phase ledgers and validation evidence, and zero page has a partial source record.",
+    "UG-65 preserves zero menu-parity, partial-source, and boilerplate findings while reconciling the release diagram inventory. It retains eight source-backed Mermaid diagrams plus one semantic HTML flow, excludes the three diagrams attached only to deferred workflow claims, and normalizes committed plus working-tree source drift so the canonical report is byte-identical before and after committing the same reviewed changes."
+  ]
+}

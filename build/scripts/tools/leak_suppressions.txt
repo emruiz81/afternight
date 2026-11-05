@@ -1,0 +1,39 @@
+# LeakSanitizer suppressions of the `leak` configuration, read by run_sanitizer_campaign.py, which refuses an entry
+# without a reason above it or one naming this engine. Each names a library AfterNight did not write and what the
+# library keeps for itself. The full host and the runtime backend's suite finalize the interpreter they started;
+# CPython does not give back everything an interpreter allocated when it is finalized - its static types, interned
+# strings, and the state of the extension modules it cannot unload - nor do NumPy, pybind11 and PySide6 give back
+# theirs. The entries name CPython's allocator rather than the interpreter's library, so an object of AfterNight's
+# allocated while Python is on the stack is still reported; a Python object that AfterNight leaked a reference to
+# is not, which a finalized interpreter would hide anyway.
+
+# reason: CPython's raw allocator, under every object and buffer the interpreter keeps until it is finalized and then does not free.
+leak:PyMem_RawMalloc
+# reason: CPython's raw allocator, under every object and buffer the interpreter keeps until it is finalized and then does not free.
+leak:PyMem_RawCalloc
+# reason: CPython's raw allocator, under every object and buffer the interpreter keeps until it is finalized and then does not free.
+leak:PyMem_RawRealloc
+# reason: CPython's memory allocator, which takes from malloc directly when the interpreter is told to, as PYTHONMALLOC=malloc does.
+leak:PyMem_Malloc
+# reason: CPython's memory allocator, which takes from malloc directly when the interpreter is told to, as PYTHONMALLOC=malloc does.
+leak:PyMem_Calloc
+# reason: CPython's memory allocator, which takes from malloc directly when the interpreter is told to, as PYTHONMALLOC=malloc does.
+leak:PyMem_Realloc
+# reason: CPython's object allocator, which takes from malloc directly when the interpreter is told to, as PYTHONMALLOC=malloc does.
+leak:PyObject_Malloc
+# reason: CPython's object allocator, which takes from malloc directly when the interpreter is told to, as PYTHONMALLOC=malloc does.
+leak:PyObject_Calloc
+# reason: CPython's object allocator, which takes from malloc directly when the interpreter is told to, as PYTHONMALLOC=malloc does.
+leak:PyObject_Realloc
+# reason: NumPy's extension module registers its ufunc loops, casts and dtypes in static state, and CPython never unloads an extension module to free it.
+leak:_multiarray_umath
+# reason: pybind11 allocates a function record for every function a module defines and frees it only with the function object, which a finalized interpreter leaves behind.
+leak:pybind11::cpp_function::make_function_record
+# reason: pybind11 keeps one pointer to each module's local internals for the life of the process and never frees it; the host unloads the runtime backend before the sanitizer reads the stack, so its frames carry no name but the interpreter executing the built-in module that registered it.
+leak:_imp_exec_builtin
+# reason: shiboken6, the binding runtime of Qt for Python, which an extension environment installs with PySide6, registers a converter and a type record for every type a PySide6 module defines in static state and never frees them. Its code keeps no frame pointer, so a stack it allocates in ends at its own frame, and only an allocation it makes itself matches.
+leak:libshiboken6
+# reason: PySide6's runtime registers the signals of every type a PySide6 module defines in static state and never frees them; its frames end a stack as shiboken6's do.
+leak:libpyside6
+# reason: PySide6's Qt binding modules register their types with shiboken6 when they are imported, and CPython never unloads an extension module to free them; their frames end a stack as shiboken6's do.
+leak:PySide6/Qt

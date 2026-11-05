@@ -1,0 +1,31 @@
+# The performance campaign's registry: the representative rows of every scenario group the engine is
+# measured on.
+#
+# build/scripts/tools/run_performance_campaign.py reads this file. A forced-backend run of the catalogue
+# on each concrete CPU backend must cover every row here but the pipelines group's, which runs over the
+# reference dataset on a benchmark host only, and must run each row on the backend it asked for.
+#
+# Syntax, one line per group; lines starting with '#' and blank lines are ignored:
+#   group <name> <scenario> [scenario ...]
+
+group object-storage           storage.allocate_first_touch.f32
+group pixel-access             pixel_access.generic_read_write.f32
+group transfer                 conversion.u16_to_f32 conversion.f32_to_u16
+group statistics               reduction.basic_statistics.f32
+group histograms               histogram.full_scale.u16
+group pointwise                pointwise.fused_scale_clamp_chain.f32 pointwise.gamma_transfer.f32
+group color-channel            color.rgb_to_lab.f32
+group masks-validity           masks.range_selection.f32
+group filtering                stencil.separable_gaussian.f32
+group multiscale-restoration   multiscale.starlet_roundtrip.f32 nr.patch_denoise.f32
+group geometry                 resample.resize_bilinear.f32
+group calibration              calibration.bias_dark_flat.f32
+group normalization-background normalization.global_apply.f32
+group stars-registration       stars.detect.planted.f32
+group astrometry-photometry    astrometry.plate_solve.hinted.points photometry.aperture.rgb.f32
+group stacking                 stacking.rejection.sigma_clipping.8x_f32
+group drizzle                  drizzle.execute.lanczos3
+group expression               expression.evaluate_chain.f32 expression.evaluate_chain_fused.f32
+group io                       codec.fits_roundtrip.f32
+group external-adapters        interop.opencv_view.u16
+group pipelines                pipelines.integration.carina_red

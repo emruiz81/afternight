@@ -1,0 +1,39 @@
+{
+  "id": "example.auxiliary_buffers_process",
+  "name": "Example Auxiliary Buffers Process",
+  "version": "1.0.0",
+  "summary": "Template for mask input, weight input, and output-mask generation.",
+  "description": "A repository-ready AfterNight extension package that demonstrates auxiliary image buffers.",
+  "author": "Example Author",
+  "license": "GPL-3.0-or-later",
+  "publisher_id": "example.author",
+  "type": "python",
+  "entry_point": "auxiliary_buffers_process",
+  "process_class": "ExampleAuxiliaryBuffersProcess",
+  "category": "mask_generation",
+  "launch_mode": "single_image",
+  "sdk_backend": "runtime",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "dependencies": {
+    "dependency_context": "shared_host",
+    "shared_host_profile": "scientific_core"
+  },
+  "tags": [
+    "template",
+    "masks",
+    "weights"
+  ],
+  "capabilities": {
+    "execute": true,
+    "masks": {
+      "input": true,
+      "output": true
+    },
+    "weights": {
+      "input": true
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "configurations": [
+    {
+      "name": "Clang",
+      "includePath": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/../AfterNightExtensionProtocol",
+        "${workspaceFolder}/../../python/python/tools_linux/include/python3.14",
+        "${workspaceFolder}/../../Qt6/6.10.3/gcc_64/include",
+        "${workspaceFolder}/../../Qt6/6.10.3/gcc_64/include/QtCore",
+        "${workspaceFolder}/../../Qt6/6.10.3/gcc_64/include/QtNetwork",
+        "${workspaceFolder}/../../obj/AfterNightExtensionHostLite/clang"
+      ],
+      "defines": [
+        "_DEBUG",
+        "DEBUG",
+        "linux",
+        "__linux__",
+        "QT_CORE_LIB",
+        "QT_NETWORK_LIB"
+      ],
+      "compilerPath": "/usr/bin/clang++",
+      "intelliSenseMode": "clang-x64",
+      "cppStandard": "c++20"
+    }
+  ],
+  "version": 4
+}

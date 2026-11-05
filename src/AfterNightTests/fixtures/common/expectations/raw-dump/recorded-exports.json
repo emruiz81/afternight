@@ -1,0 +1,1183 @@
+{
+  "captured": "2026-10-15",
+  "commit": "657f66f78b6b594dc4d3c2f054e175811948d25b",
+  "outcomes": [
+    {
+      "cards": [
+        {
+          "comment": "file does conform to FITS standard",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "number of bits per data pixel",
+          "key": "BITPIX",
+          "value": "1"
+        },
+        {
+          "comment": "number of data axes",
+          "key": "NAXIS",
+          "value": "2"
+        },
+        {
+          "comment": "length of data axis 1",
+          "key": "NAXIS1",
+          "value": "7"
+        },
+        {
+          "comment": "length of data axis 2",
+          "key": "NAXIS2",
+          "value": "5"
+        },
+        {
+          "comment": "FITS dataset may contain extensions",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "SOFTWARE",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "PROGRAM",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "ROWORDER",
+          "value": "'TOP-DOWN'"
+        },
+        {
+          "comment": "",
+          "key": "BZERO",
+          "value": "0"
+        },
+        {
+          "comment": "",
+          "key": "BSCALE",
+          "value": "1"
+        },
+        {
+          "comment": "",
+          "key": "NAXIS3",
+          "value": "1"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt8",
+        "width": 7
+      },
+      "exported": true,
+      "name": "fits-uint8-grey",
+      "payloadBytes": 35,
+      "payloadDigest": "f2d2b1d74b24e1e3067674171a1c9c442fafc3d5b83688d6a4c1c0e27ff4bc2f",
+      "sourceFormat": "FITS"
+    },
+    {
+      "cards": [
+        {
+          "comment": "file does conform to FITS standard",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "number of bits per data pixel",
+          "key": "BITPIX",
+          "value": "1"
+        },
+        {
+          "comment": "number of data axes",
+          "key": "NAXIS",
+          "value": "2"
+        },
+        {
+          "comment": "length of data axis 1",
+          "key": "NAXIS1",
+          "value": "7"
+        },
+        {
+          "comment": "length of data axis 2",
+          "key": "NAXIS2",
+          "value": "5"
+        },
+        {
+          "comment": "FITS dataset may contain extensions",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "offset data range to that of signed byte",
+          "key": "BZERO",
+          "value": "128"
+        },
+        {
+          "comment": "default scaling factor",
+          "key": "BSCALE",
+          "value": "1"
+        },
+        {
+          "comment": "",
+          "key": "SOFTWARE",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "PROGRAM",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "ROWORDER",
+          "value": "'TOP-DOWN'"
+        },
+        {
+          "comment": "",
+          "key": "NAXIS3",
+          "value": "1"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "Int8",
+        "width": 7
+      },
+      "exported": true,
+      "name": "fits-int8-grey",
+      "payloadBytes": 35,
+      "payloadDigest": "84d8a90876d8f1d196f3bce165ce7a0787962ef89f9709570b7949e33bcbb710",
+      "sourceFormat": "FITS"
+    },
+    {
+      "cards": [
+        {
+          "comment": "file does conform to FITS standard",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "number of bits per data pixel",
+          "key": "BITPIX",
+          "value": "16"
+        },
+        {
+          "comment": "number of data axes",
+          "key": "NAXIS",
+          "value": "2"
+        },
+        {
+          "comment": "length of data axis 1",
+          "key": "NAXIS1",
+          "value": "7"
+        },
+        {
+          "comment": "length of data axis 2",
+          "key": "NAXIS2",
+          "value": "5"
+        },
+        {
+          "comment": "FITS dataset may contain extensions",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "offset data range to that of unsigned short",
+          "key": "BZERO",
+          "value": "0"
+        },
+        {
+          "comment": "default scaling factor",
+          "key": "BSCALE",
+          "value": "1"
+        },
+        {
+          "comment": "",
+          "key": "OBJECT",
+          "value": "M42"
+        },
+        {
+          "comment": "",
+          "key": "EXPTIME",
+          "value": "300.0"
+        },
+        {
+          "comment": "",
+          "key": "FILTER",
+          "value": "Ha"
+        },
+        {
+          "comment": "",
+          "key": "SOFTWARE",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "PROGRAM",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "ROWORDER",
+          "value": "'TOP-DOWN'"
+        },
+        {
+          "comment": "",
+          "key": "NAXIS3",
+          "value": "1"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt16",
+        "width": 7
+      },
+      "exported": true,
+      "name": "fits-uint16-grey",
+      "payloadBytes": 70,
+      "payloadDigest": "b05bfc272a86c06118cbcbdc874fe181ff70c7b46390d0c3af67f90b6eeacb88",
+      "sourceFormat": "FITS"
+    },
+    {
+      "cards": [
+        {
+          "comment": "file does conform to FITS standard",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "number of bits per data pixel",
+          "key": "BITPIX",
+          "value": "16"
+        },
+        {
+          "comment": "number of data axes",
+          "key": "NAXIS",
+          "value": "2"
+        },
+        {
+          "comment": "length of data axis 1",
+          "key": "NAXIS1",
+          "value": "7"
+        },
+        {
+          "comment": "length of data axis 2",
+          "key": "NAXIS2",
+          "value": "5"
+        },
+        {
+          "comment": "FITS dataset may contain extensions",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "SOFTWARE",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "PROGRAM",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "ROWORDER",
+          "value": "'TOP-DOWN'"
+        },
+        {
+          "comment": "",
+          "key": "BZERO",
+          "value": "32768"
+        },
+        {
+          "comment": "",
+          "key": "BSCALE",
+          "value": "1"
+        },
+        {
+          "comment": "",
+          "key": "NAXIS3",
+          "value": "1"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "Int16",
+        "width": 7
+      },
+      "exported": true,
+      "name": "fits-int16-grey",
+      "payloadBytes": 70,
+      "payloadDigest": "679a3aa50446e6ddb7a9a32f646fe18043931917754784ac423f89a4bc905dcd",
+      "sourceFormat": "FITS"
+    },
+    {
+      "cards": [
+        {
+          "comment": "file does conform to FITS standard",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "number of bits per data pixel",
+          "key": "BITPIX",
+          "value": "32"
+        },
+        {
+          "comment": "number of data axes",
+          "key": "NAXIS",
+          "value": "2"
+        },
+        {
+          "comment": "length of data axis 1",
+          "key": "NAXIS1",
+          "value": "7"
+        },
+        {
+          "comment": "length of data axis 2",
+          "key": "NAXIS2",
+          "value": "5"
+        },
+        {
+          "comment": "FITS dataset may contain extensions",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "offset data range to that of unsigned long",
+          "key": "BZERO",
+          "value": "0"
+        },
+        {
+          "comment": "default scaling factor",
+          "key": "BSCALE",
+          "value": "1"
+        },
+        {
+          "comment": "",
+          "key": "SOFTWARE",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "PROGRAM",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "ROWORDER",
+          "value": "'TOP-DOWN'"
+        },
+        {
+          "comment": "",
+          "key": "NAXIS3",
+          "value": "1"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt32",
+        "width": 7
+      },
+      "exported": true,
+      "name": "fits-uint32-grey",
+      "payloadBytes": 140,
+      "payloadDigest": "d2642510c8dd072d4ab0a03e18b6c00c2c89567c758fbc1a068e1ea4be2685e6",
+      "sourceFormat": "FITS"
+    },
+    {
+      "cards": [
+        {
+          "comment": "file does conform to FITS standard",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "number of bits per data pixel",
+          "key": "BITPIX",
+          "value": "32"
+        },
+        {
+          "comment": "number of data axes",
+          "key": "NAXIS",
+          "value": "2"
+        },
+        {
+          "comment": "length of data axis 1",
+          "key": "NAXIS1",
+          "value": "7"
+        },
+        {
+          "comment": "length of data axis 2",
+          "key": "NAXIS2",
+          "value": "5"
+        },
+        {
+          "comment": "FITS dataset may contain extensions",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "SOFTWARE",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "PROGRAM",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "ROWORDER",
+          "value": "'TOP-DOWN'"
+        },
+        {
+          "comment": "",
+          "key": "BZERO",
+          "value": "2147483648"
+        },
+        {
+          "comment": "",
+          "key": "BSCALE",
+          "value": "1"
+        },
+        {
+          "comment": "",
+          "key": "NAXIS3",
+          "value": "1"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "Int32",
+        "width": 7
+      },
+      "exported": true,
+      "name": "fits-int32-grey",
+      "payloadBytes": 140,
+      "payloadDigest": "9fd12c6e548098b5491149034cb7a677361f2d5246201fed6a09f412de44d9a8",
+      "sourceFormat": "FITS"
+    },
+    {
+      "cards": [
+        {
+          "comment": "file does conform to FITS standard",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "number of bits per data pixel",
+          "key": "BITPIX",
+          "value": "-32"
+        },
+        {
+          "comment": "number of data axes",
+          "key": "NAXIS",
+          "value": "2"
+        },
+        {
+          "comment": "length of data axis 1",
+          "key": "NAXIS1",
+          "value": "9"
+        },
+        {
+          "comment": "length of data axis 2",
+          "key": "NAXIS2",
+          "value": "6"
+        },
+        {
+          "comment": "FITS dataset may contain extensions",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "OBJECT",
+          "value": "M42"
+        },
+        {
+          "comment": "",
+          "key": "EXPTIME",
+          "value": "300.0"
+        },
+        {
+          "comment": "",
+          "key": "FILTER",
+          "value": "Ha"
+        },
+        {
+          "comment": "",
+          "key": "SOFTWARE",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "PROGRAM",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "ROWORDER",
+          "value": "'TOP-DOWN'"
+        },
+        {
+          "comment": "",
+          "key": "BZERO",
+          "value": "0.0"
+        },
+        {
+          "comment": "",
+          "key": "BSCALE",
+          "value": "1.0"
+        },
+        {
+          "comment": "",
+          "key": "NAXIS3",
+          "value": "1"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 6,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "Float32",
+        "width": 9
+      },
+      "exported": true,
+      "name": "fits-float32-grey",
+      "payloadBytes": 216,
+      "payloadDigest": "6376c6134b70aa6b7a3063f1c6b0f07ec70cd5380e0d1ba111cd5345ae78b97a",
+      "sourceFormat": "FITS"
+    },
+    {
+      "cards": [
+        {
+          "comment": "file does conform to FITS standard",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "number of bits per data pixel",
+          "key": "BITPIX",
+          "value": "-64"
+        },
+        {
+          "comment": "number of data axes",
+          "key": "NAXIS",
+          "value": "3"
+        },
+        {
+          "comment": "length of data axis 1",
+          "key": "NAXIS1",
+          "value": "7"
+        },
+        {
+          "comment": "length of data axis 2",
+          "key": "NAXIS2",
+          "value": "5"
+        },
+        {
+          "comment": "length of data axis 3",
+          "key": "NAXIS3",
+          "value": "3"
+        },
+        {
+          "comment": "FITS dataset may contain extensions",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "SOFTWARE",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "PROGRAM",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "ROWORDER",
+          "value": "'TOP-DOWN'"
+        },
+        {
+          "comment": "",
+          "key": "BZERO",
+          "value": "0.0"
+        },
+        {
+          "comment": "",
+          "key": "BSCALE",
+          "value": "1.0"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 3,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "Float64",
+        "width": 7
+      },
+      "exported": true,
+      "name": "fits-float64-colour",
+      "payloadBytes": 840,
+      "payloadDigest": "b7771887ea0597793d4b5081f3cc6463e656637114433fd43f01a21bf237c183",
+      "sourceFormat": "FITS"
+    },
+    {
+      "cards": [
+        {
+          "comment": "file does conform to FITS standard",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "number of bits per data pixel",
+          "key": "BITPIX",
+          "value": "16"
+        },
+        {
+          "comment": "number of data axes",
+          "key": "NAXIS",
+          "value": "3"
+        },
+        {
+          "comment": "length of data axis 1",
+          "key": "NAXIS1",
+          "value": "7"
+        },
+        {
+          "comment": "length of data axis 2",
+          "key": "NAXIS2",
+          "value": "5"
+        },
+        {
+          "comment": "length of data axis 3",
+          "key": "NAXIS3",
+          "value": "3"
+        },
+        {
+          "comment": "FITS dataset may contain extensions",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "offset data range to that of unsigned short",
+          "key": "BZERO",
+          "value": "0"
+        },
+        {
+          "comment": "default scaling factor",
+          "key": "BSCALE",
+          "value": "1"
+        },
+        {
+          "comment": "",
+          "key": "OBJECT",
+          "value": "M42"
+        },
+        {
+          "comment": "",
+          "key": "EXPTIME",
+          "value": "300.0"
+        },
+        {
+          "comment": "",
+          "key": "FILTER",
+          "value": "Ha"
+        },
+        {
+          "comment": "",
+          "key": "SOFTWARE",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "PROGRAM",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "ROWORDER",
+          "value": "'TOP-DOWN'"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 3,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt16",
+        "width": 7
+      },
+      "exported": true,
+      "name": "fits-uint16-colour",
+      "payloadBytes": 210,
+      "payloadDigest": "2f017716614c222d2e849eff827cc8835cc8e33e354891d9cde2a9ebc0ba1109",
+      "sourceFormat": "FITS"
+    },
+    {
+      "cards": [
+        {
+          "comment": "file does conform to FITS standard",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "number of bits per data pixel",
+          "key": "BITPIX",
+          "value": "16"
+        },
+        {
+          "comment": "number of data axes",
+          "key": "NAXIS",
+          "value": "2"
+        },
+        {
+          "comment": "length of data axis 1",
+          "key": "NAXIS1",
+          "value": "8"
+        },
+        {
+          "comment": "length of data axis 2",
+          "key": "NAXIS2",
+          "value": "6"
+        },
+        {
+          "comment": "FITS dataset may contain extensions",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "",
+          "key": "COMMENT",
+          "value": ""
+        },
+        {
+          "comment": "offset data range to that of unsigned short",
+          "key": "BZERO",
+          "value": "0"
+        },
+        {
+          "comment": "default scaling factor",
+          "key": "BSCALE",
+          "value": "1"
+        },
+        {
+          "comment": "",
+          "key": "OBJECT",
+          "value": "M42"
+        },
+        {
+          "comment": "",
+          "key": "EXPTIME",
+          "value": "300.0"
+        },
+        {
+          "comment": "",
+          "key": "FILTER",
+          "value": "Ha"
+        },
+        {
+          "comment": "",
+          "key": "SOFTWARE",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "PROGRAM",
+          "value": "'AfterNight 0.6.0'"
+        },
+        {
+          "comment": "",
+          "key": "ROWORDER",
+          "value": "'TOP-DOWN'"
+        },
+        {
+          "comment": "",
+          "key": "BAYERPAT",
+          "value": "'RGGB    '"
+        },
+        {
+          "comment": "",
+          "key": "NAXIS3",
+          "value": "1"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "RGGB",
+        "channels": 1,
+        "height": 6,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt16",
+        "width": 8
+      },
+      "exported": true,
+      "name": "fits-uint16-bayer",
+      "payloadBytes": 96,
+      "payloadDigest": "741db6e310035b27673351edc80d521bb2615b54bb5dd98a718be6ab8fb66dfa",
+      "sourceFormat": "FITS"
+    },
+    {
+      "cards": [
+        {
+          "comment": "",
+          "key": "SIMPLE",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "EXTEND",
+          "value": "T"
+        },
+        {
+          "comment": "",
+          "key": "OBJECT",
+          "value": "M42"
+        },
+        {
+          "comment": "",
+          "key": "EXPTIME",
+          "value": "300.0"
+        },
+        {
+          "comment": "",
+          "key": "FILTER",
+          "value": "Ha"
+        }
+      ],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt16",
+        "width": 7
+      },
+      "exported": true,
+      "name": "xisf-uint16-grey",
+      "payloadBytes": 70,
+      "payloadDigest": "249cb3d01667a77fdb169348957b0d2a8cbb8461d415d9d1d31d91180ae7863d",
+      "sourceFormat": "XISF"
+    },
+    {
+      "cards": [],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 3,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "Float32",
+        "width": 7
+      },
+      "exported": true,
+      "name": "xisf-float32-colour",
+      "payloadBytes": 420,
+      "payloadDigest": "61934c6872fce39ae6a07c5eb0a176b3f361c913c2ab40c1f7bb28359871a401",
+      "sourceFormat": "XISF"
+    },
+    {
+      "cards": [],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 3,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt8",
+        "width": 7
+      },
+      "exported": true,
+      "name": "tiff-uint8-colour",
+      "payloadBytes": 105,
+      "payloadDigest": "58fbf4b07b47bdb48c495dec429f889875f6971c09ce84cde5f00e7ff90b9abe",
+      "sourceFormat": "TIFF"
+    },
+    {
+      "cards": [],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt16",
+        "width": 7
+      },
+      "exported": true,
+      "name": "tiff-uint16-grey",
+      "payloadBytes": 70,
+      "payloadDigest": "249cb3d01667a77fdb169348957b0d2a8cbb8461d415d9d1d31d91180ae7863d",
+      "sourceFormat": "TIFF"
+    },
+    {
+      "cards": [],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "Float32",
+        "width": 7
+      },
+      "exported": true,
+      "name": "tiff-float32-grey",
+      "payloadBytes": 140,
+      "payloadDigest": "e9ea0307ab9be4d95ffd784c197277f74004502378611a36740f47b26d737078",
+      "sourceFormat": "TIFF"
+    },
+    {
+      "cards": [],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 3,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt8",
+        "width": 7
+      },
+      "exported": true,
+      "name": "png-uint8-colour",
+      "payloadBytes": 105,
+      "payloadDigest": "58fbf4b07b47bdb48c495dec429f889875f6971c09ce84cde5f00e7ff90b9abe",
+      "sourceFormat": "PNG"
+    },
+    {
+      "cards": [],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 5,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt16",
+        "width": 7
+      },
+      "exported": true,
+      "name": "png-uint16-grey",
+      "payloadBytes": 70,
+      "payloadDigest": "249cb3d01667a77fdb169348957b0d2a8cbb8461d415d9d1d31d91180ae7863d",
+      "sourceFormat": "PNG"
+    },
+    {
+      "cards": [],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 3,
+        "height": 8,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt8",
+        "width": 16
+      },
+      "exported": true,
+      "name": "jpeg-uint8-colour",
+      "payloadBytes": 384,
+      "payloadDigest": "2f012d16afa67ba9a5abd23306e3e68b1c7de9b865d0429b6ddb09b0cb78cc3f",
+      "sourceFormat": "JPEG"
+    },
+    {
+      "cards": [],
+      "descriptor": {
+        "byteOrder": "Little",
+        "cfaPattern": "",
+        "channels": 1,
+        "height": 8,
+        "layout": "Planar",
+        "planeStrideBytes": 0,
+        "rowStrideBytes": 0,
+        "sampleType": "UInt8",
+        "width": 16
+      },
+      "exported": true,
+      "name": "jpeg-uint8-grey",
+      "payloadBytes": 128,
+      "payloadDigest": "d8d45107a356bfbbccfd895e493938fa50ea8376eabcc866dcf7e5ee63967bbd",
+      "sourceFormat": "JPEG"
+    },
+    {
+      "exported": false,
+      "name": "not-an-image"
+    },
+    {
+      "exported": false,
+      "name": "truncated-fits"
+    },
+    {
+      "exported": false,
+      "name": "unknown-extension"
+    }
+  ],
+  "producer": "reference raw-dump exporter 1",
+  "record": "raw-dump-exports",
+  "schema": 1
+}

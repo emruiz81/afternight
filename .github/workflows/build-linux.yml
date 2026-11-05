@@ -1,0 +1,298 @@
+name: Build Linux
+
+on:
+  workflow_call:
+    inputs:
+      run_tests:
+        description: 'Run test suite after build'
+        required: false
+        default: true
+        type: boolean
+      build_installer:
+        description: 'Build AppImage installer'
+        required: false
+        default: false
+        type: boolean
+      skip_tests:
+        description: 'Tests to skip (space-separated, e.g., Test_ImageIntegration)'
+        required: false
+        default: ''
+        type: string
+      release_version:
+        description: 'The release version the assets are named for'
+        required: false
+        default: ''
+        type: string
+      upload_release_assets:
+        description: 'Hand the installer and debug assets to the release workflow, which attaches them'
+        required: false
+        default: false
+        type: boolean
+      docs_artifact_name:
+        description: 'Documentation HTML artifact to bundle into installers'
+        required: false
+        default: ''
+        type: string
+    outputs:
+      artifact_name:
+        description: 'Name of the uploaded artifact'
+        value: ${{ jobs.build.outputs.artifact_name }}
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: 'Run test suite after build'
+        required: false
+        default: true
+        type: boolean
+      build_installer:
+        description: 'Build AppImage installer'
+        required: false
+        default: false
+        type: boolean
+      skip_tests:
+        description: 'Tests to skip (space-separated, e.g., Test_ImageIntegration)'
+        required: false
+        default: ''
+        type: string
+      release_version:
+        description: 'The release version the assets are named for'
+        required: false
+        default: ''
+        type: string
+      upload_release_assets:
+        description: 'Hand the installer and debug assets to the release workflow, which attaches them'
+        required: false
+        default: false
+        type: boolean
+      docs_artifact_name:
+        description: 'Documentation HTML artifact to bundle into installers'
+        required: false
+        default: ''
+        type: string
+
+# The build reads the repository and nothing else; a release's assets are handed to the release workflow as an
+# artifact, and its publishing job attaches them.
+permissions:
+  contents: read
+
+env:
+  # Keep in sync with .github/workflows/cache-linux.yml
+  QT_VERSION: "6.10.3"
+  PYTHON_VERSION: "3.14.7"
+  PYTHON_BUILD_DATE: "20260814"
+
+jobs:
+  prepare-cache:
+    uses: ./.github/workflows/cache-linux.yml
+
+  build:
+    needs: prepare-cache
+    # The distribution the Linux build is validated on.
+    runs-on: ubuntu-26.04
+    timeout-minutes: 350
+    permissions:
+      contents: read
+    outputs:
+      artifact_name: ${{ steps.set-artifact-name.outputs.name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set artifact name
+        id: set-artifact-name
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "name=afternight-linux-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      # ===== Reclaim runner disk =====
+      # The default image ships toolchains this build never uses, and the codec suite needs several
+      # GiB of scratch: Concurrency_ParallelSave_FITS alone writes ~1.4 GiB across 8 threads plus a
+      # temporary file beside each one for its atomic write. Drop them before the caches and build outputs land.
+      - name: Free disk space
+        run: |
+          echo "Before:"
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost \
+            /usr/local/share/powershell /usr/local/lib/node_modules || true
+          sudo apt-get clean
+          echo "After:"
+          df -h /
+
+      # The distribution packages, exactly as a development machine installs them.
+      - name: Install system dependencies
+        run: build/scripts/linux/02-install_linux_deps.sh system
+
+      # ===== Restore dependency caches =====
+      - name: Restore Qt cache
+        uses: actions/cache/restore@v5
+        with:
+          path: Qt6
+          key: qt-linux-${{ env.QT_VERSION }}-clang-linux_gcc_64-v1
+          fail-on-cache-miss: true
+
+      - name: Restore Embedded Python cache
+        uses: actions/cache/restore@v5
+        with:
+          path: python/python/tools_linux
+          key: python-linux-${{ env.PYTHON_VERSION }}-${{ env.PYTHON_BUILD_DATE }}-${{ hashFiles('build/scripts/python/**') }}
+          fail-on-cache-miss: true
+
+      - name: Restore vcpkg installed packages cache
+        uses: actions/cache/restore@v5
+        with:
+          path: vcpkg/installed
+          key: ${{ needs.prepare-cache.outputs.vcpkg_key }}
+          fail-on-cache-miss: true
+
+      - name: Restore KDDockWidgets cache
+        uses: actions/cache/restore@v5
+        with:
+          path: kddockwidgets/build-clang-install
+          key: ${{ needs.prepare-cache.outputs.kddockwidgets_key }}
+          fail-on-cache-miss: true
+
+      - name: Restore OpenXISF cache
+        uses: actions/cache/restore@v5
+        with:
+          path: openxisf/build-clang-install
+          key: ${{ needs.prepare-cache.outputs.openxisf_key }}
+          fail-on-cache-miss: true
+
+      # ===== The numbered build scripts, in their mandatory order =====
+      - name: Generate project files
+        run: build/scripts/linux/01-create_project_files.sh
+
+      - name: Build 3rd party libraries
+        run: build/scripts/linux/03a-build_3rdparty_libs_release.sh
+
+      - name: Build AfterNight
+        run: build/scripts/linux/04a-build_afternight_release.sh
+
+      - name: Deploy dependencies
+        run: build/scripts/linux/05a-deploy_all_deps_release.sh
+
+      # ===== Build and run tests =====
+      - name: Build tests
+        if: ${{ inputs.run_tests }}
+        run: build/scripts/linux/08a-build_afternight_tests_release.sh
+
+      # The runner gives each executable a storage root of its own, requires the extension host beside the suites,
+      # writes each executable's report into the results directory and runs every executable, failing at the end with
+      # the list of those that failed.
+      - name: Run tests
+        if: ${{ inputs.run_tests }}
+        env:
+          AFTERNIGHT_SKIP_TESTS: ${{ inputs.skip_tests }}
+          AFTERNIGHT_TEST_RESULTS_DIR: ${{ github.workspace }}/test-results
+          # G'MIC's Patch PCA gives the hosted runners an answer within 2e-5 of the Clang record, the same on every
+          # runner, where the machine that captured the record reproduces it exactly; the runners leave it out.
+          AFTERNIGHT_SKIP_RECORDS: patch-pca-denoise.default/stars-mono-float32
+        run: |
+          echo "Disk before tests:"
+          df -h / "${TMPDIR:-/tmp}"
+          trap 'echo "Disk after tests:"; df -h / "${TMPDIR:-/tmp}"' EXIT
+          mkdir -p "$AFTERNIGHT_TEST_RESULTS_DIR"
+          build/scripts/linux/run_tests.sh release
+
+      - name: Upload test results
+        if: ${{ always() && inputs.run_tests }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: afternight-linux-test-results-${{ github.sha }}
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # ===== Build AppImage =====
+      - name: Validate release documentation artifact input
+        if: ${{ inputs.build_installer && inputs.upload_release_assets && inputs.docs_artifact_name == '' }}
+        run: |
+          echo "docs_artifact_name is required when release installers are built"
+          exit 1
+
+      - name: Download documentation site
+        if: ${{ inputs.build_installer && inputs.docs_artifact_name != '' }}
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ inputs.docs_artifact_name }}
+          path: docs/user-guide/site
+
+      - name: Build AppImage
+        if: ${{ inputs.build_installer }}
+        run: |
+          cd installer
+          chmod +x linux_packager.sh
+          if [ "${{ inputs.upload_release_assets }}" = "true" ]; then
+            REQUIRE_DOCS_SITE=1 ./linux_packager.sh
+          else
+            ./linux_packager.sh
+          fi
+
+      - name: Package Linux debug symbols for release
+        if: ${{ inputs.build_installer && inputs.upload_release_assets }}
+        run: |
+          mkdir -p release-artifacts
+          mapfile -t debug_files < <(find bin/clang/release -type f -name '*.debug')
+          if (( ${#debug_files[@]} > 0 )); then
+            zip -r "release-artifacts/AfterNight-${{ inputs.release_version }}-linux-debug-symbols.zip" "${debug_files[@]}"
+          fi
+
+      - name: Gather Linux release assets
+        if: ${{ inputs.build_installer && inputs.upload_release_assets }}
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          if [ -z "$VERSION" ]; then
+            echo "release_version is required when upload_release_assets is true"
+            exit 1
+          fi
+
+          shopt -s nullglob
+          assets=(installer/AfterNight-*.AppImage release-artifacts/AfterNight-*-linux-debug-symbols.zip)
+          if (( ${#assets[@]} == 0 )); then
+            echo "No Linux release assets were produced"
+            exit 1
+          fi
+          mkdir -p release-assets
+          cp "${assets[@]}" release-assets/
+
+      - name: Hand the Linux release assets to the release
+        if: ${{ inputs.build_installer && inputs.upload_release_assets }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: afternight-release-linux
+          path: release-assets/
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+
+      # ===== Upload artifacts =====
+      - name: Upload build artifacts
+        if: ${{ !inputs.upload_release_assets }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.set-artifact-name.outputs.name }}
+          path: |
+            bin/clang/release/
+            !bin/clang/release/**/*.debug
+          retention-days: 7
+
+      - name: Upload debug symbols
+        if: ${{ inputs.build_installer && !inputs.upload_release_assets }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: afternight-linux-debug-symbols-${{ github.sha }}
+          path: bin/clang/release/**/*.debug
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload AppImage
+        if: ${{ inputs.build_installer && !inputs.upload_release_assets }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: afternight-linux-appimage-${{ github.sha }}
+          path: installer/AfterNight-*.AppImage
+          retention-days: 30

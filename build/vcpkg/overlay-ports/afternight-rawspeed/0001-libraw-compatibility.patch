@@ -1,0 +1,299 @@
+--- a/src/librawspeed/common/Common.cpp
++++ b/src/librawspeed/common/Common.cpp
+@@ -36,6 +36,7 @@
+ #else
+ 
+ void writeLog(DEBUG_PRIO priority, const char* format, ...) {
++#if 0
+ #ifndef _DEBUG
+   if (priority < DEBUG_PRIO_INFO)
+ #endif // _DEBUG
+@@ -55,6 +56,7 @@
+   if (priority < DEBUG_PRIO_INFO)
+ #endif // _DEBUG
+     fprintf(stdout, "%s", "\n");
++#endif
+ }
+ 
+ #endif
+--- a/src/librawspeed/common/DefaultInitAllocatorAdaptor.h
++++ b/src/librawspeed/common/DefaultInitAllocatorAdaptor.h
+@@ -27,8 +27,12 @@
+ namespace rawspeed {
+ 
+ template <typename T, typename ActualAllocator = std::allocator<T>,
+-          typename = std::enable_if_t<std::is_pod<T>::value>>
+-class DefaultInitAllocatorAdaptor {
++#ifdef _MSC_VER
++    typename = std::enable_if_t<true>>
++#else
++    typename = std::enable_if_t<std::is_pod<T>::value >>
++#endif
++    class DefaultInitAllocatorAdaptor {
+ public:
+   using allocator_traits = std::allocator_traits<ActualAllocator>;
+ 
+--- a/src/librawspeed/common/RawspeedException.h
++++ b/src/librawspeed/common/RawspeedException.h
+@@ -50,7 +50,7 @@
+   va_start(val, fmt);
+   vsnprintf(buf.data(), sizeof(buf), fmt, val);
+   va_end(val);
+-  writeLog(DEBUG_PRIO_EXTRA, "EXCEPTION: %s", buf.data());
++
+   throw T(buf.data());
+ }
+ 
+--- a/src/librawspeed/decoders/ArwDecoder.cpp
++++ b/src/librawspeed/decoders/ArwDecoder.cpp
+@@ -186,8 +186,8 @@
+     }
+   }
+ 
+-  if (width == 0 || height == 0 || height % 2 != 0 || width > 9600 ||
+-      height > 6376)
++  if (width == 0 || height == 0 || height % 2 != 0 /* || width > 9600 ||
++      height > 6376 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+   bool arw1 = uint64_t(counts->getU32()) * 8 != width * height * bitPerPixel;
+@@ -241,7 +241,7 @@
+ 
+   mRaw->dim = iPoint2D(width, height);
+ 
+-  if (width == 0 || height == 0 || width > 9600 || height > 6376)
++  if (width == 0 || height == 0 /* || width > 9600 || height > 6376 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+   if (c2 == 0)
+--- a/src/librawspeed/decoders/IiqDecoder.cpp
++++ b/src/librawspeed/decoders/IiqDecoder.cpp
+@@ -185,7 +185,7 @@
+   }
+ 
+   // FIXME: could be wrong. max "active pixels" in "Sensor+" mode - "101 MP"
+-  if (width == 0 || height == 0 || width > 11976 || height > 8854)
++  if (width == 0 || height == 0 /* || width > 11976 || height > 8854 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+   if (split_col > width || split_row > height)
+@@ -212,9 +212,10 @@
+   PhaseOneDecompressor p(mRaw, std::move(strips));
+   mRaw->createData();
+   p.decompress();
+-
++#if 0
+   if (correction_meta_data.getSize() != 0 && iiq)
+     CorrectPhaseOneC(correction_meta_data, split_row, split_col);
++#endif
+ 
+   for (int i = 0; i < 3; i++)
+     mRaw->metadata.wbCoeffs[i] = wb.getFloat();
+--- a/src/librawspeed/decoders/MosDecoder.cpp
++++ b/src/librawspeed/decoders/MosDecoder.cpp
+@@ -113,7 +113,7 @@
+   uint32_t height = raw->getEntry(IMAGELENGTH)->getU32();
+ 
+   // FIXME: could be wrong. max "active pixels" - "80 MP"
+-  if (width == 0 || height == 0 || width > 10328 || height > 7760)
++  if (width == 0 || height == 0 /* || width > 10328 || height > 7760 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+   mRaw->dim = iPoint2D(width, height);
+--- a/src/librawspeed/decoders/NefDecoder.cpp
++++ b/src/librawspeed/decoders/NefDecoder.cpp
+@@ -214,7 +214,7 @@
+ 
+   mRaw->dim = iPoint2D(width, height);
+ 
+-  if (width == 0 || height == 0 || width > 8288 || height > 5520)
++  if (width == 0 || height == 0 /* || width > 8288 || height > 5520 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+   if (counts->count != offsets->count) {
+@@ -370,8 +370,8 @@
+   uint32_t width = raw->getEntry(IMAGEWIDTH)->getU32();
+   uint32_t height = raw->getEntry(IMAGELENGTH)->getU32();
+ 
+-  if (width == 0 || height == 0 || width % 2 != 0 || width > 3680 ||
+-      height > 2456)
++  if (width == 0 || height == 0 || width % 2 != 0 /* || width > 3680 ||
++      height > 2456 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+   mRaw->dim = iPoint2D(width, height);
+--- a/src/librawspeed/decoders/OrfDecoder.cpp
++++ b/src/librawspeed/decoders/OrfDecoder.cpp
+@@ -109,7 +109,7 @@
+   uint32_t width = raw->getEntry(IMAGEWIDTH)->getU32();
+   uint32_t height = raw->getEntry(IMAGELENGTH)->getU32();
+ 
+-  if (!width || !height || width % 2 != 0 || width > 10400 || height > 7796)
++  if (!width || !height || width % 2 != 0 /* || width > 10400 || height > 7796 */ )
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+   mRaw->dim = iPoint2D(width, height);
+--- a/src/librawspeed/decoders/RafDecoder.cpp
++++ b/src/librawspeed/decoders/RafDecoder.cpp
+@@ -79,7 +79,7 @@
+   } else
+     ThrowRDE("Unable to locate image size");
+ 
+-  if (width == 0 || height == 0 || width > 11808 || height > 8754)
++  if (width == 0 || height == 0 /* || width > 11808 || height > 8754 */ )
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+   if (raw->hasEntry(FUJI_LAYOUT)) {
+@@ -334,7 +334,7 @@
+   } else
+     ThrowRDE("Unable to locate image size");
+ 
+-  if (width == 0 || height == 0 || width > 11808 || height > 8754)
++  if (width == 0 || height == 0 /* || width > 11808 || height > 8754 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+   uint32_t count = raw->getEntry(FUJI_STRIPBYTECOUNTS)->getU32();
+--- a/src/librawspeed/decoders/RawDecoder.cpp
++++ b/src/librawspeed/decoders/RawDecoder.cpp
+@@ -62,7 +62,7 @@
+   uint32_t height = rawIFD->getEntry(IMAGELENGTH)->getU32();
+   uint32_t bitPerPixel = rawIFD->getEntry(BITSPERSAMPLE)->getU32();
+ 
+-  if (width == 0 || height == 0 || width > 5632 || height > 3720)
++  if (width == 0 || height == 0 /* || width > 5632 || height > 3720 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+   mRaw->dim = iPoint2D(width, height);
+--- a/src/librawspeed/decoders/Rw2Decoder.cpp
++++ b/src/librawspeed/decoders/Rw2Decoder.cpp
+@@ -72,7 +72,7 @@
+   uint32_t width = raw->getEntry(static_cast<TiffTag>(2))->getU16();
+ 
+   if (isOldPanasonic) {
+-    if (width == 0 || height == 0 || width > 4330 || height > 2751)
++    if (width == 0 || height == 0 /* || width > 4330 || height > 2751 */)
+       ThrowRDE("Unexpected image dimensions found: (%u; %u)", width, height);
+ 
+     TiffEntry *offsets = raw->getEntry(STRIPOFFSETS);
+--- a/src/librawspeed/decompressors/HasselbladDecompressor.cpp
++++ b/src/librawspeed/decompressors/HasselbladDecompressor.cpp
+@@ -41,8 +41,8 @@
+     ThrowRDE("Unexpected component count / data type");
+ 
+   // FIXME: could be wrong. max "active pixels" - "100 MP"
+-  if (mRaw->dim.x == 0 || mRaw->dim.y == 0 || mRaw->dim.x % 2 != 0 ||
+-      mRaw->dim.x > 12000 || mRaw->dim.y > 8816) {
++  if (mRaw->dim.x == 0 || mRaw->dim.y == 0 || mRaw->dim.x % 2 != 0 /* ||
++      mRaw->dim.x > 12000 || mRaw->dim.y > 8816 */) {
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", mRaw->dim.x,
+              mRaw->dim.y);
+   }
+--- a/src/librawspeed/decompressors/NikonDecompressor.cpp
++++ b/src/librawspeed/decompressors/NikonDecompressor.cpp
+@@ -442,8 +442,8 @@
+       mRaw->getBpp() != sizeof(uint16_t))
+     ThrowRDE("Unexpected component count / data type");
+ 
+-  if (mRaw->dim.x == 0 || mRaw->dim.y == 0 || mRaw->dim.x % 2 != 0 ||
+-      mRaw->dim.x > 8288 || mRaw->dim.y > 5520)
++  if (mRaw->dim.x == 0 || mRaw->dim.y == 0 || mRaw->dim.x % 2 != 0 /* ||
++      mRaw->dim.x > 8288 || mRaw->dim.y > 5520 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", mRaw->dim.x,
+              mRaw->dim.y);
+ 
+--- a/src/librawspeed/decompressors/OlympusDecompressor.cpp
++++ b/src/librawspeed/decompressors/OlympusDecompressor.cpp
+@@ -56,7 +56,7 @@
+   const uint32_t w = mRaw->dim.x;
+   const uint32_t h = mRaw->dim.y;
+ 
+-  if (w == 0 || h == 0 || w % 2 != 0 || w > 10400 || h > 7792)
++  if (w == 0 || h == 0 || w % 2 != 0 /* || w > 10400 || h > 7792 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", w, h);
+ }
+ 
+--- a/src/librawspeed/decompressors/PentaxDecompressor.cpp
++++ b/src/librawspeed/decompressors/PentaxDecompressor.cpp
+@@ -49,8 +49,8 @@
+       mRaw->getBpp() != sizeof(uint16_t))
+     ThrowRDE("Unexpected component count / data type");
+ 
+-  if (!mRaw->dim.x || !mRaw->dim.y || mRaw->dim.x % 2 != 0 ||
+-      mRaw->dim.x > 8384 || mRaw->dim.y > 6208) {
++  if (!mRaw->dim.x || !mRaw->dim.y || mRaw->dim.x % 2 != 0 /* ||
++      mRaw->dim.x > 8384 || mRaw->dim.y > 6208 */) {
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", mRaw->dim.x,
+              mRaw->dim.y);
+   }
+--- a/src/librawspeed/decompressors/SonyArw2Decompressor.cpp
++++ b/src/librawspeed/decompressors/SonyArw2Decompressor.cpp
+@@ -45,7 +45,7 @@
+   const uint32_t w = mRaw->dim.x;
+   const uint32_t h = mRaw->dim.y;
+ 
+-  if (w == 0 || h == 0 || w % 32 != 0 || w > 9600 || h > 6376)
++  if (w == 0 || h == 0 || w % 32 != 0 /* || w > 9600 || h > 6376 */)
+     ThrowRDE("Unexpected image dimensions found: (%u; %u)", w, h);
+ 
+   // 1 byte per pixel
+--- a/src/librawspeed/decompressors/VC5Decompressor.cpp
++++ b/src/librawspeed/decompressors/VC5Decompressor.cpp
+@@ -398,7 +398,12 @@
+       wavelet.height = waveletHeight;
+ 
+       wavelet.bands.resize(
+-          &wavelet == channel.wavelets.begin() ? 1 : Wavelet::maxBands);
++#ifdef _MSC_VER
++          Wavelet::maxBands
++#else
++          &wavelet == channel.wavelets.begin() ? 1 : Wavelet::maxBands
++#endif
++      );
+     }
+   }
+ 
+--- a/src/librawspeed/metadata/CameraMetaData.h
++++ b/src/librawspeed/metadata/CameraMetaData.h
+@@ -41,7 +41,7 @@
+   }
+ };
+ 
+-class CameraMetaData final {
++class CameraMetaData {
+ public:
+   CameraMetaData() = default;
+ 
+--- a/src/librawspeed/tiff/TiffIFD.cpp
++++ b/src/librawspeed/tiff/TiffIFD.cpp
+@@ -143,6 +143,7 @@
+   string make = makeEntry != nullptr ? trimSpaces(makeEntry->getString()) : "";
+ 
+   ByteStream bs = t->getData();
++  auto bufbegin = bs.begin() + bs.getPosition();
+ 
+   // helper function for easy setup of ByteStream buffer for the different maker note types
+   // 'rebase' means position 0 of new stream equals current position
+@@ -159,7 +160,9 @@
+     bs.skipBytes(newPosition);
+   };
+ 
+-  if (bs.hasPrefix("AOC\0", 4)) {
++  if (bs.hasPrefix("LSI1\0", 5)) { // Skip LSI1 makernotes
++      return std::make_unique<TiffRootIFD>(this, ifds, bs, UINT32_MAX); // UINT32_MAX offset => special handling, empty IFD
++  } else if (bs.hasPrefix("AOC\0", 4)) {
+     setup(false, 6, 4, "Pentax makernote");
+   } else if (bs.hasPrefix("PENTAX", 6)) {
+     setup(true, 10, 8, "Pentax makernote");
+@@ -197,6 +200,12 @@
+     }
+   }
+ 
++  auto readed = bs.begin() - bufbegin + bs.getPosition();
++  ByteStream bscheck(bs);
++  const auto IFDSize = 6 + 12 * bscheck.getU16();
++
++  if(IFDSize > t->count - readed) // IFDSize too big, probably binary Makernotes dir, not TIFF-like, could not be handled by TiffRootIFD reader
++      return std::make_unique<TiffRootIFD>(this, ifds, bs, UINT32_MAX); // // UINT32_MAX offset => special handling, empty IFD
+   // Attempt to parse the rest as an IFD
+   return std::make_unique<TiffRootIFD>(this, ifds, bs, bs.getPosition());
+ }

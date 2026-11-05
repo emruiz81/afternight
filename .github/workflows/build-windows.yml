@@ -1,0 +1,307 @@
+name: Build Windows MSVC
+
+on:
+  workflow_call:
+    inputs:
+      run_tests:
+        description: 'Run test suite after build'
+        required: false
+        default: true
+        type: boolean
+      build_installer:
+        description: 'Build Windows installer'
+        required: false
+        default: false
+        type: boolean
+      skip_tests:
+        description: 'Tests to skip (space-separated, e.g., Test_ImageIntegration)'
+        required: false
+        default: ''
+        type: string
+      release_version:
+        description: 'The release version the assets are named for'
+        required: false
+        default: ''
+        type: string
+      upload_release_assets:
+        description: 'Hand the installer and debug assets to the release workflow, which attaches them'
+        required: false
+        default: false
+        type: boolean
+      docs_artifact_name:
+        description: 'Documentation HTML artifact to bundle into installers'
+        required: false
+        default: ''
+        type: string
+    outputs:
+      artifact_name:
+        description: 'Name of the uploaded artifact'
+        value: ${{ jobs.build.outputs.artifact_name }}
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: 'Run test suite after build'
+        required: false
+        default: true
+        type: boolean
+      build_installer:
+        description: 'Build Windows installer'
+        required: false
+        default: false
+        type: boolean
+      skip_tests:
+        description: 'Tests to skip (space-separated, e.g., Test_ImageIntegration)'
+        required: false
+        default: ''
+        type: string
+      release_version:
+        description: 'The release version the assets are named for'
+        required: false
+        default: ''
+        type: string
+      upload_release_assets:
+        description: 'Hand the installer and debug assets to the release workflow, which attaches them'
+        required: false
+        default: false
+        type: boolean
+      docs_artifact_name:
+        description: 'Documentation HTML artifact to bundle into installers'
+        required: false
+        default: ''
+        type: string
+
+# The build reads the repository and nothing else; a release's assets are handed to the release workflow as an
+# artifact, and its publishing job attaches them.
+permissions:
+  contents: read
+
+env:
+  # Keep in sync with .github/workflows/cache-windows.yml
+  QT_VERSION: "6.10.3"
+  PYTHON_VERSION: "3.14.7"
+  PYTHON_BUILD_DATE: "20260814"
+  # The release-only triplet the cache workflow installs; the 04a and 09a deploy steps copy from it.
+  AFTERNIGHT_VCPKG_TRIPLET: x64-windows-release
+
+jobs:
+  prepare-cache:
+    uses: ./.github/workflows/cache-windows.yml
+    permissions:
+      contents: read
+
+  build:
+    needs: prepare-cache
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 350
+    permissions:
+      contents: read
+    outputs:
+      artifact_name: ${{ steps.set-artifact-name.outputs.name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set repository vcpkg root
+        run: |
+          "VCPKG_ROOT=${{ github.workspace }}\\vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      # The scripts below call Python helpers written for the Python the repository is developed on.
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Set artifact name
+        id: set-artifact-name
+        shell: bash
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "name=afternight-windows-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      # ===== Restore dependency caches =====
+      - name: Restore vcpkg installed packages cache
+        uses: actions/cache/restore@v5
+        with:
+          path: vcpkg/installed
+          key: ${{ needs.prepare-cache.outputs.vcpkg_key }}
+          fail-on-cache-miss: true
+
+      - name: Restore Qt cache
+        uses: actions/cache/restore@v5
+        with:
+          path: Qt6
+          key: qt-windows-${{ env.QT_VERSION }}-msvc2022_64-vs2026-v1
+          fail-on-cache-miss: true
+
+      - name: Restore Embedded Python cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            python/python/tools_msvc
+            python/python314.zip
+          key: python-windows-${{ env.PYTHON_VERSION }}-${{ env.PYTHON_BUILD_DATE }}-${{ hashFiles('build/scripts/python/**') }}
+          fail-on-cache-miss: true
+
+      - name: Restore KDDockWidgets cache
+        uses: actions/cache/restore@v5
+        with:
+          path: kddockwidgets/build-msvc-install
+          key: kddockwidgets-windows-release-${{ env.QT_VERSION }}-${{ hashFiles('kddockwidgets/CMakeLists.txt') }}-v4
+          fail-on-cache-miss: true
+
+      - name: Restore OpenXISF cache
+        uses: actions/cache/restore@v5
+        with:
+          path: openxisf/build-msvc-install
+          key: ${{ needs.prepare-cache.outputs.openxisf_key }}
+          fail-on-cache-miss: true
+
+      # ===== The numbered build scripts, in their mandatory order =====
+      - name: Generate project files
+        shell: cmd
+        run: build\scripts\msvc\01-create_project_files.bat
+
+      - name: Build 3rd party libraries
+        shell: cmd
+        run: build\scripts\msvc\03a-build_3rdparty_libs_release.bat
+
+      - name: Deploy dependencies
+        shell: cmd
+        run: build\scripts\msvc\04a-deploy_deps_release.bat
+
+      - name: Build AfterNight
+        shell: cmd
+        run: build\scripts\msvc\05a-build_afternight_release.bat
+
+      # ===== Build and run tests =====
+      - name: Build tests
+        if: ${{ inputs.run_tests }}
+        shell: cmd
+        run: build\scripts\msvc\09a-build_afternight_tests_release.bat
+
+      # The runner gives each executable a storage root of its own, requires the extension host beside the suites,
+      # writes each executable's report into the results directory and runs every executable, failing at the end with
+      # the list of those that failed.
+      - name: Run tests
+        if: ${{ inputs.run_tests }}
+        shell: cmd
+        env:
+          AFTERNIGHT_SKIP_TESTS: ${{ inputs.skip_tests }}
+          AFTERNIGHT_TEST_RESULTS_DIR: ${{ github.workspace }}\test-results
+        run: |
+          mkdir "%AFTERNIGHT_TEST_RESULTS_DIR%"
+          build\scripts\msvc\run_tests.bat release
+
+      - name: Upload test results
+        if: ${{ always() && inputs.run_tests }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: afternight-windows-test-results-${{ github.sha }}
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # ===== Build Windows Installer =====
+      - name: Install Inno Setup
+        if: ${{ inputs.build_installer }}
+        run: |
+          choco install innosetup -y
+
+      - name: Validate release documentation artifact input
+        if: ${{ inputs.build_installer && inputs.upload_release_assets && inputs.docs_artifact_name == '' }}
+        run: |
+          Write-Error "docs_artifact_name is required when release installers are built"
+          exit 1
+
+      - name: Download documentation site
+        if: ${{ inputs.build_installer && inputs.docs_artifact_name != '' }}
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ inputs.docs_artifact_name }}
+          path: docs/user-guide/site
+
+      - name: Build Windows Installer
+        if: ${{ inputs.build_installer }}
+        run: |
+          cd installer
+          if ("${{ inputs.upload_release_assets }}" -eq "true") {
+            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" win_installer.iss /DMSVC /DREQUIRE_DOCS
+            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" win_installer.iss /DMSVC /DADMIN /DREQUIRE_DOCS
+          } else {
+            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" win_installer.iss /DMSVC
+            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" win_installer.iss /DMSVC /DADMIN
+          }
+
+      - name: Package Windows debug symbols for release
+        if: ${{ inputs.build_installer && inputs.upload_release_assets }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release-artifacts -Force | Out-Null
+          $pdbs = @(Get-ChildItem -Path "bin/msvc/release" -Filter "*.pdb" -Recurse -File)
+          if ($pdbs.Count -gt 0) {
+            Compress-Archive -Path $pdbs.FullName -DestinationPath "release-artifacts/AfterNight-${{ inputs.release_version }}-windows-debug-symbols.zip" -Force
+          }
+
+      - name: Gather Windows release assets
+        if: ${{ inputs.build_installer && inputs.upload_release_assets }}
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:VERSION)) {
+            throw "release_version is required when upload_release_assets is true"
+          }
+
+          $assets = @()
+          $assets += Get-ChildItem -Path "installer" -Filter "AfterNight*.exe" -File | ForEach-Object { $_.FullName }
+          $debugSymbols = "release-artifacts/AfterNight-$($env:VERSION)-windows-debug-symbols.zip"
+          if (Test-Path $debugSymbols) {
+            $assets += (Resolve-Path $debugSymbols).Path
+          }
+
+          if ($assets.Count -eq 0) {
+            throw "No Windows release assets were produced"
+          }
+          New-Item -ItemType Directory -Path release-assets -Force | Out-Null
+          Copy-Item -Path $assets -Destination release-assets
+
+      - name: Hand the Windows release assets to the release
+        if: ${{ inputs.build_installer && inputs.upload_release_assets }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: afternight-release-windows
+          path: release-assets/
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+
+      # ===== Upload artifacts =====
+      - name: Upload build artifacts
+        if: ${{ !inputs.upload_release_assets }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.set-artifact-name.outputs.name }}
+          path: |
+            bin/msvc/release/
+            !bin/msvc/release/**/*.pdb
+          retention-days: 7
+
+      - name: Upload debug symbols (PDB files)
+        if: ${{ inputs.build_installer && !inputs.upload_release_assets }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: afternight-windows-debug-symbols-${{ github.sha }}
+          path: bin/msvc/release/**/*.pdb
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload Windows Installer
+        if: ${{ inputs.build_installer && !inputs.upload_release_assets }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: afternight-windows-installer-${{ github.sha }}
+          path: installer/AfterNight*.exe
+          retention-days: 30

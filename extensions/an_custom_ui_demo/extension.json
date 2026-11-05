@@ -1,0 +1,24 @@
+{
+  "id": "an.demo.custom_ui",
+  "name": "Custom UI Demo",
+  "version": "0.1.0",
+  "development_only": true,
+  "summary": "Bundled reference extension validating execute-only native custom-panel styling.",
+  "type": "python",
+  "entry_point": "an_custom_ui_demo",
+  "process_class": "CustomUiDemoExtension",
+  "category": "filters",
+  "launch_mode": "single_image",
+  "sdk_backend": "runtime",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "dependencies": {
+    "dependency_context": "shared_host",
+    "shared_host_profile": "scientific_core"
+  },
+  "capabilities": {
+    "execute": true
+  }
+}
