@@ -88,6 +88,12 @@ void CurvesWidget::mousePressEvent(QMouseEvent* ev)
         m_MouseLeftButtonPressed = true;
 
         ev->accept();
+        // A press on a point, or on the curve where it makes one, takes hold of that point before the curve changes, so
+        // a point made by the press is part of the drag.
+        if (getCurrentNodeSelected(ev->pos(), true) != NO_NODE_SELECTED)
+        {
+            holdPoint(true);
+        }
         m_CurrentNodeSelected = getCurrentNodeSelected(ev->pos(), false);
 
         if (m_CurrentNodeSelected == NO_NODE_SELECTED)
@@ -151,6 +157,7 @@ void CurvesWidget::mouseReleaseEvent(QMouseEvent* ev)
                 endCoordsTooltip();
             }
         }
+        holdPoint(false);
     }
     else if (ev->button() == Qt::MiddleButton)
     {
@@ -269,6 +276,33 @@ void CurvesWidget::setListener(CurvesWidgetListener* listener)
 CurvesWidgetListener* CurvesWidget::getListener() const
 {
     return m_Listener;
+}
+
+QPoint CurvesWidget::pointPosition(const std::size_t index)
+{
+    std::lock_guard lock(m_mutex);
+    const std::vector<an::CurveControlPoint>& nodes = m_curve.points();
+    if (index >= nodes.size())
+    {
+        return QPoint();
+    }
+    // Where `update_spline_to_render` draws it.
+    const int plotHeight = getPlotHeight();
+    return QPoint(static_cast<int>(nodes[index].input * width()),
+                  static_cast<int>(plotHeight * (1.0 - nodes[index].output)));
+}
+
+void CurvesWidget::holdPoint(const bool held)
+{
+    if (m_PointHeld == held)
+    {
+        return;
+    }
+    m_PointHeld = held;
+    if (m_Listener)
+    {
+        m_Listener->onCurvePointHeld(held);
+    }
 }
 
 void CurvesWidget::drawSplines(QPainter& painter)

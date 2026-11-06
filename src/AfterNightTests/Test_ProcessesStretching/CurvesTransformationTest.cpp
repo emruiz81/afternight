@@ -12,8 +12,12 @@
 
 #include "processes/CurvesTransformationProcess.h"
 #include "widgets/CurvesWidget.h"
+#include "widgets/HistogramCompanions.h"
+#include "widgets/ImageViewWidget.h"
 
 #include <AfterNightEngine/Algorithms/Pointwise/ToneCurve.h>
+
+#include <QMouseEvent>
 
 #include <gtest/gtest.h>
 
@@ -145,6 +149,16 @@ void expectTheSameAfterTheClamp(const fixtures::FixtureSamples& result, const fi
         fixtures::materializeFixture(*fixtures::fixtureNamed(input), error);
     EXPECT_TRUE(samples.has_value()) << error;
     return samples.has_value() ? std::move(*samples) : fixtures::FixtureSamples{};
+}
+
+/// Sends a widget a left-button mouse event at a point of it, as a person's hand does: a press, a move with the button
+/// held, or the release.
+void sendMouse(QWidget& widget, QEvent::Type type, const QPoint& at)
+{
+    const Qt::MouseButton button = type == QEvent::MouseMove ? Qt::NoButton : Qt::LeftButton;
+    const Qt::MouseButtons held = type == QEvent::MouseButtonRelease ? Qt::NoButton : Qt::LeftButton;
+    QMouseEvent event(type, QPointF(at), QPointF(widget.mapToGlobal(at)), button, held, Qt::NoModifier);
+    QCoreApplication::sendEvent(&widget, &event);
 }
 
 } // namespace
@@ -339,6 +353,86 @@ TEST(CurvesTransformationTest, APreviewAreaShowsExactlyWhatApplyWritesThere)
         EXPECT_EQ(process->runTelemetry().previewsFailed, 0u);
         EXPECT_EQ(context->errorCount(), 0) << context->errorTexts.join(QStringLiteral(" | ")).toStdString();
     }
+}
+
+// A point of the curve taken with the left button and dragged is a drag, as a held slider's is: its changes are shown
+// in interactive frames over the target reduced by the preview view's factor, which leave the preview's document as it
+// was and which the curve editor's histogram does not count again; letting the point go asks at once for the settled
+// frame over the whole target, which the editor counts and which is what the Apply writes, sample for sample.
+TEST(CurvesTransformationTest, ADraggedPointIsShownInInteractiveFramesOverAReductionAndItsReleaseSettlesTheApply)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(8u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    ViewHandle view = viewOf(context->engineSession(), largeScene(fixtures::FixtureSampleType::Float32));
+    ASSERT_NE(view, nullptr);
+    WindowHandle<CurvesTransformationProcess> process = openWindow<CurvesTransformationProcess>(*view);
+    EXPECT_EQ(process->previewScaling(), an::ui::PreviewScaling::Decimated);
+    CurvesWidget* curves = curvesWidgetOf(*process);
+    ASSERT_NE(curves, nullptr);
+    curves->setCurve(
+        an::ui::ToneCurveModel({{0.0, 0.0}, {0.5, 0.5}, {1.0, 1.0}}, an::CurveInterpolation::NaturalCubic));
+    process->show();
+    ImageViewControl* preview = process->previewView();
+    ASSERT_NE(preview, nullptr);
+    ASSERT_TRUE(settleWindow(*process));
+    preview->getViewWidget()->scaleImageView(0.25, true, true);
+    ASSERT_TRUE(settleWindow(*process));
+    const std::optional<an::ui::ViewPresentationSettings> painted =
+        preview->getViewWidget()->framePresentationSettings();
+    ASSERT_TRUE(painted.has_value());
+    ASSERT_EQ(painted->proxyFactor, 4u);
+
+    const ProcessRunTelemetry before = process->runTelemetry();
+    const an::ui::HistogramCountTelemetry countedBefore = process->histogramTelemetry();
+    const an::consumer::AssetRevision documentBefore = preview->document().asset()->revision();
+
+    // The middle point taken and dragged up, held while its frames are shown.
+    const QPoint taken = curves->pointPosition(1u);
+    sendMouse(*curves, QEvent::MouseButtonPress, taken);
+    for (int step = 1; step <= 3; ++step)
+    {
+        sendMouse(*curves, QEvent::MouseMove, taken - QPoint(0, 10 * step));
+    }
+    ASSERT_TRUE(pumpUntil(
+        [&]() { return process->runTelemetry().interactivePreviewsCommitted > before.interactivePreviewsCommitted; }));
+    const ProcessRunTelemetry held = process->runTelemetry();
+    EXPECT_EQ(held.settledPreviewsCommitted, before.settledPreviewsCommitted) << "a held point's frame was settled";
+    EXPECT_EQ(held.viewFramesCommitted - before.viewFramesCommitted,
+              held.interactivePreviewsCommitted - before.interactivePreviewsCommitted)
+        << "an interactive frame ran over the whole target";
+    EXPECT_EQ(held.viewFrameFactor, 4u);
+    EXPECT_EQ(preview->document().asset()->revision(), documentBefore)
+        << "an interactive frame was published to the preview's document";
+    EXPECT_EQ(process->histogramTelemetry().started, countedBefore.started)
+        << "the curve editor counted its histogram again while the point was held";
+
+    // Letting it go, right after a last move, asks for the settled frame there and then: the settle delay, which
+    // settles a point held still, has not passed.
+    sendMouse(*curves, QEvent::MouseMove, taken - QPoint(0, 40));
+    const std::uint64_t requestedBeforeRelease = process->runTelemetry().previewsRequested;
+    sendMouse(*curves, QEvent::MouseButtonRelease, curves->pointPosition(1u));
+    EXPECT_EQ(process->runTelemetry().previewsRequested, requestedBeforeRelease + 1u)
+        << "letting the point go asked for no settled frame";
+    ASSERT_TRUE(settleWindow(*process));
+    const ProcessRunTelemetry settled = process->runTelemetry();
+    EXPECT_EQ(settled.settledPreviewsCommitted - before.settledPreviewsCommitted, 1u);
+    EXPECT_EQ(settled.viewFramesCommitted, held.viewFramesCommitted) << "the settled frame ran over a reduction";
+    EXPECT_NE(preview->document().asset()->revision(), documentBefore);
+    EXPECT_GT(process->histogramTelemetry().started, countedBefore.started)
+        << "the curve editor did not count the settled frame";
+    EXPECT_GT(curves->getCurve().points()[1].output, 0.5);
+    const std::optional<fixtures::FixtureSamples> previewed = samplesOf(preview->document());
+    ASSERT_TRUE(previewed.has_value());
+
+    process->applyProcess();
+    ASSERT_TRUE(settleWindow(*process));
+    ASSERT_TRUE(settleView(*view));
+    EXPECT_EQ(process->runTelemetry().runsCommitted, 1u);
+    const std::optional<fixtures::FixtureSamples> applied = samplesOf(view->document());
+    ASSERT_TRUE(applied.has_value());
+    EXPECT_EQ(largestDifference(*previewed, *applied), 0.0) << "the settled frame is not the Apply";
+    EXPECT_EQ(context->errorCount(), 0) << context->errorTexts.join(QStringLiteral(" | ")).toStdString();
 }
 
 // The dialog offers four rules under their texts and the engine's monotone cubic; each entry is the engine's rule of

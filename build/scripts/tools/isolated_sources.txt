@@ -2802,6 +2802,7 @@ sources Test_ProcessesStretching
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/CurvesWidget.h
+    header   src/AfterNightControls/widgets/HistogramCompanions.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
     header   src/AfterNightControls/widgets/HistogramGHTWidget.h
     header   src/AfterNightControls/widgets/HistogramMTFWidget.h

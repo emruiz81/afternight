@@ -146,9 +146,11 @@ integer image's blend through the engine's compiled integer lanes) and a preview
 area's crop and paste (`cropProcessRegion`, `composeProcessRegion`). Previews drain to the latest request and are shown
 only when their ticket commits; a preview never holds an Apply back; Apply in place is the view's `editImage`, so the
 history records the step before it is shown; a sequence run publishes a whole sequence or nothing. A preview asked for
-while a person holds a slider the window watches - every one the `INIT_*SPINBOX_CTRL` macros make - is an interactive
-frame (`ProcessRun::frameKind`), admitted for no more than the preview reservation, and letting go or holding still for
-150 ms asks for one settled frame; every other request is settled. Frames start no closer than a period apart, a second
+while a person holds a slider the window watches - every one the `INIT_*SPINBOX_CTRL` macros make - or another control
+the window is told is held (`controlHeld`: the curves transformation's curve editor reports a point taken with the left
+button, `CurvesWidgetListener::onCurvePointHeld`) is an interactive frame (`ProcessRun::frameKind`), admitted for no
+more than the preview reservation, and letting go or holding still for 150 ms asks for one settled frame; every other
+request is settled. Frames start no closer than a period apart, a second
 over the Processing page's preview rate (`readPreviewFrameRate`), read off the GUI thread when the preview is turned on,
 the window activated or a chain of frames begins, and in force for the chains that begin after the read lands. The preview view
 shows the target's own asset, shared through `ImageDocument::share` rather than copied, until its first frame lands and
@@ -165,8 +167,9 @@ what the preview view paints, and the GUI thread hands the presentation to the v
 filed under the key the view's own request would make) and the counts to the histogram (`IPreviewHistogram::showCounts`);
 frames are queued above every other task of the pool. A process declares what an interactive frame may run over
 (`previewScaling()`): `PreviewScaling::FullOnly`, the default, runs every frame over the whole target;
-`PreviewScaling::Decimated` - Brightness and Contrast, Gamma Correction, Exposure, Saturation, HSL, LCh and Gaussian
-Blur - runs an interactive frame over the target reduced by the preview view's factor, each pixel the mean of its block
+`PreviewScaling::Decimated` - Brightness and Contrast, Gamma Correction, Exposure, Saturation, HSL, LCh, Curves
+Transformation and Gaussian Blur - runs an interactive frame over the target reduced by the preview view's factor, each
+pixel the mean of its block
 (`reduceForPreview` in `session/PreviewProxies.h`), or at full scale over the part of the target the view shows
 (`ProcessRun::proxyFactor`, `ProcessRun::partOfTarget`, `ProcessRun::part`), the reductions kept by the revision they
 were made from (`PreviewProxyCache`); and `PreviewScaling::NativeRegion` - the median, bilateral, unsharp-mask,
@@ -481,7 +484,10 @@ The histogram transformation is `stretchImage` with a screen transfer per channe
 `stretchImage` with the dialog's curve and the engine's colour modes, the curves `buildCurveProgram` through
 `applyProcessChannelScope` (an exact table for eight and sixteen bits, a sampled table of `kCurvesTableEntries` for
 floats, one plan for a preview and an Apply, Monotone Cubic offered beside the four classic rules), and the
-statistical stretch `analyzeImageStatisticalStretch` and `stretchImageStatistically`. A stretch is decided from the
+statistical stretch `analyzeImageStatisticalStretch` and `stretchImageStatistically`. The curve is fixed by its points
+alone, so the curves transformation is the one stretch whose interactive frames run over what the preview view paints
+(`PreviewScaling::Decimated`); its editor counts the preview's result for the histogram it draws after each settled
+frame, and leaves it as it is while a drag's interactive frames are shown. A stretch is decided from the
 whole image it changes: the target's statistics for an Apply, a new image and a preview, each frame's for a sequence,
 and the target's - never the crop's - for a preview area (`screenTransferStatisticsFor`, a `StretchStatisticsCache` per
 revision); a statistical stretch's preview area is the whole target stretched and cropped. A preview area is a view of

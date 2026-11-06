@@ -24,6 +24,7 @@ class ImageViewControl;
 namespace an::ui
 {
 class HistogramCountScheduler;
+struct HistogramCountTelemetry;
 } // namespace an::ui
 
 struct CurvesTransformationParams
@@ -98,6 +99,18 @@ public:
     void onImageDisplayChannelChanged(ImageViewControl* ctrl, int mode) override;
 
     void onCurvesUpdated(const an::ui::ToneCurveModel& curve) override;
+
+    /// A point of the curve held and dragged is a drag, as a held slider is: its changes are shown in interactive
+    /// frames, and letting it go - or holding it still for the settle delay - asks for the settled frame.
+    void onCurvePointHeld(bool held) override;
+
+    /// The curve maps every pixel by one rule wherever it lies and reads no other image, so an interactive frame runs
+    /// over what the preview view paints of the target.
+    [[nodiscard]] an::ui::PreviewScaling previewScaling() const override;
+
+    /// What the counts of the curve editor's histogram came to so far: the editor counts the image the preview shows
+    /// itself, apart from the frames - after each settled frame, never while a drag's interactive frames are shown.
+    [[nodiscard]] an::ui::HistogramCountTelemetry histogramTelemetry() const;
 
     ~CurvesTransformationProcess() override;
 

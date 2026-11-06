@@ -5,12 +5,13 @@
 /// The real-time preview's drag benchmarks, run only when asked for: the brightness and contrast dialog over a frame,
 /// its preview on, its brightness slider pressed, dragged a step at a time at a steady rate and released; the gamma
 /// correction's, the LCh adjustment's, the Gaussian blur's and the median filter's sliders dragged the same way; the
-/// histogram transformation's midtones and a point of the curves transformation's curve, which no slider drives,
-/// stepped at the same rate - and what each drag cost reported: the
+/// histogram transformation's midtones, which no slider drives, stepped at the same rate; a point of the curves
+/// transformation's curve taken with the mouse and dragged at that rate - and what each drag cost reported: the
 /// previews shown per second and by kind of frame, how long they took and how long each spent in its one operation and
-/// waiting to be admitted, how many ran over what the view paints, how their histograms were made, what they converted
-/// and cut of what they read and what they read of what earlier frames had, the GUI thread's pump lengths, the
-/// processor time, the page faults and the memory, and what the preview view's presentations cost.
+/// waiting to be admitted, how many ran over what the view paints, how their histograms were made and how often the
+/// curve editor counted its own, what they converted and cut of what they read and what they read of what earlier
+/// frames had, the GUI thread's pump lengths, the processor time, the page faults and the memory, and what the preview
+/// view's presentations cost.
 ///
 /// It runs when AN_BENCH_IMAGE names a frame: a file the viewer opens, read as the viewer reads it, a camera RAW frame
 /// demosaiced by RCD; or `synthetic`, a 6000 by 4000 sixteen-bit colour frame of a starry sky the case makes. The
@@ -53,6 +54,7 @@
 #include "processes/HistogramTransformationProcess.h"
 #include "processes/MedianFilterProcess.h"
 #include "widgets/CurvesWidget.h"
+#include "widgets/HistogramCompanions.h"
 #include "widgets/ImageViewWidget.h"
 #include "widgets/ToneCurveModel.h"
 
@@ -66,6 +68,7 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFileInfo>
+#include <QMouseEvent>
 #include <QScrollBar>
 #include <QSlider>
 #include <QToolButton>
@@ -485,6 +488,10 @@ struct DragSubject
     /// Whether letting the control go asks for a frame: false for a control no slider drives, whose last frame may
     /// have been shown before the drag ended.
     bool releases = true;
+
+    /// The counts the dialog's own editor started so far of the histogram it draws apart from the frames - the curve
+    /// editor's; nothing for a dialog without one.
+    std::function<std::optional<std::uint64_t>(QWidget&)> editorHistogramCounts;
 };
 
 /// The brightness slider of the brightness and contrast dialog, from zero up a code a step.
@@ -661,30 +668,63 @@ struct DragSubject
     return nullptr;
 }
 
-/// The middle point of the curves transformation's curve, from the identity up two thousandths a step: no slider drives
-/// it, so every frame is settled, and the dialog runs every frame over the whole image.
+/// Sends a widget a left-button mouse event at a point of it, as a person's hand does: a press, a move with the button
+/// held, or the release.
+void sendMouse(QWidget& widget, QEvent::Type type, const QPoint& at)
+{
+    const Qt::MouseButton button = type == QEvent::MouseMove ? Qt::NoButton : Qt::LeftButton;
+    const Qt::MouseButtons held = type == QEvent::MouseButtonRelease ? Qt::NoButton : Qt::LeftButton;
+    QMouseEvent event(type, QPointF(at), QPointF(widget.mapToGlobal(at)), button, held, Qt::NoModifier);
+    QCoreApplication::sendEvent(&widget, &event);
+}
+
+/// The middle point of the curves transformation's curve, set at the identity, taken hold of with the left button,
+/// dragged up a pixel a step and let go, as a person drags it.
 [[nodiscard]] DragSubject curvesDrag()
 {
+    // Where the press took the point, which each step moves it from.
+    auto pressedAt = std::make_shared<QPoint>();
     return DragSubject{
         .name = "curves-transformation",
         .open =
             [](ImageViewControl& target) { return openDialog<CurvesTransformationProcess>(target, QSize(1400, 900)); },
         .step =
-            [](QWidget& dialog, int step) {
+            [pressedAt](QWidget& dialog, int step) {
                 CurvesWidget* curves = curvesWidgetOf(dialog);
                 if (curves == nullptr)
                 {
                     return false;
                 }
-                const double output = 0.5 + 0.002 * static_cast<double>(step);
-                curves->setCurve(an::ui::ToneCurveModel({an::CurveControlPoint{.input = 0.0, .output = 0.0},
-                                                         an::CurveControlPoint{.input = 0.5, .output = output},
-                                                         an::CurveControlPoint{.input = 1.0, .output = 1.0}},
-                                                        curves->getCurve().interpolation()));
+                if (step == 0)
+                {
+                    curves->setCurve(an::ui::ToneCurveModel({an::CurveControlPoint{.input = 0.0, .output = 0.0},
+                                                             an::CurveControlPoint{.input = 0.5, .output = 0.5},
+                                                             an::CurveControlPoint{.input = 1.0, .output = 1.0}},
+                                                            curves->getCurve().interpolation()));
+                    return true;
+                }
+                sendMouse(*curves, QEvent::MouseMove, *pressedAt - QPoint(0, step));
                 return true;
             },
-        .press = [](QWidget&, bool) {},
-        .releases = false};
+        .press =
+            [pressedAt](QWidget& dialog, bool down) {
+                CurvesWidget* curves = curvesWidgetOf(dialog);
+                if (curves == nullptr)
+                {
+                    return;
+                }
+                if (down)
+                {
+                    *pressedAt = curves->pointPosition(1u);
+                }
+                sendMouse(*curves, down ? QEvent::MouseButtonPress : QEvent::MouseButtonRelease,
+                          down ? *pressedAt : curves->pointPosition(1u));
+            },
+        .editorHistogramCounts = [](QWidget& dialog) -> std::optional<std::uint64_t> {
+            const auto* curves = dynamic_cast<const CurvesTransformationProcess*>(&dialog);
+            return curves != nullptr ? std::optional<std::uint64_t>(curves->histogramTelemetry().started)
+                                     : std::nullopt;
+        }};
 }
 
 /// A digest of the samples a document holds within a part of it, or within all of it when the part is empty, every
@@ -875,6 +915,10 @@ void runDrag(const DragSubject& subject)
     const std::optional<an::ui::ViewRegion> shownPart = previewWidget->shownImageRegion();
 
     const ProcessRunTelemetry runsBefore = dialog->runTelemetry();
+    const auto editorCounts = [&subject, &dialog]() -> std::optional<std::uint64_t> {
+        return subject.editorHistogramCounts ? subject.editorHistogramCounts(*dialog) : std::nullopt;
+    };
+    const std::optional<std::uint64_t> editorCountsBefore = editorCounts();
     const ImageViewPresentationTelemetry presentedBefore = previewWidget->presentationTelemetry();
     const ProcessMemory memoryBefore = processMemory();
     const double processorStart = processorMilliseconds();
@@ -913,6 +957,7 @@ void runDrag(const DragSubject& subject)
         }
     }
     const ProcessRunTelemetry runsAtDragEnd = dialog->runTelemetry();
+    const std::optional<std::uint64_t> editorCountsAtDragEnd = editorCounts();
     const double releasedAt = nowMilliseconds();
     subject.press(*dialog, false);
     const double dragMs = static_cast<double>(wall.elapsed());
@@ -939,6 +984,7 @@ void runDrag(const DragSubject& subject)
     const double processorEnd = processorMilliseconds();
     const ProcessMemory memoryEnd = processMemory();
     const ProcessRunTelemetry runsEnd = dialog->runTelemetry();
+    const std::optional<std::uint64_t> editorCountsEnd = editorCounts();
     const ImageViewPresentationTelemetry presentedEnd = previewWidget->presentationTelemetry();
     EXPECT_GT(runsAtDragEnd.previewsCommitted, runsBefore.previewsCommitted) << "the drag showed previews";
     const QRect areaShown = dialog->previewArea();
@@ -980,6 +1026,10 @@ void runDrag(const DragSubject& subject)
         return fixed(milliseconds(total) / (std::max)(1.0, static_cast<double>(count)));
     };
     const std::uint64_t committedInRun = runsEnd.previewsCommitted - runsBefore.previewsCommitted;
+    const auto editorCountsSince = [&editorCountsBefore](const std::optional<std::uint64_t>& counts) {
+        return editorCountsBefore.has_value() && counts.has_value() ? std::to_string(*counts - *editorCountsBefore)
+                                                                    : std::string("none");
+    };
     const std::vector<ReportField> fields = {
         {"date", QDateTime::currentDateTime().toString(Qt::ISODate).toStdString()},
         {"process", subject.name},
@@ -1032,6 +1082,8 @@ void runDrag(const DragSubject& subject)
         {"histograms_remapped_in_drag",
          std::to_string(runsAtDragEnd.histogramsRemapped - runsBefore.histogramsRemapped)},
         {"histograms_sampled_in_drag", std::to_string(runsAtDragEnd.histogramsSampled - runsBefore.histogramsSampled)},
+        {"editor_histograms_counted_in_drag", editorCountsSince(editorCountsAtDragEnd)},
+        {"editor_histograms_counted_in_all", editorCountsSince(editorCountsEnd)},
         {"analyses_measured", std::to_string(runsEnd.analysesMeasured - runsBefore.analysesMeasured)},
         {"scopes_prepared", std::to_string(runsEnd.scopesPrepared - runsBefore.scopesPrepared)},
         {"scopes_reused", std::to_string(runsEnd.scopesReused - runsBefore.scopesReused)},

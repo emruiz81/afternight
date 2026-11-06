@@ -410,6 +410,24 @@ void CurvesTransformationProcess::onCurvesUpdated(const an::ui::ToneCurveModel& 
     settingsUpdated();
 }
 
+void CurvesTransformationProcess::onCurvePointHeld(const bool held)
+{
+    controlHeld(m_curves_widget.get(), held);
+}
+
+an::ui::PreviewScaling CurvesTransformationProcess::previewScaling() const
+{
+    // Every pixel is mapped through the same curve wherever it lies, whatever the channel scope: a frame over the
+    // target reduced shows the curve of each block's mean, which a drag can follow, and the frame that settles it the
+    // curve of every pixel, as the Apply does.
+    return an::ui::PreviewScaling::Decimated;
+}
+
+an::ui::HistogramCountTelemetry CurvesTransformationProcess::histogramTelemetry() const
+{
+    return m_HistogramCounts->telemetry();
+}
+
 CurvesTransformationProcess::~CurvesTransformationProcess() = default;
 
 void CurvesTransformationProcess::on_channelSelector2_currentTextChanged(const QString& str)

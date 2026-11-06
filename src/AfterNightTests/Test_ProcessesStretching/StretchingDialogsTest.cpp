@@ -63,6 +63,10 @@ struct Dialog
     /// The engine operation the result's lineage names, and the name the processing-state cards record.
     std::string engineOperation;
     std::string processingOperation;
+
+    /// What an interactive frame may run over: the whole image, for a stretch its dialog may take from the image's
+    /// statistics; what the preview view paints, for a curve the dialog's points fix alone.
+    an::ui::PreviewScaling scaling = an::ui::PreviewScaling::FullOnly;
 };
 
 [[nodiscard]] std::vector<Dialog> dialogs()
@@ -106,7 +110,8 @@ struct Dialog
                                                                an::CurveInterpolation::NaturalCubic));
                    },
                .engineOperation = "an::applyChannelScope",
-               .processingOperation = "curves-transformation"},
+               .processingOperation = "curves-transformation",
+               .scaling = an::ui::PreviewScaling::Decimated},
     };
 }
 
@@ -272,10 +277,13 @@ struct Dialog
 
 } // namespace
 
-// A stretch is exact in every frame: no stretching dialog declares that an interactive frame may run over a reduction
-// of its target, or that its body maps each channel alone, so every frame of a drag runs the production body over the
-// whole image as its settled frame and its Apply do.
-TEST(StretchingDialogsTest, EveryFrameOfAStretchRunsOverTheWholeImage)
+// A stretch its dialog may take from the image's statistics is exact in every frame: the statistical stretch, the
+// histogram transformation and the generalized hyperbolic one declare no interactive frame over a reduction of their
+// target, so every frame of a drag runs the production body over the whole image as its settled frame and its Apply
+// do. The curves transformation's curve is fixed by its points alone and maps every pixel by it wherever the pixel
+// lies, so a drag of a point runs over what the preview view paints, as the tone dialogs' drags do. None declares that
+// its body maps each channel alone.
+TEST(StretchingDialogsTest, OnlyAStretchFixedByTheDialogAloneRunsAnInteractiveFrameOverAReduction)
 {
     std::unique_ptr<ProcessTestContext> context = openProcessContext();
     ASSERT_NE(context, nullptr);
@@ -285,7 +293,7 @@ TEST(StretchingDialogsTest, EveryFrameOfAStretchRunsOverTheWholeImage)
     {
         SCOPED_TRACE(dialog.name);
         AnyWindow process = dialog.open(*view);
-        EXPECT_EQ(process->previewScaling(), an::ui::PreviewScaling::FullOnly);
+        EXPECT_EQ(process->previewScaling(), dialog.scaling);
         EXPECT_FALSE(process->mapsEachChannelAlone());
     }
 }
