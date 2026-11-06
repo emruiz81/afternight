@@ -499,86 +499,36 @@ LeadingPlanesSelection::LeadingPlanesSelection(const an::SpatialSelection& whole
     m_selection.mask = m_planes.has_value() ? &*m_planes : nullptr;
 }
 
-an::Status markProcessResultNonlinear(const an::consumer::EngineSession& session, const an::EngineContext& engine,
-                                      const an::ExecutionContext& execution, an::ui::ProcessDestination& destination,
-                                      std::string_view operation)
+an::Status markProcessResultNonlinear(an::ui::ProcessDestination& destination, std::string_view operation)
 {
     if (!destination.valid())
     {
         return an::Status::failure(an::ErrorCode::NotInitialized, "the run has no result to record a state on");
     }
-    const an::consumer::AssetWriteLease& result = destination.asset();
-    return std::visit(
-        [&](const auto& typed) -> an::Status {
-            using ImageT = std::decay_t<decltype(typed)>;
-            const std::optional<an::ImageDescriptor> described = typed.descriptor();
-            const auto source = typed.view();
-            if (!described.has_value() || !source.has_value())
-            {
-                return an::Status::failure(an::ErrorCode::NotInitialized, "the run's result holds nothing");
-            }
-            const an::ImageMetadata& metadata = typed.metadata();
-            const an::ProcessingStateRecord state =
-                an::nonlinearState(an::readProcessingStateCards(metadata.codec()), *described, operation);
-            an::Result<an::CodecMetadata> codec = an::withProcessingStateCards(metadata.codec(), state);
-            if (!codec.hasValue())
-            {
-                return codec.status();
-            }
-            an::Result<an::ProvenanceEntry> entry =
-                an::ProvenanceEntry::create(std::string(operation), "the samples left nonlinear");
-            if (!entry.hasValue())
-            {
-                return entry.status();
-            }
-            an::Result<an::Provenance> provenance = metadata.provenance().appended(*entry);
-            if (!provenance.hasValue())
-            {
-                return provenance.status();
-            }
-            an::Result<an::ImageMetadata> stated =
-                an::ImageMetadata::create(metadata.acquisition(), metadata.semantics(), metadata.astrometry(),
-                                          std::move(*provenance), std::move(*codec), metadata.outputIntent());
-            if (!stated.hasValue())
-            {
-                return stated.status();
-            }
-            an::Result<ImageT> copy = ImageT::create(engine, *described, an::storageArrangementOf(source->layout()),
-                                                     an::StorageInitialization::Uninitialized, std::move(*stated));
-            if (!copy.hasValue())
-            {
-                return copy.status();
-            }
-            {
-                auto access = copy->write();
-                if (!access.has_value())
-                {
-                    return an::Status::failure(an::ErrorCode::NotInitialized, "the copy holds nothing");
-                }
-                if (an::Status copied = an::copyImage(execution, *source, access->view()); copied.failed())
-                {
-                    return copied;
-                }
-            }
-            std::optional<an::ValidityMask> mask;
-            if (const an::ValidityMask* validity = result.validity(); validity != nullptr)
-            {
-                an::Result<an::ValidityMask> cloned = validity->clone();
-                if (!cloned.hasValue())
-                {
-                    return cloned.status();
-                }
-                mask = std::move(*cloned);
-            }
-            an::Result<an::consumer::ImageAsset> asset =
-                an::consumer::ImageAsset::adopt(session, an::consumer::AnyImage(std::move(*copy)), std::move(mask));
-            if (!asset.hasValue())
-            {
-                return asset.status();
-            }
-            return destination.replace(std::move(*asset));
-        },
-        result.image());
+    an::consumer::AssetWriteLease& result = destination.asset();
+    const std::optional<an::ImageDescriptor> described =
+        std::visit([](const auto& typed) { return typed.descriptor(); }, result.image());
+    if (!described.has_value())
+    {
+        return an::Status::failure(an::ErrorCode::NotInitialized, "the run's result holds nothing");
+    }
+    const an::ImageMetadata& metadata =
+        std::visit([](const auto& typed) -> const an::ImageMetadata& { return typed.metadata(); }, result.image());
+    const an::ProcessingStateRecord state =
+        an::nonlinearState(an::readProcessingStateCards(metadata.codec()), *described, operation);
+    an::Result<an::CodecMetadata> codec = an::withProcessingStateCards(metadata.codec(), state);
+    if (!codec.hasValue())
+    {
+        return codec.status();
+    }
+    an::Result<an::ProvenanceEntry> entry =
+        an::ProvenanceEntry::create(std::string(operation), "the samples left nonlinear");
+    if (!entry.hasValue())
+    {
+        return entry.status();
+    }
+    // The cards are stated where the result is: its samples stay where the process wrote them.
+    return result.transition(an::MetadataTransition{.codec = std::move(*codec), .record = std::move(*entry)});
 }
 
 } // namespace process_utils

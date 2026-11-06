@@ -353,8 +353,7 @@ an::Status RangeSelectionProcess::executeTypedProcessImpl(const an::ui::ProcessS
         {
             return replaced;
         }
-        return run.isForPreview() ? an::Status::success()
-                                  : process_utils::recordNonlinearResult(scope, destination, record);
+        return run.isForPreview() ? an::Status::success() : process_utils::recordNonlinearResult(destination, record);
     }
 
     // Otherwise the image itself, in fractions of full scale: the mask has the image's channels and representation.
@@ -385,8 +384,7 @@ an::Status RangeSelectionProcess::executeTypedProcessImpl(const an::ui::ProcessS
     {
         return committed;
     }
-    return run.isForPreview() ? an::Status::success()
-                              : process_utils::recordNonlinearResult(scope, destination, record);
+    return run.isForPreview() ? an::Status::success() : process_utils::recordNonlinearResult(destination, record);
 }
 
 void RangeSelectionProcess::resetSettings()

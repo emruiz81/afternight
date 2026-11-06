@@ -307,16 +307,13 @@ struct NonlinearResultRecord
 /// the solution, the acquisition record, every other card, the validity unless the record restates it - is the
 /// source's, as the destination started.
 ///
-/// The cards are part of the image's metadata, which an image is created with, so a result whose cards change is
-/// copied once into an image created with its new metadata, and that image becomes the destination.
+/// All of it is stated where the result is, in one metadata transition: the samples stay where the process wrote them,
+/// and nothing of the result is copied to carry its new cards.
 ///
-/// @param scope the run's admitted execution, whose session the new image belongs to.
-/// @param destination the run's result, written; replaced when its cards change.
+/// @param destination the run's result, written; it keeps its image and its samples.
 /// @param record what the process did.
-/// @return success; or what reading, stating, allocating, copying or replacing refused. On a failure the destination
-///         is unchanged.
-[[nodiscard]] AFTERNIGHTPROCESSES_API an::Status recordNonlinearResult(const an::ui::ExecutionScope& scope,
-                                                                       an::ui::ProcessDestination& destination,
+/// @return success; or what reading or stating the record refused. On a failure the destination is unchanged.
+[[nodiscard]] AFTERNIGHTPROCESSES_API an::Status recordNonlinearResult(an::ui::ProcessDestination& destination,
                                                                        const NonlinearResultRecord& record);
 
 } // namespace process_utils

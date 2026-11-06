@@ -166,7 +166,7 @@ an::Status ArcSinhStretchProcess::executeTypedProcessImpl(const an::ui::ProcessS
         return an::Status::success();
     }
     return process_utils::recordNonlinearResult(
-        scope, destination,
+        destination,
         process_utils::NonlinearResultRecord{
             .stateOperation = "arcsinh-stretch",
             .engineOperation = "an::stretchImage",

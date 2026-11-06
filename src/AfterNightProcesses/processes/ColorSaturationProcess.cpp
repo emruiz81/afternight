@@ -325,12 +325,11 @@ an::Status ColorSaturationProcess::executeTypedProcessImpl(const an::ui::Process
         return an::Status::success();
     }
     return process_utils::recordNonlinearResult(
-        scope, destination,
-        process_utils::NonlinearResultRecord{.stateOperation = "saturation-enhancement",
-                                             .engineOperation = "an::enhanceImageSaturation",
-                                             .detail = fmt::format("amount {}, background {}, hues {} to {}",
-                                                                   params.amount, heldBackground, hues.minimumDegrees,
-                                                                   hues.maximumDegrees)});
+        destination, process_utils::NonlinearResultRecord{
+                         .stateOperation = "saturation-enhancement",
+                         .engineOperation = "an::enhanceImageSaturation",
+                         .detail = fmt::format("amount {}, background {}, hues {} to {}", params.amount, heldBackground,
+                                               hues.minimumDegrees, hues.maximumDegrees)});
 }
 
 an::ui::ProcessStep ColorSaturationProcess::describeTypedProcessStep(const ColorSaturationParams& params) const

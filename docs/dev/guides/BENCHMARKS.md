@@ -344,6 +344,9 @@ dialog went idle. What they mean:
   the view painted.
 - With `AN_BENCH_APPLY`, `settled_digest` and `applied_digest` are digests of the settled preview's samples and of the
   Apply's, within the preview area when one is on, and `settled_is_applied` says whether they are the same.
+  `apply_ms` is the time from the Apply until its run was committed to the target, and `apply_engine_allocated_mib`
+  the bytes the engine handed out from the Apply until the dialog and the target were idle after it, every allocation
+  counted once by the session's memory resource (`MemoryCounters::totalBytes`), whatever was let go meanwhile.
 - `settled_frame_after_release_ms` is the time from the slider's release until the settled frame it asked for was
   handed to the preview view, and `settled_presented_after_release_ms` until the preview view had presented it too.
   The midtones have no slider to release: theirs is the time until the frame of the last step was handed over, `none`

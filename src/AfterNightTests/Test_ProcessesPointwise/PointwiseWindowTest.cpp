@@ -958,14 +958,16 @@ TEST_P(PointwiseWindowTest, APixelHoldingNoNumberDoesNotStopTheRun)
 TEST_P(PointwiseWindowTest, ARunTheEngineRefusesPublishesNothingAndSaysWhy)
 {
     const PointwiseProcess& under = process();
-    // A session whose engine holds the image and the run's copy of it, and not a third image of that size, which
-    // every process makes in its body - the result its cards are restated on, or the colorized image.
+    // A session whose engine holds the image and half an image more: too little for the run's copy of it, which every
+    // process works in - its cards are restated where the result is, so no process needs a third image of that size,
+    // and the run's own copy is the working memory the engine refuses. The window's preview is off as it opens and
+    // holds no copy of the target.
     constexpr std::uint32_t kSide = 256u;
     const std::uint64_t imageBytes = static_cast<std::uint64_t>(kSide) * kSide * 3u * sizeof(float);
     releaseContext();
     an::consumer::EngineSessionSettings settings;
     settings.maxConcurrency = 4u;
-    settings.limits.memoryBudgetBytes = imageBytes * 5u / 2u;
+    settings.limits.memoryBudgetBytes = imageBytes * 3u / 2u;
     an::Result<an::consumer::EngineSession> opened = an::consumer::EngineSession::open(settings);
     ASSERT_TRUE(opened.hasValue()) << opened.status().message();
     ProcessTestContext tight(std::move(*opened));

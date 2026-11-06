@@ -471,7 +471,8 @@ stretch and the colour operations leave a non-finite pixel as it was. The 32-bit
 cannot tell their neighbouring codes apart, and a value rule is judged before the conversion because a signed
 integer's zero is not zero once it is counted from its smallest value. `runNormalizedChain` fuses a channel plane's
 programs. `recordNonlinearResult` states the processing-state cards on the result, drops a linear meaning and records
-the engine operation in the lineage, rebuilding the result once when its cards change. The preview is the Apply's
+the engine operation in the lineage, all in one metadata transition stated where the result is (its `codec` carries
+the new cards), so nothing of the result is copied to carry them. The preview is the Apply's
 operation in every frame, the gamma's included; the HSL and LCh windows keep no colour-space copy on the GUI
 thread; a colour-only process refuses a grey image by name. A body
 adopts what it makes into `ExecutionScope::session()`. `Test_ProcessesPointwise` launches the eight through the
@@ -497,7 +498,9 @@ largest stretched value.
 `makeStretchWorkingCopy` is the Float32 or Float64 working copy as fractions of full scale - a signed integer counted
 from its smallest value (`readAsFractions`, `writeFromFractions`) - and `publishStretchResult` the result in the
 image's representation, with its validity and cards, no transfer function, a lineage entry and the nonlinear
-processing state; never copy the source's metadata over the result afterwards. The engine's generalized hyperbolic bias
+processing state; never copy the source's metadata over the result afterwards. A body that wrote its stretch where
+the run writes - the curves transformation's - hands `publishStretchResult` the destination's own image, and the
+metadata is stated on those samples where they are. The engine's generalized hyperbolic bias
 runs from `kMinimumGeneralizedHyperbolicBias` to `kMaximumGeneralizedHyperbolicBias` (-5 to 15). A dialog's histograms,
 clipping figures and symmetry-point picks run on workers that take their read lease before their admission
 (`admitDialogWork`), because an Apply in place holds the writer while it waits to be admitted; the histogram counts,
@@ -529,7 +532,8 @@ Apply where the library is absent. A non-finite sample is refused because some G
 others turn most of the image into NaN; the ranking filters instead leave it where it is and rank its finite
 neighbours, because registered and stacked frames carry NaN borders. The morphological selection is
 `filterImageFootprintOrderStatistic`. CLAHE and LHE record their result nonlinear under their own names through
-`markProcessResultNonlinear`. `Test_ProcessesSpatial` holds all nineteen to every behavior dimension through their
+`markProcessResultNonlinear`, which states the cards where the result is. `Test_ProcessesSpatial` holds all nineteen
+to every behavior dimension through their
 windows and judges every recorded capture; it reaches the G'MIC adapter only through the processes library, the one
 product target `check_build_graph.py` lets link it.
 

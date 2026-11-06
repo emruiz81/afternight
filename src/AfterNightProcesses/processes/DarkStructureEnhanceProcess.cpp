@@ -531,13 +531,12 @@ an::Status DarkStructureEnhanceProcess::executeTypedProcessImpl(const an::ui::Pr
         return an::Status::success();
     }
     return process_utils::recordNonlinearResult(
-        scope, destination,
-        process_utils::NonlinearResultRecord{
-            .stateOperation = "dark-structure-enhance",
-            .engineOperation = "an::enhanceImageDarkStructures",
-            .detail = fmt::format("layers {}, {}, midtones {}, iterations {}", params.layersToRemove,
-                                  scaling_name_from_index(params.scalingFunction),
-                                  detail::midtonesFromAmount(params.amount), params.iterations)});
+        destination, process_utils::NonlinearResultRecord{
+                         .stateOperation = "dark-structure-enhance",
+                         .engineOperation = "an::enhanceImageDarkStructures",
+                         .detail = fmt::format("layers {}, {}, midtones {}, iterations {}", params.layersToRemove,
+                                               scaling_name_from_index(params.scalingFunction),
+                                               detail::midtonesFromAmount(params.amount), params.iterations)});
 }
 
 an::ui::ProcessStep

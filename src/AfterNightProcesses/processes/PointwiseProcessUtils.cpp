@@ -1148,11 +1148,8 @@ bool holdsColourImage(const ImageViewControl* target)
 
 // ---- The nonlinear record.
 
-an::Status recordNonlinearResult(const an::ui::ExecutionScope& scope, an::ui::ProcessDestination& destination,
-                                 const NonlinearResultRecord& record)
+an::Status recordNonlinearResult(an::ui::ProcessDestination& destination, const NonlinearResultRecord& record)
 {
-    const an::EngineContext& engine = scope.engine();
-    const an::ExecutionContext& execution = scope.execution();
     if (!destination.valid())
     {
         return refusal(an::ErrorCode::NotInitialized, "the run has no result to record");
@@ -1205,75 +1202,28 @@ an::Status recordNonlinearResult(const an::ui::ExecutionScope& scope, an::ui::Pr
     {
         return entry.status();
     }
-    const an::MetadataTransition lineage{.record = *entry};
-
-    if (*cards == metadata.codec() && semantics == metadata.semantics())
+    // The new cards and meaning are stated where the result is, in one transition that names what ran: the samples
+    // stay where the process wrote them, and nothing of the result is copied to carry them.
+    an::MetadataTransition change{.record = std::move(*entry)};
+    if (!(semantics == metadata.semantics()))
     {
-        if (record.restatedValidity.has_value())
-        {
-            destination.asset().clearValidity();
-        }
-        return destination.asset().transition(lineage);
+        change.semantics = std::move(semantics);
     }
-
-    an::ImageMetadata restatedMetadata =
-        an::ImageMetadata::create(metadata.acquisition(), std::move(semantics), metadata.astrometry(),
-                                  metadata.provenance(), std::move(*cards), metadata.outputIntent());
-    an::Result<an::consumer::AnyImage> copy = std::visit(
-        [&](const auto& typed) -> an::Result<an::consumer::AnyImage> {
-            using ImageT = std::remove_cvref_t<decltype(typed)>;
-            const auto view = typed.view();
-            if (!view.has_value())
-            {
-                return refusal(an::ErrorCode::NotInitialized, "the result holds nothing");
-            }
-            an::Result<ImageT> created =
-                ImageT::create(engine, *described, an::storageArrangementOf(view->layout()),
-                               an::StorageInitialization::Uninitialized, std::move(restatedMetadata));
-            if (!created.hasValue())
-            {
-                return created.status();
-            }
-            {
-                auto access = created->write();
-                if (!access.has_value())
-                {
-                    return refusal(an::ErrorCode::NotInitialized, "the recorded result holds nothing");
-                }
-                if (an::Status copied = an::copyImage(execution, *view, access->view()); copied.failed())
-                {
-                    return copied;
-                }
-            }
-            if (an::Status recorded = created->transition(lineage); recorded.failed())
-            {
-                return recorded;
-            }
-            return an::consumer::AnyImage(std::move(*created));
-        },
-        image);
-    if (!copy.hasValue())
+    if (!(*cards == metadata.codec()))
     {
-        return copy.status();
+        change.codec = std::move(*cards);
     }
-    std::optional<an::ValidityMask> mask;
-    if (const an::ValidityMask* validity = destination.asset().validity();
-        validity != nullptr && !record.restatedValidity.has_value())
+    if (an::Status stated = destination.asset().transition(change); stated.failed())
     {
-        an::Result<an::ValidityMask> cloned = validity->clone();
-        if (!cloned.hasValue())
-        {
-            return cloned.status();
-        }
-        mask.emplace(std::move(*cloned));
+        return stated;
     }
-    an::Result<an::consumer::ImageAsset> asset =
-        an::consumer::ImageAsset::adopt(scope.session(), std::move(*copy), std::move(mask));
-    if (!asset.hasValue())
+    // Under a restated validity no sample is read through the source's packed mask, so it is let go - after the
+    // transition, the one step that can be refused, so a refusal leaves the destination as it was.
+    if (record.restatedValidity.has_value())
     {
-        return asset.status();
+        destination.asset().clearValidity();
     }
-    return destination.replace(std::move(*asset));
+    return an::Status::success();
 }
 
 } // namespace process_utils

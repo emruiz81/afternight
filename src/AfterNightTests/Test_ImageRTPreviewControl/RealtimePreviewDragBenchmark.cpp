@@ -27,7 +27,8 @@
 ///                          a dialog that opens with one included
 ///   AN_BENCH_APPLY         1 applies the dialog once the drag has settled and reports whether the settled preview's
 ///                          samples are the Apply's - within the preview area when one is on, since outside it the
-///                          preview shows the frame itself; 0, the default, applies nothing
+///                          preview shows the frame itself - how long the Apply took and how many bytes the engine
+///                          handed out for it; 0, the default, applies nothing
 ///   AN_BENCH_STEPS         the slider's steps, 60 by default
 ///   AN_BENCH_STEP_MS       the milliseconds between steps, 16 by default
 ///   AN_BENCH_FPS           the previews a second the Processing settings state; the product's default, thirty, when
@@ -58,7 +59,11 @@
 #include "widgets/ImageViewWidget.h"
 #include "widgets/ToneCurveModel.h"
 
+#include <AfterNightConsumerRuntime/EngineSession.h>
+
 #include <AfterNightEngine/Algorithms/Demosaic/Demosaic.h>
+#include <AfterNightEngine/Runtime/EngineContext.h>
+#include <AfterNightEngine/Runtime/MemoryResource.h>
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -993,11 +998,35 @@ void runDrag(const DragSubject& subject)
     // preview area when one is on, outside which the preview shows the frame itself.
     const std::uint64_t settledDigest = digestOf(previewView->document(), areaShown);
     std::optional<std::uint64_t> appliedDigest;
+    // How long the Apply took until its run was committed to the target, and how many bytes the engine handed out from
+    // the Apply until the dialog and the target were idle after it - every allocation counted once by the session's own
+    // memory resource, whatever was let go meanwhile, so the figure does not depend on when it is read.
+    std::optional<double> applyMs;
+    std::optional<double> applyAllocatedMiB;
+    const auto engineBytesHandedOut = [&session]() -> std::optional<std::uint64_t> {
+        an::Result<an::consumer::SessionHold> hold = session.hold();
+        const an::MemoryResource* resource = hold.hasValue() ? hold->engine().memoryResource() : nullptr;
+        return resource != nullptr ? std::optional<std::uint64_t>(resource->counters().totalBytes) : std::nullopt;
+    };
     if (applyAfter)
     {
+        const std::uint64_t committedBefore = dialog->runTelemetry().runsCommitted;
+        const std::optional<std::uint64_t> handedOutBefore = engineBytesHandedOut();
+        const double applyStart = nowMilliseconds();
         dialog->applyProcess();
+        const bool committed = pumpUntil([&]() { return dialog->runTelemetry().runsCommitted > committedBefore; });
+        EXPECT_TRUE(committed) << "the Apply was committed";
+        if (committed)
+        {
+            applyMs = nowMilliseconds() - applyStart;
+        }
         EXPECT_TRUE(settleDialog(*dialog)) << "the dialog goes idle after the Apply";
         EXPECT_TRUE(settleView(*target));
+        const std::optional<std::uint64_t> handedOutAfter = engineBytesHandedOut();
+        if (handedOutBefore.has_value() && handedOutAfter.has_value())
+        {
+            applyAllocatedMiB = static_cast<double>(*handedOutAfter - *handedOutBefore) / (1024.0 * 1024.0);
+        }
         appliedDigest = digestOf(target->document(), areaShown);
     }
 
@@ -1098,6 +1127,9 @@ void runDrag(const DragSubject& subject)
         {"layers_adopted_in_drag", std::to_string(presentedAtDragEnd.layersAdopted - presentedBefore.layersAdopted)},
         {"settled_digest", hexOf(settledDigest)},
         {"applied_digest", appliedDigest.has_value() ? hexOf(*appliedDigest) : std::string("none")},
+        {"apply_ms", applyMs.has_value() ? fixed(*applyMs) : std::string("none")},
+        {"apply_engine_allocated_mib",
+         applyAllocatedMiB.has_value() ? fixed(*applyAllocatedMiB, 0) : std::string("none")},
         {"settled_is_applied",
          appliedDigest.has_value() ? (*appliedDigest == settledDigest ? "yes" : "no") : std::string("none")},
         {"cores_busy_in_drag", fixed(processorInDrag / dragMs, 2)},

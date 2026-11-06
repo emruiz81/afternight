@@ -274,19 +274,14 @@ template <typename ValueT> [[nodiscard]] an::Status statusOf(const an::Result<Va
 }
 
 /// Records on a run's result that the process left its samples nonlinear: the product's processing-state cards say
-/// nonlinear, in the channel basis a stretch leaves, under the operation named, and the lineage names the process. The
-/// destination is replaced by a copy carrying that metadata; its samples are unchanged.
+/// nonlinear, in the channel basis a stretch leaves, under the operation named, and the lineage names the process.
+/// Both are stated where the result is, in one metadata transition: the samples stay where the process wrote them,
+/// and nothing of the result is copied to carry its new cards.
 ///
-/// @param session the run's session, which the copy belongs to.
-/// @param engine the engine context of the run's execution.
-/// @param execution the run's admitted execution.
-/// @param destination the run's result, replaced.
+/// @param destination the run's result; it keeps its image and its samples.
 /// @param operation the operation the cards and the lineage name.
-/// @return success; or what the cards, the lineage or the copy refused.
-[[nodiscard]] an::Status markProcessResultNonlinear(const an::consumer::EngineSession& session,
-                                                    const an::EngineContext& engine,
-                                                    const an::ExecutionContext& execution,
-                                                    an::ui::ProcessDestination& destination,
-                                                    std::string_view operation);
+/// @return success; or what the cards or the lineage refused. On a failure the destination is unchanged.
+[[nodiscard]] AFTERNIGHTPROCESSES_API an::Status markProcessResultNonlinear(an::ui::ProcessDestination& destination,
+                                                                            std::string_view operation);
 
 } // namespace process_utils

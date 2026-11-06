@@ -1632,7 +1632,7 @@ an::Result<an::consumer::ImageAsset> negativeImageOf(const an::ui::ExecutionScop
         return blended;
     }
     if (an::Status recorded = recordNonlinearResult(
-            scope, *destination,
+            *destination,
             NonlinearResultRecord{.stateOperation = "negative-transform",
                                   .engineOperation = "an::executePointwiseProgram",
                                   .detail = "one minus every sample, as a fraction of its representation's range"});

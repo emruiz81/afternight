@@ -1,4 +1,4 @@
-version 1.0.0 1
+version 1.1.0 2
 joining 2
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API OpticalHints readOpticalHints(std::span<const CodecCard> cards) noexcept
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API PointingKeywords pointingCardKeywords(PointingCards cards) noexcept
@@ -2228,7 +2228,7 @@ header engine Core/ImageLayout.h 19a9142333de7498
 header engine Core/LibraryInfo.h 1bfecceb973c07f1
 header engine Core/Result.h e0327ad962e10e4b
 header engine Core/Status.h a843439f21221219
-header engine Core/Version.h b4ee2fc5b76f754d
+header engine Core/Version.h 7c7b2b3c9d6df150
 header engine IO/ArtifactIdentity.h 66c96b929d36b24e
 header engine IO/AviSequence.h 595917f483188e5e
 header engine IO/CodecCapabilities.h daadf4c45a2db525
@@ -2288,7 +2288,7 @@ header engine Image/DescriptorText.h 0178b9f74d194b3e
 header engine Image/Image.h c6b1a21abd1fed08
 header engine Image/ImageConversion.h dd2b362c41c4dc62
 header engine Image/ImageDescriptor.h 541c35c5e60ee739
-header engine Image/ImageMetadata.h c31cdaef2912460c
+header engine Image/ImageMetadata.h dc77ee921fdf7acb
 header engine Image/ImageSemantics.h bed04e20f10e841d
 header engine Image/ImageStorage.h 9708794876767b8c
 header engine Image/ImageTransfer.h 297e4759414a13b4
@@ -6494,7 +6494,8 @@ member engine Image/ImageMetadata.h an::MetadataTransition#001 std::optional<Ast
 member engine Image/ImageMetadata.h an::MetadataTransition#002 std::optional<OutputIntent> outputIntent {}
 member engine Image/ImageMetadata.h an::MetadataTransition#003 bool clearOutputIntent = false
 member engine Image/ImageMetadata.h an::MetadataTransition#004 bool clearCodecMetadata = false
-member engine Image/ImageMetadata.h an::MetadataTransition#005 std::optional<ProvenanceEntry> record {}
+member engine Image/ImageMetadata.h an::MetadataTransition#005 std::optional<CodecMetadata> codec {}
+member engine Image/ImageMetadata.h an::MetadataTransition#006 std::optional<ProvenanceEntry> record {}
 member engine Image/ImageSemantics.h an::ImageSemantics#000 std::optional<double> m_gammaExponent {}
 member engine Image/ImageSemantics.h an::ImageSemantics#001 ProcessingState m_processingState {}
 member engine Image/ImageSemantics.h an::ImageSemantics#002 ValidityDescriptor m_validity {}

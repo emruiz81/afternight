@@ -261,7 +261,7 @@ an::Status BinarizeProcess::executeTypedProcessImpl(const an::ui::ProcessSource&
 
     // Every sample holds one of two numbers now, so every one of them means something.
     return process_utils::recordNonlinearResult(
-        scope, destination,
+        destination,
         process_utils::NonlinearResultRecord{
             .stateOperation = "binarize",
             .engineOperation = "an::binarizeImage",

@@ -181,11 +181,10 @@ an::Status AdjustBrightnessAndContrastProcess::executeTypedProcessImpl(const an:
         return an::Status::success();
     }
     return process_utils::recordNonlinearResult(
-        scope, destination,
-        process_utils::NonlinearResultRecord{
-            .stateOperation = "brightness-contrast",
-            .engineOperation = "an::executePointwiseProgram",
-            .detail = fmt::format("brightness {} and contrast {}", params.brightness, params.contrast)});
+        destination, process_utils::NonlinearResultRecord{
+                         .stateOperation = "brightness-contrast",
+                         .engineOperation = "an::executePointwiseProgram",
+                         .detail = fmt::format("brightness {} and contrast {}", params.brightness, params.contrast)});
 }
 
 an::ui::ProcessStep

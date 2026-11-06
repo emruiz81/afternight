@@ -150,7 +150,7 @@ an::Status ExposureCorrectionProcess::executeTypedProcessImpl(const an::ui::Proc
         return an::Status::success();
     }
     return process_utils::recordNonlinearResult(
-        scope, destination,
+        destination,
         process_utils::NonlinearResultRecord{
             .stateOperation = "exposure-correction",
             .engineOperation = "an::executePointwiseProgram",

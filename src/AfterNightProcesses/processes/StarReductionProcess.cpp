@@ -783,7 +783,7 @@ an::Status StarReductionProcess::executeTypedProcessImpl(const an::ui::ProcessSo
     }
 
     return process_utils::recordNonlinearResult(
-        scope, destination,
+        destination,
         process_utils::NonlinearResultRecord{
             .stateOperation = "star-reduction",
             .engineOperation = "an::reduceStars",
