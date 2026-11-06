@@ -232,6 +232,42 @@ struct ComposedGaussian
     return an::Status::success();
 }
 
+/// Whether one engine kernel reaches a sigma: a plan of it is built, rather than refused for its reach.
+[[nodiscard]] bool oneKernelReaches(double sigma, an::KernelBorderMode border)
+{
+    const an::Result<an::GaussianPlan> plan =
+        an::planGaussianBlur(an::GaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
+    return plan.hasValue() || plan.status().code() != an::ErrorCode::OutOfRange;
+}
+
+/// Blurs tight planar Float32 samples as a detail filter's request asks: not at all for a sigma the engine builds no
+/// kernel for, by the real-time preview's boxes for an interactive preview's sigma beyond one kernel, and by the exact
+/// Gaussian otherwise.
+[[nodiscard]] an::Status blurForDetail(const an::EngineContext& engine, const an::ExecutionContext& execution,
+                                       const float* source, float* destination, const an::ImageLayout& layout,
+                                       const DetailRequest& request)
+{
+    if (!(request.sigma > an::kMinimumGaussianSigma))
+    {
+        an::ConversionCounters counters;
+        return an::convertImageSamples(execution, an::SampleType::Float32, source, layout, an::SampleType::Float32,
+                                       destination, layout, an::ConversionPolicy{}, counters);
+    }
+    if (request.blur == DetailBlur::InteractivePreview && !oneKernelReaches(request.sigma, request.border))
+    {
+        const an::Result<an::GaussianPlan> boxes =
+            an::planRealtimePreviewGaussianBlur(an::RealtimePreviewGaussianRequest{
+                .sigmaX = request.sigma, .sigmaY = request.sigma, .borders = {.border = request.border}});
+        if (!boxes.hasValue())
+        {
+            return boxes.status();
+        }
+        return statusOf(an::blurImageRealtimePreviewGaussian(execution, an::SampleType::Float32, source, layout,
+                                                             destination, layout, *boxes));
+    }
+    return blurAnySigma(engine, execution, source, destination, layout, request.sigma, request.border);
+}
+
 /// Runs a pointwise program over tight planar Float32 samples in place, with a second source when it takes one.
 [[nodiscard]] an::Status runInPlace(const an::ExecutionContext& execution,
                                     const an::Result<an::PointwiseProgram>& program, float* samples,
@@ -316,7 +352,15 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
 {
     const an::SampleType type = input.descriptor->sampleType();
     const UnitScale unit = unitScaleOf(type);
-    if (request.amount >= 0.0)
+    const PlaneSelection selection(input);
+    // A plane every sample of which is valid, blurred under the border the compiled Gaussian mirrors at, is composed
+    // over fractions of full scale at every sigma, so the engine's compiled Float32 kernels blur it as they blur the
+    // Gaussian blur's: each pair of taps folded once and summed in Float32, where the detail filter's one plan
+    // accumulates every tap in Float64 through the general stencil.
+    const bool everySampleValid =
+        selection.selection().mask == nullptr && selection.selection().validity.rule() == an::ValidityRule::AllValid;
+    const bool compiledBlur = everySampleValid && request.border == an::KernelBorderMode::ReflectExcludingEdge;
+    if (!compiledBlur && request.amount >= 0.0 && request.sigma > an::kMinimumGaussianSigma)
     {
         const an::Result<an::DetailFilterPlan> plan = an::planDetailFilter(an::DetailFilterRequest{
             .method = request.method,
@@ -330,7 +374,6 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
             .borders = {.border = request.border}});
         if (plan.hasValue())
         {
-            const PlaneSelection selection(input);
             return statusOf(an::filterImageDetail(execution, type, input.samples, *input.layout, output.samples,
                                                   *output.layout, *plan, selection.selection()));
         }
@@ -340,7 +383,7 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
         }
     }
 
-    // What one plan cannot take, composed over fractions of full scale.
+    // Composed over fractions of full scale: every plane the compiled kernels blur, and what one plan cannot take.
     if (output.layout->samplesPerPixel() != 1u)
     {
         return an::Status::failure(an::ErrorCode::IncompatibleArguments, "a detail filter's output is planar");
@@ -353,8 +396,7 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
             {
                 return blur.status();
             }
-            if (an::Status blurred =
-                    blurAnySigma(engine, execution, samples, blur->data(), layout, request.sigma, request.border);
+            if (an::Status blurred = blurForDetail(engine, execution, samples, blur->data(), layout, request);
                 blurred.failed())
             {
                 return blurred;
@@ -408,27 +450,20 @@ std::uint32_t gaussianReach(double sigma, an::KernelBorderMode border)
 
 std::uint32_t detailReach(const DetailRequest& request)
 {
-    // The plan `filterDetail` takes first, which the bounds it is handed do not move.
-    if (request.amount >= 0.0)
+    if (!(request.sigma > an::kMinimumGaussianSigma))
     {
-        const an::Result<an::DetailFilterPlan> plan = an::planDetailFilter(
-            an::DetailFilterRequest{.method = request.method,
-                                    .sigmaX = request.sigma,
-                                    .sigmaY = request.sigma,
-                                    .amount = request.amount,
-                                    .offset = request.method == an::DetailFilterMethod::HighPass ? request.offset : 0.0,
-                                    .lowest = 0.0,
-                                    .highest = 1.0,
-                                    .borders = {.border = request.border}});
-        if (plan.hasValue())
-        {
-            return (std::max)(plan->gaussian().horizontalRadius(), plan->gaussian().verticalRadius());
-        }
-        if (plan.status().code() != an::ErrorCode::OutOfRange)
-        {
-            return 0u;
-        }
+        return 0u;
     }
+    // An interactive preview's sigma beyond one kernel is blurred by the boxes, which reach the sum of their radii.
+    if (request.blur == DetailBlur::InteractivePreview && !oneKernelReaches(request.sigma, request.border))
+    {
+        const an::Result<an::GaussianPlan> boxes =
+            an::planRealtimePreviewGaussianBlur(an::RealtimePreviewGaussianRequest{
+                .sigmaX = request.sigma, .sigmaY = request.sigma, .borders = {.border = request.border}});
+        return boxes.hasValue() ? (std::max)(boxes->horizontalRadius(), boxes->verticalRadius()) : 0u;
+    }
+    // The engine's detail filter's one plan blurs by the same kernel `gaussianReach` reads for a sigma one kernel
+    // reaches, and the composition by the passes it adds up.
     return gaussianReach(request.sigma, request.border);
 }
 

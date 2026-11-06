@@ -106,6 +106,16 @@ inline constexpr std::uint32_t kGaussianBoxPasses = 3u;
 /// fourteen-bit sample and comfortably below the noise of any real frame.
 inline constexpr double kDefaultGaussianTruncation = 4.0;
 
+/// The farthest a repeated-box plan may reach along either axis: its three box radii added up.
+///
+/// An exact plan is held to `kMaxStencilRadius`, because a tap array is its inner loop and its halo
+/// at once. A box pass is a running sum - one sample enters the window and one leaves it - so what it
+/// costs does not depend on its width, and the boxes are held only to a reach whose arithmetic stays
+/// representable: sixty-five thousand five hundred and thirty-six pixels, a sigma of some twenty-one
+/// thousand, wider than any interactive control asks for. A reach wider than the image folds through
+/// the image's border rule as a narrower one does at an edge.
+inline constexpr std::uint32_t kMaxRealtimePreviewBoxReach = 65536u;
+
 /// The narrowest sigma a plan will build a kernel for.
 ///
 /// Below this the kernel is one tap and the blur is the identity, which is a result a caller almost
@@ -208,12 +218,14 @@ public:
     /// For `SeparableTaps` it is the truncated kernel's radius; for `RepeatedBox` it is the sum of
     /// the three box radii, which is how far a sample can travel through three passes.
     ///
-    /// @return the radius, never above `kMaxStencilRadius` for a plan `planGaussianBlur` accepted.
+    /// @return the radius, never above `kMaxStencilRadius` for a plan `planGaussianBlur` accepted, nor
+    ///         above `kMaxRealtimePreviewBoxReach` for one `planRealtimePreviewGaussianBlur` accepted.
     [[nodiscard]] AFTERNIGHTENGINE_API std::uint32_t horizontalRadius() const noexcept;
 
     /// Half the vertical extent the filter reads, in pixels.
     ///
-    /// @return the radius, never above `kMaxStencilRadius` for a plan `planGaussianBlur` accepted.
+    /// @return the radius, never above `kMaxStencilRadius` for a plan `planGaussianBlur` accepted, nor
+    ///         above `kMaxRealtimePreviewBoxReach` for one `planRealtimePreviewGaussianBlur` accepted.
     [[nodiscard]] AFTERNIGHTENGINE_API std::uint32_t verticalRadius() const noexcept;
 
     /// The three box radii applied along a row, in order.
@@ -290,11 +302,13 @@ private:
 ///
 /// This is the only builder that accepts the approximation. Its result is accepted only by
 /// `blurImageRealtimePreviewGaussian`, so a production execution cannot accidentally consume it.
-/// Thread-safe and allocation-free.
+/// Its reach is held to `kMaxRealtimePreviewBoxReach` rather than to `kMaxStencilRadius`, because a
+/// box pass costs the same at any width. Thread-safe and allocation-free.
 ///
 /// @param request preview sigmas, border and output policy.
-/// @return a repeated-box plan; the same numeric, border, write-back and radius failures as
-///         `planGaussianBlur`.
+/// @return a repeated-box plan; the same numeric, border and write-back failures as
+///         `planGaussianBlur`; or `ErrorCode::OutOfRange` when the boxes of either axis reach further
+///         than `kMaxRealtimePreviewBoxReach`, carrying the reach and the limit.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<GaussianPlan>
 planRealtimePreviewGaussianBlur(const RealtimePreviewGaussianRequest& request);
 

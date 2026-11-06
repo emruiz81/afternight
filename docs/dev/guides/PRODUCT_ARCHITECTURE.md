@@ -168,13 +168,12 @@ filed under the key the view's own request would make) and the counts to the his
 frames are queued above every other task of the pool. A process declares what an interactive frame may run over
 (`previewScaling()`): `PreviewScaling::FullOnly`, the default, runs every frame over the whole target;
 `PreviewScaling::Decimated` - Brightness and Contrast, Gamma Correction, Exposure, Saturation, HSL, LCh, Curves
-Transformation and Gaussian Blur - runs an interactive frame over the target reduced by the preview view's factor, each
-pixel the mean of its block
+Transformation, Gaussian Blur, Unsharp Mask and High Pass - runs an interactive frame over the target reduced by the
+preview view's factor, each pixel the mean of its block
 (`reduceForPreview` in `session/PreviewProxies.h`), or at full scale over the part of the target the view shows
 (`ProcessRun::proxyFactor`, `ProcessRun::partOfTarget`, `ProcessRun::part`), the reductions kept by the revision they
-were made from (`PreviewProxyCache`); and `PreviewScaling::NativeRegion` - the median, bilateral, unsharp-mask,
-high-pass, tighten-edges, cosmetic-correction and morphological dialogs, the star reduction and the two star mask
-recombinations - runs it at full scale over the part the view shows at every zoom, presented at the view's reduction,
+were made from (`PreviewProxyCache`); and `PreviewScaling::NativeRegion` - the median, bilateral, tighten-edges,
+cosmetic-correction and morphological dialogs, the star reduction and the two star mask recombinations - runs it at full scale over the part the view shows at every zoom, presented at the view's reduction,
 and every frame over the whole target, settled, where the view shows all of it. Either answers a change made without a
 held slider with an interactive frame at once. A body that reads a pixel's neighbours states how far, from the plan it
 builds (`previewRegionMargin`, `typedPreviewRegionMargin`; `gaussianReach` and `detailReach` in
@@ -523,7 +522,16 @@ plan up to thirty-two, then exact passes sharing the variance, an integer plane 
 working copy at any sigma, a Float32 plane of padded rows on it too - and the Gaussian's preview is the exact Gaussian
 in every frame: over the target reduced by the sigma reduced with it while a slider is held, over the part the view
 shows with every pass's reach around it at full scale (`gaussianReach`), and over the whole image once it settles.
-The median, bilateral, unsharp-mask, high-pass, tighten-edges, cosmetic-correction and morphological windows declare
+`filterDetail` composes a plane every sample of which is valid, blurred under `ReflectExcludingEdge`, on that working
+copy at every sigma, so the engine's compiled Float32 Gaussian blurs it as it blurs the Gaussian's: the high pass's
+Apply is the source less the Gaussian dialog's answer, raised to mid-grey. The engine's detail filter, whose one plan
+accumulates the blur in Float64 through the separable stencil, takes the rest - a plane under a validity rule or a
+mask, and the unsharp mask, whose blur mirrors the edge sample as scikit-image's does. The high pass and the unsharp
+mask declare `PreviewScaling::Decimated`: an interactive frame blurs a reduction by the radius reduced with it, which
+the clamp to full scale makes an approximation of the whole result's reduction, and a part at full scale by the
+dialog's radius; beyond one kernel's reach it blurs by the engine's real-time-preview boxes (`DetailBlur`), whose cost
+does not grow with the radius, and states their reach (`detailReach`). The settled frame is the Apply's answer.
+The median, bilateral, tighten-edges, cosmetic-correction and morphological windows declare
 `PreviewScaling::NativeRegion` with the reach their plans state; the other eleven run every frame over the whole
 image, each for a measurement of the whole image, a size-made grid or tiling, or a blur without a finite reach.
 The six G'MIC processes build their command and call `runGmicCommand`: a session per run, the answer clamped to the

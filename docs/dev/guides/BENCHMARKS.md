@@ -272,7 +272,9 @@ preview view paints; `RealtimePreviewDragBenchmark.GammaCorrectionSliderDrag` dr
 another, as `AdjustLChLightnessDrag` drags the LCh adjustment's lightness and `GaussianBlurSigmaDrag` the Gaussian blur's
 sigma; `MedianFilterModulationDrag` drags the median filter's modulation over its five by five window, a body that
 reads the pixel grid, whose frames run at full scale over the part of the frame the preview view shows - over the whole
-frame, settled, while the view shows all of it; `RealtimePreviewDragBenchmark.HistogramTransformationMidtonesDrag` does
+frame, settled, while the view shows all of it; `HighPassFilterRadiusDrag` drags the high pass's radius from the one
+`AN_BENCH_RADIUS` states, a blur taken away whose reach and cost grow with the radius;
+`RealtimePreviewDragBenchmark.HistogramTransformationMidtonesDrag` does
 the same with the histogram
 transformation's midtones, a value typed a step at a time, so every frame is settled and runs over the whole frame, as
 a stretch's frames do; `RealtimePreviewDragBenchmark.CurvesTransformationPointDrag` takes the middle point of the
@@ -293,7 +295,8 @@ a floating one unrounded, as a stack holds it - and `synthetic:<representation>:
 | `AN_BENCH_CHANNEL` | the dialog's channel selector entry it runs on, by its label, such as `CIE L* (Lightness)` | the whole image |
 | `AN_BENCH_AREA` | `1` turns the preview area on, at the size the dialog opens it with | `0`, off, for a dialog that opens with one too |
 | `AN_BENCH_APPLY` | `1` applies the dialog once the drag has settled and compares the settled preview's samples with the Apply's - within the preview area when one is on | `0`, no Apply |
-| `AN_BENCH_STEPS` | the drag's steps: the brightness one value each from 1 - the slider ends at 150, and a drag of more steps holds still there and is settled before its release - the gamma a hundredth each up from 1, the lightness one each up from 0, the Gaussian's sigma a tenth each up from 2, the median's modulation a hundredth each up from 0.4, the midtones a thousandth each down from 0.5, and the curve's middle point a pixel each up from where it is drawn at 0.5 | `60` |
+| `AN_BENCH_STEPS` | the drag's steps: the brightness one value each from 1 - the slider ends at 150, and a drag of more steps holds still there and is settled before its release - the gamma a hundredth each up from 1, the lightness one each up from 0, the Gaussian's sigma a tenth each up from 2, the median's modulation a hundredth each up from 0.4, the high pass's radius a tenth each up from `AN_BENCH_RADIUS`, the midtones a thousandth each down from 0.5, and the curve's middle point a pixel each up from where it is drawn at 0.5 | `60` |
+| `AN_BENCH_RADIUS` | the radius, in whole pixels, the high pass's drag starts from | `10`, the dialog's own |
 | `AN_BENCH_STEP_MS` | the milliseconds between steps | `16` |
 | `AN_BENCH_FPS` | the previews a second the Processing settings state, from 5 to 60 | the product's default, `30` |
 | `AN_BENCH_WIDTH` | the session's width | the host's |
@@ -307,7 +310,8 @@ set AN_BENCH_TRACE=%TEMP%\rt-preview.tsv
 bin\msvc\release\Test_ImageRTPreviewControl.exe --gtest_filter=RealtimePreviewDragBenchmark.BrightnessAndContrastSliderDrag
 ```
 The case prints its results and records them as its properties; it asserts only that the drag showed previews and the
-dialog went idle. What they mean:
+dialog went idle. Each wait for a frame, a settled dialog or an Apply allows thirty of the support's ten-second
+patiences, as a body whose frames run over the whole of a large frame can need. What they mean:
 
 - `previews_per_second` is the previews shown during the drag over its length. `previews_shown_in_all` counts them
   until the dialog is idle again - for the one-second drag, previews a second - and `page_faults_in_drag` over it is

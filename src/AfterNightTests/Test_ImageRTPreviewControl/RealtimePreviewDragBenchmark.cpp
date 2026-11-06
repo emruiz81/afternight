@@ -52,6 +52,7 @@
 #include "processes/CurvesTransformationProcess.h"
 #include "processes/GammaCorrectionProcess.h"
 #include "processes/GaussianBlurProcess.h"
+#include "processes/HighPassFilterProcess.h"
 #include "processes/HistogramTransformationProcess.h"
 #include "processes/MedianFilterProcess.h"
 #include "widgets/CurvesWidget.h"
@@ -222,6 +223,41 @@ struct ProcessMemory
 [[nodiscard]] double milliseconds(std::chrono::nanoseconds duration)
 {
     return std::chrono::duration<double, std::milli>(duration).count();
+}
+
+/// Turns the event loop until a condition holds, for as many of the support's patiences as a frame over a large frame
+/// at a slow setting takes: a body whose frames run over the whole image may take several seconds over each.
+[[nodiscard]] bool pumpPatientlyUntil(const std::function<bool()>& condition)
+{
+    constexpr int kPatiences = 30;
+    for (int attempt = 0; attempt < kPatiences; ++attempt)
+    {
+        if (pumpUntil(condition))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// `settleDialog` with the patience of `pumpPatientlyUntil`: the dialog and everything it started have landed and stay
+/// landed through a quiet period, each wait as long as a frame over the whole of a large frame takes.
+[[nodiscard]] bool settleDialogPatiently(const ImageRTPreviewControl& dialog)
+{
+    constexpr int kAttempts = 20;
+    for (int attempt = 0; attempt < kAttempts; ++attempt)
+    {
+        if (!pumpPatientlyUntil([&dialog]() { return dialogIdle(dialog); }))
+        {
+            return false;
+        }
+        pumpQuietly();
+        if (dialogIdle(dialog))
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 /// A whole-number knob, or its default when it is not set or not a number.
@@ -603,6 +639,34 @@ struct DragSubject
             }};
 }
 
+/// The radius of the high pass filter, from the radius AN_BENCH_RADIUS states - ten pixels, the dialog's own, when it
+/// states none - up a tenth a step: a blur taken away from the image and the difference held to full scale, whose reach
+/// and cost grow with the radius.
+[[nodiscard]] DragSubject highPassDrag()
+{
+    const double from = static_cast<double>((std::max)(1, knob("AN_BENCH_RADIUS", 10)));
+    return DragSubject{
+        .name = "high-pass-filter",
+        .open = [](ImageViewControl& target) { return openDialog<HighPassFilterProcess>(target, QSize(1400, 900)); },
+        .step =
+            [from](QWidget& dialog, int step) {
+                auto* radius = child<QDoubleSpinBox>(dialog, "radiusValue");
+                if (radius == nullptr)
+                {
+                    return false;
+                }
+                radius->setValue(from + 0.1 * static_cast<double>(step));
+                return true;
+            },
+        .press =
+            [](QWidget& dialog, bool down) {
+                if (auto* slider = child<QSlider>(dialog, "radiusSlider"); slider != nullptr)
+                {
+                    slider->setSliderDown(down);
+                }
+            }};
+}
+
 /// The modulation of the median filter over its five by five window, from four tenths up a hundredth a step: a body
 /// that reads the pixel grid at full scale, run over the part of the target the preview view shows while the slider is
 /// held, and over the whole image where the view shows all of it.
@@ -855,12 +919,13 @@ void runDrag(const DragSubject& subject)
     auto* preview = child<QCheckBox>(*dialog, "preview");
     ASSERT_NE(preview, nullptr);
     preview->setChecked(true);
-    // The dialog opens at its identity, which shows the frame itself and runs nothing.
-    ASSERT_TRUE(pumpUntil([&dialog]() {
+    // The dialog opens at its identity, which shows the frame itself and runs nothing - or, as the high pass does, at
+    // parameters that do something, whose first frame runs over the whole image.
+    ASSERT_TRUE(pumpPatientlyUntil([&dialog]() {
         const ProcessRunTelemetry shown = dialog->runTelemetry();
         return shown.previewsCommitted + shown.identityPreviews >= 1u;
     }));
-    ASSERT_TRUE(settleDialog(*dialog));
+    ASSERT_TRUE(settleDialogPatiently(*dialog));
     ImageViewControl* previewView = dialog->previewView();
     ASSERT_NE(previewView, nullptr);
     ImageViewWidget* previewWidget = previewView->getViewWidget();
@@ -868,12 +933,12 @@ void runDrag(const DragSubject& subject)
     if (autostretch)
     {
         previewView->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
     }
     if (zoom100)
     {
         previewView->zoom100();
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
     }
     if (!histogram)
     {
@@ -883,7 +948,7 @@ void runDrag(const DragSubject& subject)
         {
             showHistogram->click();
         }
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
     }
     if (!channel.isEmpty())
     {
@@ -897,25 +962,25 @@ void runDrag(const DragSubject& subject)
         const int index = selector->findText(channel);
         ASSERT_GE(index, 0) << subject.name << ": the channel selector offers no " << channel.toStdString();
         selector->setCurrentIndex(index);
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
     }
     if (previewArea)
     {
         QCheckBox* area = previewView->getRTPreviewAreaCheckBox();
         ASSERT_NE(area, nullptr) << subject.name << ": the dialog offers no preview area";
         area->setChecked(true);
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
         ASSERT_FALSE(dialog->previewArea().isEmpty());
     }
     else if (QCheckBox* area = previewView->getRTPreviewAreaCheckBox(); area != nullptr && area->isChecked())
     {
         // A dialog that opens with a preview area is dragged over the whole image, as one that opens with none is.
         area->setChecked(false);
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
         ASSERT_TRUE(dialog->previewArea().isEmpty());
     }
     ASSERT_TRUE(subject.step(*dialog, 0)) << subject.name << ": the dialog has no control to drag";
-    ASSERT_TRUE(settleDialog(*dialog));
+    ASSERT_TRUE(settleDialogPatiently(*dialog));
     // The part of the image the preview view shows: what a frame at full scale over what the view shows runs over.
     const std::optional<an::ui::ViewRegion> shownPart = previewWidget->shownImageRegion();
 
@@ -977,14 +1042,14 @@ void runDrag(const DragSubject& subject)
         return dialog->runTelemetry().settledPreviewsCommitted > runsAtDragEnd.settledPreviewsCommitted;
     };
     const bool settledShown =
-        pumpUntil([&]() { return settledAfterDrag() || (!subject.releases && dialog->isProcessIdle()); }) &&
+        pumpPatientlyUntil([&]() { return settledAfterDrag() || (!subject.releases && dialog->isProcessIdle()); }) &&
         settledAfterDrag();
     const double settledCommittedMs = nowMilliseconds() - releasedAt;
-    (void)pumpUntil([previewWidget]() { return previewWidget->isPresentationIdle(); });
+    (void)pumpPatientlyUntil([previewWidget]() { return previewWidget->isPresentationIdle(); });
     const double settledPresentedMs = nowMilliseconds() - releasedAt;
     EXPECT_TRUE(settledShown || !subject.releases) << "a settled frame followed the release";
 
-    EXPECT_TRUE(settleDialog(*dialog)) << "the dialog goes idle after the drag";
+    EXPECT_TRUE(settleDialogPatiently(*dialog)) << "the dialog goes idle after the drag";
     const double settledMs = static_cast<double>(wall.elapsed());
     const double processorEnd = processorMilliseconds();
     const ProcessMemory memoryEnd = processMemory();
@@ -1014,13 +1079,14 @@ void runDrag(const DragSubject& subject)
         const std::optional<std::uint64_t> handedOutBefore = engineBytesHandedOut();
         const double applyStart = nowMilliseconds();
         dialog->applyProcess();
-        const bool committed = pumpUntil([&]() { return dialog->runTelemetry().runsCommitted > committedBefore; });
+        const bool committed =
+            pumpPatientlyUntil([&]() { return dialog->runTelemetry().runsCommitted > committedBefore; });
         EXPECT_TRUE(committed) << "the Apply was committed";
         if (committed)
         {
             applyMs = nowMilliseconds() - applyStart;
         }
-        EXPECT_TRUE(settleDialog(*dialog)) << "the dialog goes idle after the Apply";
+        EXPECT_TRUE(settleDialogPatiently(*dialog)) << "the dialog goes idle after the Apply";
         EXPECT_TRUE(settleView(*target));
         const std::optional<std::uint64_t> handedOutAfter = engineBytesHandedOut();
         if (handedOutBefore.has_value() && handedOutAfter.has_value())
@@ -1230,6 +1296,11 @@ TEST(RealtimePreviewDragBenchmark, GaussianBlurSigmaDrag)
 TEST(RealtimePreviewDragBenchmark, MedianFilterModulationDrag)
 {
     runDrag(medianDrag());
+}
+
+TEST(RealtimePreviewDragBenchmark, HighPassFilterRadiusDrag)
+{
+    runDrag(highPassDrag());
 }
 
 TEST(RealtimePreviewDragBenchmark, HistogramTransformationMidtonesDrag)

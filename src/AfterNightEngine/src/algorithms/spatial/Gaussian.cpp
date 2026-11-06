@@ -109,6 +109,15 @@ constexpr std::uint32_t kBoxColumnBand = 128u;
 [[nodiscard]] double boxRadiiForSigma(double sigma, std::array<std::uint32_t, kGaussianBoxPasses>& radii) noexcept
 {
     const double passes = static_cast<double>(kGaussianBoxPasses);
+    // A box radius is held to this, which three of them added up cannot wrap and which is far past the
+    // widest reach a plan accepts: a sigma whose widths lie beyond it is refused by that reach rather
+    // than turned into a number that means nothing.
+    constexpr double kSaturatedRadius = static_cast<double>((std::numeric_limits<std::uint32_t>::max)() / 4u);
+    if (!(sigma < kSaturatedRadius))
+    {
+        radii.fill(static_cast<std::uint32_t>(kSaturatedRadius));
+        return sigma;
+    }
     const double ideal = std::sqrt((12.0 * sigma * sigma / passes) + 1.0);
     double lower = std::floor(ideal);
     if (std::fmod(lower, 2.0) == 0.0)
@@ -123,7 +132,7 @@ constexpr std::uint32_t kBoxColumnBand = 128u;
     for (std::uint32_t index = 0u; index < kGaussianBoxPasses; ++index)
     {
         const double width = static_cast<double>(index) < count ? lower : upper;
-        radii[index] = static_cast<std::uint32_t>((width - 1.0) / 2.0);
+        radii[index] = static_cast<std::uint32_t>((std::min)((width - 1.0) / 2.0, kSaturatedRadius));
     }
     const double narrow = (std::max)(0.0, (std::min)(count, passes));
     const double variance = (narrow * lower * lower + (passes - narrow) * upper * upper - passes) / 12.0;
@@ -1038,11 +1047,16 @@ namespace
 
     const GaussianPlan plan{request};
     const std::uint32_t widest = (std::max)(plan.horizontalRadius(), plan.verticalRadius());
-    if (widest > kMaxStencilRadius)
+    // A tap array is the exact pass's inner loop and its halo at once, so its reach is the stencil
+    // family's; a box pass is a running sum whose cost does not depend on its width, so the boxes are
+    // held only to a reach whose arithmetic stays representable.
+    const std::uint32_t reach =
+        request.method == GaussianMethod::RepeatedBox ? kMaxRealtimePreviewBoxReach : kMaxStencilRadius;
+    if (widest > reach)
     {
         return spatialLimitFailure(ErrorCode::OutOfRange, operation,
                                    "the sigma this blur was asked for reaches further than one pass may", widest,
-                                   kMaxStencilRadius);
+                                   reach);
     }
     return plan;
 }

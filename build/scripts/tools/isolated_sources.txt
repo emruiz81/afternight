@@ -689,6 +689,8 @@ sources Test_ImageRTPreviewControl
     header   src/AfterNightProcesses/processes/GammaCorrectionProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/GaussianBlurProcess.h
     header   src/AfterNightProcesses/processes/GaussianBlurProcessUiBuilder.h
+    header   src/AfterNightProcesses/processes/HighPassFilterProcess.h
+    header   src/AfterNightProcesses/processes/HighPassFilterProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/HistogramTransformationProcess.h
     header   src/AfterNightProcesses/processes/HistogramTransformationProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/MedianFilterProcess.h
@@ -2863,6 +2865,7 @@ sources Test_ProcessesStretching
 # optional adapter - and what they share, run against the processes library, which the suite links and which alone links
 # the G'MIC adapter, over the fixture layer their oracles start from.
 sources Test_ProcessesSpatial
+    unit     src/AfterNightTests/Test_ProcessesSpatial/DetailFilterTest.cpp
     unit     src/AfterNightTests/Test_ProcessesSpatial/GaussianBlurTest.cpp
     unit     src/AfterNightTests/Test_ProcessesSpatial/LibraryParityTest.cpp
     unit     src/AfterNightTests/Test_ProcessesSpatial/ProcessDecisionsTest.cpp

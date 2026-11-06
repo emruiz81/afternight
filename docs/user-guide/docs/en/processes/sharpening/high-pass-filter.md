@@ -23,7 +23,7 @@ sharpen.
 | Outputs | Destructively replaces a still, or after successful temporary processing a sequence, with a same-size, same-type neutral-gray detail layer; **Take snapshot** creates an auxiliary still; no file is written directly |
 | Recommended image state | Finite, normalized data after calibration/registration/stacking and noise control; duplicate the target because the output is a layer, not the original plus detail |
 | Channel behavior | No process Channel selector: every stored channel is blurred and subtracted independently; RGB neutral is `(0.5,0.5,0.5)` |
-| Preview support | Full-image preview initially; optional movable `600×600` Preview area when enabled, original/result switching, histogram, snapshot, and display-channel selection; no Display Mode or Autostretch Settings |
+| Preview support | Full-image preview initially; while Radius is dragged, frames run over what the preview shows - the image reduced by its zoom, or the part shown at 100% - and the settled frame is the full image, as Apply computes it; optional movable `600×600` Preview area when enabled, original/result switching, histogram, snapshot, and display-channel selection; no Display Mode or Autostretch Settings |
 | Mask support | Yes, but it crossfades the original and the neutral detail layer; it does not perform masked sharpening |
 | Sequence support | Yes; one captured Radius and mask state is applied frame by frame to temporary storage, with frame progress and Cancel, before replacement |
 | External dependency | None; the AfterNight engine's own detail filter; no Python, G'MIC, network, or separate installation |
@@ -77,7 +77,7 @@ sharpen.
 | Draw histogram areas | Histogram toggle | Unchecked | None | Checked/unchecked | Filled-area versus line drawing | Disabled with hidden histogram | Area overlap can obscure RGB residual differences | Display only | Window lifetime |
 | Show histogram | Histogram toggle | Checked | None | Checked/unchecked | Hides/clears graph and disables toolbar, or reloads source/preview | Always available while idle | Hiding saves graph work, not filtering | Display only | Window lifetime; Reset unchanged |
 | Plot resolution | Combo box, bins | **8-bit (256)** | None | **6-bit (64)**, **7-bit (128)**, **8-bit (256)**, **9-bit (512)**, **10-bit (1024)**, **12-bit (4096)**, **14-bit (16K)**, **16-bit (64K)**, **100 levels**, **1000 levels**, **10000 levels** | More bins refine the neutral peak and endpoint estimates | Disabled with hidden histogram | Higher bins cost graph memory/rendering; output precision unchanged | Display only | Window lifetime |
-| Radius | Double value plus linear slider, requested Gaussian sigma in pixels | `10.00` | Label says Radius, but the engine treats it as the standard deviation of an exact Gaussian | `0.10..1000.00`; two decimals; spin step `0.50`; slider is remapped to 1001 positions over the full range, about one unit per tick | Small values retain only the finest residual; larger values subtract a broader base, so broader structures remain in the layer; at `0.10` the Gaussian barely blurs and the layer is almost uniformly neutral | Enabled while idle | Cost grows with Radius; above `32` the blur is composed of several exact passes, about `(Radius/32)²` of them, so the largest values are very slow | Preview/Apply; all stored channels; before mask; still or sequence | Captured per execution; Reset and successful still Apply return `10.00` |
+| Radius | Double value plus linear slider, requested Gaussian sigma in pixels | `10.00` | Label says Radius, but the engine treats it as the standard deviation of an exact Gaussian | `0.10..1000.00`; two decimals; spin step `0.50`; slider is remapped to 1001 positions over the full range, about one unit per tick | Small values retain only the finest residual; larger values subtract a broader base, so broader structures remain in the layer; at `0.10` the Gaussian barely blurs and the layer is almost uniformly neutral | Enabled while idle | Cost grows with Radius; above `32` the blur is composed of several exact passes, about `(Radius/32)²` of them, so the largest values are very slow to apply; while the slider is dragged, the preview blurs beyond `32` by three box passes whose cost does not grow with Radius | Preview/Apply; all stored channels; before mask; still or sequence | Captured per execution; Reset and successful still Apply return `10.00` |
 | Target Image | Image selector | Attached/active target | None | Open image or sequence | Changes source, histogram, Preview, active mask, and Apply destination | Active image required; duplicate/exclusive launch gates apply | A wrong target is destructively replaced after success | Preview/Apply source and active mask | Target lifetime; Reset unchanged |
 | Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables asynchronous full-image or selected-area high-pass execution and changes histogram source/result | Process idle | Runs blur, residual, clamp, mask, and histogram passes | Preview only; all stored channels; still/current displayed sequence frame | Window lifetime; Reset unchanged |
 | Preview pane | Image viewer | High-pass result in Linear mode; window initially uses shared `1000×700` default | Execution autostretch is not enabled for this process | Pan with scroll bars or dragging; toolbar actions below | Shows the mask-aware neutral detail layer without modifying target | Exists only with Preview | Holds source/result/display and blur buffers | Preview only | Window lifetime |
@@ -120,17 +120,35 @@ that step.
 
 ### Exact Gaussian base
 
-The base, in the preview and at Apply, is a separable Gaussian: taps sampled at
-each pixel centre out to four standard deviations, renormalized to sum to one,
-applied along the rows and then down the columns. Beyond each edge the image is
-mirrored without repeating the edge sample. The engine's widest kernel has a
-radius of `128` pixels, which four standard deviations reach at Radius `32`; a
-wider Radius is composed of several exact passes of equal width whose variances
-add up to `r²`, so the base is still the Gaussian of the requested Radius.
+The base at Apply, and in the preview once Radius settles, is a separable
+Gaussian: taps sampled at each pixel centre out to four standard deviations,
+renormalized to sum to one, applied along the rows and then down the columns.
+Beyond each edge the image is mirrored without repeating the edge sample. The
+engine's widest kernel has a radius of `128` pixels, which four standard
+deviations reach at Radius `32`; a wider Radius is composed of several exact
+passes of equal width whose variances add up to `r²`, so the base is still the
+Gaussian of the requested Radius.
 
 At the minimum Radius `0.10` the Gaussian barely blurs, so `B≈I` and the layer
 is almost uniformly the neutral `0.5`. The minimum does not preserve the source
 and does not reveal detail.
+
+### The preview while Radius is dragged
+
+While the Radius slider is held, each preview frame runs over what the preview
+shows rather than over the whole image. Zoomed out, it runs over the image
+reduced by the view's zoom - each pixel the mean of its block - with Radius
+reduced by the same factor. Because the clip to `[0,1]` does not commute with
+averaging, such a frame comes close to the reduction of the full result rather
+than being it, most visibly around bright stars. At 100% and closer it runs at
+full scale over the part of the image the view shows, grown by the blur's reach,
+and is the Apply's answer there up to Radius `32`. Beyond `32` a dragged frame
+blurs by three running-sum box passes along each axis, whose cost does not grow
+with Radius and which stay within a few parts in a thousand of the Gaussian.
+
+Releasing the slider, or holding it still, shows the settled frame: the whole
+image at full scale, the same samples Apply produces. A typed Radius is shown
+first by such a frame over what the view shows, then by the settled one.
 
 ### Channels, types, mask, and clipping
 
@@ -138,14 +156,17 @@ Grayscale uses one stored plane. RGB runs the same scalar operation separately
 on R, G, and B; there is no shared luminance or process Channel conversion.
 Neutral RGB is gray, but unequal channel residuals can create colored edges.
 
-Every type is filtered in its stored units: the blur accumulates in double
-precision, and the offset and clip are stated in the type's own codes (half of
-its span above its lowest value, and its full range), so the layer means the
-same thing for an integer image as for a float one. Up to Radius `32` the result
-is written back once, rounded to the nearest code for an integer image; a wider
-Radius is computed on a single-precision working copy of fractions of full
-scale and converted back once. Double data is filtered at single precision. The
-midpoint may round to the nearest available integer code.
+Every type is filtered as fractions of full scale - an integer type's lowest
+code is `0` and its highest `1` - so the layer means the same thing for an
+integer image as for a float one. An image in which every sample is valid is
+computed on a single-precision working copy of those fractions at every Radius,
+blurred by the engine's compiled Gaussian kernels - the ones Gaussian Blur uses
+- and converted back once, rounded to the nearest code for an integer image. An
+image that states some of its samples are not valid is filtered in its stored
+units up to Radius `32`, the blur accumulating in double precision and reading
+its border substitute in place of an invalid neighbour, and on the working copy
+beyond. Double data is filtered at single precision. The midpoint may round to
+the nearest available integer code.
 
 If an active mask has effective normalized weight `m(p)`, the shared process
 path computes
@@ -200,6 +221,11 @@ feature scale, and the intended downstream blend.
 - RGB channels are blurred separately on the threads the operation is granted.
   Memory includes working planes for the blur, destination, preview
   presentation, mask, and histogram buffers.
+- While Radius is dragged, the preview runs over what the view shows - the
+  image reduced by the view's zoom, or the part shown at 100% - so its frames
+  follow the slider on a large image; beyond Radius `32` they blur by box passes
+  whose cost does not grow with Radius. The settled frame that follows the
+  release costs as much as Apply.
 - Preview area can reduce preview work after it is enabled; Apply always uses the
   full still. Histogram recomputation adds binning/rendering cost.
 - The blur checks for cancellation between rows, so closing or cancelling stops
@@ -258,7 +284,7 @@ feature scale, and the intended downstream blend.
 | Histogram reaches black/white | Residual exceeded the fixed ±`0.5` representable range | Reduce Radius or handle high-contrast transitions before filtering | Fixed offset and clamp |
 | Masked result looks partly normal and partly gray | Shared mask crossfades original and detail layer | Create an unmasked layer and use an intentional later composite | Mask equation |
 | Preview is different from an autostretched target | High Pass preview exposes Linear mode only | Compare under matched Linear display conditions | Process initialization |
-| Preview or Apply is slow at a large Radius | Above `32` the blur is composed of about `(Radius/32)²` exact passes | Reduce Radius, or enable a smaller Preview area while tuning | Composed exact passes |
+| Apply, or the preview after the slider is released, is slow at a large Radius | Above `32` the blur is composed of about `(Radius/32)²` exact passes | Reduce Radius; while the slider is dragged the preview shows a faster approximation, and a smaller Preview area reduces the settled frame's work | Composed exact passes |
 | An error is reported | Invalid data or insufficient memory | Verify finite normalized data and memory; retry on a smaller duplicate | Engine/process error path |
 
 ## Related workflow steps
@@ -273,5 +299,5 @@ to preserve a snapshot layer for an external/compositing workflow.
 
 ## References and provenance
 
-- [Peter Kovesi, “Fast Almost-Gaussian Filtering”](https://www.peterkovesi.com/papers/FastGaussianSmoothing.pdf) — the repeated-box approximation of a Gaussian; this process does not use it, and its base is the exact Gaussian.
+- [Peter Kovesi, “Fast Almost-Gaussian Filtering”](https://www.peterkovesi.com/papers/FastGaussianSmoothing.pdf) — the repeated-box approximation of a Gaussian, which the preview runs while Radius is dragged beyond `32`; Apply and the settled preview use the exact Gaussian.
 - AfterNight engine and process sources — authoritative for the exact Gaussian and its composed passes, mirror border, fixed `0.5` offset, clipping, type behavior, live controls, histogram, preview, mask, metadata/history, and sequence path.

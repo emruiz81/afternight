@@ -94,6 +94,78 @@ TEST(GaussianTest, ABoxPlanReportsTheSigmaItsWidthsRealize)
     EXPECT_EQ(plan.value().horizontalRadius(), reach);
 }
 
+TEST(GaussianTest, ABoxPlanReachesPastTheWidestTapArray)
+{
+    // A box pass is a running sum, whose cost does not depend on its width, so a repeated-box plan is held to its own
+    // reach rather than to the widest tap array an exact plan may have: a sigma of three hundred reaches some nine
+    // hundred pixels on the boxes, and an exact plan of it is still refused.
+    const an::Result<an::GaussianPlan> wide = an::planRealtimePreviewGaussianBlur({.sigmaX = 300.0, .sigmaY = 120.0});
+    ASSERT_TRUE(wide.hasValue()) << wide.status().message();
+    EXPECT_GT(wide->horizontalRadius(), an::kMaxStencilRadius);
+    EXPECT_GT(wide->verticalRadius(), an::kMaxStencilRadius);
+    EXPECT_LE(wide->horizontalRadius(), an::kMaxRealtimePreviewBoxReach);
+    EXPECT_NEAR(wide->realizedSigmaX(), 300.0, 1.0);
+    EXPECT_NEAR(wide->realizedSigmaY(), 120.0, 1.0);
+    EXPECT_EQ(an::planGaussianBlur({.sigmaX = 300.0, .sigmaY = 300.0}).status().code(), an::ErrorCode::OutOfRange);
+
+    // A reach past the boxes' own ceiling is refused by name, however far past it the sigma lies: its widths are never
+    // computed into a number that wraps.
+    for (const double sigma : {static_cast<double>(an::kMaxRealtimePreviewBoxReach), 1.0e9, 1.0e15, 1.0e300})
+    {
+        const an::Result<an::GaussianPlan> refused =
+            an::planRealtimePreviewGaussianBlur({.sigmaX = 1.0, .sigmaY = sigma});
+        ASSERT_FALSE(refused.hasValue()) << "sigma " << sigma;
+        EXPECT_EQ(refused.status().code(), an::ErrorCode::OutOfRange) << "sigma " << sigma;
+    }
+}
+
+TEST(GaussianTest, AWideBoxBlurIsTheSameOnItsFusedAndGeneralPathsAndLeavesAFlatSurfaceFlat)
+{
+    // Past the widest tap array the boxes still run their fused Float32 form over a plane wider than twice their
+    // radius, and their general passes over any other: the two agree, and a box wider than the whole plane folds its
+    // reach through the mirrored plane as a narrow one does at an edge.
+    constexpr std::uint32_t kWidth = 900u;
+    constexpr std::uint32_t kHeight = 700u;
+    const an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    const std::vector<float> source = randomPlane(kWidth, kHeight, 71u);
+    const an::ImageLayout floatLayout = planarLayout(an::SampleType::Float32, kWidth, kHeight);
+    const an::ImageLayout doubleLayout = planarLayout(an::SampleType::Float64, kWidth, kHeight);
+    const std::vector<double> sourceDoubles(source.begin(), source.end());
+
+    const an::Result<an::GaussianPlan> plan = an::planRealtimePreviewGaussianBlur({.sigmaX = 60.0, .sigmaY = 60.0});
+    ASSERT_TRUE(plan.hasValue()) << plan.status().message();
+    ASSERT_GT(plan->horizontalRadius(), an::kMaxStencilRadius);
+    std::vector<float> fused(source.size(), 0.0f);
+    std::vector<double> general(source.size(), 0.0);
+    ASSERT_TRUE(an::blurImageRealtimePreviewGaussian(execution, an::SampleType::Float32, source.data(), floatLayout,
+                                                     fused.data(), floatLayout, *plan)
+                    .hasValue());
+    ASSERT_TRUE(an::blurImageRealtimePreviewGaussian(execution, an::SampleType::Float64, sourceDoubles.data(),
+                                                     doubleLayout, general.data(), doubleLayout, *plan)
+                    .hasValue());
+    double worst = 0.0;
+    for (std::size_t index = 0u; index < source.size(); ++index)
+    {
+        worst = (std::max)(worst, std::abs(static_cast<double>(fused[index]) - general[index]));
+    }
+    // The fused form keeps its running sums in Float32, the general one in Float64.
+    EXPECT_LT(worst, 1.0e-4);
+
+    const std::vector<float> flat(source.size(), 0.375f);
+    const an::Result<an::GaussianPlan> wider = an::planRealtimePreviewGaussianBlur({.sigmaX = 800.0, .sigmaY = 800.0});
+    ASSERT_TRUE(wider.hasValue()) << wider.status().message();
+    ASSERT_GT(wider->horizontalRadius(), kWidth);
+    std::vector<float> blurred(source.size(), 0.0f);
+    ASSERT_TRUE(an::blurImageRealtimePreviewGaussian(execution, an::SampleType::Float32, flat.data(), floatLayout,
+                                                     blurred.data(), floatLayout, *wider)
+                    .hasValue());
+    for (const float value : blurred)
+    {
+        ASSERT_NEAR(value, 0.375f, 1.0e-5f);
+    }
+}
+
 TEST(GaussianTest, APlanRefusesWhatItCannotBlur)
 {
     EXPECT_EQ(an::planGaussianBlur({.sigmaX = 0.0}).status().code(), an::ErrorCode::InvalidArgument);

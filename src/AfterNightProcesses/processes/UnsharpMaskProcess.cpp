@@ -8,6 +8,29 @@
 
 #include <AfterNightEngine/Algorithms/Spatial/Gaussian.h>
 
+#include <algorithm>
+
+namespace
+{
+
+/// The filter the dialog asks for at a radius and an amount, in a frame of a kind: the source plus the amount times
+/// its difference from its Gaussian blur, the blur mirroring the edge sample as scikit-image's does; an interactive
+/// frame blurs a radius beyond one kernel's reach by the real-time preview's boxes, and every other run by the exact
+/// Gaussian.
+[[nodiscard]] process_utils::DetailRequest unsharpMaskRequest(double radius, double amount,
+                                                              an::ui::PreviewFrameKind kind)
+{
+    return process_utils::DetailRequest{.method = an::DetailFilterMethod::UnsharpMask,
+                                        .sigma = radius,
+                                        .amount = amount,
+                                        .border = an::KernelBorderMode::Reflect,
+                                        .blur = kind == an::ui::PreviewFrameKind::Interactive
+                                                    ? process_utils::DetailBlur::InteractivePreview
+                                                    : process_utils::DetailBlur::Exact};
+}
+
+} // namespace
+
 UnsharpMaskProcess::UnsharpMaskProcess(ImageViewControl* control)
     : an::ui::TypedProcessControl<UnsharpMaskParams>(control, getProcessNameStatic())
 {
@@ -61,12 +84,10 @@ an::Status UnsharpMaskProcess::executeTypedProcessIteration(const an::ChannelSco
         return an::Status::success();
     }
     // The source plus the amount times its difference from its Gaussian blur, held to full scale, the blur reflecting
-    // at the edge.
+    // at the edge. Over the target reduced by the preview view's factor, the blur's radius is reduced with it.
+    const double radius = params.radius / static_cast<double>((std::max)(1u, run.proxyFactor));
     return process_utils::filterDetail(scope.engine(), scope.execution(), input, output,
-                                       process_utils::DetailRequest{.method = an::DetailFilterMethod::UnsharpMask,
-                                                                    .sigma = params.radius,
-                                                                    .amount = params.amount,
-                                                                    .border = an::KernelBorderMode::Reflect});
+                                       unsharpMaskRequest(radius, params.amount, run.frameKind));
 }
 
 an::Status UnsharpMaskProcess::executeTypedProcessImpl(const an::ui::ProcessSource& source,
@@ -79,23 +100,24 @@ an::Status UnsharpMaskProcess::executeTypedProcessImpl(const an::ui::ProcessSour
 
 an::ui::PreviewScaling UnsharpMaskProcess::previewScaling() const
 {
-    // The blur the mask is taken from reaches a radius in pixels, and the clamp to full scale keeps the result from
-    // commuting with a reduction: an interactive frame runs at full scale over the part of the target the preview view
-    // shows.
-    return an::ui::PreviewScaling::NativeRegion;
+    // An interactive frame runs over what the preview view paints. Over the target reduced by the view's factor the
+    // body blurs by the radius reduced with it; the clamp to full scale keeps the result from commuting with the
+    // reduction, so such a frame comes close to the reduction of the whole result rather than being it. Over the part
+    // of the target the view shows at full scale it blurs by the dialog's radius. The settled frame runs over the whole
+    // image as an Apply does.
+    return an::ui::PreviewScaling::Decimated;
 }
 
 std::uint32_t UnsharpMaskProcess::typedPreviewRegionMargin(const UnsharpMaskParams& params) const
 {
-    // The reach of the blur the body takes the mask from; a radius too narrow for a kernel blurs nothing.
+    // The reach of the blur an interactive frame at full scale takes the mask from: one kernel's, or the boxes' beyond
+    // it; a radius too narrow for a kernel blurs nothing.
     if (!(params.radius > an::kMinimumGaussianSigma))
     {
         return 0u;
     }
-    return process_utils::detailReach(process_utils::DetailRequest{.method = an::DetailFilterMethod::UnsharpMask,
-                                                                   .sigma = params.radius,
-                                                                   .amount = params.amount,
-                                                                   .border = an::KernelBorderMode::Reflect});
+    return process_utils::detailReach(
+        unsharpMaskRequest(params.radius, params.amount, an::ui::PreviewFrameKind::Interactive));
 }
 
 an::ui::ProcessStep UnsharpMaskProcess::describeTypedProcessStep(const UnsharpMaskParams& params) const

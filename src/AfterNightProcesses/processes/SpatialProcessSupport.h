@@ -219,6 +219,19 @@ using UnitFloatOperation = std::function<an::Status(float* samples, const an::Im
 [[nodiscard]] std::uint32_t gaussianReach(double sigma,
                                           an::KernelBorderMode border = an::KernelBorderMode::ReflectExcludingEdge);
 
+/// How a detail filter makes the blur it takes away.
+enum class DetailBlur : std::uint8_t
+{
+    /// The exact Gaussian at every sigma: one kernel where the widest reaches the sigma, otherwise exact passes sharing
+    /// its variance. What an Apply and a settled preview frame run.
+    Exact,
+
+    /// What an interactive preview frame runs: the exact Gaussian where one kernel reaches the sigma, and beyond that
+    /// the engine's real-time-preview approximation - three running-sum boxes along each axis, whose cost does not grow
+    /// with the sigma - in place of the composed exact passes, whose number grows with the sigma's square.
+    InteractivePreview
+};
+
 /// What one of the two detail filters - the high pass and the unsharp mask - asks for, in the fractions of full scale
 /// their dialogs speak.
 struct DetailRequest
@@ -226,7 +239,8 @@ struct DetailRequest
     /// `source - blur + offset`, or `source + amount * (source - blur)`.
     an::DetailFilterMethod method = an::DetailFilterMethod::HighPass;
 
-    /// The blur's standard deviation, in pixels.
+    /// The blur's standard deviation, in pixels. One the engine builds no kernel for blurs nothing: the blur taken away
+    /// is the plane itself.
     double sigma = 1.0;
 
     /// The unsharp mask's amount; any finite value, a negative one blurring.
@@ -237,14 +251,23 @@ struct DetailRequest
 
     /// How a neighbour outside the image is supplied to the blur.
     an::KernelBorderMode border = an::KernelBorderMode::ReflectExcludingEdge;
+
+    /// How the blur is made.
+    DetailBlur blur = DetailBlur::Exact;
 };
 
 /// One of the two detail filters over a channel scope's plane, its result held to full scale.
 ///
-/// The engine's detail filter runs it over the stored values when one plan can: a sigma its widest kernel reaches and
-/// an amount that is not negative. Otherwise it is composed over a unit-interval working copy of the output, which
-/// starts as the input: the exact Gaussian in as many passes as the sigma needs - each a Gaussian whose variance is
-/// its share of the sigma's square - then the difference, the amount or the offset, and the clamp.
+/// A plane every sample of which is valid, blurred under the border the engine's compiled Gaussian mirrors at
+/// (`an::KernelBorderMode::ReflectExcludingEdge`), is composed over a unit-interval working copy of the output, which
+/// starts as the input, at every sigma: the compiled Float32 Gaussian - one kernel where the widest reaches the sigma,
+/// otherwise as many exact passes as the sigma needs, each a Gaussian whose variance is its share of the sigma's square
+/// - then the difference, the amount or the offset, and the clamp, each in Float32. The Gaussian blur's own dialog
+/// blurs a plane by the same kernels. Any other plane - one whose validity rule or mask the blur honours, or one
+/// blurred under another border - runs the engine's detail filter over its stored values, accumulating in Float64,
+/// when one plan can: a sigma its widest kernel reaches and an amount that is not negative; and is composed as above
+/// otherwise. `DetailRequest::blur` decides whether a sigma beyond one kernel is blurred by exact passes or by the
+/// real-time preview's boxes.
 ///
 /// @param engine the engine context the working planes are taken from.
 /// @param execution the run's admitted execution.
@@ -256,9 +279,10 @@ struct DetailRequest
                                       const an::ChannelScopeInput& input, const an::ChannelScopeOutput& output,
                                       const DetailRequest& request);
 
-/// How far around a pixel `filterDetail` reads for a request: the radius of the engine's detail filter's blur where one
-/// plan takes the request, otherwise the reach of the composed blur, as `gaussianReach` states it. What a real-time
-/// preview's frame over a part of the image states as its reach.
+/// How far around a pixel `filterDetail` reads for a request: the reach of the exact blur, as `gaussianReach` states it
+/// - one kernel's radius, or the radii of every pass of the composition added up - or, for an interactive preview's
+/// request beyond one kernel, the reach of the boxes it blurs by instead. What a real-time preview's frame over a part
+/// of the image states as its reach.
 ///
 /// @param request the filter.
 /// @return the reach in pixels; zero for a sigma the engine builds no kernel for.

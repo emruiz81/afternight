@@ -258,7 +258,9 @@ struct StencilExecutionResult
     /// rows apart.
     std::uint32_t tileRows = 0u;
 
-    /// How many tiles the destination was divided into.
+    /// How many tiles the destination was divided into: runs of rows, each across one strip of
+    /// columns where an undilated pass divides its rows into strips, and across the whole width
+    /// otherwise.
     std::uint64_t tileCount = 0u;
 
     /// How many tiles may hold an intermediate band at once, which is what bounds the scratch.
@@ -284,9 +286,14 @@ struct StencilExecutionResult
 /// as the reference rather than a reassociated one.
 ///
 /// The intermediate is a band rather than an image: only as many bands exist at once as there are
-/// tiles running, so an admitted working set is bounded by `kMaxStencilScratchBytes`.
-/// `StencilExecutionResult` reports the plan it chose; a geometry whose minimum one-band plan does
-/// not fit is refused for a caller to answer with an outer tiling strategy.
+/// tiles running, so an admitted working set is bounded by `kMaxStencilScratchBytes`. An undilated
+/// pass whose rows are too wide for a band across all of them to serve its workers - few bands fit
+/// under the ceiling, each repeating its halo rows for a short run of output rows, or none fits at
+/// all - divides its rows into strips of columns, and each band holds one strip's columns of its
+/// rows. A strip changes which samples a band holds and never what an output adds up, so the result
+/// is the same whatever the plan. `StencilExecutionResult` reports the plan it chose; a dilated pass
+/// whose minimum one-band plan across the whole width does not fit is refused for a caller to answer
+/// with an outer tiling strategy.
 ///
 /// A dilated pass reads the same number of taps `dilation` samples apart instead of one, and it
 /// costs no more arithmetic than the ordinary pass does. It also costs no more memory: a tile is
@@ -316,8 +323,9 @@ struct StencilExecutionResult
 ///         tap array, a non-finite tap, a zero tap spacing, an unknown border or
 ///         `KernelBorderMode::NotApplicable`, or a non-finite constant or substitute;
 ///         `ErrorCode::OutOfRange` for a radius above `kMaxStencilRadius` or a spacing above
-///         `kMaxStencilDilation`; `ErrorCode::LimitExceeded` when even one tile band exceeds
-///         `kMaxStencilScratchBytes`; `ErrorCode::NotInitialized`, `ErrorCode::MemoryBudgetExceeded`
+///         `kMaxStencilDilation`; `ErrorCode::LimitExceeded` when even one tile band of the narrowest
+///         plan exceeds `kMaxStencilScratchBytes`, which a dilated pass over a very wide row can
+///         reach; `ErrorCode::NotInitialized`, `ErrorCode::MemoryBudgetExceeded`
 ///         or `ErrorCode::AllocationFailed` when the context has no memory resource or refuses the
 ///         bands; or a refusal the file comment names. A cancelled run may leave a prefix of the
 ///         destination written.
