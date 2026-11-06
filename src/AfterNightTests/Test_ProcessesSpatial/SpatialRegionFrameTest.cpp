@@ -78,22 +78,17 @@ constexpr std::array<std::string_view, 3u> kDecimatedActions{"actionGaussian_Blu
 }
 
 /// The actions whose dialogs offer a reach of many passes, and how a window is set to one: several passes of a window,
-/// a blur composed of several kernels, a window derived from a sigma. A margin of one pass falls short of each. The
-/// high pass is not among them: beyond one kernel its interactive frames blur by the real-time preview's boxes, whose
-/// reach `DetailFilterTest` holds.
+/// a window derived from a sigma. A margin of one pass falls short of each. The blurs are not among them: beyond the
+/// stencil family's widest kernel their interactive frames blur by the real-time preview's boxes, whose reach
+/// `GaussianBlurTest` and `DetailFilterTest` hold.
 [[nodiscard]] std::vector<std::string> manyPassActions()
 {
-    return {"actionGaussian_Blur", "actionMedian_Filter", "actionBilateral_Filter",
-            "actionMorphological_Transformation"};
+    return {"actionMedian_Filter", "actionBilateral_Filter", "actionMorphological_Transformation"};
 }
 
 void setManyPasses(std::string_view action, QWidget& window)
 {
-    if (action == "actionGaussian_Blur")
-    {
-        setReal(window, "sigmaValue", 40.0);
-    }
-    else if (action == "actionMedian_Filter")
+    if (action == "actionMedian_Filter")
     {
         choose(window, "kernelSize", QStringLiteral("5x5"));
         setWhole(window, "iterationsValue", 3);

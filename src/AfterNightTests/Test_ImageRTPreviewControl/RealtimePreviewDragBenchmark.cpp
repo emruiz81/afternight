@@ -31,6 +31,9 @@
 ///                          handed out for it; 0, the default, applies nothing
 ///   AN_BENCH_STEPS         the slider's steps, 60 by default
 ///   AN_BENCH_STEP_MS       the milliseconds between steps, 16 by default
+///   AN_BENCH_RADIUS        the radius, in whole pixels, the high pass's drag starts from; ten, the dialog's own, by
+///                          default
+///   AN_BENCH_SIGMA         the sigma, in whole pixels, the Gaussian blur's drag starts from; two by default
 ///   AN_BENCH_FPS           the previews a second the Processing settings state; the product's default, thirty, when
 ///                          not set
 ///   AN_BENCH_WIDTH         the session's width; the host's by default
@@ -613,21 +616,22 @@ struct DragSubject
             }};
 }
 
-/// The sigma of the Gaussian blur, from two pixels up a tenth a step: a body that reads its neighbours, run over what
-/// the preview view paints while the slider is held.
+/// The sigma of the Gaussian blur, from the sigma AN_BENCH_SIGMA states - two pixels when it states none - up a tenth
+/// a step: a body that reads its neighbours, run over what the preview view paints while the slider is held.
 [[nodiscard]] DragSubject gaussianDrag()
 {
+    const double from = static_cast<double>((std::max)(1, knob("AN_BENCH_SIGMA", 2)));
     return DragSubject{
         .name = "gaussian-blur",
         .open = [](ImageViewControl& target) { return openDialog<GaussianBlurProcess>(target, QSize(1400, 900)); },
         .step =
-            [](QWidget& dialog, int step) {
+            [from](QWidget& dialog, int step) {
                 auto* sigma = child<QDoubleSpinBox>(dialog, "sigmaValue");
                 if (sigma == nullptr)
                 {
                     return false;
                 }
-                sigma->setValue(2.0 + 0.1 * static_cast<double>(step));
+                sigma->setValue(from + 0.1 * static_cast<double>(step));
                 return true;
             },
         .press =

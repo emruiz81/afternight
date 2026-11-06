@@ -5,12 +5,13 @@
 Gaussian Blur applies a linear, isotropic low-pass filter. **Apply** convolves
 the image with a sampled Gaussian kernel of the requested standard deviation,
 one pass along the rows and one down the columns, at every Sigma the dialog
-offers. The real-time preview is the same Gaussian. While you drag **Sigma**
-it blurs what the preview view shows - the image reduced to the view's size,
-by Sigma divided by the reduction, or the part shown at 1:1 and closer with
-the kernel's reach around it - so that the preview keeps up with the slider;
-the preview you rest on is computed on the whole image and is what Apply
-writes.
+offers. While you drag **Sigma** the preview blurs what the preview view
+shows - the image reduced to the view's size, by Sigma divided by the
+reduction, or the part shown at 1:1 and closer with the blur's reach around
+it - so that the preview keeps up with the slider; beyond Sigma `32` there,
+the dragged preview blurs with three box passes that stay close to the
+Gaussian and cost the same at any Sigma. The preview you rest on is computed
+on the whole image and is what Apply writes.
 
 The expected result is a same-size, same-type still or replacement sequence with
 reduced high-frequency contrast. Noise, stars, edges, and fine texture all blur;
@@ -26,7 +27,7 @@ scale separation, or controlled smoothing—not as detail-preserving denoise.
 | Inputs | One grayscale or RGB still or sequence; a still CFA mosaic is treated as one grayscale sample plane unless debayered first; an optional active mask must match target geometry |
 | Outputs | Destructively replaces a still or, after successful temporary processing, a sequence; **Take snapshot** creates an auxiliary still; dimensions, channel count, and source pixel type are retained unless a selected component reconstructs RGB; no file is written directly |
 | Recommended image state | Any finite image or mask whose fine structure should be softened; for a science master, prefer linear data and protect stars/edges with a mask when their flux profile matters |
-| Preview | Asynchronous preview by default: the exact Gaussian over what the preview view shows while a slider is held - the image reduced, blurred by Sigma over the reduction, or the shown part at 1:1 and closer - and over the whole image once it settles; optional movable Preview area, original/result switching, snapshot, display-channel selection, and display-only autostretch |
+| Preview | Asynchronous preview by default: over what the preview view shows while a slider is held - the image reduced, blurred by Sigma over the reduction, or the shown part at 1:1 and closer, by the exact Gaussian up to Sigma `32` there and by three box passes beyond - and the exact Gaussian over the whole image once it settles; optional movable Preview area, original/result switching, snapshot, display-channel selection, and display-only autostretch |
 | Sequence support | Yes; one captured Sigma/channel/mask state is applied frame by frame to temporary storage before replacement |
 | Mask support | Yes; the active mask blends the blurred result with the original |
 | External dependency | None; the blur is the AfterNight engine's own, with no separate installation, model, or network access |
@@ -72,7 +73,7 @@ scale separation, or controlled smoothing—not as detail-preserving denoise.
 | Sigma | Double value plus slider, requested standard deviation in pixels per axis | `0.00` | None | `0.00..100.00`; two decimals; adaptive decimal spin step based on nominal `0.50`; slider resolution `0.10`; used at full precision | Apply and the settled preview: the exact Gaussian of that standard deviation. Higher values blur broader scales | Apply disabled exactly at `0`; a preview held at a reduced view blurs by Sigma divided by the reduction, so a small value shows little change until the slider is released | Larger values remove broader structure; Apply cost grows with Sigma, and above `32` the blur is split into several exact passes | Preview/Apply; selected channel/component; still/sequence; before mask | Captured per execution; Reset and successful Apply return `0.00` |
 | Target Image | Image selector | Attached/active target | None | Open eligible image or sequence | Changes source, Channel list, Preview, active mask, and Apply destination | Active image required; duplicate/exclusive gates apply | Wrong target is destructively replaced after success | Preview/Apply source and active mask | Target lifecycle; Reset does not change it |
 | Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | RGB blurs each stored channel independently with the same kernel; a component blurs one plane and reconstructs/copies the others | Component choices require RGB; mono selector disabled | Independent RGB smoothing can broaden color fringes; component conversions add buffers and can alter color | Preview/Apply; active mask post-blend; still/sequence | Captured by execution; Reset and successful Apply restore RGB for RGB targets |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables asynchronous full-image or selected-area execution | Process idle | Runs the exact blur over what the preview view shows while a slider is held and over the whole image once it settles; repeated full-frame updates allocate working buffers | Preview only; mask-aware; current still/current displayed sequence frame | Window lifetime; Reset does not change it |
+| Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables asynchronous full-image or selected-area execution | Process idle | Runs the blur over what the preview view shows while a slider is held - exact up to Sigma `32` there, box passes beyond - and the exact blur over the whole image once it settles; repeated full-frame updates allocate working buffers | Preview only; mask-aware; current still/current displayed sequence frame | Window lifetime; Reset does not change it |
 | Preview pane | Image viewer | Current result | None | Pan with scroll bars/dragging; toolbar actions below | Shows the mask-aware result without modifying the target | Exists only with Preview | Holds source/result and display buffers in addition to blur buffers | Preview only | Window lifetime |
 | Fit To Window | Preview-toolbar action | Preview fitted when first displayed | None | Click or **Ctrl+Shift+F** | Fits the whole image uniformly in the viewport | Preview image required | Good overview; resampling hides pixel-scale blur | Preview display only | Viewer lifetime |
 | Zoom In | Preview-toolbar action | Current scale | None | Click; `1.25×` relative zoom within viewer limits | Enlarges around viewport center | Preview image required | Improves local inspection; more panning | Preview display only | Viewer lifetime |
@@ -87,7 +88,7 @@ scale separation, or controlled smoothing—not as detail-preserving denoise.
 | Apply | Button/action | Disabled while Sigma is exactly `0`; enabled for any positive UI value | None | One action | Captures Sigma and Channel, then processes the full still or every sequence frame | Target must lock; all controls disabled during commit | Two separable exact passes (more above Sigma `32`), component conversion, mask, sequence encode, and temporary storage add cost | Destructive still/sequence replacement after success | Records history, then resets Sigma and RGB Channel |
 | Reset | Button/action | Enabled while idle | None | One action | Restores Sigma `0`; restores **RGB** for RGB targets | Does not reset Target, Preview, mask, or preview toolbar | Disables Apply; checked Preview schedules an identity execution | Configuration only | Immediate; also invoked after successful Apply |
 | Close | Button/action | Enabled while idle | None | One action | Closes without applying current settings | Disabled during Apply | Active preview cancellation is requested and reaches the blur between rows | Window/execution | No process settings persist after destruction |
-| Sequence progress / Cancel | Shared per-process/frame progress and Cancel | Created for sequence Apply | None | Cooperative Cancel; frame/task text updates around temporary processing; a blur above Sigma `32` also reports each of its passes | Sequence target only | The blur checks for Cancel between rows and tiles, so a frame stops promptly | Sequence Apply; captured Sigma, Channel, and mask apply to every frame | Cancel removes temporary output; success replaces sequence, records one history step, and resets Sigma/Channel |
+| Sequence progress / Cancel | Shared per-process/frame progress and Cancel | Created for sequence Apply | None | Cooperative Cancel; frame/task text updates around temporary processing; a blur composed of several passes also reports each of them | Sequence target only | The blur checks for Cancel between rows and tiles, so a frame stops promptly | Sequence Apply; captured Sigma, Channel, and mask apply to every frame | Cancel removes temporary output; success replaces sequence, records one history step, and resets Sigma/Channel |
 
 ## How the algorithm works
 
@@ -106,25 +107,32 @@ kernel horizontally and vertically produces the 2-D result.
 Apply samples the density at each pixel centre out to four standard deviations
 (radius `ceil(4 × Sigma)`), divides every tap by their sum so a flat area stays
 exactly flat, and convolves along the rows and then down the columns. The
-engine's widest kernel has a radius of `128` pixels, which four standard
-deviations reach at Sigma `32`. A wider Sigma - the dialog offers up to `100` -
-is composed of several exact passes of equal width whose variances add up to
-`Sigma²`: two passes at Sigma `40`, ten at Sigma `100`. Each pass is reported
-as progress. Because Gaussians compose exactly, the result is still the
-Gaussian of the requested Sigma, apart from the small tail each pass's
-four-sigma cut leaves out.
+engine's general convolution stops at a radius of `128` pixels, which four
+standard deviations reach at Sigma `32`. A wider Sigma - the dialog offers up
+to `100` - runs as one kernel of its own radius on the engine's compiled
+single-precision path, which takes a kernel up to `4096` pixels wide over an
+image more than twice its radius wide and high: one kernel of radius `400` at
+Sigma `100` on a frame at least `802` pixels each way. On a smaller image the
+blur is composed of several exact passes of equal width whose variances add up
+to `Sigma²`, each reported as progress; because Gaussians compose exactly, the
+result is still the Gaussian of the requested Sigma, apart from the small tail
+each pass's four-sigma cut leaves out.
 
-### Preview: the same Gaussian over what the view shows
+### Preview: the Gaussian over what the view shows
 
-The real-time preview runs the exact Gaussian too. While you hold the slider,
-a frame runs over what the preview view shows rather than the whole image:
-at a zoom that reduces the image by a factor `r`, over the image reduced by
-`r` - each pixel the mean of its block - blurred by `Sigma / r`, which is the
-reduction of the whole blur to within the averaging of the reduction; at 1:1
-and closer, over the part of the image the view shows, read with the kernel's
-reach of `4 × Sigma` pixels around it so that the part's edges are blurred as
-they are in the whole image. Once you release the slider, or a typed value has
-rested for a moment, the preview is computed on the whole image and is what
+While you hold the slider, a frame runs over what the preview view shows
+rather than the whole image: at a zoom that reduces the image by a factor `r`,
+over the image reduced by `r` - each pixel the mean of its block - blurred by
+`Sigma / r`, which is the reduction of the whole blur to within the averaging
+of the reduction; at 1:1 and closer, over the part of the image the view
+shows, read with the blur's reach around it so that the part's edges are
+blurred as they are in the whole image. Up to a Sigma of `32` in the frame
+(`Sigma / r` over a reduction) that blur is the exact Gaussian, reaching
+`4 × Sigma` pixels. Beyond it, a dragged frame blurs with three running-sum box
+passes along each axis, which stay within a few parts in a thousand of the
+Gaussian and whose cost does not grow with Sigma, where the exact kernel's
+does. Once you release the slider, or a typed value has rested for a moment,
+the preview is computed on the whole image by the exact Gaussian and is what
 Apply writes.
 
 Each stored RGB channel is processed separately. The shared Channel dispatcher
@@ -146,9 +154,8 @@ double-precision pass to float rounding; a 64-bit float image accumulates every
 tap in double precision. An integer image is worked on a single-precision copy
 holding each sample as a fraction of full scale - exactly, for every integer
 type up to 16 bits - blurred there, and converted back once, rounded to the
-nearest code and held to the type's range; a blur composed of several passes
-(Sigma above `32`) works on the same copy for every type. Every representation
-keeps its sample type.
+nearest code and held to the type's range; a blur above Sigma `32` works on
+the same copy for every type. Every representation keeps its sample type.
 
 If a mask is enabled, the shared path blends the fully blurred result with the
 source after Channel reconstruction. The process has no separate Amount control.
@@ -171,9 +178,9 @@ range and keeps a floating image's values outside `[0, 1]`.
 - **Pixel type × rounding**: an integer image is blurred on a single-precision
   copy and rounded once when it is written back, so weak blurs are not eroded by
   repeated rounding.
-- **Large Sigma × cost and boundaries**: Apply's cost grows with Sigma, and
-  above `32` each doubling of the variance adds a pass. The reflected-edge
-  region also widens with Sigma.
+- **Large Sigma × cost and boundaries**: Apply's cost grows with Sigma; above
+  `32`, on an image too small for one wide kernel, each doubling of the
+  variance adds a pass. The reflected-edge region also widens with Sigma.
 - Gaussian smoothing is compositional: two applied runs at `sigma1` and
   `sigma2` approximate one run at `sqrt(sigma1²+sigma2²)`, apart from edge
   reflection and integer rounding between the runs.
@@ -202,10 +209,12 @@ range and keeps a floating image's values outside `[0, 1]`.
 For width `W`, height `H`, and processed channels `C`, Apply's exact blur
 costs two separable passes of `2 × ceil(4 × Sigma) + 1` taps each:
 approximately `O(W × H × C × Sigma)`, still far below a direct
-two-dimensional convolution. Above Sigma `32` every additional pass costs as
-much as one blur at Sigma `32`; Sigma `100` takes ten passes. A preview while a
-slider is held costs the blur of what the view shows - the image reduced, or
-the part shown at 1:1 - and the preview you rest on costs what an Apply does.
+two-dimensional convolution. Above Sigma `32` the one wide kernel keeps that
+cost; on an image too small for it, every pass costs as much as one blur at
+Sigma `32`. A preview while a slider is held costs the blur of what the view
+shows - the image reduced, or the part shown at 1:1 - and beyond Sigma `32`
+there the box passes cost the same at any Sigma; the preview you rest on costs
+what an Apply does.
 
 The blur runs on the threads the operation is granted, one channel at a time.
 A non-float or interleaved image is gathered into a working plane, and a blur
@@ -225,16 +234,20 @@ Sigma   Apply: exact kernel radius / passes   Preview over the image reduced by 
  1.00   4 / 1                                 0.25, 1
  2.00   8 / 1                                 0.5, 2
  5.00   20 / 1                                1.25, 5
-40.00   114 / 2 (each pass Sigma 28.28)       10, 40
+40.00   160 / 1 on a frame at least 322 px     10, 40
+        each way; 114 / 2 (each pass Sigma
+        28.28) on a smaller one
 ```
 
 For Sigma `2`, Apply convolves with a 17-tap Gaussian along the rows and again
 down the columns; a preview held over the image reduced by `4` convolves the
 reduction with a 5-tap Gaussian. The focused tests hold Apply to a
 double-precision Gaussian computed independently - within `2e-6` at Sigma `1.5`
-and `6`, and within `2e-4` at Sigma `40`, where two passes compose it - and hold
-a frame over the image reduced by `2` to the Gaussian of half the Sigma within
-`2e-6`. That is evidence for those fixtures, not a universal error bound.
+and `6`, within `2e-6` at Sigma `40` on a `400×360` frame, which one kernel
+blurs, and within `2e-4` at Sigma `40` on a `112×104` one, where two passes
+compose it - and hold a frame over the image reduced by `2` to the Gaussian of
+half the Sigma within `2e-6`. That is evidence for those fixtures, not a
+universal error bound.
 
 ## Warnings and limitations
 
@@ -249,8 +262,9 @@ a frame over the image reduced by `2` to the Gaussian of half the Sigma within
   layer is recombined strongly.
 - Mirror handling avoids a constant black border, but large scales pull
   reflected structure into the border region.
-- A wide Sigma is slow: above `32` each doubling of the variance adds a full
-  pass, and Sigma `100` takes ten.
+- A wide Sigma costs more: the kernel's radius is `4 × Sigma`, and on an image
+  too small for one kernel that wide, above `32` each doubling of the variance
+  adds a full pass.
 - RGB channels are blurred independently. Spatial color fringes can broaden;
   derived-component round trips can alter color, and an integer image's
   reconstruction saturates at its type's range, while a floating image's keeps

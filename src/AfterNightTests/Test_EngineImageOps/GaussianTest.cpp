@@ -12,8 +12,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <span>
@@ -53,7 +56,7 @@ TEST(GaussianTest, TheTapWriterRefusesWhatItCannotProduce)
     EXPECT_EQ(an::writeGaussianTaps(0.0, 1u, taps).status().code(), an::ErrorCode::InvalidArgument);
     EXPECT_EQ(an::writeGaussianTaps(std::numeric_limits<double>::infinity(), 1u, taps).status().code(),
               an::ErrorCode::InvalidArgument);
-    EXPECT_EQ(an::writeGaussianTaps(1.0, an::kMaxStencilRadius + 1u, taps).status().code(), an::ErrorCode::OutOfRange);
+    EXPECT_EQ(an::writeGaussianTaps(1.0, an::kMaxGaussianRadius + 1u, taps).status().code(), an::ErrorCode::OutOfRange);
     EXPECT_EQ(an::writeGaussianTaps(1.0, 2u, taps).status().code(), an::ErrorCode::IncompatibleArguments);
 }
 
@@ -98,7 +101,7 @@ TEST(GaussianTest, ABoxPlanReachesPastTheWidestTapArray)
 {
     // A box pass is a running sum, whose cost does not depend on its width, so a repeated-box plan is held to its own
     // reach rather than to the widest tap array an exact plan may have: a sigma of three hundred reaches some nine
-    // hundred pixels on the boxes, and an exact plan of it is still refused.
+    // hundred pixels on the boxes, and an exact plan of a sigma whose kernel no tap array holds is refused.
     const an::Result<an::GaussianPlan> wide = an::planRealtimePreviewGaussianBlur({.sigmaX = 300.0, .sigmaY = 120.0});
     ASSERT_TRUE(wide.hasValue()) << wide.status().message();
     EXPECT_GT(wide->horizontalRadius(), an::kMaxStencilRadius);
@@ -106,7 +109,7 @@ TEST(GaussianTest, ABoxPlanReachesPastTheWidestTapArray)
     EXPECT_LE(wide->horizontalRadius(), an::kMaxRealtimePreviewBoxReach);
     EXPECT_NEAR(wide->realizedSigmaX(), 300.0, 1.0);
     EXPECT_NEAR(wide->realizedSigmaY(), 120.0, 1.0);
-    EXPECT_EQ(an::planGaussianBlur({.sigmaX = 300.0, .sigmaY = 300.0}).status().code(), an::ErrorCode::OutOfRange);
+    EXPECT_EQ(an::planGaussianBlur({.sigmaX = 2000.0, .sigmaY = 2000.0}).status().code(), an::ErrorCode::OutOfRange);
 
     // A reach past the boxes' own ceiling is refused by name, however far past it the sigma lies: its widths are never
     // computed into a number that wraps.
@@ -178,7 +181,7 @@ TEST(GaussianTest, APlanRefusesWhatItCannotBlur)
               an::ErrorCode::IncompatibleArguments);
     EXPECT_EQ(an::planGaussianBlur({.borders = {.border = an::KernelBorderMode::NotApplicable}}).status().code(),
               an::ErrorCode::InvalidArgument);
-    EXPECT_EQ(an::planGaussianBlur({.sigmaX = 64.0, .sigmaY = 64.0}).status().code(), an::ErrorCode::OutOfRange);
+    EXPECT_EQ(an::planGaussianBlur({.sigmaX = 1100.0, .sigmaY = 1100.0}).status().code(), an::ErrorCode::OutOfRange);
 
     an::GaussianRequest rescaling{};
     rescaling.output.writeBack.domain = an::DomainMapping::FullScale;
@@ -290,6 +293,191 @@ TEST(GaussianTest, AProductionWideGaussianMatchesThePreciseReferenceWithinTheFlo
         worst = (std::max)(worst, std::abs(fast[index] - precise[index]));
     }
     EXPECT_LT(worst, 1e-5f);
+}
+
+// A plan wider than the stencil family's widest kernel is one exact kernel on the compiled symmetric path: its taps,
+// written for the plan's own radius, sum to one, and the blur is the Gaussian computed here in double precision, a
+// neighbour beyond the edge its mirror image, to within the Float32 sums the path keeps.
+TEST(GaussianTest, AWideExactPlanIsOneKernelOnTheSymmetricPath)
+{
+    constexpr std::uint32_t kWidth = 400u;
+    constexpr std::uint32_t kHeight = 340u;
+    constexpr double kSigma = 40.0;
+    const an::Result<an::GaussianPlan> plan = an::planGaussianBlur({.sigmaX = kSigma, .sigmaY = kSigma});
+    ASSERT_TRUE(plan.hasValue()) << plan.status().message();
+    const std::uint32_t radius = plan->horizontalRadius();
+    ASSERT_EQ(radius, 160u);
+    ASSERT_GT(radius, an::kMaxStencilRadius);
+
+    std::vector<double> taps(2u * radius + 1u, 0.0);
+    ASSERT_TRUE(an::writeGaussianTaps(kSigma, radius, taps).hasValue());
+    double total = 0.0;
+    for (const double tap : taps)
+    {
+        total += tap;
+    }
+    EXPECT_NEAR(total, 1.0, 1e-12);
+
+    const an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    const std::vector<float> source = randomPlane(kWidth, kHeight, 59u);
+    std::vector<float> blurred(source.size(), 0.0f);
+    const an::ImageLayout layout = planarLayout(an::SampleType::Float32, kWidth, kHeight);
+    const an::Result<an::SpatialFilterResult> ran =
+        an::blurImageGaussian(execution, an::SampleType::Float32, source.data(), layout, blurred.data(), layout, *plan);
+    ASSERT_TRUE(ran.hasValue()) << ran.status().message();
+    EXPECT_EQ(ran->horizontalRadius, radius);
+    EXPECT_EQ(ran->imagePasses, 2u);
+
+    const auto mirrored = [](std::int64_t index, std::int64_t length) {
+        const std::int64_t period = 2 * (length - 1);
+        std::int64_t folded = index % period;
+        if (folded < 0)
+        {
+            folded += period;
+        }
+        return folded < length ? folded : period - folded;
+    };
+    const std::int64_t width = kWidth;
+    const std::int64_t height = kHeight;
+    const std::int64_t reach = radius;
+    std::vector<double> across(source.size(), 0.0);
+    for (std::int64_t y = 0; y < height; ++y)
+    {
+        for (std::int64_t x = 0; x < width; ++x)
+        {
+            double sum = 0.0;
+            for (std::int64_t k = -reach; k <= reach; ++k)
+            {
+                sum += taps[static_cast<std::size_t>(k + reach)] *
+                       static_cast<double>(source[static_cast<std::size_t>(y * width + mirrored(x + k, width))]);
+            }
+            across[static_cast<std::size_t>(y * width + x)] = sum;
+        }
+    }
+    double worst = 0.0;
+    for (std::int64_t y = 0; y < height; ++y)
+    {
+        for (std::int64_t x = 0; x < width; ++x)
+        {
+            double sum = 0.0;
+            for (std::int64_t k = -reach; k <= reach; ++k)
+            {
+                sum += taps[static_cast<std::size_t>(k + reach)] *
+                       across[static_cast<std::size_t>(mirrored(y + k, height) * width + x)];
+            }
+            worst = (std::max)(worst,
+                               std::abs(static_cast<double>(blurred[static_cast<std::size_t>(y * width + x)]) - sum));
+        }
+    }
+    EXPECT_LT(worst, 1e-5);
+}
+
+// The compiled symmetric path is, sample for sample, the Float32 sum its rows state: the centre tap's product, then
+// from the nearest offset outward the two samples at that offset added before their shared tap weights them, the
+// border mirrored without its edge sample - along each row, then down each column of that intermediate. Both planes
+// are wide enough for the vertical pass to walk them in several runs of columns, the last a partial one, at a radius a
+// tap array holds and at a wider one, so a run that reads or writes another run's columns or rows differs.
+TEST(GaussianTest, TheSymmetricPathIsItsFloat32SumInEveryRunOfColumns)
+{
+    struct Shape
+    {
+        std::uint32_t width;
+        std::uint32_t height;
+        double sigma;
+    };
+    const an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    for (const Shape shape : {Shape{1700u, 90u, 10.0}, Shape{403u, 340u, 40.0}})
+    {
+        SCOPED_TRACE(shape.sigma);
+        const an::Result<an::GaussianPlan> plan = an::planGaussianBlur({.sigmaX = shape.sigma, .sigmaY = shape.sigma});
+        ASSERT_TRUE(plan.hasValue()) << plan.status().message();
+        const std::uint32_t radius = plan->horizontalRadius();
+        std::vector<double> exact(2u * radius + 1u, 0.0);
+        ASSERT_TRUE(an::writeGaussianTaps(shape.sigma, radius, exact).hasValue());
+        std::vector<float> taps(exact.size(), 0.0f);
+        std::transform(exact.begin(), exact.end(), taps.begin(), [](double tap) { return static_cast<float>(tap); });
+
+        const std::vector<float> source = randomPlane(shape.width, shape.height, 61u);
+        std::vector<float> blurred(source.size(), 0.0f);
+        const an::ImageLayout layout = planarLayout(an::SampleType::Float32, shape.width, shape.height);
+        const an::Result<an::SpatialFilterResult> ran = an::blurImageGaussian(
+            execution, an::SampleType::Float32, source.data(), layout, blurred.data(), layout, *plan);
+        ASSERT_TRUE(ran.hasValue()) << ran.status().message();
+
+        const auto mirrored = [](std::uint32_t index, std::int64_t offset, std::uint32_t length) {
+            const std::int64_t at = static_cast<std::int64_t>(index) + offset;
+            const std::int64_t last = static_cast<std::int64_t>(length) - 1;
+            return static_cast<std::size_t>(at < 0 ? -at : (at > last ? 2 * last - at : at));
+        };
+        const std::size_t width = shape.width;
+        std::vector<float> across(source.size(), 0.0f);
+        for (std::uint32_t y = 0u; y < shape.height; ++y)
+        {
+            for (std::uint32_t x = 0u; x < shape.width; ++x)
+            {
+                const float* const row = source.data() + y * width;
+                float sum = taps[radius] * row[x];
+                for (std::uint32_t k = 1u; k <= radius; ++k)
+                {
+                    const auto offset = static_cast<std::int64_t>(k);
+                    sum += taps[radius - k] *
+                           (row[mirrored(x, -offset, shape.width)] + row[mirrored(x, offset, shape.width)]);
+                }
+                across[y * width + x] = sum;
+            }
+        }
+        std::uint64_t differing = 0u;
+        for (std::uint32_t y = 0u; y < shape.height; ++y)
+        {
+            for (std::uint32_t x = 0u; x < shape.width; ++x)
+            {
+                float sum = taps[radius] * across[y * width + x];
+                for (std::uint32_t k = 1u; k <= radius; ++k)
+                {
+                    const auto offset = static_cast<std::int64_t>(k);
+                    sum += taps[radius - k] * (across[mirrored(y, -offset, shape.height) * width + x] +
+                                               across[mirrored(y, offset, shape.height) * width + x]);
+                }
+                differing +=
+                    std::bit_cast<std::uint32_t>(sum) != std::bit_cast<std::uint32_t>(blurred[y * width + x]) ? 1u : 0u;
+            }
+        }
+        EXPECT_EQ(differing, 0u) << "samples that are not the Float32 sum in its order";
+    }
+}
+
+// The general path's tap arrays and halo bands stop at the stencil family's widest kernel, so a wider plan is refused
+// by name wherever the symmetric path does not run it: a Float64 plane, a plane under a validity rule, a plane not
+// twice the radius high, and an execution forced onto the reference backend, whose table has no symmetric rows.
+TEST(GaussianTest, AWideExactPlanIsRefusedWhereTheSymmetricPathDoesNotApply)
+{
+    const an::Result<an::GaussianPlan> plan = an::planGaussianBlur({.sigmaX = 40.0, .sigmaY = 40.0});
+    ASSERT_TRUE(plan.hasValue()) << plan.status().message();
+    const an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    const an::ExecutionContext reference = makeExecution(engine, 3u, an::ComputeBackend::Reference);
+
+    const auto refusal = [&](const an::ExecutionContext& on, an::SampleType type, std::uint32_t width,
+                             std::uint32_t height, const an::SpatialSelection& selection) {
+        const an::ImageLayout layout = planarLayout(type, width, height);
+        const std::size_t bytes = static_cast<std::size_t>(width) * height * an::sampleTypeSizeBytes(type);
+        std::vector<std::uint8_t> source(bytes, 0u);
+        std::vector<std::uint8_t> destination(bytes, 0u);
+        const an::Result<an::SpatialFilterResult> ran =
+            an::blurImageGaussian(on, type, source.data(), layout, destination.data(), layout, *plan, selection);
+        return ran.hasValue() ? an::ErrorCode::Ok : ran.status().code();
+    };
+    EXPECT_EQ(refusal(execution, an::SampleType::Float64, 400u, 340u, {}), an::ErrorCode::OutOfRange);
+    EXPECT_EQ(refusal(execution, an::SampleType::Float32, 400u, 300u, {}), an::ErrorCode::OutOfRange);
+    EXPECT_EQ(refusal(reference, an::SampleType::Float32, 400u, 340u, {}), an::ErrorCode::OutOfRange);
+    const std::optional<an::ValidityDescriptor> finite =
+        an::ValidityDescriptor::create({.rule = an::ValidityRule::FiniteOnly});
+    ASSERT_TRUE(finite.has_value());
+    EXPECT_EQ(refusal(execution, an::SampleType::Float32, 400u, 340u, an::SpatialSelection{.validity = *finite}),
+              an::ErrorCode::OutOfRange);
+    EXPECT_EQ(refusal(execution, an::SampleType::Float32, 400u, 340u, {}), an::ErrorCode::Ok);
 }
 
 TEST(GaussianTest, TheApproximationIsCloseToTheGaussianItApproximates)

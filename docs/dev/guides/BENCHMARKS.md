@@ -295,8 +295,9 @@ a floating one unrounded, as a stack holds it - and `synthetic:<representation>:
 | `AN_BENCH_CHANNEL` | the dialog's channel selector entry it runs on, by its label, such as `CIE L* (Lightness)` | the whole image |
 | `AN_BENCH_AREA` | `1` turns the preview area on, at the size the dialog opens it with | `0`, off, for a dialog that opens with one too |
 | `AN_BENCH_APPLY` | `1` applies the dialog once the drag has settled and compares the settled preview's samples with the Apply's - within the preview area when one is on | `0`, no Apply |
-| `AN_BENCH_STEPS` | the drag's steps: the brightness one value each from 1 - the slider ends at 150, and a drag of more steps holds still there and is settled before its release - the gamma a hundredth each up from 1, the lightness one each up from 0, the Gaussian's sigma a tenth each up from 2, the median's modulation a hundredth each up from 0.4, the high pass's radius a tenth each up from `AN_BENCH_RADIUS`, the midtones a thousandth each down from 0.5, and the curve's middle point a pixel each up from where it is drawn at 0.5 | `60` |
+| `AN_BENCH_STEPS` | the drag's steps: the brightness one value each from 1 - the slider ends at 150, and a drag of more steps holds still there and is settled before its release - the gamma a hundredth each up from 1, the lightness one each up from 0, the Gaussian's sigma a tenth each up from `AN_BENCH_SIGMA`, the median's modulation a hundredth each up from 0.4, the high pass's radius a tenth each up from `AN_BENCH_RADIUS`, the midtones a thousandth each down from 0.5, and the curve's middle point a pixel each up from where it is drawn at 0.5 | `60` |
 | `AN_BENCH_RADIUS` | the radius, in whole pixels, the high pass's drag starts from | `10`, the dialog's own |
+| `AN_BENCH_SIGMA` | the sigma, in whole pixels, the Gaussian blur's drag starts from; the dialog stops at 100 | `2` |
 | `AN_BENCH_STEP_MS` | the milliseconds between steps | `16` |
 | `AN_BENCH_FPS` | the previews a second the Processing settings state, from 5 to 60 | the product's default, `30` |
 | `AN_BENCH_WIDTH` | the session's width | the host's |

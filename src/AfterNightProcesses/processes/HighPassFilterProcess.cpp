@@ -19,8 +19,8 @@ namespace
                                         .sigma = radius,
                                         .offset = 0.5,
                                         .blur = kind == an::ui::PreviewFrameKind::Interactive
-                                                    ? process_utils::DetailBlur::InteractivePreview
-                                                    : process_utils::DetailBlur::Exact};
+                                                    ? process_utils::BlurKind::InteractivePreview
+                                                    : process_utils::BlurKind::Exact};
 }
 
 } // namespace

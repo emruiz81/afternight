@@ -1,4 +1,4 @@
-version 1.2.0 2
+version 1.3.0 2
 joining 2
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API OpticalHints readOpticalHints(std::span<const CodecCard> cards) noexcept
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API PointingKeywords pointingCardKeywords(PointingCards cards) noexcept
@@ -2161,7 +2161,7 @@ header engine Algorithms/Registration/RegistrationPlan.h 27505e9593558a5c
 header engine Algorithms/Registration/RegistrationTransform.h 164726eb14919e02
 header engine Algorithms/Spatial/Convolution.h fd917374ac779766
 header engine Algorithms/Spatial/DrawingPrimitives.h 31a612e87f88c1e5
-header engine Algorithms/Spatial/Gaussian.h 8c98a1ee7b9783cd
+header engine Algorithms/Spatial/Gaussian.h 7470cc8f3d0f3c89
 header engine Algorithms/Spatial/GeneralFilter.h 12e2097ee111f23e
 header engine Algorithms/Spatial/OrderFilter.h fa1021395b5ef2a2
 header engine Algorithms/Spatial/SpatialFilter.h 9e2e8a078433eda9
@@ -2228,7 +2228,7 @@ header engine Core/ImageLayout.h 19a9142333de7498
 header engine Core/LibraryInfo.h 1bfecceb973c07f1
 header engine Core/Result.h e0327ad962e10e4b
 header engine Core/Status.h a843439f21221219
-header engine Core/Version.h 35e6aa83f3fa8caa
+header engine Core/Version.h 3724a28d30241dcc
 header engine IO/ArtifactIdentity.h 66c96b929d36b24e
 header engine IO/AviSequence.h 595917f483188e5e
 header engine IO/CodecCapabilities.h daadf4c45a2db525

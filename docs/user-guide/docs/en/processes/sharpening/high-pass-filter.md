@@ -40,8 +40,9 @@ sharpen.
   extracts the sensor mosaic pattern as one grayscale plane.
 - There is no luminance-only process Channel. Extract or duplicate a luminance
   image first if chromatic residuals are not wanted.
-- Expect long runs at very large Radius. Above `32` the blur is composed of
-  several exact passes, and the count grows with the square of Radius.
+- Expect long runs at very large Radius: the blur's kernel reaches four times
+  Radius, and on an image less than twice that wide or high the blur is
+  composed of several exact passes, more of them the larger Radius is.
 
 ## Procedure
 
@@ -77,7 +78,7 @@ sharpen.
 | Draw histogram areas | Histogram toggle | Unchecked | None | Checked/unchecked | Filled-area versus line drawing | Disabled with hidden histogram | Area overlap can obscure RGB residual differences | Display only | Window lifetime |
 | Show histogram | Histogram toggle | Checked | None | Checked/unchecked | Hides/clears graph and disables toolbar, or reloads source/preview | Always available while idle | Hiding saves graph work, not filtering | Display only | Window lifetime; Reset unchanged |
 | Plot resolution | Combo box, bins | **8-bit (256)** | None | **6-bit (64)**, **7-bit (128)**, **8-bit (256)**, **9-bit (512)**, **10-bit (1024)**, **12-bit (4096)**, **14-bit (16K)**, **16-bit (64K)**, **100 levels**, **1000 levels**, **10000 levels** | More bins refine the neutral peak and endpoint estimates | Disabled with hidden histogram | Higher bins cost graph memory/rendering; output precision unchanged | Display only | Window lifetime |
-| Radius | Double value plus linear slider, requested Gaussian sigma in pixels | `10.00` | Label says Radius, but the engine treats it as the standard deviation of an exact Gaussian | `0.10..1000.00`; two decimals; spin step `0.50`; slider is remapped to 1001 positions over the full range, about one unit per tick | Small values retain only the finest residual; larger values subtract a broader base, so broader structures remain in the layer; at `0.10` the Gaussian barely blurs and the layer is almost uniformly neutral | Enabled while idle | Cost grows with Radius; above `32` the blur is composed of several exact passes, about `(Radius/32)²` of them, so the largest values are very slow to apply; while the slider is dragged, the preview blurs beyond `32` by three box passes whose cost does not grow with Radius | Preview/Apply; all stored channels; before mask; still or sequence | Captured per execution; Reset and successful still Apply return `10.00` |
+| Radius | Double value plus linear slider, requested Gaussian sigma in pixels | `10.00` | Label says Radius, but the engine treats it as the standard deviation of an exact Gaussian | `0.10..1000.00`; two decimals; spin step `0.50`; slider is remapped to 1001 positions over the full range, about one unit per tick | Small values retain only the finest residual; larger values subtract a broader base, so broader structures remain in the layer; at `0.10` the Gaussian barely blurs and the layer is almost uniformly neutral | Enabled while idle | Cost grows with Radius: one exact kernel of radius `4 × Radius` up to Radius `1024` on an image more than twice that wide and high, otherwise several exact passes composed to it, so the largest values are slow to apply; while the slider is dragged, the preview blurs beyond `32` by three box passes whose cost does not grow with Radius | Preview/Apply; all stored channels; before mask; still or sequence | Captured per execution; Reset and successful still Apply return `10.00` |
 | Target Image | Image selector | Attached/active target | None | Open image or sequence | Changes source, histogram, Preview, active mask, and Apply destination | Active image required; duplicate/exclusive launch gates apply | A wrong target is destructively replaced after success | Preview/Apply source and active mask | Target lifetime; Reset unchanged |
 | Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables asynchronous full-image or selected-area high-pass execution and changes histogram source/result | Process idle | Runs blur, residual, clamp, mask, and histogram passes | Preview only; all stored channels; still/current displayed sequence frame | Window lifetime; Reset unchanged |
 | Preview pane | Image viewer | High-pass result in Linear mode; window initially uses shared `1000×700` default | Execution autostretch is not enabled for this process | Pan with scroll bars or dragging; toolbar actions below | Shows the mask-aware neutral detail layer without modifying target | Exists only with Preview | Holds source/result/display and blur buffers | Preview only | Window lifetime |
@@ -124,10 +125,12 @@ The base at Apply, and in the preview once Radius settles, is a separable
 Gaussian: taps sampled at each pixel centre out to four standard deviations,
 renormalized to sum to one, applied along the rows and then down the columns.
 Beyond each edge the image is mirrored without repeating the edge sample. The
-engine's widest kernel has a radius of `128` pixels, which four standard
-deviations reach at Radius `32`; a wider Radius is composed of several exact
-passes of equal width whose variances add up to `r²`, so the base is still the
-Gaussian of the requested Radius.
+engine's compiled single-precision path runs one such kernel up to a radius of
+`4096` pixels - Radius `1024` - over an image more than twice the kernel's
+radius wide and high. On a smaller image, or beyond, the base is composed of
+several exact passes of equal width whose variances add up to `r²`, so it is
+still the Gaussian of the requested Radius, apart from the small tail each
+pass's four-sigma cut leaves out.
 
 At the minimum Radius `0.10` the Gaussian barely blurs, so `B≈I` and the layer
 is almost uniformly the neutral `0.5`. The minimum does not preserve the source
@@ -216,8 +219,10 @@ feature scale, and the intended downstream blend.
 
 - The exact Gaussian costs two separable passes of `2 × ceil(4 × Radius) + 1`
   taps per sample, so work grows with Radius as well as pixel and channel count.
-  Above Radius `32` each additional pass costs as much as one blur at `32`:
-  Radius `100` takes ten passes, and Radius `1000` close to a thousand.
+  One kernel reaches Radius `1024` on an image more than twice its radius
+  (`4 × Radius`) wide and high; on a smaller image the blur is composed of
+  passes, each costing as much as one blur at Radius `32` on an image too small
+  for wider kernels.
 - RGB channels are blurred separately on the threads the operation is granted.
   Memory includes working planes for the blur, destination, preview
   presentation, mask, and histogram buffers.
@@ -258,8 +263,9 @@ feature scale, and the intended downstream blend.
   luminance-only work requires a separate image/component workflow.
 - Radius `0.10` produces an almost neutral layer because a Gaussian that narrow
   barely blurs. The control minimum is not an identity image output.
-- Very large Radius values are slow: above `32` the blur needs about
-  `(Radius/32)²` exact passes.
+- Very large Radius values are slow: the kernel's radius is `4 × Radius`, and on
+  an image less than twice that wide or high the blur needs several exact
+  passes.
 - Residuals clip at black/white. Strong edges and out-of-range float data can
   lose magnitude; NaN and infinity are unsupported.
 - Double input is filtered at single precision, and integer output is rounded
@@ -284,7 +290,7 @@ feature scale, and the intended downstream blend.
 | Histogram reaches black/white | Residual exceeded the fixed ±`0.5` representable range | Reduce Radius or handle high-contrast transitions before filtering | Fixed offset and clamp |
 | Masked result looks partly normal and partly gray | Shared mask crossfades original and detail layer | Create an unmasked layer and use an intentional later composite | Mask equation |
 | Preview is different from an autostretched target | High Pass preview exposes Linear mode only | Compare under matched Linear display conditions | Process initialization |
-| Apply, or the preview after the slider is released, is slow at a large Radius | Above `32` the blur is composed of about `(Radius/32)²` exact passes | Reduce Radius; while the slider is dragged the preview shows a faster approximation, and a smaller Preview area reduces the settled frame's work | Composed exact passes |
+| Apply, or the preview after the slider is released, is slow at a large Radius | The kernel's radius is `4 × Radius`, and on an image less than twice that wide or high the blur is composed of several exact passes | Reduce Radius; while the slider is dragged the preview shows a faster approximation, and a smaller Preview area reduces the settled frame's work | Composed exact passes |
 | An error is reported | Invalid data or insufficient memory | Verify finite normalized data and memory; retry on a smaller duplicate | Engine/process error path |
 
 ## Related workflow steps

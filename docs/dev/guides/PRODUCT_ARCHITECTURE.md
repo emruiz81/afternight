@@ -518,10 +518,14 @@ with `NonFiniteSamples::MeanNothing` the ranking filters (median, banding, morph
 all-valid floating image as invalid, and an integer image under its own rule, which leaves the median its sorting
 network; `UnitScale` restates a dialog's fractions in stored units; `runOverUnitFloat` is the Float32
 working copy for the operations that take fractions. `blurGaussian` and `filterDetail` are exact at any sigma - one
-plan up to thirty-two, then exact passes sharing the variance, an integer plane with every sample valid on that
-working copy at any sigma, a Float32 plane of padded rows on it too - and the Gaussian's preview is the exact Gaussian
-in every frame: over the target reduced by the sigma reduced with it while a slider is held, over the part the view
-shows with every pass's reach around it at full scale (`gaussianReach`), and over the whole image once it settles.
+plan up to thirty-two, the stencil family's widest kernel; beyond, on that working copy, one kernel up to the engine's
+`kMaxGaussianRadius` on its compiled symmetric path where the plane is more than twice its radius each way, and exact
+passes sharing the variance otherwise and wherever the engine refuses that path - an execution without its AVX2 or
+AVX-512 rows, or without the memory for the kernel's own plane; an integer plane with every sample valid on that
+working copy at any sigma, a Float32 plane of padded rows on it too. A settled frame and an Apply run that exact blur.
+An interactive frame runs over the target reduced by the sigma reduced with it while a slider is held, or over the
+part the view shows with the blur's reach around it at full scale (`gaussianReach`); beyond thirty-two there it blurs
+by the engine's real-time preview boxes (`BlurKind::InteractivePreview`), whose cost does not grow with the sigma.
 `filterDetail` composes a plane every sample of which is valid, blurred under `ReflectExcludingEdge`, on that working
 copy at every sigma, so the engine's compiled Float32 Gaussian blurs it as it blurs the Gaussian's: the high pass's
 Apply is the source less the Gaussian dialog's answer, raised to mid-grey. The engine's detail filter, whose one plan
@@ -529,8 +533,8 @@ accumulates the blur in Float64 through the separable stencil, takes the rest - 
 mask, and the unsharp mask, whose blur mirrors the edge sample as scikit-image's does. The high pass and the unsharp
 mask declare `PreviewScaling::Decimated`: an interactive frame blurs a reduction by the radius reduced with it, which
 the clamp to full scale makes an approximation of the whole result's reduction, and a part at full scale by the
-dialog's radius; beyond one kernel's reach it blurs by the engine's real-time-preview boxes (`DetailBlur`), whose cost
-does not grow with the radius, and states their reach (`detailReach`). The settled frame is the Apply's answer.
+dialog's radius; beyond thirty-two it blurs by the boxes, as the Gaussian's does, and states their reach
+(`detailReach`). The settled frame is the Apply's answer.
 The median, bilateral, tighten-edges, cosmetic-correction and morphological windows declare
 `PreviewScaling::NativeRegion` with the reach their plans state; the other eleven run every frame over the whole
 image, each for a measurement of the whole image, a size-made grid or tiling, or a blur without a finite reach.

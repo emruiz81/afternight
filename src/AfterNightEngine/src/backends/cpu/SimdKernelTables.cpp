@@ -1625,33 +1625,36 @@ void symmetricGaussianHorizontalFloat32(const float* source, float* destination,
     }
 }
 
-/// One row of the common symmetric Float32 vertical Gaussian implementation.
+/// One row of the common symmetric Float32 vertical Gaussian implementation, over a run of the
+/// plane's columns.
 ///
 /// The vertical counterpart of `symmetricGaussianHorizontalFloat32`, with the same order of
 /// arithmetic and the same mirrored border applied to rows, and the caller holding `radius` below
-/// half the height.
+/// half the height. Each sample's sum is its own, so a run of any width gives every sample it
+/// covers the value a run over the whole row gives it.
 ///
-/// @param source the first row of the whole plane, whose rows are `width` samples apart.
-/// @param destination where output row `row` goes; it must not overlap the plane.
-/// @param width samples per row.
+/// @param source the run's first sample in the plane's first row.
+/// @param destination where the run of output row `row` goes; it must not overlap the plane.
+/// @param count samples in the run.
+/// @param rowStride samples from one row of the plane to the next.
 /// @param height rows in the plane.
 /// @param row which output row to produce.
 /// @param taps the `2 * radius + 1` symmetric taps, centre at index `radius`.
 /// @param radius how many taps lie on each side of the centre.
-void symmetricGaussianVerticalFloat32(const float* source, float* destination, std::uint32_t width,
-                                      std::uint32_t height, std::uint32_t row, const float* taps,
-                                      std::uint32_t radius) noexcept
+void symmetricGaussianVerticalFloat32(const float* source, float* destination, std::uint32_t count,
+                                      std::uint64_t rowStride, std::uint32_t height, std::uint32_t row,
+                                      const float* taps, std::uint32_t radius) noexcept
 {
     const hn::ScalableTag<float> tag;
     const std::uint32_t lanes = static_cast<std::uint32_t>(hn::Lanes(tag));
-    const float* const centerRow = source + static_cast<std::size_t>(row) * width;
+    const float* const centerRow = source + static_cast<std::size_t>(row) * rowStride;
     const auto center = hn::Set(tag, taps[radius]);
     std::uint32_t x = 0u;
-    for (; x + lanes <= width; x += lanes)
+    for (; x + lanes <= count; x += lanes)
     {
         hn::StoreU(hn::Mul(center, hn::LoadU(tag, centerRow + x)), tag, destination + x);
     }
-    for (; x < width; ++x)
+    for (; x < count; ++x)
     {
         destination[x] = taps[radius] * centerRow[x];
     }
@@ -1660,16 +1663,16 @@ void symmetricGaussianVerticalFloat32(const float* source, float* destination, s
     {
         const std::uint32_t above = row >= offset ? row - offset : offset - row;
         const std::uint32_t below = row + offset < height ? row + offset : 2u * height - row - offset - 2u;
-        const float* const first = source + static_cast<std::size_t>(above) * width;
-        const float* const second = source + static_cast<std::size_t>(below) * width;
+        const float* const first = source + static_cast<std::size_t>(above) * rowStride;
+        const float* const second = source + static_cast<std::size_t>(below) * rowStride;
         const float coefficient = taps[radius - offset];
         const auto factor = hn::Set(tag, coefficient);
-        for (x = 0u; x + lanes <= width; x += lanes)
+        for (x = 0u; x + lanes <= count; x += lanes)
         {
             const auto pair = hn::Add(hn::LoadU(tag, first + x), hn::LoadU(tag, second + x));
             hn::StoreU(hn::Add(hn::LoadU(tag, destination + x), hn::Mul(factor, pair)), tag, destination + x);
         }
-        for (; x < width; ++x)
+        for (; x < count; ++x)
         {
             destination[x] += coefficient * (first[x] + second[x]);
         }

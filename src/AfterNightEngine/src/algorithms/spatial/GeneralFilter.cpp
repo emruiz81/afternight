@@ -369,6 +369,17 @@ Result<DetailFilterPlan> planDetailFilter(const DetailFilterRequest& request)
     {
         return planned.status();
     }
+    // The low pass runs through the stencil family's separable path, whose tap arrays stop at its widest kernel; an
+    // exact Gaussian wider than that runs only on the Gaussian's own compiled path, and a caller composes the filter
+    // around it.
+    const std::uint32_t widest = (std::max)(planned->horizontalRadius(), planned->verticalRadius());
+    if (widest > kMaxStencilRadius)
+    {
+        return spatialLimitFailure(
+            ErrorCode::OutOfRange, kDetailOperation,
+            "the detail filter's low pass reaches further than the stencil family's widest kernel", widest,
+            kMaxStencilRadius);
+    }
     return DetailFilterPlan{request, *planned};
 }
 

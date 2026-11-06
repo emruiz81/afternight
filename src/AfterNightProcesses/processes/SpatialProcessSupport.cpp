@@ -161,48 +161,72 @@ an::Status runOverUnitFloat(const an::EngineContext& engine, const an::Execution
 namespace
 {
 
-/// The plan a Gaussian blur of a sigma runs, and how many passes of it: one where the widest kernel reaches the sigma,
-/// otherwise the fewest passes whose share of the sigma - the sigma over the square root of their count, so the
-/// variances add up to the sigma's square - one kernel reaches.
+/// The plan a Gaussian blur of a sigma runs, and how many passes of it: the fewest whose share of the sigma - the sigma
+/// over the square root of their count, so the variances add up to the sigma's square - one kernel reaches.
 struct ComposedGaussian
 {
     an::GaussianPlan plan;
     std::uint32_t passes = 1u;
 };
 
-[[nodiscard]] an::Result<ComposedGaussian> planComposedGaussian(double sigma, an::KernelBorderMode border)
+/// The widest radius of a plan.
+[[nodiscard]] std::uint32_t radiusOf(const an::GaussianPlan& plan) noexcept
 {
-    std::uint32_t passes = 1u;
-    an::Result<an::GaussianPlan> plan =
-        an::planGaussianBlur(an::GaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
-    while (!plan.hasValue() && plan.status().code() == an::ErrorCode::OutOfRange && passes < 4096u)
-    {
-        ++passes;
-        const double share = sigma / std::sqrt(static_cast<double>(passes));
-        plan =
-            an::planGaussianBlur(an::GaussianRequest{.sigmaX = share, .sigmaY = share, .borders = {.border = border}});
-    }
-    if (!plan.hasValue())
-    {
-        return plan.status();
-    }
-    return ComposedGaussian{.plan = *plan, .passes = passes};
+    return (std::max)(plan.horizontalRadius(), plan.verticalRadius());
 }
 
-/// Blurs tight planar Float32 samples with the exact Gaussian at any sigma, in as many passes as the widest kernel
-/// a plan takes needs: each a Gaussian of the sigma over the square root of the count, so the variances add up to the
-/// sigma's square.
-[[nodiscard]] an::Status blurAnySigma(const an::EngineContext& engine, const an::ExecutionContext& execution,
-                                      const float* source, float* destination, const an::ImageLayout& layout,
-                                      double sigma, an::KernelBorderMode border)
+/// The fewest passes of kernels no wider than a radius that compose a sigma.
+[[nodiscard]] an::Result<ComposedGaussian> planPassesWithin(double sigma, an::KernelBorderMode border,
+                                                            std::uint32_t widest)
 {
-    const an::Result<ComposedGaussian> composed = planComposedGaussian(sigma, border);
-    if (!composed.hasValue())
+    for (std::uint32_t passes = 1u; passes <= 4096u; ++passes)
     {
-        return composed.status();
+        const double share = sigma / std::sqrt(static_cast<double>(passes));
+        const an::Result<an::GaussianPlan> plan =
+            an::planGaussianBlur(an::GaussianRequest{.sigmaX = share, .sigmaY = share, .borders = {.border = border}});
+        if (!plan.hasValue() && plan.status().code() != an::ErrorCode::OutOfRange)
+        {
+            return plan.status();
+        }
+        if (plan.hasValue() && radiusOf(*plan) <= widest)
+        {
+            return ComposedGaussian{.plan = *plan, .passes = passes};
+        }
     }
-    const an::GaussianPlan& plan = composed->plan;
-    const std::uint32_t passes = composed->passes;
+    return an::Status::failure(an::ErrorCode::OutOfRange, "no composition of exact passes reaches this sigma");
+}
+
+/// The passes the exact Gaussian of a sigma runs over a plane of an extent. One plan where the stencil family's widest
+/// kernel reaches the sigma, which either of the engine's paths runs. Beyond it, over a plane mirrored without its edge
+/// sample, the fewest passes whose kernel the compiled symmetric path runs over that plane - no wider than the engine's
+/// widest exact kernel and under half of each side - which is one pass for every sigma a dialog offers over a frame of
+/// ordinary size, where kernels the stencil family reaches would take the sigma's square over a thousand. Otherwise the
+/// fewest passes of kernels the stencil family reaches.
+[[nodiscard]] an::Result<ComposedGaussian> planExactGaussian(double sigma, an::KernelBorderMode border,
+                                                             std::uint32_t width, std::uint32_t height)
+{
+    const an::Result<ComposedGaussian> narrow = planPassesWithin(sigma, border, an::kMaxStencilRadius);
+    if (!narrow.hasValue() || narrow->passes == 1u || border != an::KernelBorderMode::ReflectExcludingEdge)
+    {
+        return narrow;
+    }
+    const std::uint32_t half = (std::min)(width, height) / 2u;
+    const std::uint32_t symmetric = (std::min)(an::kMaxGaussianRadius, half == 0u ? 0u : half - 1u);
+    if (symmetric <= an::kMaxStencilRadius)
+    {
+        return narrow;
+    }
+    const an::Result<ComposedGaussian> wide = planPassesWithin(sigma, border, symmetric);
+    return wide.hasValue() && wide->passes < narrow->passes ? wide : narrow;
+}
+
+/// Runs the passes of an exact composition over tight planar Float32 samples, the last landing in the destination.
+[[nodiscard]] an::Status runPasses(const an::EngineContext& engine, const an::ExecutionContext& execution,
+                                   const float* source, float* destination, const an::ImageLayout& layout,
+                                   const ComposedGaussian& composed)
+{
+    const an::GaussianPlan& plan = composed.plan;
+    const std::uint32_t passes = composed.passes;
     if (passes == 1u)
     {
         return process_utils::statusOf(
@@ -232,32 +256,64 @@ struct ComposedGaussian
     return an::Status::success();
 }
 
-/// Whether one engine kernel reaches a sigma: a plan of it is built, rather than refused for its reach.
-[[nodiscard]] bool oneKernelReaches(double sigma, an::KernelBorderMode border)
+/// Blurs tight planar Float32 samples with the exact Gaussian at any sigma, in the passes `planExactGaussian` chooses
+/// for their plane. A kernel wider than the stencil family's runs only on the engine's compiled symmetric rows, which
+/// a processor below AVX2 and an operation held to another instruction set do not have, and needs a plane of its own;
+/// where the engine refuses it either, the narrow passes, which the general path runs within its bands on any
+/// processor, run instead, from the source, which no pass writes.
+[[nodiscard]] an::Status blurAnySigma(const an::EngineContext& engine, const an::ExecutionContext& execution,
+                                      const float* source, float* destination, const an::ImageLayout& layout,
+                                      double sigma, an::KernelBorderMode border)
+{
+    const an::Result<ComposedGaussian> composed =
+        planExactGaussian(sigma, border, layout.extent().width(), layout.extent().height());
+    if (!composed.hasValue())
+    {
+        return composed.status();
+    }
+    const an::Status ran = runPasses(engine, execution, source, destination, layout, *composed);
+    const bool wideRefused =
+        radiusOf(composed->plan) > an::kMaxStencilRadius &&
+        (ran.code() == an::ErrorCode::OutOfRange || ran.code() == an::ErrorCode::MemoryBudgetExceeded ||
+         ran.code() == an::ErrorCode::AllocationFailed);
+    if (!wideRefused)
+    {
+        return ran;
+    }
+    const an::Result<ComposedGaussian> narrow = planPassesWithin(sigma, border, an::kMaxStencilRadius);
+    if (!narrow.hasValue())
+    {
+        return narrow.status();
+    }
+    return runPasses(engine, execution, source, destination, layout, *narrow);
+}
+
+/// Whether the stencil family's widest kernel reaches a sigma: the sigma beyond which an interactive preview blurs by
+/// the real-time preview's boxes, the exact kernel's cost per pixel growing with the sigma and theirs not.
+[[nodiscard]] bool stencilKernelReaches(double sigma, an::KernelBorderMode border)
 {
     const an::Result<an::GaussianPlan> plan =
         an::planGaussianBlur(an::GaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
-    return plan.hasValue() || plan.status().code() != an::ErrorCode::OutOfRange;
+    return plan.hasValue() && radiusOf(*plan) <= an::kMaxStencilRadius;
 }
 
-/// Blurs tight planar Float32 samples as a detail filter's request asks: not at all for a sigma the engine builds no
-/// kernel for, by the real-time preview's boxes for an interactive preview's sigma beyond one kernel, and by the exact
-/// Gaussian otherwise.
-[[nodiscard]] an::Status blurForDetail(const an::EngineContext& engine, const an::ExecutionContext& execution,
-                                       const float* source, float* destination, const an::ImageLayout& layout,
-                                       const DetailRequest& request)
+/// Blurs tight planar Float32 samples as a kind of blur asks: not at all for a sigma the engine builds no kernel for,
+/// by the real-time preview's boxes for an interactive preview's sigma beyond the stencil family's widest kernel, and
+/// by the exact Gaussian otherwise.
+[[nodiscard]] an::Status blurByKind(const an::EngineContext& engine, const an::ExecutionContext& execution,
+                                    const float* source, float* destination, const an::ImageLayout& layout,
+                                    double sigma, an::KernelBorderMode border, BlurKind kind)
 {
-    if (!(request.sigma > an::kMinimumGaussianSigma))
+    if (!(sigma > an::kMinimumGaussianSigma))
     {
         an::ConversionCounters counters;
         return an::convertImageSamples(execution, an::SampleType::Float32, source, layout, an::SampleType::Float32,
                                        destination, layout, an::ConversionPolicy{}, counters);
     }
-    if (request.blur == DetailBlur::InteractivePreview && !oneKernelReaches(request.sigma, request.border))
+    if (kind == BlurKind::InteractivePreview && !stencilKernelReaches(sigma, border))
     {
-        const an::Result<an::GaussianPlan> boxes =
-            an::planRealtimePreviewGaussianBlur(an::RealtimePreviewGaussianRequest{
-                .sigmaX = request.sigma, .sigmaY = request.sigma, .borders = {.border = request.border}});
+        const an::Result<an::GaussianPlan> boxes = an::planRealtimePreviewGaussianBlur(
+            an::RealtimePreviewGaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
         if (!boxes.hasValue())
         {
             return boxes.status();
@@ -265,7 +321,7 @@ struct ComposedGaussian
         return statusOf(an::blurImageRealtimePreviewGaussian(execution, an::SampleType::Float32, source, layout,
                                                              destination, layout, *boxes));
     }
-    return blurAnySigma(engine, execution, source, destination, layout, request.sigma, request.border);
+    return blurAnySigma(engine, execution, source, destination, layout, sigma, border);
 }
 
 /// Runs a pointwise program over tight planar Float32 samples in place, with a second source when it takes one.
@@ -288,12 +344,12 @@ struct ComposedGaussian
 
 an::Status blurGaussian(const an::EngineContext& engine, const an::ExecutionContext& execution,
                         const an::ChannelScopeInput& input, const an::ChannelScopeOutput& output, double sigma,
-                        an::KernelBorderMode border)
+                        an::KernelBorderMode border, BlurKind kind)
 {
     const an::SampleType type = input.descriptor->sampleType();
     const an::Result<an::GaussianPlan> plan =
         an::planGaussianBlur(an::GaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
-    if (plan.hasValue())
+    if (plan.hasValue() && radiusOf(*plan) <= an::kMaxStencilRadius)
     {
         // A Float64 plane is blurred where it lies, as is a plane under a validity rule or a mask, which the engine's
         // blur reads, and a Float32 plane whose rows are packed tight, which the engine's compiled kernels read. A
@@ -318,7 +374,7 @@ an::Status blurGaussian(const an::EngineContext& engine, const an::ExecutionCont
                                                   *output.layout, *plan, selection.selection()));
         }
     }
-    else if (plan.status().code() != an::ErrorCode::OutOfRange)
+    else if (!plan.hasValue() && plan.status().code() != an::ErrorCode::OutOfRange)
     {
         return plan.status();
     }
@@ -335,7 +391,7 @@ an::Status blurGaussian(const an::EngineContext& engine, const an::ExecutionCont
             {
                 return blur.status();
             }
-            if (an::Status blurred = blurAnySigma(engine, execution, samples, blur->data(), layout, sigma, border);
+            if (an::Status blurred = blurByKind(engine, execution, samples, blur->data(), layout, sigma, border, kind);
                 blurred.failed())
             {
                 return blurred;
@@ -396,7 +452,8 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
             {
                 return blur.status();
             }
-            if (an::Status blurred = blurForDetail(engine, execution, samples, blur->data(), layout, request);
+            if (an::Status blurred = blurByKind(engine, execution, samples, blur->data(), layout, request.sigma,
+                                                request.border, request.blur);
                 blurred.failed())
             {
                 return blurred;
@@ -436,35 +493,35 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
         });
 }
 
-std::uint32_t gaussianReach(double sigma, an::KernelBorderMode border)
+std::uint32_t gaussianReach(double sigma, an::KernelBorderMode border, BlurKind kind)
 {
-    const an::Result<ComposedGaussian> composed = planComposedGaussian(sigma, border);
+    if (!(sigma > an::kMinimumGaussianSigma))
+    {
+        return 0u;
+    }
+    // An interactive preview's sigma beyond the stencil family's kernel is blurred by the boxes, which reach the sum
+    // of their radii.
+    if (kind == BlurKind::InteractivePreview && !stencilKernelReaches(sigma, border))
+    {
+        const an::Result<an::GaussianPlan> boxes = an::planRealtimePreviewGaussianBlur(
+            an::RealtimePreviewGaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
+        return boxes.hasValue() ? radiusOf(*boxes) : 0u;
+    }
+    const an::Result<ComposedGaussian> composed = planExactGaussian(
+        sigma, border, (std::numeric_limits<std::uint32_t>::max)(), (std::numeric_limits<std::uint32_t>::max)());
     if (!composed.hasValue())
     {
         return 0u;
     }
-    const std::uint64_t radius = (std::max)(composed->plan.horizontalRadius(), composed->plan.verticalRadius()) *
-                                 std::uint64_t{composed->passes};
+    const std::uint64_t radius = std::uint64_t{radiusOf(composed->plan)} * std::uint64_t{composed->passes};
     return static_cast<std::uint32_t>((std::min)(radius, std::uint64_t{(std::numeric_limits<std::uint32_t>::max)()}));
 }
 
 std::uint32_t detailReach(const DetailRequest& request)
 {
-    if (!(request.sigma > an::kMinimumGaussianSigma))
-    {
-        return 0u;
-    }
-    // An interactive preview's sigma beyond one kernel is blurred by the boxes, which reach the sum of their radii.
-    if (request.blur == DetailBlur::InteractivePreview && !oneKernelReaches(request.sigma, request.border))
-    {
-        const an::Result<an::GaussianPlan> boxes =
-            an::planRealtimePreviewGaussianBlur(an::RealtimePreviewGaussianRequest{
-                .sigmaX = request.sigma, .sigmaY = request.sigma, .borders = {.border = request.border}});
-        return boxes.hasValue() ? (std::max)(boxes->horizontalRadius(), boxes->verticalRadius()) : 0u;
-    }
-    // The engine's detail filter's one plan blurs by the same kernel `gaussianReach` reads for a sigma one kernel
-    // reaches, and the composition by the passes it adds up.
-    return gaussianReach(request.sigma, request.border);
+    // The engine's detail filter's one plan blurs by the same kernel `gaussianReach` reads for a sigma the stencil
+    // family's kernel reaches, and a composition by the passes it adds up.
+    return gaussianReach(request.sigma, request.border, request.blur);
 }
 
 std::string channelStepSuffix(const ImageViewControl* target, const QComboBox* selector)

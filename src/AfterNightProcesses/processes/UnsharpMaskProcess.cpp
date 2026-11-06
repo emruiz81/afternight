@@ -25,8 +25,8 @@ namespace
                                         .amount = amount,
                                         .border = an::KernelBorderMode::Reflect,
                                         .blur = kind == an::ui::PreviewFrameKind::Interactive
-                                                    ? process_utils::DetailBlur::InteractivePreview
-                                                    : process_utils::DetailBlur::Exact};
+                                                    ? process_utils::BlurKind::InteractivePreview
+                                                    : process_utils::BlurKind::Exact};
 }
 
 } // namespace

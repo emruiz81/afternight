@@ -68,10 +68,11 @@ an::Status GaussianBlurProcess::executeTypedProcessIteration(const an::ChannelSc
                                                              const GaussianBlurParams& params,
                                                              an::ui::ExecutionScope& scope)
 {
-    // The exact Gaussian in every frame as in an Apply. An interactive frame over the target reduced by the view's
+    // The exact Gaussian in a settled frame as in an Apply. An interactive frame over the target reduced by the view's
     // factor blurs the reduction by the sigma reduced with it - a Gaussian commutes with the block averaging - so it
     // shows what the whole result's reduction shows; a frame over the region the view shows at full scale, and every
-    // other run, blurs by the dialog's sigma.
+    // other run, blurs by the dialog's sigma. An interactive frame's sigma beyond the stencil family's widest kernel is
+    // blurred by the real-time preview's boxes, whose cost does not grow with the sigma as the exact kernel's does.
     const double sigma = params.sigma / static_cast<double>((std::max)(1u, run.proxyFactor));
     // A sigma the engine cannot build a kernel for is no blur at all: the plane stays as it starts. Over a reduction
     // the sigma reduced with it can fall there while the dialog's own sigma, which the Apply blurs by, does not - a
@@ -81,7 +82,10 @@ an::Status GaussianBlurProcess::executeTypedProcessIteration(const an::ChannelSc
     {
         return an::Status::success();
     }
-    return process_utils::blurGaussian(scope.engine(), scope.execution(), input, output, sigma);
+    return process_utils::blurGaussian(
+        scope.engine(), scope.execution(), input, output, sigma, an::KernelBorderMode::ReflectExcludingEdge,
+        run.frameKind == an::ui::PreviewFrameKind::Interactive ? process_utils::BlurKind::InteractivePreview
+                                                               : process_utils::BlurKind::Exact);
 }
 
 bool GaussianBlurProcess::isTypedIdentity(const GaussianBlurParams& params) const
@@ -99,8 +103,10 @@ an::ui::PreviewScaling GaussianBlurProcess::previewScaling() const
 
 std::uint32_t GaussianBlurProcess::typedPreviewRegionMargin(const GaussianBlurParams& params) const
 {
-    // The kernel's reach, or the reaches of every pass of a blur wider than one kernel, added up.
-    return process_utils::gaussianReach(params.sigma);
+    // The reach of the blur an interactive frame at full scale runs: the kernel's, or the boxes' beyond the stencil
+    // family's widest kernel.
+    return process_utils::gaussianReach(params.sigma, an::KernelBorderMode::ReflectExcludingEdge,
+                                        process_utils::BlurKind::InteractivePreview);
 }
 
 an::Status GaussianBlurProcess::executeTypedProcessImpl(const an::ui::ProcessSource& source,
