@@ -70,6 +70,11 @@ struct ProcessRunTelemetry
     /// Previews whose parameters change nothing: no body ran, and the preview view showed the target's own image.
     std::uint64_t identityPreviews = 0u;
 
+    /// Previews whose result a frame had already made - its own, or one its body made beside it - for the same key, the
+    /// same revisions of the target and its mask and the same blend: no body ran, and the preview view showed the image
+    /// kept.
+    std::uint64_t keptPreviewsShown = 0u;
+
     /// Times the frame rate was read from the settings store - off the GUI thread, when the preview is turned on, the
     /// window activated or a chain of frames begins - each read paced the chains that began after it landed.
     std::uint64_t frameRatesRead = 0u;
@@ -176,6 +181,13 @@ struct ProcessRunTelemetry
 /// **A preview that changes nothing runs nothing.** Parameters the process declares the identity (`isIdentity`) show
 /// the target's own image in the preview view, shared rather than copied, as the view does until the first frame lands.
 ///
+/// **A preview a frame already made runs nothing either.** A process that names a key for the parameters a frame's
+/// result depends on (`previewResultKey`) has the result of a frame over the whole target kept under that key, and the
+/// results its body made beside it under theirs (`ProcessDestination::keepAlternative`), blended by the frame's
+/// modulation and mask. Parameters whose key a kept result carries, over the same revisions of the target and its mask,
+/// show it in the preview view, shared, at once. What is kept goes when a frame runs, when the target or its mask
+/// changes, when the preview closes, and when the process discards it (`discardKeptPreviews`).
+///
 /// **A frame is one operation.** It processes, counts what the dialog's histogram shows and presents what the preview
 /// view paints in one admitted operation, and the view and the histogram show what it made as it lands, asking for
 /// nothing more. An interactive frame of a process that declares it may (`previewScaling`) runs over what the view
@@ -252,6 +264,10 @@ public:
 
     /// What the runs came to so far.
     [[nodiscard]] ProcessRunTelemetry runTelemetry() const;
+
+    /// How many results the preview keeps now - a frame's own and those its body made beside it - for parameters of
+    /// their keys to show with no frame.
+    [[nodiscard]] std::size_t keptPreviewCount() const;
 
     /// Whether no preview or run is on its way, none waits to start and the preview view's own work has landed.
     [[nodiscard]] bool isProcessIdle() const;
@@ -377,6 +393,16 @@ protected:
     /// own image, which is what the mask and the modulation would blend back to. False, the default, for a process that
     /// declares none.
     [[nodiscard]] virtual bool isIdentity(const ProcessExecutionParams* params) const;
+
+    /// The key a preview of these parameters keeps its result under and finds a kept one by, decided on the GUI thread
+    /// when a preview is issued: two parameters of one key make the same image of the same target and mask. A body
+    /// that makes, beside its result, the image other parameters would make hands it over under their key
+    /// (`ProcessDestination::keepAlternative`). Empty, the default, keeps nothing and finds nothing.
+    [[nodiscard]] virtual std::string previewResultKey(const ProcessExecutionParams* params) const;
+
+    /// Lets go every result the preview keeps (`previewResultKey`), for a process whose parameters changed in a way no
+    /// key it names says: nothing kept is shown again, and the memory goes now.
+    void discardKeptPreviews();
 
     /// How many pixels beyond the part of the target the preview view shows an interactive frame at full scale reads of
     /// the target around it, decided on the GUI thread when a frame is issued. A body whose answer at a pixel reads its
@@ -542,6 +568,26 @@ private:
 
     /// Shows the target's own image in the preview view for a frame whose parameters change nothing.
     void showIdentityPreview();
+
+    /// Shows an image in the preview view without a frame, shared rather than copied: the target's own, or a result
+    /// kept. It is stretched through the target's analysis kept for the view's presentation, when the process stretches
+    /// its preview from the target, and the dialog's histogram counts it.
+    ///
+    /// @param image the image; null shows nothing.
+    /// @return whether the preview view shows it.
+    bool showSharedPreview(const std::shared_ptr<const an::consumer::ImageAsset>& image);
+
+    /// Whether the analysis kept from the frames is the one a frame would stretch the preview through now: measured on
+    /// the revision of the image the preview is stretched by, for the view's presentation and the channel it shows.
+    [[nodiscard]] bool keptAnalysisFitsPreview() const;
+
+    /// Shows the result kept for a frame about to start, if one was kept for its key, its target's and mask's
+    /// revisions and its blend, and the preview view can stretch it as the frame's would be; otherwise lets go of
+    /// every result kept, which the frame replaces.
+    ///
+    /// @param snapshot the frame, as it was snapshotted.
+    /// @return whether a kept result was shown, and no frame needs to run.
+    [[nodiscard]] bool showKeptPreview(const RunSnapshot& snapshot);
 
     /// Fits the preview view, shown and laid out, to the target's image it shows as it opens, before any result, and
     /// again as its viewport is shown or resized until that result lands, unless the person zoomed since.

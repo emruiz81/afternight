@@ -41,6 +41,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -455,6 +456,191 @@ TEST_F(MasksProcessCase, AutoGradientRemovalOpensItsModelAndProtectionBesideTheT
     EXPECT_EQ(window->runTelemetry().runsCommitted, 1u);
     EXPECT_EQ(context().errorCount(), 0) << context().errorTexts.join(QStringLiteral("; ")).toStdString();
     EXPECT_EQ(madeNames(before), (std::vector<std::string>{"target - AGR Gradient", "target - AGR Protection Mask"}));
+    window.reset();
+    dropView(context(), target);
+}
+
+namespace
+{
+
+/// Turns an automatic gradient removal window's preview on, waits for it to show the target, asks for the preview and
+/// waits for it to land; false when either never lands.
+[[nodiscard]] bool computeAutoGradientPreview(ImageRTPreviewControl& window)
+{
+    auto* preview = window.findChild<QCheckBox*>(QStringLiteral("previewCheckbox"));
+    auto* button = window.findChild<QPushButton*>(QStringLiteral("previewButton"));
+    if (preview == nullptr || button == nullptr)
+    {
+        return false;
+    }
+    preview->setChecked(true);
+    if (!pumpUntil([&window]() { return window.runTelemetry().previewsCommitted >= 1u; }) || !settleWindow(window))
+    {
+        return false;
+    }
+    const std::uint64_t committed = window.runTelemetry().previewsCommitted;
+    button->click();
+    return pumpUntil([&window, committed]() { return window.runTelemetry().previewsCommitted > committed; }) &&
+           settleWindow(window);
+}
+
+} // namespace
+
+// preview: one preview run makes the corrected image, the gradient model and the protection mask; changing what the
+// preview shows starts no new run and shows each at once, as a preview run for that display alone shows it.
+TEST_F(MasksProcessCase, AutoGradientRemovalShowsEveryDisplayOfOnePreviewRunWithNoNewRun)
+{
+    ViewHandle target = greyView(300u, 220u, backgroundWithASquare);
+    const std::optional<fixtures::FixtureSamples> source = documentSamples(target->document());
+    ASSERT_TRUE(source.has_value());
+    const MasksProcess& process = named("AutoGradientRemoval");
+    // Corrected, gradient model, protection mask: what a preview run for each display alone shows.
+    constexpr int kDisplays = 3;
+    std::array<std::optional<fixtures::FixtureSamples>, kDisplays> alone;
+    for (int display = 0; display < kDisplays; ++display)
+    {
+        SCOPED_TRACE(display);
+        WindowHandle window = process.open(*target);
+        process.configure(*window, "-");
+        setIndex(*window, "previewDisplaySelector", display);
+        ASSERT_TRUE(computeAutoGradientPreview(*window));
+        alone[static_cast<std::size_t>(display)] = documentSamples(window->previewView()->document());
+        ASSERT_TRUE(alone[static_cast<std::size_t>(display)].has_value());
+    }
+
+    WindowHandle window = process.open(*target);
+    process.configure(*window, "-");
+    ASSERT_TRUE(computeAutoGradientPreview(*window));
+    EXPECT_EQ(window->keptPreviewCount(), 3u) << "the run keeps the image of every display";
+    const ProcessRunTelemetry computed = window->runTelemetry();
+    std::array<std::optional<fixtures::FixtureSamples>, kDisplays> shown;
+    shown[0] = documentSamples(window->previewView()->document());
+    for (const int display : {1, 2, 0})
+    {
+        SCOPED_TRACE(display);
+        setIndex(*window, "previewDisplaySelector", display);
+        ASSERT_TRUE(settleWindow(*window));
+        const std::optional<fixtures::FixtureSamples> now = documentSamples(window->previewView()->document());
+        ASSERT_TRUE(now.has_value());
+        EXPECT_TRUE(fixtures::sameSamples(*alone[static_cast<std::size_t>(display)], *now))
+            << "the display shows another image than a preview run for it alone";
+        if (display != 0)
+        {
+            shown[static_cast<std::size_t>(display)] = now;
+        }
+        else
+        {
+            EXPECT_TRUE(fixtures::sameSamples(*shown[0], *now)) << "the corrected image changed between displays";
+        }
+    }
+    EXPECT_EQ(window->runTelemetry().previewsStarted, computed.previewsStarted)
+        << "changing the display ran the preview again";
+    EXPECT_EQ(window->runTelemetry().keptPreviewsShown, computed.keptPreviewsShown + 3u);
+    EXPECT_FALSE(fixtures::sameSamples(*source, *shown[0])) << "the preview shows the corrected image";
+    EXPECT_FALSE(fixtures::sameSamples(*shown[0], *shown[1])) << "the model is another image";
+    EXPECT_FALSE(fixtures::sameSamples(*shown[1], *shown[2])) << "the protection mask is another image";
+    EXPECT_EQ(context().errorCount(), 0) << context().errorTexts.join(QStringLiteral("; ")).toStdString();
+    window.reset();
+    dropView(context(), target);
+}
+
+// preview: a snapshot of the preview is the image the display shows, made by a run of its own for that display alone.
+TEST_F(MasksProcessCase, AutoGradientRemovalSnapshotsTheDisplayShown)
+{
+    ViewHandle target = greyView(300u, 220u, backgroundWithASquare);
+    const MasksProcess& process = named("AutoGradientRemoval");
+    WindowHandle window = process.open(*target);
+    process.configure(*window, "-");
+    ASSERT_TRUE(computeAutoGradientPreview(*window));
+    for (const int display : {1, 2, 0})
+    {
+        SCOPED_TRACE(display);
+        setIndex(*window, "previewDisplaySelector", display);
+        ASSERT_TRUE(settleWindow(*window));
+        const std::optional<fixtures::FixtureSamples> shown = documentSamples(window->previewView()->document());
+        ASSERT_TRUE(shown.has_value());
+        const std::size_t before = context().madeViews.size();
+        window->onRTTakeSnapshot(window->previewView());
+        ASSERT_TRUE(settleWindow(*window));
+        ASSERT_EQ(context().madeViews.size(), before + 1u);
+        const std::optional<fixtures::FixtureSamples> snapshot =
+            documentSamples(context().madeViews.back()->document());
+        ASSERT_TRUE(snapshot.has_value());
+        EXPECT_TRUE(fixtures::sameSamples(*shown, *snapshot)) << "the snapshot is not the image shown";
+    }
+    EXPECT_EQ(context().errorCount(), 0) << context().errorTexts.join(QStringLiteral("; ")).toStdString();
+    window.reset();
+    dropView(context(), target);
+}
+
+// preview: a preview the view stretches from the target's statistics changes display with no new run too: the kept
+// image is stretched through the analysis the run's frame was.
+TEST_F(MasksProcessCase, AutoGradientRemovalChangesTheDisplayOfAStretchedPreviewWithNoNewRun)
+{
+    ViewHandle target = greyView(300u, 220u, backgroundWithASquare);
+    const MasksProcess& process = named("AutoGradientRemoval");
+    WindowHandle window = process.open(*target);
+    process.configure(*window, "-");
+    auto* preview = window->findChild<QCheckBox*>(QStringLiteral("previewCheckbox"));
+    ASSERT_NE(preview, nullptr);
+    preview->setChecked(true);
+    ASSERT_TRUE(pumpUntil([&window]() { return window->runTelemetry().previewsCommitted >= 1u; }));
+    ASSERT_TRUE(settleWindow(*window));
+    window->previewView()->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
+    ASSERT_TRUE(settleWindow(*window));
+    ASSERT_TRUE(window->previewView()->isAutoStretchEnabled());
+    ASSERT_TRUE(computeAutoGradientPreview(*window));
+    const ProcessRunTelemetry computed = window->runTelemetry();
+
+    for (const int display : {1, 2, 0})
+    {
+        setIndex(*window, "previewDisplaySelector", display);
+        ASSERT_TRUE(settleWindow(*window));
+    }
+    EXPECT_EQ(window->runTelemetry().previewsStarted, computed.previewsStarted)
+        << "changing the display of a stretched preview ran it again";
+    EXPECT_EQ(window->runTelemetry().keptPreviewsShown, computed.keptPreviewsShown + 3u);
+    EXPECT_TRUE(window->previewView()->isAutoStretchEnabled());
+    window.reset();
+    dropView(context(), target);
+}
+
+// preview: a setting changed after a preview run lets go of the images the run kept, so the next change of display
+// shows the target, never an image of the settings before; asked again, the preview keeps the new settings' images.
+TEST_F(MasksProcessCase, AutoGradientRemovalLetsGoOfThePreviewsImagesWhenASettingChanges)
+{
+    ViewHandle target = greyView(300u, 220u, backgroundWithASquare);
+    const std::optional<fixtures::FixtureSamples> source = documentSamples(target->document());
+    ASSERT_TRUE(source.has_value());
+    const MasksProcess& process = named("AutoGradientRemoval");
+    WindowHandle window = process.open(*target);
+    process.configure(*window, "-");
+    ASSERT_TRUE(computeAutoGradientPreview(*window));
+    const ProcessRunTelemetry computed = window->runTelemetry();
+
+    ASSERT_EQ(window->keptPreviewCount(), 3u);
+    setDouble(*window, "scaleValue", 6.0);
+    ASSERT_TRUE(settleWindow(*window));
+    EXPECT_EQ(window->keptPreviewCount(), 0u) << "the images of the settings before are still kept";
+    setIndex(*window, "previewDisplaySelector", 1);
+    ASSERT_TRUE(settleWindow(*window));
+    EXPECT_EQ(window->runTelemetry().keptPreviewsShown, computed.keptPreviewsShown)
+        << "an image of the settings before was shown";
+    const std::optional<fixtures::FixtureSamples> shown = documentSamples(window->previewView()->document());
+    ASSERT_TRUE(shown.has_value());
+    EXPECT_TRUE(fixtures::sameSamples(*source, *shown)) << "the preview shows the target until asked again";
+
+    const ProcessRunTelemetry changed = window->runTelemetry();
+    window->findChild<QPushButton*>(QStringLiteral("previewButton"))->click();
+    ASSERT_TRUE(pumpUntil(
+        [&window, &changed]() { return window->runTelemetry().previewsCommitted > changed.previewsCommitted; }));
+    ASSERT_TRUE(settleWindow(*window));
+    const ProcessRunTelemetry asked = window->runTelemetry();
+    EXPECT_EQ(window->keptPreviewCount(), 3u);
+    setIndex(*window, "previewDisplaySelector", 0);
+    ASSERT_TRUE(settleWindow(*window));
+    EXPECT_EQ(window->runTelemetry().previewsStarted, asked.previewsStarted);
+    EXPECT_EQ(window->runTelemetry().keptPreviewsShown, asked.keptPreviewsShown + 1u);
     window.reset();
     dropView(context(), target);
 }

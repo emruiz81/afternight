@@ -345,6 +345,9 @@ struct RunResult
     /// Whether `analysis` was measured by this run rather than kept from an earlier one.
     bool analysisMeasured = false;
 
+    /// The images a frame's body made beside its result, blended as the result was, for the GUI thread to keep.
+    std::vector<an::ui::ProcessAlternative> alternatives;
+
     /// The sequence a sequence run wrote, once it is whole at its path.
     std::optional<an::ui::DocumentSequence> sequence;
 };
@@ -439,6 +442,9 @@ struct ImageRTPreviewControl::RunSnapshot
     /// view its result to present.
     std::optional<an::ui::ViewPresentationSettings> presentation;
 
+    /// The key a preview's result is kept under, for its parameters; empty keeps nothing.
+    std::string resultKey;
+
     /// What the frame runs the body over, and the reduction's factor; the reductions of the target and of its mask kept
     /// for their revisions at that factor, if any.
     FrameSource frameSource = FrameSource::Target;
@@ -526,12 +532,14 @@ using ResultHook = std::function<void(const an::ui::ProcessSource&, const an::ui
 
 /// The framework's work around a body over one image: the destination - a copy of the source, or unwritten for a body
 /// that writes every sample - the body, the modulation and the mask, and the finished-result hook. The mask's revision
-/// files its conversion among the source's conversions, when the source carries a run's.
+/// files its conversion among the source's conversions, when the source carries a run's. The images the body made
+/// beside its result are blended as the result is and handed to `alternatives`, or let go when it is null.
 [[nodiscard]] an::Result<an::consumer::ImageAsset>
 processOneImage(const an::consumer::EngineSession& session, an::ui::ExecutionScope& scope,
                 const an::ui::ProcessSource& source, const an::consumer::AnyImage* mask, const an::ui::ProcessRun& run,
                 double modulation, bool invertMask, const RunBody& body, const ResultHook& ready,
-                const an::consumer::AssetRevision& maskRevision = {})
+                const an::consumer::AssetRevision& maskRevision = {},
+                std::vector<an::ui::ProcessAlternative>* alternatives = nullptr)
 {
     an::Result<an::ui::ProcessDestination> destination =
         an::ui::ProcessDestination::forBody(session, scope.engine(), scope.execution(), source, run.coverage);
@@ -560,13 +568,25 @@ processOneImage(const an::consumer::EngineSession& session, an::ui::ExecutionSco
     {
         return refusal(an::ErrorCode::Cancelled, "the run was stopped");
     }
-    const an::Status blended = an::ui::blendProcessResult(
-        scope.engine(), scope.execution(), source, *destination,
-        an::ui::ProcessBlendRequest{
-            .modulation = modulation, .mask = mask, .maskRevision = maskRevision, .invertMask = invertMask});
+    const an::ui::ProcessBlendRequest blend{
+        .modulation = modulation, .mask = mask, .maskRevision = maskRevision, .invertMask = invertMask};
+    const an::Status blended =
+        an::ui::blendProcessResult(scope.engine(), scope.execution(), source, *destination, blend);
     if (blended.failed())
     {
         return blended;
+    }
+    if (alternatives != nullptr)
+    {
+        // An image the blend refuses is not kept: a frame for its parameters makes it when they are asked for.
+        for (an::ui::ProcessAlternative& alternative : destination->takeAlternatives())
+        {
+            if (an::ui::blendProcessAlternative(scope.engine(), scope.execution(), source, alternative.image, blend)
+                    .ok())
+            {
+                alternatives->push_back(std::move(alternative));
+            }
+        }
     }
     if (ready)
     {
@@ -850,6 +870,21 @@ struct ImageRTPreviewControl::Impl
     an::ui::HistogramResolution m_CropCountsResolution = an::ui::HistogramResolution::Bits8;
     std::shared_ptr<const an::ui::HistogramDisplayData> m_CropCounts;
 
+    /// The results the last frame over the whole target made, under the keys of the parameters that make them - its
+    /// own, and those its body made beside it - with what they were made from and how they were blended; a frame whose
+    /// parameters carry one of those keys over the same images and blend shows it instead of running.
+    struct KeptPreviews
+    {
+        an::consumer::AssetRevision target;
+        an::consumer::AssetRevision mask;
+        bool masked = false;
+        bool invertMask = false;
+        double modulation = 1.0;
+        an::ChannelScope channel = an::ChannelScope::Whole;
+        std::vector<std::pair<std::string, std::shared_ptr<const an::consumer::ImageAsset>>> results;
+    };
+    std::optional<KeptPreviews> m_KeptPreviews;
+
     // ---- The runs that publish elsewhere than the preview: a new image, a snapshot, a sequence.
 
     an::ui::RequestTracker m_Runs;
@@ -1060,6 +1095,7 @@ void ImageRTPreviewControl::changeTargetViewControl(ImageViewControl* control)
     // What frames made of the old target is never found for the new one; its memory goes now.
     m_impl->m_FrameProxies.clear();
     m_impl->m_Codes.reset();
+    m_impl->m_KeptPreviews.reset();
     releaseFrameConversions();
 
     if (m_SupportExecutionAutostretch && m_rt_preview_view_control)
@@ -2110,6 +2146,15 @@ void ImageRTPreviewControl::startPreview(an::ui::PreviewFrameKind kind)
         pumpPreview();
         return;
     }
+    const std::string resultKey = previewResultKey(params.get());
+    std::shared_ptr<RunSnapshot> snapshot = snapshotRun(an::ui::ProcessRunKind::Preview, std::move(params));
+    snapshot->resultKey = resultKey;
+    if (showKeptPreview(*snapshot))
+    {
+        // A frame made this already: the preview view shows it, and the next frame is paced from now.
+        pumpPreview();
+        return;
+    }
 
     // The ticket captures the target's revision now, and the mask's: a preview of an image that changes under it is
     // refused when it lands.
@@ -2126,8 +2171,6 @@ void ImageRTPreviewControl::startPreview(an::ui::PreviewFrameKind kind)
     {
         return;
     }
-
-    std::shared_ptr<RunSnapshot> snapshot = snapshotRun(an::ui::ProcessRunKind::Preview, std::move(params));
     snapshot->ticket = std::move(*ticket);
     snapshot->run.frameKind = kind;
     if (kind == an::ui::PreviewFrameKind::Interactive)
@@ -2889,9 +2932,9 @@ void ImageRTPreviewControl::startPreview(an::ui::PreviewFrameKind kind)
                 }
                 else if (shared->area.isEmpty())
                 {
-                    an::Result<an::consumer::ImageAsset> processed =
-                        processOneImage(*session, *scope, sourceOf(*lease), mask->image, shared->run,
-                                        shared->modulation, shared->invertMask, withParams, ready, maskRevision);
+                    an::Result<an::consumer::ImageAsset> processed = processOneImage(
+                        *session, *scope, sourceOf(*lease), mask->image, shared->run, shared->modulation,
+                        shared->invertMask, withParams, ready, maskRevision, &result.alternatives);
                     if (!processed.hasValue())
                     {
                         return processed.status();
@@ -3180,6 +3223,8 @@ void ImageRTPreviewControl::startPreview(an::ui::PreviewFrameKind kind)
             const an::ui::CommitVerdict verdict = shared->ticket.verdict();
             bool committed = false;
             bool adopted = false;
+            // The revision of a result over the whole target handed to the preview view's document, if one was.
+            std::optional<an::consumer::AssetRevision> landedWhole;
             // What the frame made of the target and its mask is filed by the revisions it was made from, and kept while
             // those are read: a frame a newer one superseded read the same revisions; one the target's or the mask's
             // change refused read revisions no frame reads again, and one that landed after the preview was turned off
@@ -3269,6 +3314,7 @@ void ImageRTPreviewControl::startPreview(an::ui::PreviewFrameKind kind)
                 }
                 else
                 {
+                    landedWhole = result.asset->revision();
                     // The view's document is read again after this block: a document of the preview's own replaces
                     // this one, which the view then lets go.
                     an::ui::ImageDocument& shown = preview->document();
@@ -3353,6 +3399,40 @@ void ImageRTPreviewControl::startPreview(an::ui::PreviewFrameKind kind)
             }
             if (committed)
             {
+                // A frame shown replaces what frames kept: one over the whole target keeps its own result under its
+                // parameters' key, as the preview view's document holds it, and the images its body made beside it
+                // under theirs.
+                m_impl->m_KeptPreviews.reset();
+                std::vector<std::pair<std::string, std::shared_ptr<const an::consumer::ImageAsset>>> results;
+                if (landedWhole.has_value())
+                {
+                    std::shared_ptr<const an::consumer::ImageAsset> shown =
+                        m_rt_preview_view_control->document().asset();
+                    if (!shared->resultKey.empty() && shown && shown->revision() == *landedWhole)
+                    {
+                        results.emplace_back(shared->resultKey, std::move(shown));
+                    }
+                    for (an::ui::ProcessAlternative& alternative : result.alternatives)
+                    {
+                        results.emplace_back(
+                            std::move(alternative.key),
+                            std::make_shared<const an::consumer::ImageAsset>(std::move(alternative.image)));
+                    }
+                }
+                if (!results.empty())
+                {
+                    m_impl->m_KeptPreviews = Impl::KeptPreviews{.target = shared->target->revision(),
+                                                                .mask = shared->mask ? shared->mask->revision()
+                                                                                     : an::consumer::AssetRevision{},
+                                                                .masked = shared->mask != nullptr,
+                                                                .invertMask = shared->invertMask,
+                                                                .modulation = shared->modulation,
+                                                                .channel = shared->run.channel,
+                                                                .results = std::move(results)};
+                }
+            }
+            if (committed)
+            {
                 const auto took =
                     std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - started);
                 ++m_impl->m_Telemetry.previewsCommitted;
@@ -3411,50 +3491,118 @@ void ImageRTPreviewControl::startPreview(an::ui::PreviewFrameKind kind)
 
 void ImageRTPreviewControl::showIdentityPreview()
 {
-    ImageViewControl* preview = m_rt_preview_view_control;
     std::shared_ptr<const an::consumer::ImageAsset> target = m_image_view_control->document().asset();
     if (!target)
     {
         return;
     }
-    fitLandingPreview(*preview);
-    // The preview view shares the target's own image; it takes a document of its own again with the next result.
-    an::ui::ImageDocument& shown = preview->document();
-    if (!shown.valid() || !shown.isShared() || shown.asset() != target)
+    if (showSharedPreview(target))
     {
-        an::Result<an::ui::ImageDocument> shared = an::ui::ImageDocument::share(target);
+        ++m_impl->m_Telemetry.identityPreviews;
+    }
+}
+
+bool ImageRTPreviewControl::showSharedPreview(const std::shared_ptr<const an::consumer::ImageAsset>& image)
+{
+    ImageViewControl* preview = m_rt_preview_view_control;
+    if (!image || preview == nullptr)
+    {
+        return false;
+    }
+    fitLandingPreview(*preview);
+    // The preview view shares the image; it takes a document of its own again with the next result.
+    an::ui::ImageDocument& shown = preview->document();
+    if (!shown.valid() || !shown.isShared() || shown.asset() != image)
+    {
+        an::Result<an::ui::ImageDocument> shared = an::ui::ImageDocument::share(image);
         if (!shared.hasValue())
         {
-            return;
+            return false;
         }
         preview->setDocument(std::move(*shared));
         // A stretch taken from the target is the analysis kept for its revision and the view's presentation, if any.
-        auto* widget = preview->getViewWidget();
-        if (m_impl->m_Analysis.has_value() && m_SupportExecutionAutostretch && preview->isAutoStretchEnabled() &&
-            widget != nullptr)
+        if (m_SupportExecutionAutostretch && preview->isAutoStretchEnabled() && keptAnalysisFitsPreview())
         {
-            an::ui::ViewPresentationSettings settings;
-            settings.request = widget->presentationRequest();
-            if (std::shared_ptr<const an::consumer::ImageAsset> source = getExecutionAutostretchSource();
-                source && source->revision() == m_impl->m_AnalysisSource &&
-                an::ui::viewPresentationKey(settings) == m_impl->m_AnalysisPolicy)
-            {
-                preview->notifyImageUpdatedWithPresentationAnalysis(m_impl->m_Analysis, true);
-            }
+            preview->notifyImageUpdatedWithPresentationAnalysis(m_impl->m_Analysis, true);
         }
     }
     else if (ImageViewWidget* widget = preview->getViewWidget(); widget != nullptr)
     {
-        // The document already shares the target, but what the view paints may be an interactive frame's presentation
-        // or layer, which replaced nothing in the document: the view presents the target itself again.
+        // The document already shares the image, but what the view paints may be an interactive frame's presentation
+        // or layer, which replaced nothing in the document: the view presents the image itself again.
         widget->presentDocumentAgain();
     }
     if (m_UseHistogramPreviewWidget && m_HistogramPreview)
     {
-        m_HistogramPreview->setImage(target);
+        m_HistogramPreview->setImage(image);
     }
-    ++m_impl->m_Telemetry.identityPreviews;
     clearReportedPreviewFailure();
+    return true;
+}
+
+bool ImageRTPreviewControl::showKeptPreview(const RunSnapshot& snapshot)
+{
+    std::optional<Impl::KeptPreviews>& kept = m_impl->m_KeptPreviews;
+    if (!kept.has_value())
+    {
+        return false;
+    }
+    // Only a frame over the whole target keeps its result, and only the same images, blended the same way, make it.
+    const bool sameImages =
+        snapshot.target && snapshot.area.isEmpty() && kept->target == snapshot.target->revision() &&
+        kept->masked == (snapshot.mask != nullptr) &&
+        (!snapshot.mask || (kept->mask == snapshot.mask->revision() && kept->invertMask == snapshot.invertMask)) &&
+        kept->modulation == snapshot.modulation && kept->channel == snapshot.run.channel;
+    // A preview stretched from the target is stretched through the target's analysis, which the view must be handed: a
+    // kept result is shown only while that analysis is kept for the view's presentation, as a frame would stretch it.
+    const bool stretchable = !m_SupportExecutionAutostretch || !m_rt_preview_view_control->isAutoStretchEnabled() ||
+                             keptAnalysisFitsPreview();
+    if (sameImages && stretchable && !snapshot.resultKey.empty())
+    {
+        for (const auto& [key, image] : kept->results)
+        {
+            if (key == snapshot.resultKey && showSharedPreview(image))
+            {
+                ++m_impl->m_Telemetry.keptPreviewsShown;
+                return true;
+            }
+        }
+    }
+    // The frame that runs instead makes what is kept next; what was kept goes now rather than when it lands.
+    kept.reset();
+    return false;
+}
+
+bool ImageRTPreviewControl::keptAnalysisFitsPreview() const
+{
+    const ImageViewWidget* widget =
+        m_rt_preview_view_control != nullptr ? m_rt_preview_view_control->getViewWidget() : nullptr;
+    if (widget == nullptr || !m_impl->m_Analysis.has_value())
+    {
+        return false;
+    }
+    // Filed as a frame files the analysis it measures.
+    an::ui::ViewPresentationSettings settings;
+    settings.request = widget->presentationRequest();
+    settings.channel = widget->displayedChannel();
+    const std::shared_ptr<const an::consumer::ImageAsset> source = getExecutionAutostretchSource();
+    return source && source->revision() == m_impl->m_AnalysisSource &&
+           an::ui::viewPresentationKey(settings) == m_impl->m_AnalysisPolicy;
+}
+
+std::string ImageRTPreviewControl::previewResultKey(const ProcessExecutionParams*) const
+{
+    return {};
+}
+
+std::size_t ImageRTPreviewControl::keptPreviewCount() const
+{
+    return m_impl->m_KeptPreviews.has_value() ? m_impl->m_KeptPreviews->results.size() : 0u;
+}
+
+void ImageRTPreviewControl::discardKeptPreviews()
+{
+    m_impl->m_KeptPreviews.reset();
 }
 
 void ImageRTPreviewControl::fitPreviewBeforeItsFirstResult()
@@ -3640,6 +3788,7 @@ void ImageRTPreviewControl::releaseFrameCaches()
     m_impl->m_FrameProxies.clear();
     m_impl->m_Codes.reset();
     m_impl->m_CompositeBase.reset();
+    m_impl->m_KeptPreviews.reset();
 }
 
 void ImageRTPreviewControl::refreshFramePeriod()
@@ -4638,6 +4787,7 @@ void ImageRTPreviewControl::destroyPreviewControl(bool processEnding)
     m_impl->m_CompositeBase.reset();
     m_impl->m_FrameProxies.clear();
     m_impl->m_Codes.reset();
+    m_impl->m_KeptPreviews.reset();
     releaseFrameConversions();
     m_impl->m_PreviewReservation.release();
     // Nothing is owed to a preview that is gone, and what the banner said of its failures no longer holds.

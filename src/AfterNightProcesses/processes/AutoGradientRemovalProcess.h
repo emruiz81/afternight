@@ -70,8 +70,10 @@ autoGradientRemovalDependentUiState(const bool controlsEnabled, const bool prote
 
 /// Auto Gradient Removal: finds a still image's background with no sample placed by hand - fitting, rejecting the
 /// samples that stand above it and fitting again - and subtracts or divides it out, through the engine's
-/// `removeImageAutoBackground`. An Apply can open the background model and the structure the fit was kept away from as
-/// images of their own; the preview, computed when its button asks, can show either instead of the result.
+/// `removeAndDrawImageAutoBackground`. An Apply can open the background model and the structure the fit was kept away
+/// from as images of their own, drawn from the fit the correction used; the preview, computed when its button asks,
+/// can show either instead of the result. One preview run fits once and makes all three, so changing what the preview
+/// shows runs nothing.
 class AFTERNIGHTPROCESSES_API AutoGradientRemovalProcess
     : public an::ui::TypedProcessControl<AutoGradientRemovalProcessParams>
 {
@@ -93,6 +95,10 @@ protected:
                                        an::ui::ExecutionScope& scope) override;
     [[nodiscard]] an::ui::ProcessStep
     describeTypedProcessStep(const AutoGradientRemovalProcessParams& params) const override;
+
+    /// The settings of the algorithm and the display, once the preview is computed: one run keeps the image of every
+    /// display, so a change of display shows the one asked for with no new run.
+    [[nodiscard]] std::string typedPreviewResultKey(const AutoGradientRemovalProcessParams& params) const override;
 
 private:
     void on_scaleChanged(double value);

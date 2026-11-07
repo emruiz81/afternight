@@ -7,8 +7,9 @@
 /// source by the slider's value and records every run - its kind, its frame kind, the threads admission granted it, the
 /// value it ran with and what it was handed - and can wait at a gate or fail with a message the case states; the
 /// process may declare its frames reducible or run at full scale over a part of the target, its body a map of each
-/// channel alone or the mean of a window around each sample, and show the dialog's histogram; and target views of a
-/// flat grey image and of larger gradients.
+/// channel alone or the mean of a window around each sample, show the dialog's histogram, and make beside a preview's
+/// result those of other values of the slider, which the preview keeps; and target views of a flat grey image and of
+/// larger gradients.
 #pragma once
 
 #include "Test_ControlsProcessFramework/ProcessFrameworkTestSupport.h"
@@ -123,6 +124,10 @@ struct SliderProcessOptions
 
     /// The size of the preview area the process opens with, or an empty size for none.
     QSize previewArea{};
+
+    /// Other values of the slider a preview's body also makes the result of, beside its own, and hands over under the
+    /// key of each; the process then names a key for every value. Empty, the default, names none and keeps nothing.
+    std::vector<int> alternatives{};
 };
 
 /// Writes every sample of a plane the scope hands over as the mean of the samples within `reach` pixels of it each
@@ -417,7 +422,55 @@ protected:
         {
             return an::Status::failure(an::ErrorCode::InvalidData, params.failure);
         }
-        return executeTypedProcessUsingChannels(source, destination, run, params, scope);
+        if (an::Status ran = executeTypedProcessUsingChannels(source, destination, run, params, scope); ran.failed())
+        {
+            return ran;
+        }
+        if (run.kind != an::ui::ProcessRunKind::Preview)
+        {
+            return an::Status::success();
+        }
+        // The results of the other values, each made as the frame's own destination was, and handed over.
+        for (const int value : m_options.alternatives)
+        {
+            if (value == params.value)
+            {
+                continue;
+            }
+            an::Result<an::ui::ProcessDestination> made = an::ui::ProcessDestination::forBody(
+                scope.session(), scope.engine(), scope.execution(), source, run.coverage);
+            if (!made.hasValue())
+            {
+                return made.status();
+            }
+            SliderParams other = params;
+            other.value = value;
+            if (an::Status ran = executeTypedProcessUsingChannels(source, *made, run, other, scope); ran.failed())
+            {
+                return ran;
+            }
+            an::Result<an::consumer::ImageAsset> image = made->release();
+            if (!image.hasValue())
+            {
+                return image.status();
+            }
+            if (an::Status kept = destination.keepAlternative(keyOf(value), std::move(*image)); kept.failed())
+            {
+                return kept;
+            }
+        }
+        return an::Status::success();
+    }
+
+    [[nodiscard]] std::string typedPreviewResultKey(const SliderParams& params) const override
+    {
+        return !m_options.alternatives.empty() && params.failure.empty() ? keyOf(params.value) : std::string();
+    }
+
+    /// The key the result of a value of the slider is kept under.
+    [[nodiscard]] static std::string keyOf(int value)
+    {
+        return "value " + std::to_string(value);
     }
 
     an::Status executeTypedProcessIteration(const an::ChannelScopeInput& input, const an::ChannelScopeOutput& output,

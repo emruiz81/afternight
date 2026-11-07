@@ -57,6 +57,7 @@ using spatial_detail::SpatialPlaneBuffer;
 constexpr const char* kPlanOperation = "an::planAutoBackground";
 constexpr const char* kEstimateOperation = "an::estimateImageAutoBackground";
 constexpr const char* kRemoveOperation = "an::removeImageAutoBackground";
+constexpr const char* kRemoveAndDrawOperation = "an::removeAndDrawImageAutoBackground";
 
 /// What a background fit says it is doing: the first fit, then one report per rejection round.
 constexpr const char* kFitStage = "automatic background: fitting rounds";
@@ -1461,6 +1462,353 @@ Result<AutoBackgroundPlan> planAutoBackground(const AutoBackgroundRequest& reque
     return plan;
 }
 
+namespace
+{
+
+/// Checks the planes a call draws the surface and the protection into against the picture it estimates.
+///
+/// @param geometry the frame's picture.
+/// @param models the surface planes.
+/// @param protection the protection planes.
+/// @param modelsRequired whether a plane per channel must be given for the surface, as an estimate needs; otherwise
+///        none at all is accepted too.
+/// @param operation the name carried by any failure.
+/// @return success, or what the counts or the extents refused.
+[[nodiscard]] Status checkDrawnPlanes(const SpatialGeometry& geometry, std::span<const PlaneView<float>> models,
+                                      std::span<const PlaneView<float>> protection, bool modelsRequired,
+                                      const char* operation)
+{
+    if (modelsRequired && models.size() != geometry.channelCount)
+    {
+        return backgroundLimitFailure(ErrorCode::IncompatibleArguments, operation,
+                                      "an estimate writes one model plane per channel", models.size(),
+                                      geometry.channelCount);
+    }
+    if (!models.empty() && models.size() != geometry.channelCount)
+    {
+        return backgroundLimitFailure(ErrorCode::IncompatibleArguments, operation,
+                                      "a surface is drawn one plane per channel or not at all", models.size(),
+                                      geometry.channelCount);
+    }
+    if (!protection.empty() && protection.size() != geometry.channelCount)
+    {
+        return backgroundLimitFailure(ErrorCode::IncompatibleArguments, operation,
+                                      "a protection mask is one plane per channel or none at all", protection.size(),
+                                      geometry.channelCount);
+    }
+    for (const PlaneView<float>& plane : models)
+    {
+        if (plane.width() != geometry.width || plane.height() != geometry.height)
+        {
+            return backgroundFailure(ErrorCode::IncompatibleArguments, operation,
+                                     "a model plane is not the picture being estimated");
+        }
+    }
+    for (const PlaneView<float>& plane : protection)
+    {
+        if (plane.width() != geometry.width || plane.height() != geometry.height)
+        {
+            return backgroundFailure(ErrorCode::IncompatibleArguments, operation,
+                                     "a protection plane is not the picture being estimated");
+        }
+    }
+    return Status::success();
+}
+
+/// Whether a plane a call draws into shares a byte with an image it reads or writes.
+///
+/// @param planes the planes.
+/// @param samples the image's first sample.
+/// @param layout where its samples sit.
+/// @return true when any plane overlaps the image.
+[[nodiscard]] bool anyPlaneOverlaps(std::span<const PlaneView<float>> planes, const void* samples,
+                                    const ImageLayout& layout) noexcept
+{
+    return std::any_of(planes.begin(), planes.end(), [&](const PlaneView<float>& plane) {
+        return regionsOverlap(reinterpret_cast<const std::uint8_t*>(plane.data()), plane.layout().totalBytes(),
+                              static_cast<const std::uint8_t*>(samples), layout.totalBytes());
+    });
+}
+
+/// Draws the surface one channel's estimate stands at into a plane of the frame's extent, through the bilinear
+/// interpolation of the working surface between block centres, held at the edge value beyond the outermost centres.
+///
+/// @param execution the admitted execution.
+/// @param plan the validated request.
+/// @param workspace the estimate, whose surface is read.
+/// @param geometry the frame's picture.
+/// @param into the plane, of the frame's extent.
+/// @return success, or an execution or cancellation failure.
+[[nodiscard]] Status drawModelPlane(const ExecutionContext& execution, const AutoBackgroundPlan& plan,
+                                    const Workspace& workspace, const SpatialGeometry& geometry,
+                                    const PlaneView<float>& into)
+{
+    const PlaneView<const float> model = workspace.model.constView();
+    const std::uint32_t factor = plan.downsample();
+    const std::uint32_t width = geometry.width;
+    return parallelFor(execution, geometry.height, rowCost(width, 8u), [&](TaskRange range) {
+        for (std::uint64_t index = range.begin; index < range.end; ++index)
+        {
+            const auto y = static_cast<std::uint32_t>(index);
+            const std::span<float> row = *into.row(y);
+            for (std::uint32_t x = 0u; x < width; ++x)
+            {
+                row[x] = static_cast<float>(background_detail::interpolateReduced(model, factor, static_cast<double>(x),
+                                                                                  static_cast<double>(y)));
+            }
+        }
+        return Status::success();
+    });
+}
+
+/// Draws which working samples one channel's structure protection excluded into a plane of the frame's extent: one
+/// over the whole block each such sample stands for, zero everywhere else.
+///
+/// @param execution the admitted execution.
+/// @param plan the validated request.
+/// @param workspace the estimate, whose protection flags are read.
+/// @param geometry the frame's picture.
+/// @param into the plane, of the frame's extent.
+/// @return success, or an execution or cancellation failure.
+[[nodiscard]] Status drawProtectionPlane(const ExecutionContext& execution, const AutoBackgroundPlan& plan,
+                                         const Workspace& workspace, const SpatialGeometry& geometry,
+                                         const PlaneView<float>& into)
+{
+    const std::uint64_t workingSamples = static_cast<std::uint64_t>(plan.workingWidth()) * plan.workingHeight();
+    const std::span<const std::uint8_t> flags{static_cast<const std::uint8_t*>(workspace.protection.data()),
+                                              static_cast<std::size_t>(workingSamples)};
+    const std::uint32_t factor = plan.downsample();
+    const std::uint32_t width = geometry.width;
+    const std::uint32_t workingWidth = plan.workingWidth();
+    const std::uint32_t workingHeight = plan.workingHeight();
+    return parallelFor(execution, geometry.height, rowCost(width, 4u), [&](TaskRange range) {
+        for (std::uint64_t index = range.begin; index < range.end; ++index)
+        {
+            const auto y = static_cast<std::uint32_t>(index);
+            const std::span<float> row = *into.row(y);
+            const std::uint32_t sourceRow = (std::min)(y / factor, workingHeight > 0u ? workingHeight - 1u : 0u);
+            for (std::uint32_t x = 0u; x < width; ++x)
+            {
+                const std::uint32_t sourceColumn = (std::min)(x / factor, workingWidth > 0u ? workingWidth - 1u : 0u);
+                row[x] = flags[static_cast<std::size_t>(sourceRow) * workingWidth + sourceColumn] != 0u ? 1.0f : 0.0f;
+            }
+        }
+        return Status::success();
+    });
+}
+
+/// Folds what one channel's fit did into what the operation reports.
+///
+/// @param counters what the channel's fit did.
+/// @param workingSamples how many samples the working picture holds.
+/// @param result what the operation reports.
+void addChannelFit(const ChannelCounters& counters, std::uint64_t workingSamples, AutoBackgroundResult& result) noexcept
+{
+    result.iterationsRun = (std::max)(result.iterationsRun, counters.iterationsRun);
+    result.converged = result.converged && counters.converged;
+    result.consideredSamples += workingSamples;
+    result.acceptedSamples += counters.acceptedSamples;
+    result.protectedSamples += counters.protectedSamples;
+    result.rejectionFallbacks += counters.rejectionFallbacks;
+    result.workingPasses += counters.workingPasses;
+}
+
+/// Checks that a plan is one `planAutoBackground` produced, for the picture it states.
+///
+/// @param plan the plan.
+/// @param operation the name carried by any failure.
+/// @return success; `ErrorCode::NotInitialized` for a plan describing no estimate or one the builder did not make; or
+///         what validating its request again refused.
+[[nodiscard]] Status checkPlan(const AutoBackgroundPlan& plan, const char* operation)
+{
+    if (plan.downsample() == 0u)
+    {
+        return backgroundFailure(ErrorCode::NotInitialized, operation,
+                                 "an automatic estimate needs a plan produced by planAutoBackground");
+    }
+    const Result<AutoBackgroundPlan> revalidated = planAutoBackground(plan.request(), plan.width(), plan.height());
+    if (!revalidated.hasValue())
+    {
+        return revalidated.status();
+    }
+    if (revalidated->workingWidth() != plan.workingWidth() || revalidated->workingHeight() != plan.workingHeight() ||
+        revalidated->modelRadius() != plan.modelRadius())
+    {
+        return backgroundFailure(ErrorCode::NotInitialized, operation,
+                                 "the plan was not produced by planAutoBackground");
+    }
+    return Status::success();
+}
+
+/// Estimates each channel of an image once, draws the planes asked for, and corrects it: what
+/// `removeImageAutoBackground` and `removeAndDrawImageAutoBackground` both run.
+///
+/// @param operation the name carried by any failure.
+/// @return what the estimate and the correction did, or why nothing was.
+[[nodiscard]] Result<AutoBackgroundResult>
+removeAutoBackgroundDrawing(const ExecutionContext& execution, SampleType sampleType, const void* source,
+                            const ImageLayout& sourceLayout, void* destination, const ImageLayout& destinationLayout,
+                            const AutoBackgroundPlan& plan, std::span<const PlaneView<float>> models,
+                            std::span<const PlaneView<float>> protection, const SpatialSelection& selection,
+                            const char* operation)
+{
+    SpatialGeometry geometry{};
+    const Status ready = spatial_detail::checkSpatialImage(execution, sampleType, source, sourceLayout,
+                                                           plan.request().apply.output, selection, operation, geometry);
+    if (ready.failed())
+    {
+        return ready;
+    }
+    if (const Status planned = checkPlan(plan, operation); planned.failed())
+    {
+        return planned;
+    }
+    if (destination == nullptr)
+    {
+        return backgroundFailure(ErrorCode::InvalidArgument, operation,
+                                 "a correction needs both a source and a destination");
+    }
+    if (destinationLayout.elementSizeBytes() != sampleTypeSizeBytes(sampleType))
+    {
+        return backgroundFailure(ErrorCode::InvalidArgument, operation,
+                                 "a layout's element size is not the stated representation's");
+    }
+    if (geometry.width != plan.width() || geometry.height != plan.height() ||
+        destinationLayout.extent().width() != geometry.width ||
+        destinationLayout.extent().height() != geometry.height ||
+        destinationLayout.extent().channelCount() != geometry.channelCount)
+    {
+        return backgroundFailure(ErrorCode::IncompatibleArguments, operation,
+                                 "the source, the destination and the plan are not one picture");
+    }
+    if (geometry.channelCount > kMaxBackgroundChannels)
+    {
+        return backgroundLimitFailure(ErrorCode::IncompatibleArguments, operation,
+                                      "an automatic estimate carries a level for at most this many channels",
+                                      geometry.channelCount, kMaxBackgroundChannels);
+    }
+    const bool exactlyAliased = source == destination && sourceLayout == destinationLayout;
+    if (!exactlyAliased &&
+        regionsOverlap(static_cast<const std::uint8_t*>(source), sourceLayout.totalBytes(),
+                       static_cast<const std::uint8_t*>(destination), destinationLayout.totalBytes()))
+    {
+        return backgroundFailure(ErrorCode::Aliasing, operation,
+                                 "a correction source overlaps its destination without being the same image");
+    }
+    if (const Status drawn = checkDrawnPlanes(geometry, models, protection, false, operation); drawn.failed())
+    {
+        return drawn;
+    }
+    if (anyPlaneOverlaps(models, source, sourceLayout) || anyPlaneOverlaps(models, destination, destinationLayout) ||
+        anyPlaneOverlaps(protection, source, sourceLayout) ||
+        anyPlaneOverlaps(protection, destination, destinationLayout))
+    {
+        return backgroundFailure(ErrorCode::Aliasing, operation,
+                                 "a plane the estimate is drawn into overlaps the image it reads or writes");
+    }
+
+    const bool drawsProtection = !protection.empty() && plan.request().protectStructures;
+    Workspace workspace{};
+    const Status taken = takeWorkspace(execution, plan, operation, workspace);
+    if (taken.failed())
+    {
+        return taken;
+    }
+
+    AutoBackgroundResult result{};
+    result.channelCount = geometry.channelCount;
+    result.workingWidth = plan.workingWidth();
+    result.workingHeight = plan.workingHeight();
+    result.plannedWorkers = execution.admittedConcurrency();
+    result.precision = ComputePrecision::Float32;
+    result.workingBytes = workspace.bytes();
+    result.converged = true;
+
+    const std::uint64_t workingSamples = static_cast<std::uint64_t>(plan.workingWidth()) * plan.workingHeight();
+    std::uint64_t accepted = 0u;
+
+    for (std::uint32_t channel = 0u; channel < geometry.channelCount; ++channel)
+    {
+        const KernelValidityView validity = spatial_detail::channelValidity(selection, channel);
+        const Status reduced = reduceResidentChannel(execution, sampleType, source, sourceLayout, channel, validity,
+                                                     workspace.small.view(), plan.downsample(), operation);
+        if (reduced.failed())
+        {
+            return reduced;
+        }
+        result.imagePasses += 1u;
+
+        ChannelCounters counters{};
+        Status estimated = Status::success();
+        {
+            // Each channel's fit is one share of the operation's progress, measured in fitting rounds, so
+            // every round moves the bar.
+            const std::uint64_t rounds = static_cast<std::uint64_t>(plan.request().maxIterations) + 1u;
+            const ProgressRange share(execution, channel * rounds, (channel + 1u) * rounds,
+                                      geometry.channelCount * rounds);
+            estimated = estimateChannel(execution, plan, workspace, counters);
+        }
+        if (estimated.failed())
+        {
+            return estimated;
+        }
+        addChannelFit(counters, workingSamples, result);
+
+        // The surface and the protection are drawn from the fit the correction then reads.
+        if (!models.empty())
+        {
+            const Status drawn = drawModelPlane(execution, plan, workspace, geometry, models[channel]);
+            if (drawn.failed())
+            {
+                return drawn;
+            }
+            result.imagePasses += 1u;
+        }
+        if (drawsProtection)
+        {
+            const Status drawn = drawProtectionPlane(execution, plan, workspace, geometry, protection[channel]);
+            if (drawn.failed())
+            {
+                return drawn;
+            }
+            result.imagePasses += 1u;
+        }
+
+        double level = 0.0;
+        const Status resolved =
+            resolveLevel(execution, plan, workspace, sampleType, source, sourceLayout, channel, validity, level);
+        if (resolved.failed())
+        {
+            return resolved;
+        }
+        result.appliedLevel[channel] = level;
+        CorrectionCounters correctedHere{};
+        const Status corrected =
+            correctResidentChannel(execution, sampleType, source, sourceLayout, destination, destinationLayout, channel,
+                                   validity, plan, workspace, level, correctedHere);
+        if (corrected.failed())
+        {
+            return corrected;
+        }
+        result.guardedSamples += correctedHere.guarded;
+        result.clampedSamples += correctedHere.clamped;
+        result.samplesChanged += correctedHere.changed;
+        accepted += correctedHere.accepted;
+        result.imagePasses += 1u;
+        if (plan.request().apply.level == BackgroundLevel::SourceMean)
+        {
+            result.imagePasses += 1u;
+        }
+    }
+
+    const std::uint64_t total = static_cast<std::uint64_t>(geometry.width) * geometry.height * geometry.channelCount;
+    result.run.selection = ValidityCount{.valid = accepted, .total = total};
+    result.run.outputsWritten = accepted;
+    return result;
+}
+
+} // namespace
+
 Result<AutoBackgroundResult> estimateImageAutoBackground(const ExecutionContext& execution, SampleType sampleType,
                                                          const void* source, const ImageLayout& sourceLayout,
                                                          const AutoBackgroundPlan& plan,
@@ -1476,21 +1824,9 @@ Result<AutoBackgroundResult> estimateImageAutoBackground(const ExecutionContext&
     {
         return ready;
     }
-    if (plan.downsample() == 0u)
+    if (const Status planned = checkPlan(plan, kEstimateOperation); planned.failed())
     {
-        return backgroundFailure(ErrorCode::NotInitialized, kEstimateOperation,
-                                 "an automatic estimate needs a plan produced by planAutoBackground");
-    }
-    const Result<AutoBackgroundPlan> revalidated = planAutoBackground(plan.request(), plan.width(), plan.height());
-    if (!revalidated.hasValue())
-    {
-        return revalidated.status();
-    }
-    if (revalidated->workingWidth() != plan.workingWidth() || revalidated->workingHeight() != plan.workingHeight() ||
-        revalidated->modelRadius() != plan.modelRadius())
-    {
-        return backgroundFailure(ErrorCode::NotInitialized, kEstimateOperation,
-                                 "the plan was not produced by planAutoBackground");
+        return planned;
     }
     if (geometry.width != plan.width() || geometry.height != plan.height())
     {
@@ -1503,33 +1839,9 @@ Result<AutoBackgroundResult> estimateImageAutoBackground(const ExecutionContext&
                                       "an automatic estimate carries a level for at most this many channels",
                                       geometry.channelCount, kMaxBackgroundChannels);
     }
-    if (models.size() != geometry.channelCount)
+    if (const Status drawn = checkDrawnPlanes(geometry, models, protection, true, kEstimateOperation); drawn.failed())
     {
-        return backgroundLimitFailure(ErrorCode::IncompatibleArguments, kEstimateOperation,
-                                      "an estimate writes one model plane per channel", models.size(),
-                                      geometry.channelCount);
-    }
-    if (!protection.empty() && protection.size() != geometry.channelCount)
-    {
-        return backgroundLimitFailure(ErrorCode::IncompatibleArguments, kEstimateOperation,
-                                      "a protection mask is one plane per channel or none at all", protection.size(),
-                                      geometry.channelCount);
-    }
-    for (const PlaneView<float>& plane : models)
-    {
-        if (plane.width() != geometry.width || plane.height() != geometry.height)
-        {
-            return backgroundFailure(ErrorCode::IncompatibleArguments, kEstimateOperation,
-                                     "a model plane is not the picture being estimated");
-        }
-    }
-    for (const PlaneView<float>& plane : protection)
-    {
-        if (plane.width() != geometry.width || plane.height() != geometry.height)
-        {
-            return backgroundFailure(ErrorCode::IncompatibleArguments, kEstimateOperation,
-                                     "a protection plane is not the picture being estimated");
-        }
+        return drawn;
     }
 
     const bool writesProtection = !protection.empty() && plan.request().protectStructures;
@@ -1575,31 +1887,9 @@ Result<AutoBackgroundResult> estimateImageAutoBackground(const ExecutionContext&
         {
             return estimated;
         }
-        result.iterationsRun = (std::max)(result.iterationsRun, counters.iterationsRun);
-        result.converged = result.converged && counters.converged;
-        result.consideredSamples += workingSamples;
-        result.acceptedSamples += counters.acceptedSamples;
-        result.protectedSamples += counters.protectedSamples;
-        result.rejectionFallbacks += counters.rejectionFallbacks;
-        result.workingPasses += counters.workingPasses;
+        addChannelFit(counters, workingSamples, result);
 
-        const PlaneView<const float> model = workspace.model.constView();
-        const PlaneView<float> into = models[channel];
-        const std::uint32_t factor = plan.downsample();
-        const std::uint32_t width = geometry.width;
-        const Status enlarged = parallelFor(execution, geometry.height, rowCost(width, 8u), [&](TaskRange range) {
-            for (std::uint64_t index = range.begin; index < range.end; ++index)
-            {
-                const auto y = static_cast<std::uint32_t>(index);
-                const std::span<float> row = *into.row(y);
-                for (std::uint32_t x = 0u; x < width; ++x)
-                {
-                    row[x] = static_cast<float>(background_detail::interpolateReduced(
-                        model, factor, static_cast<double>(x), static_cast<double>(y)));
-                }
-            }
-            return Status::success();
-        });
+        const Status enlarged = drawModelPlane(execution, plan, workspace, geometry, models[channel]);
         if (enlarged.failed())
         {
             return enlarged;
@@ -1608,28 +1898,7 @@ Result<AutoBackgroundResult> estimateImageAutoBackground(const ExecutionContext&
 
         if (writesProtection)
         {
-            const std::span<const std::uint8_t> flags{static_cast<const std::uint8_t*>(workspace.protection.data()),
-                                                      static_cast<std::size_t>(workingSamples)};
-            const PlaneView<float> mask = protection[channel];
-            const std::uint32_t workingWidth = plan.workingWidth();
-            const std::uint32_t workingHeight = plan.workingHeight();
-            const Status written = parallelFor(execution, geometry.height, rowCost(width, 4u), [&](TaskRange range) {
-                for (std::uint64_t index = range.begin; index < range.end; ++index)
-                {
-                    const auto y = static_cast<std::uint32_t>(index);
-                    const std::span<float> row = *mask.row(y);
-                    const std::uint32_t sourceRow =
-                        (std::min)(y / factor, workingHeight > 0u ? workingHeight - 1u : 0u);
-                    for (std::uint32_t x = 0u; x < width; ++x)
-                    {
-                        const std::uint32_t sourceColumn =
-                            (std::min)(x / factor, workingWidth > 0u ? workingWidth - 1u : 0u);
-                        row[x] = flags[static_cast<std::size_t>(sourceRow) * workingWidth + sourceColumn] != 0u ? 1.0f
-                                                                                                                : 0.0f;
-                    }
-                }
-                return Status::success();
-            });
+            const Status written = drawProtectionPlane(execution, plan, workspace, geometry, protection[channel]);
             if (written.failed())
             {
                 return written;
@@ -1650,146 +1919,20 @@ Result<AutoBackgroundResult> removeImageAutoBackground(const ExecutionContext& e
                                                        const AutoBackgroundPlan& plan,
                                                        const SpatialSelection& selection)
 {
-    SpatialGeometry geometry{};
-    const Status ready =
-        spatial_detail::checkSpatialImage(execution, sampleType, source, sourceLayout, plan.request().apply.output,
-                                          selection, kRemoveOperation, geometry);
-    if (ready.failed())
-    {
-        return ready;
-    }
-    if (plan.downsample() == 0u)
-    {
-        return backgroundFailure(ErrorCode::NotInitialized, kRemoveOperation,
-                                 "an automatic estimate needs a plan produced by planAutoBackground");
-    }
-    const Result<AutoBackgroundPlan> revalidated = planAutoBackground(plan.request(), plan.width(), plan.height());
-    if (!revalidated.hasValue())
-    {
-        return revalidated.status();
-    }
-    if (revalidated->workingWidth() != plan.workingWidth() || revalidated->workingHeight() != plan.workingHeight() ||
-        revalidated->modelRadius() != plan.modelRadius())
-    {
-        return backgroundFailure(ErrorCode::NotInitialized, kRemoveOperation,
-                                 "the plan was not produced by planAutoBackground");
-    }
-    if (destination == nullptr)
-    {
-        return backgroundFailure(ErrorCode::InvalidArgument, kRemoveOperation,
-                                 "a correction needs both a source and a destination");
-    }
-    if (destinationLayout.elementSizeBytes() != sampleTypeSizeBytes(sampleType))
-    {
-        return backgroundFailure(ErrorCode::InvalidArgument, kRemoveOperation,
-                                 "a layout's element size is not the stated representation's");
-    }
-    if (geometry.width != plan.width() || geometry.height != plan.height() ||
-        destinationLayout.extent().width() != geometry.width ||
-        destinationLayout.extent().height() != geometry.height ||
-        destinationLayout.extent().channelCount() != geometry.channelCount)
-    {
-        return backgroundFailure(ErrorCode::IncompatibleArguments, kRemoveOperation,
-                                 "the source, the destination and the plan are not one picture");
-    }
-    if (geometry.channelCount > kMaxBackgroundChannels)
-    {
-        return backgroundLimitFailure(ErrorCode::IncompatibleArguments, kRemoveOperation,
-                                      "an automatic estimate carries a level for at most this many channels",
-                                      geometry.channelCount, kMaxBackgroundChannels);
-    }
-    const bool exactlyAliased = source == destination && sourceLayout == destinationLayout;
-    if (!exactlyAliased &&
-        regionsOverlap(static_cast<const std::uint8_t*>(source), sourceLayout.totalBytes(),
-                       static_cast<const std::uint8_t*>(destination), destinationLayout.totalBytes()))
-    {
-        return backgroundFailure(ErrorCode::Aliasing, kRemoveOperation,
-                                 "a correction source overlaps its destination without being the same image");
-    }
+    return removeAutoBackgroundDrawing(execution, sampleType, source, sourceLayout, destination, destinationLayout,
+                                       plan, {}, {}, selection, kRemoveOperation);
+}
 
-    Workspace workspace{};
-    const Status taken = takeWorkspace(execution, plan, kRemoveOperation, workspace);
-    if (taken.failed())
-    {
-        return taken;
-    }
-
-    AutoBackgroundResult result{};
-    result.channelCount = geometry.channelCount;
-    result.workingWidth = plan.workingWidth();
-    result.workingHeight = plan.workingHeight();
-    result.plannedWorkers = execution.admittedConcurrency();
-    result.precision = ComputePrecision::Float32;
-    result.workingBytes = workspace.bytes();
-    result.converged = true;
-
-    const std::uint64_t workingSamples = static_cast<std::uint64_t>(plan.workingWidth()) * plan.workingHeight();
-    std::uint64_t accepted = 0u;
-
-    for (std::uint32_t channel = 0u; channel < geometry.channelCount; ++channel)
-    {
-        const KernelValidityView validity = spatial_detail::channelValidity(selection, channel);
-        const Status reduced = reduceResidentChannel(execution, sampleType, source, sourceLayout, channel, validity,
-                                                     workspace.small.view(), plan.downsample(), kRemoveOperation);
-        if (reduced.failed())
-        {
-            return reduced;
-        }
-        result.imagePasses += 1u;
-
-        ChannelCounters counters{};
-        Status estimated = Status::success();
-        {
-            // Each channel's fit is one share of the operation's progress, measured in fitting rounds, so
-            // every round moves the bar.
-            const std::uint64_t rounds = static_cast<std::uint64_t>(plan.request().maxIterations) + 1u;
-            const ProgressRange share(execution, channel * rounds, (channel + 1u) * rounds,
-                                      geometry.channelCount * rounds);
-            estimated = estimateChannel(execution, plan, workspace, counters);
-        }
-        if (estimated.failed())
-        {
-            return estimated;
-        }
-        result.iterationsRun = (std::max)(result.iterationsRun, counters.iterationsRun);
-        result.converged = result.converged && counters.converged;
-        result.consideredSamples += workingSamples;
-        result.acceptedSamples += counters.acceptedSamples;
-        result.protectedSamples += counters.protectedSamples;
-        result.rejectionFallbacks += counters.rejectionFallbacks;
-        result.workingPasses += counters.workingPasses;
-
-        double level = 0.0;
-        const Status resolved =
-            resolveLevel(execution, plan, workspace, sampleType, source, sourceLayout, channel, validity, level);
-        if (resolved.failed())
-        {
-            return resolved;
-        }
-        result.appliedLevel[channel] = level;
-        CorrectionCounters correctedHere{};
-        const Status corrected =
-            correctResidentChannel(execution, sampleType, source, sourceLayout, destination, destinationLayout, channel,
-                                   validity, plan, workspace, level, correctedHere);
-        if (corrected.failed())
-        {
-            return corrected;
-        }
-        result.guardedSamples += correctedHere.guarded;
-        result.clampedSamples += correctedHere.clamped;
-        result.samplesChanged += correctedHere.changed;
-        accepted += correctedHere.accepted;
-        result.imagePasses += 1u;
-        if (plan.request().apply.level == BackgroundLevel::SourceMean)
-        {
-            result.imagePasses += 1u;
-        }
-    }
-
-    const std::uint64_t total = static_cast<std::uint64_t>(geometry.width) * geometry.height * geometry.channelCount;
-    result.run.selection = ValidityCount{.valid = accepted, .total = total};
-    result.run.outputsWritten = accepted;
-    return result;
+Result<AutoBackgroundResult> removeAndDrawImageAutoBackground(const ExecutionContext& execution, SampleType sampleType,
+                                                              const void* source, const ImageLayout& sourceLayout,
+                                                              void* destination, const ImageLayout& destinationLayout,
+                                                              const AutoBackgroundPlan& plan,
+                                                              std::span<const PlaneView<float>> models,
+                                                              std::span<const PlaneView<float>> protection,
+                                                              const SpatialSelection& selection)
+{
+    return removeAutoBackgroundDrawing(execution, sampleType, source, sourceLayout, destination, destinationLayout,
+                                       plan, models, protection, selection, kRemoveAndDrawOperation);
 }
 
 } // namespace an

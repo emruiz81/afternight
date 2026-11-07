@@ -1172,6 +1172,7 @@ ProcessDestination& ProcessDestination::operator=(ProcessDestination&& other) no
         m_lease = std::move(other.m_lease);
         m_asset = std::move(other.m_asset);
         m_holdsSource = other.m_holdsSource;
+        m_alternatives = std::move(other.m_alternatives);
     }
     return *this;
 }
@@ -1413,6 +1414,26 @@ an::Result<an::consumer::ImageAsset> ProcessDestination::release()
     return std::move(m_asset);
 }
 
+an::Status ProcessDestination::keepAlternative(std::string key, an::consumer::ImageAsset&& image)
+{
+    if (key.empty())
+    {
+        return refusal(an::ErrorCode::InvalidArgument, "an image handed over beside the result needs a key");
+    }
+    if (!image.valid())
+    {
+        return refusal(an::ErrorCode::NotInitialized, "an image handed over beside the result holds nothing");
+    }
+    std::erase_if(m_alternatives, [&key](const ProcessAlternative& kept) { return kept.key == key; });
+    m_alternatives.push_back(ProcessAlternative{.key = std::move(key), .image = std::move(image)});
+    return an::Status::success();
+}
+
+std::vector<ProcessAlternative> ProcessDestination::takeAlternatives() noexcept
+{
+    return std::exchange(m_alternatives, {});
+}
+
 // ---- The channel selector.
 
 std::span<const ProcessChannelChoice> processChannelChoices() noexcept
@@ -1571,6 +1592,37 @@ an::Status blendProcessResult(const an::EngineContext& engine, const an::Executi
             return blendTyped<DestT>(engine, execution, source, destination.asset(), request);
         },
         destination.asset().image());
+}
+
+an::Status blendProcessAlternative(const an::EngineContext& engine, const an::ExecutionContext& execution,
+                                   const ProcessSource& source, an::consumer::ImageAsset& alternative,
+                                   const ProcessBlendRequest& request)
+{
+    if (!(request.modulation >= 0.0 && request.modulation <= 1.0))
+    {
+        return refusal(an::ErrorCode::OutOfRange, "the modulation lies outside the unit interval");
+    }
+    if (request.modulation == 1.0 && request.mask == nullptr)
+    {
+        return an::Status::success();
+    }
+    if (!alternative.valid())
+    {
+        return refusal(an::ErrorCode::NotInitialized, "the image handed over beside the result holds nothing");
+    }
+    an::Result<an::consumer::AssetWriteLease> lease = alternative.tryWrite();
+    if (!lease.hasValue())
+    {
+        return lease.status();
+    }
+    const an::Status blended = std::visit(
+        [&](const auto& typed) -> an::Status {
+            using DestT = SampleOf<decltype(typed)>;
+            return blendTyped<DestT>(engine, execution, source, *lease, request);
+        },
+        lease->image());
+    lease->release();
+    return blended;
 }
 
 an::Result<an::consumer::ImageAsset> cropProcessRegion(const an::consumer::EngineSession& session,

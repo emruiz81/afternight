@@ -154,7 +154,17 @@ request is settled. Frames start no closer than a period apart, a second
 over the Processing page's preview rate (`readPreviewFrameRate`), read off the GUI thread when the preview is turned on,
 the window activated or a chain of frames begins, and in force for the chains that begin after the read lands. The preview view
 shows the target's own asset, shared through `ImageDocument::share` rather than copied, until its first frame lands and
-whenever the parameters are what the process declares its identity (`isTypedIdentity`), for which nothing runs; an
+whenever the parameters are what the process declares its identity (`isTypedIdentity`), for which nothing runs. Nothing
+runs either for parameters whose result a frame already made: a process that names a key for what a preview of its
+parameters shows (`typedPreviewResultKey`) has the result of a frame over the whole target kept under that key, and a
+body that makes, from one computation, the images other values of a parameter only choose among hands them to the run
+under their keys (`ProcessDestination::keepAlternative`) - Auto Gradient Removal's corrected image, gradient model and
+protection mask, from one fit (`removeAndDrawImageAutoBackground`). The frame blends each by its modulation and mask as
+it blends its result (`blendProcessAlternative`), and parameters of a kept key over the same revisions of the target
+and mask, and the same blend, show the image kept, shared, at once - stretched through the target's analysis kept for
+the view's presentation, and otherwise run as a frame. What is kept is in the session's memory, up to a few full-size
+images, so it goes when the next frame starts, when the target or its mask changes, when the preview closes and when
+the process says its parameters changed (`discardKeptPreviews`). An
 Apply or a Reset is followed by one preview of the parameters the reset leaves, and a failed preview says why in the
 window's banner, once for each cause. A frame's result is shown through `ImageDocument::tryReplace`, so a reader of
 the image shown - the view's presentation, the lens, the statistics window - never holds a frame back. The preview

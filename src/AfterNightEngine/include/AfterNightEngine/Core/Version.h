@@ -24,17 +24,17 @@ namespace an
 inline constexpr int kEngineVersionMajor = 1;
 
 /// Minor version. Incremented when the public surface gains something without losing anything.
-inline constexpr int kEngineVersionMinor = 3;
+inline constexpr int kEngineVersionMinor = 4;
 
 /// Patch version. Incremented for a change that leaves the public surface as it was.
-inline constexpr int kEngineVersionPatch = 2;
+inline constexpr int kEngineVersionPatch = 0;
 
 /// The three components spelled `major.minor.patch`, for a report or a log line.
 ///
 /// Written out rather than assembled from the constants above, because assembling a string literal
 /// from integers needs the preprocessor and this header is deliberately macro-free. A test asserts
 /// that this spelling and those numbers agree, so the duplication cannot drift silently.
-inline constexpr const char* kEngineVersionString = "1.3.2";
+inline constexpr const char* kEngineVersionString = "1.4.0";
 
 /// Generation of the engine's binary interface: the layout of its public types and the signatures
 /// of its exported functions.
