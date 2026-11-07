@@ -20,8 +20,9 @@
 /// **The display mode keeps its meaning.** The preview plays the proxies only while it shows the autostretch display
 /// with the settings they hold, and presents them as they are, since they are that display. The linear display, or
 /// other settings, shows the original files, so the picture is always the one the mode selector names; the proxies
-/// come back, unwritten, with the display they hold. Optimizing under other settings replaces every proxy. The linear
-/// display needs no proxy to play: it plays the files themselves, whose samples nothing has to stretch.
+/// come back, unwritten, with the display they hold. Optimizing under other settings replaces every proxy. No display
+/// needs a proxy to play: without one, the files themselves play, the autostretch display stretching each frame as it
+/// is shown; the proxies make it faster.
 ///
 /// **A file is measured once.** The statistics the preview's overlay shows and the histogram's counts are each file's,
 /// measured from the file - never from its proxy - and kept while it is listed: by the optimization, which reads every

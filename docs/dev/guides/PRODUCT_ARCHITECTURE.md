@@ -810,8 +810,8 @@ neither combined nor judged by a rejection. The tools call the engine rather tha
 carry its project, manifest and artifact tracking, while a tool's run is one directory of outputs. The analyzer's proxies
 are the file stretched through `autostretchFrame` and written in eight bits, each keeping the autostretch settings
 it was written through: the preview plays them only in the autostretch display with those settings, presented as
-they are, and the original files in any other display, so its mode selector names what it shows; the linear
-display plays the files themselves. Each file's statistics and histogram are measured once, from the file, by the
+they are, and the original files in any other display, so its mode selector names what it shows; without
+proxies, every display plays the files themselves. Each file's statistics and histogram are measured once, from the file, by the
 optimization or one file at a time as frames are shown, and kept while it is listed. Every window
 reads its settings on the GUI thread, runs on the thread pool and closes without waiting. `Test_ProcessesWorkflowTools`
 holds the four windows and the shared records over frames it writes, the companions stood in.

@@ -4,7 +4,7 @@
 /// @file
 /// Image List Analyzer: the files listed play as an image-list sequence, fitted to the preview when it first shows
 /// them; Optimize For Fast Play writes each file's proxy as it is shown - stretched, in eight bits - and the preview
-/// then plays the proxies in the autostretch display they hold, and the original files in any other, the linear display
+/// then plays the proxies in the autostretch display they hold, and the original files in any other, every display
 /// playing them without any optimization; each file's statistics and histogram are measured once, from the file, and
 /// shown whenever its frame is; a removed file's proxy goes with it, Export Sequence opens over the original files, the
 /// playback rate is what the window keeps, and a window closed while it works waits for nothing.
@@ -399,7 +399,7 @@ TEST_F(AnalyzerTest, TheLinearDisplayPlaysTheOriginalFilesAndAutostretchPlaysThe
     EXPECT_TRUE(play->isEnabled());
 }
 
-TEST_F(AnalyzerTest, TheLinearDisplayPlaysTheFilesWithoutAnyOptimization)
+TEST_F(AnalyzerTest, EveryDisplayPlaysTheFilesWithoutAnyOptimization)
 {
     const QStringList fields = writeFields();
     AnalyzerWindow window;
@@ -409,26 +409,42 @@ TEST_F(AnalyzerTest, TheLinearDisplayPlaysTheFilesWithoutAnyOptimization)
     QComboBox* mode = displayModeOf(window);
     ASSERT_NE(mode, nullptr);
 
-    // Unoptimized, the autostretch display does not play, and says where the files do.
-    QAction* play = playActionOf(window);
-    ASSERT_NE(play, nullptr);
-    EXPECT_FALSE(play->isEnabled());
-    EXPECT_TRUE(play->toolTip().contains(QStringLiteral("Linear"))) << play->toolTip().toStdString();
+    // Plays the list through, from its first frame, and says whether it reached the last.
+    const auto playedThrough = [&window, &fields]() {
+        auto* player = dynamic_cast<SequencePlayerControl*>(window.window->previewView()->sequencePlayer());
+        QAction* play = playActionOf(window);
+        if (player == nullptr || play == nullptr || !play->isEnabled())
+        {
+            return false;
+        }
+        player->setCurrentFrame(0u, {});
+        if (!pumpUntil(
+                [&window, player]() { return settled(window) && player->isIdle() && player->currentFrame() == 0u; }))
+        {
+            return false;
+        }
+        const std::uint64_t shownBefore = player->framesShown();
+        play->trigger();
+        return pumpUntil([player]() { return !player->isPlaying(); }) &&
+               pumpUntil([&window]() { return settled(window); }) &&
+               player->currentFrame() + 1u == static_cast<std::uint64_t>(fields.size()) &&
+               player->framesShown() - shownBefore >= static_cast<std::uint64_t>(fields.size() - 1);
+    };
 
+    // Unoptimized, the autostretch display plays the files, stretching each frame as it is shown.
+    EXPECT_EQ(mode->currentText().toStdString(), "Autostretch");
+    EXPECT_EQ(window.window->optimizationStatusText().toStdString(), "Images Not Optimized");
+    EXPECT_TRUE(playedThrough()) << "the autostretch display plays the files";
+    EXPECT_TRUE(previewPlays(window, fields));
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::Float32);
+    EXPECT_EQ(window.window->previewView()->getViewWidget()->presentationRequest().stretch,
+              an::PresentationStretch::Automatic);
+
+    // And so does the linear display.
     mode->setCurrentText(QStringLiteral("Linear"));
     ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
     EXPECT_EQ(window.window->optimizationStatusText().toStdString(), "No Optimization Needed");
-    play = playActionOf(window);
-    ASSERT_NE(play, nullptr);
-    ASSERT_TRUE(play->isEnabled());
-    auto* player = dynamic_cast<SequencePlayerControl*>(window.window->previewView()->sequencePlayer());
-    ASSERT_NE(player, nullptr);
-    const std::uint64_t shownBefore = player->framesShown();
-    play->trigger();
-    ASSERT_TRUE(pumpUntil([player]() { return !player->isPlaying(); }));
-    ASSERT_TRUE(pumpUntil([&window]() { return settled(window); }));
-    EXPECT_EQ(player->currentFrame() + 1u, static_cast<std::uint64_t>(fields.size())) << "it played to the last frame";
-    EXPECT_GE(player->framesShown() - shownBefore, static_cast<std::uint64_t>(fields.size() - 1));
+    EXPECT_TRUE(playedThrough()) << "the linear display plays the files";
     EXPECT_FALSE(window.window->imagesOptimized());
     for (const QString& field : fields)
     {
@@ -592,7 +608,7 @@ TEST_F(AnalyzerTest, TheProxiesPlayOnlyThroughTheStretchTheyHold)
     EXPECT_EQ(shownRepresentation(window), an::SampleType::Float32);
     EXPECT_EQ(view->presentationRequest().stretch, an::PresentationStretch::Automatic);
     EXPECT_FALSE(window.window->imagesOptimized());
-    EXPECT_EQ(window.window->optimizationStatusText().toStdString(), "Images Need Optimization");
+    EXPECT_EQ(window.window->optimizationStatusText().toStdString(), "Images Not Optimized");
     EXPECT_TRUE(window.window->ui().optimizeButton->isEnabled());
 
     // The settings the proxies hold bring them back, as they were written.

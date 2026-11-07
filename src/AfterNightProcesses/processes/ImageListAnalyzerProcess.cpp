@@ -1142,7 +1142,6 @@ void ImageListAnalyzerProcess::updateOptimizationControls()
     const bool autostretch = m_impl->preview->isAutoStretchEnabled();
     QString text;
     QString tooltip;
-    QString playTooltip;
     an::ui::styling::SemanticColorRole role = an::ui::styling::SemanticColorRole::StatusSuccess;
     if (!any)
     {
@@ -1162,14 +1161,15 @@ void ImageListAnalyzerProcess::updateOptimizationControls()
         const bool otherSettings =
             std::any_of(m_impl->proxies.cbegin(), m_impl->proxies.cend(),
                         [&shown](const auto& entry) { return !(entry.second.stretch == shown); });
-        text = QStringLiteral("Images Need Optimization");
-        tooltip = otherSettings ? QStringLiteral("The images were optimized for other Autostretch settings. Click "
-                                                 "Optimize to optimize them for these.")
-                                : QStringLiteral("Images need to be optimized for smooth playback in the "
-                                                 "Autostretch display. Click Optimize to start.");
-        playTooltip = QStringLiteral("In the Autostretch display, images must be optimized before playback. Click "
-                                     "Optimize to start, or choose the Linear display to play the original files.");
-        role = an::ui::styling::SemanticColorRole::StatusError;
+        // The autostretch display plays the files themselves, stretching each frame as it is shown; the proxies
+        // only make it faster.
+        text = QStringLiteral("Images Not Optimized");
+        tooltip = otherSettings ? QStringLiteral("The images were optimized for other Autostretch settings, so the "
+                                                 "original files play, stretched as they are shown. Click Optimize "
+                                                 "to write proxies for these settings, which play faster.")
+                                : QStringLiteral("The original files play, stretched as they are shown. Click "
+                                                 "Optimize to write stretched proxies, which play faster.");
+        role = an::ui::styling::SemanticColorRole::StatusWarning;
     }
     else
     {
@@ -1189,11 +1189,8 @@ void ImageListAnalyzerProcess::updateOptimizationControls()
     m_impl->ui.optimizeButton->setEnabled(any && !optimized && !busy());
     if (auto* player = dynamic_cast<SequencePlayerControl*>(m_impl->preview->sequencePlayer()))
     {
-        // The linear display plays the files themselves; the autostretch display plays only their proxies, which
-        // are what make it fast and which leave any display they do not hold.
-        player->setPlayButtonEnabled(
-            any && (autostretch ? optimized && m_impl->previewShowsProxies : !m_impl->previewShowsProxies),
-            playTooltip);
+        // Every display plays: the proxies where they hold the display shown, the files themselves otherwise.
+        player->setPlayButtonEnabled(any);
     }
 }
 
