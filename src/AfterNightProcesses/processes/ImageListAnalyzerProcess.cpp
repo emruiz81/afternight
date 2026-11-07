@@ -3,7 +3,7 @@
 
 /// @file
 /// The Image List Analyzer window: the shared file list, a preview that plays the list as an image-list sequence, and
-/// the stretched eight-bit proxies that let it play fast.
+/// the stretched eight-bit proxies that let it play fast in the autostretch display they hold.
 
 #include "stdafx.hpp"
 #include "ImageListAnalyzerProcess.h"
@@ -27,6 +27,8 @@
 #include "session/IEngineSessionProvider.h"
 #include "theme/AnDesignTokens.h"
 #include "widgets/HistogramCompanions.h"
+#include "widgets/ImageViewWidget.h"
+#include "widgets/ImageViewWidgetDisplayModule.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
 #include <AfterNightConsumerRuntime/OperationScope.h>
@@ -53,9 +55,12 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <atomic>
+#include <iterator>
 #include <stop_token>
 #include <utility>
+#include <vector>
 
 using an::ui::processes::WorkflowFile;
 using an::ui::processes::WorkflowFileColumn;
@@ -224,6 +229,40 @@ private:
     std::function<void()> m_shown;
 };
 
+/// Tells the window when the preview's display changes: its mode, or the settings of its automatic stretch. It draws
+/// nothing.
+class PreviewDisplayWatcher final : public ImageViewWidgetDisplayModule
+{
+public:
+    explicit PreviewDisplayWatcher(std::function<void()> changed) : m_changed(std::move(changed)) {}
+
+    void onDraw(QPainter& painter) override
+    {
+        Q_UNUSED(painter);
+    }
+
+    void onDisplayModeChanged(const ImageViewMode mode) override
+    {
+        Q_UNUSED(mode);
+        m_changed();
+    }
+
+    void onAutostretchContextChanged() override
+    {
+        m_changed();
+    }
+
+private:
+    std::function<void()> m_changed;
+};
+
+/// A file's proxy: where it was written, and the automatic stretch settings it holds.
+struct ProxyFile
+{
+    QString path;
+    AutostretchParams stretch;
+};
+
 } // namespace
 
 struct ImageListAnalyzerProcess::Impl
@@ -231,18 +270,29 @@ struct ImageListAnalyzerProcess::Impl
     an::ui::processes::ImageListAnalyzerProcessUiElements ui;
     ImageViewControl* preview = nullptr;
     std::unique_ptr<PreviewListener> previewListener;
+    std::unique_ptr<PreviewDisplayWatcher> displayWatcher;
     std::unique_ptr<WorkflowFileList> files;
     std::unique_ptr<an::ui::HistogramCountScheduler> histogram;
     std::unique_ptr<QTemporaryDir> temporary;
 
     /// Each listed file's proxy, by the file's path.
-    std::unordered_map<QString, QString> proxies;
+    std::unordered_map<QString, ProxyFile> proxies;
+
+    /// The stretch settings proxies were written through, in the order first used: the proxies of each are written in
+    /// a directory of its own, so a proxy of new settings never takes the name of the one it replaces.
+    std::vector<AutostretchParams> proxyStretches;
 
     /// The preview sequence asked for last; a sequence that lands under an older one is dropped.
     std::uint64_t previewGeneration = 0u;
     std::uint64_t previewsInFlight = 0u;
     QString previewManifest;
+    /// Whether the preview sequence asked for last plays the proxies.
+    bool previewAskedForProxies = false;
+    /// Whether the preview shows proxies, and the stretch settings they hold.
     bool previewShowsProxies = false;
+    AutostretchParams previewProxyStretch;
+    /// Whether a change of the preview's display waits for the event loop to be followed.
+    bool displayChangeQueued = false;
 
     /// The proxies being written, or none.
     bool optimizing = false;
@@ -250,6 +300,19 @@ struct ImageListAnalyzerProcess::Impl
 
     double framesPerSecond = kDefaultFramesPerSecond;
     bool ignoreFrameChange = false;
+
+    /// The directory of the proxies holding a stretch, made when first asked for; empty when it cannot be made.
+    [[nodiscard]] QString proxyDirectory(const AutostretchParams& stretch)
+    {
+        const auto known = std::find(proxyStretches.begin(), proxyStretches.end(), stretch);
+        const auto index = static_cast<std::size_t>(std::distance(proxyStretches.begin(), known));
+        if (known == proxyStretches.end())
+        {
+            proxyStretches.push_back(stretch);
+        }
+        const QString directory = QDir(temporary->path()).filePath(QStringLiteral("stretch_%1").arg(index));
+        return QDir().mkpath(directory) ? directory : QString();
+    }
 };
 
 ImageListAnalyzerProcess::ImageListAnalyzerProcess(QWidget* parent)
@@ -274,7 +337,11 @@ ImageListAnalyzerProcess::ImageListAnalyzerProcess(QWidget* parent)
     QObject::connect(ui.optimizeButton, &QPushButton::released, this, &ImageListAnalyzerProcess::optimize);
 
     m_impl->preview = process_utils::createStaticPreviewInPlaceholder(ui.imagePreviewWidget, "Image Preview");
+    // The preview starts in the autostretch display, the one linear frames are seen in and the one the proxies hold.
+    m_impl->preview->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
     m_impl->previewListener = std::make_unique<PreviewListener>(m_impl->preview, [this]() { previewFrameShown(); });
+    m_impl->displayWatcher = std::make_unique<PreviewDisplayWatcher>([this]() { previewDisplayChanged(); });
+    m_impl->displayWatcher->attachToViewWidget(m_impl->preview->getViewWidget());
     m_impl->histogram = std::make_unique<an::ui::HistogramCountScheduler>(ui.histogramWidget);
     ui.histogramWidget->setClippingInfoEnabled(false);
 
@@ -317,6 +384,7 @@ ImageListAnalyzerProcess::ImageListAnalyzerProcess(QWidget* parent)
 
 ImageListAnalyzerProcess::~ImageListAnalyzerProcess()
 {
+    m_impl->displayWatcher.reset();
     m_impl->previewListener.reset();
 }
 
@@ -347,7 +415,7 @@ void ImageListAnalyzerProcess::removeItems(const std::vector<QString>& items)
     {
         if (const auto it = m_impl->proxies.find(path); it != m_impl->proxies.end())
         {
-            QFile::remove(it->second);
+            QFile::remove(it->second.path);
             m_impl->proxies.erase(it);
         }
     }
@@ -367,14 +435,16 @@ ImageViewControl* ImageListAnalyzerProcess::previewView() const
 bool ImageListAnalyzerProcess::isIdle() const
 {
     return m_impl->files->idle() && !m_impl->optimizing && m_impl->previewsInFlight == 0u &&
-           (m_impl->histogram == nullptr || m_impl->histogram->isIdle());
+           !m_impl->displayChangeQueued && (m_impl->histogram == nullptr || m_impl->histogram->isIdle());
 }
 
 bool ImageListAnalyzerProcess::imagesOptimized() const
 {
+    const AutostretchParams shown = m_impl->preview->getAutostretchSettings();
     for (const WorkflowFile& file : m_impl->files->files())
     {
-        if (m_impl->proxies.count(file.path()) == 0u)
+        const auto it = m_impl->proxies.find(file.path());
+        if (it == m_impl->proxies.end() || !(it->second.stretch == shown))
         {
             return false;
         }
@@ -385,7 +455,7 @@ bool ImageListAnalyzerProcess::imagesOptimized() const
 QString ImageListAnalyzerProcess::proxyPathOf(const QString& path) const
 {
     const auto it = m_impl->proxies.find(path);
-    return it == m_impl->proxies.end() ? QString() : it->second;
+    return it == m_impl->proxies.end() ? QString() : it->second.path;
 }
 
 QString ImageListAnalyzerProcess::previewSequencePath() const
@@ -410,30 +480,44 @@ void ImageListAnalyzerProcess::optimize()
     {
         return;
     }
+    // The settings are read here, on the GUI thread, so the workers read none.
+    const AutostretchParams shown = m_impl->preview->getAutostretchSettings();
+    std::vector<QString> sources;
+    for (const WorkflowFile& file : m_impl->files->files())
+    {
+        // A file whose proxy holds other stretch settings has none for these.
+        const auto it = m_impl->proxies.find(file.path());
+        if (it == m_impl->proxies.end() || !(it->second.stretch == shown))
+        {
+            sources.push_back(file.path());
+        }
+    }
+    if (sources.empty())
+    {
+        updateOptimizationControls();
+        return;
+    }
+    const QString directory = m_impl->proxyDirectory(shown);
+    if (directory.isEmpty())
+    {
+        LOG_WARNING("Image List Analyzer: no folder for the proxies could be made in '{}'",
+                    m_impl->temporary->path().toStdString());
+        return;
+    }
     struct Pending
     {
         QString source;
         QString proxy;
     };
     std::vector<Pending> pending;
-    for (const WorkflowFile& file : m_impl->files->files())
+    pending.reserve(sources.size());
+    for (const QString& source : sources)
     {
-        if (m_impl->proxies.count(file.path()) == 0u)
-        {
-            pending.push_back(
-                Pending{file.path(), QDir(m_impl->temporary->path())
-                                         .filePath(ImageListProcessHelpers::optimizedProxyFileName(file.path()))});
-        }
+        pending.push_back(
+            Pending{source, QDir(directory).filePath(ImageListProcessHelpers::optimizedProxyFileName(source))});
     }
-    if (pending.empty())
-    {
-        updateOptimizationControls();
-        return;
-    }
-
-    // The settings are read here, on the GUI thread, so the workers read none.
     const an::DemosaicMethod demosaic = an::ui::demosaicMethodFromSettings();
-    const an::ui::AutostretchApplySettings stretch = stretchOf(m_impl->preview->getAutostretchSettings());
+    const an::ui::AutostretchApplySettings stretch = stretchOf(shown);
 
     auto* progress = new ProgressDialogControl(this, QStringLiteral("Optimizing image list"));
     progress->setProgressBarRange(0, 100);
@@ -448,7 +532,8 @@ void ImageListAnalyzerProcess::optimize()
     QPointer<ProgressDialogControl> dialog(progress);
     const std::stop_token windowStop = windowStopToken();
     const std::stop_token cancel = progress->stopToken();
-    QThreadPool::globalInstance()->start([session, pending, demosaic, stretch, guard, dialog, windowStop, cancel]() {
+    QThreadPool::globalInstance()->start([session, pending, demosaic, stretch, shown, guard, dialog, windowStop,
+                                          cancel]() {
         std::stop_source stop;
         const std::stop_callback onClose(windowStop, [&stop]() { stop.request_stop(); });
         const std::stop_callback onCancel(cancel, [&stop]() { stop.request_stop(); });
@@ -487,7 +572,7 @@ void ImageListAnalyzerProcess::optimize()
                 }
             });
         }
-        postToGui([guard, dialog, written, failures, stopped]() {
+        postToGui([guard, dialog, written, failures, stopped, shown]() {
             if (dialog)
             {
                 dialog->closeAsync();
@@ -501,17 +586,34 @@ void ImageListAnalyzerProcess::optimize()
                 return;
             }
             Impl& impl = *guard->m_impl;
+            std::vector<QString> replaced;
             for (auto& [source, proxy] : *written)
             {
                 // A file removed while its proxy was being written has no row to show it.
-                if (guard->m_impl->files->rowOf(source) >= 0)
+                if (impl.files->rowOf(source) >= 0)
                 {
-                    impl.proxies.insert_or_assign(source, proxy);
+                    if (const auto it = impl.proxies.find(source); it != impl.proxies.end() && it->second.path != proxy)
+                    {
+                        replaced.push_back(it->second.path);
+                    }
+                    impl.proxies.insert_or_assign(source, ProxyFile{proxy, shown});
                 }
                 else
                 {
                     QFile::remove(proxy);
                 }
+            }
+            // A proxy of other stretch settings gives way to the one written now, once the preview lets it go: a
+            // preview that shows proxies shows every file's.
+            if (!replaced.empty() && impl.previewShowsProxies)
+            {
+                impl.previewShowsProxies = false;
+                impl.preview->clear();
+                guard->updateSummaryAndHistogram();
+            }
+            for (const QString& proxy : replaced)
+            {
+                QFile::remove(proxy);
             }
             impl.optimizing = false;
             impl.progress.clear();
@@ -686,7 +788,7 @@ void ImageListAnalyzerProcess::listChanged()
     {
         if (m_impl->files->rowOf(it->first) < 0)
         {
-            QFile::remove(it->second);
+            QFile::remove(it->second.path);
             it = m_impl->proxies.erase(it);
         }
         else
@@ -752,6 +854,56 @@ void ImageListAnalyzerProcess::keepPlayerRate()
     }
 }
 
+void ImageListAnalyzerProcess::previewDisplayChanged()
+{
+    // Heard while the view changes its display - inside its selector's signal, say - where following the change would
+    // clear the view, and so rebuild that selector, under its own signal.
+    if (m_impl->displayChangeQueued)
+    {
+        return;
+    }
+    m_impl->displayChangeQueued = true;
+    QMetaObject::invokeMethod(
+        this,
+        [this]() {
+            m_impl->displayChangeQueued = false;
+            followPreviewDisplay();
+        },
+        Qt::QueuedConnection);
+}
+
+void ImageListAnalyzerProcess::followPreviewDisplay()
+{
+    dropProxiesOfAnotherDisplay();
+    if (previewPlaysProxies() != m_impl->previewAskedForProxies)
+    {
+        rebuildPreviewSequence();
+    }
+    updateOptimizationControls();
+}
+
+bool ImageListAnalyzerProcess::proxiesHoldTheDisplay(const AutostretchParams& stretch) const
+{
+    return m_impl->preview->isAutoStretchEnabled() && m_impl->preview->getAutostretchSettings() == stretch;
+}
+
+bool ImageListAnalyzerProcess::previewPlaysProxies() const
+{
+    return !m_impl->files->files().empty() && m_impl->preview->isAutoStretchEnabled() && imagesOptimized();
+}
+
+void ImageListAnalyzerProcess::dropProxiesOfAnotherDisplay()
+{
+    if (m_impl->previewShowsProxies && !proxiesHoldTheDisplay(m_impl->previewProxyStretch))
+    {
+        // Shown in another display, the proxies would show what it is not: they go at once, and the files take their
+        // place when they are read.
+        m_impl->previewShowsProxies = false;
+        m_impl->preview->clear();
+        updateSummaryAndHistogram();
+    }
+}
+
 void ImageListAnalyzerProcess::rebuildPreviewSequence()
 {
     const an::consumer::EngineSession* session = currentSession();
@@ -764,18 +916,23 @@ void ImageListAnalyzerProcess::rebuildPreviewSequence()
     }
     if (files.empty() || session == nullptr || m_impl->temporary == nullptr || !m_impl->temporary->isValid())
     {
+        m_impl->previewAskedForProxies = false;
+        m_impl->previewShowsProxies = false;
         m_impl->preview->clear();
         m_impl->previewManifest.clear();
         updateSummaryAndHistogram();
         return;
     }
-    // Every file has a proxy or none is played: a manifest describes its frames by the first one.
-    const bool proxies = imagesOptimized();
+    // The proxies play in the display they hold, every file's or none: a manifest describes its frames by the first
+    // one.
+    const bool proxies = previewPlaysProxies();
+    const AutostretchParams stretch = m_impl->preview->getAutostretchSettings();
+    m_impl->previewAskedForProxies = proxies;
     std::vector<QString> paths;
     paths.reserve(files.size());
     for (const WorkflowFile& file : files)
     {
-        paths.push_back(proxies ? m_impl->proxies.at(file.path()) : file.path());
+        paths.push_back(proxies ? m_impl->proxies.at(file.path()).path : file.path());
     }
     const an::ImageDescriptor& firstFile = files.front().entry.descriptor;
     ListFrame first{firstFile.extent().width(), firstFile.extent().height(), firstFile.extent().channelCount(),
@@ -798,10 +955,10 @@ void ImageListAnalyzerProcess::rebuildPreviewSequence()
     const std::stop_token stop = windowStopToken();
     ++m_impl->previewsInFlight;
     QThreadPool::globalInstance()->start(
-        [session, manifestPath, manifest, guard, stop, generation, proxies, selected]() {
+        [session, manifestPath, manifest, guard, stop, generation, proxies, stretch, selected]() {
             auto opened = std::make_shared<an::Result<an::ui::ImageDocument>>(
                 writeAndOpenList(*session, manifestPath, manifest, stop));
-            postToGui([guard, opened, generation, proxies, selected, manifestPath]() {
+            postToGui([guard, opened, generation, proxies, stretch, selected, manifestPath]() {
                 if (!guard)
                 {
                     return;
@@ -817,6 +974,7 @@ void ImageListAnalyzerProcess::rebuildPreviewSequence()
                 {
                     LOG_WARNING("Image List Analyzer: the preview sequence could not be opened: {}",
                                 opened->status().message());
+                    impl.previewShowsProxies = false;
                     impl.preview->clear();
                     guard->updateSummaryAndHistogram();
                     return;
@@ -836,10 +994,12 @@ void ImageListAnalyzerProcess::rebuildPreviewSequence()
                 }
                 impl.previewManifest = manifestPath;
                 impl.previewShowsProxies = proxies;
+                impl.previewProxyStretch = stretch;
                 // A rate the person set while the preview was being made is kept.
                 guard->keepPlayerRate();
-                // A proxy is already stretched; an original file is shown with the automatic stretch.
-                impl.preview->setViewMode(proxies ? ImageViewMode::LINEAR_MODE : ImageViewMode::AUTOSTRETCH_MODE);
+                // A proxy is the autostretch display it holds, shown as it is; an original file is shown in the
+                // display mode the person chose.
+                impl.preview->getViewWidget()->setImageHoldsAutostretch(proxies);
                 impl.preview->setSequenceDocument(std::move(**opened), true);
                 if (auto* player = dynamic_cast<SequencePlayerControl*>(impl.preview->sequencePlayer()))
                 {
@@ -857,24 +1017,43 @@ void ImageListAnalyzerProcess::updateOptimizationControls()
     QLabel* label = m_impl->ui.showInfoLabel;
     const bool any = !m_impl->files->files().empty();
     const bool optimized = imagesOptimized();
+    const bool autostretch = m_impl->preview->isAutoStretchEnabled();
     QString text;
     QString tooltip;
+    QString playTooltip;
     an::ui::styling::SemanticColorRole role = an::ui::styling::SemanticColorRole::StatusSuccess;
     if (!any)
     {
         text = QStringLiteral("No Optimization Needed");
         tooltip = QStringLiteral("Image list is empty. No optimization is needed");
     }
-    else if (optimized)
+    else if (!optimized)
     {
-        text = QStringLiteral("Images Already Optimized");
-        tooltip = QStringLiteral("Images are already optimized for smooth playback.");
+        const AutostretchParams shown = m_impl->preview->getAutostretchSettings();
+        const bool otherSettings =
+            std::any_of(m_impl->proxies.cbegin(), m_impl->proxies.cend(),
+                        [&shown](const auto& entry) { return !(entry.second.stretch == shown); });
+        text = QStringLiteral("Images Need Optimization");
+        tooltip = otherSettings ? QStringLiteral("The images were optimized for other Autostretch settings. Click "
+                                                 "Optimize to optimize them for these.")
+                                : QStringLiteral("Images need to be optimized for smooth playback. Click Optimize to "
+                                                 "start.");
+        playTooltip = QStringLiteral("Images must be optimized before playback. Click Optimize to start.");
+        role = an::ui::styling::SemanticColorRole::StatusError;
+    }
+    else if (!autostretch)
+    {
+        text = QStringLiteral("Fast Play Needs Autostretch");
+        tooltip = QStringLiteral("The optimized images hold the Autostretch display, so they play only in it. The "
+                                 "Linear display shows the original files, which do not play.");
+        playTooltip = QStringLiteral("Fast play shows the optimized images, which hold the Autostretch display. "
+                                     "Choose the Autostretch display mode to play.");
+        role = an::ui::styling::SemanticColorRole::StatusWarning;
     }
     else
     {
-        text = QStringLiteral("Images Need Optimization");
-        tooltip = QStringLiteral("Images need to be optimized for smooth playback. Click Optimize to start.");
-        role = an::ui::styling::SemanticColorRole::StatusError;
+        text = QStringLiteral("Images Already Optimized");
+        tooltip = QStringLiteral("Images are already optimized for smooth playback.");
     }
     label->setTextFormat(Qt::PlainText);
     label->setText(text);
@@ -889,11 +1068,9 @@ void ImageListAnalyzerProcess::updateOptimizationControls()
     m_impl->ui.optimizeButton->setEnabled(any && !optimized && !busy());
     if (auto* player = dynamic_cast<SequencePlayerControl*>(m_impl->preview->sequencePlayer()))
     {
-        // A list plays only once it plays proxies, which is what makes it fast.
-        player->setPlayButtonEnabled(any && optimized && m_impl->previewShowsProxies,
-                                     any && !optimized ? QStringLiteral("Images must be optimized before playback. "
-                                                                        "Click Optimize to start.")
-                                                       : QString());
+        // A list plays only while it plays proxies, which is what makes it fast; they leave any display they do not
+        // hold.
+        player->setPlayButtonEnabled(any && optimized && m_impl->previewShowsProxies, playTooltip);
     }
 }
 

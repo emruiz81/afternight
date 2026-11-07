@@ -3,9 +3,9 @@
 
 /// @file
 /// Image List Analyzer: the files listed play as an image-list sequence, Optimize For Fast Play writes each file's
-/// proxy as it is shown - stretched, in eight bits - and the preview then plays the proxies, a removed file's proxy
-/// goes with it, Export Sequence opens over the original files, the playback rate is what the window keeps, and a
-/// window closed while it works waits for nothing.
+/// proxy as it is shown - stretched, in eight bits - and the preview then plays the proxies in the autostretch display
+/// they hold, and the original files in any other, a removed file's proxy goes with it, Export Sequence opens over the
+/// original files, the playback rate is what the window keeps, and a window closed while it works waits for nothing.
 
 #include "Test_ProcessesWorkflowTools/WorkflowToolsTestSupport.h"
 
@@ -14,11 +14,16 @@
 #include "controls/SequencePlayerControl.h"
 #include "processes/ImageListAnalyzerProcess.h"
 #include "processes/WorkflowToolFiles.h"
+#include "widgets/ImageViewWidget.h"
+#include "widgets/PresentationBridge.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
 #include <AfterNightConsumerRuntime/OperationScope.h>
 
+#include <QAction>
 #include <QApplication>
+#include <QComboBox>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -58,6 +63,111 @@ struct AnalyzerWindow
     ImageListAnalyzerProcess* window;
 };
 
+/// The preview's display mode selector, or null.
+[[nodiscard]] QComboBox* displayModeOf(const AnalyzerWindow& window)
+{
+    for (QComboBox* combo : window.window->previewView()->findChildren<QComboBox*>())
+    {
+        if (combo->accessibleName() == QStringLiteral("Display Mode"))
+        {
+            return combo;
+        }
+    }
+    return nullptr;
+}
+
+/// The preview player's Play action, or null.
+[[nodiscard]] QAction* playActionOf(const AnalyzerWindow& window)
+{
+    auto* player = dynamic_cast<SequencePlayerControl*>(window.window->previewView()->sequencePlayer());
+    if (player == nullptr)
+    {
+        return nullptr;
+    }
+    for (QAction* action : player->actions())
+    {
+        if (action->text() == QStringLiteral("Play sequence"))
+        {
+            return action;
+        }
+    }
+    return nullptr;
+}
+
+/// Whether the image list the preview plays names every one of these files.
+[[nodiscard]] bool previewPlays(const AnalyzerWindow& window, const QStringList& paths)
+{
+    QFile manifest(window.window->previewSequencePath());
+    if (paths.isEmpty() || !manifest.open(QIODevice::ReadOnly))
+    {
+        return false;
+    }
+    const QString text = QString::fromUtf8(manifest.readAll());
+    return std::all_of(paths.cbegin(), paths.cend(),
+                       [&text](const QString& path) { return text.contains(QFileInfo(path).fileName()); });
+}
+
+/// Whether nothing the window or its preview started is on its way: no file, sequence, frame or presentation.
+[[nodiscard]] bool settled(const AnalyzerWindow& window)
+{
+    return window.window->isIdle() && window.window->previewView()->isWorkIdle();
+}
+
+/// The representation of the frame the preview shows, or nothing.
+[[nodiscard]] std::optional<an::SampleType> shownRepresentation(const AnalyzerWindow& window)
+{
+    const std::optional<an::ImageDescriptor> shown = window.window->previewView()->imageDescriptor();
+    return shown.has_value() ? std::optional<an::SampleType>(shown->sampleType()) : std::nullopt;
+}
+
+/// The median of the bytes the preview paints, over its first colour, or nothing before a presentation is painted.
+[[nodiscard]] std::optional<int> paintedMedian(const AnalyzerWindow& window)
+{
+    const std::shared_ptr<const an::ui::PresentedImage> painted =
+        window.window->previewView()->getViewWidget()->presentedImage();
+    if (painted == nullptr || painted->width() == 0u || painted->height() == 0u)
+    {
+        return std::nullopt;
+    }
+    std::vector<int> bytes;
+    bytes.reserve(static_cast<std::size_t>(painted->width()) * painted->height());
+    for (std::uint32_t y = 0u; y < painted->height(); ++y)
+    {
+        for (std::uint32_t x = 0u; x < painted->width(); ++x)
+        {
+            bytes.push_back(painted->pixel(x, y)[0]);
+        }
+    }
+    const auto middle = bytes.begin() + static_cast<std::ptrdiff_t>(bytes.size() / 2u);
+    std::nth_element(bytes.begin(), middle, bytes.end());
+    return *middle;
+}
+
+/// The median of a file's samples, as fractions of full scale, or nothing when it cannot be read.
+[[nodiscard]] std::optional<double> fileMedian(const an::consumer::EngineSession& session, const QString& path)
+{
+    const std::optional<ReadBack> read = readBack(session, path);
+    if (!read.has_value() || read->fractions.empty())
+    {
+        return std::nullopt;
+    }
+    std::vector<double> sorted = read->fractions;
+    const auto middle = sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2u);
+    std::nth_element(sorted.begin(), middle, sorted.end());
+    return *middle;
+}
+
+/// When each file was last written.
+[[nodiscard]] std::vector<QDateTime> writtenAt(const QStringList& paths)
+{
+    std::vector<QDateTime> times;
+    for (const QString& path : paths)
+    {
+        times.push_back(QFileInfo(path).lastModified());
+    }
+    return times;
+}
+
 class AnalyzerTest : public WorkflowCase
 {
 protected:
@@ -81,6 +191,20 @@ protected:
         ASSERT_TRUE(pumpUntil([&window, &paths]() {
             return window.window->isIdle() && window.window->fileList().paths().size() == paths.size();
         }));
+    }
+
+    /// Optimizes the listed files and waits until the preview plays their proxies, which it returns.
+    static QStringList optimized(AnalyzerWindow& window, const QStringList& paths)
+    {
+        window.window->optimize();
+        EXPECT_TRUE(pumpUntil([&window]() { return window.window->isIdle() && window.window->imagesOptimized(); }));
+        QStringList proxies;
+        for (const QString& path : paths)
+        {
+            proxies << window.window->proxyPathOf(path);
+        }
+        EXPECT_TRUE(pumpUntil([&window, &proxies]() { return settled(window) && previewPlays(window, proxies); }));
+        return proxies;
     }
 };
 
@@ -219,6 +343,129 @@ TEST_F(AnalyzerTest, AFileAddedAfterOptimizingHasNoProxyUntilAsked)
     listed(window, fields);
     EXPECT_FALSE(window.window->imagesOptimized());
     EXPECT_TRUE(window.window->proxyPathOf(fields[2]).isEmpty());
+}
+
+TEST_F(AnalyzerTest, TheLinearDisplayShowsTheOriginalFilesAndAutostretchPlaysTheProxiesAgain)
+{
+    const QStringList fields = writeFields();
+    AnalyzerWindow window;
+    window.window->show();
+    listed(window, fields);
+    QComboBox* mode = displayModeOf(window);
+    ASSERT_NE(mode, nullptr);
+    const QStringList proxies = optimized(window, fields);
+    ImageViewWidget* view = window.window->previewView()->getViewWidget();
+
+    // The proxies hold the autostretch display, which the selector names, and are shown as they are.
+    EXPECT_EQ(mode->currentText().toStdString(), "Autostretch");
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::UInt8);
+    EXPECT_EQ(view->presentationRequest().stretch, an::PresentationStretch::Linear) << "a proxy is not stretched twice";
+    QAction* play = playActionOf(window);
+    ASSERT_NE(play, nullptr);
+    EXPECT_TRUE(play->isEnabled());
+    const std::vector<QDateTime> written = writtenAt(proxies);
+
+    // The linear display shows the original files' own samples, and the window says that fast play needs autostretch.
+    mode->setCurrentText(QStringLiteral("Linear"));
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    EXPECT_EQ(mode->currentText().toStdString(), "Linear");
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::Float32);
+    const std::optional<int> linear = paintedMedian(window);
+    ASSERT_TRUE(linear.has_value());
+    EXPECT_LT(*linear, 26) << "the sky at five per cent of full scale, unstretched, sits at thirteen";
+    EXPECT_TRUE(window.window->optimizationStatusText().contains(QStringLiteral("Autostretch")))
+        << window.window->optimizationStatusText().toStdString();
+    EXPECT_FALSE(window.window->ui().optimizeButton->isEnabled()) << "every file has its proxy";
+    play = playActionOf(window);
+    ASSERT_NE(play, nullptr);
+    EXPECT_FALSE(play->isEnabled());
+    EXPECT_TRUE(play->toolTip().contains(QStringLiteral("Autostretch"))) << play->toolTip().toStdString();
+
+    // Back in the autostretch display the proxies play again, as they were written.
+    mode->setCurrentText(QStringLiteral("Autostretch"));
+    ASSERT_TRUE(pumpUntil([&window, &proxies]() { return settled(window) && previewPlays(window, proxies); }));
+    EXPECT_EQ(writtenAt(proxies), written) << "no proxy was written again";
+    EXPECT_EQ(mode->currentText().toStdString(), "Autostretch");
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::UInt8);
+    EXPECT_EQ(view->presentationRequest().stretch, an::PresentationStretch::Linear);
+    const std::optional<int> stretched = paintedMedian(window);
+    ASSERT_TRUE(stretched.has_value());
+    EXPECT_GT(*stretched, 38) << "the proxy's stretched sky";
+    play = playActionOf(window);
+    ASSERT_NE(play, nullptr);
+    EXPECT_TRUE(play->isEnabled());
+}
+
+TEST_F(AnalyzerTest, TheProxiesLeaveThePreviewAtOnceWhenTheLinearDisplayIsChosen)
+{
+    const QStringList fields = writeFields();
+    AnalyzerWindow window;
+    window.window->show();
+    listed(window, fields);
+    const QStringList proxies = optimized(window, fields);
+    QComboBox* mode = displayModeOf(window);
+    ASSERT_NE(mode, nullptr);
+    ASSERT_TRUE(window.window->previewView()->hasImage());
+
+    // The files' sequence waits for the session, which the case holds, so what the preview shows until it lands is
+    // seen.
+    std::optional<an::Result<an::consumer::OperationScope>> held;
+    held.emplace(session().admit(an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch}));
+    ASSERT_TRUE(held->hasValue());
+    mode->setCurrentText(QStringLiteral("Linear"));
+    EXPECT_TRUE(pumpUntil([&window]() { return !window.window->previewView()->hasImage(); }))
+        << "a proxy shown in the linear display would show what that display is not";
+    EXPECT_TRUE(previewPlays(window, proxies)) << "the files are still on their way";
+    held.reset();
+
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    EXPECT_TRUE(window.window->previewView()->hasImage());
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::Float32);
+}
+
+TEST_F(AnalyzerTest, TheProxiesPlayOnlyThroughTheStretchTheyHold)
+{
+    const QStringList fields = writeFields();
+    AnalyzerWindow window;
+    window.window->show();
+    listed(window, fields);
+    const QStringList held = optimized(window, fields);
+    ImageViewWidget* view = window.window->previewView()->getViewWidget();
+    const AutostretchParams heldStretch = view->getAutostretchSettings();
+    AutostretchParams brighter = heldStretch;
+    brighter.targetBackground = heldStretch.targetBackground + 0.2;
+
+    // Other settings, set as the Autostretch Settings window sets them, show the original files stretched through them.
+    view->setAutostretchSettings(brighter);
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::Float32);
+    EXPECT_EQ(view->presentationRequest().stretch, an::PresentationStretch::Automatic);
+    EXPECT_FALSE(window.window->imagesOptimized());
+    EXPECT_EQ(window.window->optimizationStatusText().toStdString(), "Images Need Optimization");
+    EXPECT_TRUE(window.window->ui().optimizeButton->isEnabled());
+
+    // The settings the proxies hold bring them back, as they were written.
+    const std::vector<QDateTime> written = writtenAt(held);
+    view->setAutostretchSettings(heldStretch);
+    ASSERT_TRUE(pumpUntil([&window, &held]() { return settled(window) && previewPlays(window, held); }));
+    EXPECT_EQ(writtenAt(held), written) << "no proxy was written again";
+    EXPECT_TRUE(window.window->imagesOptimized());
+
+    // Optimizing under the other settings writes proxies that hold them, in place of the others.
+    const std::optional<double> heldMedian = fileMedian(session(), held[0]);
+    ASSERT_TRUE(heldMedian.has_value());
+    view->setAutostretchSettings(brighter);
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    const QStringList rewritten = optimized(window, fields);
+    ASSERT_EQ(rewritten.size(), held.size());
+    for (qsizetype index = 0; index < held.size(); ++index)
+    {
+        EXPECT_NE(rewritten[index], held[index]);
+        EXPECT_FALSE(QFileInfo::exists(held[index])) << "a proxy of the other stretch goes";
+    }
+    const std::optional<double> brighterMedian = fileMedian(session(), rewritten[0]);
+    ASSERT_TRUE(brighterMedian.has_value());
+    EXPECT_GT(*brighterMedian, *heldMedian + 0.1) << "the new proxy holds the brighter background";
 }
 
 TEST_F(AnalyzerTest, ExportSequenceOpensOverTheOriginalFiles)
