@@ -7,8 +7,9 @@
 /// failure told to the view's listeners, the Calibrated toggle - shown and enabled independently, unchecked when its
 /// masters go, calibrating the light by every master and setting its configuration states, placed before the display
 /// mode on the toolbar and offered in the overflow menu when the toolbar has no room for it - the empty preview's
-/// toolbar and placeholder, the statistics card measured from the image shown, kept with a preview read before and
-/// moved off the autostretch banner, the display mode combo rebuilt silently and following the mode the image is shown
+/// toolbar and placeholder, the statistics card measured from the image shown - or handed by an owner that keeps them -
+/// kept with a preview read before and moved off the autostretch banner, the display mode combo rebuilt silently and
+/// following the mode the image is shown
 /// in, and the caches the calibration keeps until they are cleared.
 
 #include "Test_ControlsViewer/ViewerTestContext.h"
@@ -494,6 +495,34 @@ TEST_F(StaticPreviewBehavior, TheStatisticsCardMeasuresTheImageThePreviewShows)
     ASSERT_FALSE(recordedCard.isEmpty());
     EXPECT_EQ(colourCard, directCard) << "the card measures the colour image the preview shows";
     EXPECT_NE(colourCard, recordedCard) << "and not the mosaic it was read from";
+}
+
+// A preview whose owner keeps the statistics of what it shows measures none, and its card shows those it is handed.
+TEST_F(StaticPreviewBehavior, APreviewWhoseOwnerKeepsTheStatisticsMeasuresNoneAndShowsThoseItIsHanded)
+{
+    open();
+    const QString first = writeFlat(QStringLiteral("first.fits"), 0.25f);
+    const QString second = writeFlat(QStringLiteral("second.fits"), 0.75f);
+    ViewHandle measuring = makeView("measuring", ViewControlMode::st_preview);
+    measuring->loadImageFromFile(first.toStdString());
+    ASSERT_TRUE(settle(*measuring));
+    ASSERT_TRUE(measuring->previewStatistics().has_value()) << "a preview measures what it shows";
+    const an::ui::ViewImageStatistics measured = *measuring->previewStatistics();
+
+    ViewHandle handed = makeView("handed", ViewControlMode::st_preview);
+    handed->setMeasuresPreviewStatistics(false);
+    handed->loadImageFromFile(second.toStdString());
+    ASSERT_TRUE(settle(*handed));
+    ASSERT_TRUE(handed->hasImage());
+    EXPECT_FALSE(handed->previewStatistics().has_value()) << "it measured nothing";
+
+    handed->showPreviewStatistics(measured);
+    ASSERT_TRUE(handed->previewStatistics().has_value());
+    EXPECT_EQ(handed->previewStatistics()->channel[0].mean, measured.channel[0].mean);
+    EXPECT_FALSE(cardText(*handed).isEmpty());
+    EXPECT_EQ(cardText(*handed), cardText(*measuring)) << "its card shows the statistics it was handed";
+    handed->showPreviewStatistics(std::nullopt);
+    EXPECT_FALSE(handed->previewStatistics().has_value());
 }
 
 // A preview read that fails tells the view's listeners, and the preview shows nothing.

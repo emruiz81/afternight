@@ -117,7 +117,9 @@ is, because that region is painted over the presented one when it lands. A regio
 analysis of the whole image, measured once per revision and kept under its key, never by its own statistics, so the
 image is stretched alike at every zoom and wherever it is panned. An image that holds the automatic stretch
 already - frames written as they were shown, as the Image List Analyzer's proxies are - is stated so by whoever
-shows it (`setImageHoldsAutostretch`), and the autostretch mode presents it as it is. The mask layer is
+shows it (`setImageHoldsAutostretch`), and the autostretch mode presents it as it is. A static preview whose owner
+keeps the statistics of what it shows measures none and shows those it is handed (`setMeasuresPreviewStatistics`,
+`showPreviewStatistics`). The mask layer is
 presented in the same job at the same reduction and region. The bytes are blue-first and premultiplied, taken from the
 context the presentation runs in - whose memory a session keeps for the next frame while a preview is open - wrapped in a
 `QImage` only through `presentedQImage`, whose cleanup owner keeps them alive, and drawn as they are: no pixmap is made
@@ -808,7 +810,9 @@ neither combined nor judged by a rejection. The tools call the engine rather tha
 carry its project, manifest and artifact tracking, while a tool's run is one directory of outputs. The analyzer's proxies
 are the file stretched through `autostretchFrame` and written in eight bits, each keeping the autostretch settings
 it was written through: the preview plays them only in the autostretch display with those settings, presented as
-they are, and the original files in any other display, so its mode selector names what it shows. Every window
+they are, and the original files in any other display, so its mode selector names what it shows; the linear
+display plays the files themselves. Each file's statistics and histogram are measured once, from the file, by the
+optimization or one file at a time as frames are shown, and kept while it is listed. Every window
 reads its settings on the GUI thread, runs on the thread pool and closes without waiting. `Test_ProcessesWorkflowTools`
 holds the four windows and the shared records over frames it writes, the companions stood in.
 

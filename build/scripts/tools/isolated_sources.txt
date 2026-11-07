@@ -4138,6 +4138,7 @@ sources Test_ProcessesWorkflowTools
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
+    header   src/AfterNightControls/widgets/HistogramCompanions.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
     header   src/AfterNightControls/widgets/HistogramWidget.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h

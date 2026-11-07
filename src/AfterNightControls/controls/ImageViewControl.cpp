@@ -1000,6 +1000,7 @@ struct ImageViewControl::Impl
     std::optional<an::ui::ViewImageStatistics> m_StaticPreviewOverlayStats;
     QString m_StaticPreviewCurrentPath;
     bool m_StaticPreviewAutoFitNextImage = false;
+    bool m_MeasuresPreviewStatistics = true;
 
     // The view's work: the read it shows next, the statistics of the preview it shows, the stars of its overlay, and
     // its edits one at a time.
@@ -2957,6 +2958,10 @@ void ImageViewControl::notifyImageLoaded()
 
 void ImageViewControl::requestPreviewStatistics()
 {
+    if (!m_impl->m_MeasuresPreviewStatistics)
+    {
+        return;
+    }
     const an::consumer::EngineSession* session = viewSession();
     if (m_impl->m_ViewControlMode != ViewControlMode::st_preview || session == nullptr || !m_impl->hasImage())
     {
@@ -2981,6 +2986,27 @@ void ImageViewControl::requestPreviewStatistics()
             view.m_impl->m_StaticPreviewCache.setStatistics(asset, *measured);
             view.m_impl->updateStaticPreviewStatsOverlay(*measured);
         });
+}
+
+void ImageViewControl::setMeasuresPreviewStatistics(const bool measures)
+{
+    m_impl->m_MeasuresPreviewStatistics = measures;
+    if (!measures)
+    {
+        m_impl->m_Statistics.cancel();
+    }
+}
+
+void ImageViewControl::showPreviewStatistics(const std::optional<an::ui::ViewImageStatistics>& statistics)
+{
+    CHECK_IF_CONTROL_IS_CLOSING;
+
+    m_impl->updateStaticPreviewStatsOverlay(statistics);
+}
+
+std::optional<an::ui::ViewImageStatistics> ImageViewControl::previewStatistics() const
+{
+    return m_impl->m_StaticPreviewOverlayStats;
 }
 
 void ImageViewControl::notifyImageSaved()

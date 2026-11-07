@@ -20,13 +20,19 @@
 /// **The display mode keeps its meaning.** The preview plays the proxies only while it shows the autostretch display
 /// with the settings they hold, and presents them as they are, since they are that display. The linear display, or
 /// other settings, shows the original files, so the picture is always the one the mode selector names; the proxies
-/// come back, unwritten, with the display they hold. Optimizing under other settings replaces every proxy.
+/// come back, unwritten, with the display they hold. Optimizing under other settings replaces every proxy. The linear
+/// display needs no proxy to play: it plays the files themselves, whose samples nothing has to stretch.
+///
+/// **A file is measured once.** The statistics the preview's overlay shows and the histogram's counts are each file's,
+/// measured from the file - never from its proxy - and kept while it is listed: by the optimization, which reads every
+/// file anyway, or one file at a time as frames are shown, so a frame shown again, or played, is measured by nothing.
 #pragma once
 
 #include "AfterNightProcessesExport.h"
 
 #include "controls/TopLevelProcessBaseControl.h"
 #include "processes/ImageListAnalyzerProcessUiBuilder.h"
+#include "widgets/HistogramDisplayData.h"
 
 #include <QString>
 #include <QStringList>
@@ -87,6 +93,9 @@ public:
     /// Whether every listed file has a proxy holding the preview's automatic stretch settings.
     [[nodiscard]] bool imagesOptimized() const;
 
+    /// How many times a file was read and measured for its statistics, by the optimization or on its own.
+    [[nodiscard]] std::uint64_t filesMeasured() const;
+
     /// The proxy of a file, or empty.
     [[nodiscard]] QString proxyPathOf(const QString& path) const;
 
@@ -126,6 +135,14 @@ private:
     [[nodiscard]] bool previewPlaysProxies() const;
     /// Clears the preview at once when it shows proxies that no longer hold its display.
     void dropProxiesOfAnotherDisplay();
+    /// Shows the statistics of the frame shown from the event loop, once the sequence states which frame it is.
+    void queueFrameStatistics();
+    /// The listed file whose frame the preview shows, or empty.
+    [[nodiscard]] QString shownFile() const;
+    /// Shows the kept statistics of the frame shown, or nothing while its file is measured.
+    void showFrameStatistics();
+    /// Measures a file's statistics on the thread pool, unless another file is being measured.
+    void measureStatistics(const QString& file, an::ui::HistogramResolution resolution);
     void rebuildPreviewSequence();
     void updateOptimizationControls();
     void updateSummaryAndHistogram();
