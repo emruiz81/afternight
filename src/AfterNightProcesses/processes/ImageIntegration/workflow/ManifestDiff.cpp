@@ -11,8 +11,12 @@
 #include <QJsonArray>
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
 #include <map>
 #include <set>
+#include <type_traits>
+#include <utility>
 
 namespace
 {
@@ -44,61 +48,199 @@ bool sameDrizzleKernel(const QString& lhs, const QString& rhs)
            fingerprintChoice(PersistedChoice::DrizzleKernel, rhs);
 }
 
-// StackingSettings expansion checklist:
-// Every new processing-affecting setting must be compared here and mirrored in model/manifest serialization,
-// manifest hashing, and defaults/persistence regression tests.
+/// An initializer that converts to the type of whatever field it initializes, so that one stands for one field.
+struct AnyField
+{
+    template <typename Field> operator Field() const;
+};
+
+/// Whether `Aggregate` can be brace-initialized from as many initializers as `Indices` names.
+template <typename Aggregate, std::size_t... Indices>
+constexpr bool initializedBy(std::index_sequence<Indices...> /*fields*/)
+{
+    return requires { Aggregate{(static_cast<void>(Indices), AnyField{})...}; };
+}
+
+/// The number of fields of an aggregate: the most initializers it can be brace-initialized with.
+template <typename Aggregate, std::size_t Count = 0u> constexpr std::size_t fieldCount()
+{
+    if constexpr (initializedBy<Aggregate>(std::make_index_sequence<Count + 1u>{}))
+    {
+        return fieldCount<Aggregate, Count + 1u>();
+    }
+    else
+    {
+        return Count;
+    }
+}
+
+template <auto Field> bool sameField(const StackingSettings& lhs, const StackingSettings& rhs)
+{
+    return lhs.*Field == rhs.*Field;
+}
+
+template <auto Record, auto Field> bool sameRecordField(const StackingSettings& lhs, const StackingSettings& rhs)
+{
+    return lhs.*Record.*Field == rhs.*Record.*Field;
+}
+
+bool sameDrizzleKernelSetting(const StackingSettings& lhs, const StackingSettings& rhs)
+{
+    return sameDrizzleKernel(lhs.drizzle.kernel, rhs.drizzle.kernel);
+}
+
+constexpr char kStackingChange[] = "Stacking settings changed";
+constexpr char kNormalizationChange[] = "Normalization settings changed";
+constexpr char kDrizzleChange[] = "Drizzle settings changed";
+constexpr char kRegisteredOutputChange[] = "Registered-output policy changed";
+constexpr char kCometChange[] = "Comet stacking mode changed";
+
+// The stack's product is stated by every setting it is made under, so every setting another stage reads is the
+// stack's too. The normalization measures where the stack reads the lights: on the registration's plane, or on a
+// drizzled group's analysis plane, which turning drizzle on or off moves and its scale, drop size, kernel and filter
+// array do not. Whether the alignment writes the registered images is the registered-output policy's, and a comet stack
+// places its lights from the comet's products at every stage.
+constexpr LightStages kStack{LightStage::Stacking};
+constexpr LightStages kNormalized{LightStage::Normalization, LightStage::Stacking};
+constexpr LightStages kDrizzled{LightStage::Drizzle, LightStage::Stacking};
+constexpr LightStages kDrizzlePlane{LightStage::Normalization, LightStage::Drizzle, LightStage::Stacking};
+constexpr LightStages kAligned{LightStage::Alignment, LightStage::Stacking};
+constexpr LightStages kEveryStage{LightStage::Alignment, LightStage::Normalization, LightStage::Drizzle,
+                                  LightStage::Stacking};
+
+template <auto Field>
+constexpr StackingSettingReaders field(const char* name, const LightStages stages, const char* change)
+{
+    return StackingSettingReaders{name, stages, change, &sameField<Field>};
+}
+
+template <auto Record, auto Field>
+constexpr StackingSettingReaders recordField(const char* name, const LightStages stages, const char* change)
+{
+    return StackingSettingReaders{name, stages, change, &sameRecordField<Record, Field>};
+}
+
+constexpr std::array kStackingSettingReaders = {
+    field<&StackingSettings::stackMethod>("stackMethod", kStack, kStackingChange),
+    field<&StackingSettings::rejectionMethod>("rejectionMethod", kStack, kStackingChange),
+    // The automatic recommendation the rejection method was resolved from, kept as provenance: no stage reads it.
+    field<&StackingSettings::requestedRejectionMethod>("requestedRejectionMethod", LightStages{}, ""),
+    field<&StackingSettings::sigmaLow>("sigmaLow", kStack, kStackingChange),
+    field<&StackingSettings::sigmaHigh>("sigmaHigh", kStack, kStackingChange),
+    field<&StackingSettings::weighting>("weighting", kStack, kStackingChange),
+    field<&StackingSettings::createQualityMaps>("createQualityMaps", kStack, kStackingChange),
+    field<&StackingSettings::createRejectionMaps>("createRejectionMaps", kStack, kStackingChange),
+    field<&StackingSettings::mergeRejectionMaps>("mergeRejectionMaps", kStack, kStackingChange),
+    field<&StackingSettings::spatialRejectionClustering>("spatialRejectionClustering", kStack, kStackingChange),
+    field<&StackingSettings::restackExcludingFlaggedFrames>("restackExcludingFlaggedFrames", kStack, kStackingChange),
+    field<&StackingSettings::starCountScaling>("starCountScaling", kStack, kStackingChange),
+    field<&StackingSettings::exponentialAlpha>("exponentialAlpha", kStack, kStackingChange),
+    field<&StackingSettings::minWeightFloor>("minWeightFloor", kStack, kStackingChange),
+    field<&StackingSettings::perChannelFwhmWeighting>("perChannelFwhmWeighting", kStack, kStackingChange),
+    recordField<&StackingSettings::localWeighting, &LocalWeightingSettings::enabled>("localWeighting.enabled", kStack,
+                                                                                     kStackingChange),
+    recordField<&StackingSettings::localWeighting, &LocalWeightingSettings::windowSize>("localWeighting.windowSize",
+                                                                                        kStack, kStackingChange),
+    recordField<&StackingSettings::localWeighting, &LocalWeightingSettings::gridSpacing>("localWeighting.gridSpacing",
+                                                                                         kStack, kStackingChange),
+    recordField<&StackingSettings::localWeighting, &LocalWeightingSettings::snrWeightExponent>(
+        "localWeighting.snrWeightExponent", kStack, kStackingChange),
+    field<&StackingSettings::limitMemory>("limitMemory", kStack, kStackingChange),
+    field<&StackingSettings::maxMemoryMb>("maxMemoryMb", kStack, kStackingChange),
+    field<&StackingSettings::normalizationMode>("normalizationMode", kNormalized, kNormalizationChange),
+    field<&StackingSettings::globalNormalizationMethod>("globalNormalizationMethod", kNormalized, kNormalizationChange),
+    field<&StackingSettings::scaleEstimator>("scaleEstimator", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::overlapNormalization, &OverlapNormalizationSettings::enabled>(
+        "overlapNormalization.enabled", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::overlapNormalization, &OverlapNormalizationSettings::minOverlapPixels>(
+        "overlapNormalization.minOverlapPixels", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::overlapNormalization, &OverlapNormalizationSettings::minOverlapFraction>(
+        "overlapNormalization.minOverlapFraction", kNormalized, kNormalizationChange),
+    field<&StackingSettings::normalizationReferenceMode>("normalizationReferenceMode", kNormalized,
+                                                         kNormalizationChange),
+    field<&StackingSettings::manualNormalizationReference>("manualNormalizationReference", kNormalized,
+                                                           kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::enabled>(
+        "localNormalization.enabled", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::gridSize>(
+        "localNormalization.gridSize", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::gridInterpolation>(
+        "localNormalization.gridInterpolation", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::localScaleEnabled>(
+        "localNormalization.localScaleEnabled", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::referenceStrategy>(
+        "localNormalization.referenceStrategy", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::maxIntegratedFrames>(
+        "localNormalization.maxIntegratedFrames", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::evaluationCriteria>(
+        "localNormalization.evaluationCriteria", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::backgroundEstimator>(
+        "localNormalization.backgroundEstimator", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::backgroundPercentile>(
+        "localNormalization.backgroundPercentile", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::sigmaClipK>(
+        "localNormalization.sigmaClipK", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::sigmaClipIterations>(
+        "localNormalization.sigmaClipIterations", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::backgroundSmoothingRadius>(
+        "localNormalization.backgroundSmoothingRadius", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::scaleEvaluation>(
+        "localNormalization.scaleEvaluation", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::scaleMode>(
+        "localNormalization.scaleMode", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::psfType>(
+        "localNormalization.psfType", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::moffatBeta>(
+        "localNormalization.moffatBeta", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::maxStars>(
+        "localNormalization.maxStars", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::minDetectionSnr>(
+        "localNormalization.minDetectionSnr", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::allowClusteredSources>(
+        "localNormalization.allowClusteredSources", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::lowClip>(
+        "localNormalization.lowClip", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::highClip>(
+        "localNormalization.highClip", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::hotPixelMedianRadius>(
+        "localNormalization.hotPixelMedianRadius", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::noiseReductionRadius>(
+        "localNormalization.noiseReductionRadius", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::localNormalization, &LocalNormalizationSettings::localScaleSmoothingRadius>(
+        "localNormalization.localScaleSmoothingRadius", kNormalized, kNormalizationChange),
+    recordField<&StackingSettings::drizzle, &DrizzleSettings::enabled>("drizzle.enabled", kDrizzlePlane,
+                                                                       kDrizzleChange),
+    recordField<&StackingSettings::drizzle, &DrizzleSettings::scale>("drizzle.scale", kDrizzled, kDrizzleChange),
+    recordField<&StackingSettings::drizzle, &DrizzleSettings::pixelFraction>("drizzle.pixelFraction", kDrizzled,
+                                                                             kDrizzleChange),
+    StackingSettingReaders{"drizzle.kernel", kDrizzled, kDrizzleChange, &sameDrizzleKernelSetting},
+    recordField<&StackingSettings::drizzle, &DrizzleSettings::cfaAware>("drizzle.cfaAware", kDrizzled, kDrizzleChange),
+    recordField<&StackingSettings::drizzle, &DrizzleSettings::cfaPattern>("drizzle.cfaPattern", kDrizzled,
+                                                                          kDrizzleChange),
+    field<&StackingSettings::cometStackingMode>("cometStackingMode", kEveryStage, kCometChange),
+    field<&StackingSettings::solveFinalMasterIfNeeded>("solveFinalMasterIfNeeded", kStack, kStackingChange),
+    field<&StackingSettings::registeredOutputPolicy>("registeredOutputPolicy", kAligned, kRegisteredOutputChange),
+    recordField<&StackingSettings::hdr, &HdrExposureMergeSettings::enabled>("hdr.enabled", kStack, kStackingChange),
+};
+
+// A field added to StackingSettings, or to a settings record it holds, stops the build here until it has its entry
+// above, naming the stages that read it, and the counts below are the new ones.
+static_assert(fieldCount<StackingSettings>() == 30u && fieldCount<LocalWeightingSettings>() == 4u &&
+                  fieldCount<OverlapNormalizationSettings>() == 3u && fieldCount<LocalNormalizationSettings>() == 24u &&
+                  fieldCount<DrizzleSettings>() == 6u && fieldCount<HdrExposureMergeSettings>() == 1u,
+              "A stacking setting was added or removed: give it its entry in kStackingSettingReaders, with the light "
+              "stages that read it, and update the field counts here.");
+static_assert(
+    kStackingSettingReaders.size() == 30u - 5u + 4u + 3u + 24u + 6u + 1u,
+    "kStackingSettingReaders holds one entry for each field of StackingSettings and of its settings records.");
+
+/// Whether two stacking settings agree on everything a stage reads; for a calibration master, whose stage reads them
+/// all.
 bool stackingEqual(const StackingSettings& lhs, const StackingSettings& rhs)
 {
-    return lhs.stackMethod == rhs.stackMethod && lhs.rejectionMethod == rhs.rejectionMethod &&
-           lhs.sigmaLow == rhs.sigmaLow && lhs.sigmaHigh == rhs.sigmaHigh && lhs.weighting == rhs.weighting &&
-           lhs.createRejectionMaps == rhs.createRejectionMaps && lhs.mergeRejectionMaps == rhs.mergeRejectionMaps &&
-           lhs.createQualityMaps == rhs.createQualityMaps &&
-           lhs.spatialRejectionClustering == rhs.spatialRejectionClustering &&
-           lhs.restackExcludingFlaggedFrames == rhs.restackExcludingFlaggedFrames &&
-           lhs.limitMemory == rhs.limitMemory && lhs.maxMemoryMb == rhs.maxMemoryMb &&
-           lhs.starCountScaling == rhs.starCountScaling && lhs.exponentialAlpha == rhs.exponentialAlpha &&
-           lhs.minWeightFloor == rhs.minWeightFloor && lhs.perChannelFwhmWeighting == rhs.perChannelFwhmWeighting &&
-           lhs.localWeighting.enabled == rhs.localWeighting.enabled &&
-           lhs.localWeighting.windowSize == rhs.localWeighting.windowSize &&
-           lhs.localWeighting.gridSpacing == rhs.localWeighting.gridSpacing &&
-           lhs.localWeighting.snrWeightExponent == rhs.localWeighting.snrWeightExponent &&
-           lhs.normalizationMode == rhs.normalizationMode &&
-           lhs.globalNormalizationMethod == rhs.globalNormalizationMethod && lhs.scaleEstimator == rhs.scaleEstimator &&
-           lhs.overlapNormalization.enabled == rhs.overlapNormalization.enabled &&
-           lhs.overlapNormalization.minOverlapPixels == rhs.overlapNormalization.minOverlapPixels &&
-           lhs.overlapNormalization.minOverlapFraction == rhs.overlapNormalization.minOverlapFraction &&
-           lhs.normalizationReferenceMode == rhs.normalizationReferenceMode &&
-           lhs.manualNormalizationReference == rhs.manualNormalizationReference &&
-           lhs.localNormalization.enabled == rhs.localNormalization.enabled &&
-           lhs.localNormalization.gridSize == rhs.localNormalization.gridSize &&
-           lhs.localNormalization.gridInterpolation == rhs.localNormalization.gridInterpolation &&
-           lhs.localNormalization.localScaleEnabled == rhs.localNormalization.localScaleEnabled &&
-           lhs.localNormalization.referenceStrategy == rhs.localNormalization.referenceStrategy &&
-           lhs.localNormalization.maxIntegratedFrames == rhs.localNormalization.maxIntegratedFrames &&
-           lhs.localNormalization.evaluationCriteria == rhs.localNormalization.evaluationCriteria &&
-           lhs.localNormalization.backgroundEstimator == rhs.localNormalization.backgroundEstimator &&
-           lhs.localNormalization.backgroundPercentile == rhs.localNormalization.backgroundPercentile &&
-           lhs.localNormalization.sigmaClipK == rhs.localNormalization.sigmaClipK &&
-           lhs.localNormalization.sigmaClipIterations == rhs.localNormalization.sigmaClipIterations &&
-           lhs.localNormalization.backgroundSmoothingRadius == rhs.localNormalization.backgroundSmoothingRadius &&
-           lhs.localNormalization.scaleEvaluation == rhs.localNormalization.scaleEvaluation &&
-           lhs.localNormalization.scaleMode == rhs.localNormalization.scaleMode &&
-           lhs.localNormalization.psfType == rhs.localNormalization.psfType &&
-           lhs.localNormalization.moffatBeta == rhs.localNormalization.moffatBeta &&
-           lhs.localNormalization.maxStars == rhs.localNormalization.maxStars &&
-           lhs.localNormalization.minDetectionSnr == rhs.localNormalization.minDetectionSnr &&
-           lhs.localNormalization.allowClusteredSources == rhs.localNormalization.allowClusteredSources &&
-           lhs.localNormalization.lowClip == rhs.localNormalization.lowClip &&
-           lhs.localNormalization.highClip == rhs.localNormalization.highClip &&
-           lhs.localNormalization.hotPixelMedianRadius == rhs.localNormalization.hotPixelMedianRadius &&
-           lhs.localNormalization.noiseReductionRadius == rhs.localNormalization.noiseReductionRadius &&
-           lhs.localNormalization.localScaleSmoothingRadius == rhs.localNormalization.localScaleSmoothingRadius &&
-           lhs.drizzle.enabled == rhs.drizzle.enabled && lhs.drizzle.scale == rhs.drizzle.scale &&
-           lhs.drizzle.pixelFraction == rhs.drizzle.pixelFraction &&
-           sameDrizzleKernel(lhs.drizzle.kernel, rhs.drizzle.kernel) && lhs.drizzle.cfaAware == rhs.drizzle.cfaAware &&
-           lhs.drizzle.cfaPattern == rhs.drizzle.cfaPattern && lhs.cometStackingMode == rhs.cometStackingMode &&
-           lhs.solveFinalMasterIfNeeded == rhs.solveFinalMasterIfNeeded &&
-           lhs.registeredOutputPolicy == rhs.registeredOutputPolicy && lhs.hdr.enabled == rhs.hdr.enabled;
+    return std::all_of(
+        kStackingSettingReaders.begin(), kStackingSettingReaders.end(),
+        [&](const StackingSettingReaders& setting) { return setting.stages.empty() || setting.same(lhs, rhs); });
 }
 
 bool registrationEqual(const RegistrationSettings& lhs, const RegistrationSettings& rhs)
@@ -217,6 +359,72 @@ QString manifestAstrometryApiKeyHash(const WorkflowManifest& manifest)
     return ImageIntegration::astrometryApiKeyHash(manifest.plateSolve.astrometryApiKey);
 }
 } // namespace
+
+const QStringList& LightStageReasons::of(const LightStage stage) const noexcept
+{
+    switch (stage)
+    {
+    case LightStage::Alignment:
+        return alignment;
+    case LightStage::Normalization:
+        return normalization;
+    case LightStage::Drizzle:
+        return drizzle;
+    case LightStage::Stacking:
+        break;
+    }
+    return stacking;
+}
+
+void LightStageReasons::add(const LightStages stages, const QString& reason)
+{
+    for (const auto& [stage, reasons] :
+         {std::pair{LightStage::Alignment, &alignment}, std::pair{LightStage::Normalization, &normalization},
+          std::pair{LightStage::Drizzle, &drizzle}, std::pair{LightStage::Stacking, &stacking}})
+    {
+        if (stages.contains(stage) && !reasons->contains(reason))
+        {
+            reasons->append(reason);
+        }
+    }
+}
+
+bool LightStageReasons::any() const noexcept
+{
+    return !stages().empty();
+}
+
+LightStages LightStageReasons::stages() const noexcept
+{
+    LightStages result;
+    for (const LightStage stage :
+         {LightStage::Alignment, LightStage::Normalization, LightStage::Drizzle, LightStage::Stacking})
+    {
+        if (!of(stage).isEmpty())
+        {
+            result = result.with(stage);
+        }
+    }
+    return result;
+}
+
+std::span<const StackingSettingReaders> stackingSettingReaders() noexcept
+{
+    return kStackingSettingReaders;
+}
+
+LightStageReasons changedStackingSettings(const StackingSettings& previous, const StackingSettings& current)
+{
+    LightStageReasons reasons;
+    for (const StackingSettingReaders& setting : kStackingSettingReaders)
+    {
+        if (!setting.stages.empty() && !setting.same(previous, current))
+        {
+            reasons.add(setting.stages, QString::fromLatin1(setting.change));
+        }
+    }
+    return reasons;
+}
 
 bool ManifestDiff::hasChanges() const
 {
@@ -565,14 +773,20 @@ ManifestDiff compareManifests(const WorkflowManifest& previous, const WorkflowMa
             change.currentFrameCount = static_cast<int>(curr_group.lightFiles.size());
 
             change.lightFilesChanged = !framesEqual(prev_group.lightFiles, curr_group.lightFiles);
-            change.stackingSettingsChanged = !stackingEqual(prev_group.stacking, curr_group.stacking) ||
-                                             previous.combineRgbImages != current.combineRgbImages;
             change.calibrationAssignmentsChanged = prev_group.registrationGroupKey != curr_group.registrationGroupKey;
-            change.normalizationSettingsChanged =
-                !framesEqual(prev_group.normalizationReferenceFrames, curr_group.normalizationReferenceFrames);
+            change.settingsChanged = changedStackingSettings(prev_group.stacking, curr_group.stacking);
+            // The stack weighs the lights against the normalization reference frames too.
+            if (!framesEqual(prev_group.normalizationReferenceFrames, curr_group.normalizationReferenceFrames))
+            {
+                change.settingsChanged.add({LightStage::Normalization, LightStage::Stacking},
+                                           QStringLiteral("Normalization reference frames changed"));
+            }
+            if (previous.combineRgbImages != current.combineRgbImages)
+            {
+                change.settingsChanged.add({LightStage::Stacking}, QStringLiteral("Combine RGB images changed"));
+            }
 
-            if (change.lightFilesChanged || change.stackingSettingsChanged || change.calibrationAssignmentsChanged ||
-                change.normalizationSettingsChanged)
+            if (change.lightFilesChanged || change.calibrationAssignmentsChanged || change.settingsChanged.any())
             {
                 change.change = ChangeType::Modified;
             }

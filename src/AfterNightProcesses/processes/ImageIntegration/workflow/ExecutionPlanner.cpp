@@ -18,7 +18,11 @@
 #include "processes/ImageIntegration/workflow/ManifestHashing.h"
 #include "processes/ImageIntegration/workflow/RegistrationWorkAnalyzer.h"
 #include "processes/ImageIntegration/workflow/WorkflowStageCompanions.h"
+#include "processes/ImageIntegration/workflow/stages/NormalizationArtifactSupport.h"
+#include "processes/ImageIntegration/workflow/stages/RegistrationMetricsReader.h"
+#include "processes/ImageIntegration/workflow/stages/RegistrationOutputPlane.h"
 #include "processes/ImageIntegration/workflow/stages/StageParsingUtils.h"
+#include "processes/ImageIntegration/workflow/stages/TransformOnReadRouting.h"
 #include "processes/ImageIntegration/workflow/WorkflowTimeEstimator.h"
 #include <AfterNightPlatform/Logging.h>
 
@@ -127,6 +131,203 @@ bool alignmentProductsRequired(
     return !decision.usesTransformOnRead();
 }
 
+/// The light a group's registration recorded as its reference at `settingsVersion`, else the one the group names.
+std::optional<FrameId> registrationReferenceOf(const WorkflowManifest::RegistrationGroup& registration,
+                                               const int settingsVersion, const ExecutionPreparationSnapshot& snapshot)
+{
+    if (const auto* state = snapshot.registrationGroupState(registration.groupKey.toString(), settingsVersion))
+    {
+        if (std::optional<FrameId> recorded = stage_utils::persistedRegistrationFrameId(state->referenceFrameId))
+        {
+            return recorded;
+        }
+    }
+    return registration.referenceFrame;
+}
+
+/// A group's lights, each once, in the order the stages read them.
+std::vector<FrameId> distinctLights(const WorkflowManifest::IntegrationGroup& group)
+{
+    std::vector<FrameId> lights = group.lightFiles;
+    std::sort(lights.begin(), lights.end());
+    lights.erase(std::unique(lights.begin(), lights.end()), lights.end());
+    return lights;
+}
+
+/// Whether a group's stack warps its lights as it reads them, as the stack confirms it: its settings choose it, every
+/// light has its registration, and the registration's reference is among them.
+bool stackWarpsLightsAsRead(const WorkflowManifest& manifest, const WorkflowManifest::IntegrationGroup& group,
+                            const WorkflowManifest::RegistrationGroup& registration, const int settingsVersion,
+                            const ExecutionPreparationSnapshot::RegistrationMetrics& metrics,
+                            const ExecutionPreparationSnapshot& snapshot)
+{
+    if (!ImageIntegration::decideLightsTransformOnRead(manifest, group).usesTransformOnRead())
+    {
+        return false;
+    }
+    const std::vector<FrameId> lights = distinctLights(group);
+    const bool everyLightRegistered =
+        !lights.empty() && std::all_of(lights.cbegin(), lights.cend(), [&](const FrameId& light) {
+            const auto metric = metrics.constFind(light);
+            return metric != metrics.cend() && metric->succeeded && metric->transform.has_value();
+        });
+    if (!everyLightRegistered)
+    {
+        return false;
+    }
+    const FrameId reference =
+        registrationReferenceOf(registration, settingsVersion, snapshot)
+            .value_or(registration.lightFiles.empty() ? lights.front() : registration.lightFiles.front());
+    return std::any_of(lights.cbegin(), lights.cend(),
+                       [&](const FrameId& light) { return light.identityKey() == reference.identityKey(); });
+}
+
+/// The inputs fingerprint the normalization stage states for coefficients it measures on a plane it warps a group's
+/// lights onto - a drizzled group's analysis plane, or the registration's plane when the registered lights are not on
+/// disk - from the registration's records and the lights' headers the snapshot holds; nothing when it holds too little
+/// to tell. A light the registration did not place is left out, as the stage leaves it out.
+std::optional<QString> expectedWarpedMeasurementInputs(const WorkflowManifest& manifest,
+                                                       const WorkflowManifest::IntegrationGroup& group,
+                                                       const WorkflowManifest::RegistrationGroup& registration,
+                                                       const int settingsVersion,
+                                                       const ExecutionPreparationSnapshot::RegistrationMetrics& metrics,
+                                                       const ExecutionPreparationSnapshot& snapshot)
+{
+    using ImageIntegration::NormalizationMeasurementPlane;
+
+    const bool drizzled = isDrizzleEnabled(group);
+    const std::vector<FrameId> measured = distinctLights(group);
+    // The drizzle plans its canvas over the group's lights in the group's order; the normalization over its own.
+    const std::vector<FrameId>& placed = drizzled ? group.lightFiles : measured;
+    const std::optional<FrameId> reference = registrationReferenceOf(registration, settingsVersion, snapshot);
+
+    std::vector<stage_utils::RegistrationOutputPlaneFrame> planeFrames;
+    QJsonObject transforms;
+    QSet<QString> placedLights;
+    std::size_t referenceIndex = 0u;
+    for (const FrameId& light : placed)
+    {
+        const auto metric = metrics.constFind(light);
+        if (metric != metrics.cend() && !metric->transformParsed)
+        {
+            return std::nullopt;
+        }
+        if (metric == metrics.cend() || !metric->transform.has_value())
+        {
+            continue;
+        }
+        const auto* facts = snapshot.sourceGeometry(light);
+        if (facts == nullptr || !facts->metadataProbeSucceeded)
+        {
+            return std::nullopt;
+        }
+        const stage_utils::SourceDistortionProvenance& provenance = metric->sourceDistortion;
+        std::optional<an::SipDistortion> distortion;
+        if (provenance.policy == stage_utils::SourceDistortionPolicy::ExplicitModel)
+        {
+            distortion = provenance.model;
+        }
+        else if (provenance.policy == stage_utils::SourceDistortionPolicy::InheritMetadata)
+        {
+            distortion = facts->inheritedSourceDistortion;
+        }
+        if (reference.has_value() && reference->identityKey() == light.identityKey())
+        {
+            referenceIndex = planeFrames.size();
+        }
+        planeFrames.push_back({*metric->transform, static_cast<std::uint32_t>(facts->sourceWidth),
+                               static_cast<std::uint32_t>(facts->sourceHeight), distortion});
+        transforms.insert(light.canonicalPath(), stage_utils::serializeTransformJson(*metric->transform, provenance));
+        placedLights.insert(light.identityKey());
+    }
+    if (planeFrames.empty())
+    {
+        return std::nullopt;
+    }
+
+    const ImageIntegration::RegistrationCanvasMode mode =
+        stage_utils::parseAlignmentMode(registration.settings.alignmentMode);
+    const an::KernelInterpolation interpolation = stage_utils::parseInterpolation(registration.settings.interpolation)
+                                                      .value_or(an::KernelInterpolation::Lanczos4);
+    QString geometry;
+    if (drizzled)
+    {
+        const an::Result<stage_utils::PlannedDrizzleCanvas> canvas = stage_utils::planDrizzleOutputPlane(
+            planeFrames, referenceIndex, mode, static_cast<double>(group.drizzle->scale),
+            static_cast<double>(group.drizzle->pixelFraction));
+        if (!canvas.hasValue())
+        {
+            return std::nullopt;
+        }
+        geometry = ImageIntegration::warpedPlaneGeometryFingerprint(
+            NormalizationMeasurementPlane::DrizzleAnalysisPlane, transforms, canvas->canvas.origin.x,
+            canvas->canvas.origin.y, canvas->canvas.analysisWidth, canvas->canvas.analysisHeight, interpolation);
+    }
+    else
+    {
+        const an::Result<stage_utils::PlannedRegistrationOutputPlane> plane =
+            stage_utils::planRegistrationOutputPlane(planeFrames, referenceIndex, mode);
+        if (!plane.hasValue())
+        {
+            return std::nullopt;
+        }
+        geometry = ImageIntegration::warpedPlaneGeometryFingerprint(
+            NormalizationMeasurementPlane::RegisteredCanvas, transforms, plane->canvas.origin.x, plane->canvas.origin.y,
+            plane->canvas.width, plane->canvas.height, interpolation);
+    }
+
+    std::vector<FrameId> files;
+    for (const FrameId& light : measured)
+    {
+        if (placedLights.contains(light.identityKey()))
+        {
+            files.emplace_back(registrationInputPathForFrame(manifest.outputDirectory, manifest.calibrateLightsInMemory,
+                                                             &registration, light, &snapshot));
+        }
+    }
+    if (files.size() < 2u)
+    {
+        return std::nullopt;
+    }
+    return ImageIntegration::warpedMeasurementInputsFingerprint(
+        computeFrameFileStampFingerprint(captureFrameFileStamps(files, &snapshot)), geometry);
+}
+
+/// The registered lights the normalization stage reads a group's lights from, when every light the registration placed
+/// has its registered image on disk as its record states it; nothing otherwise, the stage then warping their
+/// registration inputs.
+std::optional<std::vector<FrameId>>
+registeredLightsOnDisk(const std::vector<FrameId>& lights,
+                       const ExecutionPreparationSnapshot::RegistrationMetrics& metrics,
+                       const ExecutionPreparationSnapshot& snapshot)
+{
+    std::vector<FrameId> onDisk;
+    for (const FrameId& light : lights)
+    {
+        const auto metric = metrics.constFind(light);
+        if (metric == metrics.cend() || !metric->transform.has_value())
+        {
+            continue;
+        }
+        const auto* stamp = metric->outputPath.trimmed().isEmpty() ? nullptr : snapshot.fileStamp(metric->outputPath);
+        if (!metric->succeeded || stamp == nullptr || !stamp->isFile || stamp->sizeBytes != metric->outputSizeBytes ||
+            stamp->modifiedAtMs != metric->outputModifiedAtMs || stamp->identityToken != metric->outputIdentityToken)
+        {
+            return std::nullopt;
+        }
+        onDisk.emplace_back(metric->outputPath);
+    }
+    if (onDisk.empty())
+    {
+        return std::nullopt;
+    }
+    return onDisk;
+}
+
+/// Whether a group's normalization coefficients on disk are the ones its stage would measure now: their sidecar names
+/// the stage, the group, the current schema and family, the document's checksum, the settings and the inputs the stage
+/// measures - the lights as read for a group with no registration, the registered lights on disk, or the lights warped
+/// onto the plane the stack reads them on.
 bool normalizationArtifactMetadataLooksReusable(const WorkflowManifest& manifest,
                                                 const WorkflowManifest::IntegrationGroup& group,
                                                 const ExecutionPreparationSnapshot& snapshot)
@@ -161,24 +362,23 @@ bool normalizationArtifactMetadataLooksReusable(const WorkflowManifest& manifest
         return false;
     }
 
+    const std::vector<FrameId> effective_frames = distinctLights(group);
     std::vector<FrameId> reference_frames = group.normalizationReferenceFrames;
     if (reference_frames.empty())
     {
-        reference_frames = group.lightFiles;
-        std::sort(reference_frames.begin(), reference_frames.end());
-        reference_frames.erase(std::unique(reference_frames.begin(), reference_frames.end()), reference_frames.end());
-        if (reference_frames.empty())
+        if (effective_frames.empty())
         {
             return false;
         }
-        reference_frames = {reference_frames.front()};
+        reference_frames = {effective_frames.front()};
     }
 
-    std::vector<FrameId> effective_frames = group.lightFiles;
-    std::sort(effective_frames.begin(), effective_frames.end());
-    effective_frames.erase(std::unique(effective_frames.begin(), effective_frames.end()), effective_frames.end());
-
-    if (!group.registrationGroupKey.toString().trimmed().isEmpty())
+    QString expected_inputs;
+    if (group.registrationGroupKey.toString().trimmed().isEmpty())
+    {
+        expected_inputs = computeFrameFileStampFingerprint(effective_frames, &snapshot);
+    }
+    else
     {
         const auto reg_it = std::find_if(manifest.registrationGroups.cbegin(), manifest.registrationGroups.cend(),
                                          [&](const WorkflowManifest::RegistrationGroup& registration) {
@@ -191,25 +391,32 @@ bool normalizationArtifactMetadataLooksReusable(const WorkflowManifest& manifest
 
         const auto settings_version = snapshot.resolveRegistrationSettingsVersion(group.registrationGroupKey.toString(),
                                                                                   reg_it->settings.version);
-        const auto* outputs =
+        const auto* metrics =
             settings_version.has_value()
                 ? snapshot.registrationMetrics(group.registrationGroupKey.toString(), *settings_version)
                 : nullptr;
-        if (outputs == nullptr)
+        if (metrics == nullptr)
         {
             return false;
         }
 
-        for (auto& frame : effective_frames)
+        // A drizzled group is measured on its analysis plane; any other, on its registered lights when every one is on
+        // disk, else on its registration inputs warped onto the registration's plane.
+        const std::optional<std::vector<FrameId>> on_disk =
+            isDrizzleEnabled(group) ? std::nullopt : registeredLightsOnDisk(effective_frames, *metrics, snapshot);
+        if (on_disk.has_value())
         {
-            const auto output = outputs->constFind(frame);
-            const auto* output_stamp = output != outputs->cend() ? snapshot.fileStamp(output->outputPath) : nullptr;
-            if (output == outputs->cend() || !output->succeeded || output->outputPath.trimmed().isEmpty() ||
-                output_stamp == nullptr || !output_stamp->isFile)
+            expected_inputs = computeFrameFileStampFingerprint(*on_disk, &snapshot);
+        }
+        else
+        {
+            const std::optional<QString> warped =
+                expectedWarpedMeasurementInputs(manifest, group, *reg_it, *settings_version, *metrics, snapshot);
+            if (!warped.has_value())
             {
                 return false;
             }
-            frame = FrameId(output->outputPath);
+            expected_inputs = *warped;
         }
     }
 
@@ -226,34 +433,36 @@ bool normalizationArtifactMetadataLooksReusable(const WorkflowManifest& manifest
                ImageIntegration::schema::kNormalizationArtifactSchemaVersion &&
            ImageIntegration::schema::statesCurrentArtifactFamily(
                meta, ImageIntegration::schema::ArtifactFamily::NormalizationCoefficients) &&
-           meta.value(QStringLiteral("inputsFingerprint")).toString() ==
-               computeFrameFileStampFingerprint(effective_frames, &snapshot) &&
+           meta.value(QStringLiteral("inputsFingerprint")).toString() == expected_inputs &&
            meta.value(QStringLiteral("settingsFingerprint")).toString() ==
                computeNormalizationSettingsFingerprint(group, reference_frames);
 }
 
-struct CurrentDrizzleFrameFacts
+/// Where a light a stage places itself lands: its transform, the distortion it was solved over and its header.
+struct CurrentPlacementFrameFacts
 {
     an::RegistrationTransform transform;
     stage_utils::SourceDistortionProvenance provenance;
     std::optional<an::SipDistortion> resolvedDistortion;
-    const ExecutionPreparationSnapshot::DrizzleSourceGeometryFacts* geometry = nullptr;
+    const ExecutionPreparationSnapshot::SourceGeometryFacts* geometry = nullptr;
 };
 
-struct CurrentDrizzleMappingFacts
+/// Where every light of a group a stage places itself - a drizzled group, or one its stack warps as it reads it -
+/// lands, and the fingerprints the stages state of them.
+struct CurrentPlacementFacts
 {
-    std::unordered_map<QString, CurrentDrizzleFrameFacts> byIdentity;
+    std::unordered_map<QString, CurrentPlacementFrameFacts> byIdentity;
     std::unordered_map<QString, an::RegistrationTransform> fingerprintTransforms;
     std::unordered_map<QString, stage_utils::SourceDistortionProvenance> fingerprintProvenance;
     std::unordered_map<QString, std::optional<an::SipDistortion>> fingerprintResolvedDistortion;
 };
 
-[[nodiscard]] std::optional<CurrentDrizzleMappingFacts>
-resolveCurrentDrizzleMappingFacts(const WorkflowManifest::IntegrationGroup& group,
-                                  const ExecutionPreparationSnapshot::RegistrationMetrics& metrics,
-                                  const ExecutionPreparationSnapshot& snapshot)
+[[nodiscard]] std::optional<CurrentPlacementFacts>
+resolveCurrentPlacementFacts(const WorkflowManifest::IntegrationGroup& group,
+                             const ExecutionPreparationSnapshot::RegistrationMetrics& metrics,
+                             const ExecutionPreparationSnapshot& snapshot)
 {
-    CurrentDrizzleMappingFacts result;
+    CurrentPlacementFacts result;
     result.byIdentity.reserve(group.lightFiles.size());
     result.fingerprintTransforms.reserve(group.lightFiles.size());
     result.fingerprintProvenance.reserve(group.lightFiles.size());
@@ -261,7 +470,7 @@ resolveCurrentDrizzleMappingFacts(const WorkflowManifest::IntegrationGroup& grou
     for (const auto& frame : group.lightFiles)
     {
         const auto metric = metrics.constFind(frame);
-        const auto* geometry = snapshot.drizzleSourceGeometry(frame);
+        const auto* geometry = snapshot.sourceGeometry(frame);
         if (metric == metrics.cend() || !metric->succeeded || !metric->transformParsed ||
             !metric->transform.has_value() || geometry == nullptr || !geometry->metadataProbeSucceeded)
         {
@@ -273,7 +482,7 @@ resolveCurrentDrizzleMappingFacts(const WorkflowManifest::IntegrationGroup& grou
             provenance.policy == stage_utils::SourceDistortionPolicy::InheritMetadata
                 ? geometry->inheritedSourceDistortion
                 : provenance.model;
-        CurrentDrizzleFrameFacts frame_facts{*metric->transform, provenance, resolved_distortion, geometry};
+        CurrentPlacementFrameFacts frame_facts{*metric->transform, provenance, resolved_distortion, geometry};
         if (!result.byIdentity.emplace(frame.identityKey(), std::move(frame_facts)).second)
             return std::nullopt;
 
@@ -353,7 +562,7 @@ bool drizzleArtifactMetadataLooksReusable(const WorkflowManifest& manifest,
                               : nullptr;
     if (metrics == nullptr)
         return false;
-    const auto current_facts = resolveCurrentDrizzleMappingFacts(group, *metrics, snapshot);
+    const auto current_facts = resolveCurrentPlacementFacts(group, *metrics, snapshot);
     if (!current_facts.has_value())
         return false;
     if (meta.value(QStringLiteral("transformsFingerprint")).toString() !=
@@ -498,13 +707,19 @@ std::optional<QString> expectedStackedArtifactHash(const WorkflowManifest& manif
     QString transforms_fingerprint;
     QString source_distortion_fingerprint;
     std::vector<FrameId> stack_inputs;
-    if (isDrizzleEnabled(group))
+    // A drizzled stack and one that warps its lights as it reads them read the registration inputs, and state the
+    // transforms and the distortions they place them by.
+    const bool places_lights =
+        isDrizzleEnabled(group) ||
+        (metrics != nullptr && registration_group != nullptr &&
+         stackWarpsLightsAsRead(manifest, group, *registration_group, *settings_version, *metrics, snapshot));
+    if (places_lights)
     {
         if (metrics == nullptr || !settings_version.has_value())
         {
             return std::nullopt;
         }
-        const auto current_facts = resolveCurrentDrizzleMappingFacts(group, *metrics, snapshot);
+        const auto current_facts = resolveCurrentPlacementFacts(group, *metrics, snapshot);
         if (!current_facts.has_value() || current_facts->byIdentity.size() < 2)
             return std::nullopt;
 
@@ -908,7 +1123,10 @@ QString reasonForRegistrationChange(const ManifestDiff::RegistrationGroupChange&
     return reasons.isEmpty() ? QStringLiteral("Registration manifest changed") : reasons.join(QStringLiteral("; "));
 }
 
-QString reasonForIntegrationChange(const ManifestDiff::IntegrationGroupChange& change)
+/// Why an integration group's stage, or with none its lights' calibration, runs again: what changed among what it
+/// reads. Empty when nothing it reads changed.
+QString reasonForIntegrationChange(const ManifestDiff::IntegrationGroupChange& change,
+                                   const std::optional<LightStage> stage)
 {
     using ChangeType = ManifestDiff::CalibrationGroupChange::ChangeType;
 
@@ -926,26 +1144,22 @@ QString reasonForIntegrationChange(const ManifestDiff::IntegrationGroupChange& c
     {
         reasons << QStringLiteral("Light frames changed");
     }
-    if (change.stackingSettingsChanged)
-    {
-        reasons << QStringLiteral("Stacking, normalization, or drizzle settings changed");
-    }
     if (change.calibrationAssignmentsChanged)
     {
         reasons << QStringLiteral("Calibration or registration assignment changed");
     }
-    if (change.normalizationSettingsChanged)
+    if (stage.has_value())
     {
-        reasons << QStringLiteral("Normalization reference frames changed");
+        reasons << change.settingsChanged.of(*stage);
     }
-    return reasons.isEmpty() ? QStringLiteral("Integration manifest changed") : reasons.join(QStringLiteral("; "));
+    return reasons.join(QStringLiteral("; "));
 }
 
 struct DiffReasonMaps
 {
     QMap<QString, QString> calibration;
     QMap<QString, QString> registration;
-    QMap<QString, QString> integration;
+    QMap<QString, ManifestDiff::IntegrationGroupChange> integration;
 };
 
 DiffReasonMaps buildDiffReasonMaps(const WorkflowManifest& manifest,
@@ -981,7 +1195,7 @@ DiffReasonMaps buildDiffReasonMaps(const WorkflowManifest& manifest,
         {
             continue;
         }
-        maps.integration.insert(change.groupKey.toString(), reasonForIntegrationChange(change));
+        maps.integration.insert(change.groupKey.toString(), change);
     }
     return maps;
 }
@@ -1026,6 +1240,8 @@ struct AlignmentPlanStatus
 {
     bool required = false;
     PlanAction action = PlanAction::Skip;
+    /// Whether a registered light it would reuse is missing or no longer the one its record states.
+    bool outputsMissing = false;
     std::optional<ImageIntegration::TransformOnReadRouting> transformOnReadDecision;
 };
 
@@ -1059,6 +1275,7 @@ AlignmentPlanStatus alignmentPlanStatusFor(const WorkflowManifest& manifest, con
         plan.mode != ExecutionMode::Incremental || registration_selected ||
         (selected && (missing_registered_output || cometAlignmentRequiresRegisteredOutputs(group)));
     status.action = should_recompute ? PlanAction::Recompute : PlanAction::Reuse;
+    status.outputsMissing = missing_registered_output;
     return status;
 }
 
@@ -1552,6 +1769,11 @@ std::vector<ExecutionPlanDecision> buildExecutionPlanDecisions(const WorkflowMan
     QMap<QString, PlanAction> registrationActionByGroup;
     QMap<QString, PlanAction> normalizationActionByIntegrationGroup;
     QMap<QString, PlanAction> drizzleActionByIntegrationGroup;
+    const auto integrationChangeReason = [&](const WorkflowManifest::IntegrationGroup& group,
+                                             const std::optional<LightStage> stage) {
+        const auto change = reasonMaps.integration.constFind(group.groupKey.toString());
+        return change == reasonMaps.integration.cend() ? QString() : reasonForIntegrationChange(*change, stage);
+    };
     const auto calibrationDependencyRecomputes = [&](const std::optional<FrameId>& master) {
         if (!master.has_value())
         {
@@ -1682,8 +1904,7 @@ std::vector<ExecutionPlanDecision> buildExecutionPlanDecisions(const WorkflowMan
                            ? QStringLiteral("Persisted calibrated light frames match current inputs and settings")
                            : (dependencyRecomputes
                                   ? QStringLiteral("Calibration dependency will be recomputed")
-                                  : reasonForAction(plan, action,
-                                                    reasonMaps.integration.value(group.groupKey.toString()),
+                                  : reasonForAction(plan, action, integrationChangeReason(group, std::nullopt),
                                                     QStringLiteral("Light calibration assignments are unchanged"),
                                                     previousManifest)))
                     : QStringLiteral("Light calibration will be performed in memory");
@@ -1767,9 +1988,10 @@ std::vector<ExecutionPlanDecision> buildExecutionPlanDecisions(const WorkflowMan
                                   outputPathFor(manifest, group.outputFilename), &snapshot);
     };
 
-    const auto integrationReason = [&](const WorkflowManifest::IntegrationGroup& group, PlanAction action,
-                                       bool includeRegistrationDependency, const QString& reuseReason) {
-        QString reason = reasonMaps.integration.value(group.groupKey.toString());
+    const auto integrationReason = [&](const WorkflowManifest::IntegrationGroup& group, const LightStage stage,
+                                       PlanAction action, bool includeRegistrationDependency,
+                                       const QString& reuseReason, const QString& otherReason = QString()) {
+        QString reason = integrationChangeReason(group, stage);
         if (reason.trimmed().isEmpty())
         {
             reason = integrationDependencyReason(group, includeRegistrationDependency);
@@ -1778,6 +2000,10 @@ std::vector<ExecutionPlanDecision> buildExecutionPlanDecisions(const WorkflowMan
             containsGroup(plan.registrationGroupsToProcess, group.registrationGroupKey))
         {
             reason = QStringLiteral("Registration dependency will be recomputed");
+        }
+        if (reason.trimmed().isEmpty())
+        {
+            reason = otherReason;
         }
         return reasonForAction(plan, action, reason, reuseReason, previousManifest);
     };
@@ -1808,10 +2034,14 @@ std::vector<ExecutionPlanDecision> buildExecutionPlanDecisions(const WorkflowMan
                                                                           : group.registrationGroupKey.toString());
             const QString outputs =
                 QDir(manifest.outputDirectory).filePath(QStringLiteral("registered_lights/%1").arg(groupDirName));
-            QString reason = !alignment_status.required
-                                 ? QStringLiteral("Alignment outputs are not required for this group")
-                                 : integrationReason(group, alignment_status.action, true,
-                                                     QStringLiteral("Registered light outputs are current"));
+            QString reason =
+                !alignment_status.required
+                    ? QStringLiteral("Alignment outputs are not required for this group")
+                    : integrationReason(group, LightStage::Alignment, alignment_status.action, true,
+                                        QStringLiteral("Registered light outputs are current"),
+                                        alignment_status.outputsMissing
+                                            ? QStringLiteral("Registered light outputs are missing or changed")
+                                            : QString());
             if (alignment_status.transformOnReadDecision.has_value())
             {
                 const auto& routing = alignment_status.transformOnReadDecision.value();
@@ -1847,7 +2077,7 @@ std::vector<ExecutionPlanDecision> buildExecutionPlanDecisions(const WorkflowMan
             const AlignmentPlanStatus alignment_status = alignmentStatusForGroup(group);
             const bool alignmentRecomputes = alignment_status.action == PlanAction::Recompute;
             const bool dependencyRecomputes = alignmentRecomputes || integrationDependencyRecomputes(group, true);
-            const QString dirtyReason = reasonMaps.integration.value(group.groupKey.toString());
+            const QString dirtyReason = integrationChangeReason(group, LightStage::Normalization);
             const bool canReuseExistingArtifact = normalizationEnabled && !handledDuringDrizzle && selected &&
                                                   !dependencyRecomputes &&
                                                   normalizationArtifactMetadataLooksReusable(manifest, group, snapshot);
@@ -1876,7 +2106,7 @@ std::vector<ExecutionPlanDecision> buildExecutionPlanDecisions(const WorkflowMan
                                          : (dependencyRecomputes && dirtyReason.trimmed().isEmpty()
                                                 ? integrationDependencyReason(group, true)
                                                 : integrationReason(
-                                                      group, action, true,
+                                                      group, LightStage::Normalization, action, true,
                                                       QStringLiteral("Normalization coefficients are current"))))))
                     : QStringLiteral("Normalization disabled for this group");
             decisions.push_back(
@@ -1921,7 +2151,8 @@ std::vector<ExecutionPlanDecision> buildExecutionPlanDecisions(const WorkflowMan
                 drizzleEnabled
                     ? (artifactsReusable
                            ? QStringLiteral("Persisted drizzle descriptors/maps match current transforms and settings")
-                           : integrationReason(group, action, true, QStringLiteral("Drizzle artifacts are current")))
+                           : integrationReason(group, LightStage::Drizzle, action, true,
+                                               QStringLiteral("Drizzle artifacts are current")))
                     : QStringLiteral("Drizzle disabled for this group"),
                 frameCountText(static_cast<qsizetype>(group.lightFiles.size())),
                 estimateFrameCost(static_cast<qsizetype>(group.lightFiles.size()), 0.20),
@@ -1950,8 +2181,14 @@ std::vector<ExecutionPlanDecision> buildExecutionPlanDecisions(const WorkflowMan
                 artifactReusable ? PlanAction::Reuse : integrationAction(group, true, dependencyRecomputes);
             decisions.push_back(makeDecision(
                 QStringLiteral("Lights Stacking"), group.groupKey.toCompactString(), action,
-                artifactReusable ? QStringLiteral("Persisted stacked output matches current inputs and settings")
-                                 : integrationReason(group, action, true, QStringLiteral("Stacked output is current")),
+                artifactReusable
+                    ? QStringLiteral("Persisted stacked output matches current inputs and settings")
+                    : integrationReason(
+                          group, LightStage::Stacking, action, true, QStringLiteral("Stacked output is current"),
+                          alignmentRecomputes       ? QStringLiteral("Alignment outputs will be recomputed")
+                          : normalizationRecomputes ? QStringLiteral("Normalization coefficients will be recomputed")
+                          : drizzleRecomputes       ? QStringLiteral("Drizzle maps will be recomputed")
+                                                    : QString()),
                 frameCountText(static_cast<qsizetype>(group.lightFiles.size())),
                 estimateFrameCost(static_cast<qsizetype>(group.lightFiles.size()), 0.30),
                 outputPathFor(manifest, group.outputFilename)));

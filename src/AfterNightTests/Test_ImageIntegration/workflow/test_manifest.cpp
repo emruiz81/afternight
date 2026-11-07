@@ -19,8 +19,10 @@
 #include <filesystem>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "processes/ImageIntegration/model/CalibrationMatcher.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
@@ -2255,7 +2257,9 @@ TEST(ManifestHashing, StarsPlusCometExperimentalTokenDoesNotAliasAnUnofferedMode
 
     const ManifestDiff diff = compareManifests(previous, current);
     ASSERT_EQ(diff.integrationChanges.size(), 1u);
-    EXPECT_TRUE(diff.integrationChanges.front().stackingSettingsChanged);
+    EXPECT_EQ(
+        diff.integrationChanges.front().settingsChanged.stages(),
+        (LightStages{LightStage::Alignment, LightStage::Normalization, LightStage::Drizzle, LightStage::Stacking}));
 }
 
 TEST(ManifestHashing, IntegrationGroupHashChangesWhenCombineRgbImagesChanges)
@@ -2273,7 +2277,9 @@ TEST(ManifestHashing, IntegrationGroupHashChangesWhenCombineRgbImagesChanges)
 
     const ManifestDiff diff = compareManifests(disabled, enabled);
     ASSERT_EQ(diff.integrationChanges.size(), 1u);
-    EXPECT_TRUE(diff.integrationChanges.front().stackingSettingsChanged);
+    EXPECT_EQ(diff.integrationChanges.front().settingsChanged.stages(), LightStages{LightStage::Stacking});
+    EXPECT_EQ(diff.integrationChanges.front().settingsChanged.stacking,
+              QStringList{QStringLiteral("Combine RGB images changed")});
 }
 
 TEST(ManifestDiff, DetectsAddedFrames)
@@ -2525,7 +2531,7 @@ TEST(ManifestDiff, DetectsFinalMasterFallbackSettingChange)
     ASSERT_EQ(diff.integrationChanges.size(), 1u);
     const auto& change = diff.integrationChanges.front();
     EXPECT_EQ(change.change, ManifestDiff::CalibrationGroupChange::ChangeType::Modified);
-    EXPECT_TRUE(change.stackingSettingsChanged);
+    EXPECT_EQ(change.settingsChanged.stages(), LightStages{LightStage::Stacking});
 }
 // =============================================================================
 // Pre-Calibrated Light Groups Tests
@@ -2949,7 +2955,7 @@ TEST(ManifestHashing, TheDrizzleKernelIsFingerprintedByItsMeaningNotItsSpelling)
               computeIntegrationGroupHash(current, current.integrationGroups.front()));
     const ManifestDiff same = compareManifests(previous, current);
     ASSERT_EQ(same.integrationChanges.size(), 1u);
-    EXPECT_FALSE(same.integrationChanges.front().stackingSettingsChanged);
+    EXPECT_FALSE(same.integrationChanges.front().settingsChanged.any());
 
     // Another kernel is another fingerprint.
     WorkflowManifest other = current;
@@ -2961,7 +2967,8 @@ TEST(ManifestHashing, TheDrizzleKernelIsFingerprintedByItsMeaningNotItsSpelling)
               computeIntegrationGroupHash(current, current.integrationGroups.front()));
     const ManifestDiff changed = compareManifests(current, other);
     ASSERT_EQ(changed.integrationChanges.size(), 1u);
-    EXPECT_TRUE(changed.integrationChanges.front().stackingSettingsChanged);
+    EXPECT_EQ(changed.integrationChanges.front().settingsChanged.stages(),
+              (LightStages{LightStage::Drizzle, LightStage::Stacking}));
 }
 
 TEST(ManifestHashing, WorkflowRawLoadPolicyFingerprintDocumentsNeutralRawCalibration)
@@ -3104,5 +3111,188 @@ TEST(ManifestDiff, DetectsRegisteredOutputPolicyChange)
 
     ASSERT_EQ(diff.integrationChanges.size(), 1u);
     EXPECT_EQ(diff.integrationChanges.front().change, ManifestDiff::CalibrationGroupChange::ChangeType::Modified);
-    EXPECT_TRUE(diff.integrationChanges.front().stackingSettingsChanged);
+    EXPECT_EQ(diff.integrationChanges.front().settingsChanged.stages(),
+              (LightStages{LightStage::Alignment, LightStage::Stacking}));
+    EXPECT_EQ(diff.integrationChanges.front().settingsChanged.alignment,
+              QStringList{QStringLiteral("Registered-output policy changed")});
+}
+
+// Every field of the stacking settings concerns the stages its entry names, and a change of it those stages alone. A
+// field added to the settings stops the build until it has its entry, and this case until it has its line here, which
+// says again which stages read it.
+TEST(ManifestDiff, EveryStackingSettingConcernsTheStagesThatReadIt)
+{
+    const LightStages stack{LightStage::Stacking};
+    const LightStages normalized{LightStage::Normalization, LightStage::Stacking};
+    const LightStages drizzled{LightStage::Drizzle, LightStage::Stacking};
+    const LightStages drizzlePlane{LightStage::Normalization, LightStage::Drizzle, LightStage::Stacking};
+    const LightStages aligned{LightStage::Alignment, LightStage::Stacking};
+    const LightStages every{LightStage::Alignment, LightStage::Normalization, LightStage::Drizzle,
+                            LightStage::Stacking};
+
+    struct Expected
+    {
+        const char* name;
+        std::function<void(StackingSettings&)> change;
+        LightStages stages;
+    };
+    const std::vector<Expected> expected = {
+        {"stackMethod", [](StackingSettings& s) { s.stackMethod = QStringLiteral("Median"); }, stack},
+        {"rejectionMethod", [](StackingSettings& s) { s.rejectionMethod = QStringLiteral("None"); }, stack},
+        {"requestedRejectionMethod", [](StackingSettings& s) { s.requestedRejectionMethod = QStringLiteral("Auto"); },
+         LightStages{}},
+        {"sigmaLow", [](StackingSettings& s) { s.sigmaLow += 0.5; }, stack},
+        {"sigmaHigh", [](StackingSettings& s) { s.sigmaHigh += 0.5; }, stack},
+        {"weighting", [](StackingSettings& s) { s.weighting = QStringLiteral("Noise"); }, stack},
+        {"createQualityMaps", [](StackingSettings& s) { s.createQualityMaps = !s.createQualityMaps; }, stack},
+        {"createRejectionMaps", [](StackingSettings& s) { s.createRejectionMaps = !s.createRejectionMaps; }, stack},
+        {"mergeRejectionMaps", [](StackingSettings& s) { s.mergeRejectionMaps = !s.mergeRejectionMaps; }, stack},
+        {"spatialRejectionClustering",
+         [](StackingSettings& s) { s.spatialRejectionClustering = !s.spatialRejectionClustering; }, stack},
+        {"restackExcludingFlaggedFrames",
+         [](StackingSettings& s) { s.restackExcludingFlaggedFrames = !s.restackExcludingFlaggedFrames; }, stack},
+        {"starCountScaling", [](StackingSettings& s) { s.starCountScaling = QStringLiteral("Linear"); }, stack},
+        {"exponentialAlpha", [](StackingSettings& s) { s.exponentialAlpha += 0.5; }, stack},
+        {"minWeightFloor", [](StackingSettings& s) { s.minWeightFloor += 0.5; }, stack},
+        {"perChannelFwhmWeighting", [](StackingSettings& s) { s.perChannelFwhmWeighting = !s.perChannelFwhmWeighting; },
+         stack},
+        {"localWeighting.enabled", [](StackingSettings& s) { s.localWeighting.enabled = !s.localWeighting.enabled; },
+         stack},
+        {"localWeighting.windowSize", [](StackingSettings& s) { s.localWeighting.windowSize += 2; }, stack},
+        {"localWeighting.gridSpacing", [](StackingSettings& s) { s.localWeighting.gridSpacing += 2; }, stack},
+        {"localWeighting.snrWeightExponent", [](StackingSettings& s) { s.localWeighting.snrWeightExponent += 0.5; },
+         stack},
+        {"limitMemory", [](StackingSettings& s) { s.limitMemory = !s.limitMemory; }, stack},
+        {"maxMemoryMb", [](StackingSettings& s) { s.maxMemoryMb += 1; }, stack},
+        {"normalizationMode", [](StackingSettings& s) { s.normalizationMode = NormalizationMode::Local; }, normalized},
+        {"globalNormalizationMethod",
+         [](StackingSettings& s) { s.globalNormalizationMethod = GlobalNormalizationMethod::Additive; }, normalized},
+        {"scaleEstimator", [](StackingSettings& s) { s.scaleEstimator = ScaleEstimatorMethod::MAD; }, normalized},
+        {"overlapNormalization.enabled",
+         [](StackingSettings& s) { s.overlapNormalization.enabled = !s.overlapNormalization.enabled; }, normalized},
+        {"overlapNormalization.minOverlapPixels",
+         [](StackingSettings& s) { s.overlapNormalization.minOverlapPixels += 1; }, normalized},
+        {"overlapNormalization.minOverlapFraction",
+         [](StackingSettings& s) { s.overlapNormalization.minOverlapFraction += 0.5; }, normalized},
+        {"normalizationReferenceMode",
+         [](StackingSettings& s) { s.normalizationReferenceMode = NormalizationReferenceMode::Manual; }, normalized},
+        {"manualNormalizationReference",
+         [](StackingSettings& s) { s.manualNormalizationReference = QStringLiteral("/tmp/reference.fit"); },
+         normalized},
+        {"localNormalization.enabled",
+         [](StackingSettings& s) { s.localNormalization.enabled = !s.localNormalization.enabled; }, normalized},
+        {"localNormalization.gridSize", [](StackingSettings& s) { s.localNormalization.gridSize += 1; }, normalized},
+        {"localNormalization.gridInterpolation",
+         [](StackingSettings& s) { s.localNormalization.gridInterpolation = QStringLiteral("Bilinear"); }, normalized},
+        {"localNormalization.localScaleEnabled",
+         [](StackingSettings& s) { s.localNormalization.localScaleEnabled = !s.localNormalization.localScaleEnabled; },
+         normalized},
+        {"localNormalization.referenceStrategy",
+         [](StackingSettings& s) { s.localNormalization.referenceStrategy = QStringLiteral("Single Best Frame"); },
+         normalized},
+        {"localNormalization.maxIntegratedFrames",
+         [](StackingSettings& s) { s.localNormalization.maxIntegratedFrames += 1; }, normalized},
+        {"localNormalization.evaluationCriteria",
+         [](StackingSettings& s) { s.localNormalization.evaluationCriteria = QStringLiteral("PSF SNR"); }, normalized},
+        {"localNormalization.backgroundEstimator",
+         [](StackingSettings& s) { s.localNormalization.backgroundEstimator = QStringLiteral("Median"); }, normalized},
+        {"localNormalization.backgroundPercentile",
+         [](StackingSettings& s) { s.localNormalization.backgroundPercentile += 0.5; }, normalized},
+        {"localNormalization.sigmaClipK", [](StackingSettings& s) { s.localNormalization.sigmaClipK += 0.5; },
+         normalized},
+        {"localNormalization.sigmaClipIterations",
+         [](StackingSettings& s) { s.localNormalization.sigmaClipIterations += 1; }, normalized},
+        {"localNormalization.backgroundSmoothingRadius",
+         [](StackingSettings& s) { s.localNormalization.backgroundSmoothingRadius += 1; }, normalized},
+        {"localNormalization.scaleEvaluation",
+         [](StackingSettings& s) { s.localNormalization.scaleEvaluation = QStringLiteral("Median"); }, normalized},
+        {"localNormalization.scaleMode",
+         [](StackingSettings& s) { s.localNormalization.scaleMode = QStringLiteral("Independent"); }, normalized},
+        {"localNormalization.psfType",
+         [](StackingSettings& s) { s.localNormalization.psfType = QStringLiteral("Gaussian"); }, normalized},
+        {"localNormalization.moffatBeta", [](StackingSettings& s) { s.localNormalization.moffatBeta += 0.5; },
+         normalized},
+        {"localNormalization.maxStars", [](StackingSettings& s) { s.localNormalization.maxStars += 1; }, normalized},
+        {"localNormalization.minDetectionSnr", [](StackingSettings& s) { s.localNormalization.minDetectionSnr += 0.5; },
+         normalized},
+        {"localNormalization.allowClusteredSources",
+         [](StackingSettings& s) {
+             s.localNormalization.allowClusteredSources = !s.localNormalization.allowClusteredSources;
+         },
+         normalized},
+        {"localNormalization.lowClip", [](StackingSettings& s) { s.localNormalization.lowClip += 0.5; }, normalized},
+        {"localNormalization.highClip", [](StackingSettings& s) { s.localNormalization.highClip -= 0.5; }, normalized},
+        {"localNormalization.hotPixelMedianRadius",
+         [](StackingSettings& s) { s.localNormalization.hotPixelMedianRadius += 1; }, normalized},
+        {"localNormalization.noiseReductionRadius",
+         [](StackingSettings& s) { s.localNormalization.noiseReductionRadius += 1; }, normalized},
+        {"localNormalization.localScaleSmoothingRadius",
+         [](StackingSettings& s) { s.localNormalization.localScaleSmoothingRadius += 1; }, normalized},
+        {"drizzle.enabled", [](StackingSettings& s) { s.drizzle.enabled = !s.drizzle.enabled; }, drizzlePlane},
+        {"drizzle.scale", [](StackingSettings& s) { s.drizzle.scale += 1.0; }, drizzled},
+        {"drizzle.pixelFraction", [](StackingSettings& s) { s.drizzle.pixelFraction -= 0.5; }, drizzled},
+        {"drizzle.kernel", [](StackingSettings& s) { s.drizzle.kernel = QStringLiteral("Gaussian"); }, drizzled},
+        {"drizzle.cfaAware", [](StackingSettings& s) { s.drizzle.cfaAware = !s.drizzle.cfaAware; }, drizzled},
+        {"drizzle.cfaPattern", [](StackingSettings& s) { s.drizzle.cfaPattern = QStringLiteral("BGGR"); }, drizzled},
+        {"cometStackingMode", [](StackingSettings& s) { s.cometStackingMode = QStringLiteral("Comet"); }, every},
+        {"solveFinalMasterIfNeeded",
+         [](StackingSettings& s) { s.solveFinalMasterIfNeeded = !s.solveFinalMasterIfNeeded; }, stack},
+        {"registeredOutputPolicy",
+         [](StackingSettings& s) { s.registeredOutputPolicy = RegisteredOutputPolicy::Discardable; }, aligned},
+        {"hdr.enabled", [](StackingSettings& s) { s.hdr.enabled = !s.hdr.enabled; }, stack},
+    };
+
+    const std::span<const StackingSettingReaders> readers = stackingSettingReaders();
+    ASSERT_EQ(readers.size(), expected.size());
+    for (std::size_t index = 0u; index < expected.size(); ++index)
+    {
+        SCOPED_TRACE(expected[index].name);
+        EXPECT_STREQ(readers[index].name, expected[index].name);
+        EXPECT_EQ(readers[index].stages, expected[index].stages);
+
+        const StackingSettings previous;
+        StackingSettings current = previous;
+        expected[index].change(current);
+        EXPECT_FALSE(readers[index].same(previous, current));
+        for (std::size_t other = 0u; other < readers.size(); ++other)
+        {
+            if (other != index)
+            {
+                EXPECT_TRUE(readers[other].same(previous, current)) << readers[other].name << " reads the field too";
+            }
+        }
+        EXPECT_EQ(changedStackingSettings(previous, current).stages(), expected[index].stages);
+    }
+}
+
+// A change of the stacking method concerns the stack alone, not the alignment and the normalization it reads; a
+// change of the normalization's reference frames, the normalization and the stack.
+TEST(ManifestDiff, AChangedStackingMethodConcernsTheStackAlone)
+{
+    const std::vector<FrameId> lights = {
+        FrameId(QDir::tempPath() + QDir::separator() + QStringLiteral("method_a.fit")),
+        FrameId(QDir::tempPath() + QDir::separator() + QStringLiteral("method_b.fit"))};
+    const WorkflowManifest previous = makeManifestWithFrames(lights);
+    WorkflowManifest current = previous;
+    current.integrationGroups.front().stacking.stackMethod = QStringLiteral("Median");
+
+    const ManifestDiff method = compareManifests(previous, current);
+    ASSERT_EQ(method.integrationChanges.size(), 1u);
+    const auto& change = method.integrationChanges.front();
+    EXPECT_EQ(change.change, ManifestDiff::CalibrationGroupChange::ChangeType::Modified);
+    EXPECT_FALSE(change.lightFilesChanged);
+    EXPECT_FALSE(change.calibrationAssignmentsChanged);
+    EXPECT_EQ(change.settingsChanged.stacking, QStringList{QStringLiteral("Stacking settings changed")});
+    EXPECT_TRUE(change.settingsChanged.alignment.isEmpty());
+    EXPECT_TRUE(change.settingsChanged.normalization.isEmpty());
+    EXPECT_TRUE(change.settingsChanged.drizzle.isEmpty());
+
+    WorkflowManifest references = previous;
+    references.integrationGroups.front().normalizationReferenceFrames = {lights.back()};
+    const ManifestDiff reference = compareManifests(previous, references);
+    ASSERT_EQ(reference.integrationChanges.size(), 1u);
+    EXPECT_EQ(reference.integrationChanges.front().settingsChanged.stages(),
+              (LightStages{LightStage::Normalization, LightStage::Stacking}));
+    EXPECT_EQ(reference.integrationChanges.front().settingsChanged.normalization,
+              QStringList{QStringLiteral("Normalization reference frames changed")});
 }

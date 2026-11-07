@@ -114,7 +114,9 @@ public:
         QJsonObject object;
     };
 
-    struct DrizzleSourceGeometryFacts
+    /// A light's extent and distortion as its header states them, for a light a stage places itself: a
+    /// drizzled group's, or one its stack warps as it reads it.
+    struct SourceGeometryFacts
     {
         QString canonicalPath;
         bool metadataProbeSucceeded = false;
@@ -137,9 +139,10 @@ public:
 
     using RegistrationMetrics = QHash<FrameId, RegistrationMetric>;
 
-    /// Captures the facts for a manifest, reading a drizzle source's header, and the header of a recorded master whose
-    /// platform file identity moved, through `headerReader`; without one, no source geometry is captured, no drizzle
-    /// artifact is reused and a moved master is recomputed. No master's payload is read.
+    /// Captures the facts for a manifest, reading the header of a light a stage places itself and of a recorded
+    /// master whose platform file identity moved, through `headerReader`; without one, no source geometry is
+    /// captured, no drizzle artifact, coefficients measured on a warped plane or stack that warps its lights as it
+    /// reads them is reused, and a moved master is recomputed. No master's payload is read.
     [[nodiscard]] static std::shared_ptr<const ExecutionPreparationSnapshot>
     build(const WorkflowManifest& manifest, const std::function<bool()>& shouldCancel = {},
           ImageIntegration::FrameHeaderReader headerReader = {});
@@ -154,7 +157,7 @@ public:
     [[nodiscard]] const std::optional<WorkflowManifest>& previousManifest() const noexcept;
     [[nodiscard]] const ExecutionPreparationDiagnostics& diagnostics() const noexcept;
     /// Whether every fact the snapshot captured still holds: each file's size, modification time and platform identity
-    /// stated again by a stat, and each drizzle source's header read again. It reads no artifact's payload.
+    /// stated again by a stat, and each placed light's header read again. It reads no artifact's payload.
     [[nodiscard]] bool matchesCurrentFacts(const std::function<bool()>& shouldCancel = std::function<bool()>(),
                                            const std::function<QString(const QString&)>& fileIdentityProvider =
                                                std::function<QString(const QString&)>()) const;
@@ -185,7 +188,7 @@ public:
     [[nodiscard]] const ParsedMetadata* normalizationMetadata(const IntegrationGroupKey& groupKey) const;
     [[nodiscard]] std::optional<QString> normalizationCoefficientDigest(const IntegrationGroupKey& groupKey) const;
     [[nodiscard]] const ParsedMetadata* drizzleMetadata(const IntegrationGroupKey& groupKey) const;
-    [[nodiscard]] const DrizzleSourceGeometryFacts* drizzleSourceGeometry(const FrameId& frame) const;
+    [[nodiscard]] const SourceGeometryFacts* sourceGeometry(const FrameId& frame) const;
 
 private:
     friend class ExecutionPreparationSnapshotBuilder;

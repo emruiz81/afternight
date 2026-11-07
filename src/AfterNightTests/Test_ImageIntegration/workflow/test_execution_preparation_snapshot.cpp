@@ -673,7 +673,7 @@ TEST_F(P119ExecutionPreparationSnapshotTest, CapturesDrizzleSourceGeometryOnlyTh
 
     // Without a reader no header is read, so no geometry is known and no drizzle artifact can be reused.
     const auto unread_snapshot = ExecutionPreparationSnapshot::build(manifest, std::nullopt);
-    const auto* unread = unread_snapshot->drizzleSourceGeometry(first_light);
+    const auto* unread = unread_snapshot->sourceGeometry(first_light);
     ASSERT_NE(unread, nullptr);
     EXPECT_FALSE(unread->metadataProbeSucceeded);
     EXPECT_EQ(unread->sourceWidth, 0u);
@@ -688,7 +688,7 @@ TEST_F(P119ExecutionPreparationSnapshotTest, CapturesDrizzleSourceGeometryOnlyTh
     };
 
     const auto snapshot = ExecutionPreparationSnapshot::build(manifest, std::nullopt, {}, reader);
-    const auto* facts = snapshot->drizzleSourceGeometry(second_light);
+    const auto* facts = snapshot->sourceGeometry(second_light);
     ASSERT_NE(facts, nullptr);
     EXPECT_TRUE(facts->metadataProbeSucceeded);
     EXPECT_EQ(facts->sourceWidth, 40u);

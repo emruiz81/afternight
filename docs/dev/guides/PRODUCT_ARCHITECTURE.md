@@ -867,9 +867,15 @@ it does not decide through `workflow/WorkflowStageCompanions.h` (`planLightsTran
 commits through `IWorkflowRunArchive` (`workflow/WorkflowRunArchive.h`) from the factory its composer sets, and
 `createDefaultWorkflowExecutor` (`workflow/DefaultWorkflowStages.h`) composes the nine stages and the archiver.
 Headers are read through `FrameHeaderReader` (`sessionFrameHeaderReader`); `WorkflowManifest::validate` checks frame
-sizes only with one, and `ExecutionPreparationSnapshot::build` captures drizzle geometry, and reads the identity a
-moved master's header carries, only with one. A validation on the GUI thread passes no reader, because reading every
-header there would block it, and the run validates the sizes. A stage finds a light's registration input on disk as it
+sizes only with one, and `ExecutionPreparationSnapshot::build` captures the geometry of the lights a stage places
+itself - a drizzled group's, and those of a group whose stack warps them as it reads them - and reads the identity a
+moved master's header carries, only with one. With that geometry the planner states the identity the stack and the
+normalization would state of a group they place - its master, and coefficients measured on a warped plane
+(`warpedPlaneGeometryFingerprint`) - so a run that changed nothing they read reuses them. `workflow/ManifestDiff.h`
+compares an integration group's settings by the stages that read them (`stackingSettingReaders`, every field of
+`StackingSettings` with its stages; a field added without its entry stops the build), and the plan states each
+stage's reason from them. A validation on the GUI thread passes no reader, because reading every header there would
+block it, and the run validates the sizes. A stage finds a light's registration input on disk as it
 reads (`registrationInputPathForFrame`), not in the plan's snapshot, because the run's own calibration and
 registration write a light's calibrated and corrected copies after the plan is made. Every fingerprint carries
 `ArtifactFamily`'s identity - `kWorkflowEngineGeneration` and the family's revision (`workflow/ArtifactSchema.h`); a
