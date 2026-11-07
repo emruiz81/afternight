@@ -171,7 +171,7 @@ jobs:
   ci-complete:
     name: CI Complete
     needs: [gate, format, licence-headers, build-linux, build-windows]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     if: always()
     steps:
       - name: Check the results

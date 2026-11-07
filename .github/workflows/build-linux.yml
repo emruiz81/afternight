@@ -215,7 +215,7 @@ jobs:
 
       - name: Download documentation site
         if: ${{ inputs.build_installer && inputs.docs_artifact_name != '' }}
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.docs_artifact_name }}
           path: docs/user-guide/site
