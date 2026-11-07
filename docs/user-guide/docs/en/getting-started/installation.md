@@ -18,8 +18,8 @@ release package.
 | Item | Current behavior |
 | --- | --- |
 | Distribution route | Obtain a release asset through the project's published release channel or an administrator-provided mirror. This page does not certify an untrusted third-party copy. |
-| Windows packages | x64 Inno Setup builds: `AfterNightUserSetup_1.0.0.exe` (current-user/lowest privilege) and `AfterNightSetup_1.0.0.exe` (administrator/all-users intent). |
-| Linux package | `AfterNight-1.0.0-x86_64.AppImage`, built from `bin/clang/release`. It is a portable package, not a repository package-manager installation. |
+| Windows packages | x64 Inno Setup builds: `AfterNightUserSetup_1.0.1.exe` (current-user/lowest privilege) and `AfterNightSetup_1.0.1.exe` (administrator/all-users intent). |
+| Linux package | `AfterNight-1.0.1-x86_64.AppImage`, built from `bin/clang/release`. It is a portable package, not a repository package-manager installation. |
 | Published-release contents | Release automation requires the strict-built HTML artifact, packages the deployed application/runtime tree without the development tools a build leaves beside it, and uploads installer/AppImage assets. |
 | Local/manual package difference | Local Inno/AppImage builds include the guide only when `docs/user-guide/site/` exists; published release packaging fails when that site is absent. |
 | Source-build route | Use the numbered platform scripts and their platform-specific order from `AGENTS.md`/`README.md`; do not substitute direct Make/MSBuild commands before generation/dependency setup. |
@@ -67,18 +67,18 @@ The packaged release targets are Windows x64 (MSVC) and Linux x86_64 (Clang).
 
 ### Linux AppImage
 
-1. Place `AfterNight-1.0.0-x86_64.AppImage` in a user-controlled applications
+1. Place `AfterNight-1.0.1-x86_64.AppImage` in a user-controlled applications
    folder. Keep image projects and scratch data elsewhere.
 2. Make the package executable:
 
    ```bash
-   chmod +x AfterNight-1.0.0-x86_64.AppImage
+   chmod +x AfterNight-1.0.1-x86_64.AppImage
    ```
 
 3. Run it from the file manager or a terminal:
 
    ```bash
-   ./AfterNight-1.0.0-x86_64.AppImage
+   ./AfterNight-1.0.1-x86_64.AppImage
    ```
 
 4. Checkpoint: the AppRun launcher starts `usr/lib/AfterNight`, beside the
@@ -175,7 +175,7 @@ program directory.
 ## Worked example
 
 - Evidence mode: Source-and-test-derived; no installer/AppImage was executed.
-- Starting state: one trusted 1.0.0 release package and no running AfterNight
+- Starting state: one trusted 1.0.1 release package and no running AfterNight
   process.
 - Actions: install or mark executable, start the complete package, then open
   **Help > User Guide**.

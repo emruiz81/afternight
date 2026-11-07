@@ -212,6 +212,81 @@ namespace
     return result;
 }
 
+/// `oracleSeparable` for an undilated pass over a tight plane, its horizontal pass taken once per source row and read
+/// back by every output that needs it: the same sums in the same order, cheap enough for a wide kernel over a wide
+/// plane.
+[[nodiscard]] std::vector<double> oracleSeparableByRows(std::span<const float> samples, std::uint32_t width,
+                                                        std::uint32_t height, std::span<const double> horizontal,
+                                                        std::span<const double> vertical,
+                                                        const an::StencilBorderPolicy& borders)
+{
+    const std::int64_t columns = static_cast<std::int64_t>(width);
+    const std::int64_t rows = static_cast<std::int64_t>(height);
+    const std::int64_t radiusX = static_cast<std::int64_t>(horizontal.size() / 2u);
+    const std::int64_t radiusY = static_cast<std::int64_t>(vertical.size() / 2u);
+    double horizontalSum = 0.0;
+    for (const double tap : horizontal)
+    {
+        horizontalSum += tap;
+    }
+    std::vector<double> filteredRows(static_cast<std::size_t>(width) * height, 0.0);
+    for (std::int64_t y = 0; y < rows; ++y)
+    {
+        for (std::int64_t x = 0; x < columns; ++x)
+        {
+            double sum = 0.0;
+            for (std::size_t tap = 0u; tap < horizontal.size(); ++tap)
+            {
+                const std::int64_t sourceX =
+                    oracleBorderIndex(x + static_cast<std::int64_t>(tap) - radiusX, columns, borders.border);
+                const double value =
+                    sourceX == columns ? static_cast<double>(borders.constantBorder)
+                                       : static_cast<double>(samples[static_cast<std::size_t>(y * columns + sourceX)]);
+                sum += horizontal[tap] * value;
+            }
+            filteredRows[static_cast<std::size_t>(y * columns + x)] = sum;
+        }
+    }
+    std::vector<double> result(static_cast<std::size_t>(width) * height, 0.0);
+    for (std::int64_t y = 0; y < rows; ++y)
+    {
+        for (std::int64_t x = 0; x < columns; ++x)
+        {
+            double sum = 0.0;
+            for (std::size_t tap = 0u; tap < vertical.size(); ++tap)
+            {
+                const std::int64_t sourceY =
+                    oracleBorderIndex(y + static_cast<std::int64_t>(tap) - radiusY, rows, borders.border);
+                const double value = sourceY == rows ? static_cast<double>(borders.constantBorder) * horizontalSum
+                                                     : filteredRows[static_cast<std::size_t>(sourceY * columns + x)];
+                sum += vertical[tap] * value;
+            }
+            result[static_cast<std::size_t>(y * columns + x)] = sum;
+        }
+    }
+    return result;
+}
+
+/// Holds every output of a tight plane to the oracle's sum narrowed to Float32, bit for bit: the passes accumulate tap
+/// by tap in the taps' own order, as the oracle does, and narrow once.
+void expectNarrowsTheOracle(std::span<const float> actual, const std::vector<double>& expected, std::uint32_t width,
+                            std::uint32_t height, const char* what)
+{
+    std::uint64_t differ = 0u;
+    std::size_t first = 0u;
+    const std::size_t count = static_cast<std::size_t>(width) * height;
+    for (std::size_t index = 0u; index < count; ++index)
+    {
+        if (actual[index] != static_cast<float>(expected[index]) && differ++ == 0u)
+        {
+            first = index;
+        }
+    }
+    EXPECT_EQ(differ, 0u) << what << ": " << differ << " outputs differ from the oracle narrowed, the first at "
+                          << first % width << "," << first / width << ": " << actual[first] << " against "
+                          << static_cast<float>(expected[first]);
+}
+
 void expectMatchesOracle(std::span<const float> actual, const std::vector<double>& expected, std::uint32_t width,
                          std::uint32_t height, std::uint32_t stride, const char* what)
 {
@@ -530,46 +605,107 @@ TEST(StencilPrimitivesTest, ADilatedPassSkipsInvalidCentersIdenticallyAtEveryAdm
     }
 }
 
-TEST(StencilPrimitivesTest, WhenTheCeilingHoldsFewerBandsThanWorkersTheTilesRunInTurn)
+TEST(StencilPrimitivesTest, WhenTheCeilingHoldsFewerBandsThanWorkersADilatedPassRunsItsTilesInTurn)
 {
-    // Rows this wide leave room under the scratch ceiling for only a few bands of this halo, so the
-    // eight admitted workers take the tiles a few at a time and the answer is still one worker's.
+    // Rows this wide leave room under the scratch ceiling for only a few bands of this halo, and a dilated pass holds
+    // its bands across the whole width, so the eight admitted workers take the tiles a few at a time and the answer is
+    // still one worker's.
     constexpr std::uint32_t kWidth = 20000u;
     constexpr std::uint32_t kHeight = 40u;
+    constexpr std::uint32_t kDilation = 3u;
     const std::vector<float> samples = stencilSamples(static_cast<std::size_t>(kWidth) * kHeight);
     const std::vector<double> taps = gaussianTaps(8u, 3.0);
     an::EngineContext engine = stencilEngine(8u);
 
-    for (const std::uint32_t dilation : {1u, 3u})
+    std::vector<float> expected;
+    for (const std::uint32_t concurrency : {1u, 8u})
     {
-        std::vector<float> expected;
-        for (const std::uint32_t concurrency : {1u, 8u})
+        std::vector<float> destination(samples.size(), 0.0f);
+        an::ExecutionContext execution = stencilExecution(engine, concurrency);
+        const an::Result<an::StencilExecutionResult> ran = an::convolveSeparablePlane(
+            execution, constPlane(samples, kWidth, kHeight, kWidth),
+            writablePlane(destination, kWidth, kHeight, kWidth),
+            an::SeparableStencilRequest{.horizontalTaps = taps, .verticalTaps = taps, .dilation = kDilation},
+            an::KernelValidityView{});
+        ASSERT_TRUE(ran.hasValue()) << ran.status().message();
+        EXPECT_LE(ran->scratchBytes, an::kMaxStencilScratchBytes);
+        if (concurrency == 8u)
         {
-            std::vector<float> destination(samples.size(), 0.0f);
-            an::ExecutionContext execution = stencilExecution(engine, concurrency);
-            const an::Result<an::StencilExecutionResult> ran = an::convolveSeparablePlane(
-                execution, constPlane(samples, kWidth, kHeight, kWidth),
-                writablePlane(destination, kWidth, kHeight, kWidth),
-                an::SeparableStencilRequest{.horizontalTaps = taps, .verticalTaps = taps, .dilation = dilation},
-                an::KernelValidityView{});
-            ASSERT_TRUE(ran.hasValue()) << ran.status().message();
-            EXPECT_LE(ran->scratchBytes, an::kMaxStencilScratchBytes);
-            if (concurrency == 8u)
-            {
-                EXPECT_LT(ran->concurrentTiles, 8u) << "dilation " << dilation;
-                EXPECT_GE(ran->concurrentTiles, 2u) << "dilation " << dilation;
-                EXPECT_EQ(ran->plannedWorkers, ran->concurrentTiles) << "dilation " << dilation;
-            }
-            if (expected.empty())
-            {
-                expected = destination;
-            }
-            EXPECT_EQ(destination, expected) << "dilation " << dilation << ", concurrency " << concurrency;
+            EXPECT_LT(ran->concurrentTiles, 8u);
+            EXPECT_GE(ran->concurrentTiles, 2u);
+            EXPECT_EQ(ran->plannedWorkers, ran->concurrentTiles);
         }
-        const an::StencilBorderPolicy borders{};
-        expectMatchesOracle(expected, oracleSeparable(samples, kWidth, kHeight, kWidth, taps, taps, borders, dilation),
-                            kWidth, kHeight, kWidth, "wide");
+        if (expected.empty())
+        {
+            expected = destination;
+        }
+        EXPECT_EQ(destination, expected) << "concurrency " << concurrency;
     }
+    const an::StencilBorderPolicy borders{};
+    expectMatchesOracle(expected, oracleSeparable(samples, kWidth, kHeight, kWidth, taps, taps, borders, kDilation),
+                        kWidth, kHeight, kWidth, "wide");
+}
+
+TEST(StencilPrimitivesTest, AnUndilatedPassOverAWidePlaneGivesEveryAdmittedWorkerABandOfItsColumns)
+{
+    // The same rows hold too few bands across their whole width for eight workers, so an undilated pass divides them
+    // into strips of columns: every admitted worker holds a band of one, and every output is the oracle's sum narrowed,
+    // whichever strip it fell in - a strip decides which samples a band holds, never what an output adds up.
+    constexpr std::uint32_t kWidth = 20000u;
+    constexpr std::uint32_t kHeight = 40u;
+    const std::vector<float> samples = stencilSamples(static_cast<std::size_t>(kWidth) * kHeight);
+    const std::vector<double> taps = gaussianTaps(8u, 3.0);
+    const an::StencilBorderPolicy borders{};
+    const std::vector<double> oracle = oracleSeparableByRows(samples, kWidth, kHeight, taps, taps, borders);
+    an::EngineContext engine = stencilEngine(8u);
+
+    for (const std::uint32_t concurrency : {1u, 8u})
+    {
+        std::vector<float> destination(samples.size(), 0.0f);
+        an::ExecutionContext execution = stencilExecution(engine, concurrency);
+        const an::Result<an::StencilExecutionResult> ran = an::convolveSeparablePlane(
+            execution, constPlane(samples, kWidth, kHeight, kWidth),
+            writablePlane(destination, kWidth, kHeight, kWidth),
+            an::SeparableStencilRequest{.horizontalTaps = taps, .verticalTaps = taps, .borders = borders},
+            an::KernelValidityView{});
+        ASSERT_TRUE(ran.hasValue()) << ran.status().message();
+        EXPECT_LE(ran->scratchBytes, an::kMaxStencilScratchBytes);
+        EXPECT_EQ(ran->concurrentTiles, concurrency);
+        EXPECT_EQ(ran->plannedWorkers, concurrency);
+        EXPECT_EQ(ran->run.outputsWritten, static_cast<std::uint64_t>(kWidth) * kHeight);
+        expectNarrowsTheOracle(destination, oracle, kWidth, kHeight,
+                               concurrency == 1u ? "one worker" : "eight workers");
+    }
+}
+
+TEST(StencilPrimitivesTest, AnUndilatedPassWhoseWholeRowBandExceedsTheCeilingRunsInStripsOfColumns)
+{
+    // A band across the whole width at this halo holds more than the scratch ceiling even for one row of output - the
+    // 129 rows a radius of 64 reads, of 8,200 Float64 samples each - which a wide frame under a wide Gaussian asks for.
+    // The pass is planned over strips of columns instead, its edges mirrored as the whole row's are, the rows above and
+    // below folded again and again through a plane lower than the reach, and every output is the oracle's sum narrowed.
+    constexpr std::uint32_t kWidth = 8200u;
+    constexpr std::uint32_t kHeight = 24u;
+    constexpr std::uint32_t kRadius = 64u;
+    static_assert((2u * kRadius + 1u) * static_cast<std::uint64_t>(kWidth) * sizeof(double) >
+                  an::kMaxStencilScratchBytes);
+    const std::vector<float> samples = stencilSamples(static_cast<std::size_t>(kWidth) * kHeight);
+    const std::vector<double> taps = gaussianTaps(kRadius, 16.0);
+    const an::StencilBorderPolicy borders{.border = an::KernelBorderMode::ReflectExcludingEdge};
+    an::EngineContext engine = stencilEngine(4u);
+    an::ExecutionContext execution = stencilExecution(engine, 4u);
+
+    std::vector<float> destination(samples.size(), 0.0f);
+    const an::Result<an::StencilExecutionResult> ran = an::convolveSeparablePlane(
+        execution, constPlane(samples, kWidth, kHeight, kWidth), writablePlane(destination, kWidth, kHeight, kWidth),
+        an::SeparableStencilRequest{.horizontalTaps = taps, .verticalTaps = taps, .borders = borders},
+        an::KernelValidityView{});
+    ASSERT_TRUE(ran.hasValue()) << ran.status().message();
+    EXPECT_LE(ran->scratchBytes, an::kMaxStencilScratchBytes);
+    EXPECT_EQ(ran->concurrentTiles, 4u);
+    EXPECT_EQ(ran->haloRows, kRadius);
+    expectNarrowsTheOracle(destination, oracleSeparableByRows(samples, kWidth, kHeight, taps, taps, borders), kWidth,
+                           kHeight, "a band of the whole row above the ceiling");
 }
 
 TEST(StencilPrimitivesTest, SeparableConvolutionSkipsInvalidCentersAndSubstitutesInvalidNeighbors)
@@ -625,8 +761,9 @@ TEST(StencilPrimitivesTest, SeparableConvolutionReportsABoundedTileAndHaloPlan)
     EXPECT_LE(ran->concurrentTiles, ran->tileCount);
 }
 
-TEST(StencilPrimitivesTest, SeparableConvolutionRefusesAMinimumPlanAboveItsScratchCeiling)
+TEST(StencilPrimitivesTest, ADilatedPassRefusesAMinimumPlanAboveItsScratchCeiling)
 {
+    // A dilated pass holds its bands across the whole width, so a row this wide leaves no plan under the ceiling.
     constexpr std::uint32_t kWidth = 300000u;
     const std::vector<float> samples(kWidth, 1.0f);
     std::vector<float> destination(kWidth, -3.0f);
@@ -637,10 +774,34 @@ TEST(StencilPrimitivesTest, SeparableConvolutionRefusesAMinimumPlanAboveItsScrat
 
     const an::Result<an::StencilExecutionResult> refused = an::convolveSeparablePlane(
         execution, constPlane(samples, kWidth, 1u, kWidth), writablePlane(destination, kWidth, 1u, kWidth),
-        an::SeparableStencilRequest{.horizontalTaps = horizontal, .verticalTaps = vertical}, an::KernelValidityView{});
+        an::SeparableStencilRequest{.horizontalTaps = horizontal, .verticalTaps = vertical, .dilation = 2u},
+        an::KernelValidityView{});
     ASSERT_FALSE(refused.hasValue());
     EXPECT_EQ(refused.status().code(), an::ErrorCode::LimitExceeded);
     EXPECT_TRUE(std::all_of(destination.begin(), destination.end(), [](float value) { return value == -3.0f; }));
+}
+
+TEST(StencilPrimitivesTest, AnUndilatedRowWiderThanTheCeilingHoldsIsFilteredInStripsOfColumns)
+{
+    // The same row with its taps adjacent needs no band across its whole width: it is filtered a strip of columns at a
+    // time, and every output is the oracle's sum narrowed.
+    constexpr std::uint32_t kWidth = 300000u;
+    const std::vector<float> samples = stencilSamples(kWidth);
+    std::vector<float> destination(kWidth, -3.0f);
+    const std::array<double, 3u> horizontal{0.2, 0.5, 0.3};
+    const std::array<double, 3u> vertical{0.25, 0.5, 0.25};
+    an::EngineContext engine = stencilEngine(2u);
+    an::ExecutionContext execution = stencilExecution(engine, 2u);
+
+    const an::Result<an::StencilExecutionResult> ran = an::convolveSeparablePlane(
+        execution, constPlane(samples, kWidth, 1u, kWidth), writablePlane(destination, kWidth, 1u, kWidth),
+        an::SeparableStencilRequest{.horizontalTaps = horizontal, .verticalTaps = vertical}, an::KernelValidityView{});
+    ASSERT_TRUE(ran.hasValue()) << ran.status().message();
+    EXPECT_LE(ran->scratchBytes, an::kMaxStencilScratchBytes);
+    EXPECT_EQ(ran->run.outputsWritten, static_cast<std::uint64_t>(kWidth));
+    expectNarrowsTheOracle(destination,
+                           oracleSeparableByRows(samples, kWidth, 1u, horizontal, vertical, an::StencilBorderPolicy{}),
+                           kWidth, 1u, "a row wider than the ceiling holds");
 }
 
 TEST(StencilPrimitivesTest, SeparableConvolutionRefusesRequestsOutsideItsStatedContract)

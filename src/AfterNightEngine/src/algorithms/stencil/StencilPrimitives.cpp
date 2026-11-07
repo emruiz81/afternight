@@ -23,6 +23,14 @@
 // as there are bands. Either way the working set is the band times the concurrent tiles rather than
 // the image, and which tile used which buffer never reaches the result.
 //
+// **A wide plane's band holds a strip of its columns.** A band across the whole width holds every
+// column of its rows, so a wide plane under a wide kernel fits only a few bands under the ceiling,
+// or none at all once the halo alone outgrows it, and the pass would run on as many workers as there
+// are bands while recomputing its halo rows for every short tile. An undilated pass divides such
+// rows into strips of columns instead: each band holds its strip's samples, its padded rows the
+// strip's own neighbourhood, so more bands fit and each is taller. A strip never changes an output,
+// because every output adds up the same samples in the same order whichever band computed it.
+//
 // **A tile is a run of rows of one residue class, in both directions.** Spreading the taps `d`
 // samples apart makes a run of adjacent rows read a footprint `d` times taller, and a band holding
 // that whole footprint would grow with the spacing until it left the scratch ceiling - which is what
@@ -133,20 +141,36 @@ constexpr std::uint64_t kWideTargetBandBytes = 512u * 1024u;
     return Status::success();
 }
 
+/// The narrowest strip of columns an undilated pass divides its rows into.
+///
+/// A band holds its strip's samples and nothing either side of them, so a narrower strip fits more
+/// bands under the ceiling, each taller, and repeats fewer halo rows; the price is the padded row
+/// either side of the strip, which every band row fills, and a row run short enough that the
+/// compiled body spends a larger share of it in its scalar tail. Sixty-four columns is a kibibyte
+/// of Float64 intermediates a row and is still several vector widths long.
+constexpr std::uint32_t kMinimumStripColumns = 64u;
+
 /// The tile band plan one separable convolution runs with.
 ///
 /// A tile is `tileRows` consecutive rows of one residue class of the row index modulo the tap
-/// spacing, so its output rows sit `dilation` apart and every row its vertical taps read belongs to
-/// the same class. An undilated pass has one class, and its tiles are runs of adjacent rows.
+/// spacing, across one strip of `stripColumns` columns, so its output rows sit `dilation` apart and
+/// every row its vertical taps read belongs to the same class. An undilated pass has one class, and
+/// its tiles are runs of adjacent rows. A dilated pass's strip is the whole width.
 struct BandPlan
 {
     /// Output rows one tile produces.
     std::uint32_t tileRows = 1u;
 
-    /// How many tiles one residue class is divided into, counted for the longest class.
+    /// Columns one strip holds; the last strip of a row may hold fewer.
+    std::uint32_t stripColumns = 1u;
+
+    /// How many strips one row is divided into.
+    std::uint64_t stripCount = 1u;
+
+    /// How many tiles one residue class is divided into down one strip, counted for the longest class.
     std::uint64_t tilesPerClass = 1u;
 
-    /// How many tiles the destination is divided into, every class together.
+    /// How many tiles the destination is divided into, every class and every strip together.
     std::uint64_t tileCount = 1u;
 
     /// Rows one band holds, the halo on both sides included.
@@ -156,7 +180,8 @@ struct BandPlan
     std::uint64_t slots = 1u;
 };
 
-/// The plan one tile height produces, when its whole working set fits the ceiling.
+/// The plan one tile height produces over strips of one width, when its whole working set fits the
+/// ceiling.
 ///
 /// The two costs pull against each other: a taller band holds more samples per slot, and a shorter
 /// one divides the plane into more tiles and so needs more per-tile counters. Both are charged
@@ -169,13 +194,15 @@ struct BandPlan
 /// @param concurrency how many workers the operation was admitted.
 /// @param dilation how many samples apart two consecutive taps sit.
 /// @param tileRows the tile height to cost, at least one.
+/// @param stripColumns how many columns one strip holds, from one to the width; the width itself
+///        for a dilated pass.
 /// @return the plan, or no value when this height needs more than the ceiling allows.
 [[nodiscard]] std::optional<BandPlan> costBandPlan(std::uint32_t width, std::uint32_t height,
                                                    std::uint32_t horizontalRadius, std::uint32_t verticalRadius,
                                                    std::uint32_t concurrency, std::uint32_t dilation,
-                                                   std::uint32_t tileRows) noexcept
+                                                   std::uint32_t tileRows, std::uint32_t stripColumns) noexcept
 {
-    const std::uint64_t rowBytes = static_cast<std::uint64_t>(width) * sizeof(double);
+    const std::uint64_t rowBytes = static_cast<std::uint64_t>(stripColumns) * sizeof(double);
     // Row `y` belongs to class `y % dilation`. The first class is the longest, and a spacing beyond
     // the height leaves every class past the last row empty, so those hold no tile.
     const std::uint64_t classCount =
@@ -183,15 +210,17 @@ struct BandPlan
     const std::uint64_t classRows = (static_cast<std::uint64_t>(height) + dilation - 1u) / dilation;
     BandPlan plan;
     plan.tileRows = tileRows;
+    plan.stripColumns = stripColumns;
+    plan.stripCount = (static_cast<std::uint64_t>(width) + stripColumns - 1u) / stripColumns;
     plan.tilesPerClass = (classRows + plan.tileRows - 1u) / plan.tileRows;
-    plan.tileCount = classCount * plan.tilesPerClass;
+    plan.tileCount = classCount * plan.tilesPerClass * plan.stripCount;
     // The band holds the rows of the tile's own class that its taps read, not every row of the
-    // footprint they span.
+    // footprint they span, and of each row the strip's own columns.
     plan.bandRows = static_cast<std::uint64_t>(plan.tileRows) + 2u * verticalRadius;
     const std::uint64_t bandBytesPerSlot = plan.bandRows * rowBytes;
     const std::uint64_t phaseBytesPerSlot = dilation > 1u ? rowBytes : 0u;
     const std::uint64_t paddedBytesPerSlot =
-        (static_cast<std::uint64_t>(width) + 2u * horizontalRadius) * sizeof(float);
+        (static_cast<std::uint64_t>(stripColumns) + 2u * horizontalRadius) * sizeof(float);
     const std::uint64_t fixedBytes = plan.tileCount * sizeof(std::uint64_t);
     const std::uint64_t bytesPerSlot = bandBytesPerSlot + phaseBytesPerSlot + paddedBytesPerSlot;
     if (fixedBytes >= kMaxStencilScratchBytes || bytesPerSlot > kMaxStencilScratchBytes - fixedBytes)
@@ -225,7 +254,31 @@ struct BandPlan
     return waves * perTile;
 }
 
-/// Chooses the tile height, how many bands exist at once, and therefore the working set.
+/// What the busiest worker does under a plan, in tap applications and padded samples filled.
+///
+/// Unlike `busiestWorkerCost`, which compares tile heights over one strip width, this counts a whole
+/// strip's columns and the padded row either side of them, so plans over strips of different widths
+/// can be compared: a narrower strip repeats fewer halo rows and fills more padding per column.
+///
+/// @param plan the plan to cost.
+/// @param horizontalRadius the padded-row halo on each side.
+/// @param verticalRadius the band halo depth on each side.
+/// @return the estimate, which is only ever compared with another plan's for the same pass.
+[[nodiscard]] std::uint64_t busiestWorkerWork(const BandPlan& plan, std::uint32_t horizontalRadius,
+                                              std::uint32_t verticalRadius) noexcept
+{
+    const std::uint64_t waves = (plan.tileCount + plan.slots - 1u) / plan.slots;
+    const std::uint64_t columns = plan.stripColumns;
+    const std::uint64_t taps =
+        (plan.bandRows * (2u * static_cast<std::uint64_t>(horizontalRadius) + 1u) +
+         static_cast<std::uint64_t>(plan.tileRows) * (2u * static_cast<std::uint64_t>(verticalRadius) + 1u)) *
+        columns;
+    const std::uint64_t filled = plan.bandRows * (columns + 2u * static_cast<std::uint64_t>(horizontalRadius));
+    return waves * (taps + filled);
+}
+
+/// Chooses the tile height over strips of one width, how many bands exist at once, and therefore
+/// the working set.
 ///
 /// @param width how many samples one row holds.
 /// @param height how many rows the plane holds.
@@ -233,13 +286,15 @@ struct BandPlan
 /// @param verticalRadius the band halo depth on each side.
 /// @param concurrency how many workers the operation was admitted.
 /// @param dilation how many samples apart two consecutive taps sit.
+/// @param stripColumns how many columns one strip holds; the width for a dilated pass.
 /// @return the plan, or no value when no tile height fits the scratch ceiling.
-[[nodiscard]] std::optional<BandPlan> planBands(std::uint32_t width, std::uint32_t height,
-                                                std::uint32_t horizontalRadius, std::uint32_t verticalRadius,
-                                                std::uint32_t concurrency, std::uint32_t dilation) noexcept
+[[nodiscard]] std::optional<BandPlan> planBandsAcross(std::uint32_t width, std::uint32_t height,
+                                                      std::uint32_t horizontalRadius, std::uint32_t verticalRadius,
+                                                      std::uint32_t concurrency, std::uint32_t dilation,
+                                                      std::uint32_t stripColumns) noexcept
 {
-    const std::uint64_t rowBytes = static_cast<std::uint64_t>(width) * sizeof(double);
-    const std::uint64_t targetBandBytes = width >= 1024u ? kWideTargetBandBytes : kTargetBandBytes;
+    const std::uint64_t rowBytes = static_cast<std::uint64_t>(stripColumns) * sizeof(double);
+    const std::uint64_t targetBandBytes = stripColumns >= 1024u ? kWideTargetBandBytes : kTargetBandBytes;
     const std::uint64_t targetRows = rowBytes == 0u ? height : (std::max)(std::uint64_t{1}, targetBandBytes / rowBytes);
     const std::uint64_t classRows = (static_cast<std::uint64_t>(height) + dilation - 1u) / dilation;
     const std::uint32_t target =
@@ -254,8 +309,8 @@ struct BandPlan
     std::uint64_t chosenCost = 0u;
     for (std::uint32_t tileRows = target;; tileRows = (std::max)(std::uint32_t{1}, tileRows / 2u))
     {
-        const std::optional<BandPlan> plan =
-            costBandPlan(width, height, horizontalRadius, verticalRadius, concurrency, dilation, tileRows);
+        const std::optional<BandPlan> plan = costBandPlan(width, height, horizontalRadius, verticalRadius, concurrency,
+                                                          dilation, tileRows, stripColumns);
         if (plan.has_value())
         {
             const std::uint64_t cost = busiestWorkerCost(*plan, horizontalRadius, verticalRadius);
@@ -283,41 +338,105 @@ struct BandPlan
     for (std::uint64_t tileRows = static_cast<std::uint64_t>(target) * 2u; tileRows < classRows; tileRows *= 2u)
     {
         const std::optional<BandPlan> plan = costBandPlan(width, height, horizontalRadius, verticalRadius, concurrency,
-                                                          dilation, static_cast<std::uint32_t>(tileRows));
+                                                          dilation, static_cast<std::uint32_t>(tileRows), stripColumns);
         if (plan.has_value())
         {
             return plan;
         }
     }
     return costBandPlan(width, height, horizontalRadius, verticalRadius, concurrency, dilation,
-                        static_cast<std::uint32_t>(classRows));
+                        static_cast<std::uint32_t>(classRows), stripColumns);
 }
 
-/// Fills one padded row with border-resolved, validity-resolved source samples.
+/// Chooses the strip width, the tile height, how many bands exist at once, and therefore the
+/// working set.
+///
+/// A band across the whole width is the plan a row that fits it keeps. An undilated pass may divide
+/// its rows into strips of columns instead - halving the strip until it would be narrower than
+/// `kMinimumStripColumns` - and takes the strips whose busiest worker does least when they do at
+/// most three quarters of what the whole width's would, or when the whole width has no plan at all:
+/// the count ignores what a strip costs in memory traffic and scheduling, so a plane the whole row
+/// already runs well keeps its whole rows. A strip never changes an output, because every output
+/// adds up the same samples in the same order whichever band computed it. A dilated pass keeps the
+/// whole width, whose columns its padded phase rows are laid out across.
+///
+/// @param width how many samples one row holds.
+/// @param height how many rows the plane holds.
+/// @param horizontalRadius the padded-row halo on each side.
+/// @param verticalRadius the band halo depth on each side.
+/// @param concurrency how many workers the operation was admitted.
+/// @param dilation how many samples apart two consecutive taps sit.
+/// @return the plan, or no value when no strip and tile height fit the scratch ceiling.
+[[nodiscard]] std::optional<BandPlan> planBands(std::uint32_t width, std::uint32_t height,
+                                                std::uint32_t horizontalRadius, std::uint32_t verticalRadius,
+                                                std::uint32_t concurrency, std::uint32_t dilation) noexcept
+{
+    const std::optional<BandPlan> whole =
+        planBandsAcross(width, height, horizontalRadius, verticalRadius, concurrency, dilation, width);
+    if (dilation != 1u)
+    {
+        return whole;
+    }
+    const std::uint64_t wholeWork =
+        whole.has_value() ? busiestWorkerWork(*whole, horizontalRadius, verticalRadius) : 0u;
+    std::optional<BandPlan> chosen = whole;
+    std::uint64_t chosenWork = wholeWork;
+    for (std::uint64_t strips = 2u;; strips *= 2u)
+    {
+        const std::uint64_t columns = (static_cast<std::uint64_t>(width) + strips - 1u) / strips;
+        if (columns < kMinimumStripColumns)
+        {
+            break;
+        }
+        const std::optional<BandPlan> plan =
+            planBandsAcross(width, height, horizontalRadius, verticalRadius, concurrency, dilation,
+                            static_cast<std::uint32_t>(columns));
+        if (!plan.has_value())
+        {
+            continue;
+        }
+        const std::uint64_t work = busiestWorkerWork(*plan, horizontalRadius, verticalRadius);
+        const bool wellAheadOfWhole = !whole.has_value() || work * 4u <= wholeWork * 3u;
+        if (wellAheadOfWhole && (!chosen.has_value() || work < chosenWork))
+        {
+            chosen = plan;
+            chosenWork = work;
+        }
+    }
+    return chosen;
+}
+
+/// Fills one padded row of a strip of columns with border-resolved, validity-resolved source
+/// samples.
 ///
 /// After this, applying the taps is a contiguous multiply-accumulate: index `i` of the buffer is the
-/// sample the output at column `i - radius` would read for its first tap. Where the rule accepts every
-/// sample, the samples inside the row are copied as they stand and only the halo either side is
-/// resolved one sample at a time, which is the same buffer at a fraction of the cost.
+/// sample the output at column `firstColumn + i - radius` would read for its first tap, so the
+/// buffer of a strip holds exactly what the same indices of the whole row's buffer hold. Where the
+/// rule accepts every sample, the samples inside the row are copied as they stand and only what lies
+/// beyond either edge of the row is resolved one sample at a time, which is the same buffer at a
+/// fraction of the cost.
 ///
 /// @param source the input plane.
 /// @param accepts the validity rule.
 /// @param borders the border and substitute policy.
 /// @param sourceRow the already border-resolved row to read.
 /// @param radius half the horizontal extent.
+/// @param firstColumn the strip's first column.
+/// @param columns how many columns the strip holds, ending inside the row.
 /// @param acceptsEverySample whether `accepts` accepts every sample, as it does under an all-valid
 ///        rule, beside which no mask is admitted.
-/// @param padded the buffer, `width + 2 * radius` samples long.
+/// @param padded the buffer, `columns + 2 * radius` samples long.
 void fillPaddedRow(PlaneView<const float> source, const reference_detail::ValidityAccessor& accepts,
                    const StencilBorderPolicy& borders, std::uint32_t sourceRow, std::uint32_t radius,
-                   bool acceptsEverySample, float* padded)
+                   std::uint32_t firstColumn, std::uint32_t columns, bool acceptsEverySample, float* padded)
 {
     const std::int64_t width = static_cast<std::int64_t>(source.width());
     const std::span<const float> row = *source.row(sourceRow);
-    const std::uint64_t length = static_cast<std::uint64_t>(width) + 2u * radius;
-    const auto resolve = [&](std::uint64_t index) {
-        const std::int64_t x = static_cast<std::int64_t>(index) - static_cast<std::int64_t>(radius);
-        const std::int64_t resolved = kernelBorderIndex(x, width, borders.border);
+    const std::int64_t length = static_cast<std::int64_t>(columns) + 2 * static_cast<std::int64_t>(radius);
+    // The column the buffer's first index reads.
+    const std::int64_t origin = static_cast<std::int64_t>(firstColumn) - static_cast<std::int64_t>(radius);
+    const auto resolve = [&](std::int64_t index) {
+        const std::int64_t resolved = kernelBorderIndex(origin + index, width, borders.border);
         if (resolved == width)
         {
             padded[index] = borders.constantBorder;
@@ -329,18 +448,21 @@ void fillPaddedRow(PlaneView<const float> source, const reference_detail::Validi
     };
     if (!acceptsEverySample)
     {
-        for (std::uint64_t index = 0u; index < length; ++index)
+        for (std::int64_t index = 0; index < length; ++index)
         {
             resolve(index);
         }
         return;
     }
-    for (std::uint64_t index = 0u; index < radius; ++index)
+    // The indices whose column lies inside the row.
+    const std::int64_t inside = (std::clamp)(-origin, std::int64_t{0}, length);
+    const std::int64_t beyond = (std::clamp)(width - origin, inside, length);
+    for (std::int64_t index = 0; index < inside; ++index)
     {
         resolve(index);
     }
-    std::copy(row.begin(), row.end(), padded + radius);
-    for (std::uint64_t index = radius + static_cast<std::uint64_t>(width); index < length; ++index)
+    std::copy(row.begin() + (origin + inside), row.begin() + (origin + beyond), padded + inside);
+    for (std::int64_t index = beyond; index < length; ++index)
     {
         resolve(index);
     }
@@ -547,11 +669,14 @@ Result<StencilExecutionResult> convolveSeparablePlane(const ExecutionContext& ex
                               "the minimum separable tile plan exceeds the stencil scratch ceiling");
     }
     const BandPlan plan = *planned;
-    const std::uint64_t bandSamples = plan.bandRows * width;
+    // A band holds the rows its tile reads of the tile's own strip of columns; a dilated pass's strip
+    // is the whole width.
+    const std::uint32_t stripColumns = plan.stripColumns;
+    const std::uint64_t bandSamples = plan.bandRows * stripColumns;
     // A dilated pass produces one residue class of columns at a time, and the widest class holds
     // `ceil(width / dilation)` outputs, so the padded row an undilated pass needs is an upper bound
     // for every class of a dilated one.
-    const std::uint64_t paddedSamples = static_cast<std::uint64_t>(width) + 2u * radiusX;
+    const std::uint64_t paddedSamples = static_cast<std::uint64_t>(stripColumns) + 2u * radiusX;
     const std::uint64_t phaseSamples = dilation > 1u ? static_cast<std::uint64_t>(width) : 0u;
     const std::span<const double> horizontal = request.horizontalTaps;
     const std::span<const double> vertical = request.verticalTaps;
@@ -610,11 +735,16 @@ Result<StencilExecutionResult> convolveSeparablePlane(const ExecutionContext& ex
         double* const band = bandBase + slot * bandSamples;
         float* const padded = paddedBase + slot * paddedSamples;
         double* const phaseRow = phaseBase == nullptr ? nullptr : phaseBase + slot * phaseSamples;
+        // The strip of columns the tile covers: the strips of one run of rows are neighbouring tiles,
+        // so a worker taking consecutive tiles walks along the rows it has just read.
+        const std::uint64_t runOfRows = tile / plan.stripCount;
+        const std::uint32_t firstColumn = static_cast<std::uint32_t>((tile % plan.stripCount) * stripColumns);
+        const std::uint32_t columns = (std::min)(stripColumns, width - firstColumn);
         // The residue class the tile belongs to, and where among that class's rows its own start. The
         // longest class sets how many tiles each class is given, so a shorter class may leave its last
         // one empty.
-        const std::uint32_t rowPhase = static_cast<std::uint32_t>(tile / plan.tilesPerClass);
-        const std::uint64_t firstIndex = (tile % plan.tilesPerClass) * plan.tileRows;
+        const std::uint32_t rowPhase = static_cast<std::uint32_t>(runOfRows / plan.tilesPerClass);
+        const std::uint64_t firstIndex = (runOfRows % plan.tilesPerClass) * plan.tileRows;
         const std::uint64_t classRows = (static_cast<std::uint64_t>(height) - rowPhase + dilation - 1u) / dilation;
         std::uint64_t produced = 0u;
         if (firstIndex < classRows)
@@ -627,7 +757,7 @@ Result<StencilExecutionResult> convolveSeparablePlane(const ExecutionContext& ex
 
             for (std::uint64_t bandRow = 0u; bandRow < usedRows; ++bandRow)
             {
-                double* const target = band + bandRow * width;
+                double* const target = band + bandRow * stripColumns;
                 const std::int64_t wanted =
                     firstRow + (static_cast<std::int64_t>(bandRow) - static_cast<std::int64_t>(radiusY)) *
                                    static_cast<std::int64_t>(dilation);
@@ -637,21 +767,22 @@ Result<StencilExecutionResult> convolveSeparablePlane(const ExecutionContext& ex
                 {
                     // A whole row outside the footprint contributes the constant, which after the
                     // horizontal pass is the constant scaled by the sum of its taps.
-                    std::fill_n(target, static_cast<std::size_t>(width),
+                    std::fill_n(target, static_cast<std::size_t>(columns),
                                 static_cast<double>(request.borders.constantBorder) * horizontalSum);
                     continue;
                 }
                 const std::uint32_t sourceRow = static_cast<std::uint32_t>(resolved);
                 if (dilation == 1u)
                 {
-                    fillPaddedRow(source, accepts, request.borders, sourceRow, radiusX, everySampleValid, padded);
+                    fillPaddedRow(source, accepts, request.borders, sourceRow, radiusX, firstColumn, columns,
+                                  everySampleValid, padded);
                     if (rowRun != nullptr)
                     {
-                        rowRun(padded, width, horizontal.data(), tapsX, target);
+                        rowRun(padded, columns, horizontal.data(), tapsX, target);
                     }
                     else
                     {
-                        scalarRowRun(padded, width, horizontal, target);
+                        scalarRowRun(padded, columns, horizontal, target);
                     }
                     continue;
                 }
@@ -680,36 +811,36 @@ Result<StencilExecutionResult> convolveSeparablePlane(const ExecutionContext& ex
             {
                 const std::uint32_t y =
                     static_cast<std::uint32_t>(firstRow + static_cast<std::int64_t>(index * dilation));
-                const double* const first = band + index * width;
-                const std::span<float> output = *destination.row(y);
+                const double* const first = band + index * stripColumns;
+                float* const output = destination.row(y)->data() + firstColumn;
                 if (everySampleValid)
                 {
                     if (columnRun != nullptr)
                     {
-                        columnRun(first, width, width, vertical.data(), tapsY, output.data());
+                        columnRun(first, stripColumns, columns, vertical.data(), tapsY, output);
                     }
                     else
                     {
-                        scalarColumnRun(first, width, width, vertical, output.data());
+                        scalarColumnRun(first, stripColumns, columns, vertical, output);
                     }
-                    produced += width;
+                    produced += columns;
                     continue;
                 }
                 // An invalid center produces nothing at all, so the run kernel - which writes every
                 // column it is given - is not the right shape for a masked row.
-                const std::span<const float> input = *source.row(y);
-                for (std::uint32_t x = 0u; x < width; ++x)
+                const float* const input = source.row(y)->data() + firstColumn;
+                for (std::uint32_t offset = 0u; offset < columns; ++offset)
                 {
-                    if (!accepts.accepts(input[x], x, y))
+                    if (!accepts.accepts(input[offset], firstColumn + offset, y))
                     {
                         continue;
                     }
                     double sum = 0.0;
                     for (std::uint32_t tap = 0u; tap < tapsY; ++tap)
                     {
-                        sum += vertical[tap] * first[static_cast<std::uint64_t>(tap) * width + x];
+                        sum += vertical[tap] * first[static_cast<std::uint64_t>(tap) * stripColumns + offset];
                     }
-                    output[x] = static_cast<float>(sum);
+                    output[offset] = static_cast<float>(sum);
                     ++produced;
                 }
             }

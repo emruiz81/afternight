@@ -149,8 +149,10 @@ retains only normalized `L*`. With **Binary Mask**, a sample `x` becomes
 
 The endpoints are inclusive and the selection has no fuzziness, so there is no
 threshold ramp. **Smoothness > 0** then applies an exact Gaussian blur with that
-sigma, in pixels, to `B`; it does not change the selection thresholds. The order
-is the one the Range Selection process uses: select, then smooth.
+sigma, in pixels, to `B` - the blur the Gaussian Blur process runs, at every
+sigma the dialog offers and on any image; it does not change the selection
+thresholds. The order is the one the Range Selection process uses: select, then
+smooth.
 
 ### Boundary and failure behavior
 

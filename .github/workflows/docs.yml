@@ -1,9 +1,11 @@
 name: Documentation
 
-# Builds the user guide strictly on every pull request that touches it, and deploys it to GitHub Pages on every push
-# to main that does, or on a dispatch that asks. A release calls this to build the guide its installers bundle and to
-# hand the release workflow the archive it attaches; a release never deploys Pages, and nothing here writes to the
-# repository.
+# Builds the user guide strictly on every pull request that touches it and on every push to main that does. GitHub
+# Pages carries the latest release's guide, so that Help's online fallback describes the build people have installed:
+# the release workflow publishes the guide it built once the release is published, and a dispatch that asks for a
+# deployment publishes the guide the latest release attached, as that release built it. A release calls this to build
+# the guide its installers bundle and to hand the release workflow the archive it attaches; nothing here writes to the
+# repository, and nothing here checks out or runs another ref's code.
 
 on:
   pull_request:
@@ -42,7 +44,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy_pages:
-        description: 'Deploy to GitHub Pages'
+        description: 'Publish the guide the latest release attached to GitHub Pages'
         required: false
         default: false
         type: boolean
@@ -65,31 +67,31 @@ jobs:
     outputs:
       deploy: ${{ steps.deploy.outputs.deploy }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          lfs: true
-
-      # A push to main that reaches this workflow directly, or a dispatch that asks. Called by a release, the event
-      # is the release's - a tag push or a dispatch - and the workflow's own dispatch input does not exist.
+      # Only a dispatch of this workflow that asks deploys Pages here. A push to main builds and checks the guide
+      # without publishing it, and a release publishes its own build once it is published (release.yml, deploy-guide).
+      # Called by a release, the event is the release's - a tag push or a dispatch - and this workflow's dispatch
+      # inputs do not exist.
       - name: Decide whether this run deploys Pages
         id: deploy
         env:
           EVENT: ${{ github.event_name }}
-          REF: ${{ github.ref }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
           REQUESTED: ${{ inputs.deploy_pages }}
         run: |
           deploy=false
           case "$WORKFLOW_REF" in
             */.github/workflows/docs.yml@*)
-              if { [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; } || \
-                 { [ "$EVENT" = workflow_dispatch ] && [ "$REQUESTED" = true ]; }; then
+              if [ "$EVENT" = workflow_dispatch ] && [ "$REQUESTED" = true ]; then
                 deploy=true
               fi ;;
           esac
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
           echo "Deploy Pages: $deploy"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -112,12 +114,6 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: Upload GitHub Pages artifact
-        if: steps.deploy.outputs.deploy == 'true'
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: docs/user-guide/site/
-
       # The release workflow's publishing job attaches this archive; this job only hands it over.
       - name: Package docs for release
         if: inputs.release_version != ''
@@ -137,12 +133,15 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  # Publishes the guide the latest release attached, built from that release's tag by the release workflow: Pages
+  # carries what the release shipped, and this run builds nothing for it.
   deploy-pages:
     name: Deploy to GitHub Pages
     needs: build-docs
     if: needs.build-docs.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pages: write
       id-token: write
     # One deployment at a time, and a deployment in progress is never cancelled half way.
@@ -153,6 +152,21 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Download the guide the latest release attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pattern='AfterNight-Documentation-v*.zip'
+          gh release download --repo "$GITHUB_REPOSITORY" --pattern "$pattern" --dir release-guide
+          mkdir -p site
+          unzip -q release-guide/AfterNight-Documentation-v*.zip -d site
+          test -f site/index.html
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/
+
       - name: Deploy Pages artifact
         id: deployment
         uses: actions/deploy-pages@v4

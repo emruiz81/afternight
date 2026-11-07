@@ -218,7 +218,7 @@ timing or peak memory was measured.
 | Output clips toward white or black | Additive Lightness clamps to `0..1`; saturation and the RGB result also clamp | Reduce Lightness/Saturation and start again from duplicate | `an::adjustImageHsl` |
 | Pixels holding NaN are unchanged | Non-finite pixels are left as they were | Repair or replace them upstream if needed | `process_utils::skippingNonFinite` |
 | Snapshot carries no nonlinear record | Snapshots are Preview results and are not recorded | Apply on a duplicate for an archival result | `AdjustHSLProcess::executeTypedProcessImpl`; `process_utils::recordNonlinearResult` |
-| Error names the memory budget | The session cannot hold the run's copies of the image | Close other images or work on a smaller crop; nothing was changed | `process_utils::openNormalizedDestination`; `process_utils::recordNonlinearResult` |
+| Error names the memory budget | The session cannot hold the run's copies of the image | Close other images or work on a smaller crop; nothing was changed | `process_utils::openNormalizedDestination` |
 | Sequence Cancel leaves the sequence as it was | Cancel stops the run between frames or inside the engine operation, and the target is replaced only when every frame succeeds | Expected; Apply again when ready | `ImageRTPreviewControl::runOverSequence`; `an::adjustImageHsl` |
 
 ## Related workflow steps

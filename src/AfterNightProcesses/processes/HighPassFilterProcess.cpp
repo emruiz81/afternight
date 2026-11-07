@@ -6,6 +6,25 @@
 #include "controls/ImageViewControl.h"
 #include "processes/SpatialProcessSupport.h"
 
+#include <algorithm>
+
+namespace
+{
+
+/// The filter the dialog asks for at a radius, in a frame of a kind: an interactive frame blurs a radius beyond one
+/// kernel's reach by the real-time preview's boxes, and every other run by the exact Gaussian.
+[[nodiscard]] process_utils::DetailRequest highPassRequest(double radius, an::ui::PreviewFrameKind kind)
+{
+    return process_utils::DetailRequest{.method = an::DetailFilterMethod::HighPass,
+                                        .sigma = radius,
+                                        .offset = 0.5,
+                                        .blur = kind == an::ui::PreviewFrameKind::Interactive
+                                                    ? process_utils::BlurKind::InteractivePreview
+                                                    : process_utils::BlurKind::Exact};
+}
+
+} // namespace
+
 HighPassFilterProcess::HighPassFilterProcess(ImageViewControl* control)
     : an::ui::TypedProcessControl<HighPassFilterProcessParams>(control, getProcessNameStatic())
 {
@@ -61,11 +80,11 @@ an::Status HighPassFilterProcess::executeTypedProcessIteration(const an::Channel
                                                                const HighPassFilterProcessParams& params,
                                                                an::ui::ExecutionScope& scope)
 {
-    // The source less its Gaussian blur of the dialog's radius, raised to mid-grey and held to full scale.
+    // The source less its Gaussian blur of the dialog's radius, raised to mid-grey and held to full scale. Over the
+    // target reduced by the preview view's factor, the blur's radius is reduced with it.
+    const double radius = params.radius / static_cast<double>((std::max)(1u, run.proxyFactor));
     return process_utils::filterDetail(scope.engine(), scope.execution(), input, output,
-                                       process_utils::DetailRequest{.method = an::DetailFilterMethod::HighPass,
-                                                                    .sigma = params.radius,
-                                                                    .offset = 0.5});
+                                       highPassRequest(radius, run.frameKind));
 }
 
 an::Status HighPassFilterProcess::executeTypedProcessImpl(const an::ui::ProcessSource& source,
@@ -79,16 +98,18 @@ an::Status HighPassFilterProcess::executeTypedProcessImpl(const an::ui::ProcessS
 
 an::ui::PreviewScaling HighPassFilterProcess::previewScaling() const
 {
-    // The blur taken away reaches a radius in pixels, and the clamp to full scale keeps the result from commuting with
-    // a reduction: an interactive frame runs at full scale over the part of the target the preview view shows.
-    return an::ui::PreviewScaling::NativeRegion;
+    // An interactive frame runs over what the preview view paints. Over the target reduced by the view's factor the
+    // body blurs by the radius reduced with it; the clamp to full scale keeps the result from commuting with the
+    // reduction, so such a frame comes close to the reduction of the whole result rather than being it. Over the part
+    // of the target the view shows at full scale it blurs by the dialog's radius. The settled frame runs over the whole
+    // image as an Apply does.
+    return an::ui::PreviewScaling::Decimated;
 }
 
 std::uint32_t HighPassFilterProcess::typedPreviewRegionMargin(const HighPassFilterProcessParams& params) const
 {
-    // The reach of the blur the body takes away, every pass of a composed one included.
-    return process_utils::detailReach(process_utils::DetailRequest{
-        .method = an::DetailFilterMethod::HighPass, .sigma = params.radius, .offset = 0.5});
+    // The reach of the blur an interactive frame at full scale takes away: one kernel's, or the boxes' beyond it.
+    return process_utils::detailReach(highPassRequest(params.radius, an::ui::PreviewFrameKind::Interactive));
 }
 
 an::ui::ProcessStep HighPassFilterProcess::describeTypedProcessStep(const HighPassFilterProcessParams& params) const

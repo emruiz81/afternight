@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// The recent files' thumbnails: a linear image stretched by the display presentation, each colour channel on its own,
-/// an image reduced to the thumbnail's size, a mosaic shown as the grey picture its codes make, an image that is not
-/// linear left unstretched, and thumbnails rendered on a worker and recorded only while they are the last one asked for
-/// their file.
+/// The recent files' thumbnails: which images are linear data, a linear image stretched by the display presentation,
+/// each colour channel on its own, an image reduced to the thumbnail's size, a mosaic shown as the grey picture its
+/// codes make, an image that is not linear left unstretched, and thumbnails rendered on a worker and recorded only
+/// while they are the last one asked for their file.
 
 #include "Test_ControlsFiles/FilesTestContext.h"
 
@@ -17,10 +17,12 @@
 #include <AfterNightEngine/IO/CodecIO.h>
 #include <AfterNightEngine/IO/CodecRequests.h>
 #include <AfterNightEngine/IO/ProcessingStateCards.h>
+#include <AfterNightEngine/Image/AcquisitionMetadata.h>
 #include <AfterNightEngine/Image/CfaPattern.h>
 #include <AfterNightEngine/Image/CodecMetadata.h>
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/ImageMetadata.h>
+#include <AfterNightEngine/Image/ImageSemantics.h>
 
 #include <QDir>
 #include <QFileInfo>
@@ -28,6 +30,9 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <initializer_list>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -40,15 +45,49 @@ using an::tests::files::makeAsset;
 using an::tests::files::openFilesContext;
 using an::tests::files::pumpQuietly;
 
+/// Metadata of a header holding `cards` - each a FITS keyword and its value as a file writes it - whose meaning states
+/// `transfer`, and that records a camera RAW frame when asked.
+an::ImageMetadata metadataOf(std::initializer_list<std::pair<const char*, const char*>> cards,
+                             an::TransferFunction transfer = an::TransferFunction::Unspecified, bool rawCamera = false)
+{
+    std::vector<an::CodecCard> header;
+    for (const auto& [keyword, value] : cards)
+    {
+        an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, keyword, value, {});
+        EXPECT_TRUE(card.hasValue()) << card.status().message();
+        if (card.hasValue())
+        {
+            header.push_back(*card);
+        }
+    }
+    an::Result<an::CodecMetadata> codec = an::CodecMetadata::create({}, std::move(header));
+    EXPECT_TRUE(codec.hasValue()) << codec.status().message();
+    an::Result<an::ImageSemantics> semantics =
+        an::ImageSemantics::create(an::ImageSemanticsRequest{.transferFunction = transfer});
+    EXPECT_TRUE(semantics.hasValue()) << semantics.status().message();
+    an::AcquisitionMetadata acquisition;
+    if (rawCamera)
+    {
+        an::Result<an::AcquisitionMetadata> camera =
+            an::AcquisitionMetadata::create(an::AcquisitionMetadataRequest{.rawCamera = an::RawCameraMetadata{}});
+        EXPECT_TRUE(camera.hasValue()) << camera.status().message();
+        acquisition = *camera;
+    }
+    return an::ImageMetadata::create(acquisition, *semantics, an::AstrometricSolution{}, an::Provenance{}, *codec,
+                                     std::nullopt);
+}
+
 /// Metadata whose processing-state cards record the image linear, as a file the product wrote does.
 an::ImageMetadata recordedLinear()
 {
-    an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, "ANLIN", "'linear'", {});
-    EXPECT_TRUE(card.hasValue()) << card.status().message();
-    an::Result<an::CodecMetadata> codec = an::CodecMetadata::create({}, {*card});
-    EXPECT_TRUE(codec.hasValue()) << codec.status().message();
-    return an::ImageMetadata::create(an::AcquisitionMetadata{}, an::ImageSemantics{}, an::AstrometricSolution{},
-                                     an::Provenance{}, *codec, std::nullopt);
+    return metadataOf({{"ANLIN", "'linear'"}});
+}
+
+/// Metadata of a stack as the product's lights stacking writes it: how many frames it combines and the type of frame
+/// they are, and no card recording it linear.
+an::ImageMetadata stackHeader()
+{
+    return metadataOf({{"EXPTIME", "25920"}, {"STACKCNT", "216"}, {"IMAGETYP", "'LIGHT'"}});
 }
 
 /// The largest difference between two assets' samples, over every sample, or a negative number when their shapes or
@@ -109,14 +148,20 @@ protected:
     std::shared_ptr<an::consumer::ImageAsset> unbalancedColour(bool linear, std::uint32_t width = 64u,
                                                                std::uint32_t height = 48u)
     {
+        return unbalancedColour(linear ? recordedLinear() : an::ImageMetadata{}, width, height);
+    }
+
+    /// The same image with the metadata given.
+    std::shared_ptr<an::consumer::ImageAsset> unbalancedColour(const an::ImageMetadata& metadata,
+                                                               std::uint32_t width = 64u, std::uint32_t height = 48u)
+    {
         an::Result<an::consumer::SessionHold> hold = m_context->engineSession().hold();
         EXPECT_TRUE(hold.hasValue());
         const std::optional<an::ImageDescriptor> descriptor =
             an::tests::viewer::describeImage(hold->engine(), an::SampleType::UInt16, width, height, Channels::Rgb);
         EXPECT_TRUE(descriptor.has_value());
         an::Result<an::Image<std::uint16_t>> image = an::Image<std::uint16_t>::create(
-            hold->engine(), *descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed,
-            linear ? recordedLinear() : an::ImageMetadata{});
+            hold->engine(), *descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed, metadata);
         EXPECT_TRUE(image.hasValue()) << image.status().message();
         {
             std::optional<an::ImageWriteAccess<std::uint16_t>> access = image->write();
@@ -171,6 +216,66 @@ TEST_F(ThumbnailTest, ALinearColourThumbnailIsStretchedWithItsChannelsUnlinked)
     ASSERT_TRUE(together.hasValue());
     EXPECT_EQ(largestDifference<std::uint16_t>(**thumbnail, *expected), 0.0);
     EXPECT_GT(largestDifference<std::uint16_t>(**thumbnail, *together), 1000.0);
+}
+
+// An image declared linear is linear data, which a picture of it - a thumbnail, a history step's preview - shows
+// stretched: its cards record it so, or its meaning states a linear transfer. Whatever says it was stretched or encoded
+// wins over everything else: a stretch of the product records its result nonlinear, and an sRGB transfer is encoded.
+TEST_F(ThumbnailTest, AnImageDeclaredLinearIsLinearDataUnlessAnythingSaysItWasStretched)
+{
+    constexpr an::TransferFunction kLinear = an::TransferFunction::Linear;
+    constexpr an::TransferFunction kSrgb = an::TransferFunction::Srgb;
+    EXPECT_TRUE(an::ui::isLinearData(recordedLinear()));
+    EXPECT_TRUE(an::ui::isLinearData(metadataOf({}, kLinear)));
+    EXPECT_FALSE(an::ui::isLinearData(metadataOf({{"ANLIN", "'nonlinear'"}})));
+    EXPECT_FALSE(an::ui::isLinearData(metadataOf({}, kSrgb)));
+    EXPECT_FALSE(an::ui::isLinearData(an::ImageMetadata{}));
+
+    EXPECT_FALSE(an::ui::isLinearData(metadataOf({{"ANLIN", "'nonlinear'"}}, kLinear)))
+        << "a meaning still stating the linear transfer it was lent with";
+    EXPECT_FALSE(an::ui::isLinearData(metadataOf({{"ANLIN", "'nonlinear'"}}, an::TransferFunction::Unspecified, true)))
+        << "a camera RAW frame stretched";
+    EXPECT_FALSE(
+        an::ui::isLinearData(metadataOf({{"ANLIN", "'nonlinear'"}, {"STACKCNT", "216"}, {"IMAGETYP", "'LIGHT'"}})))
+        << "a stack stretched";
+    EXPECT_FALSE(an::ui::isLinearData(metadataOf({{"ANLIN", "'linear'"}}, kSrgb)));
+}
+
+// An image declared neither way is linear data when it is a camera's own or a stack of it: a camera RAW frame, a frame
+// whose header records its type, or a stack whose header counts the frames it combines, as the product's stacks do. A
+// header that states none of them, or no count of frames, leaves it as it is.
+TEST_F(ThumbnailTest, AnUndeclaredCameraFrameOrStackIsLinearData)
+{
+    EXPECT_TRUE(an::ui::isLinearData(metadataOf({}, an::TransferFunction::Unspecified, true)));
+    EXPECT_TRUE(an::ui::isLinearData(stackHeader()));
+    EXPECT_TRUE(an::ui::isLinearData(metadataOf({{"IMAGETYP", "'Light Frame'"}})));
+    EXPECT_TRUE(an::ui::isLinearData(metadataOf({{"STACKCNT", "216"}})));
+    EXPECT_TRUE(an::ui::isLinearData(metadataOf({{"NCOMBINE", "12"}})));
+    EXPECT_TRUE(an::ui::isLinearData(metadataOf({{"STACKCNT", "'216'"}}))) << "a count written as a string";
+
+    EXPECT_FALSE(an::ui::isLinearData(metadataOf({{"STACKCNT", "0"}})));
+    EXPECT_FALSE(an::ui::isLinearData(metadataOf({{"NCOMBINE", "'many'"}})));
+    EXPECT_FALSE(an::ui::isLinearData(metadataOf({{"IMAGETYP", "''"}})));
+    EXPECT_FALSE(an::ui::isLinearData(metadataOf({{"EXPTIME", "120"}, {"OBJECT", "'Carina Nebula'"}})));
+}
+
+// A stack's thumbnail is stretched as a linear image's is, though no card records it linear.
+TEST_F(ThumbnailTest, AStacksThumbnailIsStretched)
+{
+    std::shared_ptr<an::consumer::ImageAsset> image = unbalancedColour(stackHeader());
+    an::Result<std::shared_ptr<const an::consumer::ImageAsset>> thumbnail =
+        an::ui::renderRecentFileThumbnail(m_context->engineSession(), image, {});
+    ASSERT_TRUE(thumbnail.hasValue()) << thumbnail.status().message();
+
+    an::Result<an::consumer::AssetReadLease> lease = image->read();
+    ASSERT_TRUE(lease.hasValue());
+    an::ui::AutostretchApplySettings unlinked;
+    unlinked.linkedChannels = false;
+    an::Result<an::consumer::ImageAsset> expected =
+        an::ui::applyAutostretchToCopy(m_context->engineSession(), lease->image(), nullptr, unlinked, {});
+    lease->release();
+    ASSERT_TRUE(expected.hasValue());
+    EXPECT_EQ(largestDifference<std::uint16_t>(**thumbnail, *expected), 0.0);
 }
 
 // An image that does not record itself linear is not stretched: the thumbnail is the image itself when it needs no

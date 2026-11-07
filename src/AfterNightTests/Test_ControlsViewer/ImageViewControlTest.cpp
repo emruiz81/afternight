@@ -6,7 +6,8 @@
 /// presentation superseded while work is on its way, edits recorded in the view's history before they are shown, run in
 /// order and undone in order, an edit the history cannot keep never shown, the processing lock, the demosaic setting a
 /// standard open honours, a sequence document the view owns, a mask held to the shape the overlay can show, the
-/// multiply showing what the view shows, what a presentation costs and how far it was reduced, the analysis a painted
+/// multiply showing what the view shows, an image that holds the automatic stretch shown as it is in the autostretch
+/// mode, what a presentation costs and how far it was reduced, the analysis a painted
 /// presentation was made through, the painted buffer's lifetime, the write, the static preview's calibration, and what
 /// a view presents of a camera frame: its display proxy zoomed out, the part it shows at full zoom, the mask with it,
 /// one request per update and one measurement of the whole image per revision, and the image painted to its edges at
@@ -898,6 +899,42 @@ TEST_F(ImageViewControlTest, AMultiplyShowsTheImageAsTheViewShowsItAndFollowsIts
         << "a change of the image is a new layer";
     EXPECT_TRUE(layerMatchesShown()) << "the layer shows the new image";
     target->removeCurrentMask();
+}
+
+// An image that holds the automatic stretch already - frames written as they were shown - is shown as it is in the
+// autostretch mode, which the view stays in, and is stretched again once the view is told it does not hold it.
+TEST_F(ImageViewControlTest, AnImageThatHoldsTheAutostretchIsShownAsItIsInTheAutostretchMode)
+{
+    open();
+    ViewHandle view = makeView("held");
+    std::optional<an::ui::ImageDocument> dark =
+        makeDocument<float>(session(), 8u, 8u, Channels::Grey, [](std::uint32_t x, std::uint32_t y, std::uint32_t) {
+            return 0.01f * static_cast<float>(x + y);
+        });
+    ASSERT_TRUE(dark.has_value());
+    view->setDocument(std::move(*dark));
+    view->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
+    ASSERT_TRUE(settle(*view));
+    ImageViewWidget* widget = view->getViewWidget();
+    EXPECT_FALSE(widget->imageHoldsAutostretch());
+    EXPECT_EQ(widget->presentationRequest().stretch, an::PresentationStretch::Automatic);
+    ASSERT_NE(widget->presentedImage(), nullptr);
+    const std::uint8_t stretched = widget->presentedImage()->pixel(7u, 7u)[0];
+    EXPECT_GT(stretched, 64u) << "the brightest sample, stretched";
+
+    widget->setImageHoldsAutostretch(true);
+    ASSERT_TRUE(settle(*view));
+    EXPECT_TRUE(widget->imageHoldsAutostretch());
+    EXPECT_EQ(widget->getViewMode(), ImageViewMode::AUTOSTRETCH_MODE);
+    EXPECT_EQ(widget->presentationRequest().stretch, an::PresentationStretch::Linear);
+    ASSERT_NE(widget->presentedImage(), nullptr);
+    EXPECT_NEAR(widget->presentedImage()->pixel(7u, 7u)[0], 36, 1) << "fourteen per cent of full scale, as it is";
+
+    widget->setImageHoldsAutostretch(false);
+    ASSERT_TRUE(settle(*view));
+    EXPECT_EQ(widget->presentationRequest().stretch, an::PresentationStretch::Automatic);
+    ASSERT_NE(widget->presentedImage(), nullptr);
+    EXPECT_EQ(widget->presentedImage()->pixel(7u, 7u)[0], stretched) << "stretched again";
 }
 
 // Zooming out rescaled the mask layer's previous, already rescaled pixmap, compounding the resampling.

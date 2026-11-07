@@ -9,8 +9,10 @@
 #include "controls/settings/StarNetCliTools.h"
 #include "processes/CliProgressParser.h"
 #include "processes/MaskProcessUtils.h"
+#include "processes/SpatialProcessSupport.h"
 #include "processes/StretchProcessSupport.h"
 
+#include <AfterNightEngine/Algorithms/Color/ChannelScope.h>
 #include <AfterNightEngine/Algorithms/Masks/RangeSelection.h>
 #include <AfterNightEngine/Algorithms/Spatial/Gaussian.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
@@ -531,21 +533,24 @@ template <typename SampleT>
     {
         return ranged.status();
     }
-    if (shaping.smoothness > 0.0)
+    const an::ImageLayout selectedLayout = selected->view().layout();
+    const an::ImageLayout maskLayout = access.view().layout();
+    const an::Status copied =
+        an::copyImageSamples(scope.execution(), an::kSampleTypeOf<SampleT>, selected->view().data(), selectedLayout,
+                             access.view().data(), maskLayout);
+    if (copied.failed() || !(shaping.smoothness > an::kMinimumGaussianSigma))
     {
-        const an::Result<an::GaussianPlan> plan =
-            an::planGaussianBlur(an::GaussianRequest{.sigmaX = shaping.smoothness, .sigmaY = shaping.smoothness});
-        if (!plan.hasValue())
-        {
-            return plan.status();
-        }
-        const an::Result<an::SpatialFilterResult> blurred =
-            an::blurImageGaussian(scope.execution(), an::kSampleTypeOf<SampleT>, selected->view().data(),
-                                  selected->view().layout(), access.view().data(), access.view().layout(), *plan);
-        return blurred.hasValue() ? an::Status::success() : blurred.status();
+        return copied;
     }
-    return an::copyImageSamples(scope.execution(), an::kSampleTypeOf<SampleT>, selected->view().data(),
-                                selected->view().layout(), access.view().data(), access.view().layout());
+    // Gaussian Blur's own blur, at every smoothness the dialog offers and on any mask: one kernel where the engine
+    // runs it, exact passes composed to the smoothness elsewhere, and the compiled Float32 kernels over a packed copy
+    // of the mask - which starts as the selection - where its rows are padded.
+    return process_utils::blurGaussian(
+        scope.engine(), scope.execution(),
+        an::ChannelScopeInput{
+            .descriptor = &described, .samples = selected->view().data(), .layout = &selectedLayout, .validity = {}},
+        an::ChannelScopeOutput{.descriptor = &described, .samples = access.view().data(), .layout = &maskLayout},
+        shaping.smoothness);
 }
 
 } // namespace

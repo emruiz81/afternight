@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -1995,7 +1996,7 @@ TEST_F(ExecutionPlannerTest, InheritedSipValidFitsNoOpThenSameStampMutationRepla
     const auto mutated_snapshot = ExecutionPreparationSnapshot::build(manifest, manifest, {}, reader);
     ASSERT_TRUE(mutated_snapshot);
     ASSERT_TRUE(mutated_snapshot->matchesCurrentFacts());
-    const auto* mutated_geometry = mutated_snapshot->drizzleSourceGeometry(mutated_frame);
+    const auto* mutated_geometry = mutated_snapshot->sourceGeometry(mutated_frame);
     ASSERT_NE(mutated_geometry, nullptr);
     EXPECT_NE(mutated_geometry->inheritedSourceDistortionFingerprint,
               stage_utils::fingerprintSourceDistortionHex(stage_utils::SourceDistortionPolicy::InheritMetadata,
@@ -2561,4 +2562,175 @@ TEST_F(ExecutionPlannerTest, MaterializationPolicyUsesEverySiblingInTheRegistrat
     const QString fits_only_fingerprint =
         registrationGroupMaterializationContractFingerprint(manifest, manifest.registrationGroups.front());
     EXPECT_NE(fits_only_fingerprint, mixed_fingerprint);
+}
+
+namespace
+{
+/// The reason of the first decision for `stage`; a missing decision is a failure, answered as no reason.
+QString reasonOf(const std::vector<ExecutionPlanDecision>& decisions, const QString& stage)
+{
+    const auto it = std::find_if(decisions.cbegin(), decisions.cend(),
+                                 [&](const ExecutionPlanDecision& decision) { return decision.stage == stage; });
+    EXPECT_NE(it, decisions.cend()) << "No decision for " << stage.toStdString();
+    return it != decisions.cend() ? it->reason : QString();
+}
+
+/// A full run of a light group that kept its registered images: the model it was planned from, the manifest it ran,
+/// and what it left on disk - the registered lights, the registration's records of them and the coefficients the
+/// normalization measured on them.
+class CompletedRunKeepingRegisteredLights
+{
+public:
+    explicit CompletedRunKeepingRegisteredLights(const QString& directory)
+    {
+        m_model.setOutputDirectory(directory);
+        m_model.addFrames(FrameType::Light, {makeFrame(FrameType::Light, QStringLiteral("kept_light_a.fit")),
+                                             makeFrame(FrameType::Light, QStringLiteral("kept_light_b.fit"))});
+        m_previous = ManifestBuilder(m_model).build();
+        EXPECT_EQ(m_previous.integrationGroups.size(), 1u);
+        if (m_previous.integrationGroups.empty())
+        {
+            return;
+        }
+
+        const WorkflowManifest::IntegrationGroup& group = m_previous.integrationGroups.front();
+        std::vector<FrameId> registered;
+        for (const FrameId& light : group.lightFiles)
+        {
+            const QString path = registeredLightPathFor(directory, group, light.canonicalPath());
+            touchFile(path);
+            registered.emplace_back(path);
+        }
+        EXPECT_TRUE(createRegistrationMetricsDbForManifest(
+            QDir(directory).filePath(QStringLiteral("registration_metrics.db")), m_previous));
+        EXPECT_TRUE(group.normalizationCoefficientsArtifactPath.has_value());
+        if (group.normalizationCoefficientsArtifactPath.has_value())
+        {
+            writeNormalizationArtifact(*group.normalizationCoefficientsArtifactPath, group, registered);
+        }
+    }
+
+    [[nodiscard]] const WorkflowManifest& previous() const noexcept
+    {
+        return m_previous;
+    }
+
+    /// The manifest the model states once `change` is made to the group's stacking settings.
+    [[nodiscard]] WorkflowManifest manifestAfter(const std::function<void(StackingSettings&)>& change)
+    {
+        const GroupKey key = m_model.integrationGroups().front();
+        StackingSettings settings;
+        const auto& stored = m_model.stackingSettings(FrameType::Light);
+        if (const auto found = stored.find(key); found != stored.end())
+        {
+            settings = found->second;
+        }
+        change(settings);
+        m_model.setStackingSettings(FrameType::Light, key, settings);
+        return ManifestBuilder(m_model).build();
+    }
+
+private:
+    IntegrationDataModel m_model;
+    WorkflowManifest m_previous;
+};
+} // namespace
+
+// The stacking method is read by the stack alone: after a full run, changing it stacks the group again and reuses its
+// registered lights and its normalization coefficients.
+TEST_F(ExecutionPlannerTest, AChangedStackingMethodRunsTheStackAndReusesTheAlignedAndNormalizedLights)
+{
+    CompletedRunKeepingRegisteredLights run(tempPath());
+    ASSERT_FALSE(HasFailure());
+    const WorkflowManifest& previous = run.previous();
+    const WorkflowManifest current =
+        run.manifestAfter([](StackingSettings& settings) { settings.stackMethod = QStringLiteral("Median"); });
+
+    const ExecutionPlan plan = ExecutionPlanner().buildPlan(current, previous);
+    ASSERT_EQ(plan.mode, ExecutionMode::Incremental);
+    EXPECT_TRUE(plan.registrationGroupsToProcess.empty());
+    ASSERT_EQ(plan.integrationGroupsToProcess.size(), 1u);
+
+    const auto decisions = buildExecutionPlanDecisions(current, plan, previous);
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Registration")), ExecutionPlanDecision::Action::Reuse);
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Alignment")), ExecutionPlanDecision::Action::Reuse);
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Normalization")), ExecutionPlanDecision::Action::Reuse);
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Stacking")), ExecutionPlanDecision::Action::Recompute);
+    EXPECT_EQ(reasonOf(decisions, QStringLiteral("Lights Stacking")), QStringLiteral("Stacking settings changed"));
+}
+
+// A normalization setting is read by the normalization and the stack: changing it measures the coefficients and stacks
+// again, and the registered lights are reused.
+TEST_F(ExecutionPlannerTest, AChangedNormalizationSettingRunsTheNormalizationAndTheStack)
+{
+    CompletedRunKeepingRegisteredLights run(tempPath());
+    ASSERT_FALSE(HasFailure());
+    const WorkflowManifest& previous = run.previous();
+    ASSERT_EQ(previous.integrationGroups.front().stacking.scaleEstimator, ScaleEstimatorMethod::IKSS);
+    const WorkflowManifest current =
+        run.manifestAfter([](StackingSettings& settings) { settings.scaleEstimator = ScaleEstimatorMethod::MAD; });
+
+    const ExecutionPlan plan = ExecutionPlanner().buildPlan(current, previous);
+    ASSERT_EQ(plan.mode, ExecutionMode::Incremental);
+    EXPECT_TRUE(plan.registrationGroupsToProcess.empty());
+
+    const auto decisions = buildExecutionPlanDecisions(current, plan, previous);
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Alignment")), ExecutionPlanDecision::Action::Reuse);
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Normalization")), ExecutionPlanDecision::Action::Recompute);
+    EXPECT_EQ(reasonOf(decisions, QStringLiteral("Lights Normalization")),
+              QStringLiteral("Normalization settings changed"));
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Stacking")), ExecutionPlanDecision::Action::Recompute);
+}
+
+// Turning drizzle on moves the plane the normalization measures on and asks for the drizzle: both run with the stack,
+// and the registered lights a drizzled stack does not read are not asked for.
+TEST_F(ExecutionPlannerTest, TurningDrizzleOnRunsTheNormalizationTheDrizzleAndTheStack)
+{
+    CompletedRunKeepingRegisteredLights run(tempPath());
+    ASSERT_FALSE(HasFailure());
+    const WorkflowManifest& previous = run.previous();
+    const WorkflowManifest current =
+        run.manifestAfter([](StackingSettings& settings) { settings.drizzle.enabled = true; });
+
+    const ExecutionPlan plan = ExecutionPlanner().buildPlan(current, previous);
+    ASSERT_EQ(plan.mode, ExecutionMode::Incremental);
+    EXPECT_TRUE(plan.registrationGroupsToProcess.empty());
+
+    // A group that only drizzles plans no alignment at all.
+    const auto decisions = buildExecutionPlanDecisions(current, plan, previous);
+    EXPECT_TRUE(std::none_of(decisions.cbegin(), decisions.cend(), [](const ExecutionPlanDecision& decision) {
+        return decision.stage == QStringLiteral("Lights Alignment");
+    }));
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Normalization")), ExecutionPlanDecision::Action::Recompute);
+    EXPECT_EQ(reasonOf(decisions, QStringLiteral("Lights Normalization")), QStringLiteral("Drizzle settings changed"));
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Drizzle")), ExecutionPlanDecision::Action::Recompute);
+    EXPECT_EQ(reasonOf(decisions, QStringLiteral("Lights Drizzle")), QStringLiteral("Drizzle settings changed"));
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Stacking")), ExecutionPlanDecision::Action::Recompute);
+}
+
+// A stage that runs again for a reason of its own says that reason, not the change of a setting it does not read:
+// with a registered light gone, the alignment writes it again and the normalization measures again, while the stack
+// runs for the method.
+TEST_F(ExecutionPlannerTest, AStageThatRunsForAReasonOfItsOwnSaysIt)
+{
+    CompletedRunKeepingRegisteredLights run(tempPath());
+    ASSERT_FALSE(HasFailure());
+    const WorkflowManifest& previous = run.previous();
+    const WorkflowManifest current =
+        run.manifestAfter([](StackingSettings& settings) { settings.stackMethod = QStringLiteral("Median"); });
+    const WorkflowManifest::IntegrationGroup& group = current.integrationGroups.front();
+    ASSERT_TRUE(QFile::remove(registeredLightPathFor(tempPath(), group, group.lightFiles.front().canonicalPath())));
+
+    const ExecutionPlan plan = ExecutionPlanner().buildPlan(current, previous);
+    ASSERT_EQ(plan.mode, ExecutionMode::Incremental);
+    const auto decisions = buildExecutionPlanDecisions(current, plan, previous);
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Alignment")), ExecutionPlanDecision::Action::Recompute);
+    EXPECT_TRUE(reasonOf(decisions, QStringLiteral("Lights Alignment"))
+                    .startsWith(QStringLiteral("Registered light outputs are missing or changed")))
+        << reasonOf(decisions, QStringLiteral("Lights Alignment")).toStdString();
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Normalization")), ExecutionPlanDecision::Action::Recompute);
+    EXPECT_EQ(reasonOf(decisions, QStringLiteral("Lights Normalization")),
+              QStringLiteral("Alignment outputs will be recomputed"));
+    EXPECT_EQ(actionOf(decisions, QStringLiteral("Lights Stacking")), ExecutionPlanDecision::Action::Recompute);
+    EXPECT_EQ(reasonOf(decisions, QStringLiteral("Lights Stacking")), QStringLiteral("Stacking settings changed"));
 }

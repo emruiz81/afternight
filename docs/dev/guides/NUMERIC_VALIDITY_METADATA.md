@@ -162,7 +162,10 @@ be hidden state.
 acquisition record, and a transition that carries no lineage entry is refused. `changesMeaning` names
 the two objects - semantics and astrometric solution - whose change moves the semantic generation.
 `Image::transition` is the only door, so an operation that changes what an image means says so in
-its provenance.
+its provenance. The cards go through it too: an operation drops them (`clearCodecMetadata`) or states
+the cards the image carries from then on (`codec`) - a product recording on its processing-state
+cards what its samples now are - so a result whose cards change keeps its samples where they are
+rather than being copied into an image created with new metadata.
 
 **`OutputIntent` is absent until someone decides it.** Keeping it optional is what stops a fact about
 the source file - its bit depth, its compression - from turning into a decision about the output

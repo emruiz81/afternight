@@ -17,7 +17,6 @@
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/ImageConversion.h>
-#include <AfterNightEngine/Image/ImageTransfer.h>
 #include <AfterNightEngine/Image/Provenance.h>
 #include <AfterNightEngine/Image/StorageArrangement.h>
 #include <AfterNightEngine/Runtime/EngineContext.h>
@@ -124,6 +123,22 @@ struct ModelPlanes
         made.planes.push_back(*plane);
     }
     return made;
+}
+
+/// The key a preview of these settings keeps the image of a display under: every setting of the algorithm the images
+/// depend on, written so it reads back exactly, and the display. The output policy is not written: the dialog never
+/// changes it.
+[[nodiscard]] std::string previewKeyOf(const an::AutoBackgroundRequest& algorithm, const PreviewDisplayMode display)
+{
+    const an::BackgroundApplyRequest& apply = algorithm.apply;
+    return fmt::format("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}", static_cast<int>(display),
+                       static_cast<int>(algorithm.model), algorithm.scale, algorithm.smoothness, algorithm.downsample,
+                       algorithm.polynomialDegree, algorithm.protectStructures, algorithm.protectionThreshold,
+                       algorithm.protectionAmount, algorithm.maxIterations, algorithm.convergence,
+                       algorithm.lowRejection, algorithm.highRejection, static_cast<int>(apply.correction),
+                       static_cast<int>(apply.level), apply.statedLevel, apply.guard, apply.evaluationStride,
+                       apply.dither, apply.clamp.has_value(), apply.clamp.has_value() ? apply.clamp->lowest : 0.0,
+                       apply.clamp.has_value() ? apply.clamp->highest : 0.0);
 }
 
 /// Copies Float32 planes, held to the unit interval, into working samples.
@@ -271,8 +286,9 @@ void AutoGradientRemovalProcess::on_correctionModeChanged([[maybe_unused]] const
 
 void AutoGradientRemovalProcess::on_previewDisplayChanged([[maybe_unused]] const int index)
 {
-    // A preview already computed for these settings shows the other output at once.
-    if (m_previewComputed && isPreviewEnabled())
+    // A preview computed for these settings kept every image the display offers, so the one asked for shows at once,
+    // with no new run; one not computed shows the target.
+    if (isPreviewEnabled())
     {
         schedulePreviewProcessExecution();
     }
@@ -326,6 +342,18 @@ bool AutoGradientRemovalProcess::isViewControlSupported(const ImageViewControl* 
     return ctrl && !ctrl->isSequence();
 }
 
+std::shared_ptr<const an::consumer::ImageAsset> AutoGradientRemovalProcess::getExecutionAutostretchSource() const
+{
+    // Stretched through the target's statistics, the model's narrow range shows as a flat grey: a diagnostic is
+    // stretched by its own.
+    if (m_previewComputed && m_ui.previewDisplaySelector != nullptr &&
+        previewModeFromIndex(m_ui.previewDisplaySelector->currentIndex()) != PreviewDisplayMode::corrected)
+    {
+        return nullptr;
+    }
+    return ImageRTPreviewControl::getExecutionAutostretchSource();
+}
+
 void AutoGradientRemovalProcess::initialize()
 {
     const QSignalBlocker blockScaleValue(m_ui.scaleValue);
@@ -372,6 +400,8 @@ void AutoGradientRemovalProcess::initialize()
 void AutoGradientRemovalProcess::invalidatePreview()
 {
     m_previewComputed = false;
+    // The images the last preview kept were made with the settings that changed.
+    discardKeptPreviews();
     syncPreviewUiState(!m_ExecutionInProgress);
 }
 
@@ -477,30 +507,34 @@ an::Status AutoGradientRemovalProcess::executeTypedProcessImpl(const an::ui::Pro
     const an::EngineContext& engine = scope.engine();
     const an::ExecutionContext& execution = scope.execution();
 
-    an::Result<process_utils::NormalizedSamples> samples =
-        process_utils::openNormalizedDestination(scope, source, destination);
-    if (!samples.hasValue())
-    {
-        return samples.status();
-    }
     const an::Result<an::AutoBackgroundPlan> plan =
         an::planAutoBackground(params.algorithm, described->extent().width(), described->extent().height());
     if (!plan.hasValue())
     {
         return plan.status();
     }
-    const an::KernelValidityView validity = process_utils::skippingNonFinite(samples->validity());
-    const an::SpatialSelection selection{.validity = validity.descriptor, .mask = validity.mask};
 
-    // The model, and the structure kept out of it, measured on the samples before they are corrected.
-    const bool previewModel = run.isForPreview() && params.previewDisplay != PreviewDisplayMode::corrected;
-    const bool previewProtection = previewModel && params.previewDisplay == PreviewDisplayMode::protection_mask &&
-                                   params.algorithm.protectStructures;
-    const bool keepModel = !run.isForPreview() && params.outputGradientModel;
-    const bool keepProtection = !run.isForPreview() && params.outputProtectionMask;
+    // The image a preview shows goes to the destination. A preview frame also makes the others, as the destination was
+    // made, and keeps them beside it under the key of the display that shows each; a snapshot of the preview makes the
+    // one it shows. With no protection the mask is not offered, and the model is shown in its place.
+    const bool preview = run.isForPreview();
+    const bool besideShown = run.kind == an::ui::ProcessRunKind::Preview;
+    const bool protecting = params.algorithm.protectStructures;
+    PreviewDisplayMode shown = preview ? params.previewDisplay : PreviewDisplayMode::corrected;
+    if (shown == PreviewDisplayMode::protection_mask && !protecting)
+    {
+        shown = PreviewDisplayMode::gradient_model;
+    }
+
+    // What the one fit draws besides the correction: the images a preview makes, or the outputs an Apply opens.
+    const bool keepModel = !preview && params.outputGradientModel;
+    const bool keepProtection = !preview && params.outputProtectionMask && protecting;
+    const bool drawModel = keepModel || (preview && (besideShown || shown == PreviewDisplayMode::gradient_model));
+    const bool drawProtection =
+        keepProtection || (preview && protecting && (besideShown || shown == PreviewDisplayMode::protection_mask));
     std::optional<ModelPlanes> models;
     std::optional<ModelPlanes> protection;
-    if (previewModel || keepModel || keepProtection)
+    if (drawModel)
     {
         an::Result<ModelPlanes> madeModels = createModelPlanes(engine, *described);
         if (!madeModels.hasValue())
@@ -508,98 +542,128 @@ an::Status AutoGradientRemovalProcess::executeTypedProcessImpl(const an::ui::Pro
             return madeModels.status();
         }
         models.emplace(std::move(*madeModels));
-        if (previewProtection || keepProtection)
+    }
+    if (drawProtection)
+    {
+        an::Result<ModelPlanes> madeProtection = createModelPlanes(engine, *described);
+        if (!madeProtection.hasValue())
         {
-            an::Result<ModelPlanes> madeProtection = createModelPlanes(engine, *described);
-            if (!madeProtection.hasValue())
-            {
-                return madeProtection.status();
-            }
-            protection.emplace(std::move(*madeProtection));
+            return madeProtection.status();
         }
-        const an::Result<an::AutoBackgroundResult> estimated = an::estimateImageAutoBackground(
-            execution, samples->sampleType(), samples->samples(), samples->layout(), *plan, models->planes,
+        protection.emplace(std::move(*madeProtection));
+    }
+
+    const auto madeBeside = [&]() {
+        return an::ui::ProcessDestination::forBody(scope.session(), engine, execution, source, run.coverage);
+    };
+    // A corrected image not shown is corrected beside the destination; one no frame keeps is corrected in the
+    // destination, which the image shown then overwrites.
+    std::optional<an::ui::ProcessDestination> correctedBeside;
+    if (shown != PreviewDisplayMode::corrected && besideShown)
+    {
+        an::Result<an::ui::ProcessDestination> made = madeBeside();
+        if (!made.hasValue())
+        {
+            return made.status();
+        }
+        correctedBeside.emplace(std::move(*made));
+    }
+
+    // The correction, in place, with the model and the protection drawn from the fit it reads.
+    {
+        an::Result<process_utils::NormalizedSamples> samples = process_utils::openNormalizedDestination(
+            scope, source, correctedBeside.has_value() ? *correctedBeside : destination);
+        if (!samples.hasValue())
+        {
+            return samples.status();
+        }
+        const an::KernelValidityView validity = process_utils::skippingNonFinite(samples->validity());
+        const an::SpatialSelection selection{.validity = validity.descriptor, .mask = validity.mask};
+        // A sample the validity rejects is left as it was.
+        const an::Result<an::AutoBackgroundResult> removed = an::removeAndDrawImageAutoBackground(
+            execution, samples->sampleType(), samples->samples(), samples->layout(), samples->samples(),
+            samples->layout(), *plan,
+            models.has_value() ? std::span<const an::PlaneView<float>>(models->planes)
+                               : std::span<const an::PlaneView<float>>{},
             protection.has_value() ? std::span<const an::PlaneView<float>>(protection->planes)
                                    : std::span<const an::PlaneView<float>>{},
             selection);
-        if (!estimated.hasValue())
-        {
-            return estimated.status();
-        }
-    }
-    if (previewModel)
-    {
-        ModelPlanes& shown = previewProtection ? *protection : *models;
-        if (an::Status copied =
-                copyPlanesInto(execution, shown, samples->sampleType(), samples->samples(), samples->layout());
-            copied.failed())
-        {
-            return copied;
-        }
-        return samples->commit(execution);
-    }
-
-    // The correction, into a working image of its own and back.
-    an::Status corrected = an::Status::success();
-    auto correct = [&]<typename WorkT>() {
-        const an::Result<an::ImageDescriptor> workingDescribed =
-            an::describeSamplesAs(*described, samples->sampleType());
-        if (!workingDescribed.hasValue())
-        {
-            corrected = workingDescribed.status();
-            return;
-        }
-        an::Result<an::Image<WorkT>> scratch =
-            an::Image<WorkT>::create(engine, *workingDescribed, an::StorageArrangement::Planar,
-                                     an::StorageInitialization::Uninitialized, an::ImageMetadata{});
-        if (!scratch.hasValue())
-        {
-            corrected = scratch.status();
-            return;
-        }
-        const std::optional<an::ImageWriteAccess<WorkT>> access = scratch->write();
-        if (!access.has_value())
-        {
-            corrected = refusal(an::ErrorCode::NotInitialized, "the correction's working image holds nothing");
-            return;
-        }
-        const an::ImageLayout scratchLayout = access->view().layout();
-        // A sample the validity rejects is left as it was.
-        corrected = an::copyImageSamples(execution, samples->sampleType(), samples->samples(), samples->layout(),
-                                         access->view().data(), scratchLayout);
-        if (corrected.failed())
-        {
-            return;
-        }
-        const an::Result<an::AutoBackgroundResult> removed =
-            an::removeImageAutoBackground(execution, samples->sampleType(), samples->samples(), samples->layout(),
-                                          access->view().data(), scratchLayout, *plan, selection);
         if (!removed.hasValue())
         {
-            corrected = removed.status();
-            return;
+            return removed.status();
         }
-        corrected = an::copyImageSamples(execution, samples->sampleType(), access->view().data(), scratchLayout,
-                                         samples->samples(), samples->layout());
-    };
-    if (samples->sampleType() == an::SampleType::Float64)
-    {
-        correct.template operator()<double>();
+        if (an::Status committed = samples->commit(execution); committed.failed())
+        {
+            return committed;
+        }
     }
-    else
+
+    if (preview)
     {
-        correct.template operator()<float>();
-    }
-    if (corrected.failed())
-    {
-        return corrected;
-    }
-    if (an::Status committed = samples->commit(execution); committed.failed())
-    {
-        return committed;
-    }
-    if (run.isForPreview())
-    {
+        // Planes held to the unit interval, written into an image made as the destination was.
+        const auto drawInto = [&](ModelPlanes& planes, an::ui::ProcessDestination& into) -> an::Status {
+            an::Result<process_utils::NormalizedSamples> samples =
+                process_utils::openNormalizedDestination(scope, source, into);
+            if (!samples.hasValue())
+            {
+                return samples.status();
+            }
+            if (an::Status copied =
+                    copyPlanesInto(execution, planes, samples->sampleType(), samples->samples(), samples->layout());
+                copied.failed())
+            {
+                return copied;
+            }
+            return samples->commit(execution);
+        };
+        const auto keepBeside = [&](an::ui::ProcessDestination& made, const PreviewDisplayMode display) -> an::Status {
+            an::Result<an::consumer::ImageAsset> image = made.release();
+            if (!image.hasValue())
+            {
+                return image.status();
+            }
+            return destination.keepAlternative(previewKeyOf(params.algorithm, display), std::move(*image));
+        };
+        const auto drawShownOrBeside = [&](ModelPlanes& planes, const PreviewDisplayMode display) -> an::Status {
+            if (shown == display)
+            {
+                return drawInto(planes, destination);
+            }
+            if (!besideShown)
+            {
+                return an::Status::success();
+            }
+            an::Result<an::ui::ProcessDestination> made = madeBeside();
+            if (!made.hasValue())
+            {
+                return made.status();
+            }
+            if (an::Status drawn = drawInto(planes, *made); drawn.failed())
+            {
+                return drawn;
+            }
+            return keepBeside(*made, display);
+        };
+        if (models.has_value())
+        {
+            if (an::Status drawn = drawShownOrBeside(*models, PreviewDisplayMode::gradient_model); drawn.failed())
+            {
+                return drawn;
+            }
+            models.reset();
+        }
+        if (protection.has_value())
+        {
+            if (an::Status drawn = drawShownOrBeside(*protection, PreviewDisplayMode::protection_mask); drawn.failed())
+            {
+                return drawn;
+            }
+            protection.reset();
+        }
+        if (correctedBeside.has_value())
+        {
+            return keepBeside(*correctedBeside, PreviewDisplayMode::corrected);
+        }
         return an::Status::success();
     }
 
@@ -686,6 +750,12 @@ an::Status AutoGradientRemovalProcess::executeTypedProcessImpl(const an::ui::Pro
         return entry.status();
     }
     return destination.asset().transition(an::MetadataTransition{.record = *entry});
+}
+
+std::string AutoGradientRemovalProcess::typedPreviewResultKey(const AutoGradientRemovalProcessParams& params) const
+{
+    // A preview not computed shows the target, which nothing keeps.
+    return params.previewComputed ? previewKeyOf(params.algorithm, params.previewDisplay) : std::string();
 }
 
 an::ui::ProcessStep

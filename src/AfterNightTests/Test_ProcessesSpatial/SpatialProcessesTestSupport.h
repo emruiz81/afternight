@@ -293,6 +293,9 @@ struct RecordedFrame
     bool partOfTarget = false;
     QRect part;
 
+    /// How many of the target's pixels each way one pixel of its source stood for: more than one over a reduction.
+    std::uint32_t proxyFactor = 1u;
+
     /// Its samples.
     std::optional<fixtures::FixtureSamples> samples;
 };
@@ -420,6 +423,7 @@ protected:
         RecordedFrame frame{.kind = run.frameKind,
                             .partOfTarget = run.partOfTarget,
                             .part = run.part,
+                            .proxyFactor = run.proxyFactor,
                             .samples = fixtures::engine::readImageSamples(result.image(), error)};
         const std::lock_guard lock(m_framesLock);
         m_frames.push_back(std::move(frame));

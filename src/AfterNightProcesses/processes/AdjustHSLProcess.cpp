@@ -209,7 +209,7 @@ an::Status AdjustHSLProcess::executeTypedProcessImpl(const an::ui::ProcessSource
         return an::Status::success();
     }
     return process_utils::recordNonlinearResult(
-        scope, destination,
+        destination,
         process_utils::NonlinearResultRecord{.stateOperation = "hsl-adjustment",
                                              .engineOperation = "an::adjustImageHsl",
                                              .detail = fmt::format("hue {}, saturation {} and lightness {}", params.hue,

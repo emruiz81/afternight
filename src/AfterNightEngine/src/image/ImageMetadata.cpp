@@ -78,7 +78,7 @@ bool changesMeaning(const MetadataTransition& transition) noexcept
 bool changesAnything(const MetadataTransition& transition) noexcept
 {
     return changesMeaning(transition) || transition.outputIntent.has_value() || transition.clearOutputIntent ||
-           transition.clearCodecMetadata;
+           transition.clearCodecMetadata || transition.codec.has_value();
 }
 
 Result<ImageMetadata> applyMetadataTransition(const ImageMetadata& metadata, const MetadataTransition& transition)
@@ -91,6 +91,14 @@ Result<ImageMetadata> applyMetadataTransition(const ImageMetadata& metadata, con
                          .operation = "applyMetadataTransition",
                          .domain = ErrorDomain::Image,
                          .context = {StatusContextField::ofText(ContextKey::Parameter, "outputIntent")}});
+    }
+    if (transition.codec.has_value() && transition.clearCodecMetadata)
+    {
+        return Status::failure(ErrorCode::IncompatibleArguments,
+                               StatusDetail{.message = "the transition both states the image's cards and drops them",
+                                            .operation = "applyMetadataTransition",
+                                            .domain = ErrorDomain::Image,
+                                            .context = {StatusContextField::ofText(ContextKey::Parameter, "codec")}});
     }
     if (changesAnything(transition) && !transition.record.has_value())
     {
@@ -124,7 +132,9 @@ Result<ImageMetadata> applyMetadataTransition(const ImageMetadata& metadata, con
         outputIntent.reset();
     }
 
-    CodecMetadata codec = transition.clearCodecMetadata ? CodecMetadata{} : metadata.codec();
+    CodecMetadata codec = transition.codec.has_value()    ? *transition.codec
+                          : transition.clearCodecMetadata ? CodecMetadata{}
+                                                          : metadata.codec();
 
     return ImageMetadata::create(metadata.acquisition(),
                                  transition.semantics.has_value() ? *transition.semantics : metadata.semantics(),

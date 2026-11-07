@@ -1,4 +1,4 @@
-version 1.0.0 1
+version 1.4.0 2
 joining 2
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API OpticalHints readOpticalHints(std::span<const CodecCard> cards) noexcept
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API PointingKeywords pointingCardKeywords(PointingCards cards) noexcept
@@ -66,6 +66,7 @@ api engine Algorithms/Astrometry/WcsSolution.h an::WcsSolution [[nodiscard]] AFT
 api engine Algorithms/Astrometry/WcsSolution.h an::WcsSolution public: [[nodiscard]] static AFTERNIGHTENGINE_API Result<WcsSolution> create(const WcsSolutionRequest& request)
 api engine Algorithms/Background/AutoBackground.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<AutoBackgroundPlan> planAutoBackground(const AutoBackgroundRequest& request, std::uint32_t width, std::uint32_t height)
 api engine Algorithms/Background/AutoBackground.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<AutoBackgroundResult> estimateImageAutoBackground(const ExecutionContext& execution, SampleType sampleType, const void* source, const ImageLayout& sourceLayout, const AutoBackgroundPlan& plan, std::span<const PlaneView<float>> models, std::span<const PlaneView<float>> protection = {}, const SpatialSelection& selection = {})
+api engine Algorithms/Background/AutoBackground.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<AutoBackgroundResult> removeAndDrawImageAutoBackground(const ExecutionContext& execution, SampleType sampleType, const void* source, const ImageLayout& sourceLayout, void* destination, const ImageLayout& destinationLayout, const AutoBackgroundPlan& plan, std::span<const PlaneView<float>> models, std::span<const PlaneView<float>> protection = {}, const SpatialSelection& selection = {})
 api engine Algorithms/Background/AutoBackground.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<AutoBackgroundResult> removeImageAutoBackground(const ExecutionContext& execution, SampleType sampleType, const void* source, const ImageLayout& sourceLayout, void* destination, const ImageLayout& destinationLayout, const AutoBackgroundPlan& plan, const SpatialSelection& selection = {})
 api engine Algorithms/Background/AutoBackground.h an [[nodiscard]] AFTERNIGHTENGINE_API const char* autoBackgroundModelName(AutoBackgroundModel model) noexcept
 api engine Algorithms/Background/AutoBackground.h an::AutoBackgroundPlan [[nodiscard]] AFTERNIGHTENGINE_API const AutoBackgroundRequest& request() const noexcept
@@ -2054,7 +2055,7 @@ header engine Algorithms/Astrometry/Sexagesimal.h c42e8833fb74a50a
 header engine Algorithms/Astrometry/SipDistortion.h 40f53138dfe99f69
 header engine Algorithms/Astrometry/WcsCards.h 6922341d789c9706
 header engine Algorithms/Astrometry/WcsSolution.h abf35b3c798a5faf
-header engine Algorithms/Background/AutoBackground.h e879222106f79998
+header engine Algorithms/Background/AutoBackground.h bd6ec3ae8b4b4af5
 header engine Algorithms/Background/BackgroundModel.h ac15e0bdcaac476a
 header engine Algorithms/Calibration/ImageCalibration.h d12e2f162dc9d56b
 header engine Algorithms/Catalog/CatalogAliases.h b90585c00c356afd
@@ -2161,7 +2162,7 @@ header engine Algorithms/Registration/RegistrationPlan.h 27505e9593558a5c
 header engine Algorithms/Registration/RegistrationTransform.h 164726eb14919e02
 header engine Algorithms/Spatial/Convolution.h fd917374ac779766
 header engine Algorithms/Spatial/DrawingPrimitives.h 31a612e87f88c1e5
-header engine Algorithms/Spatial/Gaussian.h 73780fd7fdd88a2b
+header engine Algorithms/Spatial/Gaussian.h 7470cc8f3d0f3c89
 header engine Algorithms/Spatial/GeneralFilter.h 12e2097ee111f23e
 header engine Algorithms/Spatial/OrderFilter.h fa1021395b5ef2a2
 header engine Algorithms/Spatial/SpatialFilter.h 9e2e8a078433eda9
@@ -2228,7 +2229,7 @@ header engine Core/ImageLayout.h 19a9142333de7498
 header engine Core/LibraryInfo.h 1bfecceb973c07f1
 header engine Core/Result.h e0327ad962e10e4b
 header engine Core/Status.h a843439f21221219
-header engine Core/Version.h b4ee2fc5b76f754d
+header engine Core/Version.h 82acf02e42c52755
 header engine IO/ArtifactIdentity.h 66c96b929d36b24e
 header engine IO/AviSequence.h 595917f483188e5e
 header engine IO/CodecCapabilities.h daadf4c45a2db525
@@ -2288,7 +2289,7 @@ header engine Image/DescriptorText.h 0178b9f74d194b3e
 header engine Image/Image.h c6b1a21abd1fed08
 header engine Image/ImageConversion.h dd2b362c41c4dc62
 header engine Image/ImageDescriptor.h 541c35c5e60ee739
-header engine Image/ImageMetadata.h c31cdaef2912460c
+header engine Image/ImageMetadata.h dc77ee921fdf7acb
 header engine Image/ImageSemantics.h bed04e20f10e841d
 header engine Image/ImageStorage.h 9708794876767b8c
 header engine Image/ImageTransfer.h 297e4759414a13b4
@@ -6494,7 +6495,8 @@ member engine Image/ImageMetadata.h an::MetadataTransition#001 std::optional<Ast
 member engine Image/ImageMetadata.h an::MetadataTransition#002 std::optional<OutputIntent> outputIntent {}
 member engine Image/ImageMetadata.h an::MetadataTransition#003 bool clearOutputIntent = false
 member engine Image/ImageMetadata.h an::MetadataTransition#004 bool clearCodecMetadata = false
-member engine Image/ImageMetadata.h an::MetadataTransition#005 std::optional<ProvenanceEntry> record {}
+member engine Image/ImageMetadata.h an::MetadataTransition#005 std::optional<CodecMetadata> codec {}
+member engine Image/ImageMetadata.h an::MetadataTransition#006 std::optional<ProvenanceEntry> record {}
 member engine Image/ImageSemantics.h an::ImageSemantics#000 std::optional<double> m_gammaExponent {}
 member engine Image/ImageSemantics.h an::ImageSemantics#001 ProcessingState m_processingState {}
 member engine Image/ImageSemantics.h an::ImageSemantics#002 ValidityDescriptor m_validity {}

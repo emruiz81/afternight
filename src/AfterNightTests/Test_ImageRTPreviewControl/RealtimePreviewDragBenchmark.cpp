@@ -5,12 +5,13 @@
 /// The real-time preview's drag benchmarks, run only when asked for: the brightness and contrast dialog over a frame,
 /// its preview on, its brightness slider pressed, dragged a step at a time at a steady rate and released; the gamma
 /// correction's, the LCh adjustment's, the Gaussian blur's and the median filter's sliders dragged the same way; the
-/// histogram transformation's midtones and a point of the curves transformation's curve, which no slider drives,
-/// stepped at the same rate - and what each drag cost reported: the
+/// histogram transformation's midtones, which no slider drives, stepped at the same rate; a point of the curves
+/// transformation's curve taken with the mouse and dragged at that rate - and what each drag cost reported: the
 /// previews shown per second and by kind of frame, how long they took and how long each spent in its one operation and
-/// waiting to be admitted, how many ran over what the view paints, how their histograms were made, what they converted
-/// and cut of what they read and what they read of what earlier frames had, the GUI thread's pump lengths, the
-/// processor time, the page faults and the memory, and what the preview view's presentations cost.
+/// waiting to be admitted, how many ran over what the view paints, how their histograms were made and how often the
+/// curve editor counted its own, what they converted and cut of what they read and what they read of what earlier
+/// frames had, the GUI thread's pump lengths, the processor time, the page faults and the memory, and what the preview
+/// view's presentations cost.
 ///
 /// It runs when AN_BENCH_IMAGE names a frame: a file the viewer opens, read as the viewer reads it, a camera RAW frame
 /// demosaiced by RCD; or `synthetic`, a 6000 by 4000 sixteen-bit colour frame of a starry sky the case makes. The
@@ -26,9 +27,17 @@
 ///                          a dialog that opens with one included
 ///   AN_BENCH_APPLY         1 applies the dialog once the drag has settled and reports whether the settled preview's
 ///                          samples are the Apply's - within the preview area when one is on, since outside it the
-///                          preview shows the frame itself; 0, the default, applies nothing
+///                          preview shows the frame itself - how long the Apply took and how many bytes the engine
+///                          handed out for it; 0, the default, applies nothing
 ///   AN_BENCH_STEPS         the slider's steps, 60 by default
 ///   AN_BENCH_STEP_MS       the milliseconds between steps, 16 by default
+///   AN_BENCH_RADIUS        the radius, in whole pixels, the high pass's drag starts from; ten, the dialog's own, by
+///                          default
+///   AN_BENCH_SIGMA         the sigma, in whole pixels, the Gaussian blur's drag starts from; two by default
+///   AN_BENCH_RANGE_CONTROL the range selection's control the drag moves: 0, the default, the lower limit; 1, the
+///                          smoothness
+///   AN_BENCH_SMOOTHNESS    the range selection's smoothness, in whole pixels; none by default
+///   AN_BENCH_LIGHTNESS     0 selects the range of the image itself; 1, the default, of its CIE lightness
 ///   AN_BENCH_FPS           the previews a second the Processing settings state; the product's default, thirty, when
 ///                          not set
 ///   AN_BENCH_WIDTH         the session's width; the host's by default
@@ -50,13 +59,20 @@
 #include "processes/CurvesTransformationProcess.h"
 #include "processes/GammaCorrectionProcess.h"
 #include "processes/GaussianBlurProcess.h"
+#include "processes/HighPassFilterProcess.h"
 #include "processes/HistogramTransformationProcess.h"
 #include "processes/MedianFilterProcess.h"
+#include "processes/RangeSelectionProcess.h"
 #include "widgets/CurvesWidget.h"
+#include "widgets/HistogramCompanions.h"
 #include "widgets/ImageViewWidget.h"
 #include "widgets/ToneCurveModel.h"
 
+#include <AfterNightConsumerRuntime/EngineSession.h>
+
 #include <AfterNightEngine/Algorithms/Demosaic/Demosaic.h>
+#include <AfterNightEngine/Runtime/EngineContext.h>
+#include <AfterNightEngine/Runtime/MemoryResource.h>
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -66,6 +82,7 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFileInfo>
+#include <QMouseEvent>
 #include <QScrollBar>
 #include <QSlider>
 #include <QToolButton>
@@ -214,6 +231,41 @@ struct ProcessMemory
 [[nodiscard]] double milliseconds(std::chrono::nanoseconds duration)
 {
     return std::chrono::duration<double, std::milli>(duration).count();
+}
+
+/// Turns the event loop until a condition holds, for as many of the support's patiences as a frame over a large frame
+/// at a slow setting takes: a body whose frames run over the whole image may take several seconds over each.
+[[nodiscard]] bool pumpPatientlyUntil(const std::function<bool()>& condition)
+{
+    constexpr int kPatiences = 30;
+    for (int attempt = 0; attempt < kPatiences; ++attempt)
+    {
+        if (pumpUntil(condition))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// `settleDialog` with the patience of `pumpPatientlyUntil`: the dialog and everything it started have landed and stay
+/// landed through a quiet period, each wait as long as a frame over the whole of a large frame takes.
+[[nodiscard]] bool settleDialogPatiently(const ImageRTPreviewControl& dialog)
+{
+    constexpr int kAttempts = 20;
+    for (int attempt = 0; attempt < kAttempts; ++attempt)
+    {
+        if (!pumpPatientlyUntil([&dialog]() { return dialogIdle(dialog); }))
+        {
+            return false;
+        }
+        pumpQuietly();
+        if (dialogIdle(dialog))
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 /// A whole-number knob, or its default when it is not set or not a number.
@@ -485,6 +537,10 @@ struct DragSubject
     /// Whether letting the control go asks for a frame: false for a control no slider drives, whose last frame may
     /// have been shown before the drag ended.
     bool releases = true;
+
+    /// The counts the dialog's own editor started so far of the histogram it draws apart from the frames - the curve
+    /// editor's; nothing for a dialog without one.
+    std::function<std::optional<std::uint64_t>(QWidget&)> editorHistogramCounts;
 };
 
 /// The brightness slider of the brightness and contrast dialog, from zero up a code a step.
@@ -565,21 +621,22 @@ struct DragSubject
             }};
 }
 
-/// The sigma of the Gaussian blur, from two pixels up a tenth a step: a body that reads its neighbours, run over what
-/// the preview view paints while the slider is held.
+/// The sigma of the Gaussian blur, from the sigma AN_BENCH_SIGMA states - two pixels when it states none - up a tenth
+/// a step: a body that reads its neighbours, run over what the preview view paints while the slider is held.
 [[nodiscard]] DragSubject gaussianDrag()
 {
+    const double from = static_cast<double>((std::max)(1, knob("AN_BENCH_SIGMA", 2)));
     return DragSubject{
         .name = "gaussian-blur",
         .open = [](ImageViewControl& target) { return openDialog<GaussianBlurProcess>(target, QSize(1400, 900)); },
         .step =
-            [](QWidget& dialog, int step) {
+            [from](QWidget& dialog, int step) {
                 auto* sigma = child<QDoubleSpinBox>(dialog, "sigmaValue");
                 if (sigma == nullptr)
                 {
                     return false;
                 }
-                sigma->setValue(2.0 + 0.1 * static_cast<double>(step));
+                sigma->setValue(from + 0.1 * static_cast<double>(step));
                 return true;
             },
         .press =
@@ -589,6 +646,80 @@ struct DragSubject
                     slider->setSliderDown(down);
                 }
             }};
+}
+
+/// The radius of the high pass filter, from the radius AN_BENCH_RADIUS states - ten pixels, the dialog's own, when it
+/// states none - up a tenth a step: a blur taken away from the image and the difference held to full scale, whose reach
+/// and cost grow with the radius.
+[[nodiscard]] DragSubject highPassDrag()
+{
+    const double from = static_cast<double>((std::max)(1, knob("AN_BENCH_RADIUS", 10)));
+    return DragSubject{
+        .name = "high-pass-filter",
+        .open = [](ImageViewControl& target) { return openDialog<HighPassFilterProcess>(target, QSize(1400, 900)); },
+        .step =
+            [from](QWidget& dialog, int step) {
+                auto* radius = child<QDoubleSpinBox>(dialog, "radiusValue");
+                if (radius == nullptr)
+                {
+                    return false;
+                }
+                radius->setValue(from + 0.1 * static_cast<double>(step));
+                return true;
+            },
+        .press =
+            [](QWidget& dialog, bool down) {
+                if (auto* slider = child<QSlider>(dialog, "radiusSlider"); slider != nullptr)
+                {
+                    slider->setSliderDown(down);
+                }
+            }};
+}
+
+/// A control of the range selection, as AN_BENCH_RANGE_CONTROL chooses: 0, the default, its lower limit, from a tenth
+/// up two thousandths a step; 1, its smoothness, from the smoothness AN_BENCH_SMOOTHNESS states - one pixel at least -
+/// up a tenth a step. The mask is of the image's CIE lightness, the dialog's own choice, unless AN_BENCH_LIGHTNESS is
+/// 0, and a lower limit's drag smooths it by AN_BENCH_SMOOTHNESS pixels, none by default.
+[[nodiscard]] DragSubject rangeSelectionDrag()
+{
+    const bool smoothnessDrag = knob("AN_BENCH_RANGE_CONTROL", 0) == 1;
+    const double smoothness = static_cast<double>((std::max)(0, knob("AN_BENCH_SMOOTHNESS", 0)));
+    const bool lightness = knob("AN_BENCH_LIGHTNESS", 1) != 0;
+    const char* const value = smoothnessDrag ? "smoothnessValue" : "lowerLimitValue";
+    const char* const slider = smoothnessDrag ? "smoothnessSlider" : "lowerLimitSlider";
+    return DragSubject{.name = smoothnessDrag ? "range-selection-smoothness" : "range-selection",
+                       .open =
+                           [smoothness, lightness](ImageViewControl& target) {
+                               DialogHandle dialog = openDialog<RangeSelectionProcess>(target, QSize(1400, 900));
+                               if (auto* box = child<QCheckBox>(*dialog, "lightness"); box != nullptr)
+                               {
+                                   box->setChecked(lightness);
+                               }
+                               if (auto* smooth = child<QDoubleSpinBox>(*dialog, "smoothnessValue"); smooth != nullptr)
+                               {
+                                   smooth->setValue(smoothness);
+                               }
+                               return dialog;
+                           },
+                       .step =
+                           [smoothnessDrag, smoothness, value](QWidget& dialog, int step) {
+                               auto* control = child<QDoubleSpinBox>(dialog, value);
+                               if (control == nullptr)
+                               {
+                                   return false;
+                               }
+                               control->setValue(smoothnessDrag
+                                                     ? (std::max)(1.0, smoothness) + 0.1 * static_cast<double>(step)
+                                                     : 0.1 + 0.002 * static_cast<double>(step));
+                               return true;
+                           },
+                       .press =
+                           [slider](QWidget& dialog, bool down) {
+                               if (auto* held = child<QSlider>(dialog, slider); held != nullptr)
+                               {
+                                   held->setSliderDown(down);
+                               }
+                           }};
 }
 
 /// The modulation of the median filter over its five by five window, from four tenths up a hundredth a step: a body
@@ -661,30 +792,63 @@ struct DragSubject
     return nullptr;
 }
 
-/// The middle point of the curves transformation's curve, from the identity up two thousandths a step: no slider drives
-/// it, so every frame is settled, and the dialog runs every frame over the whole image.
+/// Sends a widget a left-button mouse event at a point of it, as a person's hand does: a press, a move with the button
+/// held, or the release.
+void sendMouse(QWidget& widget, QEvent::Type type, const QPoint& at)
+{
+    const Qt::MouseButton button = type == QEvent::MouseMove ? Qt::NoButton : Qt::LeftButton;
+    const Qt::MouseButtons held = type == QEvent::MouseButtonRelease ? Qt::NoButton : Qt::LeftButton;
+    QMouseEvent event(type, QPointF(at), QPointF(widget.mapToGlobal(at)), button, held, Qt::NoModifier);
+    QCoreApplication::sendEvent(&widget, &event);
+}
+
+/// The middle point of the curves transformation's curve, set at the identity, taken hold of with the left button,
+/// dragged up a pixel a step and let go, as a person drags it.
 [[nodiscard]] DragSubject curvesDrag()
 {
+    // Where the press took the point, which each step moves it from.
+    auto pressedAt = std::make_shared<QPoint>();
     return DragSubject{
         .name = "curves-transformation",
         .open =
             [](ImageViewControl& target) { return openDialog<CurvesTransformationProcess>(target, QSize(1400, 900)); },
         .step =
-            [](QWidget& dialog, int step) {
+            [pressedAt](QWidget& dialog, int step) {
                 CurvesWidget* curves = curvesWidgetOf(dialog);
                 if (curves == nullptr)
                 {
                     return false;
                 }
-                const double output = 0.5 + 0.002 * static_cast<double>(step);
-                curves->setCurve(an::ui::ToneCurveModel({an::CurveControlPoint{.input = 0.0, .output = 0.0},
-                                                         an::CurveControlPoint{.input = 0.5, .output = output},
-                                                         an::CurveControlPoint{.input = 1.0, .output = 1.0}},
-                                                        curves->getCurve().interpolation()));
+                if (step == 0)
+                {
+                    curves->setCurve(an::ui::ToneCurveModel({an::CurveControlPoint{.input = 0.0, .output = 0.0},
+                                                             an::CurveControlPoint{.input = 0.5, .output = 0.5},
+                                                             an::CurveControlPoint{.input = 1.0, .output = 1.0}},
+                                                            curves->getCurve().interpolation()));
+                    return true;
+                }
+                sendMouse(*curves, QEvent::MouseMove, *pressedAt - QPoint(0, step));
                 return true;
             },
-        .press = [](QWidget&, bool) {},
-        .releases = false};
+        .press =
+            [pressedAt](QWidget& dialog, bool down) {
+                CurvesWidget* curves = curvesWidgetOf(dialog);
+                if (curves == nullptr)
+                {
+                    return;
+                }
+                if (down)
+                {
+                    *pressedAt = curves->pointPosition(1u);
+                }
+                sendMouse(*curves, down ? QEvent::MouseButtonPress : QEvent::MouseButtonRelease,
+                          down ? *pressedAt : curves->pointPosition(1u));
+            },
+        .editorHistogramCounts = [](QWidget& dialog) -> std::optional<std::uint64_t> {
+            const auto* curves = dynamic_cast<const CurvesTransformationProcess*>(&dialog);
+            return curves != nullptr ? std::optional<std::uint64_t>(curves->histogramTelemetry().started)
+                                     : std::nullopt;
+        }};
 }
 
 /// A digest of the samples a document holds within a part of it, or within all of it when the part is empty, every
@@ -810,12 +974,13 @@ void runDrag(const DragSubject& subject)
     auto* preview = child<QCheckBox>(*dialog, "preview");
     ASSERT_NE(preview, nullptr);
     preview->setChecked(true);
-    // The dialog opens at its identity, which shows the frame itself and runs nothing.
-    ASSERT_TRUE(pumpUntil([&dialog]() {
+    // The dialog opens at its identity, which shows the frame itself and runs nothing - or, as the high pass does, at
+    // parameters that do something, whose first frame runs over the whole image.
+    ASSERT_TRUE(pumpPatientlyUntil([&dialog]() {
         const ProcessRunTelemetry shown = dialog->runTelemetry();
         return shown.previewsCommitted + shown.identityPreviews >= 1u;
     }));
-    ASSERT_TRUE(settleDialog(*dialog));
+    ASSERT_TRUE(settleDialogPatiently(*dialog));
     ImageViewControl* previewView = dialog->previewView();
     ASSERT_NE(previewView, nullptr);
     ImageViewWidget* previewWidget = previewView->getViewWidget();
@@ -823,12 +988,12 @@ void runDrag(const DragSubject& subject)
     if (autostretch)
     {
         previewView->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
     }
     if (zoom100)
     {
         previewView->zoom100();
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
     }
     if (!histogram)
     {
@@ -838,7 +1003,7 @@ void runDrag(const DragSubject& subject)
         {
             showHistogram->click();
         }
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
     }
     if (!channel.isEmpty())
     {
@@ -852,29 +1017,33 @@ void runDrag(const DragSubject& subject)
         const int index = selector->findText(channel);
         ASSERT_GE(index, 0) << subject.name << ": the channel selector offers no " << channel.toStdString();
         selector->setCurrentIndex(index);
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
     }
     if (previewArea)
     {
         QCheckBox* area = previewView->getRTPreviewAreaCheckBox();
         ASSERT_NE(area, nullptr) << subject.name << ": the dialog offers no preview area";
         area->setChecked(true);
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
         ASSERT_FALSE(dialog->previewArea().isEmpty());
     }
     else if (QCheckBox* area = previewView->getRTPreviewAreaCheckBox(); area != nullptr && area->isChecked())
     {
         // A dialog that opens with a preview area is dragged over the whole image, as one that opens with none is.
         area->setChecked(false);
-        ASSERT_TRUE(settleDialog(*dialog));
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
         ASSERT_TRUE(dialog->previewArea().isEmpty());
     }
     ASSERT_TRUE(subject.step(*dialog, 0)) << subject.name << ": the dialog has no control to drag";
-    ASSERT_TRUE(settleDialog(*dialog));
+    ASSERT_TRUE(settleDialogPatiently(*dialog));
     // The part of the image the preview view shows: what a frame at full scale over what the view shows runs over.
     const std::optional<an::ui::ViewRegion> shownPart = previewWidget->shownImageRegion();
 
     const ProcessRunTelemetry runsBefore = dialog->runTelemetry();
+    const auto editorCounts = [&subject, &dialog]() -> std::optional<std::uint64_t> {
+        return subject.editorHistogramCounts ? subject.editorHistogramCounts(*dialog) : std::nullopt;
+    };
+    const std::optional<std::uint64_t> editorCountsBefore = editorCounts();
     const ImageViewPresentationTelemetry presentedBefore = previewWidget->presentationTelemetry();
     const ProcessMemory memoryBefore = processMemory();
     const double processorStart = processorMilliseconds();
@@ -913,6 +1082,7 @@ void runDrag(const DragSubject& subject)
         }
     }
     const ProcessRunTelemetry runsAtDragEnd = dialog->runTelemetry();
+    const std::optional<std::uint64_t> editorCountsAtDragEnd = editorCounts();
     const double releasedAt = nowMilliseconds();
     subject.press(*dialog, false);
     const double dragMs = static_cast<double>(wall.elapsed());
@@ -927,31 +1097,63 @@ void runDrag(const DragSubject& subject)
         return dialog->runTelemetry().settledPreviewsCommitted > runsAtDragEnd.settledPreviewsCommitted;
     };
     const bool settledShown =
-        pumpUntil([&]() { return settledAfterDrag() || (!subject.releases && dialog->isProcessIdle()); }) &&
+        pumpPatientlyUntil([&]() { return settledAfterDrag() || (!subject.releases && dialog->isProcessIdle()); }) &&
         settledAfterDrag();
     const double settledCommittedMs = nowMilliseconds() - releasedAt;
-    (void)pumpUntil([previewWidget]() { return previewWidget->isPresentationIdle(); });
+    (void)pumpPatientlyUntil([previewWidget]() { return previewWidget->isPresentationIdle(); });
     const double settledPresentedMs = nowMilliseconds() - releasedAt;
     EXPECT_TRUE(settledShown || !subject.releases) << "a settled frame followed the release";
 
-    EXPECT_TRUE(settleDialog(*dialog)) << "the dialog goes idle after the drag";
+    EXPECT_TRUE(settleDialogPatiently(*dialog)) << "the dialog goes idle after the drag";
     const double settledMs = static_cast<double>(wall.elapsed());
     const double processorEnd = processorMilliseconds();
     const ProcessMemory memoryEnd = processMemory();
     const ProcessRunTelemetry runsEnd = dialog->runTelemetry();
+    const std::optional<std::uint64_t> editorCountsEnd = editorCounts();
     const ImageViewPresentationTelemetry presentedEnd = previewWidget->presentationTelemetry();
     EXPECT_GT(runsAtDragEnd.previewsCommitted, runsBefore.previewsCommitted) << "the drag showed previews";
     const QRect areaShown = dialog->previewArea();
+    // How the preview view showed the frame, read before an Apply that may close the dialog and its preview view with
+    // it - the range selection's makes a new image and closes.
+    const bool shownStretched = previewView->isAutoStretchEnabled();
+    const double shownScale = previewWidget->getCurrentScaleFactor();
+    const std::string shownWidget =
+        std::to_string(previewWidget->width()) + "x" + std::to_string(previewWidget->height());
 
     // The settled preview's samples, and the Apply's, which runs the production path over the real image; within the
     // preview area when one is on, outside which the preview shows the frame itself.
     const std::uint64_t settledDigest = digestOf(previewView->document(), areaShown);
     std::optional<std::uint64_t> appliedDigest;
+    // How long the Apply took until its run was committed to the target, and how many bytes the engine handed out from
+    // the Apply until the dialog and the target were idle after it - every allocation counted once by the session's own
+    // memory resource, whatever was let go meanwhile, so the figure does not depend on when it is read.
+    std::optional<double> applyMs;
+    std::optional<double> applyAllocatedMiB;
+    const auto engineBytesHandedOut = [&session]() -> std::optional<std::uint64_t> {
+        an::Result<an::consumer::SessionHold> hold = session.hold();
+        const an::MemoryResource* resource = hold.hasValue() ? hold->engine().memoryResource() : nullptr;
+        return resource != nullptr ? std::optional<std::uint64_t>(resource->counters().totalBytes) : std::nullopt;
+    };
     if (applyAfter)
     {
+        const std::uint64_t committedBefore = dialog->runTelemetry().runsCommitted;
+        const std::optional<std::uint64_t> handedOutBefore = engineBytesHandedOut();
+        const double applyStart = nowMilliseconds();
         dialog->applyProcess();
-        EXPECT_TRUE(settleDialog(*dialog)) << "the dialog goes idle after the Apply";
+        const bool committed =
+            pumpPatientlyUntil([&]() { return dialog->runTelemetry().runsCommitted > committedBefore; });
+        EXPECT_TRUE(committed) << "the Apply was committed";
+        if (committed)
+        {
+            applyMs = nowMilliseconds() - applyStart;
+        }
+        EXPECT_TRUE(settleDialogPatiently(*dialog)) << "the dialog goes idle after the Apply";
         EXPECT_TRUE(settleView(*target));
+        const std::optional<std::uint64_t> handedOutAfter = engineBytesHandedOut();
+        if (handedOutBefore.has_value() && handedOutAfter.has_value())
+        {
+            applyAllocatedMiB = static_cast<double>(*handedOutAfter - *handedOutBefore) / (1024.0 * 1024.0);
+        }
         appliedDigest = digestOf(target->document(), areaShown);
     }
 
@@ -980,6 +1182,10 @@ void runDrag(const DragSubject& subject)
         return fixed(milliseconds(total) / (std::max)(1.0, static_cast<double>(count)));
     };
     const std::uint64_t committedInRun = runsEnd.previewsCommitted - runsBefore.previewsCommitted;
+    const auto editorCountsSince = [&editorCountsBefore](const std::optional<std::uint64_t>& counts) {
+        return editorCountsBefore.has_value() && counts.has_value() ? std::to_string(*counts - *editorCountsBefore)
+                                                                    : std::string("none");
+    };
     const std::vector<ReportField> fields = {
         {"date", QDateTime::currentDateTime().toString(Qt::ISODate).toStdString()},
         {"process", subject.name},
@@ -987,9 +1193,9 @@ void runDrag(const DragSubject& subject)
         {"frame_size", std::to_string(frameWidth) + "x" + std::to_string(frameHeight) + "x" +
                            std::to_string(described->extent().channelCount())},
         {"session_width", std::to_string(session.width())},
-        {"mode", previewView->isAutoStretchEnabled() ? "autostretch" : "linear"},
-        {"preview_scale", fixed(previewWidget->getCurrentScaleFactor(), 4)},
-        {"preview_widget", std::to_string(previewWidget->width()) + "x" + std::to_string(previewWidget->height())},
+        {"mode", shownStretched ? "autostretch" : "linear"},
+        {"preview_scale", fixed(shownScale, 4)},
+        {"preview_widget", shownWidget},
         {"preview_shown", shownPart.has_value()
                               ? std::to_string(shownPart->width) + "x" + std::to_string(shownPart->height)
                               : std::string("none")},
@@ -1032,6 +1238,8 @@ void runDrag(const DragSubject& subject)
         {"histograms_remapped_in_drag",
          std::to_string(runsAtDragEnd.histogramsRemapped - runsBefore.histogramsRemapped)},
         {"histograms_sampled_in_drag", std::to_string(runsAtDragEnd.histogramsSampled - runsBefore.histogramsSampled)},
+        {"editor_histograms_counted_in_drag", editorCountsSince(editorCountsAtDragEnd)},
+        {"editor_histograms_counted_in_all", editorCountsSince(editorCountsEnd)},
         {"analyses_measured", std::to_string(runsEnd.analysesMeasured - runsBefore.analysesMeasured)},
         {"scopes_prepared", std::to_string(runsEnd.scopesPrepared - runsBefore.scopesPrepared)},
         {"scopes_reused", std::to_string(runsEnd.scopesReused - runsBefore.scopesReused)},
@@ -1046,6 +1254,9 @@ void runDrag(const DragSubject& subject)
         {"layers_adopted_in_drag", std::to_string(presentedAtDragEnd.layersAdopted - presentedBefore.layersAdopted)},
         {"settled_digest", hexOf(settledDigest)},
         {"applied_digest", appliedDigest.has_value() ? hexOf(*appliedDigest) : std::string("none")},
+        {"apply_ms", applyMs.has_value() ? fixed(*applyMs) : std::string("none")},
+        {"apply_engine_allocated_mib",
+         applyAllocatedMiB.has_value() ? fixed(*applyAllocatedMiB, 0) : std::string("none")},
         {"settled_is_applied",
          appliedDigest.has_value() ? (*appliedDigest == settledDigest ? "yes" : "no") : std::string("none")},
         {"cores_busy_in_drag", fixed(processorInDrag / dragMs, 2)},
@@ -1146,6 +1357,16 @@ TEST(RealtimePreviewDragBenchmark, GaussianBlurSigmaDrag)
 TEST(RealtimePreviewDragBenchmark, MedianFilterModulationDrag)
 {
     runDrag(medianDrag());
+}
+
+TEST(RealtimePreviewDragBenchmark, HighPassFilterRadiusDrag)
+{
+    runDrag(highPassDrag());
+}
+
+TEST(RealtimePreviewDragBenchmark, RangeSelectionDrag)
+{
+    runDrag(rangeSelectionDrag());
 }
 
 TEST(RealtimePreviewDragBenchmark, HistogramTransformationMidtonesDrag)

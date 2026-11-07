@@ -12,6 +12,7 @@
 
 #include <AfterNightEngine/Algorithms/Spatial/DrawingPrimitives.h>
 
+#include <AfterNightEngine/Algorithms/Kernel/StencilKernel.h>
 #include <AfterNightEngine/Algorithms/Spatial/Gaussian.h>
 #include <AfterNightEngine/Core/Alignment.h>
 #include <AfterNightEngine/Core/EngineLimits.h>
@@ -664,33 +665,79 @@ Result<CoverageFeatherResult> featherCoverage(const ExecutionContext& execution,
     }
     float* const last = tightDestination ? destination.data() : static_cast<float*>(lastBlock.data());
     float* const other = static_cast<float*>(otherBlock.data());
-    // Whether pass `index` (from zero) writes the last plane: when an even number of passes follow it.
-    const auto writesLast = [passes](std::uint32_t index) noexcept { return (passes - 1u - index) % 2u == 0u; };
 
-    const void* input = coverage.data();
-    const ImageLayout* inputLayout = &coverage.layout();
-    if (!readAsIs)
-    {
-        float* const first = writesLast(0u) ? other : last;
-        const Status copied = readInto(first, *tightLayout);
-        if (copied.failed())
+    // Runs `count` passes of one plan from the coverage, the last landing in the last plane.
+    const auto runPasses = [&](std::uint32_t count, const GaussianPlan& passPlan) -> Status {
+        // Whether pass `index` (from zero) writes the last plane: when an even number of passes follow it.
+        const auto writesLast = [count](std::uint32_t index) noexcept { return (count - 1u - index) % 2u == 0u; };
+        const void* input = coverage.data();
+        const ImageLayout* inputLayout = &coverage.layout();
+        if (!readAsIs)
         {
-            return copied;
+            float* const first = writesLast(0u) ? other : last;
+            const Status copied = readInto(first, *tightLayout);
+            if (copied.failed())
+            {
+                return copied;
+            }
+            input = first;
+            inputLayout = &*tightLayout;
         }
-        input = first;
-        inputLayout = &*tightLayout;
+        for (std::uint32_t index = 0u; index < count; ++index)
+        {
+            float* const output = writesLast(index) ? last : other;
+            const Result<SpatialFilterResult> blurred =
+                blurImageGaussian(execution, SampleType::Float32, input, *inputLayout, output, *tightLayout, passPlan);
+            if (!blurred.hasValue())
+            {
+                return blurred.status();
+            }
+            input = output;
+            inputLayout = &*tightLayout;
+        }
+        return Status::success();
+    };
+
+    // The plan's passes are of kernels the stencil family holds. Over a plane more than twice a wider kernel's radius
+    // each way, the fewest passes of kernels the compiled symmetric path takes run instead - one kernel at every
+    // feather whose kernel fits the plane - each reading and writing the plane once where the plan's passes would each
+    // read and write it again; the plan's passes run where the engine refuses the wider kernel: an execution without
+    // the compiled path, or without the memory for its working plane.
+    std::uint32_t ran = passes;
+    bool wideRan = false;
+    if (passes > 1u)
+    {
+        const std::uint32_t half = (std::min)(width, height) / 2u;
+        const std::uint32_t widest = (std::min)(kMaxGaussianRadius, half == 0u ? 0u : half - 1u);
+        for (std::uint32_t count = 1u; count < passes && widest > kMaxStencilRadius; ++count)
+        {
+            const double share = plan.sigma() / std::sqrt(static_cast<double>(count));
+            const Result<GaussianPlan> wide = planGaussianBlur(GaussianRequest{.sigmaX = share, .sigmaY = share});
+            if (!wide.hasValue() || (std::max)(wide->horizontalRadius(), wide->verticalRadius()) > widest)
+            {
+                continue;
+            }
+            const Status tried = runPasses(count, *wide);
+            if (tried.ok())
+            {
+                ran = count;
+                wideRan = true;
+            }
+            else if (tried.code() != ErrorCode::OutOfRange && tried.code() != ErrorCode::MemoryBudgetExceeded &&
+                     tried.code() != ErrorCode::AllocationFailed)
+            {
+                return tried;
+            }
+            break;
+        }
     }
-    for (std::uint32_t index = 0u; index < passes; ++index)
+    if (!wideRan)
     {
-        float* const output = writesLast(index) ? last : other;
-        const Result<SpatialFilterResult> blurred =
-            blurImageGaussian(execution, SampleType::Float32, input, *inputLayout, output, *tightLayout, *gaussian);
-        if (!blurred.hasValue())
+        const Status narrowRan = runPasses(passes, *gaussian);
+        if (narrowRan.failed())
         {
-            return blurred.status();
+            return narrowRan;
         }
-        input = output;
-        inputLayout = &*tightLayout;
     }
     if (!tightDestination)
     {
@@ -707,7 +754,7 @@ Result<CoverageFeatherResult> featherCoverage(const ExecutionContext& execution,
             return copied;
         }
     }
-    result.passes = passes;
+    result.passes = ran;
     return result;
 }
 

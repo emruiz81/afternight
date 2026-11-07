@@ -497,6 +497,39 @@ TEST(BlendCompositionTest, TheBlurAndTheHighPassAreTheExactGaussianInPasses)
     }
 }
 
+// A blur wider than the stencil family's widest kernel, over a blend image more than twice its kernel's radius each
+// way, is one exact kernel on the compiled path rather than the passes the plan counts: the published Gaussian of the
+// whole standard deviation, sample for sample. Where the engine runs no such kernel - an execution held to the
+// reference backend - the plan's passes run instead.
+TEST(BlendCompositionTest, AWideBlurOverALargeEnoughBlendIsOneKernel)
+{
+    constexpr double kSigma = 40.0;
+    constexpr std::uint32_t kWidth = 340u;
+    constexpr std::uint32_t kHeight = 330u;
+    const an::EngineContext engine = makeEngine();
+    const Planar<float> target = random<float>(kWidth, kHeight, 3u, 23u);
+    const Planar<float> blend = random<float>(kWidth, kHeight, 3u, 25u, 0.1, 0.9);
+    const an::BlendCompositionPlan made = plan(
+        {.mode = an::BlendCompositionMode::Replace, .filter = an::BlendPreFilter::GaussianBlur, .filterSigma = kSigma});
+    ASSERT_EQ(made.gaussianPasses(), 2u) << "passes of kernels the stencil family holds";
+
+    const an::ExecutionContext execution = makeExecution(engine);
+    Planar<float> result = empty<float>(kWidth, kHeight, 3u);
+    const an::Result<an::BlendCompositionResult> done =
+        an::composeBlend(execution, made, target.source(), blend.source(), result.samples.data(), result.layout);
+    ASSERT_TRUE(done.hasValue()) << done.status().message();
+    EXPECT_EQ(done->gaussianPasses, 1u);
+    EXPECT_EQ(result.samples, gaussian(execution, blend, kSigma, 1u).samples);
+
+    const an::ExecutionContext reference = makeExecution(engine, 3u, an::ComputeBackend::Reference);
+    Planar<float> narrow = empty<float>(kWidth, kHeight, 3u);
+    const an::Result<an::BlendCompositionResult> composed =
+        an::composeBlend(reference, made, target.source(), blend.source(), narrow.samples.data(), narrow.layout);
+    ASSERT_TRUE(composed.hasValue()) << composed.status().message();
+    EXPECT_EQ(composed->gaussianPasses, 2u);
+    EXPECT_EQ(narrow.samples, gaussian(reference, blend, kSigma, 2u).samples);
+}
+
 // The colourizing filters are the published colourize: of each channel, or of the CIE lightness.
 TEST(BlendCompositionTest, TheColourizingFiltersAreThePublishedColourize)
 {

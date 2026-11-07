@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/emruiz81/afternight/security/advisories/new
     about: Report a vulnerability privately, as SECURITY.md describes - never in a public issue.
   - name: User guide
-    url: https://emruiz81.github.io/afternight/
+    url: https://docs.afternightastro.org/
     about: How to install AfterNight and use its interface, processes and workflows.

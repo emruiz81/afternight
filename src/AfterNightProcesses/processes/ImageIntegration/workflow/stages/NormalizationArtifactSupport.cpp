@@ -429,6 +429,32 @@ QString normalizationArtifactIdentity(const QString& inputsFingerprint, const QS
     return QString::fromLatin1(hash.result().toHex());
 }
 
+QString warpedPlaneGeometryFingerprint(const NormalizationMeasurementPlane plane, const QJsonObject& transforms,
+                                       const double originX, const double originY, const std::uint32_t width,
+                                       const std::uint32_t height, const an::KernelInterpolation interpolation)
+{
+    const bool analysisPlane = plane == NormalizationMeasurementPlane::DrizzleAnalysisPlane;
+    QJsonObject identity = transforms;
+    identity.insert(QStringLiteral("canvasOriginX"), originX);
+    identity.insert(QStringLiteral("canvasOriginY"), originY);
+    identity.insert(analysisPlane ? QStringLiteral("analysisWidth") : QStringLiteral("canvasWidth"),
+                    static_cast<qint64>(width));
+    identity.insert(analysisPlane ? QStringLiteral("analysisHeight") : QStringLiteral("canvasHeight"),
+                    static_cast<qint64>(height));
+    identity.insert(QStringLiteral("interpolation"), static_cast<int>(interpolation));
+    return QString::fromLatin1(
+        QCryptographicHash::hash(QJsonDocument(identity).toJson(QJsonDocument::Compact), QCryptographicHash::Sha256)
+            .toHex());
+}
+
+QString warpedMeasurementInputsFingerprint(const QString& filesFingerprint, const QString& geometryFingerprint)
+{
+    return QString::fromLatin1(
+        QCryptographicHash::hash((filesFingerprint + QLatin1Char('\n') + geometryFingerprint).toUtf8(),
+                                 QCryptographicHash::Sha256)
+            .toHex());
+}
+
 std::optional<DocumentEnvelope> normalizationCoefficientsEnvelope(const NormalizationCoefficientSet& set,
                                                                   const QString& identity)
 {

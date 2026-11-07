@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <initializer_list>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -240,6 +241,11 @@ TEST(ImageMetadataTest, OnlyTheTwoSemanticObjectsChangeWhatAnImageMeans)
     EXPECT_FALSE(an::changesMeaning(cards));
     EXPECT_TRUE(an::changesAnything(cards));
 
+    an::MetadataTransition restated;
+    restated.codec = an::CodecMetadata{};
+    EXPECT_FALSE(an::changesMeaning(restated));
+    EXPECT_TRUE(an::changesAnything(restated));
+
     an::MetadataTransition withdrawn;
     withdrawn.clearOutputIntent = true;
     EXPECT_FALSE(an::changesMeaning(withdrawn));
@@ -306,6 +312,70 @@ TEST(ImageMetadataTest, DroppingPreservedCardsIsSomethingAnOperationHasToState)
     an::Result<an::ImageMetadata> after = an::applyMetadataTransition(before, dropped);
     ASSERT_TRUE(after.hasValue()) << after.status().message();
     EXPECT_TRUE(after->codec().cards().empty());
+}
+
+// An operation that writes cards of its own - a product recording what its samples are now - states the cards the image
+// carries after it, and they replace the preserved ones; the meaning, the solution, the acquisition record and the
+// output decision are what they were, and the lineage names the operation.
+TEST(ImageMetadataTest, CardsAnOperationStatesReplaceThePreservedOnesAndNothingElse)
+{
+    const auto cardsOf = [](std::initializer_list<std::pair<const char*, const char*>> keywords) {
+        std::vector<an::CodecCard> cards;
+        for (const auto& [keyword, value] : keywords)
+        {
+            an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, keyword, value, "");
+            EXPECT_TRUE(card.hasValue());
+            if (card.hasValue())
+            {
+                cards.push_back(std::move(*card));
+            }
+        }
+        an::Result<an::CodecMetadata> codec = an::CodecMetadata::create(an::SourceEncoding{}, std::move(cards));
+        EXPECT_TRUE(codec.hasValue());
+        return codec.hasValue() ? std::move(*codec) : an::CodecMetadata{};
+    };
+    an::Result<an::Provenance> provenance = an::Provenance::create(an::ProvenanceSourceKind::File, "frame.fit");
+    ASSERT_TRUE(provenance.hasValue());
+    const an::ImageMetadata before =
+        an::ImageMetadata::create(acquiredFacts(), calibratedLinear(), solvedPointing(), std::move(*provenance),
+                                  cardsOf({{"OBSERVER", "'someone'"}}), sixteenBitIntent());
+    const an::CodecMetadata stated = cardsOf({{"OBSERVER", "'someone'"}, {"ANLIN", "'nonlinear'"}});
+
+    an::MetadataTransition unrecorded;
+    unrecorded.codec = stated;
+    an::Result<an::ImageMetadata> refused = an::applyMetadataTransition(before, unrecorded);
+    ASSERT_FALSE(refused.hasValue()) << "cards stated without a record";
+    EXPECT_EQ(refused.code(), an::ErrorCode::InvalidArgument);
+
+    an::MetadataTransition restated;
+    restated.codec = stated;
+    restated.record = makeEntry("record the state");
+    an::Result<an::ImageMetadata> after = an::applyMetadataTransition(before, restated);
+    ASSERT_TRUE(after.hasValue()) << after.status().message();
+    EXPECT_EQ(after->codec(), stated);
+    EXPECT_EQ(after->acquisition(), before.acquisition());
+    EXPECT_EQ(after->semantics(), before.semantics());
+    EXPECT_EQ(after->astrometry(), before.astrometry());
+    EXPECT_EQ(after->outputIntent(), before.outputIntent());
+    ASSERT_EQ(after->provenance().entries().size(), before.provenance().entries().size() + 1u);
+    EXPECT_EQ(after->provenance().entries().back().operation(), "record the state");
+}
+
+TEST(ImageMetadataTest, StatingCardsAndDroppingThemAtOnceIsRefused)
+{
+    const an::ImageMetadata before = decodedFrame();
+
+    an::MetadataTransition transition;
+    transition.codec = an::CodecMetadata{};
+    transition.clearCodecMetadata = true;
+    transition.record = makeEntry("save");
+
+    an::Result<an::ImageMetadata> refused = an::applyMetadataTransition(before, transition);
+    ASSERT_FALSE(refused.hasValue());
+    EXPECT_EQ(refused.code(), an::ErrorCode::IncompatibleArguments);
+    const an::StatusContextField* const field = refused.status().findContext(an::ContextKey::Parameter);
+    ASSERT_NE(field, nullptr);
+    EXPECT_EQ(field->text, "codec");
 }
 
 TEST(ImageMetadataTest, InvalidatingASolutionIsStatedByGivingAnAbsentOne)

@@ -527,7 +527,8 @@ HdrExposureMergeSettings hdrExposureMergeSettingsFromJson(const QJsonObject& obj
 // StackingSettings expansion checklist:
 // 1. Update model JSON here.
 // 2. Mirror the field in WorkflowManifest serialization.
-// 3. Mirror processing-affecting fields in manifest hashing and diffing.
+// 3. Mirror processing-affecting fields in manifest hashing, and give the field its entry in ManifestDiff.cpp's
+//    kStackingSettingReaders with the light stages that read it.
 // 4. Extend defaults/persistence regression tests.
 QJsonObject stackingSettingsToJson(const StackingSettings& settings)
 {

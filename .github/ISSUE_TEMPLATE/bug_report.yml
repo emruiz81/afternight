@@ -13,7 +13,7 @@ body:
     attributes:
       label: AfterNight version
       description: As the About dialog shows it, and where you got it (an installer, the AppImage, or a build from source at a commit).
-      placeholder: 1.0.0, Windows installer
+      placeholder: 1.0.1, Windows installer
     validations:
       required: true
   - type: input

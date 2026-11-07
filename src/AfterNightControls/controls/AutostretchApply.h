@@ -2,12 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// Apply Stretch: the autostretch the view shows, made the image's own.
+/// Apply Stretch: the autostretch the view shows, made the image's own; and which images a picture of shows stretched.
 ///
 /// The view presents its image through the engine's display presentation into display bytes; Apply Stretch runs the
 /// same presentation, through the production plan and with the same request, into a Float32 working image, and brings
 /// that back to the image's own representation at full scale. It is an edit of the view: computed on a worker under the
 /// document's writer, recorded in the history before the view shows it, and shown only while the request is current.
+///
+/// A picture of an image that is not a view - a recent file's thumbnail, a history step's preview - shows linear data
+/// through the same stretch, each colour channel stretched on its own, and anything else as it is.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -24,6 +27,7 @@ namespace an
 {
 class EngineContext;
 class ExecutionContext;
+class ImageMetadata;
 class ValidityMask;
 } // namespace an
 
@@ -83,5 +87,19 @@ autostretchFrame(const an::EngineContext& engine, const an::ExecutionContext& ex
 applyAutostretchToCopy(const an::consumer::EngineSession& session, const an::consumer::AnyImage& image,
                        const an::ValidityMask* validity, const AutostretchApplySettings& settings,
                        std::stop_token stop);
+
+/// Whether an image is linear data, which a picture of it shows stretched.
+///
+/// Whatever says the samples went through a stretch or an encoding decides first: an `ANLIN` card recording them
+/// nonlinear - as every stretch of the product records its result - or an sRGB, Rec. 709 or power-law transfer function
+/// leaves them as they are. A declaration that they are linear decides next: the `ANLIN` card, or a linear transfer
+/// function. An image declared neither way is linear when it is a camera's own data or a stack of it: a camera RAW
+/// frame, a frame whose header records its type as a capture program does (`IMAGETYP`), or a stack whose header states
+/// how many frames it combines (`STACKCNT`, `NCOMBINE`), as the product's stacks do. Those cards stay with an image
+/// through its processing, so a stretch made elsewhere that keeps them and records nothing is taken for linear data.
+///
+/// @param metadata the image's metadata.
+/// @return true for linear data.
+[[nodiscard]] AFTERNIGHTCONTROLS_API bool isLinearData(const an::ImageMetadata& metadata);
 
 } // namespace an::ui

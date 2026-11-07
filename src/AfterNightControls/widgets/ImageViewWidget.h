@@ -312,8 +312,21 @@ public:
     AutostretchParams getAutostretchSettings() const;
 
     /// The engine's presentation request the view presents through now: the stretch and adjustments it shows, decided
-    /// from its mode, its settings and its output. Read on the GUI thread.
+    /// from its mode, its settings, whether its image holds the automatic stretch already, and its output. Read on the
+    /// GUI thread.
     [[nodiscard]] an::DisplayPresentationRequest presentationRequest() const;
+
+    /// States whether the image the view shows already holds the automatic stretch: written stretched as it was shown,
+    /// as an image list's fast-play frames are. The autostretch mode presents such an image as it is, since stretching
+    /// it would stretch it twice. Whoever states it shows that image only while the view is in the autostretch mode
+    /// with the settings it was stretched through, and states it again for the next image it shows. A change asks for a
+    /// new presentation.
+    ///
+    /// @param holds whether the image holds the stretch.
+    void setImageHoldsAutostretch(bool holds);
+
+    /// Whether the image the view shows already holds the automatic stretch (`setImageHoldsAutostretch`).
+    [[nodiscard]] bool imageHoldsAutostretch() const;
 
     /// Asks for a new presentation of the view's image. On the GUI thread the request is issued at once; from any other
     /// thread it is queued to the GUI thread. The paint follows when the engine has presented, if the request is still

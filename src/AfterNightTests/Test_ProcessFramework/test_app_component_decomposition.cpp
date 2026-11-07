@@ -189,7 +189,7 @@ TEST(DialogOrchestrationCoordinatorComponent, DialogOrchestrationCoordinator_Ope
     EXPECT_EQ(candidates.front(), QDir(appDir).filePath(QStringLiteral("docs/index.html")));
     EXPECT_TRUE(candidates.contains(QDir(appDir).filePath(QStringLiteral("../share/doc/AfterNight/index.html"))));
     EXPECT_TRUE(candidates.contains(QDir(appDir).filePath(QStringLiteral("../../../docs/user-guide/site/index.html"))));
-    EXPECT_STREQ(an::ui::kAfterNightUserGuideOnlineUrl, "https://emruiz81.github.io/afternight/");
+    EXPECT_STREQ(an::ui::kAfterNightUserGuideOnlineUrl, "https://docs.afternightastro.org/");
 }
 
 // The online guide is a fallback unless the policy value turns it off: any of the usual spellings of "on" does.

@@ -58,8 +58,9 @@ and the refusal of a sequence.
 
 ## Where the derived code lives
 
-The automatic background is `planAutoBackground`, `estimateImageAutoBackground`
-and `removeImageAutoBackground` in
+The automatic background is `planAutoBackground`, `estimateImageAutoBackground`,
+`removeImageAutoBackground` and `removeAndDrawImageAutoBackground` - the last
+the estimate and the removal over one fit, which is the engine's own - in
 `src/AfterNightEngine/include/AfterNightEngine/Algorithms/Background/AutoBackground.h`,
 implemented in
 `src/AfterNightEngine/src/algorithms/background/AutoBackground.cpp`. It departs

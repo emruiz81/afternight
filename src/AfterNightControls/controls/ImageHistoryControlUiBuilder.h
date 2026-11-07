@@ -17,6 +17,7 @@
 #include <QtWidgets/QWidget>
 
 #include "components/AnCardWidget.h"
+#include "components/AnElidedLabel.h"
 #include "components/AnStyledTable.h"
 #include "theme/AnDesignTokens.h"
 
@@ -26,6 +27,12 @@ namespace an::ui::controls
 class ImageHistoryControlUiElements
 {
 public:
+    /// The lines the selected step's title holds.
+    static constexpr int kStepTitleLines = 1;
+
+    /// The lines the selected step's details hold: its time and state, and at least the start of its description.
+    static constexpr int kStepSubtitleLines = 5;
+
     QWidget* verticalLayoutWidget = nullptr;
     QVBoxLayout* verticalLayout = nullptr;
     QHBoxLayout* contentLayout = nullptr;
@@ -43,8 +50,8 @@ public:
     QLabel* headerSubtitleLabel = nullptr;
     an::ui::AnCardWidget* historyCard = nullptr;
     an::ui::AnCardWidget* previewCard = nullptr;
-    QLabel* selectedStepTitleLabel = nullptr;
-    QLabel* selectedStepSubtitleLabel = nullptr;
+    an::ui::AnElidedLabel* selectedStepTitleLabel = nullptr;
+    an::ui::AnElidedLabel* selectedStepSubtitleLabel = nullptr;
     QWidget* previewWidgetHost = nullptr;
     QVBoxLayout* previewWidgetHostLayout = nullptr;
     QWidget* histogramWidgetHost = nullptr;
@@ -116,14 +123,13 @@ public:
         previewLayout->setContentsMargins(0, 0, 0, 0);
         previewLayout->setSpacing(t.spacing.sm);
 
-        selectedStepTitleLabel = new QLabel(previewCard);
+        // The step's text keeps a set number of lines, so the preview below it stays where it is from step to step.
+        selectedStepTitleLabel = new an::ui::AnElidedLabel(kStepTitleLines, previewCard);
         selectedStepTitleLabel->setObjectName(QStringLiteral("historyStepPreviewTitle"));
-        selectedStepTitleLabel->setWordWrap(true);
         previewLayout->addWidget(selectedStepTitleLabel);
 
-        selectedStepSubtitleLabel = new QLabel(previewCard);
+        selectedStepSubtitleLabel = new an::ui::AnElidedLabel(kStepSubtitleLines, previewCard);
         selectedStepSubtitleLabel->setObjectName(QStringLiteral("historyStepPreviewSubtitle"));
-        selectedStepSubtitleLabel->setWordWrap(true);
         previewLayout->addWidget(selectedStepSubtitleLabel);
 
         previewWidgetHost = new QWidget(previewCard);
@@ -219,8 +225,9 @@ public:
             "Review the sequence of edits applied to the active image and refresh the timeline when needed.", nullptr));
         historyCard->setTitle(QCoreApplication::translate("ImageHistoryControl", "History Timeline", nullptr));
         previewCard->setTitle(QCoreApplication::translate("ImageHistoryControl", "Selected Step Preview", nullptr));
-        selectedStepTitleLabel->setText(QCoreApplication::translate("ImageHistoryControl", "Current Step", nullptr));
-        selectedStepSubtitleLabel->setText(QCoreApplication::translate(
+        selectedStepTitleLabel->setFullText(
+            QCoreApplication::translate("ImageHistoryControl", "Current Step", nullptr));
+        selectedStepSubtitleLabel->setFullText(QCoreApplication::translate(
             "ImageHistoryControl", "Select a row to inspect its preview, histogram, and available actions.", nullptr));
         moveUpButton->setText(QString());
         moveDownButton->setText(QString());

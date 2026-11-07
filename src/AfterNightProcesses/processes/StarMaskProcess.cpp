@@ -571,7 +571,7 @@ an::Status StarMaskProcess::executeTypedProcessImpl(const an::ui::ProcessSource&
         return an::Status::success();
     }
     return process_utils::recordNonlinearResult(
-        scope, destination,
+        destination,
         process_utils::NonlinearResultRecord{.stateOperation = "star-mask",
                                              .engineOperation = params.shapedAreas ? "an::paintShapedStarMask"
                                                                                    : "an::paintEllipticalStarMask",

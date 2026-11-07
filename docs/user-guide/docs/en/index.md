@@ -2,7 +2,7 @@
 
 ## Purpose, audience, prerequisites, and expected result
 
-This is the entry point for the AfterNight 1.0.0 desktop-application guide. It
+This is the entry point for the AfterNight 1.0.1 desktop-application guide. It
 is for new users choosing a first task and experienced users looking for an
 interface, process, workflow, or reference page. No image or configured
 external tool is required to use the guide. Follow one of the paths below and
@@ -35,13 +35,13 @@ Run `AfterNightCLI --help` for its options and exit codes.
 ## Before you start
 
 Confirm the application version in **About > About AfterNight** when exact
-behavior matters. This guide covers 1.0.0. Keep a writable output folder and
+behavior matters. This guide covers 1.0.1. Keep a writable output folder and
 copies of acquisition data before following any processing workflow; individual
 pages identify their additional disk, catalog, model, or external-tool needs.
 
 <div class="an-hero" markdown>
 <div class="an-hero__lead" markdown>
-<p class="an-kicker">AfterNight 1.0.0 user guide</p>
+<p class="an-kicker">AfterNight 1.0.1 user guide</p>
 
 ## Process, refine, and finish your astronomical images
 
@@ -217,7 +217,7 @@ Each link changes only the displayed documentation page.
 | **Add extension tools** | [Using Extensions](extensions/using-extensions.md) | [Extension Marketplace](extensions/extension-marketplace.md) |
 
 !!! info "About this guide"
-    This guide targets AfterNight 1.0.0 and focuses on using the application.
+    This guide targets AfterNight 1.0.1 and focuses on using the application.
     For supported platforms, disk space, and hardware guidance, see
     [System Requirements](reference/system-requirements.md).
 
@@ -240,7 +240,7 @@ and are not implied by this landing page.
 ## Worked example
 
 - Evidence mode: Source-and-documentation-derived.
-- Starting state: AfterNight 1.0.0 is installed and no image is open.
+- Starting state: AfterNight 1.0.1 is installed and no image is open.
 - Actions: open **Help > User Guide**, choose **Run the quick start**, follow
   the OSC or mono branch, then use the linked saving page to verify an output.
 - Checkpoints: the guide root opens locally when bundled; Quick Start identifies
@@ -282,11 +282,11 @@ Formats](reference/file-formats.md).
 ## References and provenance
 
 - Version: the application states its own version, `kProductVersion` in
-  `src/AfterNightApp/app/ApplicationSession.h` (1.0.0), which `main.cpp`
+  `src/AfterNightApp/app/ApplicationSession.h` (1.0.1), which `main.cpp`
   sets as the application version and `productVersion()` in
   `src/AfterNightControls/controls/EngineVersionReport.cpp` gives the About
   dialog and the dashboard; the Windows installer definitions and the Linux
-  AppImage packaging identify the same 1.0.0.
+  AppImage packaging identify the same 1.0.1.
 - Platforms and application scope: `README.md`, installer scripts, and the
   current build playbooks.
 - Reachability: `AfterNightAppUiBuilder.h`,

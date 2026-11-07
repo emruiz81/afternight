@@ -2,7 +2,7 @@
 
 ## Purpose, scope, audience, prerequisites, expected result, and authority
 
-Use this page to decide whether a computer can run a packaged AfterNight 1.0.0 build, what optional software or data a workflow needs, how many threads and how much memory AfterNight uses, and how to estimate resources for a large project.
+Use this page to decide whether a computer can run a packaged AfterNight 1.0.1 build, what optional software or data a workflow needs, how many threads and how much memory AfterNight uses, and how to estimate resources for a large project.
 
 The authoritative hard requirements are deliberately narrow: the distributed artifacts are 64-bit x86 packages compiled for AVX2, and their operating-system/runtime boundaries come from the package, build target, and bundled Qt version. The project does **not** currently publish or enforce a certified minimum CPU core count, RAM capacity, free-disk amount, or discrete-GPU model. Values derived from image dimensions and catalog manifests are labeled as calculations or planning guidance rather than benchmarked application limits.
 

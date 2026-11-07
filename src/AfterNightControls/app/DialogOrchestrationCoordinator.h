@@ -30,7 +30,7 @@ namespace an::ui
 inline constexpr size_t kSettingsPageCount = 7;
 inline constexpr size_t kExtensionsDialogPageCount = 2;
 inline constexpr size_t kDefaultRecentFilesLimit = 20;
-inline constexpr const char* kAfterNightUserGuideOnlineUrl = "https://emruiz81.github.io/afternight/";
+inline constexpr const char* kAfterNightUserGuideOnlineUrl = "https://docs.afternightastro.org/";
 inline constexpr const char* kAfterNightDisableOnlineUserGuideEnv = "AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE";
 
 inline size_t settingsPageRegistrationCount()

@@ -405,8 +405,11 @@ QString AboutDialog::getAboutText() const
     s << "Built with performance‑focused C++20 code and trusted imaging libraries, it delivers precision and speed "
          "while remaining approachable night after night.\n\n";
     s << "## Developer\n\n";
-    s << "**Ezequiel Ruiz**  ";
-    s << "<" << "mailto:ezequiel.ruiz@gmail.com" << ">\n\n";
+    s << "**Ezequiel Ruiz**, software engineer and amateur astrophotographer. His blog tells how AfterNight is built "
+         "and how his pictures were made; the finished pictures are on Flickr and Instagram.\n\n";
+    s << "[Blog](https://ezequielruiz.com/) · [GitHub](https://github.com/emruiz81) · "
+         "[Flickr](https://www.flickr.com/photos/190474290@N08/) · "
+         "[Instagram](https://www.instagram.com/ezequiel.matias.ruiz/)\n\n";
     s << copyright << "\n";
     s << licenseLine << "\n\n";
     s << "The protocol-only extension boundary is documented separately so non-engine extension integrations can be "
@@ -415,7 +418,9 @@ QString AboutDialog::getAboutText() const
     s << "> The project is under active development. Features evolve quickly and some capabilities remain "
          "experimental. Keep pristine backups of your data before processing.\n\n";
     s << "## Support & Feedback\n\n";
-    s << "Have feedback or found a bug? Reach out via email while we prepare the public issue tracker.\n\n";
+    s << "Found a bug or have an idea? Open an issue on the "
+         "[issue tracker](https://github.com/emruiz81/afternight/issues). Downloads and release notes are on "
+         "[afternightastro.org](https://afternightastro.org/).\n\n";
     s << "Your insight helps shape upcoming releases.\n\n";
     s << "---\n\n";
     s << "Thank you for using AfterNight! Clear skies! 🌙\n";

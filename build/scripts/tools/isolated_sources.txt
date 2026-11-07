@@ -689,10 +689,14 @@ sources Test_ImageRTPreviewControl
     header   src/AfterNightProcesses/processes/GammaCorrectionProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/GaussianBlurProcess.h
     header   src/AfterNightProcesses/processes/GaussianBlurProcessUiBuilder.h
+    header   src/AfterNightProcesses/processes/HighPassFilterProcess.h
+    header   src/AfterNightProcesses/processes/HighPassFilterProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/HistogramTransformationProcess.h
     header   src/AfterNightProcesses/processes/HistogramTransformationProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/MedianFilterProcess.h
     header   src/AfterNightProcesses/processes/MedianFilterProcessUiBuilder.h
+    header   src/AfterNightProcesses/processes/RangeSelectionProcess.h
+    header   src/AfterNightProcesses/processes/RangeSelectionProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/StatisticalStretch.h
     header   src/AfterNightProcesses/processes/StatisticalStretchUiBuilder.h
     header   src/AfterNightProcesses/processes/StretchProcessSupport.h
@@ -798,7 +802,9 @@ sources Test_ControlsHistory
     header   src/AfterNightControls/AfterNightControlsExport.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
     header   src/AfterNightControls/components/AnCardWidget.h
+    header   src/AfterNightControls/components/AnElidedLabel.h
     header   src/AfterNightControls/components/AnStyledTable.h
+    header   src/AfterNightControls/controls/AutostretchApply.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h
     header   src/AfterNightControls/controls/GlobalViewControlActions.h
@@ -1801,6 +1807,7 @@ sources Test_ImageViewControl
     header   src/AfterNightControls/app/SolverProcessRunner.h
     header   src/AfterNightControls/app/UiStyleTokens.h
     header   src/AfterNightControls/components/AnCardWidget.h
+    header   src/AfterNightControls/components/AnElidedLabel.h
     header   src/AfterNightControls/components/AnStyledTable.h
     header   src/AfterNightControls/controls/AstrometryStarOverlayUtils.h
     header   src/AfterNightControls/controls/AutostretchApply.h
@@ -2006,6 +2013,7 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/app/WindowLayoutCoordinator.h
     header   src/AfterNightControls/common.h
     header   src/AfterNightControls/components/AnCardWidget.h
+    header   src/AfterNightControls/components/AnElidedLabel.h
     header   src/AfterNightControls/components/AnInfoBanner.h
     header   src/AfterNightControls/components/AnProgressCard.h
     header   src/AfterNightControls/components/AnSectionHeader.h
@@ -2320,6 +2328,7 @@ sources Test_Widgets
     unit     src/AfterNightTests/Test_Widgets/test_an_button_group.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_card_widget.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_collapsible_section.cpp
+    unit     src/AfterNightTests/Test_Widgets/test_an_elided_label.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_info_banner.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_input_field.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_progress_card.cpp
@@ -2345,6 +2354,7 @@ sources Test_Widgets
     header   src/AfterNightControls/components/AnButtonGroup.h
     header   src/AfterNightControls/components/AnCardWidget.h
     header   src/AfterNightControls/components/AnCollapsibleSection.h
+    header   src/AfterNightControls/components/AnElidedLabel.h
     header   src/AfterNightControls/components/AnInfoBanner.h
     header   src/AfterNightControls/components/AnInputField.h
     header   src/AfterNightControls/components/AnProgressCard.h
@@ -2802,6 +2812,7 @@ sources Test_ProcessesStretching
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/CurvesWidget.h
+    header   src/AfterNightControls/widgets/HistogramCompanions.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
     header   src/AfterNightControls/widgets/HistogramGHTWidget.h
     header   src/AfterNightControls/widgets/HistogramMTFWidget.h
@@ -2862,6 +2873,7 @@ sources Test_ProcessesStretching
 # optional adapter - and what they share, run against the processes library, which the suite links and which alone links
 # the G'MIC adapter, over the fixture layer their oracles start from.
 sources Test_ProcessesSpatial
+    unit     src/AfterNightTests/Test_ProcessesSpatial/DetailFilterTest.cpp
     unit     src/AfterNightTests/Test_ProcessesSpatial/GaussianBlurTest.cpp
     unit     src/AfterNightTests/Test_ProcessesSpatial/LibraryParityTest.cpp
     unit     src/AfterNightTests/Test_ProcessesSpatial/ProcessDecisionsTest.cpp
@@ -3021,6 +3033,7 @@ sources Test_ProcessesMasks
     unit     src/AfterNightTests/Test_ProcessesMasks/MasksWindowTest.cpp
     unit     src/AfterNightTests/Test_ProcessesMasks/MasksProcessCasesTest.cpp
     unit     src/AfterNightTests/Test_ProcessesMasks/MasksRegionFrameTest.cpp
+    unit     src/AfterNightTests/Test_ProcessesMasks/RangeSelectionFrameTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -4125,6 +4138,7 @@ sources Test_ProcessesWorkflowTools
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
+    header   src/AfterNightControls/widgets/HistogramCompanions.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
     header   src/AfterNightControls/widgets/HistogramWidget.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
@@ -4871,6 +4885,7 @@ sources Test_ProcessFramework
     header   src/AfterNightControls/components/AnButtonGroup.h
     header   src/AfterNightControls/components/AnCardWidget.h
     header   src/AfterNightControls/components/AnCollapsibleSection.h
+    header   src/AfterNightControls/components/AnElidedLabel.h
     header   src/AfterNightControls/components/AnInfoBanner.h
     header   src/AfterNightControls/components/AnInputField.h
     header   src/AfterNightControls/components/AnProgressCard.h

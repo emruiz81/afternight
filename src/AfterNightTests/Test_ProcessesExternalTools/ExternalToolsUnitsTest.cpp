@@ -722,6 +722,45 @@ TEST_F(ExternalToolsUnitsTest, TheStarMaskIsShapedAsAsked)
     }
     EXPECT_GT(partial, 0);
 
+    // A smoothness wider than the stencil family's widest exact kernel - the dialog offers up to 100 - smooths the mask
+    // by the exact Gaussian Gaussian Blur runs, on a mask far smaller than the kernel too: every sample comes near the
+    // mean of the selection, which a blur keeps but for the mirrored edges' weight.
+    double selected = 0.0;
+    for (std::uint32_t y = 0u; y < binary->height(); ++y)
+    {
+        for (std::uint32_t x = 0u; x < binary->width(); ++x)
+        {
+            selected += fractionOf(*binary, x, y, 0u) >= 0.5 ? 1.0 : 0.0;
+        }
+    }
+    selected /= static_cast<double>(binary->width()) * static_cast<double>(binary->height());
+    for (const double wide : {40.0, 100.0})
+    {
+        SCOPED_TRACE(wide);
+        const std::optional<fixtures::FixtureSamples> widely =
+            shaped({.lightness = true, .binary = true, .lowerLimit = lower, .upperLimit = upper, .smoothness = wide});
+        ASSERT_TRUE(widely.has_value());
+        double least = 1.0;
+        double most = 0.0;
+        double total = 0.0;
+        for (std::uint32_t y = 0u; y < widely->height(); ++y)
+        {
+            for (std::uint32_t x = 0u; x < widely->width(); ++x)
+            {
+                const double value = fractionOf(*widely, x, y, 0u);
+                least = (std::min)(least, value);
+                most = (std::max)(most, value);
+                total += value;
+            }
+        }
+        EXPECT_GT(least, 0.0);
+        EXPECT_LT(most, 1.0);
+        EXPECT_LT(most - least, 0.2) << "a smoothing far wider than the mask leaves it nearly flat";
+        EXPECT_NEAR(total / (static_cast<double>(widely->width()) * static_cast<double>(widely->height())), selected,
+                    0.1)
+            << "the selection smoothed, not the lightness";
+    }
+
     const std::optional<an::consumer::ImageAsset> grey = sceneAsset(session(), "scene-mono-float32");
     ASSERT_TRUE(grey.has_value());
     an::Result<an::ui::processes::ExternalToolAnswers> answers = runSupport(session(), *grey, starMaskRequest(false));

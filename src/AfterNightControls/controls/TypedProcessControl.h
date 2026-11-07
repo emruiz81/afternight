@@ -6,6 +6,7 @@
 #include "ImageRTPreviewControl.h"
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -85,6 +86,13 @@ protected:
         return false;
     }
 
+    /// The key a preview of these parameters keeps its result under and finds a kept one by; see `previewResultKey`.
+    /// Empty, keeping nothing, unless the process says otherwise.
+    [[nodiscard]] virtual std::string typedPreviewResultKey(const ParamsT& /*params*/) const
+    {
+        return {};
+    }
+
     /// How many pixels beyond the part of the target the preview view shows an interactive frame of these parameters at
     /// full scale reads around it; see `previewRegionMargin`. Zero unless the process says otherwise.
     [[nodiscard]] virtual std::uint32_t typedPreviewRegionMargin(const ParamsT& /*params*/) const
@@ -151,6 +159,15 @@ protected:
             return false;
         }
         return isTypedIdentity(static_cast<const ParamsHolder*>(params)->params);
+    }
+
+    [[nodiscard]] std::string previewResultKey(const ProcessExecutionParams* params) const final
+    {
+        if (!params)
+        {
+            return {};
+        }
+        return typedPreviewResultKey(static_cast<const ParamsHolder*>(params)->params);
     }
 
     [[nodiscard]] std::uint32_t previewRegionMargin(const ProcessExecutionParams* params) const final

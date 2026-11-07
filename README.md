@@ -20,8 +20,8 @@
 
 <p align="center">
   <a href="https://github.com/emruiz81/afternight/releases"><strong>Download</strong></a> &nbsp;·&nbsp;
-  <a href="https://emruiz81.github.io/afternight/"><strong>User guide</strong></a> &nbsp;·&nbsp;
-  <a href="https://emruiz81.github.io/afternight/getting-started/quick-start.html"><strong>Quick start</strong></a> &nbsp;·&nbsp;
+  <a href="https://docs.afternightastro.org/"><strong>User guide</strong></a> &nbsp;·&nbsp;
+  <a href="https://docs.afternightastro.org/getting-started/quick-start.html"><strong>Quick start</strong></a> &nbsp;·&nbsp;
   <a href="BUILD.md"><strong>Build from source</strong></a> &nbsp;·&nbsp;
   <a href="CONTRIBUTING.md"><strong>Contribute</strong></a>
 </p>
@@ -113,7 +113,7 @@ AfterNight. The stretch, the curve and the history shown above are this picture 
 | Stars | Starnet++, Star Mask, Star Reduction, Starmask Recombination, Star Profiler |
 | Preprocessing and geometry | Image Calibration, Cosmetic Correction, Debayer, Image Registration, Image Stacking, Crop, Rotate, Resize |
 
-The [process catalog](https://emruiz81.github.io/afternight/processes/index.html) of the user guide has a page for
+The [process catalog](https://docs.afternightastro.org/processes/index.html) of the user guide has a page for
 every one of them.
 
 ## Get AfterNight
@@ -122,14 +122,14 @@ Each release publishes a Windows installer and a Linux AppImage on the
 [Releases page](https://github.com/emruiz81/afternight/releases). AfterNight 1.0.0 is the first public version; when
 no release is listed there yet, build from source as [BUILD.md](BUILD.md) describes.
 
-The user guide's [installation page](https://emruiz81.github.io/afternight/getting-started/installation.html) and
-[system requirements](https://emruiz81.github.io/afternight/reference/system-requirements.html) say what a machine
-needs, and its [quick start](https://emruiz81.github.io/afternight/getting-started/quick-start.html) takes a first
+The user guide's [installation page](https://docs.afternightastro.org/getting-started/installation.html) and
+[system requirements](https://docs.afternightastro.org/reference/system-requirements.html) say what a machine
+needs, and its [quick start](https://docs.afternightastro.org/getting-started/quick-start.html) takes a first
 set of frames to a master.
 
 ## Documentation
 
-- The [user guide](https://emruiz81.github.io/afternight/) covers installation, the interface, every process and the
+- The [user guide](https://docs.afternightastro.org/) covers installation, the interface, every process and the
   common workflows. The installers carry it too, and **Help > User Guide** opens that copy without a network
   connection.
 - [BUILD.md](BUILD.md) is how to build, test and package AfterNight from source.

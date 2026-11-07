@@ -19,7 +19,8 @@
 /// **A stretch runs over a working image and is published in the image's own representation.** The engine's stretches
 /// take Float32 or Float64 samples that are fractions of full scale: `makeStretchWorkingCopy` makes that copy and
 /// `publishStretchResult` brings it back at full scale, to the nearest value, as a new image carrying the source's
-/// validity and its metadata as the stretch leaves it. `publishStretchOfSource` does both, and for a camera frame of
+/// validity and its metadata as the stretch leaves it - or, for a body that wrote its stretch where the run writes,
+/// states that metadata on those samples where they are. `publishStretchOfSource` does both, and for a camera frame of
 /// eight or sixteen bits stretched channel by channel it runs those steps over one row of every code instead and looks
 /// each sample up in the answers - the same result, without the whole image's working copy.
 ///
@@ -212,19 +213,24 @@ stretchedMetadata(const an::ImageMetadata& metadata, const an::ImageDescriptor& 
 
 /// Makes the destination a stretched image: the samples of a working image - or of a rectangle of it - brought to the
 /// source's representation at full scale, to the nearest value, with the source's validity and the metadata
-/// `stretchedMetadata` states.
+/// `stretchedMetadata` states. When the working image is the destination's own - a body that wrote its stretch where
+/// the run writes - its samples are the result: the metadata is stated on them where they are, in one transition,
+/// and nothing of them is copied.
 ///
 /// @param session the session the result belongs to.
 /// @param engine the engine context of the run's execution.
 /// @param execution the run's admitted execution.
 /// @param source what the run read, whose description, metadata and validity the result takes.
-/// @param working the stretched samples, of any representation, in one arrangement throughout.
+/// @param working the stretched samples, of any representation, in one arrangement throughout; or the destination's
+///        own image, holding the stretched samples in the source's representation.
 /// @param from the rectangle of `working` the result is, of the source's size; empty when `working` is the source's
-///        size and the result is all of it.
+///        size and the result is all of it, as it must be when `working` is the destination's own image.
 /// @param record what the stretch records of itself.
-/// @param destination where the run writes, replaced by the result.
+/// @param destination where the run writes, replaced by the result - or restated where it is, when `working` is its
+///        own image.
 /// @return success; `ErrorCode::IncompatibleArguments` when the working image or the rectangle is not of the source's
-///         size; or what the metadata, the conversion or the replacement refused.
+///         size, or a rectangle of the destination's own image is asked for; or what the metadata, the conversion or
+///         the replacement refused. On a failure the destination is unchanged.
 [[nodiscard]] AFTERNIGHTPROCESSES_API an::Status
 publishStretchResult(const an::consumer::EngineSession& session, const an::EngineContext& engine,
                      const an::ExecutionContext& execution, const ProcessSource& source,

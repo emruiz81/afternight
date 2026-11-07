@@ -24,6 +24,7 @@
 #include "processes/ImageIntegration/model/GroupingKeys.h"
 #include "processes/ImageIntegration/workflow/DocumentPublication.h"
 
+#include <AfterNightEngine/Algorithms/Kernel/SamplingKernel.h>
 #include <AfterNightEngine/Algorithms/Normalization/GlobalNormalization.h>
 #include <AfterNightEngine/Algorithms/Normalization/LocalNormalization.h>
 
@@ -154,6 +155,23 @@ parseNormalizationCoefficients(const QByteArray& payload, QString& error);
 /// fingerprints.
 [[nodiscard]] AFTERNIGHTPROCESSES_API QString normalizationArtifactIdentity(const QString& inputsFingerprint,
                                                                             const QString& settingsFingerprint);
+
+/// The fingerprint of a plane the stage warps a group's lights onto as it measures them: each light's transform as
+/// its record states it, keyed by the light's canonical path in `transforms`; the plane's origin and extent; and the
+/// interpolation. The registration's plane and a drizzle canvas's analysis plane name their extent differently, so
+/// two planes of one size are never one. The planner states it from the run's records to tell whether coefficients
+/// on disk are the ones the stage would measure.
+///
+/// @param plane `RegisteredCanvas` or `DrizzleAnalysisPlane`.
+[[nodiscard]] AFTERNIGHTPROCESSES_API QString warpedPlaneGeometryFingerprint(NormalizationMeasurementPlane plane,
+                                                                             const QJsonObject& transforms,
+                                                                             double originX, double originY,
+                                                                             std::uint32_t width, std::uint32_t height,
+                                                                             an::KernelInterpolation interpolation);
+
+/// The inputs a measurement on a warped plane states: the fingerprint of the files read, then the plane's.
+[[nodiscard]] AFTERNIGHTPROCESSES_API QString warpedMeasurementInputsFingerprint(const QString& filesFingerprint,
+                                                                                 const QString& geometryFingerprint);
 
 /// The coefficient document's envelope.
 ///

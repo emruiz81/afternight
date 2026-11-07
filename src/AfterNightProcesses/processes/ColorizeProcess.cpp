@@ -499,7 +499,7 @@ an::Status ColorizeProcess::executeTypedProcessImpl(const an::ui::ProcessSource&
         return an::Status::success();
     }
     return process_utils::recordNonlinearResult(
-        scope, destination,
+        destination,
         process_utils::NonlinearResultRecord{
             .stateOperation = "colorize",
             .engineOperation = "an::colorizeImage",

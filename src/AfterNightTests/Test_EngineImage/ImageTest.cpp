@@ -34,6 +34,7 @@
 #include <AfterNightEngine/Core/Status.h>
 #include <AfterNightEngine/Image/CfaPattern.h>
 #include <AfterNightEngine/Image/ChannelSemantics.h>
+#include <AfterNightEngine/Image/CodecMetadata.h>
 #include <AfterNightEngine/Image/ComputePrecision.h>
 #include <AfterNightEngine/Image/ImageDescriptor.h>
 #include <AfterNightEngine/Image/ImageMetadata.h>
@@ -57,6 +58,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -276,6 +278,24 @@ TEST(ImageTest, AMetadataChangeThatDoesNotChangeMeaningLeavesTheSemanticGenerati
     EXPECT_EQ(image->semanticGeneration(), 0u);
     EXPECT_EQ(image->pixelGeneration(), 0u);
     EXPECT_EQ(image->metadata().provenance().entries().size(), 1u);
+
+    // Cards an operation states are restated where the samples are: no generation moves, and no sample is touched.
+    an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, "ANLIN", "'nonlinear'", "");
+    ASSERT_TRUE(card.hasValue());
+    std::vector<an::CodecCard> stated;
+    stated.push_back(*card);
+    an::Result<an::CodecMetadata> codec = an::CodecMetadata::create(an::SourceEncoding{}, std::move(stated));
+    ASSERT_TRUE(codec.hasValue());
+    const void* const samples = image->view()->data();
+    an::MetadataTransition cards;
+    cards.codec = *codec;
+    cards.record = makeEntry("record the state");
+    ASSERT_TRUE(image->transition(cards).ok());
+    EXPECT_EQ(image->semanticGeneration(), 0u);
+    EXPECT_EQ(image->pixelGeneration(), 0u);
+    EXPECT_EQ(image->metadata().codec(), *codec);
+    EXPECT_EQ(image->metadata().provenance().entries().size(), 2u);
+    EXPECT_EQ(image->view()->data(), samples) << "the cards were restated over other samples";
 
     an::MetadataTransition meaning;
     meaning.semantics = linearSemantics();
