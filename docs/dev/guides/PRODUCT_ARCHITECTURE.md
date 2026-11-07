@@ -256,9 +256,14 @@ Bayer pattern is the image's own and never guessed, and an X-Trans mosaic by the
 (`buildExportIntent`, `PersistenceCoordinator::buildOutputIntent`), captures the document's asset and revision, and
 `writeViewImage` converts to the intent's representation and refuses a mosaic for PNG or JPEG, and an X-Trans one for
 FITS, before writing anything; the view's pending changes are cleared only when it still holds that revision.
-Recent-file thumbnails are rendered on a worker (`renderRecentFileThumbnail`); an image that is linear data
-(`isLinearData`: its cards record it linear, or it is a camera RAW frame) is stretched with each colour channel on its
-own, as the view's autostretch shows an image unless asked to link. Temporary files go below the session's own
+Recent-file thumbnails are rendered on a worker (`renderRecentFileThumbnail`); an image that is linear data is
+stretched with each colour channel on its own, as the view's autostretch shows an image unless asked to link.
+`isLinearData` decides: an `ANLIN` card recording the samples nonlinear, or an encoded transfer function, keeps an image
+as it is whatever else it states; then a declaration of linear samples - the card, or a linear transfer function - and,
+for an image declared neither way, a camera RAW frame or a header that records a frame's type (`IMAGETYP`) or counts
+the frames of a stack (`STACKCNT`, `NCOMBINE`). The product's stacks record no linearity, only those cards. The
+nonlinear record goes first because an extension's result keeps the colour space its source was lent with, so a
+linear transfer function on it is not evidence. Temporary files go below the session's own
 `RuntimeStorageCoordinator::getTempDirPath`, held by a lock file; only an ended session's directory is reclaimed. A
 lock rather than an age decides what is reclaimed, because an age would reclaim the history of a running session left
 idle and keep a crashed session's files until they expired, and nothing but a session's directory is removed, since

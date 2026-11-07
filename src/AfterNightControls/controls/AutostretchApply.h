@@ -88,8 +88,15 @@ applyAutostretchToCopy(const an::consumer::EngineSession& session, const an::con
                        const an::ValidityMask* validity, const AutostretchApplySettings& settings,
                        std::stop_token stop);
 
-/// Whether an image is linear data, which a picture of it shows stretched: its processing-state cards record it linear,
-/// or it is a camera RAW frame, whose codes are linear.
+/// Whether an image is linear data, which a picture of it shows stretched.
+///
+/// Whatever says the samples went through a stretch or an encoding decides first: an `ANLIN` card recording them
+/// nonlinear - as every stretch of the product records its result - or an sRGB, Rec. 709 or power-law transfer function
+/// leaves them as they are. A declaration that they are linear decides next: the `ANLIN` card, or a linear transfer
+/// function. An image declared neither way is linear when it is a camera's own data or a stack of it: a camera RAW
+/// frame, a frame whose header records its type as a capture program does (`IMAGETYP`), or a stack whose header states
+/// how many frames it combines (`STACKCNT`, `NCOMBINE`), as the product's stacks do. Those cards stay with an image
+/// through its processing, so a stretch made elsewhere that keeps them and records nothing is taken for linear data.
 ///
 /// @param metadata the image's metadata.
 /// @return true for linear data.

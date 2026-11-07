@@ -14,6 +14,7 @@
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightEngine/IO/ProcessingStateCards.h>
 #include <AfterNightEngine/Image/AcquisitionMetadata.h>
+#include <AfterNightEngine/Image/CodecMetadata.h>
 #include <AfterNightEngine/Image/ConversionPolicy.h>
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/ImageConversion.h>
@@ -26,7 +27,11 @@
 #include <AfterNightEngine/Runtime/EngineContext.h>
 #include <AfterNightEngine/Runtime/ExecutionContext.h>
 
+#include <charconv>
+#include <cmath>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -285,10 +290,71 @@ applyAutostretchToCopy(const an::consumer::EngineSession& session, const an::con
     return an::consumer::ImageAsset::adopt(session, std::move(*stretched));
 }
 
+namespace
+{
+
+/// The value of a FITS card of an image's header, without the quotes of a string and the spaces around it; empty when
+/// the header has no such card. An XISF file's FITS keywords are FITS cards too.
+[[nodiscard]] std::string_view headerValue(const an::CodecMetadata& codec, const std::string_view keyword)
+{
+    const an::CodecCard* const card = codec.find(an::CodecNamespace::Fits, keyword);
+    std::string_view text = card != nullptr ? std::string_view(card->value()) : std::string_view();
+    const auto trim = [](std::string_view value) {
+        while (!value.empty() && value.front() == ' ')
+        {
+            value.remove_prefix(1u);
+        }
+        while (!value.empty() && value.back() == ' ')
+        {
+            value.remove_suffix(1u);
+        }
+        return value;
+    };
+    text = trim(text);
+    if (text.size() >= 2u && text.front() == '\'' && text.back() == '\'')
+    {
+        text = trim(text.substr(1u, text.size() - 2u));
+    }
+    return text;
+}
+
+/// Whether an image's header says it is a frame a camera took, or a stack of such frames: the frame type a capture
+/// program records (`IMAGETYP`), or how many frames a stack combines (`STACKCNT`, `NCOMBINE`).
+[[nodiscard]] bool isCameraFrameOrStack(const an::CodecMetadata& codec)
+{
+    if (!headerValue(codec, "IMAGETYP").empty())
+    {
+        return true;
+    }
+    for (const std::string_view keyword : {std::string_view("STACKCNT"), std::string_view("NCOMBINE")})
+    {
+        const std::string_view text = headerValue(codec, keyword);
+        double count = 0.0;
+        const std::from_chars_result parsed = std::from_chars(text.data(), text.data() + text.size(), count);
+        if (parsed.ec == std::errc() && std::isfinite(count) && count >= 1.0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
 bool isLinearData(const an::ImageMetadata& metadata)
 {
-    return an::readProcessingStateCards(metadata.codec()).linearity == an::RecordedLinearity::Linear ||
-           metadata.acquisition().rawCamera().has_value();
+    const an::TransferFunction transfer = metadata.semantics().transferFunction();
+    const an::RecordedLinearity recorded = an::readProcessingStateCards(metadata.codec()).linearity;
+    if (recorded == an::RecordedLinearity::Nonlinear || transfer == an::TransferFunction::Srgb ||
+        transfer == an::TransferFunction::Rec709 || transfer == an::TransferFunction::PureGamma)
+    {
+        return false;
+    }
+    if (recorded == an::RecordedLinearity::Linear || transfer == an::TransferFunction::Linear)
+    {
+        return true;
+    }
+    return metadata.acquisition().rawCamera().has_value() || isCameraFrameOrStack(metadata.codec());
 }
 
 } // namespace an::ui

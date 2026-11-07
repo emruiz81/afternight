@@ -45,10 +45,13 @@
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
+#include <initializer_list>
 #include <limits>
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -83,22 +86,39 @@ std::uint16_t unbalancedSample(std::uint32_t x, std::uint32_t y, std::uint32_t c
     return static_cast<std::uint16_t>((channel + 1u) * 900u + 4u * noise + star);
 }
 
-/// Metadata whose processing-state cards record the image linear, as a file the product wrote does.
-an::ImageMetadata recordedLinear()
+/// Metadata of a header holding `cards`, each a FITS keyword and its value as a file writes it.
+an::ImageMetadata headerOf(std::initializer_list<std::pair<const char*, const char*>> cards)
 {
-    an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, "ANLIN", "'linear'", {});
-    EXPECT_TRUE(card.hasValue()) << card.status().message();
-    an::Result<an::CodecMetadata> codec = an::CodecMetadata::create({}, {*card});
+    std::vector<an::CodecCard> header;
+    for (const auto& [keyword, value] : cards)
+    {
+        an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, keyword, value, {});
+        EXPECT_TRUE(card.hasValue()) << card.status().message();
+        if (card.hasValue())
+        {
+            header.push_back(*card);
+        }
+    }
+    an::Result<an::CodecMetadata> codec = an::CodecMetadata::create({}, std::move(header));
     EXPECT_TRUE(codec.hasValue()) << codec.status().message();
     return an::ImageMetadata::create(an::AcquisitionMetadata{}, an::ImageSemantics{}, an::AstrometricSolution{},
                                      an::Provenance{}, *codec, std::nullopt);
 }
 
-/// A sixteen-bit colour document of `unbalancedSample`, whose cards record it linear when asked.
-std::optional<an::ui::ImageDocument> unbalancedColourDocument(const an::consumer::EngineSession& session, bool linear)
+/// Metadata whose processing-state cards record the image linear, as a file the product wrote does.
+an::ImageMetadata recordedLinear()
 {
-    constexpr std::uint32_t kWidth = 64u;
-    constexpr std::uint32_t kHeight = 48u;
+    return headerOf({{"ANLIN", "'linear'"}});
+}
+
+/// A document of a new planar image of `SampleT` whose sample at (x, y) in a channel is `value(x, y, channel)`, with
+/// the metadata given.
+template <typename SampleT>
+std::optional<an::ui::ImageDocument>
+documentWith(const an::consumer::EngineSession& session, std::uint32_t width, std::uint32_t height, Channels channels,
+             const std::function<SampleT(std::uint32_t, std::uint32_t, std::uint32_t)>& value,
+             const an::ImageMetadata& metadata)
+{
     an::Result<an::consumer::SessionHold> hold = session.hold();
     EXPECT_TRUE(hold.hasValue());
     if (!hold.hasValue())
@@ -106,35 +126,34 @@ std::optional<an::ui::ImageDocument> unbalancedColourDocument(const an::consumer
         return std::nullopt;
     }
     const std::optional<an::ImageDescriptor> descriptor =
-        an::tests::viewer::describeImage(hold->engine(), an::SampleType::UInt16, kWidth, kHeight, Channels::Rgb);
+        an::tests::viewer::describeImage(hold->engine(), an::kSampleTypeOf<SampleT>, width, height, channels);
     EXPECT_TRUE(descriptor.has_value());
     if (!descriptor.has_value())
     {
         return std::nullopt;
     }
-    an::Result<an::Image<std::uint16_t>> image = an::Image<std::uint16_t>::create(
-        hold->engine(), *descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed,
-        linear ? recordedLinear() : an::ImageMetadata{});
+    an::Result<an::Image<SampleT>> image = an::Image<SampleT>::create(
+        hold->engine(), *descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed, metadata);
     EXPECT_TRUE(image.hasValue()) << image.status().message();
     if (!image.hasValue())
     {
         return std::nullopt;
     }
     {
-        std::optional<an::ImageWriteAccess<std::uint16_t>> access = image->write();
+        std::optional<an::ImageWriteAccess<SampleT>> access = image->write();
         EXPECT_TRUE(access.has_value());
         if (!access.has_value())
         {
             return std::nullopt;
         }
-        for (std::uint32_t channel = 0u; channel < 3u; ++channel)
+        for (std::uint32_t channel = 0u; channel < an::tests::viewer::channelCountOf(channels); ++channel)
         {
-            for (std::uint32_t y = 0u; y < kHeight; ++y)
+            for (std::uint32_t y = 0u; y < height; ++y)
             {
                 const auto row = access->view().row(channel, y);
-                for (std::uint32_t x = 0u; x < kWidth; ++x)
+                for (std::uint32_t x = 0u; x < width; ++x)
                 {
-                    (*row)[x] = unbalancedSample(x, y, channel);
+                    (*row)[x] = value(x, y, channel);
                 }
             }
         }
@@ -153,6 +172,26 @@ std::optional<an::ui::ImageDocument> unbalancedColourDocument(const an::consumer
         return std::nullopt;
     }
     return std::move(*document);
+}
+
+/// A sixteen-bit colour document of `unbalancedSample`, whose cards record it linear when asked.
+std::optional<an::ui::ImageDocument> unbalancedColourDocument(const an::consumer::EngineSession& session, bool linear)
+{
+    return documentWith<std::uint16_t>(session, 64u, 48u, Channels::Rgb, unbalancedSample,
+                                       linear ? recordedLinear() : an::ImageMetadata{});
+}
+
+/// A grey Float32 stack as the product's lights stacking writes one: a dark background with a little noise under a
+/// grid of stars, its header counting the frames it combines and naming their type, and no card recording it linear.
+std::optional<an::ui::ImageDocument> stackDocument(const an::consumer::EngineSession& session)
+{
+    return documentWith<float>(
+        session, 64u, 48u, Channels::Grey,
+        [](std::uint32_t x, std::uint32_t y, std::uint32_t) {
+            const float star = (x % 16u == 5u && y % 12u == 4u) ? 0.8f : 0.0f;
+            return 0.01f + 0.0005f * static_cast<float>((x * 7u + y * 13u) % 29u) + star;
+        },
+        headerOf({{"EXPTIME", "25920"}, {"STACKCNT", "216"}, {"IMAGETYP", "'LIGHT'"}}));
 }
 
 /// The median of one colour byte over every pixel a preview shows: that channel's level as the preview shows it.
@@ -551,6 +590,44 @@ TEST_F(ViewHistoryTest, ALinearStepIsPreviewedWithEachColourChannelStretchedOnIt
     const int difference = largestByteDifference(*preview, *expected->image);
     EXPECT_GE(difference, 0) << "the preview and the thumbnail's stretch have one shape";
     EXPECT_LE(difference, 1);
+}
+
+// A stack the product made - its header counting its frames and naming their type, no card recording it linear - is
+// previewed stretched, and so is a step made of it that kept its header, as an extension that restores its source's
+// header on its result does.
+TEST_F(ViewHistoryTest, AStackAndAStepThatKeptItsHeaderArePreviewedStretched)
+{
+    open();
+    ViewHandle view = makeView("stack");
+    std::optional<an::ui::ImageDocument> document = stackDocument(session());
+    ASSERT_TRUE(document.has_value());
+    view->setDocument(std::move(*document));
+    view->initializeNewImageHistory("opened");
+    ASSERT_TRUE(settle(*view));
+    ASSERT_TRUE(written(1u));
+    view->editImage("Deconvolution", "the stack sharpened",
+                    [](const an::consumer::EngineSession& session, const an::consumer::AssetWriteLease& image,
+                       std::stop_token) { return an::ui::history::copyForHistory(session, image); });
+    ASSERT_TRUE(settle(*view));
+    ASSERT_EQ(view->workTelemetry().editsCommitted, 1u);
+
+    view->history();
+    QPointer<ImageHistoryControl> window = historyWindowOf(*view);
+    ASSERT_FALSE(window.isNull());
+    auto* table = window->findChild<QTableWidget*>(QStringLiteral("tableWidget"));
+    ASSERT_NE(table, nullptr);
+    ASSERT_TRUE(pumpUntil([&window]() { return window && window->previewsShown() > 0u; }));
+    const std::shared_ptr<const an::ui::PresentedImage> edited = window->shownPreview();
+    ASSERT_NE(edited, nullptr);
+    ASSERT_EQ(edited->format(), an::ui::PresentedFormat::Grey8);
+    EXPECT_GT(previewMedian(*edited, 0u), 32) << "the edit's background is stretched up from near black";
+
+    const std::uint64_t before = window->previewsShown();
+    table->selectRow(0);
+    ASSERT_TRUE(pumpUntil([&window, before]() { return window && window->previewsShown() > before; }));
+    const std::shared_ptr<const an::ui::PresentedImage> stacked = window->shownPreview();
+    ASSERT_NE(stacked, nullptr);
+    EXPECT_GT(previewMedian(*stacked, 0u), 32) << "the stack's background is stretched up from near black";
 }
 
 // A step that does not record itself linear is previewed as it is: every byte its sample at full scale.

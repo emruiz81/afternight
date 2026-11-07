@@ -156,15 +156,20 @@ detected stars.
 Selecting a step reads its snapshot in the background, only for inspection; a
 later selection replaces a preview still on its way. A preview is an 8-bit
 rendering - grey, colour, or colour with alpha, each with its own channels. A
-step that is still linear data - its processing-state cards record it linear,
-or it is a camera RAW frame - is stretched as the dashboard's thumbnails show
+step that is still linear data is stretched as the dashboard's thumbnails show
 it, each colour channel stretched on its own, so it does not show almost black.
-Any other step is shown as it is, at full scale. The histogram uses the restored
-full-precision image either way. A sequence step that kept a changed frame
-previews that frame. Any other sequence preview reads the selected sequence's
-frame at the source view's current zero-based frame index, with the source
-view's current auto-debayer setting. The preview is therefore contextual, not a
-saved record of the original display state.
+Linear data is what the dashboard takes for it: an image recorded linear, a
+stack whose header counts its frames, as AfterNight's stacks do, a frame whose
+header records its frame type, or a camera RAW frame - unless its record says
+it was stretched, as every AfterNight stretch records, or it is sRGB or gamma
+encoded. A step an extension made is judged by the header the extension gave
+its result: one that keeps its source's header and records no stretch is shown
+as linear data. Any other step is shown as it is, at full scale. The histogram
+uses the restored full-precision image either way. A sequence step that kept a
+changed frame previews that frame. Any other sequence preview reads the selected
+sequence's frame at the source view's current zero-based frame index, with the
+source view's current auto-debayer setting. The preview is therefore
+contextual, not a saved record of the original display state.
 
 The step name takes one line, and the details below it take five: the time,
 whether the step is current, **Preview unavailable for this step.** when it
