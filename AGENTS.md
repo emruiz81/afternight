@@ -663,7 +663,7 @@ mkdocs build -f docs/user-guide/mkdocs.yml --strict
 ### CI
 - A workflow that calls one reusable workflow more than once must key their concurrency groups apart. A reusable workflow inherits its caller's context, so two calls in one run see the same `github.workflow` and the same ref; with `cancel-in-progress` they share a group and the second cancels the first, taking the job that waited on it. The run then reports `cancelled` rather than `failure`, with no failing step anywhere, so the missing half reads as somebody pressing stop. `cache-linux.yml` and `cache-windows.yml` take a `variant` input for this; pass whatever distinguishes the calls. When a workflow runs several modes of one job, check that every mode reported rather than that nothing failed
 - `.github/workflows/docs.yml` builds, validates, and optionally deploys documentation
-- Release builds call the docs workflow once and pass the uploaded HTML artifact into platform packaging jobs
+- Release builds call the docs workflow once and pass the uploaded HTML artifact into platform packaging jobs; once the release is published, its `deploy-guide` job publishes that same artifact to GitHub Pages (not for a pre-release), so the published guide is always the latest release's
 - Release installer jobs download the built HTML artifact for offline bundling
 - Release installer jobs require the docs artifact (`/DREQUIRE_DOCS` on Windows, `REQUIRE_DOCS_SITE=1` on Linux)
 - Manual/non-release installer builds bundle docs only when `docs/user-guide/site/` already exists

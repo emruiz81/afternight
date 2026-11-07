@@ -1,8 +1,10 @@
 name: Documentation
 
-# Builds the user guide strictly on every pull request that touches it, and deploys it to GitHub Pages on every push
-# to main that does, or on a dispatch that asks. A release calls this to build the guide its installers bundle and to
-# hand the release workflow the archive it attaches; a release never deploys Pages, and nothing here writes to the
+# Builds the user guide strictly on every pull request that touches it and on every push to main that does. GitHub
+# Pages carries the latest release's guide, so that Help's online fallback describes the build people have installed:
+# the release workflow publishes the guide it built once the release is published, and a dispatch that asks for a
+# deployment builds and publishes the latest release's tag, or the ref it names. A release calls this to build the
+# guide its installers bundle and to hand the release workflow the archive it attaches; nothing here writes to the
 # repository.
 
 on:
@@ -46,6 +48,11 @@ on:
         required: false
         default: false
         type: boolean
+      ref:
+        description: 'The ref to build; empty builds the latest release when deploying, and this branch otherwise'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -65,31 +72,49 @@ jobs:
     outputs:
       deploy: ${{ steps.deploy.outputs.deploy }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          lfs: true
-
-      # A push to main that reaches this workflow directly, or a dispatch that asks. Called by a release, the event
-      # is the release's - a tag push or a dispatch - and the workflow's own dispatch input does not exist.
+      # Only a dispatch of this workflow that asks deploys Pages here. A push to main builds and checks the guide
+      # without publishing it, and a release publishes its own build once it is published (release.yml, deploy-guide).
+      # Called by a release, the event is the release's - a tag push or a dispatch - and this workflow's dispatch
+      # inputs do not exist.
       - name: Decide whether this run deploys Pages
         id: deploy
         env:
           EVENT: ${{ github.event_name }}
-          REF: ${{ github.ref }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
           REQUESTED: ${{ inputs.deploy_pages }}
         run: |
           deploy=false
           case "$WORKFLOW_REF" in
             */.github/workflows/docs.yml@*)
-              if { [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; } || \
-                 { [ "$EVENT" = workflow_dispatch ] && [ "$REQUESTED" = true ]; }; then
+              if [ "$EVENT" = workflow_dispatch ] && [ "$REQUESTED" = true ]; then
                 deploy=true
               fi ;;
           esac
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
           echo "Deploy Pages: $deploy"
+
+      # Pages carries the latest release's guide, so a deployment builds that release's tag unless the dispatch names
+      # another ref. Only the checkout moves: the run stays on its branch, which is what the github-pages environment
+      # admits.
+      - name: Choose what to build
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY: ${{ steps.deploy.outputs.deploy }}
+          REQUESTED_REF: ${{ inputs.ref }}
+        run: |
+          ref="$REQUESTED_REF"
+          if [ -z "$ref" ] && [ "$DEPLOY" = true ]; then
+            ref="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Building: ${ref:-$GITHUB_SHA}"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.source.outputs.ref }}
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
