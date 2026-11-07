@@ -1062,76 +1062,75 @@ void ImageListAnalyzerProcess::rebuildPreviewSequence()
     QPointer<ImageListAnalyzerProcess> guard(this);
     const std::stop_token stop = windowStopToken();
     ++m_impl->previewsInFlight;
-    QThreadPool::globalInstance()->start(
-        [session, manifestPath, manifest, guard, stop, generation, proxies, stretch, listed, selected]() {
-            auto opened = std::make_shared<an::Result<an::ui::ImageDocument>>(
-                writeAndOpenList(*session, manifestPath, manifest, stop));
-            postToGui([guard, opened, generation, proxies, stretch, listed, selected, manifestPath]() {
-                if (!guard)
-                {
-                    return;
-                }
-                Impl& impl = *guard->m_impl;
-                --impl.previewsInFlight;
-                if (generation != impl.previewGeneration)
-                {
-                    QFile::remove(manifestPath);
-                    return;
-                }
-                if (!opened->hasValue())
-                {
-                    LOG_WARNING("Image List Analyzer: the preview sequence could not be opened: {}",
-                                opened->status().message());
-                    impl.previewShowsProxies = false;
-                    impl.preview->clear();
-                    guard->updateSummaryAndHistogram();
-                    return;
-                }
-                if (std::optional<an::ui::DocumentSequence> sequence = (*opened)->sequence(); sequence.has_value())
-                {
-                    sequence->demosaic = an::ui::demosaicMethodFromSettings();
-                    if (static_cast<std::uint64_t>(selected) < sequence->descriptor.frameCount.value_or(0u))
-                    {
-                        sequence->currentFrame = static_cast<std::uint64_t>(selected);
-                    }
-                    (*opened)->setSequence(std::move(sequence));
-                }
-                if (!impl.previewManifest.isEmpty() && impl.previewManifest != manifestPath)
-                {
-                    QFile::remove(impl.previewManifest);
-                }
-                impl.previewManifest = manifestPath;
-                impl.previewFiles = listed;
-                impl.previewShowsProxies = proxies;
-                impl.previewProxyStretch = stretch;
-                // A rate the person set while the preview was being made is kept.
-                guard->keepPlayerRate();
-                // A proxy is the autostretch display it holds, shown as it is; an original file is shown in the
-                // display mode the person chose.
-                impl.preview->getViewWidget()->setImageHoldsAutostretch(proxies);
-                impl.preview->setSequenceDocument(std::move(**opened), true);
-                // A list shown first, or one whose frames are of another size, is fitted to the preview; the person's
-                // zoom is kept while the frames keep their size. It is fitted from the event loop, once the player
-                // the first sequence brings is laid out under the image.
-                if (const std::optional<an::ImageDescriptor> shown = impl.preview->imageDescriptor(); shown.has_value())
-                {
-                    const QSize size(static_cast<int>(shown->extent().width()),
-                                     static_cast<int>(shown->extent().height()));
-                    if (size != impl.fittedFrameSize)
-                    {
-                        impl.fittedFrameSize = size;
-                        impl.preview->fitToWindowAsync();
-                    }
-                }
-                if (auto* player = dynamic_cast<SequencePlayerControl*>(impl.preview->sequencePlayer()))
-                {
-                    player->setFramesPerSecondControlVisible(true);
-                    player->setFramesPerSecond(impl.framesPerSecond);
-                }
-                guard->updateOptimizationControls();
+    QThreadPool::globalInstance()->start([session, manifestPath, manifest, guard, stop, generation, proxies, stretch,
+                                          listed, selected]() {
+        auto opened = std::make_shared<an::Result<an::ui::ImageDocument>>(
+            writeAndOpenList(*session, manifestPath, manifest, stop));
+        postToGui([guard, opened, generation, proxies, stretch, listed, selected, manifestPath]() {
+            if (!guard)
+            {
+                return;
+            }
+            Impl& impl = *guard->m_impl;
+            --impl.previewsInFlight;
+            if (generation != impl.previewGeneration)
+            {
+                QFile::remove(manifestPath);
+                return;
+            }
+            if (!opened->hasValue())
+            {
+                LOG_WARNING("Image List Analyzer: the preview sequence could not be opened: {}",
+                            opened->status().message());
+                impl.previewShowsProxies = false;
+                impl.preview->clear();
                 guard->updateSummaryAndHistogram();
-            });
+                return;
+            }
+            if (std::optional<an::ui::DocumentSequence> sequence = (*opened)->sequence(); sequence.has_value())
+            {
+                sequence->demosaic = an::ui::demosaicMethodFromSettings();
+                if (static_cast<std::uint64_t>(selected) < sequence->descriptor.frameCount.value_or(0u))
+                {
+                    sequence->currentFrame = static_cast<std::uint64_t>(selected);
+                }
+                (*opened)->setSequence(std::move(sequence));
+            }
+            if (!impl.previewManifest.isEmpty() && impl.previewManifest != manifestPath)
+            {
+                QFile::remove(impl.previewManifest);
+            }
+            impl.previewManifest = manifestPath;
+            impl.previewFiles = listed;
+            impl.previewShowsProxies = proxies;
+            impl.previewProxyStretch = stretch;
+            // A rate the person set while the preview was being made is kept.
+            guard->keepPlayerRate();
+            // A proxy is the autostretch display it holds, shown as it is; an original file is shown in the
+            // display mode the person chose.
+            impl.preview->getViewWidget()->setImageHoldsAutostretch(proxies);
+            impl.preview->setSequenceDocument(std::move(**opened), true);
+            // A list shown first, or one whose frames are of another size, is fitted to the preview; the person's
+            // zoom is kept while the frames keep their size. It is fitted from the event loop, once the player
+            // the first sequence brings is laid out under the image.
+            if (const std::optional<an::ImageDescriptor> shown = impl.preview->imageDescriptor(); shown.has_value())
+            {
+                const QSize size(static_cast<int>(shown->extent().width()), static_cast<int>(shown->extent().height()));
+                if (size != impl.fittedFrameSize)
+                {
+                    impl.fittedFrameSize = size;
+                    impl.preview->fitToWindowAsync();
+                }
+            }
+            if (auto* player = dynamic_cast<SequencePlayerControl*>(impl.preview->sequencePlayer()))
+            {
+                player->setFramesPerSecondControlVisible(true);
+                player->setFramesPerSecond(impl.framesPerSecond);
+            }
+            guard->updateOptimizationControls();
+            guard->updateSummaryAndHistogram();
         });
+    });
 }
 
 void ImageListAnalyzerProcess::updateOptimizationControls()
