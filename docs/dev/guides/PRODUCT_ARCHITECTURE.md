@@ -236,8 +236,11 @@ waits; undo, redo, a jump and a removal read on a worker and show through the vi
 moving once shown. A sequence step references its `DocumentSequence` and keeps the frame it changed, reading the
 sequence's own frame through `openProcessFrames`. Each history writes into its own `AN_HISTORY_*` directory and
 reclaims only that. The window previews on a worker through `presentForView` and shows the histogram through
-`createPreviewHistogram`. `Test_ControlsHistory` holds the history, and `Test_ImageViewControl` the viewer's history
-cases.
+`createPreviewHistogram`. A step that is linear data (`isLinearData`, `controls/AutostretchApply.h`) is presented
+through the unlinked autostretch the recent-file thumbnails take, so it looks as the dashboard shows it, and any other
+step as it is. The step's title and details are `AnElidedLabel`s of a set number of lines, because a label that wraps
+to its text moved the preview below it from one step to the next. `Test_ControlsHistory` holds the history, and
+`Test_ImageViewControl` the viewer's history cases.
 
 ### The file workflows (`app/FileManager.h`, `app/FileWorkflowRunner.h`, `app/FilePolicies.h`, `app/FileCompanions.h`)
 
@@ -253,8 +256,9 @@ Bayer pattern is the image's own and never guessed, and an X-Trans mosaic by the
 (`buildExportIntent`, `PersistenceCoordinator::buildOutputIntent`), captures the document's asset and revision, and
 `writeViewImage` converts to the intent's representation and refuses a mosaic for PNG or JPEG, and an X-Trans one for
 FITS, before writing anything; the view's pending changes are cleared only when it still holds that revision.
-Recent-file thumbnails are rendered on a worker (`renderRecentFileThumbnail`), each colour channel stretched on its own,
-as the view's autostretch shows an image unless asked to link. Temporary files go below the session's own
+Recent-file thumbnails are rendered on a worker (`renderRecentFileThumbnail`); an image that is linear data
+(`isLinearData`: its cards record it linear, or it is a camera RAW frame) is stretched with each colour channel on its
+own, as the view's autostretch shows an image unless asked to link. Temporary files go below the session's own
 `RuntimeStorageCoordinator::getTempDirPath`, held by a lock file; only an ended session's directory is reclaimed. A
 lock rather than an age decides what is reclaimed, because an age would reclaim the history of a running session left
 idle and keep a crashed session's files until they expired, and nothing but a session's directory is removed, since

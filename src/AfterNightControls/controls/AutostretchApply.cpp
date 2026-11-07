@@ -3,7 +3,7 @@
 
 /// @file
 /// Apply Stretch over the engine's display presentation: the production plan into Float32, then the image's own
-/// representation at full scale.
+/// representation at full scale. And which images a picture of shows stretched, read from their metadata.
 
 #include "AutostretchApply.h"
 
@@ -12,9 +12,12 @@
 #include <AfterNightConsumerRuntime/OperationScope.h>
 
 #include <AfterNightEngine/Core/ErrorCode.h>
+#include <AfterNightEngine/IO/ProcessingStateCards.h>
+#include <AfterNightEngine/Image/AcquisitionMetadata.h>
 #include <AfterNightEngine/Image/ConversionPolicy.h>
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/ImageConversion.h>
+#include <AfterNightEngine/Image/ImageMetadata.h>
 #include <AfterNightEngine/Image/ImageSemantics.h>
 #include <AfterNightEngine/Image/OperationEffect.h>
 #include <AfterNightEngine/Image/OperationTransition.h>
@@ -280,6 +283,12 @@ applyAutostretchToCopy(const an::consumer::EngineSession& session, const an::con
     // The stretched image is display data, valid wherever it was written; an explicit mask of the source no longer
     // describes it.
     return an::consumer::ImageAsset::adopt(session, std::move(*stretched));
+}
+
+bool isLinearData(const an::ImageMetadata& metadata)
+{
+    return an::readProcessingStateCards(metadata.codec()).linearity == an::RecordedLinearity::Linear ||
+           metadata.acquisition().rawCamera().has_value();
 }
 
 } // namespace an::ui

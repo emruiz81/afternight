@@ -4,28 +4,46 @@
 /// @file
 /// The history a real image view reaches through its companion seam: an edit recorded before the view shows it, its
 /// copy waited for on the edit's worker while the GUI thread turns, an edit refused before it is shown, undo and redo
-/// through the view, a sequence frame edit written before it is shown, the window over the history, a lineage carried
-/// to a view made from another, and the history's directory reclaimed when the view closes.
+/// through the view, a sequence frame edit written before it is shown, the window over the history - a linear step
+/// previewed stretched as the dashboard shows it and any other as it is, the preview staying where it is whatever the
+/// step's summary - a lineage carried to a view made from another, and the history's directory reclaimed when the view
+/// closes.
 
 #include "Test_ControlsHistory/HistoryTestContext.h"
 
+#include "components/AnElidedLabel.h"
+#include "controls/AutostretchApply.h"
+#include "controls/ImageHistoryBackupQueue.h"
 #include "controls/ImageHistoryControl.h"
 #include "controls/ImageViewCompanions.h"
 #include "widgets/HistogramDisplayData.h"
 #include "widgets/HistogramWidget.h"
 #include "widgets/PresentationBridge.h"
+#include "widgets/ViewPresentation.h"
+
+#include <AfterNightConsumerRuntime/OperationScope.h>
 
 #include <AfterNightEngine/IO/SequenceDescriptor.h>
+#include <AfterNightEngine/Image/CodecMetadata.h>
+#include <AfterNightEngine/Image/Image.h>
+#include <AfterNightEngine/Image/ImageMetadata.h>
 
 #include <QCoreApplication>
 #include <QDialog>
+#include <QLabel>
+#include <QLayout>
+#include <QPoint>
 #include <QPointer>
+#include <QRect>
 #include <QTableWidget>
 #include <QTimer>
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
+#include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <limits>
 #include <optional>
@@ -38,6 +56,7 @@ namespace
 {
 
 using namespace an::tests::history;
+using an::tests::viewer::admitted;
 using an::tests::viewer::Channels;
 using an::tests::viewer::InstalledContext;
 using an::tests::viewer::makeDocument;
@@ -53,6 +72,125 @@ std::optional<an::ui::ImageDocument> numberedDocument(const an::consumer::Engine
     return makeDocument<float>(
         session, width, height, Channels::Grey,
         [](std::uint32_t x, std::uint32_t y, std::uint32_t) { return static_cast<float>(x + 10u * y) / 100.0f; });
+}
+
+/// The sample of a colour image whose channels sit at very different levels, as an unbalanced linear frame's do: each
+/// channel a background of its own with a little noise, under a grid of stars.
+std::uint16_t unbalancedSample(std::uint32_t x, std::uint32_t y, std::uint32_t channel)
+{
+    const std::uint32_t noise = (x * 7u + y * 13u) % 29u;
+    const std::uint32_t star = (x % 16u == 5u && y % 12u == 4u) ? 30000u : 0u;
+    return static_cast<std::uint16_t>((channel + 1u) * 900u + 4u * noise + star);
+}
+
+/// Metadata whose processing-state cards record the image linear, as a file the product wrote does.
+an::ImageMetadata recordedLinear()
+{
+    an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, "ANLIN", "'linear'", {});
+    EXPECT_TRUE(card.hasValue()) << card.status().message();
+    an::Result<an::CodecMetadata> codec = an::CodecMetadata::create({}, {*card});
+    EXPECT_TRUE(codec.hasValue()) << codec.status().message();
+    return an::ImageMetadata::create(an::AcquisitionMetadata{}, an::ImageSemantics{}, an::AstrometricSolution{},
+                                     an::Provenance{}, *codec, std::nullopt);
+}
+
+/// A sixteen-bit colour document of `unbalancedSample`, whose cards record it linear when asked.
+std::optional<an::ui::ImageDocument> unbalancedColourDocument(const an::consumer::EngineSession& session, bool linear)
+{
+    constexpr std::uint32_t kWidth = 64u;
+    constexpr std::uint32_t kHeight = 48u;
+    an::Result<an::consumer::SessionHold> hold = session.hold();
+    EXPECT_TRUE(hold.hasValue());
+    if (!hold.hasValue())
+    {
+        return std::nullopt;
+    }
+    const std::optional<an::ImageDescriptor> descriptor =
+        an::tests::viewer::describeImage(hold->engine(), an::SampleType::UInt16, kWidth, kHeight, Channels::Rgb);
+    EXPECT_TRUE(descriptor.has_value());
+    if (!descriptor.has_value())
+    {
+        return std::nullopt;
+    }
+    an::Result<an::Image<std::uint16_t>> image = an::Image<std::uint16_t>::create(
+        hold->engine(), *descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed,
+        linear ? recordedLinear() : an::ImageMetadata{});
+    EXPECT_TRUE(image.hasValue()) << image.status().message();
+    if (!image.hasValue())
+    {
+        return std::nullopt;
+    }
+    {
+        std::optional<an::ImageWriteAccess<std::uint16_t>> access = image->write();
+        EXPECT_TRUE(access.has_value());
+        if (!access.has_value())
+        {
+            return std::nullopt;
+        }
+        for (std::uint32_t channel = 0u; channel < 3u; ++channel)
+        {
+            for (std::uint32_t y = 0u; y < kHeight; ++y)
+            {
+                const auto row = access->view().row(channel, y);
+                for (std::uint32_t x = 0u; x < kWidth; ++x)
+                {
+                    (*row)[x] = unbalancedSample(x, y, channel);
+                }
+            }
+        }
+    }
+    an::Result<an::consumer::ImageAsset> asset =
+        an::consumer::ImageAsset::adopt(session, an::consumer::AnyImage{std::move(*image)});
+    EXPECT_TRUE(asset.hasValue()) << asset.status().message();
+    if (!asset.hasValue())
+    {
+        return std::nullopt;
+    }
+    an::Result<an::ui::ImageDocument> document = an::ui::ImageDocument::create(std::move(*asset), {});
+    EXPECT_TRUE(document.hasValue()) << document.status().message();
+    if (!document.hasValue())
+    {
+        return std::nullopt;
+    }
+    return std::move(*document);
+}
+
+/// The median of one colour byte over every pixel a preview shows: that channel's level as the preview shows it.
+int previewMedian(const an::ui::PresentedImage& preview, std::uint32_t channel)
+{
+    std::vector<int> levels;
+    for (std::uint32_t y = 0u; y < preview.height(); ++y)
+    {
+        for (std::uint32_t x = 0u; x < preview.width(); ++x)
+        {
+            levels.push_back(preview.pixel(x, y)[channel]);
+        }
+    }
+    const auto middle = levels.begin() + static_cast<std::ptrdiff_t>(levels.size() / 2u);
+    std::nth_element(levels.begin(), middle, levels.end());
+    return *middle;
+}
+
+/// The largest difference between two presentations' bytes, or a negative number when their shapes differ.
+int largestByteDifference(const an::ui::PresentedImage& left, const an::ui::PresentedImage& right)
+{
+    if (left.width() != right.width() || left.height() != right.height() ||
+        left.bytesPerPixel() != right.bytesPerPixel())
+    {
+        return -1;
+    }
+    int largest = 0;
+    for (std::uint32_t y = 0u; y < left.height(); ++y)
+    {
+        for (std::uint32_t x = 0u; x < left.width(); ++x)
+        {
+            for (std::uint32_t byte = 0u; byte < left.bytesPerPixel(); ++byte)
+            {
+                largest = (std::max)(largest, std::abs(left.pixel(x, y)[byte] - right.pixel(x, y)[byte]));
+            }
+        }
+    }
+    return largest;
 }
 
 /// The first sample of an asset at a position, an integer sample read as a fraction of its representation's largest
@@ -362,6 +500,156 @@ TEST_F(ViewHistoryTest, AFourChannelStepIsPreviewedWithItsAlphaUnsheared)
     EXPECT_EQ(opaque[2], 50u);
     EXPECT_EQ(opaque[3], 255u);
     EXPECT_EQ(clear[3], 0u) << "the alpha of a pixel is its own, not a neighbour's colour";
+}
+
+// A step whose cards record it linear is previewed as the dashboard's thumbnail of it shows it: each colour channel
+// stretched on its own, so channels at very different levels are shown at one background level.
+TEST_F(ViewHistoryTest, ALinearStepIsPreviewedWithEachColourChannelStretchedOnItsOwn)
+{
+    open();
+    ViewHandle view = makeView("linear");
+    std::optional<an::ui::ImageDocument> document = unbalancedColourDocument(session(), true);
+    ASSERT_TRUE(document.has_value());
+    view->setDocument(std::move(*document));
+    view->initializeNewImageHistory("opened");
+    ASSERT_TRUE(settle(*view));
+    ASSERT_TRUE(written(1u));
+
+    view->history();
+    QPointer<ImageHistoryControl> window = historyWindowOf(*view);
+    ASSERT_FALSE(window.isNull());
+    ASSERT_TRUE(pumpUntil([&window]() { return window && window->shownPreview() != nullptr; }));
+    const std::shared_ptr<const an::ui::PresentedImage> preview = window->shownPreview();
+    ASSERT_EQ(preview->format(), an::ui::PresentedFormat::Rgb8);
+
+    const int red = previewMedian(*preview, 0u);
+    const int green = previewMedian(*preview, 1u);
+    const int blue = previewMedian(*preview, 2u);
+    EXPECT_GT(red, 32) << "the background is stretched up from near black";
+    EXPECT_LE(std::abs(red - green), 2) << "each channel's background is moved to the same level";
+    EXPECT_LE(std::abs(red - blue), 2);
+
+    // The dashboard's stretch of the same image, presented as it is: the preview is the same picture, to the level the
+    // thumbnail's copy in the image's own representation rounds it to.
+    an::Result<an::consumer::AssetReadLease> lease = view->document().asset()->read();
+    ASSERT_TRUE(lease.hasValue());
+    an::ui::AutostretchApplySettings unlinked;
+    unlinked.linkedChannels = false;
+    an::Result<an::consumer::ImageAsset> thumbnail =
+        an::ui::applyAutostretchToCopy(session(), lease->image(), nullptr, unlinked, {});
+    lease->release();
+    ASSERT_TRUE(thumbnail.hasValue()) << thumbnail.status().message();
+    an::Result<an::consumer::AssetReadLease> stretched = thumbnail->read();
+    ASSERT_TRUE(stretched.hasValue());
+    std::optional<an::consumer::OperationScope> scope = admitted(session());
+    ASSERT_TRUE(scope.has_value());
+    an::ui::ViewPresentationSettings asItIs;
+    asItIs.request.stretch = an::PresentationStretch::Linear;
+    an::Result<an::ui::ViewPresentationOutcome> expected =
+        an::ui::presentForView(scope->engine(), scope->execution(), *stretched, asItIs, nullptr, &session().memory());
+    ASSERT_TRUE(expected.hasValue()) << expected.status().message();
+    const int difference = largestByteDifference(*preview, *expected->image);
+    EXPECT_GE(difference, 0) << "the preview and the thumbnail's stretch have one shape";
+    EXPECT_LE(difference, 1);
+}
+
+// A step that does not record itself linear is previewed as it is: every byte its sample at full scale.
+TEST_F(ViewHistoryTest, AStepNotRecordedLinearIsPreviewedAsItIs)
+{
+    open();
+    ViewHandle view = makeView("unstated");
+    std::optional<an::ui::ImageDocument> document = unbalancedColourDocument(session(), false);
+    ASSERT_TRUE(document.has_value());
+    view->setDocument(std::move(*document));
+    view->initializeNewImageHistory("opened");
+    ASSERT_TRUE(settle(*view));
+    ASSERT_TRUE(written(1u));
+
+    view->history();
+    QPointer<ImageHistoryControl> window = historyWindowOf(*view);
+    ASSERT_FALSE(window.isNull());
+    ASSERT_TRUE(pumpUntil([&window]() { return window && window->shownPreview() != nullptr; }));
+    const std::shared_ptr<const an::ui::PresentedImage> preview = window->shownPreview();
+    ASSERT_EQ(preview->format(), an::ui::PresentedFormat::Rgb8);
+
+    double largest = 0.0;
+    for (std::uint32_t y = 0u; y < preview->height(); ++y)
+    {
+        for (std::uint32_t x = 0u; x < preview->width(); ++x)
+        {
+            for (std::uint32_t channel = 0u; channel < 3u; ++channel)
+            {
+                const double level = static_cast<double>(unbalancedSample(x, y, channel)) * 255.0 / 65535.0;
+                largest = (std::max)(largest, std::abs(preview->pixel(x, y)[channel] - level));
+            }
+        }
+    }
+    EXPECT_LE(largest, 1.0) << "each byte is its sample at full scale";
+    EXPECT_LT(previewMedian(*preview, 0u), previewMedian(*preview, 2u)) << "the channels keep their own levels";
+}
+
+// The step's title and summary keep a set number of lines, so the preview stays where it is between a step with a
+// short summary and one whose summary runs far past them; the summary cut short is whole in its tooltip.
+TEST_F(ViewHistoryTest, ThePreviewStaysWhereItIsBetweenAShortAndALongSummary)
+{
+    open();
+    ViewHandle view = shownView("summaries");
+    std::string longSummary;
+    for (int index = 0; index < 60; ++index)
+    {
+        longSummary += "parameter " + std::to_string(index) + " set to " + std::to_string(index * 3) + ", ";
+    }
+    view->editImage("Long summary", longSummary,
+                    [](const an::consumer::EngineSession& session, const an::consumer::AssetWriteLease& image,
+                       std::stop_token) { return an::ui::history::copyForHistory(session, image); });
+    ASSERT_TRUE(settle(*view));
+    ASSERT_EQ(view->workTelemetry().editsCommitted, 1u);
+
+    view->history();
+    QPointer<ImageHistoryControl> window = historyWindowOf(*view);
+    ASSERT_FALSE(window.isNull());
+    auto* table = window->findChild<QTableWidget*>(QStringLiteral("tableWidget"));
+    auto* host = window->findChild<QWidget*>(QStringLiteral("historyStepPreviewHost"));
+    auto* title =
+        dynamic_cast<an::ui::AnElidedLabel*>(window->findChild<QLabel*>(QStringLiteral("historyStepPreviewTitle")));
+    auto* summary =
+        dynamic_cast<an::ui::AnElidedLabel*>(window->findChild<QLabel*>(QStringLiteral("historyStepPreviewSubtitle")));
+    ASSERT_NE(table, nullptr);
+    ASSERT_NE(host, nullptr);
+    ASSERT_NE(title, nullptr);
+    ASSERT_NE(summary, nullptr);
+    ASSERT_EQ(table->rowCount(), 2);
+    ASSERT_TRUE(pumpUntil([&window]() { return window && window->previewsShown() > 0u; }));
+
+    // Where the preview lies once the step in a row is shown and the window laid out.
+    const auto previewOf = [&window, table, host](int row) -> std::optional<QRect> {
+        const std::uint64_t before = window->previewsShown();
+        table->selectRow(row);
+        if (!pumpUntil([&window, before]() { return window && window->previewsShown() > before; }))
+        {
+            return std::nullopt;
+        }
+        window->layout()->activate();
+        pumpQuietly();
+        return QRect(host->mapTo(window.data(), QPoint(0, 0)), host->size());
+    };
+
+    const std::optional<QRect> shortSummary = previewOf(0);
+    ASSERT_TRUE(shortSummary.has_value());
+    EXPECT_EQ(title->fullText(), QStringLiteral("Initial state"));
+    EXPECT_TRUE(summary->fullText().endsWith(QStringLiteral("opened"))) << "the description comes last";
+
+    const std::optional<QRect> longOne = previewOf(1);
+    ASSERT_TRUE(longOne.has_value());
+    EXPECT_EQ(title->fullText(), QStringLiteral("Long summary (Current)"));
+    EXPECT_TRUE(summary->isElided());
+    EXPECT_TRUE(summary->fullText().contains(QString::fromStdString(longSummary).trimmed()));
+    EXPECT_EQ(summary->toolTip(), summary->fullText());
+    EXPECT_EQ(summary->text().split(QLatin1Char('\n')).size(), summary->lineCount());
+    EXPECT_TRUE(summary->text().startsWith(summary->fullText().section(QLatin1Char('\n'), 0, 0)))
+        << "the step's time leads its summary";
+
+    EXPECT_EQ(*longOne, *shortSummary) << "the preview moved with the length of the step's summary";
 }
 
 TEST_F(ViewHistoryTest, AViewMadeFromAnotherContinuesItsLineage)

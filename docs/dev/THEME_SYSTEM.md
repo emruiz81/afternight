@@ -375,6 +375,7 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | `AnButtonGroup` | Grouped exclusive/non-exclusive button set |
 | `AnCardWidget` | Elevated card with rounded corners, drop shadow, border tint |
 | `AnCollapsibleSection` | Expandable/collapsible section with smooth animation |
+| `AnElidedLabel` | Label of a set number of lines: wraps its text, cuts it with an ellipsis past the last line and puts the whole text in its tooltip, so what lies around it never moves |
 | `AnInfoBanner` | Status-toned info/warning/error banner |
 | `AnInputField` | Labeled input with validation styling |
 | `AnProgressCard` | Card with embedded progress bar and status |

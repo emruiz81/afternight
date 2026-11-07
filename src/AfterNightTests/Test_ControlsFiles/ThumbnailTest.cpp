@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// The recent files' thumbnails: a linear image stretched by the display presentation, each colour channel on its own,
-/// an image reduced to the thumbnail's size, a mosaic shown as the grey picture its codes make, an image that is not
-/// linear left unstretched, and thumbnails rendered on a worker and recorded only while they are the last one asked for
-/// their file.
+/// The recent files' thumbnails: which images are linear data, a linear image stretched by the display presentation,
+/// each colour channel on its own, an image reduced to the thumbnail's size, a mosaic shown as the grey picture its
+/// codes make, an image that is not linear left unstretched, and thumbnails rendered on a worker and recorded only
+/// while they are the last one asked for their file.
 
 #include "Test_ControlsFiles/FilesTestContext.h"
 
@@ -17,6 +17,7 @@
 #include <AfterNightEngine/IO/CodecIO.h>
 #include <AfterNightEngine/IO/CodecRequests.h>
 #include <AfterNightEngine/IO/ProcessingStateCards.h>
+#include <AfterNightEngine/Image/AcquisitionMetadata.h>
 #include <AfterNightEngine/Image/CfaPattern.h>
 #include <AfterNightEngine/Image/CodecMetadata.h>
 #include <AfterNightEngine/Image/Image.h>
@@ -40,15 +41,22 @@ using an::tests::files::makeAsset;
 using an::tests::files::openFilesContext;
 using an::tests::files::pumpQuietly;
 
-/// Metadata whose processing-state cards record the image linear, as a file the product wrote does.
-an::ImageMetadata recordedLinear()
+/// Metadata whose processing-state cards record the image's linearity as `value` - `'linear'` or `'nonlinear'` - as a
+/// file the product wrote does.
+an::ImageMetadata recordedAs(const char* value)
 {
-    an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, "ANLIN", "'linear'", {});
+    an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, "ANLIN", value, {});
     EXPECT_TRUE(card.hasValue()) << card.status().message();
     an::Result<an::CodecMetadata> codec = an::CodecMetadata::create({}, {*card});
     EXPECT_TRUE(codec.hasValue()) << codec.status().message();
     return an::ImageMetadata::create(an::AcquisitionMetadata{}, an::ImageSemantics{}, an::AstrometricSolution{},
                                      an::Provenance{}, *codec, std::nullopt);
+}
+
+/// Metadata whose processing-state cards record the image linear.
+an::ImageMetadata recordedLinear()
+{
+    return recordedAs("'linear'");
 }
 
 /// The largest difference between two assets' samples, over every sample, or a negative number when their shapes or
@@ -171,6 +179,21 @@ TEST_F(ThumbnailTest, ALinearColourThumbnailIsStretchedWithItsChannelsUnlinked)
     ASSERT_TRUE(together.hasValue());
     EXPECT_EQ(largestDifference<std::uint16_t>(**thumbnail, *expected), 0.0);
     EXPECT_GT(largestDifference<std::uint16_t>(**thumbnail, *together), 1000.0);
+}
+
+// An image is linear data, which a picture of it - a thumbnail, a history step's preview - shows stretched, when its
+// cards record it linear or it is a camera RAW frame; cards that record it nonlinear, or none, leave it as it is.
+TEST_F(ThumbnailTest, LinearDataIsAnImageRecordedLinearOrACameraRawFrame)
+{
+    EXPECT_TRUE(an::ui::isLinearData(recordedLinear()));
+    EXPECT_FALSE(an::ui::isLinearData(recordedAs("'nonlinear'")));
+    EXPECT_FALSE(an::ui::isLinearData(an::ImageMetadata{}));
+
+    an::Result<an::AcquisitionMetadata> camera =
+        an::AcquisitionMetadata::create(an::AcquisitionMetadataRequest{.rawCamera = an::RawCameraMetadata{}});
+    ASSERT_TRUE(camera.hasValue()) << camera.status().message();
+    EXPECT_TRUE(an::ui::isLinearData(an::ImageMetadata::create(*camera, an::ImageSemantics{}, an::AstrometricSolution{},
+                                                               an::Provenance{}, an::CodecMetadata{}, std::nullopt)));
 }
 
 // An image that does not record itself linear is not stretched: the thumbnail is the image itself when it needs no

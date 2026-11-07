@@ -802,7 +802,9 @@ sources Test_ControlsHistory
     header   src/AfterNightControls/AfterNightControlsExport.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
     header   src/AfterNightControls/components/AnCardWidget.h
+    header   src/AfterNightControls/components/AnElidedLabel.h
     header   src/AfterNightControls/components/AnStyledTable.h
+    header   src/AfterNightControls/controls/AutostretchApply.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h
     header   src/AfterNightControls/controls/GlobalViewControlActions.h
@@ -1805,6 +1807,7 @@ sources Test_ImageViewControl
     header   src/AfterNightControls/app/SolverProcessRunner.h
     header   src/AfterNightControls/app/UiStyleTokens.h
     header   src/AfterNightControls/components/AnCardWidget.h
+    header   src/AfterNightControls/components/AnElidedLabel.h
     header   src/AfterNightControls/components/AnStyledTable.h
     header   src/AfterNightControls/controls/AstrometryStarOverlayUtils.h
     header   src/AfterNightControls/controls/AutostretchApply.h
@@ -2010,6 +2013,7 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/app/WindowLayoutCoordinator.h
     header   src/AfterNightControls/common.h
     header   src/AfterNightControls/components/AnCardWidget.h
+    header   src/AfterNightControls/components/AnElidedLabel.h
     header   src/AfterNightControls/components/AnInfoBanner.h
     header   src/AfterNightControls/components/AnProgressCard.h
     header   src/AfterNightControls/components/AnSectionHeader.h
@@ -2324,6 +2328,7 @@ sources Test_Widgets
     unit     src/AfterNightTests/Test_Widgets/test_an_button_group.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_card_widget.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_collapsible_section.cpp
+    unit     src/AfterNightTests/Test_Widgets/test_an_elided_label.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_info_banner.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_input_field.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_progress_card.cpp
@@ -2349,6 +2354,7 @@ sources Test_Widgets
     header   src/AfterNightControls/components/AnButtonGroup.h
     header   src/AfterNightControls/components/AnCardWidget.h
     header   src/AfterNightControls/components/AnCollapsibleSection.h
+    header   src/AfterNightControls/components/AnElidedLabel.h
     header   src/AfterNightControls/components/AnInfoBanner.h
     header   src/AfterNightControls/components/AnInputField.h
     header   src/AfterNightControls/components/AnProgressCard.h
@@ -4878,6 +4884,7 @@ sources Test_ProcessFramework
     header   src/AfterNightControls/components/AnButtonGroup.h
     header   src/AfterNightControls/components/AnCardWidget.h
     header   src/AfterNightControls/components/AnCollapsibleSection.h
+    header   src/AfterNightControls/components/AnElidedLabel.h
     header   src/AfterNightControls/components/AnInfoBanner.h
     header   src/AfterNightControls/components/AnInputField.h
     header   src/AfterNightControls/components/AnProgressCard.h

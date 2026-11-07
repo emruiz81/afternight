@@ -9,6 +9,7 @@
 
 #include "ImageHistoryTrackerUtils.h"
 #include "app/FileDialogUtils.h"
+#include "controls/AutostretchApply.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessCompanions.h"
@@ -119,6 +120,8 @@ namespace
     return baseTitle;
 }
 
+/// The selected step's details: when it was recorded, whether it is the current step, whether it has a preview, and
+/// last its description, the one part of any length - the part the details' lines cut when it is long.
 [[nodiscard]] QString stepSubtitleText(const ImageHistoryStepSPtr& step, const bool isCurrentStep,
                                        const bool previewAvailable)
 {
@@ -130,12 +133,6 @@ namespace
     QStringList lines;
     lines << step->m_CreationTime.toString(QStringLiteral("yyyy-MM-dd hh:mm:ss"));
 
-    const QString description = QString::fromUtf8(step->getStepDesc().c_str()).trimmed();
-    if (!description.isEmpty())
-    {
-        lines << description;
-    }
-
     lines << (isCurrentStep
                   ? QObject::tr("Active step in the current image.")
                   : QObject::tr("Previewing a historical step. Double-click or use the context menu to jump."));
@@ -143,6 +140,12 @@ namespace
     if (!previewAvailable)
     {
         lines << QObject::tr("Preview unavailable for this step.");
+    }
+
+    const QString description = QString::fromUtf8(step->getStepDesc().c_str()).trimmed();
+    if (!description.isEmpty())
+    {
+        lines << description;
     }
 
     return lines.join(QStringLiteral("\n"));
@@ -155,8 +158,28 @@ struct StepPreview
     std::shared_ptr<const an::ui::PresentedImage> shown;
 };
 
-/// Reads a step and presents it as it is - every channel at full scale and no stretch - with the presentation's own
-/// channel layout, so a colour image with alpha is never sheared.
+/// How a step is shown: linear data is stretched as the recent files' thumbnails stretch it, each colour channel on its
+/// own, so a linear step looks as the dashboard and the view's autostretch show it; anything else is shown as it is,
+/// every channel at full scale and no stretch.
+[[nodiscard]] an::ui::ViewPresentationSettings stepPresentation(const bool linear)
+{
+    an::ui::ViewPresentationSettings settings;
+    if (linear)
+    {
+        an::ui::AutostretchApplySettings stretch;
+        stretch.linkedChannels = false;
+        settings.request = an::ui::autostretchApplyRequest(stretch);
+        settings.request.output = an::PresentationOutput::Interleaved8;
+    }
+    else
+    {
+        settings.request.stretch = an::PresentationStretch::Linear;
+    }
+    return settings;
+}
+
+/// Reads a step and presents it as `stepPresentation` says, with the presentation's own channel layout, so a colour
+/// image with alpha is never sheared.
 [[nodiscard]] an::Result<StepPreview> previewStep(const an::consumer::EngineSession& session,
                                                   const ImageHistoryTracker::StepReader& read, std::stop_token stop)
 {
@@ -177,10 +200,9 @@ struct StepPreview
     {
         return lease.status();
     }
-    an::ui::ViewPresentationSettings settings;
-    settings.request.stretch = an::PresentationStretch::Linear;
-    an::Result<an::ui::ViewPresentationOutcome> presented =
-        an::ui::presentForView(scope->engine(), scope->execution(), *lease, settings, nullptr, &session.memory());
+    const bool linear = lease->visit([](const auto& typed) { return an::ui::isLinearData(typed.metadata()); });
+    an::Result<an::ui::ViewPresentationOutcome> presented = an::ui::presentForView(
+        scope->engine(), scope->execution(), *lease, stepPresentation(linear), nullptr, &session.memory());
     if (!presented.hasValue())
     {
         return presented.status();
@@ -672,8 +694,8 @@ void ImageHistoryControl::updateSelectedStepPreview()
 
     const int stepRow = selectedRow - m_LineageRowCount;
     const bool isCurrentStep = stepRow >= 0 && static_cast<size_t>(stepRow) == held->getCurrentStep();
-    m_ui.selectedStepTitleLabel->setText(stepTitleText(step, isCurrentStep));
-    m_ui.selectedStepSubtitleLabel->setText(stepSubtitleText(step, isCurrentStep, true));
+    m_ui.selectedStepTitleLabel->setFullText(stepTitleText(step, isCurrentStep));
+    m_ui.selectedStepSubtitleLabel->setFullText(stepSubtitleText(step, isCurrentStep, true));
 
     // A sequence step that changed no frame previews the frame the view shows, read from its sequence.
     const std::uint64_t frameIndex = m_image_view_control ? m_image_view_control->getSequenceCurrentFrameIndex() : 0u;
@@ -690,7 +712,7 @@ void ImageHistoryControl::updateSelectedStepPreview()
         {
             if (preview.hasValue() || preview.status().code() != an::ErrorCode::Cancelled)
             {
-                guard->m_ui.selectedStepSubtitleLabel->setText(stepSubtitleText(step, isCurrentStep, false));
+                guard->m_ui.selectedStepSubtitleLabel->setFullText(stepSubtitleText(step, isCurrentStep, false));
                 guard->m_ShownPreview.reset();
                 guard->m_stepPreviewWidget->setPreview(nullptr, nullptr);
                 guard->m_stepPreviewWidget->setPixmap(QPixmap(), true);
@@ -938,8 +960,8 @@ ImageHistoryStepSPtr ImageHistoryControl::getStepForRow(const int row) const
 
 void ImageHistoryControl::clearSelectedStepPreview()
 {
-    m_ui.selectedStepTitleLabel->setText(tr("No Step Selected"));
-    m_ui.selectedStepSubtitleLabel->setText(
+    m_ui.selectedStepTitleLabel->setFullText(tr("No Step Selected"));
+    m_ui.selectedStepSubtitleLabel->setFullText(
         tr("Select a history row to inspect its preview, histogram, and available actions."));
 
     m_ShownPreview.reset();
