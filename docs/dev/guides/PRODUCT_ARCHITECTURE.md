@@ -560,7 +560,11 @@ and an output an Apply makes is staged by the body (`StagedOutputs`) and opened 
 once the run lands (`openStagedOutputs`). A derived image carries no other card of its target because the target's
 cards say what the target is - its exposure, its filter, its frame type - and a mask, a background or the stars are
 none of that. `extractLightness` reads a colour image's CIE L* through a normalized copy, so
-it is a floating image. A second image a run reads - a starless image, a drawing - is snapshotted as an asset on the
+it is a floating image. The range selection is `PreviewScaling::Decimated`: an interactive frame runs over the target
+reduced, smoothed by the smoothness reduced with it, or over the part shown with the smoothing's reach around it
+(`gaussianReach`), and smooths through the Gaussian dialog's `blurGaussian`. A mask of a colour image's lightness cannot
+take the target's stretch, so in an autostretched preview at full scale the dialog answers `FullOnly`. A second image a
+run reads - a starless image, a drawing - is snapshotted as an asset on the
 GUI thread; work a button starts - the background grid, the protection mask, an import or export - runs on the thread
 pool under its own operation and lands through a guard. The star mask has one detector (`detectStars`, then
 `paintShapedStarMask` or `paintEllipticalStarMask`); the multiscale transform's layer arithmetic is PixelMath over the

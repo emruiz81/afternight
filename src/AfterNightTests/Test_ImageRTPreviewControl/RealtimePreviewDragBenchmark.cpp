@@ -34,6 +34,10 @@
 ///   AN_BENCH_RADIUS        the radius, in whole pixels, the high pass's drag starts from; ten, the dialog's own, by
 ///                          default
 ///   AN_BENCH_SIGMA         the sigma, in whole pixels, the Gaussian blur's drag starts from; two by default
+///   AN_BENCH_RANGE_CONTROL the range selection's control the drag moves: 0, the default, the lower limit; 1, the
+///                          smoothness
+///   AN_BENCH_SMOOTHNESS    the range selection's smoothness, in whole pixels; none by default
+///   AN_BENCH_LIGHTNESS     0 selects the range of the image itself; 1, the default, of its CIE lightness
 ///   AN_BENCH_FPS           the previews a second the Processing settings state; the product's default, thirty, when
 ///                          not set
 ///   AN_BENCH_WIDTH         the session's width; the host's by default
@@ -58,6 +62,7 @@
 #include "processes/HighPassFilterProcess.h"
 #include "processes/HistogramTransformationProcess.h"
 #include "processes/MedianFilterProcess.h"
+#include "processes/RangeSelectionProcess.h"
 #include "widgets/CurvesWidget.h"
 #include "widgets/HistogramCompanions.h"
 #include "widgets/ImageViewWidget.h"
@@ -671,6 +676,52 @@ struct DragSubject
             }};
 }
 
+/// A control of the range selection, as AN_BENCH_RANGE_CONTROL chooses: 0, the default, its lower limit, from a tenth
+/// up two thousandths a step; 1, its smoothness, from the smoothness AN_BENCH_SMOOTHNESS states - one pixel at least -
+/// up a tenth a step. The mask is of the image's CIE lightness, the dialog's own choice, unless AN_BENCH_LIGHTNESS is
+/// 0, and a lower limit's drag smooths it by AN_BENCH_SMOOTHNESS pixels, none by default.
+[[nodiscard]] DragSubject rangeSelectionDrag()
+{
+    const bool smoothnessDrag = knob("AN_BENCH_RANGE_CONTROL", 0) == 1;
+    const double smoothness = static_cast<double>((std::max)(0, knob("AN_BENCH_SMOOTHNESS", 0)));
+    const bool lightness = knob("AN_BENCH_LIGHTNESS", 1) != 0;
+    const char* const value = smoothnessDrag ? "smoothnessValue" : "lowerLimitValue";
+    const char* const slider = smoothnessDrag ? "smoothnessSlider" : "lowerLimitSlider";
+    return DragSubject{.name = smoothnessDrag ? "range-selection-smoothness" : "range-selection",
+                       .open =
+                           [smoothness, lightness](ImageViewControl& target) {
+                               DialogHandle dialog = openDialog<RangeSelectionProcess>(target, QSize(1400, 900));
+                               if (auto* box = child<QCheckBox>(*dialog, "lightness"); box != nullptr)
+                               {
+                                   box->setChecked(lightness);
+                               }
+                               if (auto* smooth = child<QDoubleSpinBox>(*dialog, "smoothnessValue"); smooth != nullptr)
+                               {
+                                   smooth->setValue(smoothness);
+                               }
+                               return dialog;
+                           },
+                       .step =
+                           [smoothnessDrag, smoothness, value](QWidget& dialog, int step) {
+                               auto* control = child<QDoubleSpinBox>(dialog, value);
+                               if (control == nullptr)
+                               {
+                                   return false;
+                               }
+                               control->setValue(smoothnessDrag
+                                                     ? (std::max)(1.0, smoothness) + 0.1 * static_cast<double>(step)
+                                                     : 0.1 + 0.002 * static_cast<double>(step));
+                               return true;
+                           },
+                       .press =
+                           [slider](QWidget& dialog, bool down) {
+                               if (auto* held = child<QSlider>(dialog, slider); held != nullptr)
+                               {
+                                   held->setSliderDown(down);
+                               }
+                           }};
+}
+
 /// The modulation of the median filter over its five by five window, from four tenths up a hundredth a step: a body
 /// that reads the pixel grid at full scale, run over the part of the target the preview view shows while the slider is
 /// held, and over the whole image where the view shows all of it.
@@ -1062,6 +1113,12 @@ void runDrag(const DragSubject& subject)
     const ImageViewPresentationTelemetry presentedEnd = previewWidget->presentationTelemetry();
     EXPECT_GT(runsAtDragEnd.previewsCommitted, runsBefore.previewsCommitted) << "the drag showed previews";
     const QRect areaShown = dialog->previewArea();
+    // How the preview view showed the frame, read before an Apply that may close the dialog and its preview view with
+    // it - the range selection's makes a new image and closes.
+    const bool shownStretched = previewView->isAutoStretchEnabled();
+    const double shownScale = previewWidget->getCurrentScaleFactor();
+    const std::string shownWidget =
+        std::to_string(previewWidget->width()) + "x" + std::to_string(previewWidget->height());
 
     // The settled preview's samples, and the Apply's, which runs the production path over the real image; within the
     // preview area when one is on, outside which the preview shows the frame itself.
@@ -1136,9 +1193,9 @@ void runDrag(const DragSubject& subject)
         {"frame_size", std::to_string(frameWidth) + "x" + std::to_string(frameHeight) + "x" +
                            std::to_string(described->extent().channelCount())},
         {"session_width", std::to_string(session.width())},
-        {"mode", previewView->isAutoStretchEnabled() ? "autostretch" : "linear"},
-        {"preview_scale", fixed(previewWidget->getCurrentScaleFactor(), 4)},
-        {"preview_widget", std::to_string(previewWidget->width()) + "x" + std::to_string(previewWidget->height())},
+        {"mode", shownStretched ? "autostretch" : "linear"},
+        {"preview_scale", fixed(shownScale, 4)},
+        {"preview_widget", shownWidget},
         {"preview_shown", shownPart.has_value()
                               ? std::to_string(shownPart->width) + "x" + std::to_string(shownPart->height)
                               : std::string("none")},
@@ -1305,6 +1362,11 @@ TEST(RealtimePreviewDragBenchmark, MedianFilterModulationDrag)
 TEST(RealtimePreviewDragBenchmark, HighPassFilterRadiusDrag)
 {
     runDrag(highPassDrag());
+}
+
+TEST(RealtimePreviewDragBenchmark, RangeSelectionDrag)
+{
+    runDrag(rangeSelectionDrag());
 }
 
 TEST(RealtimePreviewDragBenchmark, HistogramTransformationMidtonesDrag)

@@ -7,8 +7,12 @@
 #include "processes/MaskProcessUtils.h"
 #include "processes/PointwiseProcessUtils.h"
 #include "processes/ProcessCommonUtils.h"
+#include "processes/SpatialProcessSupport.h"
 #include "controls/ProcessButtonIcons.h"
+#include "widgets/ImageViewWidget.h"
+#include "widgets/ViewPresentation.h"
 
+#include <AfterNightEngine/Algorithms/Color/ChannelScope.h>
 #include <AfterNightEngine/Algorithms/Masks/RangeSelection.h>
 #include <AfterNightEngine/Algorithms/Spatial/Gaussian.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
@@ -38,10 +42,12 @@ struct SelectionPlanes
 };
 
 /// Selects the range of `planes.from` into a zeroed working image, so a sample the validity rejects - or, under a rule
-/// that admits every sample, one holding no number - is not selected; smooths it into `planes.result` by the exact
-/// Gaussian, or copies it there; and complements it when asked - in that order.
+/// that admits every sample, one holding no number - is not selected; copies it into `planes.result` and smooths it
+/// there by the exact Gaussian of `smoothness` pixels of the planes, as Gaussian Blur blurs; and complements it when
+/// asked - in that order.
 [[nodiscard]] an::Status selectRange(const an::ui::ExecutionScope& scope, const an::ImageDescriptor& workingDescribed,
-                                     const SelectionPlanes& planes, const RangeSelectionProcessParams& params)
+                                     const SelectionPlanes& planes, const RangeSelectionProcessParams& params,
+                                     double smoothness)
 {
     const an::ExecutionContext& execution = scope.execution();
     an::Status made = an::Status::success();
@@ -75,23 +81,24 @@ struct SelectionPlanes
             made = selected.status();
             return;
         }
-        if (params.smoothness > 0.0)
-        {
-            const an::Result<an::GaussianPlan> plan =
-                an::planGaussianBlur(an::GaussianRequest{.sigmaX = params.smoothness, .sigmaY = params.smoothness});
-            if (!plan.hasValue())
-            {
-                made = plan.status();
-                return;
-            }
-            const an::Result<an::SpatialFilterResult> blurred =
-                an::blurImageGaussian(execution, planes.sampleType, access->view().data(), scratchLayout, planes.result,
-                                      *planes.resultLayout, *plan);
-            made = blurred.hasValue() ? an::Status::success() : blurred.status();
-            return;
-        }
         made = an::copyImageSamples(execution, planes.sampleType, access->view().data(), scratchLayout, planes.result,
                                     *planes.resultLayout);
+        // A smoothing the engine builds no kernel for - one a reduction has divided below its threshold - is none.
+        if (made.failed() || !(smoothness > an::kMinimumGaussianSigma))
+        {
+            return;
+        }
+        // The Gaussian Blur's own blur: the compiled Float32 kernels whatever the rows' padding, through a working copy
+        // of the result, which starts as the selection, where the rows are padded.
+        made = process_utils::blurGaussian(scope.engine(), execution,
+                                           an::ChannelScopeInput{.descriptor = &workingDescribed,
+                                                                 .samples = access->view().data(),
+                                                                 .layout = &scratchLayout,
+                                                                 .validity = {}},
+                                           an::ChannelScopeOutput{.descriptor = &workingDescribed,
+                                                                  .samples = planes.result,
+                                                                  .layout = planes.resultLayout},
+                                           smoothness);
     };
     if (planes.sampleType == an::SampleType::Float64)
     {
@@ -258,6 +265,40 @@ void RangeSelectionProcess::on_invertClicked(Qt::CheckState state)
     settingsUpdated();
 }
 
+an::ui::PreviewScaling RangeSelectionProcess::previewScaling() const
+{
+    // The lightness, the selection and the complement each map a pixel alone, and the smoothing is a Gaussian a
+    // reduction scales: an interactive frame runs over what the preview view paints - the target reduced, its
+    // smoothness reduced with it, or the part shown at full scale with the smoothing's reach around it - and the
+    // settled frame over the whole target, as the Apply does. Over a reduction the selection is an approximation: the
+    // ramps and the limits do not commute with the reduction's block means.
+    //
+    // A frame over what the view paints is stretched through the target's analysis, which a mask of a colour image's
+    // lightness - one channel where the target has three - cannot take. While the preview is autostretched, such a
+    // mask is stretched by its own statistics, as its settled frame is by the whole mask's: over the target reduced,
+    // whose statistics are the whole mask's but for the reduction's averaging, which the framework allows; never over
+    // a part shown at full scale, whose statistics are its own - so then every frame runs over the whole target.
+    if (m_ui.lightness->isChecked() && m_rt_preview_view_control != nullptr &&
+        m_rt_preview_view_control->isAutoStretchEnabled() && m_image_view_control != nullptr)
+    {
+        const std::optional<an::ImageDescriptor> described = m_image_view_control->document().descriptor();
+        const ImageViewWidget* widget = m_rt_preview_view_control->getViewWidget();
+        const std::optional<an::ui::ViewPresentationSettings> shown =
+            widget != nullptr ? widget->framePresentationSettings() : std::nullopt;
+        const bool reduces = shown.has_value() && shown->proxyFactor >= 2u;
+        if (described.has_value() && process_utils::describesColourImage(*described) && !reduces)
+        {
+            return an::ui::PreviewScaling::FullOnly;
+        }
+    }
+    return an::ui::PreviewScaling::Decimated;
+}
+
+std::uint32_t RangeSelectionProcess::typedPreviewRegionMargin(const RangeSelectionProcessParams& params) const
+{
+    return process_utils::gaussianReach(params.smoothness);
+}
+
 bool RangeSelectionProcess::isPreviewEnabled() const
 {
     return m_ui.preview->isChecked();
@@ -286,6 +327,8 @@ an::Status RangeSelectionProcess::executeTypedProcessImpl(const an::ui::ProcessS
                               params.fuzziness, params.smoothness, params.screening ? ", screening" : "",
                               params.invert ? ", inverted" : "", params.lightness ? ", on the CIE lightness" : ""),
         .restatedValidity = an::ValidityDescriptor::allValid()};
+    // An interactive frame over the target reduced smooths the reduction by the smoothness reduced with it.
+    const double smoothness = params.smoothness / static_cast<double>((std::max)(1u, run.proxyFactor));
 
     // A colour image's CIE lightness becomes the mask, selected in place: the selection reads it into a working image
     // before it is overwritten.
@@ -337,7 +380,7 @@ an::Status RangeSelectionProcess::executeTypedProcessImpl(const an::ui::ProcessS
                                                                   .validity = plane->validity(),
                                                                   .result = plane->samples(),
                                                                   .resultLayout = &plane->layout()},
-                                                  params);
+                                                  params, smoothness);
                     done.failed())
                 {
                     return done;
@@ -375,7 +418,7 @@ an::Status RangeSelectionProcess::executeTypedProcessImpl(const an::ui::ProcessS
                                                             .validity = samples->validity(),
                                                             .result = samples->samples(),
                                                             .resultLayout = &samples->layout()},
-                                            params);
+                                            params, smoothness);
     if (selected.failed())
     {
         return selected;

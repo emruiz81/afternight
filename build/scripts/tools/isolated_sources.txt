@@ -695,6 +695,8 @@ sources Test_ImageRTPreviewControl
     header   src/AfterNightProcesses/processes/HistogramTransformationProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/MedianFilterProcess.h
     header   src/AfterNightProcesses/processes/MedianFilterProcessUiBuilder.h
+    header   src/AfterNightProcesses/processes/RangeSelectionProcess.h
+    header   src/AfterNightProcesses/processes/RangeSelectionProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/StatisticalStretch.h
     header   src/AfterNightProcesses/processes/StatisticalStretchUiBuilder.h
     header   src/AfterNightProcesses/processes/StretchProcessSupport.h
@@ -3025,6 +3027,7 @@ sources Test_ProcessesMasks
     unit     src/AfterNightTests/Test_ProcessesMasks/MasksWindowTest.cpp
     unit     src/AfterNightTests/Test_ProcessesMasks/MasksProcessCasesTest.cpp
     unit     src/AfterNightTests/Test_ProcessesMasks/MasksRegionFrameTest.cpp
+    unit     src/AfterNightTests/Test_ProcessesMasks/RangeSelectionFrameTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h

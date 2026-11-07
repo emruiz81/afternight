@@ -58,6 +58,8 @@ private:
 
     bool isPreviewEnabled() const override;
     void enablePreview(bool enabled) override;
+    [[nodiscard]] an::ui::PreviewScaling previewScaling() const override;
+    [[nodiscard]] std::uint32_t typedPreviewRegionMargin(const RangeSelectionProcessParams& params) const override;
 
     void refreshTheme() override;
 
