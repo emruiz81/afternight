@@ -3,9 +3,9 @@ name: Documentation
 # Builds the user guide strictly on every pull request that touches it and on every push to main that does. GitHub
 # Pages carries the latest release's guide, so that Help's online fallback describes the build people have installed:
 # the release workflow publishes the guide it built once the release is published, and a dispatch that asks for a
-# deployment builds and publishes the latest release's tag, or the ref it names. A release calls this to build the
-# guide its installers bundle and to hand the release workflow the archive it attaches; nothing here writes to the
-# repository.
+# deployment publishes the guide the latest release attached, as that release built it. A release calls this to build
+# the guide its installers bundle and to hand the release workflow the archive it attaches; nothing here writes to the
+# repository, and nothing here checks out or runs another ref's code.
 
 on:
   pull_request:
@@ -44,15 +44,10 @@ on:
   workflow_dispatch:
     inputs:
       deploy_pages:
-        description: 'Deploy to GitHub Pages'
+        description: 'Publish the guide the latest release attached to GitHub Pages'
         required: false
         default: false
         type: boolean
-      ref:
-        description: 'The ref to build; empty builds the latest release when deploying, and this branch otherwise'
-        required: false
-        default: ''
-        type: string
 
 permissions:
   contents: read
@@ -93,35 +88,17 @@ jobs:
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
           echo "Deploy Pages: $deploy"
 
-      # Pages carries the latest release's guide, so a deployment builds that release's tag unless the dispatch names
-      # another ref. Only the checkout moves: the run stays on its branch, which is what the github-pages environment
-      # admits.
-      - name: Choose what to build
-        id: source
-        env:
-          GH_TOKEN: ${{ github.token }}
-          DEPLOY: ${{ steps.deploy.outputs.deploy }}
-          REQUESTED_REF: ${{ inputs.ref }}
-        run: |
-          ref="$REQUESTED_REF"
-          if [ -z "$ref" ] && [ "$DEPLOY" = true ]; then
-            ref="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
-          fi
-          echo "ref=$ref" >> "$GITHUB_OUTPUT"
-          echo "Building: ${ref:-$GITHUB_SHA}"
-
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ steps.source.outputs.ref }}
           lfs: true
 
-      # No pip cache: a dispatch may build any ref, and a cache this run saved from code it checked out would be
-      # restored by the default branch's runs. The requirements are pinned by hash and download in seconds.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: docs/user-guide/requirements.txt
 
       - name: Install MkDocs and plugins
         run: pip install --require-hashes -r docs/user-guide/requirements.txt
@@ -136,12 +113,6 @@ jobs:
           path: docs/user-guide/site/
           retention-days: 30
           if-no-files-found: error
-
-      - name: Upload GitHub Pages artifact
-        if: steps.deploy.outputs.deploy == 'true'
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: docs/user-guide/site/
 
       # The release workflow's publishing job attaches this archive; this job only hands it over.
       - name: Package docs for release
@@ -162,12 +133,15 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  # Publishes the guide the latest release attached, built from that release's tag by the release workflow: Pages
+  # carries what the release shipped, and this run builds nothing for it.
   deploy-pages:
     name: Deploy to GitHub Pages
     needs: build-docs
     if: needs.build-docs.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pages: write
       id-token: write
     # One deployment at a time, and a deployment in progress is never cancelled half way.
@@ -178,6 +152,21 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Download the guide the latest release attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pattern='AfterNight-Documentation-v*.zip'
+          gh release download --repo "$GITHUB_REPOSITORY" --pattern "$pattern" --dir release-guide
+          mkdir -p site
+          unzip -q release-guide/AfterNight-Documentation-v*.zip -d site
+          test -f site/index.html
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/
+
       - name: Deploy Pages artifact
         id: deployment
         uses: actions/deploy-pages@v4

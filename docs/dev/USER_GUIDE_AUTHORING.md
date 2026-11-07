@@ -98,9 +98,10 @@ The installers bundle the built site, and it works opened from disk without a ne
   `{app}\docs` with a Start menu entry; the AppImage places it in `usr/share/doc/AfterNight/`.
 - GitHub Pages carries the latest release's guide, so that the online fallback below describes the build people have
   installed. The release workflow publishes the guide it built once the release is published (`deploy-guide`; a
-  pre-release leaves Pages alone). A dispatch of the documentation workflow with `deploy_pages: true` builds and
-  publishes the latest release's tag, or the ref its `ref` input names. A push to `main` builds the guide and does not
-  publish it.
+  pre-release leaves Pages alone). A dispatch of the documentation workflow with `deploy_pages: true` publishes
+  the guide the latest release attached (`AfterNight-Documentation-v<version>.zip`), as that release built it; the
+  workflow never checks out or runs another ref's code, which code scanning holds against a default-branch run. A
+  push to `main` builds the guide and does not publish it.
 - **Help > User Guide** (`DialogOrchestrationCoordinator::openHelp`) opens the bundled site first and falls back to
   the published guide, whose address is `kAfterNightUserGuideOnlineUrl` in
   `src/AfterNightControls/app/DialogOrchestrationCoordinator.h`. `AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE=1` turns the
