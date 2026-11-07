@@ -449,8 +449,14 @@ an::Status stretchWorkingImage(const an::EngineContext& engine, const an::Execut
         working);
 }
 
-an::Result<an::ImageMetadata> stretchedMetadata(const an::ImageMetadata& metadata,
-                                                const an::ImageDescriptor& descriptor, const StretchRecord& record)
+namespace
+{
+
+/// What a stretch states of an image of this metadata and description, as one transition: what the engine operation
+/// declares it changes, the meaning no longer claiming the encoding it had, the lineage entry, and the cards the
+/// operation leaves restated with the product's own record of the samples - nonlinear, by this stretch.
+[[nodiscard]] an::Result<an::MetadataTransition>
+stretchTransition(const an::ImageMetadata& metadata, const an::ImageDescriptor& descriptor, const StretchRecord& record)
 {
     // The samples no longer stand for what they measured, and nothing is claimed about the curve that took them there.
     an::ImageSemanticsRequest meaning = metadata.semantics().toRequest();
@@ -461,28 +467,39 @@ an::Result<an::ImageMetadata> stretchedMetadata(const an::ImageMetadata& metadat
     {
         return semantics.status();
     }
-    const an::Result<an::MetadataTransition> change = an::operationTransition(
+    an::Result<an::MetadataTransition> change = an::operationTransition(
         record.effect,
         an::OperationOutcome{.operation = record.operation, .detail = record.detail, .semantics = *semantics});
     if (!change.hasValue())
     {
         return change.status();
     }
-    an::Result<an::ImageMetadata> changed = an::applyMetadataTransition(metadata, *change);
-    if (!changed.hasValue())
-    {
-        return changed.status();
-    }
-    // The product's own record of what its samples are: nonlinear, by this stretch.
+    // The cards the operation leaves - none when it drops them - with the product's own record of what its samples
+    // are: nonlinear, by this stretch. They are stated whole, so the transition says everything the stretch changes.
+    const an::CodecMetadata left = change->clearCodecMetadata ? an::CodecMetadata{} : metadata.codec();
     const an::ProcessingStateRecord state =
-        an::nonlinearState(an::readProcessingStateCards(changed->codec()), descriptor, record.processingOperation);
-    an::Result<an::CodecMetadata> codec = an::withProcessingStateCards(changed->codec(), state);
+        an::nonlinearState(an::readProcessingStateCards(left), descriptor, record.processingOperation);
+    an::Result<an::CodecMetadata> codec = an::withProcessingStateCards(left, state);
     if (!codec.hasValue())
     {
         return codec.status();
     }
-    return an::ImageMetadata::create(changed->acquisition(), changed->semantics(), changed->astrometry(),
-                                     changed->provenance(), std::move(*codec), changed->outputIntent());
+    change->clearCodecMetadata = false;
+    change->codec = std::move(*codec);
+    return change;
+}
+
+} // namespace
+
+an::Result<an::ImageMetadata> stretchedMetadata(const an::ImageMetadata& metadata,
+                                                const an::ImageDescriptor& descriptor, const StretchRecord& record)
+{
+    const an::Result<an::MetadataTransition> change = stretchTransition(metadata, descriptor, record);
+    if (!change.hasValue())
+    {
+        return change.status();
+    }
+    return an::applyMetadataTransition(metadata, *change);
 }
 
 namespace
@@ -753,6 +770,25 @@ an::Status publishStretchResult(const an::consumer::EngineSession& session, cons
     if (!described.has_value())
     {
         return refusal(an::ErrorCode::NotInitialized, "the source holds nothing");
+    }
+    if (destination.valid() && &working == &destination.asset().image())
+    {
+        // The body wrote the stretch where the run writes: those samples are the result, already in the source's
+        // representation and with its validity, and only what the stretch states of them is left to state - where
+        // they are, with nothing of them copied.
+        if (!from.isEmpty())
+        {
+            return refusal(an::ErrorCode::IncompatibleArguments,
+                           "a rectangle of the destination's own samples cannot be the destination");
+        }
+        const an::Result<an::MetadataTransition> change = stretchTransition(
+            std::visit([](const auto& typed) -> const an::ImageMetadata& { return typed.metadata(); }, working),
+            *described, record);
+        if (!change.hasValue())
+        {
+            return change.status();
+        }
+        return destination.asset().transition(*change);
     }
     an::Result<an::ImageMetadata> metadata = stretchedMetadata(source.metadata(), *described, record);
     if (!metadata.hasValue())

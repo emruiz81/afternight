@@ -53,11 +53,10 @@ TransformOnReadRouting decideLightsTransformOnRead(const WorkflowManifest& manif
     {
         return materialized("comet_product", QStringLiteral("A comet stack reads the comet-aligned images."));
     }
-    if (manifest.reprocessExisting || manifest.executionMode != ExecutionMode::Full)
+    if (manifest.reprocessExisting)
     {
         return materialized("resume_checkpoint_recovery",
-                            QStringLiteral("An incremental or reprocessing run keeps the registered images it may "
-                                           "resume from."));
+                            QStringLiteral("A reprocessing run keeps the registered images it may resume from."));
     }
     if (group.stacking.registeredOutputPolicy != RegisteredOutputPolicy::Discardable)
     {

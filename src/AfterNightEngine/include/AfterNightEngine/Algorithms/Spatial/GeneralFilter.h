@@ -228,7 +228,9 @@ private:
 ///
 /// @param request method, sigmas, amount, offset, clamp and output policy.
 /// @return a reusable plan; `ErrorCode::InvalidArgument` for an unknown method, a non-finite value,
-///         a negative amount or unordered bounds; or whatever `planGaussianBlur` refuses.
+///         a negative amount or unordered bounds; whatever `planGaussianBlur` refuses; or
+///         `ErrorCode::OutOfRange` when the low pass's radius is above `kMaxStencilRadius`, whose
+///         tap arrays the stencil family's separable path holds, carrying the radius and the limit.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<DetailFilterPlan> planDetailFilter(const DetailFilterRequest& request);
 
 /// Applies a planned high-pass or unsharp-mask operation.

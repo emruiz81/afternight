@@ -202,9 +202,13 @@ A successful open can create a still/sequence view and history, persist the last
 directory, add/promote one recent path, and write a display thumbnail. The
 thumbnail is reduced with Lanczos-4 to at most 2,400 pixels on its longer axis
 and written on a worker as an 8-bit JPEG at quality 95, whole or not at all; only
-the last request for a file is recorded. An image whose processing-state cards
-record it linear, or a camera RAW frame, receives the thumbnail autostretch,
-measured exactly over its samples, with a colour image's channels linked; a
+the last request for a file is recorded. An image that is linear data receives
+the thumbnail autostretch, measured exactly over its samples, each colour
+channel stretched on its own: an image recorded linear, a stack whose header
+counts the frames it combines (`STACKCNT` or `NCOMBINE`, as AfterNight's stacks
+write), a frame whose header records its frame type (`IMAGETYP`), or a camera
+RAW frame. An image whose processing-state cards record it stretched, as every
+AfterNight stretch does, or that is sRGB or gamma encoded, is shown as it is; a
 mosaic's thumbnail is the grey picture of its codes. Each thumbnail byte is
 rounded to the nearest value. Source images remain unchanged. Remove/clear
 deletes dashboard thumbnail artifacts and mappings only.

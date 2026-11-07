@@ -13,9 +13,10 @@
 /// a weighting, a rejection restack, an interpolation other than bilinear, any canvas but the reference's, any method
 /// but an average. The engine's stack reads a frame warped in memory exactly as it reads one from disk, and the
 /// normalization stage measures either on the registration's plane, so none of those is a reason any more. What is left
-/// are the reasons that belong to the workflow: a drizzle and a comet stack place their lights themselves, an
-/// incremental run or a reprocess keeps the registered images it may resume from, and a group that keeps its registered
-/// images asks for them to be written.
+/// are the reasons that belong to the workflow: a drizzle and a comet stack place their lights themselves, a reprocess
+/// keeps the registered images it may resume from, and a group that keeps its registered images asks for them to be
+/// written. An incremental run reads a group's lights as a full run does, so a run that only stacks again reads them as
+/// the run before it did and finds that run's normalization coefficients current.
 ///
 /// The planner, the alignment stage and the normalization stage ask through the stage companions, which are defined in
 /// `TransformOnReadCompanions.cpp` beside this unit.

@@ -6,9 +6,9 @@
 > a page says, the product's current source and tests.
 
 The user guide is a MkDocs Material site written in Markdown. It is built from a locked toolchain, works when opened
-from disk, ships inside the installers and is published to GitHub Pages on request. This document states the rules a
-change to the guide follows: where its parts live, how it is built and shipped, how a page's claims are verified,
-what a complete page contains, how it is written and how its media is handled.
+from disk, ships inside the installers and is published to GitHub Pages with each release. This document states the
+rules a change to the guide follows: where its parts live, how it is built and shipped, how a page's claims are
+verified, what a complete page contains, how it is written and how its media is handled.
 
 ## Contents
 
@@ -96,7 +96,12 @@ The installers bundle the built site, and it works opened from disk without a ne
   Setup takes `/DREQUIRE_DOCS` and `installer/linux_packager.sh` takes `REQUIRE_DOCS_SITE=1`. A local or manual
   installer build bundles `docs/user-guide/site/` only when it exists. The Windows installer places the site in
   `{app}\docs` with a Start menu entry; the AppImage places it in `usr/share/doc/AfterNight/`.
-- GitHub Pages is deployed only when a run asks for it (`deploy_pages: true`).
+- GitHub Pages carries the latest release's guide, so that the online fallback below describes the build people have
+  installed. The release workflow publishes the guide it built once the release is published (`deploy-guide`; a
+  pre-release leaves Pages alone). A dispatch of the documentation workflow with `deploy_pages: true` publishes
+  the guide the latest release attached (`AfterNight-Documentation-v<version>.zip`), as that release built it; the
+  workflow never checks out or runs another ref's code, which code scanning holds against a default-branch run. A
+  push to `main` builds the guide and does not publish it.
 - **Help > User Guide** (`DialogOrchestrationCoordinator::openHelp`) opens the bundled site first and falls back to
   the published guide, whose address is `kAfterNightUserGuideOnlineUrl` in
   `src/AfterNightControls/app/DialogOrchestrationCoordinator.h`. `AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE=1` turns the

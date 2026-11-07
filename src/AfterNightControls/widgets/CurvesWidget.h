@@ -14,6 +14,10 @@ class CurvesWidgetListener
 public:
     // The curve as it stands after the change, a copy the listener keeps or not.
     virtual void onCurvesUpdated(const an::ui::ToneCurveModel& curve) = 0;
+
+    // A point of the curve was taken hold of with the left button - pressed on, or made where the press met the curve -
+    // or let go: the changes in between are one drag of it. Nothing by default.
+    virtual void onCurvePointHeld(bool held) {}
 };
 
 // Edits a tone curve over its owner's histogram. The control points are the widget's; the engine evaluates the curve.
@@ -44,6 +48,13 @@ public:
 
     CurvesWidgetListener* getListener() const;
 
+    /// Where a point of the curve is drawn, in the widget's pixels: a left press within a few pixels of it takes hold
+    /// of it.
+    ///
+    /// @param index which point, in increasing input order.
+    /// @return its position; the origin for an index past the last point.
+    [[nodiscard]] QPoint pointPosition(std::size_t index);
+
     [[nodiscard]] QColor getSplineColor() const;
 
     ~CurvesWidget();
@@ -64,8 +75,14 @@ protected:
 
     void update_spline_to_render();
 
+    /// Tells the listener a point was taken hold of or let go, once for each.
+    void holdPoint(bool held);
+
     bool m_GuideLineEnabled = true;
     bool m_HistogramEnabled = true;
+
+    // Whether a point is held by the left button, between the press that took it and the release.
+    bool m_PointHeld = false;
 
     // -1: No node selected, >= 0: node idx n spline array
     int m_CurrentNodeSelected = -1;

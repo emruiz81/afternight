@@ -106,6 +106,26 @@ inline constexpr std::uint32_t kGaussianBoxPasses = 3u;
 /// fourteen-bit sample and comfortably below the noise of any real frame.
 inline constexpr double kDefaultGaussianTruncation = 4.0;
 
+/// The widest radius an exact plan may have.
+///
+/// A plan up to `kMaxStencilRadius` runs on the stencil family's general path or on the compiled
+/// symmetric one. A wider plan runs only on the symmetric path, whose rows read their taps from
+/// memory of the plan's own size: one wide kernel reads and writes each plane once, where passes of
+/// narrower kernels composed to the same sigma read and write it once each and apply many more taps
+/// between them. Four thousand and ninety-six pixels is four sigmas of a sigma of a thousand and
+/// twenty-four.
+inline constexpr std::uint32_t kMaxGaussianRadius = 4096u;
+
+/// The farthest a repeated-box plan may reach along either axis: its three box radii added up.
+///
+/// An exact plan is held to `kMaxGaussianRadius`, because a tap array is its inner loop and its halo
+/// at once. A box pass is a running sum - one sample enters the window and one leaves it - so what it
+/// costs does not depend on its width, and the boxes are held only to a reach whose arithmetic stays
+/// representable: sixty-five thousand five hundred and thirty-six pixels, a sigma of some twenty-one
+/// thousand, wider than any interactive control asks for. A reach wider than the image folds through
+/// the image's border rule as a narrower one does at an edge.
+inline constexpr std::uint32_t kMaxRealtimePreviewBoxReach = 65536u;
+
 /// The narrowest sigma a plan will build a kernel for.
 ///
 /// Below this the kernel is one tap and the blur is the identity, which is a result a caller almost
@@ -176,10 +196,11 @@ struct RealtimePreviewGaussianRequest
 /// A validated Gaussian blur: what was asked for, and what will actually run.
 ///
 /// Trivially copyable and allocation-free. It holds the radii and the box widths rather than the
-/// taps, because a tap array is up to `kMaxStencilTaps` doubles per axis and a plan a caller keeps
-/// beside a filter should not be four kilobytes. `writeGaussianTaps` produces the coefficients for
-/// a caller that wants to see or reuse them; the execution produces them itself, on the stack,
-/// once per call.
+/// taps, because a tap array is up to `2 * kMaxGaussianRadius + 1` doubles per axis and a plan a
+/// caller keeps beside a filter should not be tens of kilobytes. `writeGaussianTaps` produces the
+/// coefficients for a caller that wants to see or reuse them; the execution produces them itself,
+/// once per call - on the stack up to `kMaxStencilRadius`, and in memory taken from the context for
+/// a wider plan.
 class GaussianPlan
 {
 public:
@@ -208,12 +229,14 @@ public:
     /// For `SeparableTaps` it is the truncated kernel's radius; for `RepeatedBox` it is the sum of
     /// the three box radii, which is how far a sample can travel through three passes.
     ///
-    /// @return the radius, never above `kMaxStencilRadius` for a plan `planGaussianBlur` accepted.
+    /// @return the radius, never above `kMaxGaussianRadius` for a plan `planGaussianBlur` accepted, nor
+    ///         above `kMaxRealtimePreviewBoxReach` for one `planRealtimePreviewGaussianBlur` accepted.
     [[nodiscard]] AFTERNIGHTENGINE_API std::uint32_t horizontalRadius() const noexcept;
 
     /// Half the vertical extent the filter reads, in pixels.
     ///
-    /// @return the radius, never above `kMaxStencilRadius` for a plan `planGaussianBlur` accepted.
+    /// @return the radius, never above `kMaxGaussianRadius` for a plan `planGaussianBlur` accepted, nor
+    ///         above `kMaxRealtimePreviewBoxReach` for one `planRealtimePreviewGaussianBlur` accepted.
     [[nodiscard]] AFTERNIGHTENGINE_API std::uint32_t verticalRadius() const noexcept;
 
     /// The three box radii applied along a row, in order.
@@ -283,18 +306,22 @@ private:
 ///         inapplicable border mode, a non-finite border or invalid-neighbour value, an output
 ///         contract or conversion field outside its enumeration, or a write-back policy naming
 ///         `DomainMapping::FullScale`; or `ErrorCode::OutOfRange` when the radius the sigma implies
-///         is above `kMaxStencilRadius`, carrying the radius and the limit.
+///         is above `kMaxGaussianRadius`, carrying the radius and the limit. A plan wider than
+///         `kMaxStencilRadius` is accepted here and runs only where `blurImageGaussian`'s symmetric
+///         path applies.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<GaussianPlan> planGaussianBlur(const GaussianRequest& request);
 
 /// Validates and plans the repeated-box blur for an interactive preview.
 ///
 /// This is the only builder that accepts the approximation. Its result is accepted only by
 /// `blurImageRealtimePreviewGaussian`, so a production execution cannot accidentally consume it.
-/// Thread-safe and allocation-free.
+/// Its reach is held to `kMaxRealtimePreviewBoxReach` rather than to `kMaxGaussianRadius`, because a
+/// box pass costs the same at any width. Thread-safe and allocation-free.
 ///
 /// @param request preview sigmas, border and output policy.
-/// @return a repeated-box plan; the same numeric, border, write-back and radius failures as
-///         `planGaussianBlur`.
+/// @return a repeated-box plan; the same numeric, border and write-back failures as
+///         `planGaussianBlur`; or `ErrorCode::OutOfRange` when the boxes of either axis reach further
+///         than `kMaxRealtimePreviewBoxReach`, carrying the reach and the limit.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<GaussianPlan>
 planRealtimePreviewGaussianBlur(const RealtimePreviewGaussianRequest& request);
 
@@ -308,10 +335,10 @@ planRealtimePreviewGaussianBlur(const RealtimePreviewGaussianRequest& request);
 /// Thread-safe and allocation-free.
 ///
 /// @param sigma the standard deviation, in pixels. Must be finite and above `kMinimumGaussianSigma`.
-/// @param radius half the kernel width, in pixels. Must not exceed `kMaxStencilRadius`.
+/// @param radius half the kernel width, in pixels. Must not exceed `kMaxGaussianRadius`.
 /// @param taps where the coefficients go, exactly `2 * radius + 1` of them.
 /// @return how many taps were written; `ErrorCode::InvalidArgument` for a non-finite or too small
-///         sigma; `ErrorCode::OutOfRange` for a radius above `kMaxStencilRadius`; or
+///         sigma; `ErrorCode::OutOfRange` for a radius above `kMaxGaussianRadius`; or
 ///         `ErrorCode::IncompatibleArguments` when the array is not exactly `2 * radius + 1` long.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<std::uint32_t> writeGaussianTaps(double sigma, std::uint32_t radius,
                                                                            std::span<double> taps);
@@ -332,6 +359,10 @@ planRealtimePreviewGaussianBlur(const RealtimePreviewGaussianRequest& request);
 /// than failing. Every other call is exactly `convolveImageSeparable` with the taps this header
 /// defines, which is why the two are checkable against one another.
 ///
+/// A plan wider than `kMaxStencilRadius` runs on the dedicated path alone, its taps held in memory
+/// taken from the context for the call: the general path's tap arrays and halo bands stop at that
+/// radius. Where the dedicated path does not apply, or refuses its plane, such a plan is refused.
+///
 /// A repeated-box plan is refused and can be executed only by the explicitly named real-time-preview
 /// entry point below.
 ///
@@ -349,7 +380,9 @@ planRealtimePreviewGaussianBlur(const RealtimePreviewGaussianRequest& request);
 /// @param plan what to run, as `planGaussianBlur` accepted it.
 /// @param selection which samples mean something.
 /// @return the counts and the plan that ran; every failure `planGaussianBlur` and
-///         `convolveImageSeparable` document.
+///         `convolveImageSeparable` document; or, for a plan wider than `kMaxStencilRadius`,
+///         `ErrorCode::OutOfRange` where the dedicated path does not apply, carrying the radius and
+///         `kMaxStencilRadius`, or the refusal of its intermediate plane or of its taps' memory.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<SpatialFilterResult>
 blurImageGaussian(const ExecutionContext& execution, SampleType sampleType, const void* source,
                   const ImageLayout& sourceLayout, void* destination, const ImageLayout& destinationLayout,

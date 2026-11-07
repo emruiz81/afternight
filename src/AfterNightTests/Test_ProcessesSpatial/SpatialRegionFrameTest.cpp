@@ -6,7 +6,8 @@
 /// what an interactive frame may run over: a body whose answer depends on the pixel grid and on nothing farther than a
 /// reach it states runs at full scale over the part shown, grown by that reach within the target, and over that part
 /// its frame is the Apply's answer, sample for sample, its edges answered as the whole image answers them; the Gaussian
-/// blur, whose sigma scales with a reduction, runs over the part shown the same way at full scale; a body that measures
+/// blur and the two detail filters, whose blur's sigma scales with a reduction, run over the part shown the same way at
+/// full scale, the detail filters as their Apply does wherever one kernel reaches their radius; a body that measures
 /// the whole image, tiles it by its size or blurs without a finite reach runs every frame over the whole image.
 
 #include "Test_ProcessesSpatial/SpatialProcessesTestSupport.h"
@@ -35,22 +36,22 @@ using namespace an::tests::processes;
 using namespace an::tests::processes::spatial;
 
 /// The actions whose bodies read the pixel grid and nothing farther than the reach they state.
-constexpr std::array<std::string_view, 7u> kNativeRegionActions{"actionMedian_Filter",
-                                                                "actionBilateral_Filter",
-                                                                "actionCosmetic_Correction_Filter",
-                                                                "actionMorphological_Transformation",
-                                                                "actionTighten_Edges",
-                                                                "actionUnsharp_Mask",
-                                                                "actionHigh_Pass"};
+constexpr std::array<std::string_view, 5u> kNativeRegionActions{
+    "actionMedian_Filter", "actionBilateral_Filter", "actionCosmetic_Correction_Filter",
+    "actionMorphological_Transformation", "actionTighten_Edges"};
 
-/// What a spatial process's interactive frames may run over, as its action names it: the Gaussian blur over what the
-/// view paints, the bodies that read the pixel grid over the part shown at full scale, and every other over the whole
-/// image - the banding reduction's line statistics, the total variation's stopping test, the noise generator's draws
-/// keyed to where a plane begins, the patch denoiser's measured noise and size-made tiles, CLAHE's grid over the image,
-/// and the G'MIC commands' whole-image measurements and endless blurs.
+/// The actions whose bodies blur by a sigma that scales with a reduction: the Gaussian blur and the two detail filters.
+constexpr std::array<std::string_view, 3u> kDecimatedActions{"actionGaussian_Blur", "actionUnsharp_Mask",
+                                                             "actionHigh_Pass"};
+
+/// What a spatial process's interactive frames may run over, as its action names it: the blurs over what the view
+/// paints, the bodies that read the pixel grid over the part shown at full scale, and every other over the whole image
+/// - the banding reduction's line statistics, the total variation's stopping test, the noise generator's draws keyed to
+/// where a plane begins, the patch denoiser's measured noise and size-made tiles, CLAHE's grid over the image, and the
+/// G'MIC commands' whole-image measurements and endless blurs.
 [[nodiscard]] an::ui::PreviewScaling declaredScaling(std::string_view action)
 {
-    if (action == "actionGaussian_Blur")
+    if (std::ranges::find(kDecimatedActions, action) != kDecimatedActions.end())
     {
         return an::ui::PreviewScaling::Decimated;
     }
@@ -61,10 +62,14 @@ constexpr std::array<std::string_view, 7u> kNativeRegionActions{"actionMedian_Fi
     return an::ui::PreviewScaling::FullOnly;
 }
 
-/// The actions a frame over the part shown runs for: the native ones and the Gaussian blur at full scale.
+/// The actions a frame over the part shown runs for: the native ones and the blurs at full scale.
 [[nodiscard]] std::vector<std::string> regionActions()
 {
-    std::vector<std::string> actions{"actionGaussian_Blur"};
+    std::vector<std::string> actions;
+    for (const std::string_view action : kDecimatedActions)
+    {
+        actions.emplace_back(action);
+    }
     for (const std::string_view action : kNativeRegionActions)
     {
         actions.emplace_back(action);
@@ -73,20 +78,17 @@ constexpr std::array<std::string_view, 7u> kNativeRegionActions{"actionMedian_Fi
 }
 
 /// The actions whose dialogs offer a reach of many passes, and how a window is set to one: several passes of a window,
-/// a blur composed of several kernels, a window derived from a sigma. A margin of one pass falls short of each.
+/// a window derived from a sigma. A margin of one pass falls short of each. The blurs are not among them: beyond the
+/// stencil family's widest kernel their interactive frames blur by the real-time preview's boxes, whose reach
+/// `GaussianBlurTest` and `DetailFilterTest` hold.
 [[nodiscard]] std::vector<std::string> manyPassActions()
 {
-    return {"actionGaussian_Blur", "actionMedian_Filter", "actionBilateral_Filter",
-            "actionMorphological_Transformation", "actionHigh_Pass"};
+    return {"actionMedian_Filter", "actionBilateral_Filter", "actionMorphological_Transformation"};
 }
 
 void setManyPasses(std::string_view action, QWidget& window)
 {
-    if (action == "actionGaussian_Blur")
-    {
-        setReal(window, "sigmaValue", 40.0);
-    }
-    else if (action == "actionMedian_Filter")
+    if (action == "actionMedian_Filter")
     {
         choose(window, "kernelSize", QStringLiteral("5x5"));
         setWhole(window, "iterationsValue", 3);
@@ -100,10 +102,6 @@ void setManyPasses(std::string_view action, QWidget& window)
     {
         choose(window, "operatorSelector", QStringLiteral("Opening (Dilation + Erosion)"));
         setWhole(window, "iterationsValue", 2);
-    }
-    else if (action == "actionHigh_Pass")
-    {
-        setReal(window, "radiusValue", 40.0);
     }
 }
 

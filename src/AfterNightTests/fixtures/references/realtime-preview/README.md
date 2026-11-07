@@ -36,9 +36,10 @@ commit - and `captured` the day; the comparison reads neither. The statistics ar
 ## What the records show
 
 The preview of a process whose interactive frames may run over a reduction of its target - brightness and contrast,
-and the gamma correction - is stretched through the target's own analysis, measured once for its revision, so the
-stretch does not follow the adjustment: every mode's statistics record states the scene's own medians and median
-absolute deviations.
+the gamma correction and the curves transformation - is stretched through the target's own analysis, measured once
+for its revision, so the stretch does not follow the adjustment: every mode's statistics record states the scene's own
+medians and median absolute deviations. The curves transformation's records were captured again when its drags came
+to run over what the preview view paints; before, each of its previews was stretched by its own statistics.
 
 The gamma correction's preview is the Apply's power law in every frame. The unbounded floating scene holds 37 samples
 below zero - 10 in the first channel and 27 in the third - and the exact power answers a negative base a not-a-number,

@@ -14,6 +14,7 @@
 #include "processes/ImageIntegration/workflow/WorkflowRunStateStore.h"
 #include "processes/ImageIntegration/workflow/stages/RegistrationMetricsSchema.h"
 #include "processes/ImageIntegration/workflow/stages/StageParsingUtils.h"
+#include "processes/ImageIntegration/workflow/stages/TransformOnReadRouting.h"
 
 #include <QDir>
 #include <QFile>
@@ -201,10 +202,10 @@ captureFileStamp(const QString& path, const std::function<QString(const QString&
     return result;
 }
 
-[[nodiscard]] ExecutionPreparationSnapshot::DrizzleSourceGeometryFacts
-captureDrizzleSourceGeometry(const FrameId& frame, const ImageIntegration::FrameHeaderReader& headerReader)
+[[nodiscard]] ExecutionPreparationSnapshot::SourceGeometryFacts
+captureSourceGeometry(const FrameId& frame, const ImageIntegration::FrameHeaderReader& headerReader)
 {
-    ExecutionPreparationSnapshot::DrizzleSourceGeometryFacts facts;
+    ExecutionPreparationSnapshot::SourceGeometryFacts facts;
     facts.canonicalPath = frame.canonicalPath();
     if (!headerReader)
         return facts;
@@ -221,8 +222,8 @@ captureDrizzleSourceGeometry(const FrameId& frame, const ImageIntegration::Frame
     return facts;
 }
 
-[[nodiscard]] bool sameDrizzleSourceGeometry(const ExecutionPreparationSnapshot::DrizzleSourceGeometryFacts& lhs,
-                                             const ExecutionPreparationSnapshot::DrizzleSourceGeometryFacts& rhs)
+[[nodiscard]] bool sameSourceGeometry(const ExecutionPreparationSnapshot::SourceGeometryFacts& lhs,
+                                      const ExecutionPreparationSnapshot::SourceGeometryFacts& rhs)
 {
     return lhs.canonicalPath == rhs.canonicalPath && lhs.metadataProbeSucceeded == rhs.metadataProbeSucceeded &&
            lhs.sourceWidth == rhs.sourceWidth && lhs.sourceHeight == rhs.sourceHeight &&
@@ -267,7 +268,7 @@ struct ExecutionPreparationSnapshot::Data
     QHash<QString, ParsedMetadata> normalizationMetadata;
     QHash<QString, QString> normalizationCoefficientDigests;
     QHash<QString, ParsedMetadata> drizzleMetadata;
-    QHash<QString, DrizzleSourceGeometryFacts> drizzleSourceGeometry;
+    QHash<QString, SourceGeometryFacts> sourceGeometry;
     QSet<QString> strictArtifactPaths;
     ImageIntegration::FrameHeaderReader headerReader;
 };
@@ -295,7 +296,7 @@ public:
         throwIfCancelled();
         collectManifestFacts();
         throwIfCancelled();
-        captureDrizzleSourceGeometryFacts();
+        captureSourceGeometryFacts();
         throwIfCancelled();
         queueDatabaseStatePaths();
         capturePaths(m_statePaths, m_boundaryStateFileStamps, nullptr);
@@ -461,18 +462,20 @@ private:
         }
     }
 
-    void captureDrizzleSourceGeometryFacts()
+    void captureSourceGeometryFacts()
     {
+        // The lights a stage places itself: a drizzled group's, and those of a group whose stack warps them as it
+        // reads them, whose geometry the coefficients and the stack are measured and stated by.
         for (const auto& group : m_manifest.integrationGroups)
         {
-            if (!group.drizzle.has_value() || !group.drizzle->enabled)
+            const bool drizzled = group.drizzle.has_value() && group.drizzle->enabled;
+            if (!drizzled && !ImageIntegration::decideLightsTransformOnRead(m_manifest, group).usesTransformOnRead())
                 continue;
             for (const auto& frame : group.lightFiles)
             {
                 const QString key = frame.identityKey();
-                if (!key.isEmpty() && !m_data->drizzleSourceGeometry.contains(key))
-                    m_data->drizzleSourceGeometry.insert(key,
-                                                         captureDrizzleSourceGeometry(frame, m_data->headerReader));
+                if (!key.isEmpty() && !m_data->sourceGeometry.contains(key))
+                    m_data->sourceGeometry.insert(key, captureSourceGeometry(frame, m_data->headerReader));
             }
         }
     }
@@ -973,12 +976,12 @@ bool ExecutionPreparationSnapshot::matchesCurrentFacts(
     if (!stamps_match(m_data->fileStamps) || !stamps_match(m_data->stateFileStamps))
         return false;
 
-    for (auto it = m_data->drizzleSourceGeometry.cbegin(); it != m_data->drizzleSourceGeometry.cend(); ++it)
+    for (auto it = m_data->sourceGeometry.cbegin(); it != m_data->sourceGeometry.cend(); ++it)
     {
         if (cancellation_requested())
             return false;
-        const auto current = captureDrizzleSourceGeometry(FrameId(it->canonicalPath), m_data->headerReader);
-        if (!sameDrizzleSourceGeometry(it.value(), current))
+        const auto current = captureSourceGeometry(FrameId(it->canonicalPath), m_data->headerReader);
+        if (!sameSourceGeometry(it.value(), current))
             return false;
     }
     return true;
@@ -1219,9 +1222,9 @@ ExecutionPreparationSnapshot::drizzleMetadata(const IntegrationGroupKey& groupKe
     return it == m_data->drizzleMetadata.cend() ? nullptr : &it.value();
 }
 
-const ExecutionPreparationSnapshot::DrizzleSourceGeometryFacts*
-ExecutionPreparationSnapshot::drizzleSourceGeometry(const FrameId& frame) const
+const ExecutionPreparationSnapshot::SourceGeometryFacts*
+ExecutionPreparationSnapshot::sourceGeometry(const FrameId& frame) const
 {
-    const auto it = m_data->drizzleSourceGeometry.constFind(frame.identityKey());
-    return it == m_data->drizzleSourceGeometry.cend() ? nullptr : &it.value();
+    const auto it = m_data->sourceGeometry.constFind(frame.identityKey());
+    return it == m_data->sourceGeometry.cend() ? nullptr : &it.value();
 }

@@ -205,6 +205,18 @@ protected:
     return std::visit([](const auto& typed) { return typed.metadata(); }, lease.image());
 }
 
+/// Where the samples of what an asset holds are: the same address after a change means the change was made where the
+/// samples are, not in a copy of them.
+[[nodiscard]] const void* samplesOf(const an::consumer::AssetWriteLease& lease)
+{
+    return std::visit(
+        [](const auto& typed) -> const void* {
+            const auto view = typed.view();
+            return view.has_value() ? static_cast<const void*>(view->data()) : nullptr;
+        },
+        lease.image());
+}
+
 /// Runs a chain as the helper ran it before it worked in bands: the whole plane set opened as one working copy, the
 /// fused chain run over it under the samples' validity and the copy narrowed back, in place.
 [[nodiscard]] an::Status runOverWholePlanes(const an::ui::ExecutionScope& scope, const an::ImageDescriptor& described,
@@ -1003,8 +1015,8 @@ TEST_F(PointwiseUnitsTest, AnIntegerImageUnderARuleKeepsItsOwnValidity)
     ASSERT_TRUE(samples->commit(scope->execution()).ok());
 }
 
-// A result whose cards say linear is recorded nonlinear: its cards restated in a new image, its meaning no longer
-// linear, its other cards kept and its lineage naming what ran.
+// A result whose cards say linear is recorded nonlinear where it is - the same image and the same samples, nothing of
+// it copied - its cards restated, its meaning no longer linear, its other cards kept and its lineage naming what ran.
 TEST_F(PointwiseUnitsTest, AResultIsRecordedNonlinearOnItsCardsAndLineage)
 {
     const an::consumer::EngineSession& session = m_context->engineSession();
@@ -1020,15 +1032,16 @@ TEST_F(PointwiseUnitsTest, AResultIsRecordedNonlinearOnItsCardsAndLineage)
     an::Result<an::ui::ProcessDestination> destination = an::ui::ProcessDestination::copyOf(
         session, scope->engine(), scope->execution(), an::ui::ProcessSource::of(*lease));
     ASSERT_TRUE(destination.hasValue());
-    const std::uint64_t copied = destination->asset().assetIdentity();
+    const std::uint64_t identity = destination->asset().assetIdentity();
+    const void* const samples = samplesOf(destination->asset());
 
     ASSERT_TRUE(process_utils::recordNonlinearResult(
-                    *scope, *destination,
-                    process_utils::NonlinearResultRecord{.stateOperation = "gamma-correction",
-                                                         .engineOperation = "an::buildGammaProgram",
-                                                         .detail = "gamma 2.2"})
+                    *destination, process_utils::NonlinearResultRecord{.stateOperation = "gamma-correction",
+                                                                       .engineOperation = "an::buildGammaProgram",
+                                                                       .detail = "gamma 2.2"})
                     .ok());
-    EXPECT_NE(destination->asset().assetIdentity(), copied) << "the cards are restated in a new image";
+    EXPECT_EQ(destination->asset().assetIdentity(), identity) << "the result was replaced by a copy of it";
+    EXPECT_EQ(samplesOf(destination->asset()), samples) << "the result's samples were copied";
     const an::ImageMetadata result = metadataOf(destination->asset());
     const an::ProcessingStateRecord state = an::readProcessingStateCards(result.codec());
     EXPECT_EQ(state.linearity, an::RecordedLinearity::Nonlinear);
@@ -1064,7 +1077,7 @@ TEST_F(PointwiseUnitsTest, AResultAlreadyRecordedNonlinearIsRecordedInPlace)
     ASSERT_TRUE(first.hasValue());
     const process_utils::NonlinearResultRecord record{
         .stateOperation = "colorize", .engineOperation = "an::colorizeImage", .detail = "first"};
-    ASSERT_TRUE(process_utils::recordNonlinearResult(*scope, *first, record).ok());
+    ASSERT_TRUE(process_utils::recordNonlinearResult(*first, record).ok());
     an::Result<an::consumer::ImageAsset> recorded = first->release();
     ASSERT_TRUE(recorded.hasValue());
 
@@ -1074,9 +1087,73 @@ TEST_F(PointwiseUnitsTest, AResultAlreadyRecordedNonlinearIsRecordedInPlace)
     ASSERT_TRUE(second.hasValue());
     const std::uint64_t identity = second->asset().assetIdentity();
     const std::size_t entries = metadataOf(second->asset()).provenance().entries().size();
-    ASSERT_TRUE(process_utils::recordNonlinearResult(*scope, *second, record).ok());
+    ASSERT_TRUE(process_utils::recordNonlinearResult(*second, record).ok());
     EXPECT_EQ(second->asset().assetIdentity(), identity);
     EXPECT_EQ(metadataOf(second->asset()).provenance().entries().size(), entries + 1u);
+    scope->finish(an::Status::success());
+}
+
+// A result whose every sample the process wrote states a validity of its own, and it is stated where the result is: the
+// same image and samples, the source's packed mask let go, the meaning stating the new rule and the cards nonlinear.
+TEST_F(PointwiseUnitsTest, ARestatedValidityIsStatedWhereTheResultIs)
+{
+    const an::consumer::EngineSession& session = m_context->engineSession();
+    std::optional<an::consumer::ImageAsset> masked;
+    {
+        // A source whose meaning says a packed mask decides which of its pixels are valid, and that mask.
+        std::optional<an::consumer::OperationScope> admitted = an::tests::viewer::admitted(session);
+        ASSERT_TRUE(admitted.has_value());
+        const an::EngineContext& engine = admitted->engine();
+        const std::optional<an::ValidityDescriptor> explicitMask =
+            an::ValidityDescriptor::create(an::ValidityDescriptorRequest{.rule = an::ValidityRule::ExplicitMask});
+        ASSERT_TRUE(explicitMask.has_value());
+        const an::ImageMetadata linear = metadataWith(an::TransferFunction::Linear, {card("ANLIN", "'linear'")});
+        an::ImageSemanticsRequest meaning = linear.semantics().toRequest();
+        meaning.validity = *explicitMask;
+        an::Result<an::ImageSemantics> semantics = an::ImageSemantics::create(meaning);
+        ASSERT_TRUE(semantics.hasValue()) << semantics.status().message();
+        const std::optional<an::ImageDescriptor> described =
+            an::tests::viewer::describeImage(engine, an::SampleType::Float32, 4u, 3u, Channels::Rgb);
+        ASSERT_TRUE(described.has_value());
+        an::Result<an::Image<float>> image = an::Image<float>::createFilled(
+            engine, *described, an::StorageArrangement::Planar, 0.25f,
+            an::ImageMetadata::create(linear.acquisition(), std::move(*semantics), linear.astrometry(),
+                                      linear.provenance(), linear.codec(), linear.outputIntent()));
+        ASSERT_TRUE(image.hasValue()) << image.status().message();
+        const std::optional<an::ImageExtent> maskExtent = an::ImageExtent::create(4u, 3u, 1u, engine.limits());
+        ASSERT_TRUE(maskExtent.has_value());
+        an::Result<an::ValidityMask> mask = an::ValidityMask::create(engine, *maskExtent);
+        ASSERT_TRUE(mask.hasValue()) << mask.status().message();
+        an::Result<an::consumer::ImageAsset> asset =
+            an::consumer::ImageAsset::adopt(session, an::consumer::AnyImage(std::move(*image)), std::move(*mask));
+        ASSERT_TRUE(asset.hasValue()) << asset.status().message();
+        masked.emplace(std::move(*asset));
+    }
+    an::Result<an::consumer::AssetReadLease> lease = masked->read();
+    ASSERT_TRUE(lease.hasValue());
+    an::Result<an::ui::ExecutionScope> scope =
+        an::ui::ExecutionScope::admit(session, an::ui::ExecutionRequest{}, an::ui::ExecutionObserver{});
+    ASSERT_TRUE(scope.hasValue()) << scope.status().message();
+    an::Result<an::ui::ProcessDestination> destination = an::ui::ProcessDestination::copyOf(
+        session, scope->engine(), scope->execution(), an::ui::ProcessSource::of(*lease));
+    ASSERT_TRUE(destination.hasValue()) << destination.status().message();
+    ASSERT_NE(destination->asset().validity(), nullptr) << "the destination starts with the source's mask";
+    const std::uint64_t identity = destination->asset().assetIdentity();
+    const void* const samples = samplesOf(destination->asset());
+
+    ASSERT_TRUE(
+        process_utils::recordNonlinearResult(
+            *destination, process_utils::NonlinearResultRecord{.stateOperation = "binarize",
+                                                               .engineOperation = "an::executePointwiseProgram",
+                                                               .detail = "threshold 0.5",
+                                                               .restatedValidity = an::ValidityDescriptor::allValid()})
+            .ok());
+    EXPECT_EQ(destination->asset().assetIdentity(), identity) << "the result was replaced by a copy of it";
+    EXPECT_EQ(samplesOf(destination->asset()), samples) << "the result's samples were copied";
+    EXPECT_EQ(destination->asset().validity(), nullptr) << "the source's mask was kept";
+    const an::ImageMetadata result = metadataOf(destination->asset());
+    EXPECT_EQ(result.semantics().validity().rule(), an::ValidityRule::AllValid);
+    EXPECT_EQ(an::readProcessingStateCards(result.codec()).linearity, an::RecordedLinearity::Nonlinear);
     scope->finish(an::Status::success());
 }
 

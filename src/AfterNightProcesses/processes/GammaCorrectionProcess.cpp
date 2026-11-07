@@ -174,10 +174,9 @@ an::Status GammaCorrectionProcess::executeTypedProcessImpl(const an::ui::Process
         return an::Status::success();
     }
     return process_utils::recordNonlinearResult(
-        scope, destination,
-        process_utils::NonlinearResultRecord{.stateOperation = "gamma-correction",
-                                             .engineOperation = "an::buildGammaProgram",
-                                             .detail = fmt::format("gamma {}", params.gamma)});
+        destination, process_utils::NonlinearResultRecord{.stateOperation = "gamma-correction",
+                                                          .engineOperation = "an::buildGammaProgram",
+                                                          .detail = fmt::format("gamma {}", params.gamma)});
 }
 
 an::ui::ProcessStep GammaCorrectionProcess::describeTypedProcessStep(const GammaCorrectionParams& params) const

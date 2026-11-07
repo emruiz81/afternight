@@ -387,7 +387,8 @@ public:
         return m_sigma;
     }
 
-    /// How many Gaussian passes realize the blur.
+    /// The most Gaussian passes that realize the blur: fewer run where the compiled symmetric path takes
+    /// a wider kernel over the plane, as `CoverageFeatherResult::passes` says.
     ///
     /// @return zero for no feather; otherwise the fewest passes of `passSigma()` whose truncated kernels
     ///         fit the engine's stencil limit.
@@ -447,7 +448,8 @@ planCoverageFeather(const CoverageFeatherRequest& request);
 /// What one feather did.
 struct CoverageFeatherResult
 {
-    /// Gaussian passes run: the plan's, or zero for no feather.
+    /// Gaussian passes run: the plan's, fewer where the compiled symmetric path took a wider kernel over the
+    /// plane, or zero for no feather.
     std::uint32_t passes = 0u;
 
     /// Samples written to the destination by the last pass, which is every sample of the plane.
@@ -463,10 +465,15 @@ struct CoverageFeatherResult
 /// interval up to the rounding of a weighted sum. The two planes have one width and one height and one
 /// sample per pixel, and may not overlap.
 ///
+/// The plan's passes are of kernels the stencil family holds. Over a plane more than twice a wider
+/// kernel's radius each way, the fewest passes of kernels the compiled symmetric path takes run instead,
+/// up to `kMaxGaussianRadius` - one kernel at every feather whose kernel fits the plane - and the plan's
+/// passes run where the engine refuses the wider kernel.
+///
 /// Every pass reads and writes tightly packed rows, so the answer depends on neither plane's row
 /// stride nor the number of threads. A blur therefore takes working memory from the execution: one
-/// plane when it runs more than one pass or when the coverage is padded or holds a sample outside the
-/// unit interval, and one more when the destination is padded.
+/// plane when the plan counts more than one pass or when the coverage is padded or holds a sample
+/// outside the unit interval, and one more when the destination is padded.
 ///
 /// Thread-safe with respect to the coverage, which is only read. Runs on the operation's admitted
 /// threads. A stop may leave the destination partly written.

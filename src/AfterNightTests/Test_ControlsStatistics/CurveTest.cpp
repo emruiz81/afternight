@@ -27,7 +27,8 @@ namespace
 
 namespace fixtures = an::tests::fixtures;
 
-/// Keeps every curve the widget reports.
+/// Keeps every curve the widget reports, and what it reported in order: each change, each point taken hold of and each
+/// let go.
 class RecordingListener : public CurvesWidgetListener
 {
 public:
@@ -35,10 +36,17 @@ public:
     {
         ++updates;
         last = curve;
+        events.emplace_back("changed");
+    }
+
+    void onCurvePointHeld(const bool held) override
+    {
+        events.emplace_back(held ? "held" : "let go");
     }
 
     int updates = 0;
     an::ui::ToneCurveModel last;
+    std::vector<std::string> events;
 };
 
 [[nodiscard]] an::ui::ToneCurveModel threePoints(const an::CurveInterpolation interpolation)
@@ -290,6 +298,45 @@ TEST(CurvesWidgetTest, ClickingTheCurveAddsAPointDraggingMovesItAndARightClickRe
     EXPECT_EQ(curves.widget.getCurve().size(), 3u);
     curves.press(curves.at(moved.points()[1].input, moved.points()[1].output), Qt::RightButton);
     EXPECT_EQ(curves.widget.getCurve().size(), 2u);
+    curves.widget.setListener(nullptr);
+}
+
+// A left press on a point, or on the curve where it makes one, takes hold of the point before the curve changes, and
+// the release lets it go: the changes in between are one drag, which a preview shows as a held slider's. A press away
+// from the curve, or with another button, takes hold of nothing.
+TEST(CurvesWidgetTest, APointIsHeldFromTheLeftPressThatTakesItToTheRelease)
+{
+    ClickableCurves curves;
+    curves.widget.setHistogramEnabled(false);
+    RecordingListener listener;
+    curves.widget.setListener(&listener);
+    curves.widget.setCurve(threePoints(an::CurveInterpolation::Linear));
+    EXPECT_EQ(curves.widget.pointPosition(1u), curves.at(0.3, 0.5).toPoint()) << "where the middle point is drawn";
+    EXPECT_EQ(curves.widget.pointPosition(3u), QPoint()) << "a point past the last";
+
+    listener.events.clear();
+    curves.press(curves.widget.pointPosition(1u), Qt::LeftButton);
+    curves.move(curves.at(0.3, 0.6));
+    curves.move(curves.at(0.3, 0.7));
+    curves.release(curves.at(0.3, 0.7), Qt::LeftButton);
+    EXPECT_EQ(listener.events, (std::vector<std::string>{"held", "changed", "changed", "let go"}));
+    EXPECT_NEAR(curves.widget.getCurve().points()[1].output, 0.7, 0.01);
+
+    // The point the press makes is held before the curve that has it is reported.
+    listener.events.clear();
+    const QPointF onTheCurve = curves.at(0.8, curves.widget.getCurve().evaluate(0.8));
+    curves.press(onTheCurve, Qt::LeftButton);
+    curves.release(onTheCurve, Qt::LeftButton);
+    EXPECT_EQ(listener.events, (std::vector<std::string>{"held", "changed", "let go"}));
+    EXPECT_EQ(curves.widget.getCurve().size(), 4u);
+
+    listener.events.clear();
+    curves.press(curves.at(0.6, 0.05), Qt::LeftButton);
+    curves.release(curves.at(0.6, 0.05), Qt::LeftButton);
+    curves.press(curves.at(0.0, 0.0), Qt::RightButton);
+    curves.release(curves.at(0.0, 0.0), Qt::RightButton);
+    EXPECT_TRUE(listener.events.empty()) << "a press away from the curve, or a right press on an end point, held "
+                                         << listener.events.size() << " events";
     curves.widget.setListener(nullptr);
 }
 

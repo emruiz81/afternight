@@ -12,16 +12,28 @@
 /// shown only while it is the one last asked for, the proxies are made on the thread pool under admitted operations,
 /// and a window that is closed stops what it started and waits for none of it.
 ///
-/// **A proxy is the file as it is shown.** Each file is read as the view reads it - a mosaic demosaiced by the one
-/// demosaic setting - stretched by the view's automatic stretch into fractions of full scale and written as eight-bit
-/// FITS, since linear samples narrowed to eight bits unstretched would be nearly black. The preview shows proxies
-/// without stretching them again and the original files with the automatic stretch.
+/// **A proxy is the file as the autostretch display shows it.** Each file is read as the view reads it - a mosaic
+/// demosaiced by the one demosaic setting - stretched by the view's automatic stretch into fractions of full scale and
+/// written as eight-bit FITS, since linear samples narrowed to eight bits unstretched would be nearly black. A proxy
+/// keeps the stretch settings it was written through.
+///
+/// **The display mode keeps its meaning.** The preview plays the proxies only while it shows the autostretch display
+/// with the settings they hold, and presents them as they are, since they are that display. The linear display, or
+/// other settings, shows the original files, so the picture is always the one the mode selector names; the proxies
+/// come back, unwritten, with the display they hold. Optimizing under other settings replaces every proxy. No display
+/// needs a proxy to play: without one, the files themselves play, the autostretch display stretching each frame as it
+/// is shown; the proxies make it faster.
+///
+/// **A file is measured once.** The statistics the preview's overlay shows and the histogram's counts are each file's,
+/// measured from the file - never from its proxy - and kept while it is listed: by the optimization, which reads every
+/// file anyway, or one file at a time as frames are shown, so a frame shown again, or played, is measured by nothing.
 #pragma once
 
 #include "AfterNightProcessesExport.h"
 
 #include "controls/TopLevelProcessBaseControl.h"
 #include "processes/ImageListAnalyzerProcessUiBuilder.h"
+#include "widgets/HistogramDisplayData.h"
 
 #include <QString>
 #include <QStringList>
@@ -31,6 +43,7 @@
 #include <string>
 #include <unordered_map>
 
+class AutostretchParams;
 class ImageViewControl;
 class QAbstractButton;
 
@@ -61,7 +74,8 @@ public:
     /// Removes files from the list, and their proxies.
     void removeItems(const std::vector<QString>& items);
 
-    /// Writes a proxy of every file that has none, as Optimize For Fast Play does.
+    /// Writes a proxy of every file that has none holding the preview's automatic stretch settings, as Optimize For
+    /// Fast Play does.
     void optimize();
 
     /// Opens Export Sequence over the original files, as the button does.
@@ -73,11 +87,15 @@ public:
     /// The preview view.
     [[nodiscard]] ImageViewControl* previewView() const;
 
-    /// Whether nothing the window started is on its way: no probe, no proxy, no preview sequence.
+    /// Whether nothing the window started is on its way: no probe, no proxy, no preview sequence, no change of the
+    /// preview's display still to be followed.
     [[nodiscard]] bool isIdle() const;
 
-    /// Whether every listed file has a proxy.
+    /// Whether every listed file has a proxy holding the preview's automatic stretch settings.
     [[nodiscard]] bool imagesOptimized() const;
+
+    /// How many times a file was read and measured for its statistics, by the optimization or on its own.
+    [[nodiscard]] std::uint64_t filesMeasured() const;
 
     /// The proxy of a file, or empty.
     [[nodiscard]] QString proxyPathOf(const QString& path) const;
@@ -106,6 +124,26 @@ private:
     void previewFrameShown();
     /// Takes the rate the preview's player shows as the window's, when a player shows one.
     void keepPlayerRate();
+    /// The preview's display mode or automatic stretch settings changed: heard from the view while it changes them,
+    /// followed from the event loop, once for every change heard until then.
+    void previewDisplayChanged();
+    /// Shows what the preview's display is now: the proxies in the autostretch display they hold, the original files
+    /// in any other.
+    void followPreviewDisplay();
+    /// Whether proxies written through these stretch settings are the display the preview is in.
+    [[nodiscard]] bool proxiesHoldTheDisplay(const AutostretchParams& stretch) const;
+    /// Whether the preview plays the proxies: every file has one, holding the display the preview is in.
+    [[nodiscard]] bool previewPlaysProxies() const;
+    /// Clears the preview at once when it shows proxies that no longer hold its display.
+    void dropProxiesOfAnotherDisplay();
+    /// Shows the statistics of the frame shown from the event loop, once the sequence states which frame it is.
+    void queueFrameStatistics();
+    /// The listed file whose frame the preview shows, or empty.
+    [[nodiscard]] QString shownFile() const;
+    /// Shows the kept statistics of the frame shown, or nothing while its file is measured.
+    void showFrameStatistics();
+    /// Measures a file's statistics on the thread pool, unless another file is being measured.
+    void measureStatistics(const QString& file, an::ui::HistogramResolution resolution);
     void rebuildPreviewSequence();
     void updateOptimizationControls();
     void updateSummaryAndHistogram();

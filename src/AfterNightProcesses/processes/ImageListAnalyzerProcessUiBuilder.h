@@ -242,8 +242,8 @@ public:
                                                         "Reset all parameters to their default values.", nullptr));
         optimizeButton->setToolTip(QCoreApplication::translate(
             "ImageListAnalyzerProcess",
-            "Optimise the image sequence for fast playback by writing a stretched, full-resolution 8-bit proxy of "
-            "every image.",
+            "Optimise the image sequence for fast playback in the Autostretch display by writing a full-resolution "
+            "8-bit proxy of every image, stretched by the preview's Autostretch settings.",
             nullptr));
         exportSequenceButton->setToolTip(QCoreApplication::translate(
             "ImageListAnalyzerProcess", "Export the analysed image sequence to a SER, AVI, MP4 or WebM file.",

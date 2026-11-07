@@ -115,6 +115,26 @@ TEST(GeneralFilterTest, DetailPlanStatesHighPassAndUnsharpArithmetic)
     }
 }
 
+// The low pass runs through the stencil family's separable path, so a sigma whose Gaussian the stencil family's
+// widest kernel does not hold is refused by name, though the Gaussian's own plan accepts it.
+TEST(GeneralFilterTest, ADetailPlanIsHeldToTheStencilFamilysWidestKernel)
+{
+    ASSERT_TRUE(an::planGaussianBlur({.sigmaX = 40.0, .sigmaY = 40.0}).hasValue());
+    for (const an::DetailFilterMethod method : {an::DetailFilterMethod::HighPass, an::DetailFilterMethod::UnsharpMask})
+    {
+        an::DetailFilterRequest request{};
+        request.method = method;
+        request.sigmaX = 40.0;
+        request.sigmaY = 40.0;
+        const an::Result<an::DetailFilterPlan> refused = an::planDetailFilter(request);
+        ASSERT_FALSE(refused.hasValue());
+        EXPECT_EQ(refused.status().code(), an::ErrorCode::OutOfRange);
+        request.sigmaX = 32.0;
+        request.sigmaY = 32.0;
+        EXPECT_TRUE(an::planDetailFilter(request).hasValue());
+    }
+}
+
 TEST(GeneralFilterTest, EdgeTightenUsesFourSharedDenseStencilsAndAReusablePlan)
 {
     const an::EngineContext engine = makeEngine();

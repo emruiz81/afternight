@@ -124,6 +124,31 @@ TEST(AboutDialogTest, AboutDialog_CopyrightRunsFromTheYearOfFirstPublication)
     }
 }
 
+// The About tab links the author's public profiles, sends bugs to the issue tracker and points at the website; it
+// shows no email address, which stays on the License tab for licensing questions.
+TEST(AboutDialogTest, AboutDialog_AboutLinksTheAuthorsProfilesAndTheIssueTracker)
+{
+    AboutDialog dialog;
+
+    auto* aboutBrowser = dialog.findChild<QTextBrowser*>(QStringLiteral("aboutBrowser"));
+    auto* licenseBrowser = dialog.findChild<QTextBrowser*>(QStringLiteral("licenseBrowser"));
+    ASSERT_NE(aboutBrowser, nullptr);
+    ASSERT_NE(licenseBrowser, nullptr);
+
+    const QString about = aboutBrowser->toHtml();
+    for (const QString& url :
+         {QStringLiteral("https://ezequielruiz.com/"), QStringLiteral("https://github.com/emruiz81"),
+          QStringLiteral("https://www.flickr.com/photos/190474290@N08/"),
+          QStringLiteral("https://www.instagram.com/ezequiel.matias.ruiz/"),
+          QStringLiteral("https://github.com/emruiz81/afternight/issues"),
+          QStringLiteral("https://afternightastro.org/")})
+    {
+        EXPECT_TRUE(about.contains(QStringLiteral("href=\"%1\"").arg(url))) << url.toStdString();
+    }
+    EXPECT_FALSE(about.contains(QStringLiteral("mailto:")));
+    EXPECT_TRUE(licenseBrowser->toHtml().contains(QStringLiteral("mailto:ezequiel.ruiz@gmail.com")));
+}
+
 TEST(AboutDialogTest, AboutDialog_LicenseMentionsAutoGradientRemovalProvenance)
 {
     AboutDialog dialog;

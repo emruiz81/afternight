@@ -6,7 +6,9 @@
 /// the step selected, and the actions that jump to, clone and remove a step and save the history as text.
 ///
 /// Selecting a step previews it without changing the view: the step's image is read and presented on a worker and
-/// shown when it lands, if the selection has not moved on. Cloning reads the step the same way and makes a new view of
+/// shown when it lands, if the selection has not moved on - a step that is linear data stretched as the recent files'
+/// thumbnails stretch it, anything else as it is. The step's title and details keep a set number of lines, so the
+/// preview stays where it is from one step to the next. Cloning reads the step the same way and makes a new view of
 /// it; jumping and removing ask the history, which restores on a worker of its own.
 #pragma once
 

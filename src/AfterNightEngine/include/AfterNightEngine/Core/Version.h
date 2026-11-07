@@ -24,7 +24,7 @@ namespace an
 inline constexpr int kEngineVersionMajor = 1;
 
 /// Minor version. Incremented when the public surface gains something without losing anything.
-inline constexpr int kEngineVersionMinor = 0;
+inline constexpr int kEngineVersionMinor = 4;
 
 /// Patch version. Incremented for a change that leaves the public surface as it was.
 inline constexpr int kEngineVersionPatch = 0;
@@ -34,7 +34,7 @@ inline constexpr int kEngineVersionPatch = 0;
 /// Written out rather than assembled from the constants above, because assembling a string literal
 /// from integers needs the preprocessor and this header is deliberately macro-free. A test asserts
 /// that this spelling and those numbers agree, so the duplication cannot drift silently.
-inline constexpr const char* kEngineVersionString = "1.0.0";
+inline constexpr const char* kEngineVersionString = "1.4.0";
 
 /// Generation of the engine's binary interface: the layout of its public types and the signatures
 /// of its exported functions.
@@ -54,7 +54,7 @@ inline constexpr const char* kEngineVersionString = "1.0.0";
 /// wrong about data it passes or reads. A virtual table a caller implements is a layout in this
 /// sense. `build/scripts/tools/check_public_api.py` compares the published declarations with the
 /// recorded surface and fails such a change while this number stays where it was.
-inline constexpr int kEngineAbiGeneration = 1;
+inline constexpr int kEngineAbiGeneration = 2;
 
 /// A three-part version number.
 ///

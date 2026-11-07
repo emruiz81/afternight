@@ -6,7 +6,8 @@
 /// publishes through `publishStretchOfSource` is what the working copy publishes - every sample, the description, the
 /// metadata and the validity - for every code wherever it lies, in the last partial vector of a row as in its middle,
 /// with one transfer for every channel, a transfer of each channel's own and a channel left alone; and an image or a
-/// stretch a lookup could not answer exactly (`stretchLooksUpCodes`) is left to the working copy.
+/// stretch a lookup could not answer exactly (`stretchLooksUpCodes`) is left to the working copy. A body that wrote its
+/// stretch where the run writes publishes it there, restated where it is.
 #include "StretchingTestSupport.h"
 
 #include <AfterNightEngine/Algorithms/Pointwise/MidtonesTransfer.h>
@@ -251,6 +252,62 @@ TEST(StretchCodeLookupTest, WhatALookupCouldNotAnswerExactlyIsLeftToTheWorkingCo
     EXPECT_TRUE(
         looksUp(imageOf<std::uint16_t>(engine, kWidth, kHeight, Channels::Rgb, planar), linearLuminance, everyValid))
         << "a linear stretch is independent whatever its mode";
+}
+
+// A body that wrote its stretch where the run writes - the curves transformation's does - publishes the destination's
+// own samples: they are restated where they are, the same image and the same samples with nothing of them copied, under
+// the metadata `stretchedMetadata` states and the source's validity. A rectangle of them cannot be the destination.
+TEST(StretchPublicationTest, ADestinationsOwnSamplesArePublishedWhereTheyAre)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext();
+    ASSERT_NE(context, nullptr);
+    const an::consumer::EngineSession& session = context->engineSession();
+    std::optional<an::consumer::ImageAsset> asset = an::tests::viewer::makeAsset<float>(
+        session, 64u, 48u, Channels::Rgb, [](std::uint32_t x, std::uint32_t y, std::uint32_t channel) {
+            return 0.05f + 0.01f * static_cast<float>((x + 2u * y + 3u * channel) % 64u);
+        });
+    ASSERT_TRUE(asset.has_value());
+    an::Result<an::consumer::AssetReadLease> lease = asset->read();
+    ASSERT_TRUE(lease.hasValue());
+    std::optional<an::consumer::OperationScope> scope = an::tests::viewer::admitted(session);
+    ASSERT_TRUE(scope.has_value());
+    const an::ui::ProcessSource source = an::ui::ProcessSource::of(*lease);
+    an::Result<an::ui::ProcessDestination> destination =
+        an::ui::ProcessDestination::copyOf(session, scope->engine(), scope->execution(), source);
+    ASSERT_TRUE(destination.hasValue()) << destination.status().message();
+    const auto samplesOf = [](const an::consumer::AnyImage& image) {
+        return std::visit([](const auto& typed) -> const void* { return typed.view()->data(); }, image);
+    };
+    const auto metadataOf = [](const an::consumer::AnyImage& image) {
+        return std::visit([](const auto& typed) { return typed.metadata(); }, image);
+    };
+    const an::ui::processes::StretchRecord record{.effect = an::kStretchImageEffect,
+                                                  .operation = "an::stretchImage",
+                                                  .detail = "written where the run writes",
+                                                  .processingOperation = "publication case"};
+    const std::uint64_t identity = destination->asset().assetIdentity();
+    const void* const samples = samplesOf(destination->asset().image());
+    const an::ImageMetadata unpublished = metadataOf(destination->asset().image());
+
+    const an::Status part = an::ui::processes::publishStretchResult(session, scope->engine(), scope->execution(),
+                                                                    source, destination->asset().image(),
+                                                                    QRect(0, 0, 16, 12), record, *destination);
+    EXPECT_EQ(part.code(), an::ErrorCode::IncompatibleArguments) << "a rectangle of the destination was published";
+    EXPECT_TRUE(metadataOf(destination->asset().image()) == unpublished) << "the refused publication changed it";
+
+    const an::Status published =
+        an::ui::processes::publishStretchResult(session, scope->engine(), scope->execution(), source,
+                                                destination->asset().image(), QRect(), record, *destination);
+    ASSERT_TRUE(published.ok()) << published.message();
+    EXPECT_EQ(destination->asset().assetIdentity(), identity) << "the result was replaced by a copy of it";
+    EXPECT_EQ(samplesOf(destination->asset().image()), samples) << "the result's samples were copied";
+    const std::optional<an::ImageDescriptor> described = source.descriptor();
+    ASSERT_TRUE(described.has_value());
+    const an::Result<an::ImageMetadata> expected =
+        an::ui::processes::stretchedMetadata(source.metadata(), *described, record);
+    ASSERT_TRUE(expected.hasValue()) << expected.status().message();
+    EXPECT_TRUE(metadataOf(destination->asset().image()) == *expected) << "the metadata is not the stretch's";
+    EXPECT_EQ(destination->asset().validity() == nullptr, source.validity() == nullptr);
 }
 
 } // namespace an::tests::processes::stretching

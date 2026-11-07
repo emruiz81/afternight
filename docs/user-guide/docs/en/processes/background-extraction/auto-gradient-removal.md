@@ -25,7 +25,7 @@ correction, especially around extended nebulae, galaxy halos, and mosaics.
 | Inputs | One grayscale or color still image in any integer or floating sample type. Integer samples are worked on as fractions of their code range. No sample grid or reference image is required. |
 | Outputs | The selected target is updated only after a successful Apply. Optional `<target> - AGR Gradient` and `<target> - AGR Protection Mask` views open beside it. No file is written automatically. |
 | Recommended image state | A calibrated, registered, linear master before color calibration and stretch. The process does not enforce linearity and does not record the corrected image as nonlinear. |
-| Preview support | On request. The preview shows the unchanged target until **Preview** is clicked, then the corrected image, gradient model, or protection mask of the whole image. Any setting change returns it to the target. Preview-area selection is disabled. |
+| Preview support | On request. The preview shows the unchanged target until **Preview** is clicked, then the corrected image, gradient model, or protection mask of the whole image. One preview run makes all three, so changing **Preview display** afterwards shows each at once. Any setting change returns it to the target. Preview-area selection is disabled. |
 | Sequence support | Unsupported. A run on a sequence is refused with an error saying the process works on a still image. |
 | Mask support | The model is always estimated without the image-view mask. An enabled mask, including inversion, is blended into every computed preview display and into the corrected target on Apply. The gradient and protection views created by Apply are not masked. |
 | External dependencies | None for the user. The background estimate is built into AfterNight. |
@@ -59,7 +59,9 @@ correction, especially around extended nebulae, galaxy halos, and mosaics.
    the preview to the target and enables the button again. For consistent
    diagnostic views, keep the target's image-view mask disabled while tuning.
 4. Set **Preview display** to **Gradient model**. Once a preview has been
-   computed, switching the display computes the new display at once. The model
+   computed, switching the display shows the new display at once: the preview
+   run made the corrected image, the model and the protection mask together,
+   so nothing is computed again. The model
    should contain the unwanted broad illumination pattern, not detailed stars
    or the main outline of the target.
 5. Set **Preview display** to **Protection mask** to inspect excluded positive
@@ -91,13 +93,13 @@ correction, especially around extended nebulae, galaxy halos, and mosaics.
 | Threshold | Normalized sample-value difference | `0.050` | None | `0.000`–`1.000`; step `0.005` | A residual must exceed this value above the residuals' robust center to seed structure protection. Lower values protect more pixels; higher values protect fewer. | Enabled only with **Protect bright structures**. | Too low can reject ordinary background variation; too high can allow bright nebulosity or halos into the model. | Internal protection per channel; preview and Apply | Window lifetime; Apply retains the value; Reset or reopening restores `0.050`. |
 | Amount | Normalized protection expansion strength | `0.50` | None | `0.00`–`1.00`; step `0.05` | Higher values use a larger growth radius and a lower cutoff, producing broader protected regions. | Enabled only with **Protect bright structures**. | Too little can leave bright outskirts in the fit; too much can leave too little background evidence. | Internal protection per channel; preview and Apply | Window lifetime; Apply retains the value; Reset or reopening restores `0.50`. |
 | Mode | Selector | **Subtraction** | None | **Subtraction** or **Division** | Subtraction removes an additive model while restoring its median level. Division removes a multiplicative model and rescales by its median. | Always enabled when idle. | Division can amplify noise where the model is small; either mode clips values outside `[0,1]`. | Corrected image; every channel; preview and Apply | Window lifetime; Apply retains the choice; Reset or reopening restores **Subtraction**. |
-| Preview display | Selector | **Corrected image** | None | **Corrected image**, **Gradient model**, or **Protection mask** | Chooses what a computed preview shows. Once a preview has been computed, switching displays computes the new display. It does not change Apply output. | Requires **Enable preview**. **Protection mask** is disabled when structure protection is off. Every computed display is blended with an active image-view mask. | Diagnostic displays help find overfitting without extra output views; disable the image-view mask for consistent comparisons. | Preview only; all channels as produced | Window lifetime; Apply retains the choice; Reset or reopening restores **Corrected image**. |
-| Preview | Button | Ready while no preview has been computed for the current settings | None | Click action | Runs the Apply's computation over the whole image for the selected display. Until it is clicked, and after any setting or target change, the preview shows the target. | Requires **Enable preview**, idle controls, and no preview already computed for the current settings. | Full-image estimation can be expensive; only the latest requested preview is shown. | Preview only; still image only | No persistence. |
-| Create gradient model image | Checkbox | Off | None | Off/On | Requests a separate unmasked gradient-model view after successful Apply. | Does not control preview availability. | Adds a full-size image in the target's sample type, and Apply estimates the background a second time to draw it. | Apply only; all channels; still image only | Window lifetime; Apply retains the choice; Reset or reopening turns it off. |
+| Preview display | Selector | **Corrected image** | None | **Corrected image**, **Gradient model**, or **Protection mask** | Chooses what a computed preview shows. Once a preview has been computed, switching displays shows the new display at once, without computing again. It does not change Apply output. | Requires **Enable preview**. **Protection mask** is disabled when structure protection is off. Every computed display is blended with an active image-view mask. | Diagnostic displays help find overfitting without extra output views; disable the image-view mask for consistent comparisons. A computed preview holds every display's image, up to three full-size images, until a setting, the target or its mask changes or the preview is turned off. | Preview only; all channels as produced | Window lifetime; Apply retains the choice; Reset or reopening restores **Corrected image**. |
+| Preview | Button | Ready while no preview has been computed for the current settings | None | Click action | Runs the Apply's computation over the whole image once, making the corrected image, the gradient model and, with protection, the protection mask, and shows the selected display. Until it is clicked, and after any setting or target change, the preview shows the target. | Requires **Enable preview**, idle controls, and no preview already computed for the current settings. | Full-image estimation can be expensive; only the latest requested preview is shown. | Preview only; still image only | No persistence. |
+| Create gradient model image | Checkbox | Off | None | Off/On | Requests a separate unmasked gradient-model view after successful Apply. | Does not control preview availability. | Adds a full-size image in the target's sample type, drawn from the estimate the correction uses. | Apply only; all channels; still image only | Window lifetime; Apply retains the choice; Reset or reopening turns it off. |
 | Create protection mask image | Checkbox | Off | None | Off/On | Requests a separate unmasked binary protection-mask view after successful Apply. | Enabled and honored only with **Protect bright structures**. | Adds a full-size image in the target's sample type. For color input the mask has one independently estimated channel per source channel. | Apply only; still image only | Window lifetime; Apply retains the choice; disabling protection clears it; Reset or reopening turns it off. |
 | Enable preview | Checkbox | On | None | Off/On | Shows the preview pane. Turning it off closes the pane, discards the computed preview, and disables **Preview display** and **Preview** without changing Apply settings. | Preview controls require it; Apply does not. | Turning it off avoids preview computation while editing expensive settings. | Preview only | Window lifetime; returns on when the process is reopened. |
 | Target image | Image selector | Image used to launch the process | None | Open still-image views only | Changes the source and destination target. Changing the target returns the preview to the target until **Preview** is clicked again. | Sequence targets are not offered. | A large target increases time and memory. | Preview and Apply; still image only | Current window selection only. |
-| Preview-pane viewer actions | Viewer toolbar actions | Viewer defaults | Viewer-setting dependent | Fit/zoom/pan, display channel, autostretch, and snapshot actions supplied by the standard RT preview | Change only preview presentation or save a preview snapshot; they do not change the model parameters. Autostretch statistics follow the currently rendered corrected/model/mask result. | Available with the preview pane; preview-area selection is deliberately unavailable. | Display stretch can make two identical data results look different; compare with matching view settings. | Preview presentation only | Viewer/session behavior; see [Process Windows](../../interface/process-windows.md). |
+| Preview-pane viewer actions | Viewer toolbar actions | Viewer defaults | Viewer-setting dependent | Fit/zoom/pan, display channel, autostretch, and snapshot actions supplied by the standard RT preview | Change only preview presentation or save a preview snapshot; they do not change the model parameters. In autostretch the target and the corrected image are stretched through the target's statistics, so the original shown by right-clicking and the corrected image compare under one stretch; a computed gradient model or protection mask is stretched by its own statistics, which show the model's broad pattern rather than a flat grey. | Available with the preview pane; preview-area selection is deliberately unavailable. | Display stretch can make two identical data results look different; compare with matching view settings. | Preview presentation only | Viewer/session behavior; see [Process Windows](../../interface/process-windows.md). |
 | Apply | Button | Enabled while idle | None | Requires a valid still target | Runs the full process with a cancellable progress dialog, blends an active view mask into the corrected target, updates the target, records history, and opens requested unmasked diagnostics. | Disabled during execution. | Uses full target resolution for correction and output; cancellation or failure publishes nothing. | Apply only; still image only | Current control values remain for another Apply; Reset or reopening restores defaults. |
 | Reset | Button | — | None | Click action | Restores every process-specific runtime default and returns the preview to the target. | Disabled during execution. | Any preview shown after reset must be requested again before judging the default result. | Process window | No persistence. |
 | Close | Button | — | None | Click action | Closes the process window. | Disabled during execution. | Unapplied parameter changes are discarded. | Process window | No persistence. |
@@ -271,9 +273,9 @@ particular camera or target.
 - A color target produces independent color-channel models and mask planes; the
   diagnostic protection image is not collapsed to one grayscale union. Each
   protected working pixel covers its whole **Downsample** block in the mask.
-- Preview computes only the display it shows, regardless of the two
-  Apply-output checkboxes. No temporary or output file is written
-  automatically.
+- A computed preview makes all three displays from one estimate, regardless
+  of the two Apply-output checkboxes, and keeps them while it is shown. No
+  temporary or output file is written automatically.
 
 ## Performance
 
@@ -283,9 +285,12 @@ and polynomial term count. The box low-pass is a running sum, so its cost does
 not grow with **Scale** or **Smoothness**. Channels are estimated one at a
 time in a few single-precision working rasters of the downsampled size; the
 correction reads the model as it writes and never builds a full-size model.
-Apply works on a full-size copy of the image, and each requested output adds a
-full-size image and makes Apply estimate the background a second time. The
-work runs in parallel on the threads the operation is given.
+Apply works on a full-size copy of the image and estimates the background
+once; each requested output adds a full-size image drawn from that estimate. A
+computed preview estimates once too and keeps the corrected image, the model
+and, with protection, the mask - up to three full-size images beside the
+target - so switching **Preview display** computes nothing. The work runs in
+parallel on the threads the operation is given.
 
 Use **Downsample** `4` or `8` for initial comparisons. Use `2` or `1` only when
 the model preview shows that coarse estimation misses relevant variation. Since
@@ -338,7 +343,8 @@ the model for the full field.
   different surfaces, so inspect color balance after correction.
 - Full-image preview deliberately disables area selection to keep the preview
   model consistent with full Apply. It is computed only when **Preview** is
-  clicked and can be slow on large images.
+  clicked and can be slow on large images; switching **Preview display**
+  afterwards is immediate.
 - Parameters are not saved as a reusable process preset. Successful Apply keeps
   the current control values in the open process window; Reset or reopening the
   process restores runtime defaults.

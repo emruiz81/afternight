@@ -66,6 +66,7 @@ class ImageReads;
 class IViewAttachment;
 class IViewHistory;
 class IViewSequencePlayer;
+struct ViewImageStatistics;
 struct ViewOverlayStars;
 } // namespace an::ui
 
@@ -197,6 +198,21 @@ public:
 
     void setAutoDebayerCfaImagePreviews(bool enabled);
     [[nodiscard]] bool isAutoDebayerCfaImagePreviewsEnabled() const;
+
+    /// Whether the static preview measures the statistics its overlay shows, for every image it shows - as it does
+    /// unless told otherwise - or shows only those it is handed (`showPreviewStatistics`): a preview of a list of files
+    /// whose owner keeps each file's statistics, so that a file shown again is not measured again.
+    ///
+    /// @param measures whether the preview measures them.
+    void setMeasuresPreviewStatistics(bool measures);
+
+    /// Shows statistics in the static preview's overlay, measured elsewhere for the image it shows.
+    ///
+    /// @param statistics the statistics, or nothing to show none.
+    void showPreviewStatistics(const std::optional<an::ui::ViewImageStatistics>& statistics);
+
+    /// The statistics the static preview's overlay shows now, or nothing.
+    [[nodiscard]] std::optional<an::ui::ViewImageStatistics> previewStatistics() const;
 
     /// Writes the view's image to a file, in the container its extension names, as the export settings decide. The
     /// write runs on the calling thread under a read lease; the view's pending changes are cleared only when the

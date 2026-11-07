@@ -12,7 +12,7 @@ choose safe storage/defaults, open one known small file, and understand the
 transition from the dashboard to the processing workspace. It is for a new user
 or a user starting with a fresh profile.
 
-You need a successfully installed/deployed AfterNight 1.0.0 runtime and a local
+You need a successfully installed/deployed AfterNight 1.0.1 runtime and a local
 file that the authoritative [File Formats](../reference/file-formats.md) page
 lists as readable. At the end, the image/sequence view should open without
 altering the source file, and closing the last view should return to the
@@ -54,7 +54,7 @@ empty/error-state, and transition reference.
 
 1. Start AfterNight. In the identity bar, compare the displayed version with
    the installed package/build you intended to run. The application shows
-   v1.0.0, the version the installer and the AppImage name.
+   v1.0.1, the version the installer and the AppImage name.
 2. Identify the state:
    - No recents: confirm **Welcome to AfterNight**, the **Open Image**, **New
      Sequence**, and **Image Integration** cards, and the drop zone.
@@ -165,7 +165,7 @@ the chosen batch was accidental.
 
 - Evidence mode: Source-and-test-derived; no approved onboarding image was
   opened.
-- Starting state: AfterNight 1.0.0, a fresh or known profile, and one backed-up
+- Starting state: AfterNight 1.0.1, a fresh or known profile, and one backed-up
   small local still listed as readable in File Formats.
 - Actions: verify the identity-bar version; confirm/write-test the temporary
   directory in Settings; open the file; wait for **File Open** to close; close

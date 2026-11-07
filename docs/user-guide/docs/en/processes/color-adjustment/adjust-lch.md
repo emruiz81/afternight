@@ -215,7 +215,7 @@ direction a signed scale calls `-160°`.
 | Error message includes `the LCh adjustment needs an image of red, green and blue` | The target, or a decoded sequence frame, is not three-channel RGB (grayscale, or color with alpha) | Supply RGB frames/valid auto-debayer; the target was not changed | `AdjustLChProcess::executeTypedProcessImpl` |
 | Pixels holding NaN are unchanged | Non-finite pixels are left as they were | Repair or replace them upstream if needed | `process_utils::skippingNonFinite` |
 | Snapshot carries no nonlinear record | Snapshots are Preview results and are not recorded | Apply on a duplicate for an archival result | `AdjustLChProcess::executeTypedProcessImpl`; `process_utils::recordNonlinearResult` |
-| Error names the memory budget | The session cannot hold the run's copies of the image | Close other images or work on a smaller crop; nothing was changed | `process_utils::openNormalizedDestination`; `process_utils::recordNonlinearResult` |
+| Error names the memory budget | The session cannot hold the run's copies of the image | Close other images or work on a smaller crop; nothing was changed | `process_utils::openNormalizedDestination` |
 | Sequence Cancel leaves the sequence as it was | Cancel stops the run between frames or inside the engine operation, and the target is replaced only when every frame succeeds | Expected; Apply again when ready | `ImageRTPreviewControl::runOverSequence`; `an::adjustImageLch` |
 
 ## Related workflow steps

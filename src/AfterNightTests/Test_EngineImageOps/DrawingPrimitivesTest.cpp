@@ -701,6 +701,42 @@ TEST(DrawingPrimitivesTest, AFeatherWiderThanOnePassAddsTheVariancesOfItsPasses)
     }
 }
 
+// A feather wider than the stencil family's widest kernel, over a plane more than twice its kernel's radius each way,
+// is one exact kernel on the compiled path rather than the passes the plan counts: the published Gaussian of the whole
+// deviation, sample for sample. Where the engine runs no such kernel - an execution held to the reference backend -
+// the plan's passes run instead.
+TEST(DrawingPrimitivesTest, AWideFeatherOverALargeEnoughPlaneIsOneKernel)
+{
+    constexpr std::uint32_t kWidth = 460u;
+    constexpr std::uint32_t kHeight = 430u;
+    const an::EngineContext engine = makeEngine();
+    const an::CoverageFeatherPlan plan = feather(100.0f);
+    ASSERT_EQ(plan.passes(), 3u) << "passes of kernels the stencil family holds";
+    const Plane coverage = discCoverage(kWidth, kHeight);
+    const an::Result<an::GaussianPlan> whole = an::planGaussianBlur({.sigmaX = plan.sigma(), .sigmaY = plan.sigma()});
+    ASSERT_TRUE(whole.hasValue()) << whole.status().message();
+
+    const an::ExecutionContext execution = makeExecution(engine);
+    Plane expected(kWidth, kHeight);
+    ASSERT_TRUE(an::blurImageGaussian(execution, an::SampleType::Float32, coverage.samples.data(),
+                                      coverage.constView().layout(), expected.samples.data(), expected.view().layout(),
+                                      *whole)
+                    .hasValue());
+    Plane destination(kWidth, kHeight);
+    const an::Result<an::CoverageFeatherResult> result =
+        an::featherCoverage(execution, plan, coverage.constView(), destination.view());
+    ASSERT_TRUE(result.hasValue()) << result.status().message();
+    EXPECT_EQ(result->passes, 1u);
+    EXPECT_EQ(destination.samples, expected.samples);
+
+    const an::ExecutionContext reference = makeExecution(engine, 3u, an::ComputeBackend::Reference);
+    Plane narrow(kWidth, kHeight);
+    const an::Result<an::CoverageFeatherResult> composed =
+        an::featherCoverage(reference, plan, coverage.constView(), narrow.view());
+    ASSERT_TRUE(composed.hasValue()) << composed.status().message();
+    EXPECT_EQ(composed->passes, 3u);
+}
+
 TEST(DrawingPrimitivesTest, AFeatherReadsItsCoverageFirstAndDoesNotDependOnTheNumberOfThreads)
 {
     const an::EngineContext engine = makeEngine(8u);

@@ -1037,7 +1037,7 @@ an::Result<an::consumer::ImageAsset> suppressGreen(const an::ui::ExecutionScope&
     }
     // The result is recorded nonlinear, under the process's name, on the processing-state cards.
     if (an::Status recorded = process_utils::recordNonlinearResult(
-            scope, *destination,
+            *destination,
             process_utils::NonlinearResultRecord{
                 .stateOperation = "scnr",
                 .engineOperation = "an::reduceImageChromaticNoise",

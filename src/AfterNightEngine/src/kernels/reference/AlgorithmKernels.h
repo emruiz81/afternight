@@ -464,10 +464,11 @@ using StencilColumnRunFn = void (*)(const double* band, std::uint64_t rowStride,
 using SymmetricGaussianHorizontalRunFn = void (*)(const float* source, float* destination, std::uint32_t width,
                                                   const float* taps, std::uint32_t radius) noexcept;
 
-/// One row of a symmetric Float32 vertical Gaussian pass over a tight plane.
-using SymmetricGaussianVerticalRunFn = void (*)(const float* source, float* destination, std::uint32_t width,
-                                                std::uint32_t height, std::uint32_t row, const float* taps,
-                                                std::uint32_t radius) noexcept;
+/// One row of a symmetric Float32 vertical Gaussian pass over a run of a plane's columns: `count` samples from the
+/// run's first column, the plane's rows `rowStride` samples apart.
+using SymmetricGaussianVerticalRunFn = void (*)(const float* source, float* destination, std::uint32_t count,
+                                                std::uint64_t rowStride, std::uint32_t height, std::uint32_t row,
+                                                const float* taps, std::uint32_t radius) noexcept;
 
 /// The lowest exponent the preview gamma table's vector run states a bound for.
 inline constexpr double kPreviewGammaVectorLowestExponent = 0.125;

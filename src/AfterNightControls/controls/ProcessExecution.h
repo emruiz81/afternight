@@ -35,6 +35,12 @@
 /// moves whenever the image changes, inside the dialog or outside it, so none is ever read for samples it was not made
 /// from. An Apply converts in the call.
 ///
+/// **A body may hand over results it made beside its own.** A process whose one computation makes several images a
+/// parameter only chooses among - the corrected frame, the surface it removed, the structure it kept out of the fit -
+/// writes the one the run asks for into the destination and hands the others to the run, each under the key a run for
+/// it would carry (`ProcessDestination::keepAlternative`). A preview blends each as it blends its result and keeps
+/// them, so a change to one of those parameters shows the image at once, with no new run.
+///
 /// Everything below runs on a worker under an admitted execution, except the channel choices table, which is the
 /// selector's, and the conversion cache, which is its dialog's.
 #pragma once
@@ -413,6 +419,18 @@ private:
     ProcessConversions* m_conversions = nullptr;
 };
 
+/// A result a body made beside the one it writes into its destination: the image a run whose parameters carry `key`
+/// would have made, from the same computation.
+struct ProcessAlternative
+{
+    /// What a preview finds the image by: the key the process names for the parameters that would have made it
+    /// (`ImageRTPreviewControl::previewResultKey`).
+    std::string key;
+
+    /// The image, an asset of the run's session that nothing else leases.
+    an::consumer::ImageAsset image;
+};
+
 /// Where a process body writes: an asset the run owns, held under its write lease.
 ///
 /// It has the source's description, metadata and validity, laid out a plane per channel. It starts as a copy of the
@@ -513,6 +531,21 @@ public:
     /// @return the asset, or `ErrorCode::NotInitialized` for a destination of nothing.
     [[nodiscard]] an::Result<an::consumer::ImageAsset> release();
 
+    /// Hands the run an image the body made beside its result: what a run whose parameters carry `key` would have
+    /// written here. A preview blends it by the modulation and the mask as it blends the result and keeps it, and
+    /// shows it when the parameters come to carry that key; every other run lets it go. One kept under the same key
+    /// before is replaced.
+    ///
+    /// @param key the key, not empty.
+    /// @param image the image, an asset of the run's session that nothing else leases, of the source's width and
+    /// height.
+    /// @return success; `ErrorCode::InvalidArgument` for an empty key; `ErrorCode::NotInitialized` for an image that
+    ///         holds nothing. On a failure nothing is kept.
+    [[nodiscard]] an::Status keepAlternative(std::string key, an::consumer::ImageAsset&& image);
+
+    /// Takes the images the body handed over, in the order it handed them, leaving none.
+    [[nodiscard]] std::vector<ProcessAlternative> takeAlternatives() noexcept;
+
 private:
     ProcessDestination(an::consumer::ImageAsset&& asset, an::consumer::AssetWriteLease&& lease,
                        bool holdsSource) noexcept;
@@ -520,6 +553,7 @@ private:
     an::consumer::ImageAsset m_asset;
     an::consumer::AssetWriteLease m_lease;
     bool m_holdsSource = false;
+    std::vector<ProcessAlternative> m_alternatives;
 };
 
 /// One entry of a process dialog's channel selector for a colour image.
@@ -663,6 +697,22 @@ struct ProcessBlendRequest
 [[nodiscard]] AFTERNIGHTCONTROLS_API an::Status
 blendProcessResult(const an::EngineContext& engine, const an::ExecutionContext& execution, const ProcessSource& source,
                    ProcessDestination& destination, const ProcessBlendRequest& request);
+
+/// Blends an image a body handed over beside its result (`ProcessDestination::keepAlternative`) toward the source as
+/// `blendProcessResult` blends the result, in place under its own write lease.
+///
+/// @param engine the engine context of the run's execution, for the working copies a conversion needs.
+/// @param execution the run's admitted execution.
+/// @param source what the run read.
+/// @param alternative the image, which nothing else leases.
+/// @param request the modulation and the mask.
+/// @return success; `ErrorCode::NotInitialized` for an image that holds nothing; `ErrorCode::Busy` for one something
+///         else leases; or what `blendProcessResult` refuses.
+[[nodiscard]] AFTERNIGHTCONTROLS_API an::Status blendProcessAlternative(const an::EngineContext& engine,
+                                                                        const an::ExecutionContext& execution,
+                                                                        const ProcessSource& source,
+                                                                        an::consumer::ImageAsset& alternative,
+                                                                        const ProcessBlendRequest& request);
 
 /// A rectangle of an image as a new asset of the run's session: the preview area's crop, through the engine's crop.
 ///

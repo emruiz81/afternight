@@ -206,8 +206,10 @@ struct BlendCompositionRequest
     BlendPreFilter filter = BlendPreFilter::None;
 
     /// The standard deviation of the blur and the high pass, in pixels - what the product's dialog calls the
-    /// radius. Finite and above `kMinimumGaussianSigma`; read by those two filters alone. One above about 32 runs
-    /// as several exact passes whose variances add up to it, so its cost grows with its square.
+    /// radius. Finite and above `kMinimumGaussianSigma`; read by those two filters alone. One above about 32 runs,
+    /// over a Float32 blend image more than twice its kernel's radius each way, as one exact kernel up to
+    /// `kMaxGaussianRadius` on the compiled symmetric path, whose cost grows with the deviation; elsewhere as several
+    /// exact passes whose variances add up to it, whose cost grows with its square.
     double filterSigma = 10.0;
 
     /// The colourizing filters' hue, in degrees; finite, wrapped modulo 360.
@@ -278,8 +280,10 @@ public:
         return m_request;
     }
 
-    /// How many exact Gaussian passes a blur or a high pass runs, each of the standard deviation over the square
-    /// root of their count; zero for the other filters.
+    /// The most exact Gaussian passes a blur or a high pass runs: those of kernels the stencil family holds, each of
+    /// the standard deviation over the square root of their count; zero for the other filters. Fewer run where the
+    /// compiled symmetric path takes a wider kernel over the blend image, as `BlendCompositionResult::gaussianPasses`
+    /// says; these run where the engine refuses it.
     ///
     /// @return the pass count.
     [[nodiscard]] std::uint32_t gaussianPasses() const noexcept

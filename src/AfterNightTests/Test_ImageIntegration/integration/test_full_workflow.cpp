@@ -28,6 +28,7 @@
 #include "processes/ImageIntegration/workflow/WorkflowArchiver.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutor.h"
 #include "processes/ImageIntegration/workflow/WorkflowManifest.h"
+#include "processes/ImageIntegration/workflow/WorkflowPreparation.h"
 #include "processes/ImageIntegration/workflow/stages/BiasStackingStage.h"
 #include "processes/ImageIntegration/workflow/stages/DarkStackingStage.h"
 #include "processes/ImageIntegration/workflow/stages/FlatStackingStage.h"
@@ -50,6 +51,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMap>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -1569,19 +1571,21 @@ TEST_F(FullWorkflowFixture, CachedGlobalAverageReusesArtifactWithoutRegisteredIm
     manifest.incrementalFlatGroups.clear();
     manifest.incrementalRegistrationGroups.clear();
     manifest.incrementalIntegrationGroups = {integration.groupKey};
-    auto recovery_executor = buildExecutor(true);
-    QStringList recovery_logs;
-    const auto recovery_result = executeWithLogs(*recovery_executor, manifest, recovery_logs);
-    ASSERT_TRUE(recovery_result.success) << recovery_result.errorMessage.toStdString() << "\n"
-                                         << formatLogMessages(recovery_logs).toStdString();
-    EXPECT_EQ(registered_file_count(), 2);
-    ASSERT_EQ(recovery_result.generatedLightMasters.size(), 1);
-    expectSameSamples(first_output_copy, recovery_result.generatedLightMasters.front(), 1e-6);
-    ASSERT_EQ(recovery_result.integrationGroupResults.size(), 1u);
-    EXPECT_TRUE(recovery_result.integrationGroupResults.front().registrationInputPolicy.contains(
-        QStringLiteral("Materialized registered images"), Qt::CaseInsensitive));
-    EXPECT_TRUE(recovery_result.integrationGroupResults.front().registrationInputPolicy.contains(
-        QStringLiteral("recovery"), Qt::CaseInsensitive));
+    // An incremental run reads the lights as the full run did: warped as the stack reads them, no registered image
+    // written.
+    auto incremental_executor = buildExecutor(true);
+    QStringList incremental_logs;
+    const auto incremental_result = executeWithLogs(*incremental_executor, manifest, incremental_logs);
+    ASSERT_TRUE(incremental_result.success) << incremental_result.errorMessage.toStdString() << "\n"
+                                            << formatLogMessages(incremental_logs).toStdString();
+    EXPECT_EQ(registered_file_count(), 0);
+    ASSERT_EQ(incremental_result.generatedLightMasters.size(), 1);
+    expectSameSamples(first_output_copy, incremental_result.generatedLightMasters.front(), 1e-6);
+    ASSERT_EQ(incremental_result.integrationGroupResults.size(), 1u);
+    EXPECT_TRUE(incremental_result.integrationGroupResults.front().registrationInputPolicy.contains(
+        QStringLiteral("Transform-on-read"), Qt::CaseInsensitive));
+    EXPECT_TRUE(incremental_result.integrationGroupResults.front().registrationInputPolicy.contains(
+        QStringLiteral("eligible"), Qt::CaseInsensitive));
 
     remove_registered_files();
     ASSERT_EQ(registered_file_count(), 0);
@@ -2216,4 +2220,151 @@ TEST_F(FullWorkflowFixture, InMemoryModeProducesValidStackedOutput)
     ASSERT_TRUE(stacked.has_value());
     EXPECT_EQ(stacked->samples.width(), kWidth);
     EXPECT_EQ(stacked->samples.height(), kHeight);
+}
+
+// After a full run, changing only a group's stacking method stacks it again and leaves its registered lights, its
+// normalization coefficients and its drizzle descriptors as the run left them, whether the group keeps its registered
+// images, has its lights warped as the stack reads them or drizzles them; and a run with nothing changed plans nothing.
+// A group whose registered images were discardable had them written by the second run, which measured its
+// coefficients again on them, and every later run planned the group again because no plan recognised a master its
+// stack had warped as it read. Each run is the product's: the model's manifest, planned through its snapshot and run
+// with it.
+TEST_F(FullWorkflowFixture, AChangedStackingMethodStacksAgainAndReusesTheAlignedAndNormalizedLights)
+{
+    enum class Route
+    {
+        Kept,
+        WarpedAsRead,
+        Drizzled
+    };
+    for (const Route route : {Route::Kept, Route::WarpedAsRead, Route::Drizzled})
+    {
+        const bool kept = route == Route::Kept;
+        const QString name = kept                           ? QStringLiteral("kept")
+                             : route == Route::WarpedAsRead ? QStringLiteral("warped_as_read")
+                                                            : QStringLiteral("drizzled");
+        SCOPED_TRACE(name.toStdString());
+        const QString root = ensureDir(QDir(tempPath()).filePath(name));
+        const QString frames_dir = ensureDir(QDir(root).filePath(QStringLiteral("frames")));
+        const QString output_dir = ensureDir(QDir(root).filePath(QStringLiteral("output")));
+
+        std::vector<FrameInfo> lights;
+        for (int index = 0; index < 4; ++index)
+        {
+            const QString path =
+                writeStarLight(frames_dir, QStringLiteral("light_%1.fit").arg(index), fieldStars(index % 2, 40u, 23u));
+            const FrameMetadata metadata(FrameType::Light, QSize(static_cast<int>(kWidth), static_cast<int>(kHeight)),
+                                         60.0, -10.0, 100, 10, QStringLiteral("L"), QStringLiteral("M42"),
+                                         QDateTime::fromSecsSinceEpoch(1700000000 + 60 * index, QTimeZone::UTC),
+                                         QStringLiteral("Default"));
+            lights.push_back(FrameInfo(FrameId(path), path, metadata, QStringLiteral("2025-01-01"), {}));
+        }
+        IntegrationDataModel model;
+        model.beginBatchUpdate();
+        model.addFrames(FrameType::Light, lights);
+        model.setOutputDirectory(output_dir);
+        model.endBatchUpdate();
+        ASSERT_EQ(model.integrationGroups().size(), 1u);
+        const GroupKey key = model.integrationGroups().front();
+        StackingSettings settings;
+        settings.registeredOutputPolicy =
+            route == Route::WarpedAsRead ? RegisteredOutputPolicy::Discardable : RegisteredOutputPolicy::Retained;
+        settings.drizzle.enabled = route == Route::Drizzled;
+        model.setStackingSettings(FrameType::Light, key, settings);
+
+        const auto prepare = [&]() {
+            return ImageIntegration::preparePlannedWorkflowExecution(
+                [&model]() { return ImageIntegration::buildFullWorkflowManifest(model, {}); }, std::nullopt,
+                []() { return false; }, {}, ImageIntegration::sessionFrameHeaderReader(*m_session));
+        };
+        const auto run = [&](const ImageIntegration::PreparedWorkflowExecution& prepared) {
+            WorkflowExecutionOptions run_options = options();
+            run_options.preparationSnapshot = prepared.preparationSnapshot;
+            auto executor = buildExecutor(true);
+            QStringList logs;
+            executor->setLogCallback([&logs](WorkflowLogLevel, const QString& message) { logs.append(message); });
+            const auto result = executor->execute(prepared.manifest, {}, run_options);
+            EXPECT_TRUE(result.success) << result.errorMessage.toStdString() << "\n"
+                                        << formatLogMessages(logs).toStdString();
+            return logs.join(QLatin1Char('\n'));
+        };
+        // The action a plan states for `stage`, or nothing when it plans no such stage.
+        const auto actionOf = [](const std::vector<ExecutionPlanDecision>& decisions,
+                                 const QString& stage) -> std::optional<ExecutionPlanDecision::Action> {
+            const auto it =
+                std::find_if(decisions.cbegin(), decisions.cend(),
+                             [&](const ExecutionPlanDecision& decision) { return decision.stage == stage; });
+            return it != decisions.cend() ? std::optional(it->action) : std::nullopt;
+        };
+
+        const auto first = prepare();
+        ASSERT_TRUE(first.success) << first.errorMessage.toStdString();
+        ASSERT_EQ(first.plan.mode, ExecutionMode::Full);
+        (void)run(first);
+        ASSERT_FALSE(HasFailure());
+
+        const QString registered_dir = QDir(output_dir).filePath(QStringLiteral("registered_lights"));
+        QMap<QString, qint64> registered;
+        QDirIterator registered_files(registered_dir, QDir::Files, QDirIterator::Subdirectories);
+        while (registered_files.hasNext())
+        {
+            const QString file = registered_files.next();
+            registered.insert(file, fileMtimeMs(file));
+        }
+        EXPECT_EQ(registered.size(), kept ? 4 : 0);
+        const auto& group = first.manifest.integrationGroups.front();
+        ASSERT_TRUE(group.normalizationCoefficientsArtifactPath.has_value());
+        const QString coefficients = *group.normalizationCoefficientsArtifactPath;
+        const QString master = QDir(output_dir).filePath(group.outputFilename);
+        const qint64 coefficients_written = fileMtimeMs(coefficients);
+        const qint64 master_written = fileMtimeMs(master);
+        ASSERT_GT(coefficients_written, 0);
+        ASSERT_GT(master_written, 0);
+        const QString drizzle_sidecar = ImageIntegration::drizzleGroupSidecarPath(
+            ImageIntegration::drizzleDescriptorDirectory(first.manifest, group));
+        const qint64 drizzle_written = fileMtimeMs(drizzle_sidecar);
+        EXPECT_EQ(drizzle_written > 0, route == Route::Drizzled);
+
+        const auto unchanged = prepare();
+        ASSERT_TRUE(unchanged.success) << unchanged.errorMessage.toStdString();
+        EXPECT_EQ(unchanged.plan.mode, ExecutionMode::Incremental);
+        EXPECT_TRUE(unchanged.plan.isEmpty()) << unchanged.plan.toSummaryText().toStdString();
+
+        // The next master is written in a later millisecond than the first.
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        settings.stackMethod = QStringLiteral("Median");
+        model.setStackingSettings(FrameType::Light, key, settings);
+        const auto restack = prepare();
+        ASSERT_TRUE(restack.success) << restack.errorMessage.toStdString();
+        ASSERT_EQ(restack.plan.mode, ExecutionMode::Incremental);
+        EXPECT_TRUE(restack.plan.registrationGroupsToProcess.empty());
+        EXPECT_EQ(restack.plan.integrationGroupsToProcess.size(), 1u);
+        // A group that only drizzles plans no alignment, and one whose stack warps its lights skips it.
+        const std::optional<ExecutionPlanDecision::Action> alignment =
+            route == Route::Drizzled
+                ? std::nullopt
+                : std::optional(kept ? ExecutionPlanDecision::Action::Reuse : ExecutionPlanDecision::Action::Skip);
+        EXPECT_EQ(actionOf(restack.decisions, QStringLiteral("Lights Alignment")), alignment);
+        EXPECT_EQ(actionOf(restack.decisions, QStringLiteral("Lights Normalization")),
+                  ExecutionPlanDecision::Action::Reuse);
+        EXPECT_EQ(actionOf(restack.decisions, QStringLiteral("Lights Drizzle")),
+                  route == Route::Drizzled ? std::optional(ExecutionPlanDecision::Action::Reuse) : std::nullopt);
+        EXPECT_EQ(actionOf(restack.decisions, QStringLiteral("Lights Stacking")),
+                  ExecutionPlanDecision::Action::Recompute);
+
+        const QString logs = run(restack);
+        EXPECT_FALSE(logs.contains(QStringLiteral("missing or stale output"))) << logs.toStdString();
+        EXPECT_TRUE(logs.contains(QStringLiteral("Reusing normalization coefficients"))) << logs.toStdString();
+        QMap<QString, qint64> after;
+        QDirIterator after_files(registered_dir, QDir::Files, QDirIterator::Subdirectories);
+        while (after_files.hasNext())
+        {
+            const QString file = after_files.next();
+            after.insert(file, fileMtimeMs(file));
+        }
+        EXPECT_EQ(after, registered);
+        EXPECT_EQ(fileMtimeMs(coefficients), coefficients_written);
+        EXPECT_EQ(fileMtimeMs(drizzle_sidecar), drizzle_written);
+        EXPECT_GT(fileMtimeMs(master), master_written);
+    }
 }

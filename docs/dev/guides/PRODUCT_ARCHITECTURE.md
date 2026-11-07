@@ -115,7 +115,11 @@ average at the largest factor that leaves it at least the painted size, kept per
 region it shows with a margin, presented again when a pan leaves it - judged against the region on its way, when one
 is, because that region is painted over the presented one when it lands. A region or a proxy is stretched by an
 analysis of the whole image, measured once per revision and kept under its key, never by its own statistics, so the
-image is stretched alike at every zoom and wherever it is panned. The mask layer is
+image is stretched alike at every zoom and wherever it is panned. An image that holds the automatic stretch
+already - frames written as they were shown, as the Image List Analyzer's proxies are - is stated so by whoever
+shows it (`setImageHoldsAutostretch`), and the autostretch mode presents it as it is. A static preview whose owner
+keeps the statistics of what it shows measures none and shows those it is handed (`setMeasuresPreviewStatistics`,
+`showPreviewStatistics`). The mask layer is
 presented in the same job at the same reduction and region. The bytes are blue-first and premultiplied, taken from the
 context the presentation runs in - whose memory a session keeps for the next frame while a preview is open - wrapped in a
 `QImage` only through `presentedQImage`, whose cleanup owner keeps them alive, and drawn as they are: no pixmap is made
@@ -146,13 +150,27 @@ integer image's blend through the engine's compiled integer lanes) and a preview
 area's crop and paste (`cropProcessRegion`, `composeProcessRegion`). Previews drain to the latest request and are shown
 only when their ticket commits; a preview never holds an Apply back; Apply in place is the view's `editImage`, so the
 history records the step before it is shown; a sequence run publishes a whole sequence or nothing. A preview asked for
-while a person holds a slider the window watches - every one the `INIT_*SPINBOX_CTRL` macros make - is an interactive
-frame (`ProcessRun::frameKind`), admitted for no more than the preview reservation, and letting go or holding still for
-150 ms asks for one settled frame; every other request is settled. Frames start no closer than a period apart, a second
+while a person holds a slider the window watches - every one the `INIT_*SPINBOX_CTRL` macros make - or another control
+the window is told is held (`controlHeld`: the curves transformation's curve editor reports a point taken with the left
+button, `CurvesWidgetListener::onCurvePointHeld`) is an interactive frame (`ProcessRun::frameKind`), admitted for no
+more than the preview reservation, and letting go or holding still for 150 ms asks for one settled frame; every other
+request is settled. Frames start no closer than a period apart, a second
 over the Processing page's preview rate (`readPreviewFrameRate`), read off the GUI thread when the preview is turned on,
 the window activated or a chain of frames begins, and in force for the chains that begin after the read lands. The preview view
 shows the target's own asset, shared through `ImageDocument::share` rather than copied, until its first frame lands and
-whenever the parameters are what the process declares its identity (`isTypedIdentity`), for which nothing runs; an
+whenever the parameters are what the process declares its identity (`isTypedIdentity`), for which nothing runs. Nothing
+runs either for parameters whose result a frame already made: a process that names a key for what a preview of its
+parameters shows (`typedPreviewResultKey`) has the result of a frame over the whole target kept under that key, and a
+body that makes, from one computation, the images other values of a parameter only choose among hands them to the run
+under their keys (`ProcessDestination::keepAlternative`) - Auto Gradient Removal's corrected image, gradient model and
+protection mask, from one fit (`removeAndDrawImageAutoBackground`). The frame blends each by its modulation and mask as
+it blends its result (`blendProcessAlternative`), and parameters of a kept key over the same revisions of the target
+and mask, and the same blend, show the image kept, shared, at once - stretched through the analysis of the image the
+process stretches its preview from (`getExecutionAutostretchSource`) kept for the view's presentation, and otherwise run
+as a frame, or by the view's own measurement when the process names none, as Auto Gradient Removal does for its model
+and mask. What is kept is in the session's memory, up to a few full-size
+images, so it goes when the next frame starts, when the target or its mask changes, when the preview closes and when
+the process says its parameters changed (`discardKeptPreviews`). An
 Apply or a Reset is followed by one preview of the parameters the reset leaves, and a failed preview says why in the
 window's banner, once for each cause. A frame's result is shown through `ImageDocument::tryReplace`, so a reader of
 the image shown - the view's presentation, the lens, the statistics window - never holds a frame back. The preview
@@ -165,13 +183,13 @@ what the preview view paints, and the GUI thread hands the presentation to the v
 filed under the key the view's own request would make) and the counts to the histogram (`IPreviewHistogram::showCounts`);
 frames are queued above every other task of the pool. A process declares what an interactive frame may run over
 (`previewScaling()`): `PreviewScaling::FullOnly`, the default, runs every frame over the whole target;
-`PreviewScaling::Decimated` - Brightness and Contrast, Gamma Correction, Exposure, Saturation, HSL, LCh and Gaussian
-Blur - runs an interactive frame over the target reduced by the preview view's factor, each pixel the mean of its block
+`PreviewScaling::Decimated` - Brightness and Contrast, Gamma Correction, Exposure, Saturation, HSL, LCh, Curves
+Transformation, Gaussian Blur, Unsharp Mask and High Pass - runs an interactive frame over the target reduced by the
+preview view's factor, each pixel the mean of its block
 (`reduceForPreview` in `session/PreviewProxies.h`), or at full scale over the part of the target the view shows
 (`ProcessRun::proxyFactor`, `ProcessRun::partOfTarget`, `ProcessRun::part`), the reductions kept by the revision they
-were made from (`PreviewProxyCache`); and `PreviewScaling::NativeRegion` - the median, bilateral, unsharp-mask,
-high-pass, tighten-edges, cosmetic-correction and morphological dialogs, the star reduction and the two star mask
-recombinations - runs it at full scale over the part the view shows at every zoom, presented at the view's reduction,
+were made from (`PreviewProxyCache`); and `PreviewScaling::NativeRegion` - the median, bilateral, tighten-edges,
+cosmetic-correction and morphological dialogs, the star reduction and the two star mask recombinations - runs it at full scale over the part the view shows at every zoom, presented at the view's reduction,
 and every frame over the whole target, settled, where the view shows all of it. Either answers a change made without a
 held slider with an interactive frame at once. A body that reads a pixel's neighbours states how far, from the plan it
 builds (`previewRegionMargin`, `typedPreviewRegionMargin`; `gaussianReach` and `detailReach` in
@@ -234,8 +252,11 @@ waits; undo, redo, a jump and a removal read on a worker and show through the vi
 moving once shown. A sequence step references its `DocumentSequence` and keeps the frame it changed, reading the
 sequence's own frame through `openProcessFrames`. Each history writes into its own `AN_HISTORY_*` directory and
 reclaims only that. The window previews on a worker through `presentForView` and shows the histogram through
-`createPreviewHistogram`. `Test_ControlsHistory` holds the history, and `Test_ImageViewControl` the viewer's history
-cases.
+`createPreviewHistogram`. A step that is linear data (`isLinearData`, `controls/AutostretchApply.h`) is presented
+through the unlinked autostretch the recent-file thumbnails take, so it looks as the dashboard shows it, and any other
+step as it is. The step's title and details are `AnElidedLabel`s of a set number of lines, because a label that wraps
+to its text moved the preview below it from one step to the next. `Test_ControlsHistory` holds the history, and
+`Test_ImageViewControl` the viewer's history cases.
 
 ### The file workflows (`app/FileManager.h`, `app/FileWorkflowRunner.h`, `app/FilePolicies.h`, `app/FileCompanions.h`)
 
@@ -251,8 +272,14 @@ Bayer pattern is the image's own and never guessed, and an X-Trans mosaic by the
 (`buildExportIntent`, `PersistenceCoordinator::buildOutputIntent`), captures the document's asset and revision, and
 `writeViewImage` converts to the intent's representation and refuses a mosaic for PNG or JPEG, and an X-Trans one for
 FITS, before writing anything; the view's pending changes are cleared only when it still holds that revision.
-Recent-file thumbnails are rendered on a worker (`renderRecentFileThumbnail`), each colour channel stretched on its own,
-as the view's autostretch shows an image unless asked to link. Temporary files go below the session's own
+Recent-file thumbnails are rendered on a worker (`renderRecentFileThumbnail`); an image that is linear data is
+stretched with each colour channel on its own, as the view's autostretch shows an image unless asked to link.
+`isLinearData` decides: an `ANLIN` card recording the samples nonlinear, or an encoded transfer function, keeps an image
+as it is whatever else it states; then a declaration of linear samples - the card, or a linear transfer function - and,
+for an image declared neither way, a camera RAW frame or a header that records a frame's type (`IMAGETYP`) or counts
+the frames of a stack (`STACKCNT`, `NCOMBINE`). The product's stacks record no linearity, only those cards. The
+nonlinear record goes first because an extension's result keeps the colour space its source was lent with, so a
+linear transfer function on it is not evidence. Temporary files go below the session's own
 `RuntimeStorageCoordinator::getTempDirPath`, held by a lock file; only an ended session's directory is reclaimed. A
 lock rather than an age decides what is reclaimed, because an age would reclaim the history of a running session left
 idle and keep a crashed session's files until they expired, and nothing but a session's directory is removed, since
@@ -468,7 +495,8 @@ stretch and the colour operations leave a non-finite pixel as it was. The 32-bit
 cannot tell their neighbouring codes apart, and a value rule is judged before the conversion because a signed
 integer's zero is not zero once it is counted from its smallest value. `runNormalizedChain` fuses a channel plane's
 programs. `recordNonlinearResult` states the processing-state cards on the result, drops a linear meaning and records
-the engine operation in the lineage, rebuilding the result once when its cards change. The preview is the Apply's
+the engine operation in the lineage, all in one metadata transition stated where the result is (its `codec` carries
+the new cards), so nothing of the result is copied to carry them. The preview is the Apply's
 operation in every frame, the gamma's included; the HSL and LCh windows keep no colour-space copy on the GUI
 thread; a colour-only process refuses a grey image by name. A body
 adopts what it makes into `ExecutionScope::session()`. `Test_ProcessesPointwise` launches the eight through the
@@ -481,7 +509,10 @@ The histogram transformation is `stretchImage` with a screen transfer per channe
 `stretchImage` with the dialog's curve and the engine's colour modes, the curves `buildCurveProgram` through
 `applyProcessChannelScope` (an exact table for eight and sixteen bits, a sampled table of `kCurvesTableEntries` for
 floats, one plan for a preview and an Apply, Monotone Cubic offered beside the four classic rules), and the
-statistical stretch `analyzeImageStatisticalStretch` and `stretchImageStatistically`. A stretch is decided from the
+statistical stretch `analyzeImageStatisticalStretch` and `stretchImageStatistically`. The curve is fixed by its points
+alone, so the curves transformation is the one stretch whose interactive frames run over what the preview view paints
+(`PreviewScaling::Decimated`); its editor counts the preview's result for the histogram it draws after each settled
+frame, and leaves it as it is while a drag's interactive frames are shown. A stretch is decided from the
 whole image it changes: the target's statistics for an Apply, a new image and a preview, each frame's for a sequence,
 and the target's - never the crop's - for a preview area (`screenTransferStatisticsFor`, a `StretchStatisticsCache` per
 revision); a statistical stretch's preview area is the whole target stretched and cropped. A preview area is a view of
@@ -491,7 +522,9 @@ largest stretched value.
 `makeStretchWorkingCopy` is the Float32 or Float64 working copy as fractions of full scale - a signed integer counted
 from its smallest value (`readAsFractions`, `writeFromFractions`) - and `publishStretchResult` the result in the
 image's representation, with its validity and cards, no transfer function, a lineage entry and the nonlinear
-processing state; never copy the source's metadata over the result afterwards. The engine's generalized hyperbolic bias
+processing state; never copy the source's metadata over the result afterwards. A body that wrote its stretch where
+the run writes - the curves transformation's - hands `publishStretchResult` the destination's own image, and the
+metadata is stated on those samples where they are. The engine's generalized hyperbolic bias
 runs from `kMinimumGeneralizedHyperbolicBias` to `kMaximumGeneralizedHyperbolicBias` (-5 to 15). A dialog's histograms,
 clipping figures and symmetry-point picks run on workers that take their read lease before their admission
 (`admitDialogWork`), because an Apply in place holds the writer while it waits to be admitted; the histogram counts,
@@ -510,11 +543,24 @@ with `NonFiniteSamples::MeanNothing` the ranking filters (median, banding, morph
 all-valid floating image as invalid, and an integer image under its own rule, which leaves the median its sorting
 network; `UnitScale` restates a dialog's fractions in stored units; `runOverUnitFloat` is the Float32
 working copy for the operations that take fractions. `blurGaussian` and `filterDetail` are exact at any sigma - one
-plan up to thirty-two, then exact passes sharing the variance, an integer plane with every sample valid on that
-working copy at any sigma, a Float32 plane of padded rows on it too - and the Gaussian's preview is the exact Gaussian
-in every frame: over the target reduced by the sigma reduced with it while a slider is held, over the part the view
-shows with every pass's reach around it at full scale (`gaussianReach`), and over the whole image once it settles.
-The median, bilateral, unsharp-mask, high-pass, tighten-edges, cosmetic-correction and morphological windows declare
+plan up to thirty-two, the stencil family's widest kernel; beyond, on that working copy, one kernel up to the engine's
+`kMaxGaussianRadius` on its compiled symmetric path where the plane is more than twice its radius each way, and exact
+passes sharing the variance otherwise and wherever the engine refuses that path - an execution without its AVX2 or
+AVX-512 rows, or without the memory for the kernel's own plane; an integer plane with every sample valid on that
+working copy at any sigma, a Float32 plane of padded rows on it too. A settled frame and an Apply run that exact blur.
+An interactive frame runs over the target reduced by the sigma reduced with it while a slider is held, or over the
+part the view shows with the blur's reach around it at full scale (`gaussianReach`); beyond thirty-two there it blurs
+by the engine's real-time preview boxes (`BlurKind::InteractivePreview`), whose cost does not grow with the sigma.
+`filterDetail` composes a plane every sample of which is valid, blurred under `ReflectExcludingEdge`, on that working
+copy at every sigma, so the engine's compiled Float32 Gaussian blurs it as it blurs the Gaussian's: the high pass's
+Apply is the source less the Gaussian dialog's answer, raised to mid-grey. The engine's detail filter, whose one plan
+accumulates the blur in Float64 through the separable stencil, takes the rest - a plane under a validity rule or a
+mask, and the unsharp mask, whose blur mirrors the edge sample as scikit-image's does. The high pass and the unsharp
+mask declare `PreviewScaling::Decimated`: an interactive frame blurs a reduction by the radius reduced with it, which
+the clamp to full scale makes an approximation of the whole result's reduction, and a part at full scale by the
+dialog's radius; beyond thirty-two it blurs by the boxes, as the Gaussian's does, and states their reach
+(`detailReach`). The settled frame is the Apply's answer.
+The median, bilateral, tighten-edges, cosmetic-correction and morphological windows declare
 `PreviewScaling::NativeRegion` with the reach their plans state; the other eleven run every frame over the whole
 image, each for a measurement of the whole image, a size-made grid or tiling, or a blur without a finite reach.
 The six G'MIC processes build their command and call `runGmicCommand`: a session per run, the answer clamped to the
@@ -523,7 +569,8 @@ Apply where the library is absent. A non-finite sample is refused because some G
 others turn most of the image into NaN; the ranking filters instead leave it where it is and rank its finite
 neighbours, because registered and stacked frames carry NaN borders. The morphological selection is
 `filterImageFootprintOrderStatistic`. CLAHE and LHE record their result nonlinear under their own names through
-`markProcessResultNonlinear`. `Test_ProcessesSpatial` holds all nineteen to every behavior dimension through their
+`markProcessResultNonlinear`, which states the cards where the result is. `Test_ProcessesSpatial` holds all nineteen
+to every behavior dimension through their
 windows and judges every recorded capture; it reaches the G'MIC adapter only through the processes library, the one
 product target `check_build_graph.py` lets link it.
 
@@ -538,7 +585,11 @@ and an output an Apply makes is staged by the body (`StagedOutputs`) and opened 
 once the run lands (`openStagedOutputs`). A derived image carries no other card of its target because the target's
 cards say what the target is - its exposure, its filter, its frame type - and a mask, a background or the stars are
 none of that. `extractLightness` reads a colour image's CIE L* through a normalized copy, so
-it is a floating image. A second image a run reads - a starless image, a drawing - is snapshotted as an asset on the
+it is a floating image. The range selection is `PreviewScaling::Decimated`: an interactive frame runs over the target
+reduced, smoothed by the smoothness reduced with it, or over the part shown with the smoothing's reach around it
+(`gaussianReach`), and smooths through the Gaussian dialog's `blurGaussian`. A mask of a colour image's lightness cannot
+take the target's stretch, so in an autostretched preview at full scale the dialog answers `FullOnly`. A second image a
+run reads - a starless image, a drawing - is snapshotted as an asset on the
 GUI thread; work a button starts - the background grid, the protection mask, an import or export - runs on the thread
 pool under its own operation and lands through a guard. The star mask has one detector (`detectStars`, then
 `paintShapedStarMask` or `paintEllipticalStarMask`); the multiscale transform's layer arithmetic is PixelMath over the
@@ -757,9 +808,13 @@ correlation), chromatic-aberration correction in memory and warp onto `planAlign
 frame under `ValidityRule::ZeroIsNoData`, so the zero border an alignment leaves where a frame does not reach is
 neither combined nor judged by a rejection. The tools call the engine rather than run the integration's stages, which
 carry its project, manifest and artifact tracking, while a tool's run is one directory of outputs. The analyzer's proxies
-are the file stretched through `autostretchFrame` and written in eight bits. Every window reads its settings on the
-GUI thread, runs on the thread pool and closes without waiting. `Test_ProcessesWorkflowTools` holds the four windows
-and the shared records over frames it writes, the companions stood in.
+are the file stretched through `autostretchFrame` and written in eight bits, each keeping the autostretch settings
+it was written through: the preview plays them only in the autostretch display with those settings, presented as
+they are, and the original files in any other display, so its mode selector names what it shows; without
+proxies, every display plays the files themselves. Each file's statistics and histogram are measured once, from the file, by the
+optimization or one file at a time as frames are shown, and kept while it is listed. Every window
+reads its settings on the GUI thread, runs on the thread pool and closes without waiting. `Test_ProcessesWorkflowTools`
+holds the four windows and the shared records over frames it writes, the companions stood in.
 
 ### The library and its suites
 
@@ -820,9 +875,15 @@ it does not decide through `workflow/WorkflowStageCompanions.h` (`planLightsTran
 commits through `IWorkflowRunArchive` (`workflow/WorkflowRunArchive.h`) from the factory its composer sets, and
 `createDefaultWorkflowExecutor` (`workflow/DefaultWorkflowStages.h`) composes the nine stages and the archiver.
 Headers are read through `FrameHeaderReader` (`sessionFrameHeaderReader`); `WorkflowManifest::validate` checks frame
-sizes only with one, and `ExecutionPreparationSnapshot::build` captures drizzle geometry, and reads the identity a
-moved master's header carries, only with one. A validation on the GUI thread passes no reader, because reading every
-header there would block it, and the run validates the sizes. A stage finds a light's registration input on disk as it
+sizes only with one, and `ExecutionPreparationSnapshot::build` captures the geometry of the lights a stage places
+itself - a drizzled group's, and those of a group whose stack warps them as it reads them - and reads the identity a
+moved master's header carries, only with one. With that geometry the planner states the identity the stack and the
+normalization would state of a group they place - its master, and coefficients measured on a warped plane
+(`warpedPlaneGeometryFingerprint`) - so a run that changed nothing they read reuses them. `workflow/ManifestDiff.h`
+compares an integration group's settings by the stages that read them (`stackingSettingReaders`, every field of
+`StackingSettings` with its stages; a field added without its entry stops the build), and the plan states each
+stage's reason from them. A validation on the GUI thread passes no reader, because reading every header there would
+block it, and the run validates the sizes. A stage finds a light's registration input on disk as it
 reads (`registrationInputPathForFrame`), not in the plan's snapshot, because the run's own calibration and
 registration write a light's calibrated and corrected copies after the plan is made. Every fingerprint carries
 `ArtifactFamily`'s identity - `kWorkflowEngineGeneration` and the family's revision (`workflow/ArtifactSchema.h`); a

@@ -57,7 +57,8 @@ timeline.*
 2. Select a different row once. Confirm the **Selected Step Preview** title does
    not include **(Current)** and the source image has not changed. When its
    snapshot loads, the scaled preview and histogram appear; otherwise the panel
-   says **Preview unavailable for this step.**
+   says **Preview unavailable for this step.** A description too long for the
+   panel ends in an ellipsis; hover over it to read all of it.
 3. To preserve that state as a branch, right-click it and choose **Clone From
    Step**. Confirm a new standard view appears. The source remains on its current
    state, while the clone starts with a description naming the source view and
@@ -91,7 +92,7 @@ timeline.*
 | **Description** | Table column | Initial creation/open description or process text | Free-form recorded text | Shows available parameters/context | Empty values allowed | Coverage varies by process; not guaranteed to reproduce the operation | Timeline/log | Runtime; copied to log |
 | Select own-history row | Single selection | Current row after refresh | Initial or retained modification/rename row | Loads its snapshot into preview/histogram without changing source state | Inherited/header rows are read-only and non-selectable | Loading can wait on backup I/O or sequence decode | Dialog preview | Selection resets to current on refill |
 | Double-click own-history row | Table gesture | — | Non-current row with valid retained index | Calls Jump To Step | Current row is a no-op; inherited/header rows do nothing | Destructive source-state restoration | Source view | Updates current index |
-| **Selected Step Preview** | Scaled image pane and status text | Current selected row | Snapshot available or unavailable | Shows step name/time/description/current status and an 8-bit display conversion of the selected still/frame | Hidden image content when restore fails or sequence has zero frames | Display is scaled and is not proof of exact pixel equality; quick zoom is disabled | Selected retained state | Not persisted |
+| **Selected Step Preview** | Scaled image pane and status text | Current selected row | Snapshot available or unavailable | Shows the step name on one line; below it, in five lines, the time, the current status and the description; and an 8-bit display of the selected still/frame, stretched for a linear step | Hidden image content when restore fails or sequence has zero frames | Display is scaled and is not proof of exact pixel equality; quick zoom is disabled. Text past its lines ends in an ellipsis and is shown whole in the tooltip, so the preview keeps its place from step to step | Selected retained state | Not persisted |
 | Selected-step histogram | Read-only histogram with clipping/area overlays | Visible when snapshot loads | Snapshot image; widget default resolution | Recomputes from the full-precision selected snapshot/current sequence frame | Hidden when preview unavailable; interactive zoom disabled | Histogram computation adds CPU/memory cost | Selected retained state | Not persisted |
 | Earlier-step arrow (**Jump to _name_**) | Icon button | Disabled at initial state | Exactly current index minus one | Restores the adjacent earlier state; this is not row reordering | Enabled when an earlier state exists | Replaces source state and activates the view | Source view | Current index for view lifetime |
 | Later-step arrow (**Jump to _name_**) | Icon button | Disabled at latest state | Exactly current index plus one | Restores adjacent later/redo state | Enabled when a later retained state exists | Replaces source state and activates the view | Source view | Current index for view lifetime |
@@ -153,14 +154,28 @@ assignment/rendering, attached processes, pending-change flag, or the view's
 detected stars.
 
 Selecting a step reads its snapshot in the background, only for inspection; a
-later selection replaces a preview still on its way. Still previews are shown as
-an 8-bit linear rendering at full scale - grey, colour, or colour with alpha,
-each with its own channels - while the histogram uses the restored
-full-precision image. A sequence step that kept a changed frame previews that
-frame. Any other sequence preview reads the selected sequence's frame at the
-source view's current zero-based frame index, with the source view's current
-auto-debayer setting. The preview is therefore contextual, not a saved record of
-the original display state.
+later selection replaces a preview still on its way. A preview is an 8-bit
+rendering - grey, colour, or colour with alpha, each with its own channels. A
+step that is still linear data is stretched as the dashboard's thumbnails show
+it, each colour channel stretched on its own, so it does not show almost black.
+Linear data is what the dashboard takes for it: an image recorded linear, a
+stack whose header counts its frames, as AfterNight's stacks do, a frame whose
+header records its frame type, or a camera RAW frame - unless its record says
+it was stretched, as every AfterNight stretch records, or it is sRGB or gamma
+encoded. A step an extension made is judged by the header the extension gave
+its result: one that keeps its source's header and records no stretch is shown
+as linear data. Any other step is shown as it is, at full scale. The histogram
+uses the restored full-precision image either way. A sequence step that kept a
+changed frame previews that frame. Any other sequence preview reads the selected
+sequence's frame at the source view's current zero-based frame index, with the
+source view's current auto-debayer setting. The preview is therefore
+contextual, not a saved record of the original display state.
+
+The step name takes one line, and the details below it take five: the time,
+whether the step is current, **Preview unavailable for this step.** when it
+applies, and then the step's description. Text past those lines is cut with an
+ellipsis, and hovering over it shows all of it, so the preview stays in the same
+place as you move from one step to the next.
 
 Creating a view from another view copies the parent's existing lineage and then
 appends the parent's complete retained initial/modification list, grouped by

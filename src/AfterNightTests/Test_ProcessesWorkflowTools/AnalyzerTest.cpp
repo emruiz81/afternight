@@ -2,23 +2,32 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// Image List Analyzer: the files listed play as an image-list sequence, Optimize For Fast Play writes each file's
-/// proxy as it is shown - stretched, in eight bits - and the preview then plays the proxies, a removed file's proxy
-/// goes with it, Export Sequence opens over the original files, the playback rate is what the window keeps, and a
-/// window closed while it works waits for nothing.
+/// Image List Analyzer: the files listed play as an image-list sequence, fitted to the preview when it first shows
+/// them; Optimize For Fast Play writes each file's proxy as it is shown - stretched, in eight bits - and the preview
+/// then plays the proxies in the autostretch display they hold, and the original files in any other, every display
+/// playing them without any optimization; each file's statistics and histogram are measured once, from the file, and
+/// shown whenever its frame is; a removed file's proxy goes with it, Export Sequence opens over the original files, the
+/// playback rate is what the window keeps, and a window closed while it works waits for nothing.
 
 #include "Test_ProcessesWorkflowTools/WorkflowToolsTestSupport.h"
 
 #include "controls/ExportSequenceControl.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ImageViewFiles.h"
 #include "controls/SequencePlayerControl.h"
 #include "processes/ImageListAnalyzerProcess.h"
 #include "processes/WorkflowToolFiles.h"
+#include "widgets/HistogramCompanions.h"
+#include "widgets/ImageViewWidget.h"
+#include "widgets/PresentationBridge.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
 #include <AfterNightConsumerRuntime/OperationScope.h>
 
+#include <QAction>
 #include <QApplication>
+#include <QComboBox>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -32,6 +41,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 
 namespace an::tests::processes::workflow
 {
@@ -58,6 +68,111 @@ struct AnalyzerWindow
     ImageListAnalyzerProcess* window;
 };
 
+/// The preview's display mode selector, or null.
+[[nodiscard]] QComboBox* displayModeOf(const AnalyzerWindow& window)
+{
+    for (QComboBox* combo : window.window->previewView()->findChildren<QComboBox*>())
+    {
+        if (combo->accessibleName() == QStringLiteral("Display Mode"))
+        {
+            return combo;
+        }
+    }
+    return nullptr;
+}
+
+/// The preview player's Play action, or null.
+[[nodiscard]] QAction* playActionOf(const AnalyzerWindow& window)
+{
+    auto* player = dynamic_cast<SequencePlayerControl*>(window.window->previewView()->sequencePlayer());
+    if (player == nullptr)
+    {
+        return nullptr;
+    }
+    for (QAction* action : player->actions())
+    {
+        if (action->text() == QStringLiteral("Play sequence"))
+        {
+            return action;
+        }
+    }
+    return nullptr;
+}
+
+/// Whether the image list the preview plays names every one of these files.
+[[nodiscard]] bool previewPlays(const AnalyzerWindow& window, const QStringList& paths)
+{
+    QFile manifest(window.window->previewSequencePath());
+    if (paths.isEmpty() || !manifest.open(QIODevice::ReadOnly))
+    {
+        return false;
+    }
+    const QString text = QString::fromUtf8(manifest.readAll());
+    return std::all_of(paths.cbegin(), paths.cend(),
+                       [&text](const QString& path) { return text.contains(QFileInfo(path).fileName()); });
+}
+
+/// Whether nothing the window or its preview started is on its way: no file, sequence, frame or presentation.
+[[nodiscard]] bool settled(const AnalyzerWindow& window)
+{
+    return window.window->isIdle() && window.window->previewView()->isWorkIdle();
+}
+
+/// The representation of the frame the preview shows, or nothing.
+[[nodiscard]] std::optional<an::SampleType> shownRepresentation(const AnalyzerWindow& window)
+{
+    const std::optional<an::ImageDescriptor> shown = window.window->previewView()->imageDescriptor();
+    return shown.has_value() ? std::optional<an::SampleType>(shown->sampleType()) : std::nullopt;
+}
+
+/// The median of the bytes the preview paints, over its first colour, or nothing before a presentation is painted.
+[[nodiscard]] std::optional<int> paintedMedian(const AnalyzerWindow& window)
+{
+    const std::shared_ptr<const an::ui::PresentedImage> painted =
+        window.window->previewView()->getViewWidget()->presentedImage();
+    if (painted == nullptr || painted->width() == 0u || painted->height() == 0u)
+    {
+        return std::nullopt;
+    }
+    std::vector<int> bytes;
+    bytes.reserve(static_cast<std::size_t>(painted->width()) * painted->height());
+    for (std::uint32_t y = 0u; y < painted->height(); ++y)
+    {
+        for (std::uint32_t x = 0u; x < painted->width(); ++x)
+        {
+            bytes.push_back(painted->pixel(x, y)[0]);
+        }
+    }
+    const auto middle = bytes.begin() + static_cast<std::ptrdiff_t>(bytes.size() / 2u);
+    std::nth_element(bytes.begin(), middle, bytes.end());
+    return *middle;
+}
+
+/// The median of a file's samples, as fractions of full scale, or nothing when it cannot be read.
+[[nodiscard]] std::optional<double> fileMedian(const an::consumer::EngineSession& session, const QString& path)
+{
+    const std::optional<ReadBack> read = readBack(session, path);
+    if (!read.has_value() || read->fractions.empty())
+    {
+        return std::nullopt;
+    }
+    std::vector<double> sorted = read->fractions;
+    const auto middle = sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2u);
+    std::nth_element(sorted.begin(), middle, sorted.end());
+    return *middle;
+}
+
+/// When each file was last written.
+[[nodiscard]] std::vector<QDateTime> writtenAt(const QStringList& paths)
+{
+    std::vector<QDateTime> times;
+    for (const QString& path : paths)
+    {
+        times.push_back(QFileInfo(path).lastModified());
+    }
+    return times;
+}
+
 class AnalyzerTest : public WorkflowCase
 {
 protected:
@@ -81,6 +196,20 @@ protected:
         ASSERT_TRUE(pumpUntil([&window, &paths]() {
             return window.window->isIdle() && window.window->fileList().paths().size() == paths.size();
         }));
+    }
+
+    /// Optimizes the listed files and waits until the preview plays their proxies, which it returns.
+    static QStringList optimized(AnalyzerWindow& window, const QStringList& paths)
+    {
+        window.window->optimize();
+        EXPECT_TRUE(pumpUntil([&window]() { return window.window->isIdle() && window.window->imagesOptimized(); }));
+        QStringList proxies;
+        for (const QString& path : paths)
+        {
+            proxies << window.window->proxyPathOf(path);
+        }
+        EXPECT_TRUE(pumpUntil([&window, &proxies]() { return settled(window) && previewPlays(window, proxies); }));
+        return proxies;
     }
 };
 
@@ -219,6 +348,291 @@ TEST_F(AnalyzerTest, AFileAddedAfterOptimizingHasNoProxyUntilAsked)
     listed(window, fields);
     EXPECT_FALSE(window.window->imagesOptimized());
     EXPECT_TRUE(window.window->proxyPathOf(fields[2]).isEmpty());
+}
+
+TEST_F(AnalyzerTest, TheLinearDisplayPlaysTheOriginalFilesAndAutostretchPlaysTheProxiesAgain)
+{
+    const QStringList fields = writeFields();
+    AnalyzerWindow window;
+    window.window->show();
+    listed(window, fields);
+    QComboBox* mode = displayModeOf(window);
+    ASSERT_NE(mode, nullptr);
+    const QStringList proxies = optimized(window, fields);
+    ImageViewWidget* view = window.window->previewView()->getViewWidget();
+
+    // The proxies hold the autostretch display, which the selector names, and are shown as they are.
+    EXPECT_EQ(mode->currentText().toStdString(), "Autostretch");
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::UInt8);
+    EXPECT_EQ(view->presentationRequest().stretch, an::PresentationStretch::Linear) << "a proxy is not stretched twice";
+    QAction* play = playActionOf(window);
+    ASSERT_NE(play, nullptr);
+    EXPECT_TRUE(play->isEnabled());
+    const std::vector<QDateTime> written = writtenAt(proxies);
+
+    // The linear display shows the original files' own samples, and plays them.
+    mode->setCurrentText(QStringLiteral("Linear"));
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    EXPECT_EQ(mode->currentText().toStdString(), "Linear");
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::Float32);
+    const std::optional<int> linear = paintedMedian(window);
+    ASSERT_TRUE(linear.has_value());
+    EXPECT_LT(*linear, 26) << "the sky at five per cent of full scale, unstretched, sits at thirteen";
+    EXPECT_EQ(window.window->optimizationStatusText().toStdString(), "No Optimization Needed");
+    EXPECT_FALSE(window.window->ui().optimizeButton->isEnabled()) << "every file has its proxy";
+    play = playActionOf(window);
+    ASSERT_NE(play, nullptr);
+    EXPECT_TRUE(play->isEnabled()) << "the linear display plays the files themselves";
+
+    // Back in the autostretch display the proxies play again, as they were written.
+    mode->setCurrentText(QStringLiteral("Autostretch"));
+    ASSERT_TRUE(pumpUntil([&window, &proxies]() { return settled(window) && previewPlays(window, proxies); }));
+    EXPECT_EQ(writtenAt(proxies), written) << "no proxy was written again";
+    EXPECT_EQ(mode->currentText().toStdString(), "Autostretch");
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::UInt8);
+    EXPECT_EQ(view->presentationRequest().stretch, an::PresentationStretch::Linear);
+    const std::optional<int> stretched = paintedMedian(window);
+    ASSERT_TRUE(stretched.has_value());
+    EXPECT_GT(*stretched, 38) << "the proxy's stretched sky";
+    play = playActionOf(window);
+    ASSERT_NE(play, nullptr);
+    EXPECT_TRUE(play->isEnabled());
+}
+
+TEST_F(AnalyzerTest, EveryDisplayPlaysTheFilesWithoutAnyOptimization)
+{
+    const QStringList fields = writeFields();
+    AnalyzerWindow window;
+    window.window->show();
+    listed(window, fields);
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    QComboBox* mode = displayModeOf(window);
+    ASSERT_NE(mode, nullptr);
+
+    // Plays the list through, from its first frame, and says whether it reached the last.
+    const auto playedThrough = [&window, &fields]() {
+        auto* player = dynamic_cast<SequencePlayerControl*>(window.window->previewView()->sequencePlayer());
+        QAction* play = playActionOf(window);
+        if (player == nullptr || play == nullptr || !play->isEnabled())
+        {
+            return false;
+        }
+        player->setCurrentFrame(0u, {});
+        if (!pumpUntil(
+                [&window, player]() { return settled(window) && player->isIdle() && player->currentFrame() == 0u; }))
+        {
+            return false;
+        }
+        const std::uint64_t shownBefore = player->framesShown();
+        play->trigger();
+        return pumpUntil([player]() { return !player->isPlaying(); }) &&
+               pumpUntil([&window]() { return settled(window); }) &&
+               player->currentFrame() + 1u == static_cast<std::uint64_t>(fields.size()) &&
+               player->framesShown() - shownBefore >= static_cast<std::uint64_t>(fields.size() - 1);
+    };
+
+    // Unoptimized, the autostretch display plays the files, stretching each frame as it is shown.
+    EXPECT_EQ(mode->currentText().toStdString(), "Autostretch");
+    EXPECT_EQ(window.window->optimizationStatusText().toStdString(), "Images Not Optimized");
+    EXPECT_TRUE(playedThrough()) << "the autostretch display plays the files";
+    EXPECT_TRUE(previewPlays(window, fields));
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::Float32);
+    EXPECT_EQ(window.window->previewView()->getViewWidget()->presentationRequest().stretch,
+              an::PresentationStretch::Automatic);
+
+    // And so does the linear display.
+    mode->setCurrentText(QStringLiteral("Linear"));
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    EXPECT_EQ(window.window->optimizationStatusText().toStdString(), "No Optimization Needed");
+    EXPECT_TRUE(playedThrough()) << "the linear display plays the files";
+    EXPECT_FALSE(window.window->imagesOptimized());
+    for (const QString& field : fields)
+    {
+        EXPECT_TRUE(window.window->proxyPathOf(field).isEmpty()) << "no proxy was written";
+    }
+}
+
+TEST_F(AnalyzerTest, EachFileIsMeasuredOnceAndItsStatisticsShownWhenItsFrameIs)
+{
+    const QStringList fields = writeFields();
+    AnalyzerWindow window;
+    window.window->show();
+    listed(window, fields);
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    auto* player = dynamic_cast<SequencePlayerControl*>(window.window->previewView()->sequencePlayer());
+    ASSERT_NE(player, nullptr);
+    // The frames play in the list's order.
+    const QStringList order = window.window->fileList().paths();
+    ASSERT_EQ(order.size(), fields.size());
+
+    // What the overlay and the histogram show of a file is what the file holds, measured as the view reads it.
+    const auto shownAreTheFiles = [this, &window](const QString& field) {
+        const std::optional<an::ui::ViewImageStatistics> shown = window.window->previewView()->previewStatistics();
+        const std::shared_ptr<const an::ui::HistogramDisplayData> counted =
+            window.window->ui().histogramWidget->getHistogram();
+        an::Result<an::ui::ViewReadResult> read =
+            an::ui::readViewImage(session(), an::ui::ViewReadRequest{.path = field}, {}, nullptr);
+        if (!shown.has_value() || counted == nullptr || !counted->isValid() || !read.hasValue())
+        {
+            return false;
+        }
+        const an::Result<an::ui::ViewImageStatistics> measured = an::ui::measureViewImage(session(), read->asset, {});
+        const an::Result<an::ui::HistogramDisplayData> counts = an::ui::countHistogram(
+            session(), read->asset, window.window->ui().histogramWidget->getHistogramResolution());
+        return measured.hasValue() && counts.hasValue() && shown->channels == measured->channels &&
+               shown->channel[0].median == measured->channel[0].median &&
+               shown->channel[0].mean == measured->channel[0].mean &&
+               counted->channels.front().bins == counts->channels.front().bins;
+    };
+    const auto stepTo = [&window, player](const std::uint64_t frame) {
+        player->setCurrentFrame(frame, {});
+        return pumpUntil([&window, player, frame]() {
+            return settled(window) && player->isIdle() && player->currentFrame() == frame &&
+                   window.window->previewView()->previewStatistics().has_value();
+        });
+    };
+    EXPECT_TRUE(shownAreTheFiles(order[0]));
+    EXPECT_EQ(window.window->filesMeasured(), 1u);
+
+    ASSERT_TRUE(stepTo(1u));
+    EXPECT_TRUE(shownAreTheFiles(order[1]));
+    EXPECT_EQ(window.window->filesMeasured(), 2u);
+
+    // A frame shown again shows its file's statistics, measured by nothing.
+    ASSERT_TRUE(stepTo(0u));
+    EXPECT_TRUE(shownAreTheFiles(order[0]));
+    EXPECT_EQ(window.window->filesMeasured(), 2u);
+
+    // The optimization measures the file it has not, as it reads it, and the proxies show their files' statistics.
+    const QStringList proxies = optimized(window, fields);
+    EXPECT_EQ(window.window->filesMeasured(), 3u);
+    for (std::uint64_t frame = 0u; frame < static_cast<std::uint64_t>(fields.size()); ++frame)
+    {
+        ASSERT_TRUE(stepTo(frame));
+        EXPECT_EQ(shownRepresentation(window), an::SampleType::UInt8) << "a proxy is shown";
+        EXPECT_TRUE(shownAreTheFiles(order[static_cast<qsizetype>(frame)])) << "frame " << frame;
+    }
+    EXPECT_EQ(window.window->filesMeasured(), 3u);
+}
+
+TEST_F(AnalyzerTest, AListIsFittedToThePreviewWhenItIsFirstShown)
+{
+    QStringList large;
+    QStringList small;
+    for (int index = 0; index < 2; ++index)
+    {
+        large << temporaryPath(QStringLiteral("large_%1.fits").arg(index));
+        small << temporaryPath(QStringLiteral("small_%1.fits").arg(index));
+        ASSERT_TRUE(writeFlatFrame(session(), large.back(), 3000u, 2000u, 1u, 0.1, an::SampleType::UInt16));
+        ASSERT_TRUE(writeFlatFrame(session(), small.back(), 600u, 900u, 1u, 0.1, an::SampleType::UInt16));
+    }
+    AnalyzerWindow window;
+    window.window->resize(1400, 1000);
+    window.window->show();
+    ImageViewControl* preview = window.window->previewView();
+    ImageViewWidget* view = preview->getViewWidget();
+    const auto fitted = [preview, view]() {
+        const QSize viewport = preview->getScrollArea()->viewport()->size();
+        const QSize image = view->imageSize();
+        const double scale = view->getCurrentScaleFactor();
+        const double expected = (std::min)(static_cast<double>(viewport.width()) / image.width(),
+                                           static_cast<double>(viewport.height()) / image.height());
+        return std::abs(scale - expected) <= expected * 0.02 + 1e-3;
+    };
+    listed(window, large);
+    ASSERT_TRUE(pumpUntil([&window, &large]() { return settled(window) && previewPlays(window, large); }));
+    EXPECT_EQ(view->imageSize(), QSize(3000, 2000));
+    EXPECT_TRUE(pumpUntil(fitted)) << "scale " << view->getCurrentScaleFactor();
+    EXPECT_LT(view->getCurrentScaleFactor(), 1.0);
+
+    // The person's zoom is kept while the frames keep their size.
+    preview->zoomIn();
+    const double zoomed = view->getCurrentScaleFactor();
+    window.window->removeItems({large[1]});
+    ASSERT_TRUE(pumpUntil([&window, &large]() {
+        return settled(window) && previewPlays(window, {large[0]}) && !previewPlays(window, {large[1]});
+    }));
+    EXPECT_DOUBLE_EQ(view->getCurrentScaleFactor(), zoomed);
+
+    // A new list is fitted again.
+    window.window->ui().clearAll->click();
+    ASSERT_TRUE(pumpUntil([&window]() { return settled(window) && window.window->fileList().paths().isEmpty(); }));
+    listed(window, small);
+    ASSERT_TRUE(pumpUntil([&window, &small]() { return settled(window) && previewPlays(window, small); }));
+    EXPECT_EQ(view->imageSize(), QSize(600, 900));
+    EXPECT_TRUE(pumpUntil(fitted)) << "scale " << view->getCurrentScaleFactor();
+}
+
+TEST_F(AnalyzerTest, TheProxiesLeaveThePreviewAtOnceWhenTheLinearDisplayIsChosen)
+{
+    const QStringList fields = writeFields();
+    AnalyzerWindow window;
+    window.window->show();
+    listed(window, fields);
+    const QStringList proxies = optimized(window, fields);
+    QComboBox* mode = displayModeOf(window);
+    ASSERT_NE(mode, nullptr);
+    ASSERT_TRUE(window.window->previewView()->hasImage());
+
+    // The files' sequence waits for the session, which the case holds, so what the preview shows until it lands is
+    // seen.
+    std::optional<an::Result<an::consumer::OperationScope>> held;
+    held.emplace(session().admit(an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch}));
+    ASSERT_TRUE(held->hasValue());
+    mode->setCurrentText(QStringLiteral("Linear"));
+    EXPECT_TRUE(pumpUntil([&window]() { return !window.window->previewView()->hasImage(); }))
+        << "a proxy shown in the linear display would show what that display is not";
+    EXPECT_TRUE(previewPlays(window, proxies)) << "the files are still on their way";
+    held.reset();
+
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    EXPECT_TRUE(window.window->previewView()->hasImage());
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::Float32);
+}
+
+TEST_F(AnalyzerTest, TheProxiesPlayOnlyThroughTheStretchTheyHold)
+{
+    const QStringList fields = writeFields();
+    AnalyzerWindow window;
+    window.window->show();
+    listed(window, fields);
+    const QStringList held = optimized(window, fields);
+    ImageViewWidget* view = window.window->previewView()->getViewWidget();
+    const AutostretchParams heldStretch = view->getAutostretchSettings();
+    AutostretchParams brighter = heldStretch;
+    brighter.targetBackground = heldStretch.targetBackground + 0.2;
+
+    // Other settings, set as the Autostretch Settings window sets them, show the original files stretched through them.
+    view->setAutostretchSettings(brighter);
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    EXPECT_EQ(shownRepresentation(window), an::SampleType::Float32);
+    EXPECT_EQ(view->presentationRequest().stretch, an::PresentationStretch::Automatic);
+    EXPECT_FALSE(window.window->imagesOptimized());
+    EXPECT_EQ(window.window->optimizationStatusText().toStdString(), "Images Not Optimized");
+    EXPECT_TRUE(window.window->ui().optimizeButton->isEnabled());
+
+    // The settings the proxies hold bring them back, as they were written.
+    const std::vector<QDateTime> written = writtenAt(held);
+    view->setAutostretchSettings(heldStretch);
+    ASSERT_TRUE(pumpUntil([&window, &held]() { return settled(window) && previewPlays(window, held); }));
+    EXPECT_EQ(writtenAt(held), written) << "no proxy was written again";
+    EXPECT_TRUE(window.window->imagesOptimized());
+
+    // Optimizing under the other settings writes proxies that hold them, in place of the others.
+    const std::optional<double> heldMedian = fileMedian(session(), held[0]);
+    ASSERT_TRUE(heldMedian.has_value());
+    view->setAutostretchSettings(brighter);
+    ASSERT_TRUE(pumpUntil([&window, &fields]() { return settled(window) && previewPlays(window, fields); }));
+    const QStringList rewritten = optimized(window, fields);
+    ASSERT_EQ(rewritten.size(), held.size());
+    for (qsizetype index = 0; index < held.size(); ++index)
+    {
+        EXPECT_NE(rewritten[index], held[index]);
+        EXPECT_FALSE(QFileInfo::exists(held[index])) << "a proxy of the other stretch goes";
+    }
+    const std::optional<double> brighterMedian = fileMedian(session(), rewritten[0]);
+    ASSERT_TRUE(brighterMedian.has_value());
+    EXPECT_GT(*brighterMedian, *heldMedian + 0.1) << "the new proxy holds the brighter background";
 }
 
 TEST_F(AnalyzerTest, ExportSequenceOpensOverTheOriginalFiles)

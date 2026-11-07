@@ -138,14 +138,13 @@ an::Status CLAHEProcess::executeTypedProcessImpl(const an::ui::ProcessSource& so
     {
         return equalized;
     }
-    // An equalized image is no longer linear, and its processing state says so. A preview is shown and never kept, so
-    // it is spared the copy the record costs.
-    const an::consumer::EngineSession* session = engineSession();
-    if (run.kind == an::ui::ProcessRunKind::Preview || session == nullptr)
+    // An equalized image is no longer linear, and its processing state says so. A preview is shown and never kept,
+    // so it records nothing.
+    if (run.kind == an::ui::ProcessRunKind::Preview)
     {
         return an::Status::success();
     }
-    return process_utils::markProcessResultNonlinear(*session, scope.engine(), scope.execution(), destination, "clahe");
+    return process_utils::markProcessResultNonlinear(destination, "clahe");
 }
 
 an::ui::ProcessStep CLAHEProcess::describeTypedProcessStep(const CLAHEParams& params) const

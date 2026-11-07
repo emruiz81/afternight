@@ -161,48 +161,72 @@ an::Status runOverUnitFloat(const an::EngineContext& engine, const an::Execution
 namespace
 {
 
-/// The plan a Gaussian blur of a sigma runs, and how many passes of it: one where the widest kernel reaches the sigma,
-/// otherwise the fewest passes whose share of the sigma - the sigma over the square root of their count, so the
-/// variances add up to the sigma's square - one kernel reaches.
+/// The plan a Gaussian blur of a sigma runs, and how many passes of it: the fewest whose share of the sigma - the sigma
+/// over the square root of their count, so the variances add up to the sigma's square - one kernel reaches.
 struct ComposedGaussian
 {
     an::GaussianPlan plan;
     std::uint32_t passes = 1u;
 };
 
-[[nodiscard]] an::Result<ComposedGaussian> planComposedGaussian(double sigma, an::KernelBorderMode border)
+/// The widest radius of a plan.
+[[nodiscard]] std::uint32_t radiusOf(const an::GaussianPlan& plan) noexcept
 {
-    std::uint32_t passes = 1u;
-    an::Result<an::GaussianPlan> plan =
-        an::planGaussianBlur(an::GaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
-    while (!plan.hasValue() && plan.status().code() == an::ErrorCode::OutOfRange && passes < 4096u)
-    {
-        ++passes;
-        const double share = sigma / std::sqrt(static_cast<double>(passes));
-        plan =
-            an::planGaussianBlur(an::GaussianRequest{.sigmaX = share, .sigmaY = share, .borders = {.border = border}});
-    }
-    if (!plan.hasValue())
-    {
-        return plan.status();
-    }
-    return ComposedGaussian{.plan = *plan, .passes = passes};
+    return (std::max)(plan.horizontalRadius(), plan.verticalRadius());
 }
 
-/// Blurs tight planar Float32 samples with the exact Gaussian at any sigma, in as many passes as the widest kernel
-/// a plan takes needs: each a Gaussian of the sigma over the square root of the count, so the variances add up to the
-/// sigma's square.
-[[nodiscard]] an::Status blurAnySigma(const an::EngineContext& engine, const an::ExecutionContext& execution,
-                                      const float* source, float* destination, const an::ImageLayout& layout,
-                                      double sigma, an::KernelBorderMode border)
+/// The fewest passes of kernels no wider than a radius that compose a sigma.
+[[nodiscard]] an::Result<ComposedGaussian> planPassesWithin(double sigma, an::KernelBorderMode border,
+                                                            std::uint32_t widest)
 {
-    const an::Result<ComposedGaussian> composed = planComposedGaussian(sigma, border);
-    if (!composed.hasValue())
+    for (std::uint32_t passes = 1u; passes <= 4096u; ++passes)
     {
-        return composed.status();
+        const double share = sigma / std::sqrt(static_cast<double>(passes));
+        const an::Result<an::GaussianPlan> plan =
+            an::planGaussianBlur(an::GaussianRequest{.sigmaX = share, .sigmaY = share, .borders = {.border = border}});
+        if (!plan.hasValue() && plan.status().code() != an::ErrorCode::OutOfRange)
+        {
+            return plan.status();
+        }
+        if (plan.hasValue() && radiusOf(*plan) <= widest)
+        {
+            return ComposedGaussian{.plan = *plan, .passes = passes};
+        }
     }
-    const an::GaussianPlan& plan = composed->plan;
-    const std::uint32_t passes = composed->passes;
+    return an::Status::failure(an::ErrorCode::OutOfRange, "no composition of exact passes reaches this sigma");
+}
+
+/// The passes the exact Gaussian of a sigma runs over a plane of an extent. One plan where the stencil family's widest
+/// kernel reaches the sigma, which either of the engine's paths runs. Beyond it, over a plane mirrored without its edge
+/// sample, the fewest passes whose kernel the compiled symmetric path runs over that plane - no wider than the engine's
+/// widest exact kernel and under half of each side - which is one pass for every sigma a dialog offers over a frame of
+/// ordinary size, where kernels the stencil family reaches would take the sigma's square over a thousand. Otherwise the
+/// fewest passes of kernels the stencil family reaches.
+[[nodiscard]] an::Result<ComposedGaussian> planExactGaussian(double sigma, an::KernelBorderMode border,
+                                                             std::uint32_t width, std::uint32_t height)
+{
+    const an::Result<ComposedGaussian> narrow = planPassesWithin(sigma, border, an::kMaxStencilRadius);
+    if (!narrow.hasValue() || narrow->passes == 1u || border != an::KernelBorderMode::ReflectExcludingEdge)
+    {
+        return narrow;
+    }
+    const std::uint32_t half = (std::min)(width, height) / 2u;
+    const std::uint32_t symmetric = (std::min)(an::kMaxGaussianRadius, half == 0u ? 0u : half - 1u);
+    if (symmetric <= an::kMaxStencilRadius)
+    {
+        return narrow;
+    }
+    const an::Result<ComposedGaussian> wide = planPassesWithin(sigma, border, symmetric);
+    return wide.hasValue() && wide->passes < narrow->passes ? wide : narrow;
+}
+
+/// Runs the passes of an exact composition over tight planar Float32 samples, the last landing in the destination.
+[[nodiscard]] an::Status runPasses(const an::EngineContext& engine, const an::ExecutionContext& execution,
+                                   const float* source, float* destination, const an::ImageLayout& layout,
+                                   const ComposedGaussian& composed)
+{
+    const an::GaussianPlan& plan = composed.plan;
+    const std::uint32_t passes = composed.passes;
     if (passes == 1u)
     {
         return process_utils::statusOf(
@@ -232,6 +256,74 @@ struct ComposedGaussian
     return an::Status::success();
 }
 
+/// Blurs tight planar Float32 samples with the exact Gaussian at any sigma, in the passes `planExactGaussian` chooses
+/// for their plane. A kernel wider than the stencil family's runs only on the engine's compiled symmetric rows, which
+/// a processor below AVX2 and an operation held to another instruction set do not have, and needs a plane of its own;
+/// where the engine refuses it either, the narrow passes, which the general path runs within its bands on any
+/// processor, run instead, from the source, which no pass writes.
+[[nodiscard]] an::Status blurAnySigma(const an::EngineContext& engine, const an::ExecutionContext& execution,
+                                      const float* source, float* destination, const an::ImageLayout& layout,
+                                      double sigma, an::KernelBorderMode border)
+{
+    const an::Result<ComposedGaussian> composed =
+        planExactGaussian(sigma, border, layout.extent().width(), layout.extent().height());
+    if (!composed.hasValue())
+    {
+        return composed.status();
+    }
+    const an::Status ran = runPasses(engine, execution, source, destination, layout, *composed);
+    const bool wideRefused =
+        radiusOf(composed->plan) > an::kMaxStencilRadius &&
+        (ran.code() == an::ErrorCode::OutOfRange || ran.code() == an::ErrorCode::MemoryBudgetExceeded ||
+         ran.code() == an::ErrorCode::AllocationFailed);
+    if (!wideRefused)
+    {
+        return ran;
+    }
+    const an::Result<ComposedGaussian> narrow = planPassesWithin(sigma, border, an::kMaxStencilRadius);
+    if (!narrow.hasValue())
+    {
+        return narrow.status();
+    }
+    return runPasses(engine, execution, source, destination, layout, *narrow);
+}
+
+/// Whether the stencil family's widest kernel reaches a sigma: the sigma beyond which an interactive preview blurs by
+/// the real-time preview's boxes, the exact kernel's cost per pixel growing with the sigma and theirs not.
+[[nodiscard]] bool stencilKernelReaches(double sigma, an::KernelBorderMode border)
+{
+    const an::Result<an::GaussianPlan> plan =
+        an::planGaussianBlur(an::GaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
+    return plan.hasValue() && radiusOf(*plan) <= an::kMaxStencilRadius;
+}
+
+/// Blurs tight planar Float32 samples as a kind of blur asks: not at all for a sigma the engine builds no kernel for,
+/// by the real-time preview's boxes for an interactive preview's sigma beyond the stencil family's widest kernel, and
+/// by the exact Gaussian otherwise.
+[[nodiscard]] an::Status blurByKind(const an::EngineContext& engine, const an::ExecutionContext& execution,
+                                    const float* source, float* destination, const an::ImageLayout& layout,
+                                    double sigma, an::KernelBorderMode border, BlurKind kind)
+{
+    if (!(sigma > an::kMinimumGaussianSigma))
+    {
+        an::ConversionCounters counters;
+        return an::convertImageSamples(execution, an::SampleType::Float32, source, layout, an::SampleType::Float32,
+                                       destination, layout, an::ConversionPolicy{}, counters);
+    }
+    if (kind == BlurKind::InteractivePreview && !stencilKernelReaches(sigma, border))
+    {
+        const an::Result<an::GaussianPlan> boxes = an::planRealtimePreviewGaussianBlur(
+            an::RealtimePreviewGaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
+        if (!boxes.hasValue())
+        {
+            return boxes.status();
+        }
+        return statusOf(an::blurImageRealtimePreviewGaussian(execution, an::SampleType::Float32, source, layout,
+                                                             destination, layout, *boxes));
+    }
+    return blurAnySigma(engine, execution, source, destination, layout, sigma, border);
+}
+
 /// Runs a pointwise program over tight planar Float32 samples in place, with a second source when it takes one.
 [[nodiscard]] an::Status runInPlace(const an::ExecutionContext& execution,
                                     const an::Result<an::PointwiseProgram>& program, float* samples,
@@ -252,12 +344,12 @@ struct ComposedGaussian
 
 an::Status blurGaussian(const an::EngineContext& engine, const an::ExecutionContext& execution,
                         const an::ChannelScopeInput& input, const an::ChannelScopeOutput& output, double sigma,
-                        an::KernelBorderMode border)
+                        an::KernelBorderMode border, BlurKind kind)
 {
     const an::SampleType type = input.descriptor->sampleType();
     const an::Result<an::GaussianPlan> plan =
         an::planGaussianBlur(an::GaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
-    if (plan.hasValue())
+    if (plan.hasValue() && radiusOf(*plan) <= an::kMaxStencilRadius)
     {
         // A Float64 plane is blurred where it lies, as is a plane under a validity rule or a mask, which the engine's
         // blur reads, and a Float32 plane whose rows are packed tight, which the engine's compiled kernels read. A
@@ -282,7 +374,7 @@ an::Status blurGaussian(const an::EngineContext& engine, const an::ExecutionCont
                                                   *output.layout, *plan, selection.selection()));
         }
     }
-    else if (plan.status().code() != an::ErrorCode::OutOfRange)
+    else if (!plan.hasValue() && plan.status().code() != an::ErrorCode::OutOfRange)
     {
         return plan.status();
     }
@@ -299,7 +391,7 @@ an::Status blurGaussian(const an::EngineContext& engine, const an::ExecutionCont
             {
                 return blur.status();
             }
-            if (an::Status blurred = blurAnySigma(engine, execution, samples, blur->data(), layout, sigma, border);
+            if (an::Status blurred = blurByKind(engine, execution, samples, blur->data(), layout, sigma, border, kind);
                 blurred.failed())
             {
                 return blurred;
@@ -316,7 +408,15 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
 {
     const an::SampleType type = input.descriptor->sampleType();
     const UnitScale unit = unitScaleOf(type);
-    if (request.amount >= 0.0)
+    const PlaneSelection selection(input);
+    // A plane every sample of which is valid, blurred under the border the compiled Gaussian mirrors at, is composed
+    // over fractions of full scale at every sigma, so the engine's compiled Float32 kernels blur it as they blur the
+    // Gaussian blur's: each pair of taps folded once and summed in Float32, where the detail filter's one plan
+    // accumulates every tap in Float64 through the general stencil.
+    const bool everySampleValid =
+        selection.selection().mask == nullptr && selection.selection().validity.rule() == an::ValidityRule::AllValid;
+    const bool compiledBlur = everySampleValid && request.border == an::KernelBorderMode::ReflectExcludingEdge;
+    if (!compiledBlur && request.amount >= 0.0 && request.sigma > an::kMinimumGaussianSigma)
     {
         const an::Result<an::DetailFilterPlan> plan = an::planDetailFilter(an::DetailFilterRequest{
             .method = request.method,
@@ -330,7 +430,6 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
             .borders = {.border = request.border}});
         if (plan.hasValue())
         {
-            const PlaneSelection selection(input);
             return statusOf(an::filterImageDetail(execution, type, input.samples, *input.layout, output.samples,
                                                   *output.layout, *plan, selection.selection()));
         }
@@ -340,7 +439,7 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
         }
     }
 
-    // What one plan cannot take, composed over fractions of full scale.
+    // Composed over fractions of full scale: every plane the compiled kernels blur, and what one plan cannot take.
     if (output.layout->samplesPerPixel() != 1u)
     {
         return an::Status::failure(an::ErrorCode::IncompatibleArguments, "a detail filter's output is planar");
@@ -353,8 +452,8 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
             {
                 return blur.status();
             }
-            if (an::Status blurred =
-                    blurAnySigma(engine, execution, samples, blur->data(), layout, request.sigma, request.border);
+            if (an::Status blurred = blurByKind(engine, execution, samples, blur->data(), layout, request.sigma,
+                                                request.border, request.blur);
                 blurred.failed())
             {
                 return blurred;
@@ -394,42 +493,35 @@ an::Status filterDetail(const an::EngineContext& engine, const an::ExecutionCont
         });
 }
 
-std::uint32_t gaussianReach(double sigma, an::KernelBorderMode border)
+std::uint32_t gaussianReach(double sigma, an::KernelBorderMode border, BlurKind kind)
 {
-    const an::Result<ComposedGaussian> composed = planComposedGaussian(sigma, border);
+    if (!(sigma > an::kMinimumGaussianSigma))
+    {
+        return 0u;
+    }
+    // An interactive preview's sigma beyond the stencil family's kernel is blurred by the boxes, which reach the sum
+    // of their radii.
+    if (kind == BlurKind::InteractivePreview && !stencilKernelReaches(sigma, border))
+    {
+        const an::Result<an::GaussianPlan> boxes = an::planRealtimePreviewGaussianBlur(
+            an::RealtimePreviewGaussianRequest{.sigmaX = sigma, .sigmaY = sigma, .borders = {.border = border}});
+        return boxes.hasValue() ? radiusOf(*boxes) : 0u;
+    }
+    const an::Result<ComposedGaussian> composed = planExactGaussian(
+        sigma, border, (std::numeric_limits<std::uint32_t>::max)(), (std::numeric_limits<std::uint32_t>::max)());
     if (!composed.hasValue())
     {
         return 0u;
     }
-    const std::uint64_t radius = (std::max)(composed->plan.horizontalRadius(), composed->plan.verticalRadius()) *
-                                 std::uint64_t{composed->passes};
+    const std::uint64_t radius = std::uint64_t{radiusOf(composed->plan)} * std::uint64_t{composed->passes};
     return static_cast<std::uint32_t>((std::min)(radius, std::uint64_t{(std::numeric_limits<std::uint32_t>::max)()}));
 }
 
 std::uint32_t detailReach(const DetailRequest& request)
 {
-    // The plan `filterDetail` takes first, which the bounds it is handed do not move.
-    if (request.amount >= 0.0)
-    {
-        const an::Result<an::DetailFilterPlan> plan = an::planDetailFilter(
-            an::DetailFilterRequest{.method = request.method,
-                                    .sigmaX = request.sigma,
-                                    .sigmaY = request.sigma,
-                                    .amount = request.amount,
-                                    .offset = request.method == an::DetailFilterMethod::HighPass ? request.offset : 0.0,
-                                    .lowest = 0.0,
-                                    .highest = 1.0,
-                                    .borders = {.border = request.border}});
-        if (plan.hasValue())
-        {
-            return (std::max)(plan->gaussian().horizontalRadius(), plan->gaussian().verticalRadius());
-        }
-        if (plan.status().code() != an::ErrorCode::OutOfRange)
-        {
-            return 0u;
-        }
-    }
-    return gaussianReach(request.sigma, request.border);
+    // The engine's detail filter's one plan blurs by the same kernel `gaussianReach` reads for a sigma the stencil
+    // family's kernel reaches, and a composition by the passes it adds up.
+    return gaussianReach(request.sigma, request.border, request.blur);
 }
 
 std::string channelStepSuffix(const ImageViewControl* target, const QComboBox* selector)
@@ -499,86 +591,36 @@ LeadingPlanesSelection::LeadingPlanesSelection(const an::SpatialSelection& whole
     m_selection.mask = m_planes.has_value() ? &*m_planes : nullptr;
 }
 
-an::Status markProcessResultNonlinear(const an::consumer::EngineSession& session, const an::EngineContext& engine,
-                                      const an::ExecutionContext& execution, an::ui::ProcessDestination& destination,
-                                      std::string_view operation)
+an::Status markProcessResultNonlinear(an::ui::ProcessDestination& destination, std::string_view operation)
 {
     if (!destination.valid())
     {
         return an::Status::failure(an::ErrorCode::NotInitialized, "the run has no result to record a state on");
     }
-    const an::consumer::AssetWriteLease& result = destination.asset();
-    return std::visit(
-        [&](const auto& typed) -> an::Status {
-            using ImageT = std::decay_t<decltype(typed)>;
-            const std::optional<an::ImageDescriptor> described = typed.descriptor();
-            const auto source = typed.view();
-            if (!described.has_value() || !source.has_value())
-            {
-                return an::Status::failure(an::ErrorCode::NotInitialized, "the run's result holds nothing");
-            }
-            const an::ImageMetadata& metadata = typed.metadata();
-            const an::ProcessingStateRecord state =
-                an::nonlinearState(an::readProcessingStateCards(metadata.codec()), *described, operation);
-            an::Result<an::CodecMetadata> codec = an::withProcessingStateCards(metadata.codec(), state);
-            if (!codec.hasValue())
-            {
-                return codec.status();
-            }
-            an::Result<an::ProvenanceEntry> entry =
-                an::ProvenanceEntry::create(std::string(operation), "the samples left nonlinear");
-            if (!entry.hasValue())
-            {
-                return entry.status();
-            }
-            an::Result<an::Provenance> provenance = metadata.provenance().appended(*entry);
-            if (!provenance.hasValue())
-            {
-                return provenance.status();
-            }
-            an::Result<an::ImageMetadata> stated =
-                an::ImageMetadata::create(metadata.acquisition(), metadata.semantics(), metadata.astrometry(),
-                                          std::move(*provenance), std::move(*codec), metadata.outputIntent());
-            if (!stated.hasValue())
-            {
-                return stated.status();
-            }
-            an::Result<ImageT> copy = ImageT::create(engine, *described, an::storageArrangementOf(source->layout()),
-                                                     an::StorageInitialization::Uninitialized, std::move(*stated));
-            if (!copy.hasValue())
-            {
-                return copy.status();
-            }
-            {
-                auto access = copy->write();
-                if (!access.has_value())
-                {
-                    return an::Status::failure(an::ErrorCode::NotInitialized, "the copy holds nothing");
-                }
-                if (an::Status copied = an::copyImage(execution, *source, access->view()); copied.failed())
-                {
-                    return copied;
-                }
-            }
-            std::optional<an::ValidityMask> mask;
-            if (const an::ValidityMask* validity = result.validity(); validity != nullptr)
-            {
-                an::Result<an::ValidityMask> cloned = validity->clone();
-                if (!cloned.hasValue())
-                {
-                    return cloned.status();
-                }
-                mask = std::move(*cloned);
-            }
-            an::Result<an::consumer::ImageAsset> asset =
-                an::consumer::ImageAsset::adopt(session, an::consumer::AnyImage(std::move(*copy)), std::move(mask));
-            if (!asset.hasValue())
-            {
-                return asset.status();
-            }
-            return destination.replace(std::move(*asset));
-        },
-        result.image());
+    an::consumer::AssetWriteLease& result = destination.asset();
+    const std::optional<an::ImageDescriptor> described =
+        std::visit([](const auto& typed) { return typed.descriptor(); }, result.image());
+    if (!described.has_value())
+    {
+        return an::Status::failure(an::ErrorCode::NotInitialized, "the run's result holds nothing");
+    }
+    const an::ImageMetadata& metadata =
+        std::visit([](const auto& typed) -> const an::ImageMetadata& { return typed.metadata(); }, result.image());
+    const an::ProcessingStateRecord state =
+        an::nonlinearState(an::readProcessingStateCards(metadata.codec()), *described, operation);
+    an::Result<an::CodecMetadata> codec = an::withProcessingStateCards(metadata.codec(), state);
+    if (!codec.hasValue())
+    {
+        return codec.status();
+    }
+    an::Result<an::ProvenanceEntry> entry =
+        an::ProvenanceEntry::create(std::string(operation), "the samples left nonlinear");
+    if (!entry.hasValue())
+    {
+        return entry.status();
+    }
+    // The cards are stated where the result is: its samples stay where the process wrote them.
+    return result.transition(an::MetadataTransition{.codec = std::move(*codec), .record = std::move(*entry)});
 }
 
 } // namespace process_utils

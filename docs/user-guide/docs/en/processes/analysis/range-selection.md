@@ -21,7 +21,7 @@ or sequence named `<target-name> - MASK` and closes the process window.
 | Inputs | One grayscale or color still, or a sequence, in any integer or floating sample type. Values are read as fractions of their code range: an unsigned integer as a fraction of its largest code, a signed one counted from its smallest code, a floating sample as stored. An enabled mask on the target is ignored |
 | Outputs | A new same-size image or sequence named `<target> - MASK`. Color plus Lightness produces a one-channel floating grayscale mask; otherwise the mask keeps the target's channel count and sample type |
 | Recommended image state | A finite image whose range of interest is already on the intended normalized scale; there is no automatic normalization, background measurement, or threshold estimator |
-| Preview support | Asynchronous full-image preview computed exactly as OK computes it, display autostretch, original/result switch, snapshot, zoom, display-channel selection, and **Preview area**, which shows the mask of the area alone over the image |
+| Preview support | Asynchronous preview: while a control is dragged, over what the preview view shows - the image reduced to the view's size, smoothed by Smoothness divided by the reduction, or the part shown at 1:1 and closer with the smoothing's reach around it - and the preview you rest on over the whole image, computed exactly as OK computes it; display autostretch, original/result switch, snapshot, zoom, display-channel selection, and **Preview area**, which shows the mask of the area alone over the image |
 | Sequence support | Supported: every output frame is computed from its own source frame and written to a new temporary sequence in the target's container |
 | Mask support | None: an enabled mask on the target weighs no preview, snapshot, OK result, or sequence frame, so the result is always the pure range mask |
 | External dependencies | None for the user; the selection and the Gaussian are part of AfterNight's engine |
@@ -72,12 +72,12 @@ and always produces the pure range mask.
 | **Upper limit** | Double + slider, normalized | `1.000000` | None | `0..1`; 6 decimals; spin step `0.05`; linked slider 0..1000 | Lowering excludes brighter samples and moves the upper fuzzy ramp downward | If moved to/below Lower, Lower is moved to the same value; disabled during OK | Narrower selection; equality is an exact-value selection even when Fuzziness is positive | Preview/OK; every selected source channel | Captured per run; Reset `1`; a reopened window starts at `1` |
 | **Link Range Limits** | Checkbox | Unchecked and disabled at `[0,1]` | None | Off/on after either endpoint leaves full range | Preserves the captured width `Upper-Lower` while either endpoint moves; clamps the interval at `[0,1]` | Disabled for exact full range and during OK; it is UI-only and does not enter the engine equation | Faster interval scanning; no output cost | Parameter editing only | Captured but unused by the engine; Reset off |
 | **Fuzziness** | Double + slider, fraction of selected interval | `0.00` | None | `0..1`; 2 decimals; spin step `0.05`; slider 0..1000 | For `Upper>Lower`, replaces hard interval edges with two linear ramps, each width `(Upper-Lower)Fuzziness/2`; `1` forms a triangle peaking at interval midpoint | Disabled during OK; when limits are equal, the ramp width is zero and the result remains an exact-value selection | Softer transitions reduce hard boundaries; larger values reduce the full-weight plateau only for a nonzero interval | Preview/OK; per channel before Smoothness | Captured per run; Reset `0` |
-| **Smoothness** | Double + slider, Gaussian standard deviation in pixels | `0.00` | None | `0..32`; 2 decimals; spin step `1`; slider 0..320. The range stops at 32 because the engine's widest exact Gaussian reaches 128 pixels, four deviations | Applies a wider exact Gaussian blur as it rises; `0` skips the blur | Disabled during OK; runs after range/Screening and before Invert | Broader halos and selection bleed; work grows with the deviation (the blur reaches four deviations); mirror boundaries; integer destinations quantize | Whole generated image, all channels | Captured per run; Reset `0` |
+| **Smoothness** | Double + slider, Gaussian standard deviation in pixels | `0.00` | None | `0..32`; 2 decimals; spin step `1`; slider 0..320 | Applies a wider exact Gaussian blur as it rises; `0` skips the blur | Disabled during OK; runs after range/Screening and before Invert | Broader halos and selection bleed; work grows with the deviation (the blur reaches four deviations); mirror boundaries; integer destinations quantize | Whole generated image, all channels | Captured per run; Reset `0` |
 | **Screening** | Checkbox | Unchecked | None | Off/on | Off outputs the selection weight; on outputs `source × weight` | Disabled during OK | On preserves intensity gradients instead of a conventional white mask plateau | Per channel before smoothing/inversion | Captured per run; Reset off |
 | **Lightness** | Checkbox | **Checked** | None | Off/on | For a color target, checked selects over CIE L* as one plane and produces a floating grayscale mask; unchecked thresholds each stored channel separately | No effect for grayscale; disabled during OK | Preview and OK use the same conversion; adds a full-size lightness plane | Source preparation before threshold; still, preview area, or each sequence frame | Captured per run; Reset on |
 | **Invert** | Checkbox | Unchecked | None | Off/on | Replaces final normalized output `y` with `1-y` | Disabled during OK | Reverses selected/protected meaning after blur; a sample that held no number reads as unselected, white without Smoothness | Whole output after Smoothness | Captured per run; Reset off |
 | **Target Image** | Image/sequence selector | Attached active target | None | Any open target accepted by launch guards | Changes the source and output name | Active target required; disabled during OK | Wrong target creates the wrong mask | Preview/OK; still or sequence | Target lifetime; Reset unchanged |
-| **Preview** | Checkbox | Checked | None | Off/on | Creates/destroys live asynchronous preview updates | Available while idle; disabled during OK | Checked reruns the full selection, conversion, and blur (or those of the area) after edits | Preview only; the target's mask is not applied | Window lifetime; Reset unchanged |
+| **Preview** | Checkbox | Checked | None | Off/on | Creates/destroys live asynchronous preview updates | Available while idle; disabled during OK | Checked reruns the selection, conversion, and blur after edits: over what the preview view shows while a control is dragged, then over the whole image (or the area) | Preview only; the target's mask is not applied | Window lifetime; Reset unchanged |
 | **Preview pane** | Image viewer | Full-frame result; execution autostretch supported | None | Standard pan/scroll and actions below | Displays the generated result without changing the target | Exists while Preview is checked | Holds source/result/display buffers; Lightness adds another plane | Preview only | Window lifetime |
 | **Fit To Window** | Preview-toolbar action | Preview fitted initially | None | Click or **Ctrl+Shift+F** | Fits the whole image | Preview image required | Broad context; resampling can hide small edge artifacts | Display only | Viewer lifetime |
 | **Zoom In** | Preview-toolbar action | Current scale | None | Click; `1.25×` relative zoom | Enlarges around viewport center | Preview image required | Better local boundary inspection | Display only | Viewer lifetime |
@@ -98,9 +98,13 @@ and always produces the pure range mask.
 
 ### Conceptual pipeline
 
-1. Read the image the run is given: the whole target for OK and for a
-   full-image preview, the area's crop for a preview area, and each frame in
-   turn for a sequence.
+1. Read the image the run is given: the whole target for OK and for the
+   preview you rest on, the area's crop for a preview area, and each frame in
+   turn for a sequence. While a control is dragged, a preview reads the image
+   reduced to the preview view's size - each pixel the mean of its block - and
+   smooths by Smoothness divided by the reduction, or reads the part the view
+   shows at 1:1 and closer with the smoothing's reach of four deviations
+   around it.
 2. If **Lightness** is checked and that image is color, compute its CIE L* into
    a new floating grayscale plane in the `[0,1]` range, read the way the
    process channel selector reads a color image. An integer image is first
@@ -174,9 +178,13 @@ every sequence frame produce exactly what they produce without one.
   after Invert it is white unless Smoothness spread its neighbors into it.
   Every sample of the result holds a number, and the result states every
   sample valid.
-- Preview and OK run the same computation. A preview area runs it on the
-  area's crop, so near the area's edges Smoothness mirrors the area's own edge
-  instead of reading the pixels beyond it.
+- The preview you rest on and OK run the same computation. A preview area
+  runs it on the area's crop, so near the area's edges Smoothness mirrors the
+  area's own edge instead of reading the pixels beyond it.
+- A preview while a control is dragged over the image reduced is an
+  approximation: the limits and the ramps do not commute with the reduction's
+  block means, so a thin structure can be selected more or less than at full
+  scale. Over the part shown at 1:1 it is the full computation there.
 - A sequence run processes every frame from that frame's own samples.
 - A run the engine cannot give memory to fails with **Error executing the
   process** naming the memory budget; nothing is made and the target is
@@ -234,8 +242,13 @@ work grows with width, height, and channel count. Every run holds a full-size
 floating working image for the selection; Lightness adds a CIE L* conversion
 into a plane of its own, and an integer target adds a floating working copy.
 Smoothness adds two exact Gaussian passes whose work grows with the deviation.
-Preview reruns after each setting change, over the area only when Preview area
-is checked. No production timing or peak-memory measurement was made.
+Preview reruns after each setting change. While a control is dragged it runs
+over what the preview view shows, so it costs a preview-sized image a step
+whatever the image's size; the preview you rest on runs over the whole image,
+or the area when Preview area is checked. A Lightness mask of a color image
+shown in Autostretch at 1:1 is the exception: a part of it cannot be stretched
+as the whole mask is, so every preview then runs over the whole image. No
+production timing or peak-memory measurement was made.
 
 `Test_ProcessesMasks` holds the numerical results, the preview, the new view,
 metadata, every sample type, cancellation, and a memory refusal. It does not
@@ -272,6 +285,11 @@ measure time or memory.
   or nearly so after Smoothness.
 - A preview area is computed as an image of its own, so Smoothness near its
   edges can differ from the full OK.
+- A preview while a control is dragged over a fitted view is computed on the
+  image reduced to the view's size; the preview you rest on is the full
+  computation.
+- In Autostretch at 1:1, a Lightness mask of a color image previews over the
+  whole image while a control is dragged, at the rate that allows.
 - Lower=Upper selects only the exact shared-limit value; positive Fuzziness
   does not soften it.
 - Screening is source-intensity multiplication, not a screen blend mode.

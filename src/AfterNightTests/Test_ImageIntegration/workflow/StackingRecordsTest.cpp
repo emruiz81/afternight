@@ -318,6 +318,11 @@ TEST_F(TransformOnReadDecisionTest, ADiscardableRegisteredGroupIsWarpedAsItIsRea
 {
     const auto routing = ImageIntegration::decideLightsTransformOnRead(m_manifest, m_group);
     EXPECT_TRUE(routing.usesTransformOnRead());
+
+    // An incremental run reads the lights as a full run does, so a run that only stacks again writes no registered
+    // image and measures nothing again.
+    m_manifest.executionMode = ExecutionMode::Incremental;
+    EXPECT_TRUE(ImageIntegration::decideLightsTransformOnRead(m_manifest, m_group).usesTransformOnRead());
 }
 
 TEST_F(TransformOnReadDecisionTest, EachWorkflowReasonKeepsTheRegisteredImages)

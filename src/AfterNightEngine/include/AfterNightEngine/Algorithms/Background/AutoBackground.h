@@ -40,9 +40,10 @@
 /// the median and the scaled median absolute deviation of the residuals, the structure protection
 /// and the bilinear return to full resolution. What is this engine's is the restatement over its planes,
 /// the validity rule resolved at the reduction, the reported figures, the correction fused into the
-/// write, the threshold in the image's own units, and the protection kept across rounds where the
-/// script recomputes it each round. This header and its implementation are distributed under the
-/// same licence, and the credit for the method is its author's;
+/// write, the surface and the protection drawn from the fit the correction uses, the threshold in the
+/// image's own units, and the protection kept across rounds where the script recomputes it each
+/// round. This header and its implementation are distributed under the same licence, and the credit
+/// for the method is its author's;
 /// `docs/dev/AUTO_GRADIENT_REMOVAL_PROVENANCE.md` records the revision that was reviewed.
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -596,6 +597,74 @@ removeAutoBackground(const ExecutionContext& execution, const ImageView<const Sa
 {
     return removeImageAutoBackground(execution, kSampleTypeOf<SampleT>, source.data(), source.layout(),
                                      destination.data(), destination.layout(), plan, selection);
+}
+
+/// Estimates the background of an image once, removes it, and draws what that one estimate found into caller-owned
+/// planes.
+///
+/// The untyped entry point, and the one the exported library carries. It is `removeImageAutoBackground` and
+/// `estimateImageAutoBackground` over one fit: a caller that shows or keeps the corrected frame, the surface and the
+/// structure the fit was kept away from pays for the estimate, which is the expensive part, once. Each channel is
+/// reduced and estimated once; its surface and its protection are drawn into the planes as
+/// `estimateImageAutoBackground` draws them, and the channel is then corrected as `removeImageAutoBackground` corrects
+/// it. Every corrected sample, every surface sample and every protection sample is the one those two calls write for
+/// the same plan, source and selection, value for value.
+///
+/// A request that does not protect structures leaves the protection planes untouched, as the estimate does. Given no
+/// planes at all, it is `removeImageAutoBackground`.
+///
+/// Thread-safe with respect to `execution`, the source and the selection, all of which are only read. Runs on the
+/// threads the operation was admitted, checks cancellation at iteration, pass and row-block boundaries, and is not
+/// failure-atomic with respect to the destination or the planes.
+///
+/// Progress is reported as `removeImageAutoBackground` reports it.
+///
+/// @param execution the operation policy and engine-context lease.
+/// @param sampleType what the samples are, on both sides.
+/// @param source where the frame's samples start. Must not be null.
+/// @param sourceLayout where they sit. Its extent must be the plan's picture.
+/// @param destination where the corrected samples go. Must not be null. It may be the source exactly.
+/// @param destinationLayout where they sit. Its extent must be the source's.
+/// @param plan the validated request.
+/// @param models one plane per channel for the surface, in channel order, each of the frame's extent; or an empty
+///        span for a run that draws none. Must overlap neither the source nor the destination.
+/// @param protection one plane per channel for the grown structure mask, in channel order, written as
+///        `estimateImageAutoBackground` writes it; or an empty span for a run that draws none. Must overlap neither
+///        the source nor the destination.
+/// @param selection which samples mean something.
+/// @return what the estimate and the correction did, as `removeImageAutoBackground` reports it; the refusals it
+///         documents; `ErrorCode::IncompatibleArguments` for a model or protection plane count that is neither zero
+///         nor the channel count, or a plane that is not the frame's extent; or `ErrorCode::Aliasing` for a plane that
+///         overlaps the source or the destination.
+[[nodiscard]] AFTERNIGHTENGINE_API Result<AutoBackgroundResult> removeAndDrawImageAutoBackground(
+    const ExecutionContext& execution, SampleType sampleType, const void* source, const ImageLayout& sourceLayout,
+    void* destination, const ImageLayout& destinationLayout, const AutoBackgroundPlan& plan,
+    std::span<const PlaneView<float>> models, std::span<const PlaneView<float>> protection = {},
+    const SpatialSelection& selection = {});
+
+/// Estimates the background of a checked typed image view once, removes it and draws what it found.
+///
+/// The typed spelling of `removeAndDrawImageAutoBackground`, which owns every check and every computation.
+///
+/// @tparam SampleT one of the eight resident sample representations.
+/// @param execution the operation policy and engine-context lease.
+/// @param source the checked read-only image view.
+/// @param destination the checked writable image view.
+/// @param plan the validated request.
+/// @param models one plane per channel for the surface, or an empty span.
+/// @param protection one plane per channel for the structure mask, or an empty span.
+/// @param selection which samples mean something.
+/// @return whatever `removeAndDrawImageAutoBackground` reports.
+template <ResidentSample SampleT>
+[[nodiscard]] Result<AutoBackgroundResult>
+removeAndDrawAutoBackground(const ExecutionContext& execution, const ImageView<const SampleT>& source,
+                            const ImageView<SampleT>& destination, const AutoBackgroundPlan& plan,
+                            std::span<const PlaneView<float>> models, std::span<const PlaneView<float>> protection = {},
+                            const SpatialSelection& selection = {})
+{
+    return removeAndDrawImageAutoBackground(execution, kSampleTypeOf<SampleT>, source.data(), source.layout(),
+                                            destination.data(), destination.layout(), plan, models, protection,
+                                            selection);
 }
 
 /// What an automatic estimate does to the image it reads.

@@ -28,7 +28,7 @@ high-contrast edges.
 | Inputs | One grayscale or RGB still or sequence; a still CFA mosaic is treated as one grayscale sample plane unless debayered first; sequence auto-debayer can convert configured CFA frames to RGB before filtering; an optional active mask must match target geometry |
 | Outputs | Destructively replaces the still or, after successful temporary processing, the sequence; **Take snapshot** creates an auxiliary still; no file is written directly |
 | Recommended image state | Usually a finite, normalized nonlinear working copy for final-scale detail; linear use is possible when noise is controlled and scale/amount are tested deliberately |
-| Preview support | Asynchronous full-image or movable-area preview, original/result switching, snapshot, display-channel selection, and display-only autostretch |
+| Preview support | Asynchronous full-image or movable-area preview; while a slider is dragged, frames run over what the preview shows - the image reduced by its zoom, or the part shown at 100% - and the settled frame is the full image, as Apply computes it; original/result switching, snapshot, display-channel selection, and display-only autostretch |
 | Sequence support | Yes; Radius, Amount, and Channel are captured once when Apply starts and used for every frame; temporary output replaces the sequence only after success |
 | Mask support | Yes; the active mask blends the clipped/reconstructed filter result with the original after filtering |
 | External dependencies | None; the AfterNight engine's own detail filter. No Python interpreter, scikit-image, global lock, separate installation, or network access |
@@ -108,6 +108,16 @@ high-contrast edges.
    same way over a single-precision working copy of fractions of full scale.
 4. The shared Channel dispatcher reconstructs RGB when needed, keeps the source
    pixel type and metadata, and blends the active mask after filtering.
+
+While Radius or Amount is dragged, each preview frame runs over what the preview
+shows rather than over the whole image. Zoomed out, it runs over the image
+reduced by the view's zoom - each pixel the mean of its block - with Radius
+reduced by the same factor; because the clip to full scale does not commute with
+averaging, such a frame comes close to the reduction of the full result rather
+than being it. At 100% and closer it runs at full scale over the part of the
+image the view shows, grown by the blur's reach, and is the Apply's answer
+there. Releasing the slider, or holding it still, shows the settled frame: the
+whole image at full scale, the same samples Apply produces.
 
 ### Model and equations
 
@@ -213,6 +223,10 @@ and the final output size.
   granted, with working planes for the blur. Derived components add conversion
   and reconstruction.
 - No global lock serializes this filter with other processes.
+- While a slider is dragged, the preview runs over what the view shows - the
+  image reduced by the view's zoom, or the part shown at 100% - so its frames
+  follow the slider on a large image. The settled frame that follows the release
+  costs as much as Apply.
 - Preview area reduces tuning cost; Apply still processes the full target. Use a
   representative crop and defer full-frame checks until scale/amount are stable.
 - No production timing or peak-memory measurement was executed.

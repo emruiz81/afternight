@@ -116,12 +116,12 @@ producer     AfterNightEngine 1.0.0 abi=1
 configuration Release
 compiler     msvc 19.51.36252
 platform     windows-x64
-captured     2026-11-04
-commit       1b3e1dcaa
-result       11 3 1 float64 sha256=8e7cd580d4533c2465378d7fc641fa08ac6a98c8ffc19e54851ee7b7d4620c7b
-row          0 0 0.6863701641559601 0.16127368807792664 96 0 1 0 1 0 0 0 0
-row          0 1 0.670397013425827 0.11276280879974365 96 0 1 0 1 0 0 0 0
-row          0 2 0.6940938830375671 0.1096561849117279 96 0 1 0 1 0 0 0 0
+captured     2026-11-06
+commit       2e27fa0
+result       11 3 1 float64 sha256=ddf6b9b2148568194f740ba77db6c1404ad6ed51b1be116d6a58c2cbe655d212
+row          0 0 0.45928430557250977 0.1805153489112854 96 0 1 0 1 0 0 0 0
+row          0 1 0.44314585626125336 0.11332939565181732 96 0 1 0 1 0 0 0 0
+row          0 2 0.46716123819351196 0.12344276905059814 96 0 1 0 1 0 0 0 0
 end
 
 expectation  curves-transformation.cubic-three-nodes.histogram-0/scene-rgb-float32
@@ -185,12 +185,12 @@ producer     AfterNightEngine 1.0.0 abi=1
 configuration Release
 compiler     msvc 19.51.36252
 platform     windows-x64
-captured     2026-11-04
-commit       1b3e1dcaa
-result       11 3 1 float64 sha256=7611646fc9625a7f85c14c5c6bcb81628e1b4334dcc49e9ed9afcea63cc248d9
-row          0 0 0.5696650445461273 0.1326390504837036 96 0 1 0 1 0 0 0 0
-row          0 1 0.6231097877025604 0.10658428072929382 96 0 1 0 1 0 0 0 0
-row          0 2 0.7945220172405243 0.10032042860984802 96 0 1 0 1 0 0 0 0
+captured     2026-11-06
+commit       2e27fa0
+result       11 3 1 float64 sha256=78fc4ff7cacd134d7e0c25f622c05ca35074b518905c339810c41b449dcd07ef
+row          0 0 0.3533150255680084 0.110917828977108 96 0 1 0 1 0 0 0 0
+row          0 1 0.3987640142440796 0.09073776006698608 96 0 1 0 1 0 0 0 0
+row          0 2 0.5866941511631012 0.13784998655319214 96 0 1 0 1 0 0 0 0
 end
 
 expectation  curves-transformation.cubic-three-nodes.histogram-0/scene-rgb-uint16
@@ -238,10 +238,10 @@ producer     AfterNightEngine 1.0.0 abi=1
 configuration Release
 compiler     msvc 19.51.36252
 platform     windows-x64
-captured     2026-11-04
-commit       1b3e1dcaa
-result       11 1 1 float64 sha256=44501939021e540ec839a0e5855eee09fc520b3ea47b18d6443057a1a6d0f15b
-row          0 0 0.7316092252731323 0.12924116849899292 96 0 1 0 1 0 0 0 0
+captured     2026-11-06
+commit       2e27fa0
+result       11 1 1 float64 sha256=571b8deafda321acb2a4f877b059b7f957dcb7835bfe106cad7f20a4f0122485
+row          0 0 0.5080783665180206 0.14278817176818848 96 0 1 0 1 0 0 0 0
 end
 
 expectation  curves-transformation.cubic-three-nodes.histogram-0/scene-mono-float32
@@ -303,12 +303,12 @@ producer     AfterNightEngine 1.0.0 abi=1
 configuration Release
 compiler     msvc 19.51.36252
 platform     windows-x64
-captured     2026-11-04
-commit       1b3e1dcaa
-result       11 3 1 float64 sha256=156d0dc61616d41d1ca477da4faf1dcc8359e4a4f84186eab571268d780f43dc
-row          0 0 0.6137745082378387 0.14139056205749512 96 0 1 0 1 0 0 0 0
-row          0 1 0.6022470593452454 0.0809495747089386 96 0 1 0 1 0 0 0 0
-row          0 2 0.6194009184837341 0.08817338943481445 96 0 1 0 1 0 0 0 0
+captured     2026-11-06
+commit       2e27fa0
+result       11 3 1 float64 sha256=ddf6b9b2148568194f740ba77db6c1404ad6ed51b1be116d6a58c2cbe655d212
+row          0 0 0.45928430557250977 0.1805153489112854 96 0 1 0 1 0 0 0 0
+row          0 1 0.44314585626125336 0.11332939565181732 96 0 1 0 1 0 0 0 0
+row          0 2 0.46716123819351196 0.12344276905059814 96 0 1 0 1 0 0 0 0
 end
 
 expectation  curves-transformation.linear-three-nodes.histogram-0/scene-rgb-float32
@@ -372,12 +372,12 @@ producer     AfterNightEngine 1.0.0 abi=1
 configuration Release
 compiler     msvc 19.51.36252
 platform     windows-x64
-captured     2026-11-04
-commit       1b3e1dcaa
-result       11 3 1 float64 sha256=1be54dd80fb65e0f7d8dc20cc15c984d18147fdde0b96ba2648afabf377fa1b2
-row          0 0 0.6068289875984192 0.16564936935901642 96 0 1 0 1 0 0 0 0
-row          0 1 0.5918567180633545 0.1100219339132309 96 0 1 0 1 0 0 0 0
-row          0 2 0.6140957474708557 0.10943719744682312 96 0 1 0 1 0 0 0 0
+captured     2026-11-06
+commit       2e27fa0
+result       11 3 1 float64 sha256=ddf6b9b2148568194f740ba77db6c1404ad6ed51b1be116d6a58c2cbe655d212
+row          0 0 0.45928430557250977 0.1805153489112854 96 0 1 0 1 0 0 0 0
+row          0 1 0.44314585626125336 0.11332939565181732 96 0 1 0 1 0 0 0 0
+row          0 2 0.46716123819351196 0.12344276905059814 96 0 1 0 1 0 0 0 0
 end
 
 expectation  curves-transformation.akima-five-nodes.histogram-0/scene-rgb-float32
@@ -441,12 +441,12 @@ producer     AfterNightEngine 1.0.0 abi=1
 configuration Release
 compiler     msvc 19.51.36252
 platform     windows-x64
-captured     2026-11-04
-commit       1b3e1dcaa
-result       11 3 1 float64 sha256=2b35915e8e8357f702040518baa923c00788f6fe0a921bb785cc39635d8d46d3
-row          0 0 0.6096349656581879 0.16539853811264038 96 0 1 0 1 0 0 0 0
-row          0 1 0.5943011045455933 0.10941919684410095 96 0 1 0 1 0 0 0 0
-row          0 2 0.6170477569103241 0.10704827308654785 96 0 1 0 1 0 0 0 0
+captured     2026-11-06
+commit       2e27fa0
+result       11 3 1 float64 sha256=ddf6b9b2148568194f740ba77db6c1404ad6ed51b1be116d6a58c2cbe655d212
+row          0 0 0.45928430557250977 0.1805153489112854 96 0 1 0 1 0 0 0 0
+row          0 1 0.44314585626125336 0.11332939565181732 96 0 1 0 1 0 0 0 0
+row          0 2 0.46716123819351196 0.12344276905059814 96 0 1 0 1 0 0 0 0
 end
 
 expectation  curves-transformation.steffen-five-nodes.histogram-0/scene-rgb-float32
@@ -510,10 +510,10 @@ producer     AfterNightEngine 1.0.0 abi=1
 configuration Release
 compiler     msvc 19.51.36252
 platform     windows-x64
-captured     2026-11-04
-commit       1b3e1dcaa
-result       11 3 1 float64 sha256=0aee25b7952e58c47bbe1ec60019d228edc28e7de850af3ee35453b74ed13818
-row          0 0 0.6863701641559601 0.16127368807792664 96 0 1 0 1 0 0 0 0
+captured     2026-11-06
+commit       2e27fa0
+result       11 3 1 float64 sha256=ddf6b9b2148568194f740ba77db6c1404ad6ed51b1be116d6a58c2cbe655d212
+row          0 0 0.45928430557250977 0.1805153489112854 96 0 1 0 1 0 0 0 0
 row          0 1 0.44314585626125336 0.11332939565181732 96 0 1 0 1 0 0 0 0
 row          0 2 0.46716123819351196 0.12344276905059814 96 0 1 0 1 0 0 0 0
 end
@@ -579,12 +579,12 @@ producer     AfterNightEngine 1.0.0 abi=1
 configuration Release
 compiler     msvc 19.51.36252
 platform     windows-x64
-captured     2026-11-04
-commit       1b3e1dcaa
-result       11 3 1 float64 sha256=bce117e35afea819aac32edd81ab7cac7e9f2ff1b7b32c55f0b2efd962ea6f62
-row          0 0 0.6819074749946594 0.16900634765625 96 0 1 0 1 0 0 0 0
-row          0 1 0.673628568649292 0.1153605580329895 96 0 1 0 1 0 0 0 0
-row          0 2 0.68238765001297 0.13664957880973816 96 0 1 0 1 0 0 0 0
+captured     2026-11-06
+commit       2e27fa0
+result       11 3 1 float64 sha256=ddf6b9b2148568194f740ba77db6c1404ad6ed51b1be116d6a58c2cbe655d212
+row          0 0 0.45928430557250977 0.1805153489112854 96 0 1 0 1 0 0 0 0
+row          0 1 0.44314585626125336 0.11332939565181732 96 0 1 0 1 0 0 0 0
+row          0 2 0.46716123819351196 0.12344276905059814 96 0 1 0 1 0 0 0 0
 end
 
 expectation  curves-transformation.cubic-three-nodes-cie-l.histogram-0/scene-rgb-float32
@@ -648,12 +648,12 @@ producer     AfterNightEngine 1.0.0 abi=1
 configuration Release
 compiler     msvc 19.51.36252
 platform     windows-x64
-captured     2026-11-04
-commit       1b3e1dcaa
-result       11 3 1 float64 sha256=7c82084aa2b99b61dc0509fafc7a59582fa3217d392bdd76104a86799fd70897
-row          0 0 0.6418975293636322 0.20574632287025452 96 0 1 0 1 0 0 0 0
-row          0 1 0.5900158286094666 0.1277216374874115 96 0 1 0 1 0 0 0 0
-row          0 2 0.6666446328163147 0.14708420634269714 96 0 1 0 1 0 0 0 0
+captured     2026-11-06
+commit       2e27fa0
+result       11 3 1 float64 sha256=ddf6b9b2148568194f740ba77db6c1404ad6ed51b1be116d6a58c2cbe655d212
+row          0 0 0.45928430557250977 0.1805153489112854 96 0 1 0 1 0 0 0 0
+row          0 1 0.44314585626125336 0.11332939565181732 96 0 1 0 1 0 0 0 0
+row          0 2 0.46716123819351196 0.12344276905059814 96 0 1 0 1 0 0 0 0
 end
 
 expectation  curves-transformation.cubic-three-nodes-hsv-value.histogram-0/scene-rgb-float32

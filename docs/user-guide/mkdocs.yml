@@ -2,7 +2,7 @@ site_name: AfterNight Documentation
 site_description: >-
   Comprehensive user guide for AfterNight, a cross-platform astrophotography
   processing application.
-site_url: https://emruiz81.github.io/afternight/
+site_url: https://docs.afternightastro.org/
 
 docs_dir: docs/en
 site_dir: site

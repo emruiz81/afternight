@@ -1501,6 +1501,180 @@ TEST(BackgroundModelTest, FusedRemovalFitsInsideTheWorkingPictureBudget)
     EXPECT_EQ(engine.memoryResource()->counters().peakBytes, plan->workingBytes());
 }
 
+/// Planes of one picture, one per channel, each over a vector of its own that starts at `fill`.
+struct DrawnPlanes
+{
+    DrawnPlanes(std::uint32_t width, std::uint32_t height, std::uint32_t channels, float fill)
+    {
+        for (std::uint32_t channel = 0u; channel < channels; ++channel)
+        {
+            samples.emplace_back(static_cast<std::size_t>(width) * height, fill);
+        }
+        for (std::vector<float>& plane : samples)
+        {
+            const std::optional<an::PlaneView<float>> view = an::PlaneView<float>::create(
+                plane, width, height, 1u, static_cast<std::uint64_t>(width) * sizeof(float));
+            EXPECT_TRUE(view.has_value());
+            if (view.has_value())
+            {
+                views.push_back(*view);
+            }
+        }
+    }
+
+    std::vector<std::vector<float>> samples;
+    std::vector<an::PlaneView<float>> views;
+};
+
+TEST(BackgroundModelTest, OneFitRemovesTheBackgroundAndDrawsWhatTheSeparateCallsMakeValueForValue)
+{
+    const an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    constexpr std::uint32_t kWidth = 160u;
+    constexpr std::uint32_t kHeight = 120u;
+    constexpr std::uint32_t kChannels = 3u;
+    const an::ImageLayout layout = planarLayout(an::SampleType::Float32, kWidth, kHeight, kChannels);
+    // Each channel its own gradient under the same objects: a bright galaxy the protection keeps out of the fit, and
+    // stars the rejection removes.
+    std::vector<float> source;
+    for (std::uint32_t channel = 0u; channel < kChannels; ++channel)
+    {
+        std::vector<float> plane =
+            gradientFrame(kWidth, kHeight, 0.2 + 0.05 * channel, 0.06, -0.04 + 0.03 * channel, 0.01 * channel);
+        addDisc(plane, kWidth, kWidth / 2u, kHeight / 2u, 20.0, 0.35);
+        for (std::uint32_t index = 0u; index < 24u; ++index)
+        {
+            addDisc(plane, kWidth, 6u + (index * 37u) % (kWidth - 12u), 5u + (index * 53u) % (kHeight - 10u), 1.5, 0.4);
+        }
+        source.insert(source.end(), plane.begin(), plane.end());
+    }
+
+    for (const an::AutoBackgroundModel model :
+         {an::AutoBackgroundModel::InpaintedLowpass, an::AutoBackgroundModel::Polynomial})
+    {
+        SCOPED_TRACE(an::autoBackgroundModelName(model));
+        an::AutoBackgroundRequest request{};
+        request.model = model;
+        request.downsample = 4u;
+        request.maxIterations = 6u;
+        request.protectStructures = true;
+        request.protectionThreshold = 0.05;
+        request.apply.level = an::BackgroundLevel::ModelMedian;
+        request.apply.clamp = an::KernelValueWindow{.lowest = 0.0, .highest = 1.0};
+        const an::Result<an::AutoBackgroundPlan> plan = an::planAutoBackground(request, kWidth, kHeight);
+        ASSERT_TRUE(plan.hasValue()) << plan.status().message();
+
+        // The estimate and the removal, each fitting on its own.
+        DrawnPlanes estimatedModels(kWidth, kHeight, kChannels, -1.0f);
+        DrawnPlanes estimatedProtection(kWidth, kHeight, kChannels, -1.0f);
+        const an::Result<an::AutoBackgroundResult> estimated =
+            an::estimateImageAutoBackground(execution, an::SampleType::Float32, source.data(), layout, *plan,
+                                            estimatedModels.views, estimatedProtection.views);
+        ASSERT_TRUE(estimated.hasValue()) << estimated.status().message();
+        ASSERT_GT(estimated->protectedSamples, 0u) << "the galaxy was protected";
+        std::vector<float> removed(source.size(), -1.0f);
+        const an::Result<an::AutoBackgroundResult> removal = an::removeImageAutoBackground(
+            execution, an::SampleType::Float32, source.data(), layout, removed.data(), layout, *plan);
+        ASSERT_TRUE(removal.hasValue()) << removal.status().message();
+
+        // One fit for all three, into a destination of its own and in place.
+        DrawnPlanes drawnModels(kWidth, kHeight, kChannels, -1.0f);
+        DrawnPlanes drawnProtection(kWidth, kHeight, kChannels, -1.0f);
+        std::vector<float> corrected(source.size(), -1.0f);
+        const an::Result<an::AutoBackgroundResult> drawn = an::removeAndDrawImageAutoBackground(
+            execution, an::SampleType::Float32, source.data(), layout, corrected.data(), layout, *plan,
+            drawnModels.views, drawnProtection.views);
+        ASSERT_TRUE(drawn.hasValue()) << drawn.status().message();
+        EXPECT_EQ(corrected, removed);
+        EXPECT_EQ(drawnModels.samples, estimatedModels.samples);
+        EXPECT_EQ(drawnProtection.samples, estimatedProtection.samples);
+        EXPECT_EQ(drawn->appliedLevel, removal->appliedLevel);
+        EXPECT_EQ(drawn->samplesChanged, removal->samplesChanged);
+        EXPECT_EQ(drawn->clampedSamples, removal->clampedSamples);
+        EXPECT_EQ(drawn->protectedSamples, estimated->protectedSamples);
+        EXPECT_EQ(drawn->acceptedSamples, estimated->acceptedSamples);
+        EXPECT_EQ(drawn->iterationsRun, estimated->iterationsRun);
+        EXPECT_EQ(drawn->imagePasses, removal->imagePasses + 2u * kChannels) << "each plane drawn is a pass";
+
+        std::vector<float> inPlace = source;
+        DrawnPlanes inPlaceModels(kWidth, kHeight, kChannels, -1.0f);
+        const an::Result<an::AutoBackgroundResult> overItself =
+            an::removeAndDrawImageAutoBackground(execution, an::SampleType::Float32, inPlace.data(), layout,
+                                                 inPlace.data(), layout, *plan, inPlaceModels.views);
+        ASSERT_TRUE(overItself.hasValue()) << overItself.status().message();
+        EXPECT_EQ(inPlace, removed);
+        EXPECT_EQ(inPlaceModels.samples, estimatedModels.samples);
+
+        // Given no planes, it is the removal.
+        std::vector<float> undrawn(source.size(), -1.0f);
+        const an::Result<an::AutoBackgroundResult> plain = an::removeAndDrawImageAutoBackground(
+            execution, an::SampleType::Float32, source.data(), layout, undrawn.data(), layout, *plan, {});
+        ASSERT_TRUE(plain.hasValue()) << plain.status().message();
+        EXPECT_EQ(undrawn, removed);
+        EXPECT_EQ(plain->imagePasses, removal->imagePasses);
+    }
+}
+
+TEST(BackgroundModelTest, ADrawnRemovalRefusesPlanesThatAreNotThePicturesOrThatOverlapIt)
+{
+    const an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    constexpr std::uint32_t kWidth = 64u;
+    constexpr std::uint32_t kHeight = 48u;
+    const an::ImageLayout layout = planarLayout(an::SampleType::Float32, kWidth, kHeight);
+    std::vector<float> source = gradientFrame(kWidth, kHeight, 0.3, 0.05, 0.02, 0.0);
+    std::vector<float> destination(source.size(), -1.0f);
+    an::AutoBackgroundRequest request{};
+    request.downsample = 2u;
+    request.maxIterations = 2u;
+    const an::Result<an::AutoBackgroundPlan> plan = an::planAutoBackground(request, kWidth, kHeight);
+    ASSERT_TRUE(plan.hasValue()) << plan.status().message();
+    const auto removeAndDraw = [&](std::span<const an::PlaneView<float>> models,
+                                   std::span<const an::PlaneView<float>> protection) {
+        return an::removeAndDrawImageAutoBackground(execution, an::SampleType::Float32, source.data(), layout,
+                                                    destination.data(), layout, *plan, models, protection)
+            .status()
+            .code();
+    };
+
+    DrawnPlanes two(kWidth, kHeight, 2u, 0.0f);
+    DrawnPlanes one(kWidth, kHeight, 1u, 0.0f);
+    EXPECT_EQ(removeAndDraw(two.views, {}), an::ErrorCode::IncompatibleArguments) << "two surfaces for one channel";
+    EXPECT_EQ(removeAndDraw(one.views, two.views), an::ErrorCode::IncompatibleArguments)
+        << "two protection planes for one channel";
+    DrawnPlanes narrow(kWidth - 1u, kHeight, 1u, 0.0f);
+    EXPECT_EQ(removeAndDraw(narrow.views, {}), an::ErrorCode::IncompatibleArguments) << "a plane of another width";
+    EXPECT_EQ(removeAndDraw({}, narrow.views), an::ErrorCode::IncompatibleArguments) << "a protection plane too";
+
+    const std::uint64_t rowBytes = static_cast<std::uint64_t>(kWidth) * sizeof(float);
+    const std::optional<an::PlaneView<float>> overDestination =
+        an::PlaneView<float>::create(destination, kWidth, kHeight, 1u, rowBytes);
+    const std::optional<an::PlaneView<float>> overSource =
+        an::PlaneView<float>::create(source, kWidth, kHeight, 1u, rowBytes);
+    ASSERT_TRUE(overDestination.has_value() && overSource.has_value());
+    const std::array<an::PlaneView<float>, 1u> intoDestination{*overDestination};
+    const std::array<an::PlaneView<float>, 1u> intoSource{*overSource};
+    EXPECT_EQ(removeAndDraw(intoDestination, {}), an::ErrorCode::Aliasing);
+    EXPECT_EQ(removeAndDraw(intoSource, {}), an::ErrorCode::Aliasing);
+    EXPECT_EQ(removeAndDraw(one.views, intoDestination), an::ErrorCode::Aliasing);
+    for (const float sample : destination)
+    {
+        ASSERT_EQ(sample, -1.0f) << "a refused call wrote nothing";
+    }
+    EXPECT_EQ(removeAndDraw(one.views, {}), an::ErrorCode::Ok);
+
+    // A request that protects nothing leaves the protection planes as they were.
+    request.protectStructures = false;
+    const an::Result<an::AutoBackgroundPlan> unprotected = an::planAutoBackground(request, kWidth, kHeight);
+    ASSERT_TRUE(unprotected.hasValue()) << unprotected.status().message();
+    DrawnPlanes untouched(kWidth, kHeight, 1u, -1.0f);
+    ASSERT_TRUE(an::removeAndDrawImageAutoBackground(execution, an::SampleType::Float32, source.data(), layout,
+                                                     destination.data(), layout, *unprotected, one.views,
+                                                     untouched.views)
+                    .hasValue());
+    EXPECT_EQ(untouched.samples.front(), std::vector<float>(source.size(), -1.0f));
+}
+
 TEST(BackgroundModelTest, TheDeclaredEffectsSayWhatEachStageDoes)
 {
     EXPECT_EQ(an::kBackgroundSamplingEffect.samples, an::SampleEffect::Reads);

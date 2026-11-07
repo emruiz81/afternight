@@ -44,12 +44,10 @@
 
 #include <AfterNightPlatform/Logging.h>
 
-#include <QCryptographicHash>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QJsonArray>
-#include <QJsonDocument>
 #include <QJsonObject>
 
 #include <algorithm>
@@ -102,11 +100,6 @@ std::vector<const WorkflowManifest::IntegrationGroup*> groupsToProcess(const Wor
         std::find_if(manifest.registrationGroups.begin(), manifest.registrationGroups.end(),
                      [&](const WorkflowManifest::RegistrationGroup& group) { return group.groupKey == key; });
     return found == manifest.registrationGroups.end() ? nullptr : &*found;
-}
-
-[[nodiscard]] QString sha256Hex(const QByteArray& bytes)
-{
-    return QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex());
 }
 
 /// One light as the stage reads it.
@@ -1257,18 +1250,16 @@ StageResult LightsNormalizationStage::execute(const WorkflowManifest& manifest, 
                 plan.drizzlePlane = ImageIntegration::DrizzleAnalysisPlaneRecord{
                     geometry.canvas.origin.x, geometry.canvas.origin.y, geometry.canvas.analysisWidth,
                     geometry.canvas.analysisHeight, static_cast<double>(group.drizzle->scale)};
-                QJsonObject identity;
+                QJsonObject transformsByLight;
                 for (const auto& frame : geometry.frames)
                 {
-                    identity.insert(frame.frame.canonicalPath(),
-                                    stage_utils::serializeTransformJson(frame.transform, frame.provenance));
+                    transformsByLight.insert(frame.frame.canonicalPath(),
+                                             stage_utils::serializeTransformJson(frame.transform, frame.provenance));
                 }
-                identity.insert(QStringLiteral("canvasOriginX"), geometry.canvas.origin.x);
-                identity.insert(QStringLiteral("canvasOriginY"), geometry.canvas.origin.y);
-                identity.insert(QStringLiteral("analysisWidth"), static_cast<qint64>(geometry.canvas.analysisWidth));
-                identity.insert(QStringLiteral("analysisHeight"), static_cast<qint64>(geometry.canvas.analysisHeight));
-                identity.insert(QStringLiteral("interpolation"), static_cast<int>(plan.interpolation));
-                plan.geometryFingerprint = sha256Hex(QJsonDocument(identity).toJson(QJsonDocument::Compact));
+                plan.geometryFingerprint = ImageIntegration::warpedPlaneGeometryFingerprint(
+                    NormalizationMeasurementPlane::DrizzleAnalysisPlane, transformsByLight, geometry.canvas.origin.x,
+                    geometry.canvas.origin.y, geometry.canvas.analysisWidth, geometry.canvas.analysisHeight,
+                    plan.interpolation);
                 for (const QString& missing : geometry.withoutTransform)
                 {
                     plan.skipped << QStringLiteral("%1 (no registration transform)").arg(missing);
@@ -1412,7 +1403,7 @@ StageResult LightsNormalizationStage::execute(const WorkflowManifest& manifest, 
             }
             std::vector<stage_utils::RegistrationOutputPlaneFrame> planeFrames;
             std::size_t referenceIndex = 0u;
-            QJsonObject identity;
+            QJsonObject transformsByLight;
             for (const FrameId& light : inputFrames)
             {
                 const auto transform = transforms.find(light.identityKey());
@@ -1452,8 +1443,8 @@ StageResult LightsNormalizationStage::execute(const WorkflowManifest& manifest, 
                     referenceIndex = planeFrames.size();
                 }
                 planeFrames.push_back({transform->second, facts->width, facts->height, distortion});
-                identity.insert(light.canonicalPath(),
-                                stage_utils::serializeTransformJson(transform->second, lightProvenance));
+                transformsByLight.insert(light.canonicalPath(),
+                                         stage_utils::serializeTransformJson(transform->second, lightProvenance));
                 plan.frames.push_back(
                     {.logical = light,
                      .path = path,
@@ -1483,12 +1474,9 @@ StageResult LightsNormalizationStage::execute(const WorkflowManifest& manifest, 
                 return outcome;
             }
             plan.canvas = plane->canvas;
-            identity.insert(QStringLiteral("canvasOriginX"), plan.canvas.origin.x);
-            identity.insert(QStringLiteral("canvasOriginY"), plan.canvas.origin.y);
-            identity.insert(QStringLiteral("canvasWidth"), static_cast<qint64>(plan.canvas.width));
-            identity.insert(QStringLiteral("canvasHeight"), static_cast<qint64>(plan.canvas.height));
-            identity.insert(QStringLiteral("interpolation"), static_cast<int>(plan.interpolation));
-            plan.geometryFingerprint = sha256Hex(QJsonDocument(identity).toJson(QJsonDocument::Compact));
+            plan.geometryFingerprint = ImageIntegration::warpedPlaneGeometryFingerprint(
+                NormalizationMeasurementPlane::RegisteredCanvas, transformsByLight, plan.canvas.origin.x,
+                plan.canvas.origin.y, plan.canvas.width, plan.canvas.height, plan.interpolation);
             reporter.logger().operationDetail(
                 QStringLiteral("Registered inputs"),
                 QStringLiteral("The registered lights are not all current; the registration inputs are warped onto "
@@ -1628,7 +1616,7 @@ StageResult LightsNormalizationStage::execute(const WorkflowManifest& manifest, 
             if (!plan.geometryFingerprint.isEmpty())
             {
                 inputsFingerprint =
-                    sha256Hex((inputsFingerprint + QLatin1Char('\n') + plan.geometryFingerprint).toUtf8());
+                    ImageIntegration::warpedMeasurementInputsFingerprint(inputsFingerprint, plan.geometryFingerprint);
             }
             const QString settingsFingerprint =
                 computeNormalizationSettingsFingerprint(group, referenceFrames, plan.cometProductsFingerprint);

@@ -28,7 +28,7 @@ requiring channel extraction.
 | Inputs | One intended normalized grayscale or three-channel RGB still image or sequence; a one-channel CFA still is technically treated as grayscale; an optional active mask must match the target geometry |
 | Outputs | Destructively replaces the target still or sequence after success; dimensions and pixel type are preserved, while automatic sequence CFA debayering can change one-channel CFA to RGB; no auxiliary image or file |
 | Recommended image state | Usually nonlinear for finishing contrast, saturation, or color balance; a gentle first stretch is possible but offers no statistics-driven protection |
-| Preview support | Asynchronous full-image RT preview; the graph uses the current preview result for its histogram |
+| Preview support | Asynchronous RT preview: while you drag a point, of what the preview view shows; when you let go, of the whole image, as Apply computes it. The graph's histogram counts the last whole-image preview |
 | Sequence support | Supported; the same locked curve, interpolation, and selected component are applied to every decoded frame through a temporary replacement sequence. The sequence reader honors the view's automatic CFA debayer setting. |
 | Mask support | Supported by post-transform blending; white applies the result, black keeps the source, gray blends, and **Invert Mask** reverses the weights |
 | External dependencies | None; the curve is the bundled engine's native interpolation, run on its threads; no external tool, model, catalog, or network access |
@@ -100,14 +100,14 @@ requiring channel extraction.
 | Show grid | Checkable toolbar action | Selected | None | On/off | Shows or hides the eight-by-eight graph grid | Always available while idle | Display only | Graph only | Window lifetime; Reset does not change it |
 | Show guide | Checkable toolbar action | Selected | None | On/off | Shows or hides the identity diagonal `y=x` | Always available while idle | Display only; useful for seeing brightening/darkening | Graph only | Window lifetime; Reset does not change it |
 | Draw histogram areas | Checkable toolbar action | Cleared | None | On/off | Fills displayed histogram channels instead of outlines | Disabled whenever **Show histogram** is cleared | Rendering preference only | Unmasked graph diagnostic | Window lifetime; Reset does not change it |
-| Show histogram | Checkable toolbar action | Selected | None | On/off | Shows the current preview-result histogram and enables **Draw histogram areas** | Histogram is available only while Preview exists; clearing it disables area mode control but retains its checked state | Histogram recomputation adds work after preview updates | 8-bit graph diagnostic of the mask-blended preview; display-channel selection follows the preview viewer, not process Channel | Window lifetime; Reset does not change it |
+| Show histogram | Checkable toolbar action | Selected | None | On/off | Shows the current preview-result histogram and enables **Draw histogram areas** | Histogram is available only while Preview exists; clearing it disables area mode control but retains its checked state | Recounted after each whole-image preview; while you drag a point it keeps the last one's counts | 8-bit graph diagnostic of the mask-blended preview; display-channel selection follows the preview viewer, not process Channel | Window lifetime; Reset does not change it |
 | Clipping Low / Clipping High | Read-only overlay, percent | Current preview histogram endpoints | None | Three decimals; sums endpoint counts across histogram channels | Reports the share of samples at or below `0` and at or above `1` in the image the graph's histogram counts | Visible with the curve editor; updated with its current histogram image | Counts the preview's mask-blended result, or the target while the preview shows its original; values just inside `0` or `1` are not counted | Diagnostic only; preview/still source while configuring a sequence | Recomputed, not persisted |
 | Intensity gradient | Read-only graph strip | Black-to-white, or black-to selected preview-display channel | None | Normalized `0`–`1` | Shows graph direction and current preview display-channel color | Always drawn; follows the preview viewer's display composition | Display only | Graph only | Window lifetime |
 | Interpolation | Combo box | **Cubic** | Reset and successful Apply keep the displayed selection and rebuild the identity curve in it; reopening shows Cubic | **Linear**, **Cubic**, **Akima**, **Steffen**, **Monotone Cubic**; two points always evaluate linearly; selected Akima or Steffen falls back to Cubic below five points | Changes how the curve passes between the same nodes | Rebuilds the spline; controls lock during Apply | Cubic/Akima can overshoot between points before final output clamp; Steffen and Monotone Cubic preserve monotonicity between monotonic nodes; Linear can show corners | Preview/apply, all selected channel modes, still/sequence | Current selection applies, and Reset or a successful Apply keeps it for the new identity curve |
 | Target Image | View selector | Active view at launch | None | Any open grayscale/RGB still or sequence view | Retargets channel choices, preview, histogram, and Apply | Target must be lockable; unsupported exclusive/duplicate process state blocks launch or execution | Recalculation cost follows target size and type | Source for preview/apply and active mask | Window lifetime; Reset does not change it |
 | Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE c***, **CIE h***, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma**; mono **Grayscale** | Selects stored channels or one converted color-space component | Component choices require a three-channel target; mono selector is disabled | Individual/color-component curves can change balance, gamut, hue, or saturation; conversions add full-image work and quantization | Preview/apply, still/sequence; active mask blends after RGB reconstruction | Resets to RGB after success/Reset; remains Grayscale for mono |
-| Preview | Check box | Selected | None | On/off | Enables/disables asynchronous full-image RT preview updates | Requires a valid target; stale preview generations are superseded | Full-image component conversions and histogram recalculation can be expensive | Preview only; target remains unchanged; active mask is shown | Window lifetime; Reset does not change it |
-| Preview image pane | Image display | Current transformed target | None | Shared viewer zoom/pan/display-channel behavior | Shows the mask-aware full-image result | Updated only while Preview is selected and work completes | Holds an additional result image; component modes also hold conversion buffers | Still target preview; current sequence frame while configuring a sequence | Window lifetime |
+| Preview | Check box | Selected | None | On/off | Enables/disables asynchronous RT preview updates | Requires a valid target; stale preview generations are superseded | While you drag a point the preview works on what the preview view shows; the whole-image preview, its component conversions and the histogram recount follow when you let go, and can be expensive | Preview only; target remains unchanged; active mask is shown | Window lifetime; Reset does not change it |
+| Preview image pane | Image display | Current transformed target | None | Shared viewer zoom/pan/display-channel behavior | Shows the mask-aware result: of what the view shows while you drag a point, of the whole image otherwise | Updated only while Preview is selected and work completes | Holds an additional result image; component modes also hold conversion buffers | Still target preview; current sequence frame while configuring a sequence | Window lifetime |
 | Apply | Button/action | Disabled for exact identity curve | None | Single action after any non-identity curve | Starts destructive still/sequence execution | Target must lock; all mutable controls disable during execution | Curve evaluation is parallel; component conversions and sequence temporary output add CPU/memory/disk cost | Replaces target; mask post-blend; still/sequence | Success resets the curve to identity, selects RGB when available, and resets graph zoom; the new curve keeps the shown interpolation; graph toggles remain |
 | Reset | Button/action | Enabled while idle | None | Single action | Restores an identity curve in the shown interpolation, RGB channel when available, and graph zoom | Does not reset target, Preview, the visible Interpolation selection, Grid, Guide, Histogram, or Area states | No image change | Configuration only | The visible Interpolation selection remains and the rebuilt identity curve uses it |
 | Close | Button/action | Enabled while idle | None | Single action | Closes immediately when idle; an active worker follows shared deferred-close/cancellation handling | Disabled with the other controls during Apply | No output by itself | Window and active execution | No settings persist after the window is destroyed |
@@ -131,8 +131,12 @@ requiring channel extraction.
    integer read as fractions into a Float32 copy), whose largest error against
    the curve the plan measures and reports (under one millionth for a smooth
    three-point Cubic; an overshoot
-   held to `[0,1]` counts in it). The preview is therefore the result Apply
-   writes; a **Preview area** shows exactly what Apply writes there.
+   held to `[0,1]` counts in it). The preview the window rests on once you let
+   a point go is therefore the result Apply writes, and a **Preview area**
+   shows exactly what Apply writes there. While you drag a point, the same
+   plan runs over what the preview view shows - the image reduced to the
+   view's size, each pixel the mean of its block, or the part of it shown at
+   1:1 and closer - so the drag keeps up on a large image.
 4. RGB/Grayscale maps stored samples directly. A component mode converts RGB to
    that color space in a 32-bit float working plane (64-bit for a Float64
    image), maps one component, and reconstructs RGB. An image described as sensor
@@ -262,8 +266,10 @@ YCbCr through unrounded luma-chroma coefficients.
 ## Performance
 
 Curve evaluation is linear in the number of image samples and runs on the
-engine's threads, the preview through the same plan as Apply, recalculating an
-8-bit histogram when it is shown.
+engine's threads, the preview through the same plan as Apply. While you drag
+a point the preview evaluates only what the preview view shows, and the 8-bit
+histogram, when it is shown, is recounted from the whole-image preview that
+follows when you let go.
 
 RGB/Grayscale and individual stored-channel modes need the least auxiliary
 work. CIE, HSL, HSV, and YCbCr modes allocate a full converted image and perform
@@ -311,7 +317,8 @@ change processing cost or precision.
   measurement.
 - Preview and Apply run one plan: an exact table over every code of an
   unsigned eight- or sixteen-bit image and an 8,193-entry linear table over a
-  floating one, so the preview is the result Apply writes.
+  floating one, so the preview the window rests on after you let a point go
+  is the result Apply writes.
 - The output's processing state is recorded as nonlinear
   (`curves-transformation`); treat any non-identity curve result as nonlinear in
   workflow decisions.
@@ -332,7 +339,7 @@ change processing cost or precision.
 | Curve overshoots or flattens against black/white | Cubic/Akima interpolation crossed `[0,1]`, then output clamped | Remove close points, reduce curvature, or use Steffen, Monotone Cubic, or Linear | `evaluateCurve`; `buildCurveProgram` |
 | Saturated colors shift after an RGB curve | The same nonlinear function changes each channel value independently, not by a common ratio | Use a gentler curve or compare a lightness/value component | `CurvesTransformationProcess::executeTypedProcessImpl` |
 | Hue changes abruptly around one color | Hue is encoded on a linear `0..1` axis even though physical hue wraps | Avoid crossing the wrap boundary; prefer a localized color tool | `ChannelScope.h`; `applyProcessChannelScope` |
-| Preview and Apply differ | Preview and Apply run one curve plan, so a difference comes from a changed mask, target, or display setting, or a preview still on its way | Compare identical mask/display state, wait for the current preview, and inspect statistics after Apply | `curvesProgramFor`; shared RT preview/mask path |
+| Preview and Apply differ | Preview and Apply run one curve plan, so a difference comes from a changed mask, target, or display setting, a preview still on its way, or a point not yet let go, whose preview shows the image reduced to the view | Compare identical mask/display state, wait for the current preview, and inspect statistics after Apply | `curvesProgramFor`; shared RT preview/mask path |
 | History cannot reproduce the result | The step description stores Channel and Interpolation only | Record node values externally or preserve a duplicate result | `CurvesTransformationProcess::executeTypedProcessImpl` |
 | Sequence remains unchanged after Cancel | Cancellation intentionally removes temporary output before replacement | Retry with final settings; keep enough temporary disk space | `ImageRTPreviewControl::runOverSequence` |
 | The next curve is identity/RGB after Apply | Successful still and sequence commits call the process reset path | This is expected; rebuild the curve and reselect the intended channel | Shared `resetSettingsAsync()` and `CurvesTransformationProcess::resetSettings` |

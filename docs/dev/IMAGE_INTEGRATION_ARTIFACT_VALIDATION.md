@@ -169,8 +169,8 @@ payload:
 The snapshot's diagnostics count what it read: `strictHeaderReads` the moved masters' headers, `bytesHashed` the bytes
 of the normalization coefficient documents it pinned (the only files it hashes). The executor re-checks the snapshot's
 captured facts just before the stages start (`matchesCurrentFacts`): a stat per captured file - its size, modification
-time and platform identity - and the drizzle sources' headers again. It reads no master's payload; nothing can rewrite a
-master without moving its platform identity, which the stat sees.
+time and platform identity - and the headers of the lights a stage places itself again. It reads no master's payload;
+nothing can rewrite a master without moving its platform identity, which the stat sees.
 
 ### The registration records
 

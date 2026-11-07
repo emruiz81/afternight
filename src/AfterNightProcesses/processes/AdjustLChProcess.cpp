@@ -207,7 +207,7 @@ an::Status AdjustLChProcess::executeTypedProcessImpl(const an::ui::ProcessSource
         return an::Status::success();
     }
     return process_utils::recordNonlinearResult(
-        scope, destination,
+        destination,
         process_utils::NonlinearResultRecord{
             .stateOperation = "lch-adjustment",
             .engineOperation = "an::adjustImageLch",

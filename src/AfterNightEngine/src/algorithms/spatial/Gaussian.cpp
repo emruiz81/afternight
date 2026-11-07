@@ -109,6 +109,15 @@ constexpr std::uint32_t kBoxColumnBand = 128u;
 [[nodiscard]] double boxRadiiForSigma(double sigma, std::array<std::uint32_t, kGaussianBoxPasses>& radii) noexcept
 {
     const double passes = static_cast<double>(kGaussianBoxPasses);
+    // A box radius is held to this, which three of them added up cannot wrap and which is far past the
+    // widest reach a plan accepts: a sigma whose widths lie beyond it is refused by that reach rather
+    // than turned into a number that means nothing.
+    constexpr double kSaturatedRadius = static_cast<double>((std::numeric_limits<std::uint32_t>::max)() / 4u);
+    if (!(sigma < kSaturatedRadius))
+    {
+        radii.fill(static_cast<std::uint32_t>(kSaturatedRadius));
+        return sigma;
+    }
     const double ideal = std::sqrt((12.0 * sigma * sigma / passes) + 1.0);
     double lower = std::floor(ideal);
     if (std::fmod(lower, 2.0) == 0.0)
@@ -123,7 +132,7 @@ constexpr std::uint32_t kBoxColumnBand = 128u;
     for (std::uint32_t index = 0u; index < kGaussianBoxPasses; ++index)
     {
         const double width = static_cast<double>(index) < count ? lower : upper;
-        radii[index] = static_cast<std::uint32_t>((width - 1.0) / 2.0);
+        radii[index] = static_cast<std::uint32_t>((std::min)((width - 1.0) / 2.0, kSaturatedRadius));
     }
     const double narrow = (std::max)(0.0, (std::min)(count, passes));
     const double variance = (narrow * lower * lower + (passes - narrow) * upper * upper - passes) / 12.0;
@@ -687,7 +696,33 @@ void fusedVerticalPasses(const float* input, float* destination, int width, int 
                        });
 }
 
+/// The bytes of input rows one run of a vertical pass keeps in reach: a share of a core's own cache
+/// that leaves room for a second hardware thread and for the run's output.
+inline constexpr std::uint64_t kSymmetricVerticalWindowBytes = 256u * 1024u;
+
+/// How many columns one run of a vertical pass covers.
+///
+/// An output row reads `2 * radius + 1` input rows, and the next output row all of them but one. A
+/// pass over whole rows reads every one of them across the whole width again for each output row,
+/// which no cache holds once the radius is wide - 721 rows of 9504 columns are 27 MB - so it waits on
+/// memory: nine times the horizontal pass's cost for the same arithmetic, measured at that radius.
+/// A run narrow enough that its rows fit `kSymmetricVerticalWindowBytes` walks down the plane reading
+/// one new row of its own per output row from memory. A multiple of sixty-four columns, at least
+/// sixty-four, and never more than the plane's width.
+[[nodiscard]] std::uint32_t symmetricVerticalRunColumns(std::uint32_t width, std::uint32_t radius) noexcept
+{
+    constexpr std::uint64_t kColumnQuantum = 64u;
+    const std::uint64_t rows = 2u * static_cast<std::uint64_t>(radius) + 1u;
+    const std::uint64_t fitted = kSymmetricVerticalWindowBytes / (rows * sizeof(float));
+    const std::uint64_t columns = (std::max)(kColumnQuantum, fitted / kColumnQuantum * kColumnQuantum);
+    return static_cast<std::uint32_t>((std::min)(columns, static_cast<std::uint64_t>(width)));
+}
+
 /// Applies one symmetric vertical Gaussian pass, resolving each pair of rows once.
+///
+/// The plane is walked in runs of `symmetricVerticalRunColumns` columns, its items one run's rows
+/// after another, so a chunk of them walks down one run. Each sample's sum is computed as a pass
+/// over whole rows computes it, in the same order, so the runs change no result.
 [[nodiscard]] Status symmetricGaussianVertical(const ExecutionContext& execution, PlaneView<const float> input,
                                                PlaneView<float> output, std::span<const float> taps,
                                                std::uint32_t radius)
@@ -695,33 +730,34 @@ void fusedVerticalPasses(const float* input, float* destination, int width, int 
     const std::uint32_t width = input.width();
     const std::uint32_t height = input.height();
     const SymmetricGaussianVerticalRunFn run = symmetricGaussianVerticalRunFor(execution);
-    const float* const source = input.row(0u)->data();
-    return parallelFor(execution, input.height(), symmetricGaussianRowCost(width, radius),
-                       [&](TaskRange range) -> Status {
-                           for (std::uint64_t y64 = range.begin; y64 < range.end; ++y64)
-                           {
-                               const auto y = static_cast<std::uint32_t>(y64);
-                               const std::span<float> destination = *output.row(y);
-                               run(source, destination.data(), width, height, y, taps.data(), radius);
-                           }
-                           return Status::success();
-                       });
+    const float* const source = input.data();
+    const std::uint64_t rowStride = input.rowStrideBytes() / sizeof(float);
+    const std::uint32_t columns = symmetricVerticalRunColumns(width, radius);
+    const std::uint64_t runs = (static_cast<std::uint64_t>(width) + columns - 1u) / columns;
+    return parallelFor(
+        execution, runs * height, symmetricGaussianRowCost(columns, radius), [&](TaskRange range) -> Status {
+            for (std::uint64_t item = range.begin; item < range.end; ++item)
+            {
+                const auto first = static_cast<std::uint32_t>(item / height) * columns;
+                const auto y = static_cast<std::uint32_t>(item % height);
+                const std::uint32_t count = (std::min)(columns, width - first);
+                const std::span<float> destination = *output.row(y);
+                run(source + first, destination.data() + first, count, rowStride, height, y, taps.data(), radius);
+            }
+            return Status::success();
+        });
 }
 
 /// Runs the exact sampled Gaussian through a Float32 symmetric implementation.
+///
+/// @param horizontal the taps along a row, narrowed to Float32, `2 * horizontalRadius + 1` of them.
+/// @param vertical the taps down a column, narrowed to Float32, `2 * verticalRadius + 1` of them.
 [[nodiscard]] Result<SpatialFilterResult>
 runSymmetricExactGaussian(const ExecutionContext& execution, const void* source, const ImageLayout& sourceLayout,
                           void* destination, const ImageLayout& destinationLayout, const GaussianPlan& plan,
-                          const SpatialGeometry& geometry, std::span<const double> horizontal,
-                          std::span<const double> vertical, const char* operation)
+                          const SpatialGeometry& geometry, std::span<const float> horizontal,
+                          std::span<const float> vertical, const char* operation)
 {
-    std::array<float, kMaxStencilTaps> horizontalFloat{};
-    std::array<float, kMaxStencilTaps> verticalFloat{};
-    std::transform(horizontal.begin(), horizontal.end(), horizontalFloat.begin(),
-                   [](double coefficient) { return static_cast<float>(coefficient); });
-    std::transform(vertical.begin(), vertical.end(), verticalFloat.begin(),
-                   [](double coefficient) { return static_cast<float>(coefficient); });
-
     Result<spatial_detail::SpatialPlaneBuffer> intermediate =
         spatial_detail::SpatialPlaneBuffer::own(execution, geometry, operation);
     if (!intermediate.hasValue())
@@ -751,16 +787,13 @@ runSymmetricExactGaussian(const ExecutionContext& execution, const void* source,
             return spatialFailure(ErrorCode::InvalidArgument, operation,
                                   "a planar Gaussian channel could not be described as a plane");
         }
-        Status status = symmetricGaussianHorizontal(execution, *sourcePlane, temporary,
-                                                    std::span<const float>{horizontalFloat.data(), horizontal.size()},
-                                                    plan.horizontalRadius());
+        Status status =
+            symmetricGaussianHorizontal(execution, *sourcePlane, temporary, horizontal, plan.horizontalRadius());
         if (status.failed())
         {
             return status;
         }
-        status = symmetricGaussianVertical(execution, temporary, *destinationPlane,
-                                           std::span<const float>{verticalFloat.data(), vertical.size()},
-                                           plan.verticalRadius());
+        status = symmetricGaussianVertical(execution, temporary, *destinationPlane, vertical, plan.verticalRadius());
         if (status.failed())
         {
             return status;
@@ -785,6 +818,73 @@ runSymmetricExactGaussian(const ExecutionContext& execution, const void* source,
     result.readInPlace = true;
     result.wroteInPlace = true;
     return result;
+}
+
+/// Runs an exact plan whose kernel is wider than the stencil family's widest.
+///
+/// Only the symmetric Float32 path runs one: the general path's tap arrays and halo bands are held to
+/// `kMaxStencilRadius`, while the symmetric rows read their taps from memory of the plan's own size,
+/// taken here from the context for the call. Its cost grows with the radius as a narrow kernel's does,
+/// but one wide pass reads and writes each plane once where passes of narrower kernels composed to
+/// the same sigma would each read and write it again, many more taps between them.
+[[nodiscard]] Result<SpatialFilterResult> runWideExactGaussian(const ExecutionContext& execution, SampleType sampleType,
+                                                               const void* source, const ImageLayout& sourceLayout,
+                                                               void* destination, const ImageLayout& destinationLayout,
+                                                               const GaussianPlan& plan,
+                                                               const SpatialSelection& selection,
+                                                               const SpatialGeometry& geometry, const char* operation)
+{
+    const std::uint32_t widest = (std::max)(plan.horizontalRadius(), plan.verticalRadius());
+    if (!symmetricExactGaussianApplicable(execution, sampleType, sourceLayout, destinationLayout, plan, selection))
+    {
+        return spatialLimitFailure(ErrorCode::OutOfRange, operation,
+                                   "a kernel wider than the stencil family's runs only on the compiled symmetric "
+                                   "path: a tightly packed Float32 plane every sample of which is valid, mirrored "
+                                   "without its edge sample, more than twice the radius wide and high",
+                                   widest, kMaxStencilRadius);
+    }
+    const std::uint64_t horizontalCount = 2u * static_cast<std::uint64_t>(plan.horizontalRadius()) + 1u;
+    const std::uint64_t verticalCount = 2u * static_cast<std::uint64_t>(plan.verticalRadius()) + 1u;
+    Result<plane_detail::ScopedContextMemory> exactTaps = plane_detail::ScopedContextMemory::take(
+        execution, (horizontalCount + verticalCount) * sizeof(double), alignof(double), operation);
+    if (!exactTaps.hasValue())
+    {
+        return exactTaps.status();
+    }
+    Result<plane_detail::ScopedContextMemory> narrowTaps = plane_detail::ScopedContextMemory::take(
+        execution, (horizontalCount + verticalCount) * sizeof(float), alignof(float), operation);
+    if (!narrowTaps.hasValue())
+    {
+        return narrowTaps.status();
+    }
+    auto* const horizontal = static_cast<double*>(exactTaps->data());
+    double* const vertical = horizontal + horizontalCount;
+    const Result<std::uint32_t> alongRow =
+        writeGaussianTaps(plan.request().sigmaX, plan.horizontalRadius(),
+                          std::span<double>{horizontal, static_cast<std::size_t>(horizontalCount)});
+    if (!alongRow.hasValue())
+    {
+        return alongRow.status();
+    }
+    const Result<std::uint32_t> downColumn =
+        writeGaussianTaps(plan.request().sigmaY, plan.verticalRadius(),
+                          std::span<double>{vertical, static_cast<std::size_t>(verticalCount)});
+    if (!downColumn.hasValue())
+    {
+        return downColumn.status();
+    }
+    auto* const narrow = static_cast<float*>(narrowTaps->data());
+    std::transform(horizontal, horizontal + horizontalCount + verticalCount, narrow,
+                   [](double coefficient) { return static_cast<float>(coefficient); });
+    Result<SpatialFilterResult> ran = runSymmetricExactGaussian(
+        execution, source, sourceLayout, destination, destinationLayout, plan, geometry,
+        std::span<const float>{narrow, static_cast<std::size_t>(horizontalCount)},
+        std::span<const float>{narrow + horizontalCount, static_cast<std::size_t>(verticalCount)}, operation);
+    if (ran.hasValue())
+    {
+        ran->workingBytes += exactTaps->bytes() + narrowTaps->bytes();
+    }
+    return ran;
 }
 
 /// Runs the fused Float32 preview over every planar channel.
@@ -1038,11 +1138,16 @@ namespace
 
     const GaussianPlan plan{request};
     const std::uint32_t widest = (std::max)(plan.horizontalRadius(), plan.verticalRadius());
-    if (widest > kMaxStencilRadius)
+    // A tap array is the exact pass's inner loop and its halo at once, so its reach is held to the widest the
+    // compiled symmetric rows run; a box pass is a running sum whose cost does not depend on its width, so the boxes
+    // are held only to a reach whose arithmetic stays representable.
+    const std::uint32_t reach =
+        request.method == GaussianMethod::RepeatedBox ? kMaxRealtimePreviewBoxReach : kMaxGaussianRadius;
+    if (widest > reach)
     {
         return spatialLimitFailure(ErrorCode::OutOfRange, operation,
                                    "the sigma this blur was asked for reaches further than one pass may", widest,
-                                   kMaxStencilRadius);
+                                   reach);
     }
     return plan;
 }
@@ -1078,10 +1183,10 @@ Result<std::uint32_t> writeGaussianTaps(double sigma, std::uint32_t radius, std:
         return spatialFailure(ErrorCode::InvalidArgument, kTapsOperation,
                               "a sigma is a finite width above the identity threshold");
     }
-    if (radius > kMaxStencilRadius)
+    if (radius > kMaxGaussianRadius)
     {
         return spatialLimitFailure(ErrorCode::OutOfRange, kTapsOperation, "a pass is wider than one may be", radius,
-                                   kMaxStencilRadius);
+                                   kMaxGaussianRadius);
     }
     const std::uint32_t tapCount = 2u * radius + 1u;
     if (taps.size() != tapCount)
@@ -1136,6 +1241,13 @@ blurImageGaussianImplementation(const ExecutionContext& execution, SampleType sa
                                                geometry, operation);
     }
 
+    if (plan.method() == GaussianMethod::SeparableTaps &&
+        (std::max)(plan.horizontalRadius(), plan.verticalRadius()) > kMaxStencilRadius)
+    {
+        return runWideExactGaussian(execution, sampleType, source, sourceLayout, destination, destinationLayout, plan,
+                                    selection, geometry, operation);
+    }
+
     if (plan.method() == GaussianMethod::SeparableTaps)
     {
         std::array<double, kMaxStencilTaps> horizontal{};
@@ -1156,10 +1268,16 @@ blurImageGaussianImplementation(const ExecutionContext& execution, SampleType sa
         }
         if (symmetricExactGaussianApplicable(execution, sampleType, sourceLayout, destinationLayout, plan, selection))
         {
+            std::array<float, kMaxStencilTaps> horizontalNarrow{};
+            std::array<float, kMaxStencilTaps> verticalNarrow{};
+            std::transform(horizontal.begin(), horizontal.begin() + horizontalCount, horizontalNarrow.begin(),
+                           [](double coefficient) { return static_cast<float>(coefficient); });
+            std::transform(vertical.begin(), vertical.begin() + verticalCount, verticalNarrow.begin(),
+                           [](double coefficient) { return static_cast<float>(coefficient); });
             Result<SpatialFilterResult> accelerated =
                 runSymmetricExactGaussian(execution, source, sourceLayout, destination, destinationLayout, plan,
-                                          geometry, std::span<const double>{horizontal.data(), horizontalCount},
-                                          std::span<const double>{vertical.data(), verticalCount}, operation);
+                                          geometry, std::span<const float>{horizontalNarrow.data(), horizontalCount},
+                                          std::span<const float>{verticalNarrow.data(), verticalCount}, operation);
             if (accelerated.hasValue())
             {
                 return accelerated;

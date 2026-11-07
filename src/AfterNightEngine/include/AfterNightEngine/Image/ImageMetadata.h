@@ -169,7 +169,14 @@ struct MetadataTransition
 
     /// Whether the preserved source cards are dropped. Stated by an operation whose result is not
     /// the frame those cards describe - a stack of fifty inputs, a crop that invalidates a header.
+    /// Cannot be combined with stating new cards.
     bool clearCodecMetadata = false;
+
+    /// The cards the image carries from now on, in place of the preserved ones. Stated by an operation
+    /// that writes cards of its own beside the source's - a product recording on its processing-state
+    /// cards what the samples now are - which it reads from the image, changes and states whole, so a
+    /// result keeps its own samples and needs no copy to carry new cards.
+    std::optional<CodecMetadata> codec{};
 
     /// What did it. Required whenever any of the fields above is stated, and permitted on its own
     /// by an operation that changed nothing and wants the fact recorded.
@@ -180,8 +187,8 @@ struct MetadataTransition
 ///
 /// The question an image asks to decide whether its semantic generation moves. Exactly the two
 /// semantic objects count: a change to either makes a result computed before it wrong. The output
-/// intent and the preserved cards do not, because nothing computed from the image depends on how it
-/// is going to be written or on what its source file happened to say.
+/// intent and the cards - preserved, dropped or stated - do not, because nothing computed from the
+/// image depends on how it is going to be written or on what a card says.
 ///
 /// Thread-safe and allocation-free.
 ///
@@ -205,8 +212,9 @@ struct MetadataTransition
 /// @param metadata what the image had.
 /// @param transition what the operation changed.
 /// @return the new aggregate; `ErrorCode::IncompatibleArguments` when the transition both states
-///         and withdraws an output intent; `ErrorCode::InvalidArgument` when a stated change carries
-///         no record; or `ErrorCode::LimitExceeded` when the lineage already holds
+///         and withdraws an output intent, or both states cards and drops them;
+///         `ErrorCode::InvalidArgument` when a stated change carries no record; or
+///         `ErrorCode::LimitExceeded` when the lineage already holds
 ///         `kMaxProvenanceEntries` entries and the record cannot be appended. The original is
 ///         never changed.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<ImageMetadata> applyMetadataTransition(const ImageMetadata& metadata,

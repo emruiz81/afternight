@@ -187,15 +187,31 @@ using UnitFloatOperation = std::function<an::Status(float* samples, const an::Im
 [[nodiscard]] std::optional<an::ImageLayout> leadingPlanesLayout(const an::ImageLayout& layout, std::uint32_t planes,
                                                                  const an::EngineLimits& limits);
 
-/// The exact Gaussian blur of a channel scope's plane at any sigma.
+/// How a Gaussian blur, or the blur a detail filter takes away, is made.
+enum class BlurKind : std::uint8_t
+{
+    /// The exact Gaussian at every sigma. What an Apply and a settled preview frame run.
+    Exact,
+
+    /// What an interactive preview frame runs: the exact Gaussian where the stencil family's widest kernel reaches the
+    /// sigma - thirty-two pixels - and beyond it the engine's real-time-preview approximation, three running-sum boxes
+    /// along each axis, whose cost does not grow with the sigma as an exact kernel's does.
+    InteractivePreview
+};
+
+/// The Gaussian blur of a channel scope's plane at any sigma.
 ///
 /// One plan of the engine's Gaussian runs over the stored values of a Float64 plane, of a Float32 plane whose rows are
-/// packed tight, or of a plane under a validity rule or a mask, when its widest kernel reaches the sigma. An integer
-/// plane with every sample valid, a Float32 plane of padded rows, and any plane a wider blur is composed over, is
-/// worked on a unit-interval Float32 working copy of the output, which starts as the input, and narrowed back to the
-/// nearest code: one pass where one kernel reaches the sigma, otherwise as many passes as the widest kernel needs, each
-/// a Gaussian whose variance is its share of the sigma's square, each reported as progress. So a Float32 plane is
-/// blurred by the same arithmetic whatever its rows' padding.
+/// packed tight, or of a plane under a validity rule or a mask, when the stencil family's widest kernel reaches the
+/// sigma. An integer plane with every sample valid, a Float32 plane of padded rows, and any plane blurred by a wider
+/// sigma, is worked on a unit-interval Float32 working copy of the output, which starts as the input, and narrowed back
+/// to the nearest code. There the exact Gaussian of a wider sigma runs as the fewest passes the engine's compiled
+/// symmetric path takes over the plane: one kernel up to `an::kMaxGaussianRadius`, under half of each side of the
+/// plane. Over a plane too small for that, and where the engine refuses that path - an execution without its
+/// compiled rows, or without the memory for the kernel's own plane - it runs as many passes as the stencil family's
+/// widest kernel needs. Each pass is a Gaussian whose variance is its share of the sigma's square, reported as
+/// progress. So a Float32 plane is blurred by the same arithmetic whatever its rows' padding. An interactive
+/// preview's sigma beyond the stencil family's kernel is blurred by the real-time preview's boxes instead.
 ///
 /// @param engine the engine context the working planes are taken from.
 /// @param execution the run's admitted execution.
@@ -203,21 +219,27 @@ using UnitFloatOperation = std::function<an::Status(float* samples, const an::Im
 /// @param output where it writes; it starts as a copy of the input.
 /// @param sigma the standard deviation, in pixels; above `an::kMinimumGaussianSigma`.
 /// @param border how a neighbour outside the image is supplied.
+/// @param kind the exact Gaussian, or what an interactive preview frame runs.
 /// @return success; or what a plan, the working planes or a pass refused.
-[[nodiscard]] an::Status blurGaussian(const an::EngineContext& engine, const an::ExecutionContext& execution,
-                                      const an::ChannelScopeInput& input, const an::ChannelScopeOutput& output,
-                                      double sigma,
-                                      an::KernelBorderMode border = an::KernelBorderMode::ReflectExcludingEdge);
+[[nodiscard]] AFTERNIGHTPROCESSES_API an::Status
+blurGaussian(const an::EngineContext& engine, const an::ExecutionContext& execution, const an::ChannelScopeInput& input,
+             const an::ChannelScopeOutput& output, double sigma,
+             an::KernelBorderMode border = an::KernelBorderMode::ReflectExcludingEdge, BlurKind kind = BlurKind::Exact);
 
-/// How far around a pixel `blurGaussian` reads for a sigma: the radius of the one kernel that reaches the sigma, or the
-/// radii of every pass of the composition it runs instead, added up - each pass reads that far around the pass before.
-/// What a real-time preview's frame over a part of the image states as its reach.
+/// How far around a pixel `blurGaussian` reads for a sigma over a plane wide and high enough for one wide kernel: the
+/// radius of that kernel - or, for a sigma no kernel up to `an::kMaxGaussianRadius` reaches, the radii of every pass of
+/// the composition added up, each pass reading that far around the pass before - or, for an interactive preview's
+/// sigma beyond the stencil family's kernel, the reach of the boxes. What a real-time preview's frame over a part of
+/// the image states as its reach; over a plane too small for one wide kernel, and where the engine refuses one, the
+/// composition reads farther.
 ///
 /// @param sigma the standard deviation, in pixels.
 /// @param border how a neighbour outside the image is supplied.
+/// @param kind the exact Gaussian, or what an interactive preview frame runs.
 /// @return the reach in pixels; zero for a sigma the engine builds no kernel for.
 [[nodiscard]] std::uint32_t gaussianReach(double sigma,
-                                          an::KernelBorderMode border = an::KernelBorderMode::ReflectExcludingEdge);
+                                          an::KernelBorderMode border = an::KernelBorderMode::ReflectExcludingEdge,
+                                          BlurKind kind = BlurKind::Exact);
 
 /// What one of the two detail filters - the high pass and the unsharp mask - asks for, in the fractions of full scale
 /// their dialogs speak.
@@ -226,7 +248,8 @@ struct DetailRequest
     /// `source - blur + offset`, or `source + amount * (source - blur)`.
     an::DetailFilterMethod method = an::DetailFilterMethod::HighPass;
 
-    /// The blur's standard deviation, in pixels.
+    /// The blur's standard deviation, in pixels. One the engine builds no kernel for blurs nothing: the blur taken away
+    /// is the plane itself.
     double sigma = 1.0;
 
     /// The unsharp mask's amount; any finite value, a negative one blurring.
@@ -237,14 +260,22 @@ struct DetailRequest
 
     /// How a neighbour outside the image is supplied to the blur.
     an::KernelBorderMode border = an::KernelBorderMode::ReflectExcludingEdge;
+
+    /// How the blur is made.
+    BlurKind blur = BlurKind::Exact;
 };
 
 /// One of the two detail filters over a channel scope's plane, its result held to full scale.
 ///
-/// The engine's detail filter runs it over the stored values when one plan can: a sigma its widest kernel reaches and
-/// an amount that is not negative. Otherwise it is composed over a unit-interval working copy of the output, which
-/// starts as the input: the exact Gaussian in as many passes as the sigma needs - each a Gaussian whose variance is
-/// its share of the sigma's square - then the difference, the amount or the offset, and the clamp.
+/// A plane every sample of which is valid, blurred under the border the engine's compiled Gaussian mirrors at
+/// (`an::KernelBorderMode::ReflectExcludingEdge`), is composed over a unit-interval working copy of the output, which
+/// starts as the input, at every sigma: the compiled Float32 Gaussian, in the passes `blurGaussian` runs over such a
+/// copy, then the difference, the amount or the offset, and the clamp, each in Float32. The Gaussian blur's own dialog
+/// blurs a plane by the same kernels. Any other plane - one whose validity rule or mask the blur honours, or one
+/// blurred under another border - runs the engine's detail filter over its stored values, accumulating in Float64,
+/// when one plan can: a sigma the stencil family's widest kernel reaches and an amount that is not negative; and is
+/// composed as above otherwise. `DetailRequest::blur` decides whether an interactive preview's sigma beyond the
+/// stencil family's kernel is blurred by the real-time preview's boxes.
 ///
 /// @param engine the engine context the working planes are taken from.
 /// @param execution the run's admitted execution.
@@ -256,9 +287,8 @@ struct DetailRequest
                                       const an::ChannelScopeInput& input, const an::ChannelScopeOutput& output,
                                       const DetailRequest& request);
 
-/// How far around a pixel `filterDetail` reads for a request: the radius of the engine's detail filter's blur where one
-/// plan takes the request, otherwise the reach of the composed blur, as `gaussianReach` states it. What a real-time
-/// preview's frame over a part of the image states as its reach.
+/// How far around a pixel `filterDetail` reads for a request: the reach `gaussianReach` states for its sigma, border
+/// and kind of blur. What a real-time preview's frame over a part of the image states as its reach.
 ///
 /// @param request the filter.
 /// @return the reach in pixels; zero for a sigma the engine builds no kernel for.
@@ -274,19 +304,14 @@ template <typename ValueT> [[nodiscard]] an::Status statusOf(const an::Result<Va
 }
 
 /// Records on a run's result that the process left its samples nonlinear: the product's processing-state cards say
-/// nonlinear, in the channel basis a stretch leaves, under the operation named, and the lineage names the process. The
-/// destination is replaced by a copy carrying that metadata; its samples are unchanged.
+/// nonlinear, in the channel basis a stretch leaves, under the operation named, and the lineage names the process.
+/// Both are stated where the result is, in one metadata transition: the samples stay where the process wrote them,
+/// and nothing of the result is copied to carry its new cards.
 ///
-/// @param session the run's session, which the copy belongs to.
-/// @param engine the engine context of the run's execution.
-/// @param execution the run's admitted execution.
-/// @param destination the run's result, replaced.
+/// @param destination the run's result; it keeps its image and its samples.
 /// @param operation the operation the cards and the lineage name.
-/// @return success; or what the cards, the lineage or the copy refused.
-[[nodiscard]] an::Status markProcessResultNonlinear(const an::consumer::EngineSession& session,
-                                                    const an::EngineContext& engine,
-                                                    const an::ExecutionContext& execution,
-                                                    an::ui::ProcessDestination& destination,
-                                                    std::string_view operation);
+/// @return success; or what the cards or the lineage refused. On a failure the destination is unchanged.
+[[nodiscard]] AFTERNIGHTPROCESSES_API an::Status markProcessResultNonlinear(an::ui::ProcessDestination& destination,
+                                                                            std::string_view operation);
 
 } // namespace process_utils

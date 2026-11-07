@@ -206,7 +206,9 @@ separateConvolutionKernel(std::span<const double> coefficients, std::uint32_t wi
 ///         `ErrorCode::IncompatibleArguments` when the two images are not the same picture, when
 ///         they overlap, or when the promise cannot be kept in Float32; `ErrorCode::OutOfRange` for
 ///         a radius above `kMaxStencilRadius` or a spacing above `kMaxStencilDilation`;
-///         `ErrorCode::LimitExceeded` when one tile band exceeds `kMaxStencilScratchBytes`; or a
+///         `ErrorCode::LimitExceeded` when even one tile band of the narrowest plan exceeds
+///         `kMaxStencilScratchBytes`, which only a dilated pass over a very wide row can reach - an
+///         undilated one divides its rows into strips of columns (`convolveSeparablePlane`); or a
 ///         memory-budget, mask or cancellation failure.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<SpatialFilterResult>
 convolveImageSeparable(const ExecutionContext& execution, SampleType sampleType, const void* source,

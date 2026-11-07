@@ -6,8 +6,8 @@
 /// across previews and drawn again after an Apply, and the moments it draws; every morphology mode, its circular
 /// elements and the selection mode the engine's footprint rank makes possible; the G'MIC processes with and without the
 /// library; the patch denoiser's cap and its refusal of a frame too small for its search; the bilateral filter's
-/// derived radius; a colour CLAHE that equalizes the lightness alone; and the amount a modulated process's parameters
-/// start at.
+/// derived radius; a colour CLAHE that equalizes the lightness alone, and an equalized result recorded nonlinear where
+/// its body wrote it; and the amount a modulated process's parameters start at.
 
 #include "Test_ProcessesSpatial/SpatialProcessesTestSupport.h"
 
@@ -32,6 +32,7 @@
 #include <AfterNightEngine/Algorithms/Color/ChannelScope.h>
 #include <AfterNightEngine/Algorithms/NoiseReduction/PatchDenoise.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
+#include <AfterNightEngine/IO/ProcessingStateCards.h>
 
 #include <QDialogButtonBox>
 #include <QPushButton>
@@ -687,4 +688,53 @@ TEST(CLAHETest, AColourImageIsEqualizedInItsLightnessAlone)
         }
     }
     EXPECT_GT(lightnessMoved, 1e-2);
+}
+
+// An equalized result is recorded nonlinear where the body wrote it: the run's destination keeps its image and its
+// samples - nothing of them is copied to restate the cards - and its cards and its lineage name the equalization.
+TEST(CLAHETest, AnApplysResultIsRecordedNonlinearWhereTheBodyWroteIt)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext();
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const SpatialProcessSpec* clahe = spatialProcess("actionCLA_Histogram_Equalization");
+    ASSERT_NE(clahe, nullptr);
+    std::optional<an::ui::ImageDocument> document =
+        greyDocument(context->engineSession(), 64u, 48u, [](std::uint32_t x, std::uint32_t y) {
+            return 0.1f + 0.6f * static_cast<float>((x * 3u + y * 5u) % 32u) / 31.0f;
+        });
+    ASSERT_TRUE(document.has_value());
+    const TargetView target(*context, "grey", std::move(*document));
+    const ProbedWindow window = clahe->open(target.view());
+    clahe->configure(*window);
+
+    an::Result<an::consumer::AssetReadLease> lease = target.view().document().read();
+    ASSERT_TRUE(lease.hasValue());
+    const an::ui::ProcessSource source = an::ui::ProcessSource::of(*lease);
+    an::Result<an::ui::ExecutionScope> scope = an::ui::ExecutionScope::admit(
+        context->engineSession(), an::ui::ExecutionRequest{.purpose = an::consumer::OperationPurpose::Apply},
+        an::ui::ExecutionObserver{});
+    ASSERT_TRUE(scope.hasValue()) << scope.status().message();
+    an::Result<an::ui::ProcessDestination> destination =
+        an::ui::ProcessDestination::copyOf(context->engineSession(), scope->engine(), scope->execution(), source);
+    ASSERT_TRUE(destination.hasValue()) << destination.status().message();
+    const auto samplesOf = [](const an::consumer::AssetWriteLease& result) {
+        return std::visit([](const auto& typed) -> const void* { return typed.view()->data(); }, result.image());
+    };
+    const std::uint64_t identity = destination->asset().assetIdentity();
+    const void* const samples = samplesOf(destination->asset());
+
+    const an::Status ran =
+        window.probe->runBody(source, *destination, an::ui::ProcessRun{.kind = an::ui::ProcessRunKind::Apply}, *scope);
+    scope->finish(ran);
+    ASSERT_TRUE(ran.ok()) << ran.message();
+    EXPECT_EQ(destination->asset().assetIdentity(), identity) << "the result was replaced by a copy of it";
+    EXPECT_EQ(samplesOf(destination->asset()), samples) << "the result's samples were copied";
+    const an::ImageMetadata metadata =
+        std::visit([](const auto& typed) { return typed.metadata(); }, destination->asset().image());
+    const an::ProcessingStateRecord state = an::readProcessingStateCards(metadata.codec());
+    EXPECT_EQ(state.linearity, an::RecordedLinearity::Nonlinear);
+    EXPECT_EQ(state.operation, "clahe");
+    ASSERT_FALSE(metadata.provenance().entries().empty());
+    EXPECT_EQ(metadata.provenance().entries().back().operation(), "clahe");
 }

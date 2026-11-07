@@ -31,8 +31,6 @@
 #include <AfterNightEngine/Algorithms/Geometry/Geometry.h>
 #include <AfterNightEngine/Algorithms/Kernel/SamplingKernel.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
-#include <AfterNightEngine/IO/ProcessingStateCards.h>
-#include <AfterNightEngine/Image/AcquisitionMetadata.h>
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/ImageConversion.h>
 #include <AfterNightEngine/Image/ImageMetadata.h>
@@ -118,14 +116,6 @@ constexpr an::OperationEffect kThumbnailEffect{.description = an::DescriptionEff
                                                .codecMetadata = an::CodecMetadataEffect::Preserves,
                                                .outputIntent = an::OutputIntentEffect::Withdraws,
                                                .validity = {.policy = an::ValidityPolicy::Preserve}};
-
-/// Whether an image is linear data a thumbnail stretches: its processing-state cards record it linear, or it is a
-/// camera RAW frame, whose codes are linear.
-bool thumbnailIsLinear(const an::ImageMetadata& metadata)
-{
-    return an::readProcessingStateCards(metadata.codec()).linearity == an::RecordedLinearity::Linear ||
-           metadata.acquisition().rawCamera().has_value();
-}
 
 /// The thumbnail's picture of a typed image: reduced to the thumbnail's size with a Lanczos kernel, a mosaic described
 /// as the grey picture its codes make. Null when the image needs neither.
@@ -462,7 +452,7 @@ renderRecentFileThumbnail(const an::consumer::EngineSession& session,
         {
             return lease.status();
         }
-        linear = lease->visit([](const auto& typed) { return thumbnailIsLinear(typed.metadata()); });
+        linear = lease->visit([](const auto& typed) { return an::ui::isLinearData(typed.metadata()); });
         an::Result<an::consumer::OperationScope> scope = session.admit(
             an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Preview, .stopToken = stop});
         if (!scope.hasValue())

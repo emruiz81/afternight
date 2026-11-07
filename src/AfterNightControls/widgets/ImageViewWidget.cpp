@@ -178,6 +178,7 @@ struct ImageViewWidget::PresentationResult
 struct ImageViewWidget::Impl
 {
     ImageViewMode m_ViewMode = ImageViewMode::LINEAR_MODE;
+    bool m_ImageHoldsAutostretch = false;
     an::ui::ViewChannel m_Channel{};
 
     // What is painted, the part of the image it covers and the reduction it was presented at, and what it was presented
@@ -515,6 +516,20 @@ double ImageViewWidget::getCurrentScaleFactor()
 ImageViewMode ImageViewWidget::getViewMode() const
 {
     return m_impl->m_ViewMode;
+}
+
+void ImageViewWidget::setImageHoldsAutostretch(const bool holds)
+{
+    if (m_impl->m_ImageHoldsAutostretch != holds)
+    {
+        m_impl->m_ImageHoldsAutostretch = holds;
+        imageUpdated(false, true);
+    }
+}
+
+bool ImageViewWidget::imageHoldsAutostretch() const
+{
+    return m_impl->m_ImageHoldsAutostretch;
 }
 
 ImageChannelViewMode ImageViewWidget::getChannelViewMode() const
@@ -1066,7 +1081,8 @@ an::DisplayPresentationRequest ImageViewWidget::presentationRequest() const
 {
     const AutostretchParams& params = m_impl->m_AutostretchParams;
     an::DisplayPresentationRequest request;
-    const bool autostretch = m_impl->m_ViewMode == ImageViewMode::AUTOSTRETCH_MODE;
+    // An image that holds the automatic stretch already is the autostretch display itself.
+    const bool autostretch = m_impl->m_ViewMode == ImageViewMode::AUTOSTRETCH_MODE && !m_impl->m_ImageHoldsAutostretch;
     request.stretch = autostretch ? an::PresentationStretch::Automatic : an::PresentationStretch::Linear;
     // Every sample is carried at its full precision through the stretch: holding it to sixteen-bit levels changes no
     // byte of an unsigned eight- or sixteen-bit image, saves nothing, and bands a floating one.
