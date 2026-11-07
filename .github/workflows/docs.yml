@@ -116,12 +116,12 @@ jobs:
           ref: ${{ steps.source.outputs.ref }}
           lfs: true
 
+      # No pip cache: a dispatch may build any ref, and a cache this run saved from code it checked out would be
+      # restored by the default branch's runs. The requirements are pinned by hash and download in seconds.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: docs/user-guide/requirements.txt
 
       - name: Install MkDocs and plugins
         run: pip install --require-hashes -r docs/user-guide/requirements.txt
