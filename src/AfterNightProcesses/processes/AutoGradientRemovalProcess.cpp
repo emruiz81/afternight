@@ -342,6 +342,18 @@ bool AutoGradientRemovalProcess::isViewControlSupported(const ImageViewControl* 
     return ctrl && !ctrl->isSequence();
 }
 
+std::shared_ptr<const an::consumer::ImageAsset> AutoGradientRemovalProcess::getExecutionAutostretchSource() const
+{
+    // Stretched through the target's statistics, the model's narrow range shows as a flat grey: a diagnostic is
+    // stretched by its own.
+    if (m_previewComputed && m_ui.previewDisplaySelector != nullptr &&
+        previewModeFromIndex(m_ui.previewDisplaySelector->currentIndex()) != PreviewDisplayMode::corrected)
+    {
+        return nullptr;
+    }
+    return ImageRTPreviewControl::getExecutionAutostretchSource();
+}
+
 void AutoGradientRemovalProcess::initialize()
 {
     const QSignalBlocker blockScaleValue(m_ui.scaleValue);

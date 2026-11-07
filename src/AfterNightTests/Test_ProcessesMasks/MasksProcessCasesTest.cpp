@@ -20,6 +20,8 @@
 #include "processes/BackgroundExtractionProcess.h"
 #include "processes/MaskDrawingProcess.h"
 #include "processes/MultiscaleComposition.h"
+#include "widgets/ImageViewWidget.h"
+#include "widgets/ViewPresentation.h"
 
 #include <AfterNightEngine/IO/CodecFormat.h>
 #include <AfterNightEngine/IO/ProcessingStateCards.h>
@@ -484,6 +486,30 @@ namespace
            settleWindow(window);
 }
 
+/// What a preview view stretched as it is now measures of the whole of an image: the statistics a presentation of it
+/// that measures its own is stretched by.
+[[nodiscard]] std::optional<an::DisplayPresentationAnalysis>
+measuredForPreview(const an::consumer::EngineSession& session, const ImageViewWidget& widget,
+                   const an::consumer::ImageAsset& image)
+{
+    std::optional<an::consumer::OperationScope> scope = an::tests::viewer::admitted(session);
+    if (!scope.has_value())
+    {
+        return std::nullopt;
+    }
+    an::Result<an::consumer::AssetReadLease> lease = image.read();
+    if (!lease.hasValue())
+    {
+        return std::nullopt;
+    }
+    an::ui::ViewPresentationSettings settings;
+    settings.request = widget.presentationRequest();
+    settings.channel = widget.displayedChannel();
+    an::Result<an::DisplayPresentationAnalysis> measured =
+        an::ui::analyzeForView(scope->engine(), scope->execution(), *lease, settings);
+    return measured.hasValue() ? std::optional<an::DisplayPresentationAnalysis>(*measured) : std::nullopt;
+}
+
 } // namespace
 
 // preview: one preview run makes the corrected image, the gradient model and the protection mask; changing what the
@@ -573,14 +599,16 @@ TEST_F(MasksProcessCase, AutoGradientRemovalSnapshotsTheDisplayShown)
     dropView(context(), target);
 }
 
-// preview: a preview the view stretches from the target's statistics changes display with no new run too: the kept
-// image is stretched through the analysis the run's frame was.
+// preview: an autostretched preview changes display with no new run too. The corrected image is stretched through the
+// target's statistics, so it and the original compare under one stretch; the gradient model and the protection mask
+// are other images, each stretched by its own - through the target's, the model's narrow range shows as a flat grey.
 TEST_F(MasksProcessCase, AutoGradientRemovalChangesTheDisplayOfAStretchedPreviewWithNoNewRun)
 {
     ViewHandle target = greyView(300u, 220u, backgroundWithASquare);
     const MasksProcess& process = named("AutoGradientRemoval");
     WindowHandle window = process.open(*target);
     process.configure(*window, "-");
+    window->show();
     auto* preview = window->findChild<QCheckBox*>(QStringLiteral("previewCheckbox"));
     ASSERT_NE(preview, nullptr);
     preview->setChecked(true);
@@ -591,11 +619,34 @@ TEST_F(MasksProcessCase, AutoGradientRemovalChangesTheDisplayOfAStretchedPreview
     ASSERT_TRUE(window->previewView()->isAutoStretchEnabled());
     ASSERT_TRUE(computeAutoGradientPreview(*window));
     const ProcessRunTelemetry computed = window->runTelemetry();
+    ImageViewWidget* widget = window->previewView()->getViewWidget();
+    ASSERT_NE(widget, nullptr);
+    const std::optional<an::DisplayPresentationAnalysis> targets =
+        measuredForPreview(session(), *widget, *target->document().asset());
+    ASSERT_TRUE(targets.has_value());
+    const auto expectStretchedBy = [widget](const an::DisplayPresentationAnalysis& expected, const char* what) {
+        const std::optional<an::DisplayPresentationAnalysis> presented = widget->presentedAnalysis();
+        ASSERT_TRUE(presented.has_value()) << what;
+        EXPECT_EQ(presented->medians, expected.medians) << what;
+        EXPECT_EQ(presented->medianAbsoluteDeviations, expected.medianAbsoluteDeviations) << what;
+    };
+    expectStretchedBy(*targets, "the computed corrected image, by the target's statistics");
 
     for (const int display : {1, 2, 0})
     {
+        SCOPED_TRACE(display);
         setIndex(*window, "previewDisplaySelector", display);
         ASSERT_TRUE(settleWindow(*window));
+        if (display == 0)
+        {
+            expectStretchedBy(*targets, "the corrected image, by the target's statistics");
+            continue;
+        }
+        const std::optional<an::DisplayPresentationAnalysis> own =
+            measuredForPreview(session(), *widget, *window->previewView()->document().asset());
+        ASSERT_TRUE(own.has_value());
+        ASSERT_NE(own->medians, targets->medians) << "the display's statistics are the target's: nothing is shown";
+        expectStretchedBy(*own, "a diagnostic display, by its own statistics");
     }
     EXPECT_EQ(window->runTelemetry().previewsStarted, computed.previewsStarted)
         << "changing the display of a stretched preview ran it again";

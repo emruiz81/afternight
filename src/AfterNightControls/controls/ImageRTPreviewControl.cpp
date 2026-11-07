@@ -3510,6 +3510,18 @@ bool ImageRTPreviewControl::showSharedPreview(const std::shared_ptr<const an::co
         return false;
     }
     fitLandingPreview(*preview);
+    // What the image is presented through is stated before the view presents it: a stretch taken from the target is the
+    // analysis kept for its revision and the view's presentation; with none to take it from, the view measures the
+    // image it shows. A frame whose own presentation the view painted handed the view the analysis that presentation
+    // was made through, and the next presentation - this one - would otherwise take it for an image it does not
+    // describe.
+    ImageViewWidget* widget = preview->getViewWidget();
+    if (widget != nullptr)
+    {
+        const bool fromTarget =
+            m_SupportExecutionAutostretch && preview->isAutoStretchEnabled() && keptAnalysisFitsPreview();
+        widget->setPrecomputedAnalysis(fromTarget ? m_impl->m_Analysis : std::nullopt);
+    }
     // The preview view shares the image; it takes a document of its own again with the next result.
     an::ui::ImageDocument& shown = preview->document();
     if (!shown.valid() || !shown.isShared() || shown.asset() != image)
@@ -3520,13 +3532,8 @@ bool ImageRTPreviewControl::showSharedPreview(const std::shared_ptr<const an::co
             return false;
         }
         preview->setDocument(std::move(*shared));
-        // A stretch taken from the target is the analysis kept for its revision and the view's presentation, if any.
-        if (m_SupportExecutionAutostretch && preview->isAutoStretchEnabled() && keptAnalysisFitsPreview())
-        {
-            preview->notifyImageUpdatedWithPresentationAnalysis(m_impl->m_Analysis, true);
-        }
     }
-    else if (ImageViewWidget* widget = preview->getViewWidget(); widget != nullptr)
+    else if (widget != nullptr)
     {
         // The document already shares the image, but what the view paints may be an interactive frame's presentation
         // or layer, which replaced nothing in the document: the view presents the image itself again.
@@ -3553,10 +3560,12 @@ bool ImageRTPreviewControl::showKeptPreview(const RunSnapshot& snapshot)
         kept->masked == (snapshot.mask != nullptr) &&
         (!snapshot.mask || (kept->mask == snapshot.mask->revision() && kept->invertMask == snapshot.invertMask)) &&
         kept->modulation == snapshot.modulation && kept->channel == snapshot.run.channel;
-    // A preview stretched from the target is stretched through the target's analysis, which the view must be handed: a
+    // A preview stretched from an image is stretched through that image's analysis, which the view must be handed: a
     // kept result is shown only while that analysis is kept for the view's presentation, as a frame would stretch it.
+    // One the process stretches by its own statistics the view measures as it shows it, as a frame's presentation
+    // measures its result.
     const bool stretchable = !m_SupportExecutionAutostretch || !m_rt_preview_view_control->isAutoStretchEnabled() ||
-                             keptAnalysisFitsPreview();
+                             getExecutionAutostretchSource() == nullptr || keptAnalysisFitsPreview();
     if (sameImages && stretchable && !snapshot.resultKey.empty())
     {
         for (const auto& [key, image] : kept->results)

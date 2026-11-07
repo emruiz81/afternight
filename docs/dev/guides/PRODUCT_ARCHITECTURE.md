@@ -161,8 +161,10 @@ body that makes, from one computation, the images other values of a parameter on
 under their keys (`ProcessDestination::keepAlternative`) - Auto Gradient Removal's corrected image, gradient model and
 protection mask, from one fit (`removeAndDrawImageAutoBackground`). The frame blends each by its modulation and mask as
 it blends its result (`blendProcessAlternative`), and parameters of a kept key over the same revisions of the target
-and mask, and the same blend, show the image kept, shared, at once - stretched through the target's analysis kept for
-the view's presentation, and otherwise run as a frame. What is kept is in the session's memory, up to a few full-size
+and mask, and the same blend, show the image kept, shared, at once - stretched through the analysis of the image the
+process stretches its preview from (`getExecutionAutostretchSource`) kept for the view's presentation, and otherwise run
+as a frame, or by the view's own measurement when the process names none, as Auto Gradient Removal does for its model
+and mask. What is kept is in the session's memory, up to a few full-size
 images, so it goes when the next frame starts, when the target or its mask changes, when the preview closes and when
 the process says its parameters changed (`discardKeptPreviews`). An
 Apply or a Reset is followed by one preview of the parameters the reset leaves, and a failed preview says why in the

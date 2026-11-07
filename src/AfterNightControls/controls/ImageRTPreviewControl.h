@@ -570,8 +570,9 @@ private:
     void showIdentityPreview();
 
     /// Shows an image in the preview view without a frame, shared rather than copied: the target's own, or a result
-    /// kept. It is stretched through the target's analysis kept for the view's presentation, when the process stretches
-    /// its preview from the target, and the dialog's histogram counts it.
+    /// kept. It is stretched through the analysis of the image the process stretches its preview from, kept for the
+    /// view's presentation, or by the view's own measurement of it when the process names none; and the dialog's
+    /// histogram counts it.
     ///
     /// @param image the image; null shows nothing.
     /// @return whether the preview view shows it.
@@ -579,6 +580,7 @@ private:
 
     /// Whether the analysis kept from the frames is the one a frame would stretch the preview through now: measured on
     /// the revision of the image the preview is stretched by, for the view's presentation and the channel it shows.
+    /// False when the process names no such image.
     [[nodiscard]] bool keptAnalysisFitsPreview() const;
 
     /// Shows the result kept for a frame about to start, if one was kept for its key, its target's and mask's

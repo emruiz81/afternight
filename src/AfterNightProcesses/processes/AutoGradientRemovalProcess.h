@@ -100,6 +100,11 @@ protected:
     /// display, so a change of display shows the one asked for with no new run.
     [[nodiscard]] std::string typedPreviewResultKey(const AutoGradientRemovalProcessParams& params) const override;
 
+    /// The target, whose statistics stretch the preview of the target and of the corrected image, so the two compare
+    /// under one stretch; none for a computed preview of the gradient model or the protection mask, which are other
+    /// images and are stretched by their own statistics.
+    [[nodiscard]] std::shared_ptr<const an::consumer::ImageAsset> getExecutionAutostretchSource() const override;
+
 private:
     void on_scaleChanged(double value);
     void on_smoothnessChanged(double value);
