@@ -139,8 +139,10 @@ endpoints produce a degenerate clipped mapping rather than a useful stretch.
 Identity `(0,1,0.5)` skips the allocation.
 
 - **Gaussian Blur:** the engine's exact Gaussian with standard deviation
-  **Radius**, at any radius; one above about 32 pixels runs as several exact
-  passes whose variances add up to it.
+  **Radius**, at any radius. One above about 32 pixels runs as one kernel up to
+  `4096` pixels wide on the engine's compiled single-precision path over a blend
+  image more than twice that kernel's radius wide and high, as the Gaussian Blur
+  process does; otherwise as several exact passes whose variances add up to it.
 - **High Pass:** `clamp(B - Gaussian(B,r) + 0.5, 0, 1)`.
 - **Hue:** if B is RGB, first reduce it to normalized CIE L*; then use that
   scalar as HSV Value with selected Hue/Saturation. Mono follows the same
@@ -254,7 +256,9 @@ two sequences by index or time.
 
 Core per-pixel modes are parallel and scale with width, height, channels, and
 sequence frames. Linked MTF and filters add full-image buffers; Gaussian/High
-Pass add neighborhood work; CIE/HSI modes and Preserve lightness add conversions.
+Pass add neighborhood work, whose cost grows with Radius as one kernel and with
+its square where the blur runs as passes; CIE/HSI modes and Preserve lightness add
+conversions.
 Each preview and run applies the transfers again; nothing is cached between
 runs. Plot resolution affects histogram cost, not blend precision. No production
 timing or peak-memory measurement was made.

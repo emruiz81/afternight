@@ -19,6 +19,7 @@
 #include <AfterNightEngine/Algorithms/Pointwise/BlendComposition.h>
 
 #include <AfterNightEngine/Algorithms/Color/ColorAdjustment.h>
+#include <AfterNightEngine/Algorithms/Kernel/StencilKernel.h>
 #include <AfterNightEngine/Algorithms/Pointwise/BlendMode.h>
 #include <AfterNightEngine/Algorithms/Pointwise/Stretch.h>
 #include <AfterNightEngine/Algorithms/Spatial/Gaussian.h>
@@ -316,9 +317,9 @@ template <typename Body>
 
 /// Blurs the first `planes` planes of `source` into `destination` by the exact Gaussian in `passes` passes, using
 /// `scratch` between them; the three are distinct and `source` is left as it is.
-[[nodiscard]] Status gaussianInto(const ExecutionContext& execution, const WorkingPlanes& source,
-                                  const WorkingPlanes& destination, const WorkingPlanes* scratch, std::uint32_t planes,
-                                  double sigma, std::uint32_t passes)
+[[nodiscard]] Status runGaussianPasses(const ExecutionContext& execution, const WorkingPlanes& source,
+                                       const WorkingPlanes& destination, const WorkingPlanes* scratch,
+                                       std::uint32_t planes, double sigma, std::uint32_t passes)
 {
     const double passSigma = sigma / std::sqrt(static_cast<double>(passes));
     const Result<GaussianPlan> plan = planGaussianBlur(GaussianRequest{.sigmaX = passSigma, .sigmaY = passSigma});
@@ -346,6 +347,65 @@ template <typename Body>
         to = to == &destination ? scratch : &destination;
     }
     return Status::success();
+}
+
+/// The fewest passes, below `most`, of one exact plan no wider than a radius whose variances add up to a standard
+/// deviation's square; nothing when no such count is below `most`.
+[[nodiscard]] std::optional<std::uint32_t> passesWithin(double sigma, std::uint32_t widest, std::uint32_t most)
+{
+    for (std::uint32_t passes = 1u; passes < most; ++passes)
+    {
+        const double passSigma = sigma / std::sqrt(static_cast<double>(passes));
+        const Result<GaussianPlan> plan = planGaussianBlur(GaussianRequest{.sigmaX = passSigma, .sigmaY = passSigma});
+        if (plan.hasValue() && (std::max)(plan->horizontalRadius(), plan->verticalRadius()) <= widest)
+        {
+            return passes;
+        }
+    }
+    return std::nullopt;
+}
+
+/// Blurs the first `planes` planes of `source` into `destination` by the exact Gaussian, using `scratch` between
+/// passes; the three are distinct and `source` is left as it is.
+///
+/// `narrowPasses`, the plan's count of kernels the stencil family holds, is the most that run. Over a Float32 image
+/// more than twice a wider kernel's radius each way, the fewest passes of kernels the compiled symmetric path takes
+/// run instead - one kernel at every standard deviation whose kernel fits the image - each pass reading and writing
+/// the planes once where the narrow passes would each read and write them again. The narrow passes run where the
+/// engine refuses the wider kernel: an execution without the compiled path, or without the memory for its working
+/// plane.
+///
+/// @return how many passes ran.
+[[nodiscard]] Result<std::uint32_t> gaussianInto(const ExecutionContext& execution, const WorkingPlanes& source,
+                                                 const WorkingPlanes& destination, const WorkingPlanes* scratch,
+                                                 std::uint32_t planes, double sigma, std::uint32_t narrowPasses)
+{
+    if (narrowPasses > 1u && source.sampleType == SampleType::Float32)
+    {
+        const std::uint32_t half = (std::min)(source.layout->extent().width(), source.layout->extent().height()) / 2u;
+        const std::uint32_t widest = (std::min)(kMaxGaussianRadius, half == 0u ? 0u : half - 1u);
+        const std::optional<std::uint32_t> wide =
+            widest > kMaxStencilRadius ? passesWithin(sigma, widest, narrowPasses) : std::nullopt;
+        if (wide.has_value())
+        {
+            const Status ran = runGaussianPasses(execution, source, destination, scratch, planes, sigma, *wide);
+            if (ran.ok())
+            {
+                return *wide;
+            }
+            if (ran.code() != ErrorCode::OutOfRange && ran.code() != ErrorCode::MemoryBudgetExceeded &&
+                ran.code() != ErrorCode::AllocationFailed)
+            {
+                return ran;
+            }
+        }
+    }
+    const Status ran = runGaussianPasses(execution, source, destination, scratch, planes, sigma, narrowPasses);
+    if (ran.failed())
+    {
+        return ran;
+    }
+    return narrowPasses;
 }
 
 /// Converts the first three planes of a working image between RGB and packed Lab, in place.
@@ -696,6 +756,8 @@ struct BlendWorkspace
     std::optional<WorkingPlanes> secondScratch;
     std::optional<WorkingPlanes> original;
     std::uint8_t* valid = nullptr;
+    /// How many exact Gaussian passes the blur or the high pass ran.
+    std::uint32_t gaussianPasses = 0u;
 };
 
 template <typename WorkingT>
@@ -740,13 +802,14 @@ template <typename WorkingT>
     std::uint32_t filtered = blendChannelCount;
     if (request.filter == BlendPreFilter::GaussianBlur || request.filter == BlendPreFilter::HighPass)
     {
-        step = gaussianInto(execution, space.blend, *space.scratch,
-                            space.secondScratch.has_value() ? &*space.secondScratch : nullptr, blendChannelCount,
-                            request.filterSigma, plan.gaussianPasses());
-        if (step.failed())
+        const Result<std::uint32_t> blurred = gaussianInto(
+            execution, space.blend, *space.scratch, space.secondScratch.has_value() ? &*space.secondScratch : nullptr,
+            blendChannelCount, request.filterSigma, plan.gaussianPasses());
+        if (!blurred.hasValue())
         {
-            return step;
+            return blurred.status();
         }
+        space.gaussianPasses = *blurred;
         const std::uint32_t width = space.blend.layout->extent().width();
         const bool highPass = request.filter == BlendPreFilter::HighPass;
         step = forEachRow(execution, space.blend, blendChannelCount, 3u, [&](std::uint32_t y) {
@@ -1126,7 +1189,7 @@ Result<BlendCompositionResult> composeBlend(const ExecutionContext& execution, c
         result.run.selection.valid = accepted;
     }
     result.run.outputsWritten = pixels * channels;
-    result.gaussianPasses = filterBlurs(request.filter) ? plan.gaussianPasses() : 0u;
+    result.gaussianPasses = filterBlurs(request.filter) ? space.gaussianPasses : 0u;
     return result;
 }
 
