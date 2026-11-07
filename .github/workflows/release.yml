@@ -40,7 +40,7 @@ jobs:
   # ===== Prepare Release =====
   prepare-release:
     name: Prepare GitHub Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     outputs:
@@ -140,13 +140,13 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: [prepare-release, build-docs, build-linux, build-windows]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
 
     steps:
       - name: Download the assets the builds handed over
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           pattern: afternight-release-*
           path: release-assets
@@ -197,7 +197,7 @@ jobs:
     name: Publish the User Guide
     needs: release
     if: ${{ !inputs.prerelease }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       pages: write
       id-token: write
@@ -210,16 +210,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Download the guide this release built
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: afternight-documentation-html
           path: site
 
       - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site/
 
       - name: Deploy Pages artifact
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

@@ -61,7 +61,7 @@ concurrency:
 jobs:
   build-docs:
     name: Build Documentation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     outputs:
@@ -94,7 +94,7 @@ jobs:
           lfs: true
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -139,7 +139,7 @@ jobs:
     name: Deploy to GitHub Pages
     needs: build-docs
     if: needs.build-docs.outputs.deploy == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       pages: write
@@ -163,10 +163,10 @@ jobs:
           test -f site/index.html
 
       - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site/
 
       - name: Deploy Pages artifact
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
