@@ -173,8 +173,9 @@ pixel onto the drag vector, clamps projection `t` to `[0,1]`, and uses
 `v=t×Opacity`.
 
 Each shape layer is antialiased and, when Feather is positive, blurred with the
-engine's exact Gaussian of `sigma=max(0.5,Feather/2)`, in several exact passes
-when Feather is above `64`. The layers are then
+engine's exact Gaussian of `sigma=max(0.5,Feather/2)`: one kernel on the
+engine's compiled single-precision path, or, when Feather is above `64` and the
+engine does not run that path, several exact passes. The layers are then
 screened over the paint one after another, each at its inherited Opacity `o`:
 `R=1-(1-b)(1-o s)`, where `s` is the layer's coverage. Overlapping positive
 shapes therefore approach white rather than subtracting from one another.
