@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace an::tests::viewer
@@ -70,6 +71,10 @@ struct CompanionRecord
 
     /// The magnitude limits handed to the catalogue overlays.
     std::vector<double> magnitudeLimits;
+
+    /// The layers handed to the catalogue overlay, in order: whether it draws the deep-sky objects, and the bright
+    /// stars.
+    std::vector<std::pair<bool, bool>> overlayLayers;
 
     /// The counts the lens histograms were handed.
     std::vector<an::ui::LensHistogram> lensCounts;
