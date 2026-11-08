@@ -273,17 +273,11 @@ StackingSettings sanitizeStackingSettings(StackingSettings settings)
     if (!weighted)
     {
         settings.weighting = QStringLiteral("None");
-        settings.perChannelFwhmWeighting = false;
         settings.localWeighting.enabled = false;
     }
     else if (isNone(settings.weighting))
     {
-        settings.perChannelFwhmWeighting = false;
         settings.localWeighting.enabled = false;
-    }
-    else if (settings.weighting.compare(QStringLiteral("Weighted FWHM"), Qt::CaseInsensitive) != 0)
-    {
-        settings.perChannelFwhmWeighting = false;
     }
 
     if (!rejects)
@@ -312,7 +306,6 @@ StackingSettings sanitizeStackingSettings(StackingSettings settings)
         settings.createQualityMaps = false;
         settings.drizzle.enabled = false;
         settings.weighting = QStringLiteral("None");
-        settings.perChannelFwhmWeighting = false;
         settings.localWeighting.enabled = false;
         settings.spatialRejectionClustering = false;
         settings.restackExcludingFlaggedFrames = false;
@@ -331,7 +324,6 @@ StackingSettings sanitizeStackingSettings(StackingSettings settings)
     if (usesCometStackingMode(settings.cometStackingMode))
     {
         settings.weighting = QStringLiteral("None");
-        settings.perChannelFwhmWeighting = false;
         settings.localWeighting.enabled = false;
     }
 

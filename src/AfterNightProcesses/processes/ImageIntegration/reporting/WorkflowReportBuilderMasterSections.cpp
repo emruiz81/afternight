@@ -1211,8 +1211,6 @@ void WorkflowReportBuilder::appendFullProcessingParameters(QString& md) const
                   .arg(formatStatValue(integrationGroup.stacking.exponentialAlpha));
         md += QStringLiteral("| Minimum Weight Floor | %1 |\n")
                   .arg(formatStatValue(integrationGroup.stacking.minWeightFloor));
-        md += QStringLiteral("| Per-channel FWHM Weighting | %1 |\n")
-                  .arg(boolText(integrationGroup.stacking.perChannelFwhmWeighting));
         md += QStringLiteral("| Create Rejection Maps | %1 |\n")
                   .arg(boolText(integrationGroup.stacking.createRejectionMaps));
         md += QStringLiteral("| Merge Rejection Maps | %1 |\n")

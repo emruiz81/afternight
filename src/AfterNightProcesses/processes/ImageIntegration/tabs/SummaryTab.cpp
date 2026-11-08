@@ -846,7 +846,6 @@ QString buildRunSummaryTooltip(const QJsonObject& manifest)
         QStringList star_scale;
         QStringList alpha;
         QStringList min_floor;
-        QStringList per_channel_fwhm;
         QStringList norm_mode;
         QStringList global_norm_method;
         QStringList scale_estimator;
@@ -873,8 +872,6 @@ QString buildRunSummaryTooltip(const QJsonObject& manifest)
             star_scale << stacking.value(QStringLiteral("starCountScaling")).toString();
             alpha << formatFloatCompact(stacking.value(QStringLiteral("exponentialAlpha")).toDouble(), 2);
             min_floor << formatFloatCompact(stacking.value(QStringLiteral("minWeightFloor")).toDouble(), 2);
-            per_channel_fwhm << boolLabel(stacking.value(QStringLiteral("perChannelFwhmWeighting")).toBool(),
-                                          QStringLiteral("On"), QStringLiteral("Off"));
 
             norm_mode << normalizationModeLabel(stacking.value(QStringLiteral("normalizationMode")).toInt());
             global_norm_method << globalNormalizationMethodLabel(
@@ -934,7 +931,6 @@ QString buildRunSummaryTooltip(const QJsonObject& manifest)
             }
             detailParts << QStringLiteral("Alpha: %1").arg(summaryValueOrVaries(alpha));
             detailParts << QStringLiteral("Floor: %1").arg(summaryValueOrVaries(min_floor));
-            detailParts << QStringLiteral("PerChanFWHM: %1").arg(summaryValueOrVaries(per_channel_fwhm));
         }
 
         const QString norm = summaryValueOrVaries(norm_mode);

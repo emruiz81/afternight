@@ -1037,7 +1037,10 @@ to the planner, so a tile holds a piece's rows where the memory allows rather th
 other routes read whole frames, and the run's log says which form a group read with and why. The stored texts are
 read by `integrationStackChoice` through the closed maps, an unknown one refused
 by name, and `stackingSettingsNotes` says what the stack cannot honour; weights come from the registration's records,
-and the number-of-images weighting from each light's own count of combined frames (`combinedFrameCount`);
+a colour light's one star width - measured in green - weighing every channel, because widths of each channel's own,
+measured on two real colour sessions, moved the weights by a few percent and a stack's star width by a third of a
+percent at most (`docs/dev/FRAME_WEIGHTING_INPUTS.md`), and the number-of-images weighting from each light's own
+count of combined frames (`combinedFrameCount`);
 the normalization stage's document is applied through `stackNormalizationInputsFor` where it describes the frames, the
 stack measuring its own otherwise; the exposure merge is buckets blended by `exposureMergeBlendWeight`. Progress is the
 stack's typed reports; the quality record keeps clustered pixels and every rejected element apart. The master's

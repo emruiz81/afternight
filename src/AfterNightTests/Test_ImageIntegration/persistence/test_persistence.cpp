@@ -670,6 +670,52 @@ TEST(Persistence, MissingQualityAndRejectionMapOptionsRetainFalseDefaults)
     EXPECT_FALSE(it->second.createRejectionMaps);
 }
 
+// The stacking settings hold no per-channel width weighting: a group's settings are written without one, and a project
+// an earlier version wrote with the choice on reads as these settings and is written again without it, the rest of the
+// group's weighting as it was. The choice was written, read back and kept, though no stack could honour it.
+TEST(Persistence, AStoredPerChannelWidthWeightingIsLetGo)
+{
+    const QString retired = QStringLiteral("perChannelFwhmWeighting");
+    const auto lightSettingsOf = [](const QJsonObject& json) {
+        const QJsonArray entries =
+            json.value(QStringLiteral("stackingSettings")).toObject().value(toString(FrameType::Light)).toArray();
+        return entries.isEmpty() ? QJsonObject{}
+                                 : entries.at(0).toObject().value(QStringLiteral("settings")).toObject();
+    };
+
+    IntegrationDataModel model;
+    model.addFrames(FrameType::Light, {makeTestFrame(FrameType::Light, QStringLiteral("light.fit"))});
+    const GroupKey group_key = model.integrationGroups().front();
+    StackingSettings settings;
+    settings.weighting = QStringLiteral("Weighted FWHM");
+    settings.minWeightFloor = 0.05;
+    model.setStackingSettings(FrameType::Light, group_key, settings);
+
+    QJsonObject json = model.toJson();
+    QJsonObject written = lightSettingsOf(json);
+    ASSERT_FALSE(written.isEmpty());
+    EXPECT_FALSE(written.contains(retired));
+
+    // A project an earlier version wrote, with the choice on.
+    written.insert(retired, true);
+    QJsonObject stacking_root = json.value(QStringLiteral("stackingSettings")).toObject();
+    QJsonArray light_entries = stacking_root.value(toString(FrameType::Light)).toArray();
+    QJsonObject record = light_entries.at(0).toObject();
+    record.insert(QStringLiteral("settings"), written);
+    light_entries[0] = record;
+    stacking_root.insert(toString(FrameType::Light), light_entries);
+    json.insert(QStringLiteral("stackingSettings"), stacking_root);
+
+    IntegrationDataModel restored;
+    restored.fromJson(json);
+    const auto& restored_settings = restored.stackingSettings(FrameType::Light);
+    const auto it = restored_settings.find(group_key);
+    ASSERT_NE(it, restored_settings.end());
+    EXPECT_EQ(it->second.weighting, QStringLiteral("Weighted FWHM"));
+    EXPECT_DOUBLE_EQ(it->second.minWeightFloor, 0.05);
+    EXPECT_FALSE(lightSettingsOf(restored.toJson()).contains(retired));
+}
+
 TEST(Persistence, SchemaV2_StackingSettingsAllFields)
 {
     IntegrationDataModel model;
@@ -692,7 +738,6 @@ TEST(Persistence, SchemaV2_StackingSettingsAllFields)
     settings.starCountScaling = QStringLiteral("Linear");
     settings.exponentialAlpha = 1.5;
     settings.minWeightFloor = 0.05;
-    settings.perChannelFwhmWeighting = true;
     settings.localWeighting.enabled = true;
     settings.localWeighting.windowSize = 7;
     settings.localWeighting.gridSpacing = 40;
@@ -755,7 +800,6 @@ TEST(Persistence, SchemaV2_StackingSettingsAllFields)
     EXPECT_EQ(s.starCountScaling, QStringLiteral("Linear"));
     EXPECT_DOUBLE_EQ(s.exponentialAlpha, 1.5);
     EXPECT_DOUBLE_EQ(s.minWeightFloor, 0.05);
-    EXPECT_TRUE(s.perChannelFwhmWeighting);
     EXPECT_TRUE(s.localWeighting.enabled);
     EXPECT_EQ(s.localWeighting.windowSize, 7);
     EXPECT_EQ(s.localWeighting.gridSpacing, 40);

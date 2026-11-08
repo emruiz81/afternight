@@ -737,7 +737,6 @@ void applyStackingSettingsToDialog(const StackingSettings& settings, StackingSet
     dialog.setStarCountScaling(settings.starCountScaling);
     dialog.setExponentialAlpha(settings.exponentialAlpha);
     dialog.setMinWeightFloor(settings.minWeightFloor);
-    dialog.setPerChannelFwhmWeighting(settings.perChannelFwhmWeighting);
     dialog.setLocalWeightingEnabled(settings.localWeighting.enabled);
     dialog.setLocalWeightingWindowSize(settings.localWeighting.windowSize);
     dialog.setLocalWeightingGridSpacing(settings.localWeighting.gridSpacing);
@@ -804,7 +803,6 @@ StackingSettings stackingSettingsFromDialog(const StackingSettingsDialog& dialog
     settings.starCountScaling = dialog.getStarCountScaling();
     settings.exponentialAlpha = dialog.getExponentialAlpha();
     settings.minWeightFloor = dialog.getMinWeightFloor();
-    settings.perChannelFwhmWeighting = dialog.getPerChannelFwhmWeighting();
     settings.localWeighting.enabled = dialog.getLocalWeightingEnabled();
     settings.localWeighting.windowSize = dialog.getLocalWeightingWindowSize();
     settings.localWeighting.gridSpacing = dialog.getLocalWeightingGridSpacing();
@@ -1667,8 +1665,6 @@ QString stackingSettingsReport(const StackingSettings& settings)
                  .arg(settings.exponentialAlpha, 0, 'f', 2);
     lines << QCoreApplication::translate("CalibrationPanelUtils", "  Min Weight Floor: %1")
                  .arg(settings.minWeightFloor, 0, 'f', 3);
-    lines << QCoreApplication::translate("CalibrationPanelUtils", "  Per-channel FWHM weighting: %1")
-                 .arg(yesNo(settings.perChannelFwhmWeighting));
 
     lines << QString();
     lines << QCoreApplication::translate("CalibrationPanelUtils", "Normalization:");

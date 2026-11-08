@@ -166,7 +166,6 @@ struct StackingSettings
     QString starCountScaling = QStringLiteral("Quadratic");
     double exponentialAlpha = 2.0;
     double minWeightFloor = 0.01;
-    bool perChannelFwhmWeighting = false;
     LocalWeightingSettings localWeighting;
 
     // Memory settings

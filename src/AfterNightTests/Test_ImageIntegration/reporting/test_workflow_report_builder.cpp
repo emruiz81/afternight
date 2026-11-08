@@ -3465,6 +3465,37 @@ TEST(WorkflowReportBuilder, FullProcessingParametersSectionIncludesNormalization
     EXPECT_TRUE(report.contains(QStringLiteral("Chosen Reference Frame")));
 }
 
+// A group weighed by its stars' width lists its weighting and floor and nothing of per-channel widths: every channel of
+// its stack is weighed by its light's one width. The parameters listed a per-channel choice no stack could honour.
+TEST(WorkflowReportBuilder, AWidthWeightedGroupsParametersSayNothingOfPerChannelWidths)
+{
+    WorkflowManifest manifest;
+    manifest.outputDirectory = QStringLiteral("/tmp/test");
+    const QString regKey = QStringLiteral("RegGroupW");
+    const QString light = QStringLiteral("/data/lights/light_W.fit");
+
+    WorkflowManifest::RegistrationGroup regGroup;
+    regGroup.groupKey = GroupKey{regKey};
+    regGroup.lightFiles = {FrameId(light)};
+    manifest.registrationGroups.push_back(regGroup);
+
+    WorkflowManifest::IntegrationGroup group;
+    group.groupKey = IntegrationGroupKey{GroupKey{QStringLiteral("LightGroupW")}};
+    group.registrationGroupKey = GroupKey{regKey};
+    group.lightFiles = {FrameId(light)};
+    group.stacking.weighting = QStringLiteral("Weighted FWHM");
+    group.stacking.minWeightFloor = 0.05;
+    manifest.integrationGroups.push_back(group);
+
+    WorkflowExecutor::Result result;
+    result.success = true;
+    const QString report = WorkflowReportBuilder(manifest, result).build();
+
+    EXPECT_TRUE(report.contains(QStringLiteral("| Weighting | Weighted FWHM |"))) << report.toStdString();
+    EXPECT_TRUE(report.contains(QStringLiteral("| Minimum Weight Floor |"))) << report.toStdString();
+    EXPECT_FALSE(report.contains(QStringLiteral("Per-channel"), Qt::CaseInsensitive)) << report.toStdString();
+}
+
 TEST(WorkflowReportBuilder, AutoParametersShowResolvedInlineLabelsAndDecisionDetails)
 {
     QTemporaryDir runDir;
