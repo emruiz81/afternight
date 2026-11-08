@@ -993,6 +993,9 @@ struct ImageViewControl::Impl
     bool m_IsFloating = false;
 
     bool m_ShowAutostretchBanner = true;
+
+    /// Whether the view's Autostretch Settings window is open.
+    bool m_AutostretchSettingsOpen = false;
     bool m_AutoDebayerCfaImagePreviews = false;
     an::ui::CalibrationPreviewConfig m_CalibrationPreviewConfig;
     StaticPreviewCache m_StaticPreviewCache;
@@ -1138,6 +1141,25 @@ struct ImageViewControl::Impl
         if (m_chkCalibrationPreview)
         {
             m_chkCalibrationPreview->setToolTip(buildCalibrationToolTip());
+        }
+    }
+
+    /// Whether the Autostretch Settings window can be opened: its settings only change what the view shows while it
+    /// shows the image stretched, and one window is open at a time.
+    [[nodiscard]] bool autostretchSettingsAvailable() const
+    {
+        return !m_AutostretchSettingsOpen && m_ImageViewWidget &&
+               m_ImageViewWidget->getViewMode() == ImageViewMode::AUTOSTRETCH_MODE;
+    }
+
+    /// Offers the Autostretch Settings button as `autostretchSettingsAvailable` says, and the display mode unless the
+    /// window is open.
+    void refreshAutostretchSettingsAvailability()
+    {
+        setToolbarActionEnabled(m_AutostretchSettingsAction, autostretchSettingsAvailable());
+        if (m_imageViewModeComboBox)
+        {
+            m_imageViewModeComboBox->setEnabled(!m_AutostretchSettingsOpen);
         }
     }
 
@@ -1394,6 +1416,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_AutostretchSettingsAction = m_impl->m_ToolBar->addAction(
             iconManager->getIcon("settings"), "Autostretch Settings", this, &ImageViewControl::autostretchSettings);
         m_impl->m_AutostretchSettingsAction->setToolTip("Autostretch Settings (Ctrl+Shift+A)");
+        m_impl->refreshAutostretchSettingsAvailability();
         m_impl->m_ToolBar->addSeparator();
 
         m_impl->m_UndoAction =
@@ -1585,6 +1608,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_AutostretchSettingsAction = m_impl->m_ToolBar->addAction(
             iconManager->getIcon("settings"), "Autostretch Settings", this, &ImageViewControl::autostretchSettings);
         m_impl->m_AutostretchSettingsAction->setToolTip(tr("Autostretch Settings (Ctrl+Shift+A)"));
+        m_impl->refreshAutostretchSettingsAvailability();
 
         m_impl->m_StatsOverlayToggleAction = m_impl->m_ToolBar->addAction(
             iconManager->getIcon("stats"), tr("Show statistics"), this, [this](bool checked) {
@@ -4543,6 +4567,7 @@ void ImageViewControl::enableRTPreviewAutostretchControls(bool enabled)
             m_impl->m_ToolBar->addAction(m_impl->m_AutostretchSettingsAction);
             m_impl->m_RTPreviewAutostretchSeparatorAction = m_impl->m_ToolBar->addSeparator();
         }
+        m_impl->refreshAutostretchSettingsAvailability();
     }
 
     if (m_impl->m_imageViewModeComboBox)
@@ -4930,17 +4955,10 @@ QCheckBox* ImageViewControl::getRTPreviewAreaCheckBox() const
     return m_impl->m_chkRTPreviewArea;
 }
 
-void ImageViewControl::setAutostretchSettingsActionEnabled(bool enabled)
+void ImageViewControl::setAutostretchSettingsOpen(bool open)
 {
-    if (m_impl->m_AutostretchSettingsAction)
-    {
-        setToolbarActionEnabled(m_impl->m_AutostretchSettingsAction, enabled);
-    }
-
-    if (m_impl->m_imageViewModeComboBox)
-    {
-        m_impl->m_imageViewModeComboBox->setEnabled(enabled);
-    }
+    m_impl->m_AutostretchSettingsOpen = open;
+    m_impl->refreshAutostretchSettingsAvailability();
 
     if (auto* customToolBar = dynamic_cast<CustomToolBar*>(m_impl->m_ToolBar))
     {
@@ -4956,6 +4974,7 @@ void ImageViewControl::setViewMode(ImageViewMode mode)
         {
             m_impl->m_ImageViewWidget->setViewMode(mode);
         }
+        m_impl->refreshAutostretchSettingsAvailability();
         return;
     }
 
@@ -5392,13 +5411,13 @@ void ImageViewControl::on_imageViewModeComboBox_currentTextChanged(const QString
     if (text == IMAGE_VIEW_MODE_LINEAR)
     {
         m_impl->m_ImageViewWidget->setViewMode(ImageViewMode::LINEAR_MODE);
-        setToolbarActionEnabled(m_impl->m_AutostretchSettingsAction, false);
+        m_impl->refreshAutostretchSettingsAvailability();
         enableAutostretchBanner(false);
     }
     else if (text == IMAGE_VIEW_MODE_AUTOSTRETCH)
     {
         m_impl->m_ImageViewWidget->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
-        setToolbarActionEnabled(m_impl->m_AutostretchSettingsAction, true);
+        m_impl->refreshAutostretchSettingsAvailability();
         enableAutostretchBanner(m_impl->m_ShowAutostretchBanner);
     }
 
@@ -5481,6 +5500,11 @@ void ImageViewControl::guestViewChanged()
 
 void ImageViewControl::autostretchSettings()
 {
+    if (!m_impl->autostretchSettingsAvailable())
+    {
+        return;
+    }
+
     AutostretchSettingsControl* control = new AutostretchSettingsControl(this);
 
     control->setColorCalibrationControlsEnabled(!isSequence());
@@ -5636,6 +5660,8 @@ void ImageViewControl::updateSupportedImageChannels(bool forceUpdate)
             }
         }
 
+        // The mode was restored with its signals blocked, so the settings button is offered for it here.
+        m_impl->refreshAutostretchSettingsAvailability();
         m_impl->m_LastImageChannels.store(current_channel_count, std::memory_order_relaxed);
         channel_count_changed = previous_channel_count != current_channel_count;
     }

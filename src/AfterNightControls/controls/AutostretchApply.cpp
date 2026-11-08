@@ -47,6 +47,9 @@ namespace
 constexpr an::OperationEffect kRepresentationChangeEffect{.samples = an::SampleEffect::Writes,
                                                           .description = an::DescriptionEffect::Restates};
 
+/// The operation the processing state names for an image Apply Stretch wrote.
+constexpr const char* kProcessingOperation = "autostretch";
+
 /// A failure Apply Stretch decided, which no engine call produced.
 [[nodiscard]] an::Status refusal(an::ErrorCode code, std::string message)
 {
@@ -135,7 +138,7 @@ presentTyped(const an::EngineContext& engine, const an::ExecutionContext& execut
     {
         return semantics.status();
     }
-    const an::Result<an::MetadataTransition> change = an::operationTransition(
+    an::Result<an::MetadataTransition> change = an::operationTransition(
         an::kDisplayPresentationEffect, an::OperationOutcome{.operation = "an::presentImage",
                                                              .detail = "the view's Apply Stretch",
                                                              .semantics = *semantics});
@@ -143,6 +146,18 @@ presentTyped(const an::EngineContext& engine, const an::ExecutionContext& execut
     {
         return change.status();
     }
+    // The presentation drops the header, as a picture made for a screen has none. The stretched image is still the
+    // frame - its grid, its optics, its pointing and its solution - only no longer linear, so it keeps the frame's
+    // cards with the product's record of its samples restated, as the stretch processes keep them.
+    const an::CodecMetadata& kept = image.metadata().codec();
+    an::Result<an::CodecMetadata> codec = an::withProcessingStateCards(
+        kept, an::nonlinearState(an::readProcessingStateCards(kept), *working, kProcessingOperation));
+    if (!codec.hasValue())
+    {
+        return codec.status();
+    }
+    change->clearCodecMetadata = false;
+    change->codec = std::move(*codec);
     if (an::Status recorded = stretched->transition(*change); recorded.failed())
     {
         return recorded;
