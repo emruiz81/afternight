@@ -2294,4 +2294,545 @@ TEST(StackSourceTest, ReportsTheBackendAndTheStagesItRan)
               << (outcome->compiledRowUsed ? " compiled" : " scalar") << std::endl;
 }
 
+/// A grid that bends between its nodes: a plane and a patterned bump at every node, so its cells differ and the
+/// cubic and the linear interpolations part.
+[[nodiscard]] std::vector<double> bentGrid(const an::LocalNormalizationGridShape& shape, double base, double slopeX,
+                                           double slopeY, std::uint32_t salt)
+{
+    std::vector<double> values = planeGrid(shape, base, slopeX, slopeY);
+    for (std::size_t index = 0u; index < values.size(); ++index)
+    {
+        values[index] += 0.02 * (patterned(index, salt) - 0.5);
+    }
+    return values;
+}
+
+/// A local-normalization document measured on a plane of its own shape: bent grids, a scale per frame and channel, a
+/// scale grid beside it when asked for, the post-local matches a global stage needs, and the rule the plane was
+/// measured under rather than the frames'.
+[[nodiscard]] an::LocalNormalizationDocument
+makePlaneDocument(const an::StackModel& model, const an::LocalNormalizationGridShape& shape, bool scaleGrids,
+                  an::LocalGridInterpolation interpolation, an::ValidityRule planeRule = an::ValidityRule::ZeroIsNoData)
+{
+    const an::StackRequest& request = model.request();
+    const bool postLocalMatches = an::stackNormalizationScopeUsesGlobalMethod(request.normalization.scope);
+    an::LocalNormalizationDocument document;
+    document.request.gridSize = shape.gridSize;
+    document.request.interpolation = interpolation;
+    document.shape = shape;
+    document.validity = planeRule;
+    document.referenceIndex = request.normalization.referenceFrame;
+    document.referenceBackground = bentGrid(shape, 0.20, 0.02, -0.01, 7u);
+    for (std::uint32_t frame = 0u; frame < request.input.frameCount; ++frame)
+    {
+        an::LocalNormalizationFrameCoefficients record;
+        record.frameIndex = frame;
+        const bool reference = frame == *document.referenceIndex;
+        if (reference)
+        {
+            record.background = document.referenceBackground;
+        }
+        else
+        {
+            record.background = bentGrid(shape, 0.22 + 0.03 * frame, -0.015 * frame, 0.02, 11u + frame);
+            for (std::uint32_t channel = 0u; channel < shape.channelCount; ++channel)
+            {
+                record.scale[channel] = 1.1 + 0.05 * frame + 0.02 * channel;
+            }
+            if (scaleGrids)
+            {
+                record.scaleGrid = bentGrid(shape, 1.05 + 0.02 * frame, 0.04, -0.03, 17u + frame);
+            }
+        }
+        if (postLocalMatches)
+        {
+            an::FrameNormalization match;
+            match.method = *request.normalization.globalMethod;
+            match.estimator = request.normalization.scaleEstimator;
+            match.channelCount = shape.channelCount;
+            for (std::uint32_t channel = 0u; channel < shape.channelCount; ++channel)
+            {
+                match.channels[channel] = an::NormalizationChannelCoefficients{
+                    .scale = reference ? 1.0 : 1.02 + 0.01 * frame, .offset = reference ? 0.0 : -0.004 * (frame + 1u)};
+            }
+            record.global = match;
+        }
+        document.frames.push_back(std::move(record));
+    }
+    return document;
+}
+
+/// The plane's pixel index a stack pixel lies at, spelled as `StackPlaneMapping` states it.
+[[nodiscard]] double mappedPosition(std::uint32_t index, double scale, double offset) noexcept
+{
+    return (static_cast<double>(index) + 0.5 + offset) / scale - 0.5;
+}
+
+/// What the local stage writes for one admitted Float32 sample of a mapped document: each surface read with
+/// `evaluateLocalGrid` where the sample lies on the document's plane, and the transform the apply computes.
+[[nodiscard]] float mappedOracle(const an::LocalNormalizationDocument& document, std::uint32_t frame,
+                                 std::uint32_t channel, double column, double row, float sample)
+{
+    const an::LocalNormalizationFrameCoefficients& record = document.frames[frame];
+    const auto read = [&](std::span<const double> grid) {
+        const an::Result<double> value =
+            an::evaluateLocalGrid(document.shape, grid, document.request.interpolation, channel, column, row);
+        EXPECT_TRUE(value.hasValue()) << value.status().message();
+        return value.hasValue() ? *value : std::numeric_limits<double>::quiet_NaN();
+    };
+    const double target = read(record.background);
+    const double reference = read(document.referenceBackground);
+    const double scale = record.scaleGrid.empty() ? record.scale[channel] : read(record.scaleGrid);
+    return static_cast<float>(scale * (static_cast<double>(sample) - target) + reference);
+}
+
+// A document measured on a plane of its own is applied to frames that lie on that plane enlarged: every surface is read
+// where the stack pixel's centre lies on the plane, exactly as `evaluateLocalGrid` reads it there - the nearest edge
+// past the plane's first or last pixel centre - at every scale a drizzle offers, under both interpolations, over the
+// whole enlarged plane and over one a guard was cropped from. The reference frame passes as it is, and a sample the
+// frames' rule excludes keeps its marker. The document states the rule of the plane it was measured on, not the
+// frames'.
+TEST(StackSourceTest, AppliesAMappedDocumentWhereEachStackPixelLiesOnItsPlane)
+{
+    const an::EngineContext engine = makeEngine(4u);
+    constexpr std::uint32_t kPlaneWidth = 9u;
+    constexpr std::uint32_t kPlaneHeight = 7u;
+    const an::LocalNormalizationGridShape shape{
+        .gridSize = 3u, .width = kPlaneWidth, .height = kPlaneHeight, .channelCount = 3u};
+    std::uint64_t compared = 0u;
+    for (const double scale : {1.0, 1.5, 2.0, 3.0})
+    {
+        for (const std::uint32_t guard : {0u, 2u})
+        {
+            // The enlarged plane holds the plane's extent times the scale, rounded up, and a guard cropped from each
+            // edge leaves it that much narrower.
+            const auto enlarged = [scale, guard](std::uint32_t extent) {
+                return static_cast<std::uint32_t>(std::ceil(static_cast<double>(extent) * scale)) - 2u * guard;
+            };
+            const std::uint32_t width = enlarged(kPlaneWidth);
+            const std::uint32_t height = enlarged(kPlaneHeight);
+            const an::ImageDescriptor descriptor = makeDescriptor(an::SampleType::Float32, an::ChannelSchema::Rgb,
+                                                                  an::NumericDomain::NormalizedLinear, width, height);
+            const an::StackModel model = makeModel(scopedRequest(an::StackNormalizationScope::Local, descriptor));
+            const an::StackPlaneMapping mapping{.scale = scale,
+                                                .offsetX = static_cast<double>(guard),
+                                                .offsetY = static_cast<double>(guard),
+                                                .frameValidity = an::ValidityRule::FiniteOnly};
+            for (const an::LocalGridInterpolation interpolation :
+                 {an::LocalGridInterpolation::Bilinear, an::LocalGridInterpolation::Bicubic})
+            {
+                for (const bool scaleGrids : {false, true})
+                {
+                    const std::string where = "scale " + std::to_string(scale) + ", guard " + std::to_string(guard) +
+                                              ", " + an::localGridInterpolationName(interpolation) +
+                                              (scaleGrids ? ", scale grids" : "");
+                    const an::LocalNormalizationDocument document =
+                        makePlaneDocument(model, shape, scaleGrids, interpolation);
+                    const an::StackSourceContract contract{.localNormalization = &document,
+                                                           .localNormalizationPlane = mapping};
+                    const an::Result<an::StackSourceStages> stages = an::checkStackSourceContract(model, contract);
+                    ASSERT_TRUE(stages.hasValue()) << where << ": " << stages.status().message();
+                    EXPECT_TRUE(stages->normalizeLocally && stages->normalizationPrepared) << where;
+                    OwnedScratch scratch;
+                    scratch.create(model, 4u);
+                    const an::ExecutionContext execution = makeExecution(engine);
+                    for (std::uint32_t frameIndex = 0u; frameIndex < kFrames; ++frameIndex)
+                    {
+                        OwnedFrame frame;
+                        frame.create(an::SampleType::Float32, width, height, 3u, an::ValidityRule::FiniteOnly);
+                        frame.fill(151u + frameIndex);
+                        // A sample no drop reached.
+                        frame.at<float>(1u, width - 1u, 0u) = std::numeric_limits<float>::quiet_NaN();
+                        frame.frameIndex = frameIndex;
+                        OwnedTile tile;
+                        tile.create(model, height);
+                        const an::Result<an::StackSourceOutcome> outcome = an::convertStackSourceBand(
+                            execution, model, contract, frame.band(), {}, scratch.spans(), tile.band());
+                        ASSERT_TRUE(outcome.hasValue()) << where << ": " << outcome.status().message();
+                        EXPECT_EQ(outcome->validity.rule(), an::ValidityRule::FiniteOnly) << where;
+                        EXPECT_EQ(outcome->samplesPreserved, 1u) << where;
+                        for (std::uint32_t channel = 0u; channel < 3u; ++channel)
+                        {
+                            for (std::uint32_t y = 0u; y < height; ++y)
+                            {
+                                for (std::uint32_t x = 0u; x < width; ++x)
+                                {
+                                    const float sample = frame.at<float>(channel, x, y);
+                                    const float written = tile.at<float>(channel, x, y);
+                                    if (std::isnan(sample))
+                                    {
+                                        EXPECT_TRUE(std::isnan(written)) << where;
+                                        continue;
+                                    }
+                                    const float expected =
+                                        frameIndex == *document.referenceIndex
+                                            ? sample
+                                            : mappedOracle(document, frameIndex, channel,
+                                                           mappedPosition(x, scale, mapping.offsetX),
+                                                           mappedPosition(y, scale, mapping.offsetY), sample);
+                                    EXPECT_EQ(std::bit_cast<std::uint32_t>(written),
+                                              std::bit_cast<std::uint32_t>(expected))
+                                        << where << ", frame " << frameIndex << ' ' << channel << ',' << x << ',' << y;
+                                    ++compared;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    EXPECT_GT(compared, 0u);
+}
+
+// A mapping of scale one and no offset reads the stack's own pixels: a band stores the bits it stores with the
+// document applied as it is, under either scope that applies a surface and on either backend.
+TEST(StackSourceTest, AMappingOfScaleOneAndNoOffsetStoresTheBitsOfNoMapping)
+{
+    const an::EngineContext engine = makeEngine(4u);
+    const an::ImageDescriptor descriptor = makeDescriptor(an::SampleType::Float32, an::ChannelSchema::Rgb);
+    for (const an::StackNormalizationScope scope :
+         {an::StackNormalizationScope::Local, an::StackNormalizationScope::LocalThenGlobal})
+    {
+        const an::StackModel model = makeModel(scopedRequest(scope, descriptor));
+        const bool global = scope == an::StackNormalizationScope::LocalThenGlobal;
+        for (const an::LocalGridInterpolation interpolation :
+             {an::LocalGridInterpolation::Bilinear, an::LocalGridInterpolation::Bicubic})
+        {
+            for (const bool scaleGrids : {false, true})
+            {
+                an::LocalNormalizationDocument document = makeDocument(model, scaleGrids, interpolation, global);
+                document.validity = an::ValidityRule::FiniteOnly;
+                std::vector<double> table;
+                if (global)
+                {
+                    table.assign(kFrames * 3u * 2u, 0.0);
+                    for (std::uint32_t frame = 0u; frame < kFrames; ++frame)
+                    {
+                        ASSERT_TRUE(
+                            an::storeStackFrameNormalization(model, frame, *document.frames[frame].global, table).ok());
+                    }
+                }
+                const an::StackSourceContract plain{.localNormalization = &document};
+                const an::StackSourceContract mapped{
+                    .localNormalization = &document,
+                    .localNormalizationPlane = an::StackPlaneMapping{.frameValidity = an::ValidityRule::FiniteOnly}};
+                ASSERT_TRUE(an::checkStackSourceContract(model, mapped).hasValue());
+                OwnedScratch scratch;
+                scratch.create(model, 4u);
+                OwnedFrame frame;
+                frame.create(an::SampleType::Float32, kWidth, kHeight, 3u, an::ValidityRule::FiniteOnly);
+                frame.fill(161u);
+                frame.at<float>(2u, 5u, 3u) = std::numeric_limits<float>::quiet_NaN();
+                frame.frameIndex = 2u;
+                for (const an::ComputeBackend backend : {an::ComputeBackend::Reference, an::ComputeBackend::Automatic})
+                {
+                    OwnedTile asItIs;
+                    asItIs.create(model, kHeight);
+                    OwnedTile throughTheMapping;
+                    throughTheMapping.create(model, kHeight);
+                    const an::Result<an::StackSourceOutcome> left =
+                        convertWhole(engine, backend, model, plain, frame, table, scratch.spans(), asItIs);
+                    const an::Result<an::StackSourceOutcome> right =
+                        convertWhole(engine, backend, model, mapped, frame, table, scratch.spans(), throughTheMapping);
+                    ASSERT_TRUE(left.hasValue()) << left.status().message();
+                    ASSERT_TRUE(right.hasValue()) << right.status().message();
+                    EXPECT_TRUE(sameBits(asItIs.written(), throughTheMapping.written()))
+                        << an::stackNormalizationScopeName(scope) << ' '
+                        << an::localGridInterpolationName(interpolation) << (scaleGrids ? " with scale grids" : "")
+                        << " on " << an::computeBackendName(backend);
+                    EXPECT_EQ(left->samplesTransformed, right->samplesTransformed);
+                }
+            }
+        }
+    }
+}
+
+// A mapped document stores the same bits on one worker and on four, on the reference backend and on the compiled one,
+// for every stored representation, composed with a calibration and the post-local match: the positions are prepared
+// once per row on every backend and the row the compiled backend runs is the reference row.
+TEST(StackSourceTest, AMappedDocumentStoresTheSameBitsAtEveryThreadCountAndOnEveryBackend)
+{
+    const an::EngineContext narrow = makeEngine(1u);
+    const an::EngineContext wide = makeEngine(4u);
+    const an::LocalNormalizationGridShape shape{.gridSize = 3u, .width = 7u, .height = 5u, .channelCount = 3u};
+    const an::StackPlaneMapping mapping{
+        .scale = 2.0, .offsetX = 1.0, .offsetY = 1.0, .frameValidity = an::ValidityRule::FiniteOnly};
+    std::uint64_t compiledRuns = 0u;
+    for (const an::SampleType type : kEveryType)
+    {
+        const an::ImageDescriptor descriptor = makeDescriptor(type, an::ChannelSchema::Rgb);
+        const an::StackModel model = makeModel(scopedRequest(an::StackNormalizationScope::LocalThenGlobal, descriptor));
+        const an::LocalNormalizationDocument document =
+            makePlaneDocument(model, shape, true, an::LocalGridInterpolation::Bicubic);
+        std::vector<double> table(kFrames * 3u * 2u, 0.0);
+        for (std::uint32_t frame = 0u; frame < kFrames; ++frame)
+        {
+            ASSERT_TRUE(an::storeStackFrameNormalization(model, frame, *document.frames[frame].global, table).ok());
+        }
+        const an::ImageDescriptor description = an::stackSourceCalibrationDescriptor(model);
+        OwnedFrame bias;
+        bias.create(description.sampleType(), kWidth, kHeight, 3u);
+        for (std::uint32_t channel = 0u; channel < 3u; ++channel)
+        {
+            for (std::uint32_t y = 0u; y < kHeight; ++y)
+            {
+                for (std::uint32_t x = 0u; x < kWidth; ++x)
+                {
+                    bias.put(channel, x, y, 0.01 * patterned(x + y * kWidth, 171u + channel));
+                }
+            }
+        }
+        const an::CalibrationMasters masters{.bias = bias.calibrationView(description)};
+        an::Result<an::CalibrationPlan> planned =
+            an::prepareImageCalibration(makeExecution(narrow), description, masters, {});
+        ASSERT_TRUE(planned.hasValue()) << planned.status().message();
+        const std::array<an::CalibrationPlan, 1u> plans{*planned};
+        const an::StackSourceContract contract{.state = an::StackFrameState::Raw,
+                                               .calibration = plans,
+                                               .masters = &masters,
+                                               .localNormalization = &document,
+                                               .localNormalizationPlane = mapping};
+        ASSERT_TRUE(an::checkStackSourceContract(model, contract).hasValue())
+            << an::checkStackSourceContract(model, contract).status().message();
+        OwnedFrame frame;
+        frame.create(type, kWidth, kHeight, 3u, an::ValidityRule::AllValid, type == an::SampleType::Int16);
+        frame.fill(181u);
+        frame.frameIndex = 1u;
+        OwnedScratch scratch;
+        scratch.create(model, 4u);
+
+        std::vector<std::vector<std::byte>> tiles;
+        for (const an::EngineContext* engine : {&narrow, &wide})
+        {
+            for (const an::ComputeBackend backend : {an::ComputeBackend::Reference, an::ComputeBackend::Automatic})
+            {
+                OwnedTile tile;
+                tile.create(model, kHeight);
+                const an::Result<an::StackSourceOutcome> outcome =
+                    convertWhole(*engine, backend, model, contract, frame, table, scratch.spans(), tile);
+                ASSERT_TRUE(outcome.hasValue()) << an::sampleTypeName(type) << ": " << outcome.status().message();
+                EXPECT_TRUE(outcome->stages.calibrate && outcome->stages.normalizeLocally &&
+                            outcome->stages.normalizeGlobally);
+                if (backend == an::ComputeBackend::Reference)
+                {
+                    EXPECT_FALSE(outcome->compiledRowUsed);
+                }
+                else
+                {
+                    compiledRuns += outcome->compiledRowUsed ? 1u : 0u;
+                }
+                tiles.emplace_back(tile.written().begin(), tile.written().end());
+            }
+        }
+        for (std::size_t index = 1u; index < tiles.size(); ++index)
+        {
+            EXPECT_TRUE(sameBits(tiles[0], tiles[index])) << an::sampleTypeName(type) << " run " << index;
+        }
+    }
+    const an::BackendSelection selection = *an::selectBackend(makeExecution(narrow));
+    if (selection.backend != an::ComputeBackend::Reference)
+    {
+        EXPECT_EQ(compiledRuns, kEveryType.size() * 2u)
+            << "compiled rows were expected on " << an::computeBackendName(selection.backend);
+    }
+}
+
+// A plane mapping is refused where it cannot place the frames: a plane that leaves a stack pixel wholly outside it, a
+// scale that is not finite and positive, an offset that is not finite, a rule the source path never carries into the
+// tile or does not define, and a mapping with no document to map. A band is checked against the mapping's rule, not
+// the document's.
+TEST(StackSourceTest, APlaneMappingIsRefusedWhereItCannotPlaceTheFrames)
+{
+    const an::EngineContext engine = makeEngine();
+    const an::StackModel local = makeModel(scopedRequest(an::StackNormalizationScope::Local));
+    const an::StackModel global = makeModel(scopedRequest(an::StackNormalizationScope::Global));
+    const auto planeOf = [](std::uint32_t width, std::uint32_t height, std::uint32_t channels = 1u) {
+        return an::LocalNormalizationGridShape{
+            .gridSize = 2u, .width = width, .height = height, .channelCount = channels};
+    };
+    // Twelve by eight frames enlarged twice from a six by four plane.
+    const an::LocalNormalizationDocument document =
+        makePlaneDocument(local, planeOf(6u, 4u), false, an::LocalGridInterpolation::Bicubic);
+    const an::StackPlaneMapping mapping{.scale = 2.0, .frameValidity = an::ValidityRule::FiniteOnly};
+    const auto with = [&](auto edit) {
+        an::StackPlaneMapping changed = mapping;
+        edit(changed);
+        return changed;
+    };
+    {
+        const an::Result<an::StackSourceStages> accepted = an::checkStackSourceContract(
+            local, an::StackSourceContract{.localNormalization = &document, .localNormalizationPlane = mapping});
+        ASSERT_TRUE(accepted.hasValue()) << accepted.status().message();
+        EXPECT_TRUE(accepted->normalizeLocally && accepted->normalizationPrepared);
+        // Without the mapping the same document describes frames of another extent.
+        const an::Result<an::StackSourceStages> unmapped =
+            an::checkStackSourceContract(local, an::StackSourceContract{.localNormalization = &document});
+        ASSERT_FALSE(unmapped.hasValue());
+        EXPECT_EQ(unmapped.status().code(), an::ErrorCode::IncompatibleArguments);
+        EXPECT_EQ(textField(unmapped.status(), an::ContextKey::Parameter), "contract.localNormalization");
+    }
+
+    const an::LocalNormalizationDocument narrower =
+        makePlaneDocument(local, planeOf(5u, 4u), false, an::LocalGridInterpolation::Bicubic);
+    const an::LocalNormalizationDocument shorter =
+        makePlaneDocument(local, planeOf(6u, 3u), false, an::LocalGridInterpolation::Bicubic);
+    const an::LocalNormalizationDocument coloured =
+        makePlaneDocument(local, planeOf(6u, 4u, 3u), false, an::LocalGridInterpolation::Bicubic);
+    constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+    constexpr double kInfinity = std::numeric_limits<double>::infinity();
+    struct Refusal
+    {
+        const an::StackModel* model;
+        an::StackSourceContract contract;
+        an::ErrorCode code;
+        const char* parameter;
+    };
+    const std::vector<Refusal> refusals{
+        // The last column or row lies wholly past the plane, or the first wholly before it.
+        {&local,
+         {.localNormalization = &narrower, .localNormalizationPlane = mapping},
+         an::ErrorCode::IncompatibleArguments,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &shorter, .localNormalizationPlane = mapping},
+         an::ErrorCode::IncompatibleArguments,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &document,
+          .localNormalizationPlane = with([](an::StackPlaneMapping& m) { m.offsetX = 1.0; })},
+         an::ErrorCode::IncompatibleArguments,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &document,
+          .localNormalizationPlane = with([](an::StackPlaneMapping& m) { m.offsetY = -1.0; })},
+         an::ErrorCode::IncompatibleArguments,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &document,
+          .localNormalizationPlane = with([](an::StackPlaneMapping& m) { m.scale = 1.5; })},
+         an::ErrorCode::IncompatibleArguments,
+         "contract.localNormalizationPlane"},
+        // A scale that is not finite and positive, an offset that is not finite.
+        {&local,
+         {.localNormalization = &document,
+          .localNormalizationPlane = with([](an::StackPlaneMapping& m) { m.scale = 0.0; })},
+         an::ErrorCode::InvalidArgument,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &document,
+          .localNormalizationPlane = with([](an::StackPlaneMapping& m) { m.scale = -2.0; })},
+         an::ErrorCode::InvalidArgument,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &document,
+          .localNormalizationPlane = with([](an::StackPlaneMapping& m) { m.scale = kNaN; })},
+         an::ErrorCode::InvalidArgument,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &document,
+          .localNormalizationPlane = with([](an::StackPlaneMapping& m) { m.scale = kInfinity; })},
+         an::ErrorCode::InvalidArgument,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &document,
+          .localNormalizationPlane = with([](an::StackPlaneMapping& m) { m.offsetX = kNaN; })},
+         an::ErrorCode::InvalidArgument,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &document,
+          .localNormalizationPlane = with([](an::StackPlaneMapping& m) { m.offsetY = -kInfinity; })},
+         an::ErrorCode::InvalidArgument,
+         "contract.localNormalizationPlane"},
+        // A rule the source path never carries into the tile, and one this build does not define.
+        {&local,
+         {.localNormalization = &document, .localNormalizationPlane = with([](an::StackPlaneMapping& m) {
+                                               m.frameValidity = an::ValidityRule::DomainRange;
+                                           })},
+         an::ErrorCode::Unsupported,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &document, .localNormalizationPlane = with([](an::StackPlaneMapping& m) {
+                                               m.frameValidity = static_cast<an::ValidityRule>(9);
+                                           })},
+         an::ErrorCode::InvalidArgument,
+         "contract.localNormalizationPlane"},
+        // Nothing to map, and a document of other channels.
+        {&local,
+         {.localNormalizationPlane = mapping},
+         an::ErrorCode::IncompatibleArguments,
+         "contract.localNormalizationPlane"},
+        {&global,
+         {.localNormalizationPlane = mapping},
+         an::ErrorCode::IncompatibleArguments,
+         "contract.localNormalizationPlane"},
+        {&local,
+         {.localNormalization = &coloured, .localNormalizationPlane = mapping},
+         an::ErrorCode::IncompatibleArguments,
+         "contract.localNormalization"},
+        // A document under a scope with no local stage is refused before its mapping is read.
+        {&global,
+         {.localNormalization = &document, .localNormalizationPlane = mapping},
+         an::ErrorCode::IncompatibleArguments,
+         "contract.localNormalization"},
+    };
+    for (std::size_t index = 0u; index < refusals.size(); ++index)
+    {
+        const Refusal& refusal = refusals[index];
+        const an::Result<an::StackSourceStages> checked =
+            an::checkStackSourceContract(*refusal.model, refusal.contract);
+        ASSERT_FALSE(checked.hasValue()) << index;
+        EXPECT_EQ(checked.status().code(), refusal.code) << index << ": " << checked.status().message();
+        EXPECT_EQ(textField(checked.status(), an::ContextKey::Parameter), std::string(refusal.parameter)) << index;
+    }
+
+    // A band is read under the mapping's rule: one of another rule is refused, and the document's own rule - the
+    // plane's - is never compared with it.
+    const an::ExecutionContext execution = makeExecution(engine);
+    OwnedScratch scratch;
+    scratch.create(local, 2u);
+    OwnedFrame frame;
+    frame.create(an::SampleType::Float32, kWidth, kHeight, 1u, an::ValidityRule::FiniteOnly);
+    frame.fill(191u);
+    frame.frameIndex = 1u;
+    OwnedTile tile;
+    tile.create(local, kHeight);
+    ASSERT_NE(document.validity, an::ValidityRule::FiniteOnly);
+    const an::Result<an::StackSourceOutcome> read = an::convertStackSourceBand(
+        execution, local, an::StackSourceContract{.localNormalization = &document, .localNormalizationPlane = mapping},
+        frame.band(), {}, scratch.spans(), tile.band());
+    ASSERT_TRUE(read.hasValue()) << read.status().message();
+    const an::Result<an::StackSourceOutcome> otherRule = an::convertStackSourceBand(
+        execution, local,
+        an::StackSourceContract{.localNormalization = &document,
+                                .localNormalizationPlane = with(
+                                    [](an::StackPlaneMapping& m) { m.frameValidity = an::ValidityRule::AllValid; })},
+        frame.band(), {}, scratch.spans(), tile.band());
+    ASSERT_FALSE(otherRule.hasValue());
+    EXPECT_EQ(otherRule.status().code(), an::ErrorCode::IncompatibleArguments);
+    EXPECT_EQ(textField(otherRule.status(), an::ContextKey::Parameter), "source.validity");
+
+    // The band read checks the members it reads again.
+    const an::Result<an::StackSourceOutcome> noScale = an::convertStackSourceBand(
+        execution, local,
+        an::StackSourceContract{.localNormalization = &document,
+                                .localNormalizationPlane = with([](an::StackPlaneMapping& m) { m.scale = 0.0; })},
+        frame.band(), {}, scratch.spans(), tile.band());
+    ASSERT_FALSE(noScale.hasValue());
+    EXPECT_EQ(noScale.status().code(), an::ErrorCode::InvalidArgument);
+    EXPECT_EQ(textField(noScale.status(), an::ContextKey::Parameter), "contract.localNormalizationPlane");
+    const an::Result<an::StackSourceOutcome> uncovered = an::convertStackSourceBand(
+        execution, local, an::StackSourceContract{.localNormalization = &narrower, .localNormalizationPlane = mapping},
+        frame.band(), {}, scratch.spans(), tile.band());
+    ASSERT_FALSE(uncovered.hasValue());
+    EXPECT_EQ(uncovered.status().code(), an::ErrorCode::IncompatibleArguments);
+    EXPECT_EQ(textField(uncovered.status(), an::ContextKey::Parameter), "contract.localNormalizationPlane");
+    const an::Result<an::StackSourceOutcome> nothingToMap =
+        an::convertStackSourceBand(execution, global, an::StackSourceContract{.localNormalizationPlane = mapping},
+                                   frame.band(), {}, {}, tile.band());
+    ASSERT_FALSE(nothingToMap.hasValue());
+    EXPECT_EQ(nothingToMap.status().code(), an::ErrorCode::IncompatibleArguments);
+    EXPECT_EQ(textField(nothingToMap.status(), an::ContextKey::Parameter), "contract.localNormalizationPlane");
+}
+
 } // namespace

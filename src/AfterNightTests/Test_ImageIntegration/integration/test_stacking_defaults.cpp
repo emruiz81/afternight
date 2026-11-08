@@ -854,10 +854,11 @@ TEST_F(DialogResetDefaultsTest, Light_LocalNormalizationExplicitReferenceEnables
     EXPECT_TRUE(bestButton->isEnabled());
 }
 
-// With drizzle on, the drizzled stack fits a Local group's surfaces itself, against the group's reference, and reads
-// no reference strategy, evaluation, PSF flux scale or analysis filter: the local normalization dialog leaves those
-// out and says why, and offers them again once drizzle is off. It offered every one, and none had an effect.
-TEST_F(DialogResetDefaultsTest, Light_ADrizzledLocalNormalizationOffersOnlyWhatTheDrizzledStackFits)
+// With drizzle on, a Local group's local normalization is measured by the normalization stage as any group's is, so
+// the local normalization dialog offers every analysis setting and the preset label names the preset alone. With
+// drizzle on it left the reference strategy, the evaluation, the PSF flux scale and the analysis filters out, and the
+// label said the drizzled stack fitted the surfaces.
+TEST_F(DialogResetDefaultsTest, Light_ADrizzledLocalNormalizationOffersEveryAnalysisSetting)
 {
     StackingSettingsDialog d(StackingSettingsDialog::FrameType::LIGHT, QStringLiteral("Light"));
     d.setLocalNormalizationEnabled(true);
@@ -866,13 +867,13 @@ TEST_F(DialogResetDefaultsTest, Light_ADrizzledLocalNormalizationOffersOnlyWhatT
     auto* preset = d.findChild<QLabel*>(QStringLiteral("localNormalizationPresetLabel"));
     ASSERT_NE(configure, nullptr);
     ASSERT_NE(preset, nullptr);
-    EXPECT_TRUE(preset->text().contains(QStringLiteral("drizzled stack"))) << preset->text().toStdString();
+    EXPECT_TRUE(preset->text().contains(QStringLiteral("preset"))) << preset->text().toStdString();
+    EXPECT_FALSE(preset->text().contains(QStringLiteral("drizzled stack"))) << preset->text().toStdString();
 
-    const auto opened = [&d, configure]() -> LocalNormalizationSettingsDialog* {
-        configure->click();
-        const QList<LocalNormalizationSettingsDialog*> dialogs = d.findChildren<LocalNormalizationSettingsDialog*>();
-        return dialogs.size() == 1 ? dialogs.front() : nullptr;
-    };
+    configure->click();
+    const QList<LocalNormalizationSettingsDialog*> dialogs = d.findChildren<LocalNormalizationSettingsDialog*>();
+    ASSERT_EQ(dialogs.size(), 1);
+    LocalNormalizationSettingsDialog* drizzled = dialogs.front();
     const std::array<const char*, 9> analysis = {"referenceGroupBox",
                                                  "evaluationCriteria",
                                                  "scaleEvaluation",
@@ -882,37 +883,17 @@ TEST_F(DialogResetDefaultsTest, Light_ADrizzledLocalNormalizationOffersOnlyWhatT
                                                  "allowClusteredSources",
                                                  "hotPixelMedianRadius",
                                                  "noiseReductionRadius"};
-
-    LocalNormalizationSettingsDialog* drizzled = opened();
-    ASSERT_NE(drizzled, nullptr);
     for (const char* name : analysis)
     {
         auto* widget = drizzled->findChild<QWidget*>(QString::fromLatin1(name));
         ASSERT_NE(widget, nullptr) << name;
-        EXPECT_TRUE(widget->isHidden()) << name;
+        EXPECT_FALSE(widget->isHidden()) << name;
     }
     auto* note = drizzled->findChild<QLabel*>(QStringLiteral("referenceAnalysisNote"));
     ASSERT_NE(note, nullptr);
-    EXPECT_FALSE(note->isHidden());
-    EXPECT_TRUE(note->text().contains(QStringLiteral("drizzled stack"))) << note->text().toStdString();
+    EXPECT_TRUE(note->isHidden());
     drizzled->reject();
     delete drizzled;
-
-    d.setDrizzleEnabled(false);
-    EXPECT_FALSE(preset->text().contains(QStringLiteral("drizzled stack"))) << preset->text().toStdString();
-    LocalNormalizationSettingsDialog* standard = opened();
-    ASSERT_NE(standard, nullptr);
-    for (const char* name : analysis)
-    {
-        auto* widget = standard->findChild<QWidget*>(QString::fromLatin1(name));
-        ASSERT_NE(widget, nullptr) << name;
-        EXPECT_FALSE(widget->isHidden()) << name;
-    }
-    note = standard->findChild<QLabel*>(QStringLiteral("referenceAnalysisNote"));
-    ASSERT_NE(note, nullptr);
-    EXPECT_TRUE(note->isHidden());
-    standard->reject();
-    delete standard;
 }
 
 // Local normalization matches each light globally in Additive With Scaling, whatever method the group stores, so the
@@ -1090,8 +1071,9 @@ TEST_F(DialogResetDefaultsTest, Light_AStoredValueFinerThanItsControlIsGivenBack
 }
 
 // The settings a group's row shows on hover say what runs: the global match local normalization runs rather than the
-// method stored for Global, the star floor as the flux scale's, overlap normalization with its floors, and for a
-// drizzled Local group what its stack does not read. It showed the stored method and no overlap normalization.
+// method stored for Global, the star floor as the flux scale's, and overlap normalization with its floors; a drizzled
+// Local group's surfaces are measured as any Local group's are. It showed the stored method and no overlap
+// normalization.
 TEST(StackingSettingsReport, TheGroupsSettingsSayWhatTheNormalizationRuns)
 {
     StackingSettings local;
@@ -1103,9 +1085,10 @@ TEST(StackingSettingsReport, TheGroupsSettingsSayWhatTheNormalizationRuns)
         << shown.toStdString();
     EXPECT_FALSE(shown.contains(QStringLiteral("Global Method: Multiplicative"))) << shown.toStdString();
     EXPECT_TRUE(shown.contains(QStringLiteral("Min SNR (flux scale): 40.00"))) << shown.toStdString();
-    EXPECT_FALSE(shown.contains(QStringLiteral("Fitted by the drizzled stack"))) << shown.toStdString();
     local.drizzle.enabled = true;
-    EXPECT_TRUE(stackingSettingsReport(local).contains(QStringLiteral("Fitted by the drizzled stack")));
+    const QString drizzled = stackingSettingsReport(local);
+    EXPECT_TRUE(drizzled.contains(QStringLiteral("Reference Strategy"))) << drizzled.toStdString();
+    EXPECT_FALSE(drizzled.contains(QStringLiteral("drizzled stack"))) << drizzled.toStdString();
 
     StackingSettings global;
     global.normalizationMode = NormalizationMode::Global;

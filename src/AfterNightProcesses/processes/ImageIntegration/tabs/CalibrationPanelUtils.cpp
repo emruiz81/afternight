@@ -1709,13 +1709,6 @@ QString stackingSettingsReport(const StackingSettings& settings)
     lines << QCoreApplication::translate("CalibrationPanelUtils", "Local Normalization:");
     lines << QCoreApplication::translate("CalibrationPanelUtils", "  Enabled: %1")
                  .arg(yesNo(settings.localNormalization.enabled));
-    if (localNormalization && settings.drizzle.enabled)
-    {
-        // A drizzled group has no normalization stage: its stack fits the surfaces on the drizzled lights.
-        lines << QCoreApplication::translate("CalibrationPanelUtils",
-                                             "  Fitted by the drizzled stack: the reference strategy, the evaluation, "
-                                             "the PSF flux scale and the hot-pixel and noise filters do not apply");
-    }
     lines << QCoreApplication::translate("CalibrationPanelUtils", "  Reference Strategy: %1")
                  .arg(settings.localNormalization.referenceStrategy);
     lines << QCoreApplication::translate("CalibrationPanelUtils", "  Max Integrated Frames: %1")

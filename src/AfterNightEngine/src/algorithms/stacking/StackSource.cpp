@@ -22,6 +22,13 @@
 // transform and the global affine compute in Float64 from the tile value and narrow once because
 // the two applies do. A band read here therefore stores the bits the three materialized
 // operations store in turn, which is the property the tests hold it to.
+//
+// **A mapped document is read where the stack's pixels lie on its plane, and only the
+// preparation knows it.** Each column's cell and fraction and each row's node mix are prepared
+// here at the stack pixel's position on the document's plane, from the same cell arithmetic,
+// clamp and node mixing `evaluateLocalGrid` reads a point with; the row body walks the prepared
+// cells exactly as it walks a row of the plane itself, so the scalar and the compiled rows are
+// the ones every other band runs.
 
 #include <AfterNightEngine/Algorithms/Stacking/StackSource.h>
 #include <AfterNightEngine/Algorithms/Calibration/ImageCalibration.h>
@@ -83,6 +90,9 @@ constexpr const char* kStore = "an::storeStackFrameNormalization";
 constexpr const char* kAt = "an::stackFrameNormalizationAt";
 constexpr const char* kBegin = "an::beginStackLocalNormalization";
 constexpr const char* kFit = "an::fitStackLocalNormalizationFrame";
+
+/// The spelling a refusal of the contract's plane mapping names as its parameter.
+constexpr const char* kPlaneParameter = "contract.localNormalizationPlane";
 
 /// How many entries of the per-frame coefficient table one frame's channel holds: its offset,
 /// then its scale.
@@ -329,14 +339,94 @@ constexpr std::uint64_t kCoefficientEntries = 2u;
     return true;
 }
 
+/// The contract's plane mapping, or null when the document was fitted on the frames' own plane.
+///
+/// @param contract the contract.
+/// @return the mapping, borrowed from the contract.
+[[nodiscard]] const StackPlaneMapping* planeMappingOf(const StackSourceContract& contract) noexcept
+{
+    return contract.localNormalizationPlane.has_value() ? &*contract.localNormalizationPlane : nullptr;
+}
+
+/// Checks a plane mapping on its own: a finite and positive scale, finite offsets and a rule the
+/// source path carries into the tile.
+///
+/// @param mapping the mapping.
+/// @param operation the name carried by a refusal.
+/// @return success or the refusal.
+[[nodiscard]] Status checkPlaneMapping(const StackPlaneMapping& mapping, const char* operation)
+{
+    if (!finiteValue(mapping.scale) || !(mapping.scale > 0.0))
+    {
+        return refuse(ErrorCode::InvalidArgument, operation, kPlaneParameter,
+                      "contract.localNormalizationPlane states a scale that is not finite and positive");
+    }
+    if (!finiteValue(mapping.offsetX) || !finiteValue(mapping.offsetY))
+    {
+        return refuse(ErrorCode::InvalidArgument, operation, kPlaneParameter,
+                      "contract.localNormalizationPlane states an offset that is not finite");
+    }
+    if (!isValidityRule(mapping.frameValidity))
+    {
+        return refuse(ErrorCode::InvalidArgument, operation, kPlaneParameter,
+                      "contract.localNormalizationPlane states a validity rule this build does not define");
+    }
+    if (mapping.frameValidity == ValidityRule::DomainRange)
+    {
+        return failure(ErrorCode::Unsupported, operation,
+                       "contract.localNormalizationPlane states a range rule, which no band carries into the tile: "
+                       "the source path restates a range as finite-only",
+                       {StatusContextField::ofText(ContextKey::Parameter, kPlaneParameter)});
+    }
+    return Status::success();
+}
+
+/// Whether no pixel of one axis of a stack lies wholly outside the plane a mapping places it on.
+///
+/// Counted in stack pixels on the plane enlarged by the scale: the first pixel ends past the
+/// plane's near edge and the last begins before its far edge, and every pixel between them then
+/// overlaps the plane too.
+///
+/// @param stackExtent the stack's pixels along the axis.
+/// @param planeExtent the plane's pixels along the axis.
+/// @param scale how many stack pixels one pixel of the plane spans.
+/// @param offset how many pixels of the enlarged plane lie before the stack's first.
+/// @return true when the axis lies on the plane.
+[[nodiscard]] bool axisLiesOnPlane(std::uint32_t stackExtent, std::uint32_t planeExtent, double scale,
+                                   double offset) noexcept
+{
+    return offset + 1.0 > 0.0 &&
+           offset + static_cast<double>(stackExtent) - 1.0 < static_cast<double>(planeExtent) * scale;
+}
+
+/// Where one stack column or row lies on the plane a mapping places it on, in the plane's pixel
+/// indices, held to the plane's first and last pixel centres as `evaluateLocalGrid` holds a
+/// position.
+///
+/// @param index the stack's column or row.
+/// @param scale how many stack pixels one pixel of the plane spans.
+/// @param offset how many pixels of the enlarged plane lie before the stack's first.
+/// @param planeExtent the plane's pixels along the axis.
+/// @return the position, within `[0, planeExtent - 1]`.
+[[nodiscard]] double planePosition(std::uint32_t index, double scale, double offset, std::uint32_t planeExtent) noexcept
+{
+    const double position = (static_cast<double>(index) + 0.5 + offset) / scale - 0.5;
+    const double last = static_cast<double>(planeExtent) - 1.0;
+    return position < 0.0 ? 0.0 : (position > last ? last : position);
+}
+
 /// Checks the document's geometry against the stack and its reference against the model.
+///
+/// Without a mapping the document describes frames of the stack's extent; under one it describes
+/// the plane the mapping places the frames on, which must lie under every one of their pixels.
 ///
 /// @param model the checked stack.
 /// @param document the document.
+/// @param mapping where the frames lie on the document's plane, or null for their own plane.
 /// @param operation the name carried by a refusal.
 /// @return success or the refusal.
 [[nodiscard]] Status checkDocumentShape(const StackModel& model, const LocalNormalizationDocument& document,
-                                        const char* operation)
+                                        const StackPlaneMapping* mapping, const char* operation)
 {
     const StackRequest& request = model.request();
     const ImageExtent& extent = request.input.descriptor.extent();
@@ -345,11 +435,29 @@ constexpr std::uint64_t kCoefficientEntries = 2u;
     {
         return shape;
     }
-    if (document.shape.width != extent.width() || document.shape.height != extent.height() ||
-        document.shape.channelCount != extent.channelCount())
+    if (mapping == nullptr)
     {
-        return refuse(ErrorCode::IncompatibleArguments, operation, "contract.localNormalization",
-                      "contract.localNormalization was fitted on another extent or channel count than the frames");
+        if (document.shape.width != extent.width() || document.shape.height != extent.height() ||
+            document.shape.channelCount != extent.channelCount())
+        {
+            return refuse(ErrorCode::IncompatibleArguments, operation, "contract.localNormalization",
+                          "contract.localNormalization was fitted on another extent or channel count than the frames");
+        }
+    }
+    else
+    {
+        if (document.shape.channelCount != extent.channelCount())
+        {
+            return refuse(ErrorCode::IncompatibleArguments, operation, "contract.localNormalization",
+                          "contract.localNormalization was fitted on another channel count than the frames");
+        }
+        if (!axisLiesOnPlane(extent.width(), document.shape.width, mapping->scale, mapping->offsetX) ||
+            !axisLiesOnPlane(extent.height(), document.shape.height, mapping->scale, mapping->offsetY))
+        {
+            return refuse(ErrorCode::IncompatibleArguments, operation, kPlaneParameter,
+                          "contract.localNormalizationPlane places a pixel of the frames wholly outside the plane "
+                          "contract.localNormalization was measured on");
+        }
     }
     if (!isLocalGridInterpolation(document.request.interpolation))
     {
@@ -444,22 +552,28 @@ constexpr std::uint64_t kCoefficientEntries = 2u;
 }
 
 /// The node rows a band of frame rows reads: one before the first row's cell to two after the
-/// last row's, clamped to the grid.
+/// last row's, clamped to the grid. Under a mapping the rows' cells are those of their positions
+/// on the document's plane, which only grow with the row.
 ///
 /// @param document the document.
+/// @param mapping where the frames lie on the document's plane, or null for their own plane.
 /// @param firstRow the band's first frame row.
 /// @param lastRow the band's last frame row, inclusive.
 /// @param firstNodeRow receives the first node row.
 /// @param lastNodeRow receives the last node row, inclusive.
-void nodeRowsOf(const LocalNormalizationDocument& document, std::uint32_t firstRow, std::uint32_t lastRow,
-                std::uint32_t& firstNodeRow, std::uint32_t& lastNodeRow) noexcept
+void nodeRowsOf(const LocalNormalizationDocument& document, const StackPlaneMapping* mapping, std::uint32_t firstRow,
+                std::uint32_t lastRow, std::uint32_t& firstNodeRow, std::uint32_t& lastNodeRow) noexcept
 {
+    const auto positionOf = [&](std::uint32_t row) {
+        return mapping != nullptr ? planePosition(row, mapping->scale, mapping->offsetY, document.shape.height)
+                                  : static_cast<double>(row);
+    };
     double fraction = 0.0;
     const std::uint32_t gridSize = document.shape.gridSize;
     const std::uint32_t firstCell =
-        localNormalizationCellOfCoordinate(static_cast<double>(firstRow), document.shape.height, gridSize, fraction);
+        localNormalizationCellOfCoordinate(positionOf(firstRow), document.shape.height, gridSize, fraction);
     const std::uint32_t lastCell =
-        localNormalizationCellOfCoordinate(static_cast<double>(lastRow), document.shape.height, gridSize, fraction);
+        localNormalizationCellOfCoordinate(positionOf(lastRow), document.shape.height, gridSize, fraction);
     firstNodeRow = firstCell > 0u ? firstCell - 1u : 0u;
     lastNodeRow = lastCell + 2u < gridSize ? lastCell + 2u : gridSize;
 }
@@ -524,7 +638,16 @@ void nodeRowsOf(const LocalNormalizationDocument& document, std::uint32_t firstR
                               : "contract.localNormalization was supplied for a stack whose scope applies no local "
                                 "surface");
         }
-        const Status shape = checkDocumentShape(model, *contract.localNormalization, kCheckContract);
+        const StackPlaneMapping* mapping = planeMappingOf(contract);
+        if (mapping != nullptr)
+        {
+            const Status mapped = checkPlaneMapping(*mapping, kCheckContract);
+            if (mapped.failed())
+            {
+                return mapped;
+            }
+        }
+        const Status shape = checkDocumentShape(model, *contract.localNormalization, mapping, kCheckContract);
         if (shape.failed())
         {
             return shape;
@@ -538,6 +661,12 @@ void nodeRowsOf(const LocalNormalizationDocument& document, std::uint32_t firstR
                 return checked;
             }
         }
+    }
+    else if (contract.localNormalizationPlane.has_value())
+    {
+        return refuse(ErrorCode::IncompatibleArguments, kCheckContract, kPlaneParameter,
+                      "contract.localNormalizationPlane places the frames on the plane of a document the contract "
+                      "does not hold");
     }
 
     if (!contract.normalization.empty())
@@ -889,6 +1018,9 @@ struct BandRun
     /// Whether the local surface transforms this frame; the document's reference frame is not
     /// transformed by it.
     bool applyLocal = false;
+    /// Where the frames lie on the document's plane, under the local stage; null when the document
+    /// describes their own.
+    const StackPlaneMapping* mapping = nullptr;
     /// The coefficient table, under the global stage.
     std::span<const double> table{};
     /// Every worker's slice, whose tail holds the local surface's row scratch.
@@ -961,6 +1093,101 @@ template <typename DestT>
     return row;
 }
 
+/// Every stack column's cell and fraction on the document's plane, and the first column of every
+/// cell: what `localNormalizationPrepareColumns` prepares for the columns of the plane itself,
+/// prepared at the stack columns' positions on it.
+///
+/// The positions only grow along a row, so the cells do too and the row body walks them in order;
+/// a cell no column falls in starts where the next one does, so its range is empty.
+///
+/// @param width how many columns one stack row holds.
+/// @param shape the document's grid over its plane.
+/// @param mapping where the stack lies on the plane.
+/// @param fractions receives one fraction per stack column.
+/// @param cellStarts receives `gridSize + 2` entries: the first column of each of the
+///        `gridSize + 1` cells, then the width.
+void prepareMappedColumns(std::uint32_t width, const LocalNormalizationGridShape& shape,
+                          const StackPlaneMapping& mapping, double* fractions, std::uint32_t* cellStarts) noexcept
+{
+    const std::uint32_t gridSize = shape.gridSize;
+    for (std::uint32_t cell = 0u; cell <= gridSize + 1u; ++cell)
+    {
+        cellStarts[cell] = width;
+    }
+    std::uint32_t previousCell = gridSize + 1u;
+    for (std::uint32_t x = 0u; x < width; ++x)
+    {
+        double fraction = 0.0;
+        const std::uint32_t cell = localNormalizationCellOfCoordinate(
+            planePosition(x, mapping.scale, mapping.offsetX, shape.width), shape.width, gridSize, fraction);
+        fractions[x] = fraction;
+        if (cell != previousCell)
+        {
+            cellStarts[cell] = x;
+            previousCell = cell;
+        }
+    }
+    for (std::uint32_t cell = gridSize + 1u; cell > 0u; --cell)
+    {
+        if (cellStarts[cell - 1u] > cellStarts[cell])
+        {
+            cellStarts[cell - 1u] = cellStarts[cell];
+        }
+    }
+}
+
+/// Mixes every grid of one channel at a stack row's position on the document's plane and names the
+/// result: what `localNormalizationPrepareRow` prepares for a row of the plane itself, mixed at the
+/// stack row's position on it.
+///
+/// @param referencePlane the reference grid's node values for the channel, node-row-major.
+/// @param targetPlane the frame's own grid's node values for the channel.
+/// @param scalePlane the scale grid's node values for the channel, or null to apply
+///        `uniformScale` everywhere.
+/// @param shape the document's grid over its plane.
+/// @param row the stack row's position on the plane, in its pixel indices, within its rows.
+/// @param bicubic whether four node rows contribute or two.
+/// @param uniformScale the factor applied when `scalePlane` is null.
+/// @param fractions every stack column's fraction, from `prepareMappedColumns`.
+/// @param cellStarts every cell's first stack column, from `prepareMappedColumns`.
+/// @param rule the value rule the row is transformed under.
+/// @param scratch the worker's row scratch, which the result points into.
+/// @return the row's parameters, valid while `scratch` is.
+[[nodiscard]] LocalNormalizationRunParameters
+prepareMappedRow(const double* referencePlane, const double* targetPlane, const double* scalePlane,
+                 const LocalNormalizationGridShape& shape, double row, bool bicubic, double uniformScale,
+                 const double* fractions, const std::uint32_t* cellStarts, ValidityRule rule,
+                 const LocalNormalizationRowScratch& scratch) noexcept
+{
+    const std::uint32_t nodes = shape.nodesPerAxis();
+    double rowFraction = 0.0;
+    const std::uint32_t rowCell = localNormalizationCellOfCoordinate(row, shape.height, shape.gridSize, rowFraction);
+    localNormalizationMixRows(referencePlane, nodes, shape.gridSize, rowCell, rowFraction, bicubic,
+                              scratch.referenceMixed, scratch.referenceLower, scratch.referenceUpper);
+    localNormalizationMixRows(targetPlane, nodes, shape.gridSize, rowCell, rowFraction, bicubic, scratch.targetMixed,
+                              scratch.targetLower, scratch.targetUpper);
+    LocalNormalizationRunParameters parameters{};
+    parameters.fractions = fractions;
+    parameters.cellStarts = cellStarts;
+    parameters.gridSize = shape.gridSize;
+    parameters.sampleStride = 1u;
+    parameters.reference = LocalNormalizationRunGrid{
+        .mixed = scratch.referenceMixed, .lower = scratch.referenceLower, .upper = scratch.referenceUpper};
+    parameters.target = LocalNormalizationRunGrid{
+        .mixed = scratch.targetMixed, .lower = scratch.targetLower, .upper = scratch.targetUpper};
+    if (scalePlane != nullptr)
+    {
+        localNormalizationMixRows(scalePlane, nodes, shape.gridSize, rowCell, rowFraction, bicubic, scratch.scaleMixed,
+                                  scratch.scaleLower, scratch.scaleUpper);
+        parameters.scale = LocalNormalizationRunGrid{
+            .mixed = scratch.scaleMixed, .lower = scratch.scaleLower, .upper = scratch.scaleUpper};
+    }
+    parameters.uniformScale = uniformScale;
+    parameters.rule = rule;
+    parameters.bicubic = bicubic;
+    return parameters;
+}
+
 /// Reads every row of the band through one row function.
 ///
 /// @tparam SourceT the stored representation.
@@ -984,6 +1211,7 @@ template <typename SourceT, typename DestT>
     const StackSourceRunFn<SourceT, DestT> row = compiled != nullptr ? compiled : &stackSourceRunOf<SourceT, DestT>;
     const ValidityRule outputRule = run.outputValidity.rule();
     const LocalNormalizationDocument* document = run.contract->localNormalization;
+    const StackPlaneMapping* mapping = run.mapping;
     const std::uint32_t nodes = run.applyLocal ? document->shape.nodesPerAxis() : 0u;
     const std::uint64_t mixedDoubles = run.applyLocal ? localNormalizationRowScratchDoubles(nodes) : 0u;
 
@@ -1005,7 +1233,14 @@ template <typename SourceT, typename DestT>
             scratch = localNormalizationRowScratchOver(block, nodes);
             fractions = block + mixedDoubles;
             cellStarts = reinterpret_cast<std::uint32_t*>(fractions + geometry.width);
-            localNormalizationPrepareColumns(geometry.width, document->shape.gridSize, fractions, cellStarts);
+            if (mapping != nullptr)
+            {
+                prepareMappedColumns(geometry.width, document->shape, *mapping, fractions, cellStarts);
+            }
+            else
+            {
+                localNormalizationPrepareColumns(geometry.width, document->shape.gridSize, fractions, cellStarts);
+            }
         }
         std::uint64_t localWritten = 0u;
         std::uint64_t localTransformed = 0u;
@@ -1044,12 +1279,20 @@ template <typename SourceT, typename DestT>
             {
                 const LocalNormalizationGridShape& shape = document->shape;
                 const std::uint64_t planeOffset = static_cast<std::uint64_t>(channel) * shape.nodeCount();
-                local = localNormalizationPrepareRow(
-                    document->referenceBackground.data() + planeOffset, run.record->background.data() + planeOffset,
-                    run.record->scaleGrid.empty() ? nullptr : run.record->scaleGrid.data() + planeOffset,
-                    shape.nodesPerAxis(), shape.gridSize, shape.height, frameRow,
-                    document->request.interpolation == LocalGridInterpolation::Bicubic, run.record->scale[channel],
-                    fractions, cellStarts, 1u, outputRule, scratch);
+                const double* referencePlane = document->referenceBackground.data() + planeOffset;
+                const double* targetPlane = run.record->background.data() + planeOffset;
+                const double* scalePlane =
+                    run.record->scaleGrid.empty() ? nullptr : run.record->scaleGrid.data() + planeOffset;
+                const bool bicubic = document->request.interpolation == LocalGridInterpolation::Bicubic;
+                local = mapping != nullptr
+                            ? prepareMappedRow(referencePlane, targetPlane, scalePlane, shape,
+                                               planePosition(frameRow, mapping->scale, mapping->offsetY, shape.height),
+                                               bicubic, run.record->scale[channel], fractions, cellStarts, outputRule,
+                                               scratch)
+                            : localNormalizationPrepareRow(referencePlane, targetPlane, scalePlane,
+                                                           shape.nodesPerAxis(), shape.gridSize, shape.height, frameRow,
+                                                           bicubic, run.record->scale[channel], fractions, cellStarts,
+                                                           1u, outputRule, scratch);
                 parameters.local = &local;
             }
             parameters.normalizeGlobally = run.stages.normalizeGlobally;
@@ -1412,25 +1655,43 @@ Result<StackSourceOutcome> convertStackSourceBand(const ExecutionContext& execut
             return refuse(ErrorCode::InvalidArgument, kConvert, "contract.localNormalization",
                           "contract.localNormalization is null under a local stage, whose surface it carries");
         }
-        const Status shape = checkDocumentShape(model, *document, kConvert);
+        const StackPlaneMapping* mapping = planeMappingOf(contract);
+        if (mapping != nullptr)
+        {
+            const Status mapped = checkPlaneMapping(*mapping, kConvert);
+            if (mapped.failed())
+            {
+                return mapped;
+            }
+        }
+        const Status shape = checkDocumentShape(model, *document, mapping, kConvert);
         if (shape.failed())
         {
             return shape;
         }
         std::uint32_t firstNodeRow = 0u;
         std::uint32_t lastNodeRow = 0u;
-        nodeRowsOf(*document, source.firstRow, source.firstRow + geometry->rows - 1u, firstNodeRow, lastNodeRow);
+        nodeRowsOf(*document, mapping, source.firstRow, source.firstRow + geometry->rows - 1u, firstNodeRow,
+                   lastNodeRow);
         const Status record =
             checkDocumentFrame(model, *document, source.frameIndex, firstNodeRow, lastNodeRow, kConvert);
         if (record.failed())
         {
             return record;
         }
-        if (document->validity != run.outputValidity.rule())
+        // A mapped document keeps the rule of the plane it was measured on; the frames are held to the rule the
+        // mapping states they carry into the tile.
+        if (mapping != nullptr && mapping->frameValidity != run.outputValidity.rule())
+        {
+            return refuse(ErrorCode::IncompatibleArguments, kConvert, "source.validity",
+                          "source.validity is not the rule the plane mapping states the frames carry into the tile");
+        }
+        if (mapping == nullptr && document->validity != run.outputValidity.rule())
         {
             return refuse(ErrorCode::IncompatibleArguments, kConvert, "source.validity",
                           "source.validity is not the rule the local-normalization document was fitted under");
         }
+        run.mapping = mapping;
         run.record = &document->frames[source.frameIndex];
         run.applyLocal = !document->referenceIndex.has_value() || *document->referenceIndex != source.frameIndex;
         if (run.applyLocal)
@@ -1472,6 +1733,12 @@ Result<StackSourceOutcome> convertStackSourceBand(const ExecutionContext& execut
             contract.state == StackFrameState::LocalNormalized
                 ? "contract.localNormalization was supplied for frames already brought to the reference"
                 : "contract.localNormalization was supplied for a stack whose scope applies no local surface");
+    }
+    else if (contract.localNormalizationPlane.has_value())
+    {
+        return refuse(ErrorCode::IncompatibleArguments, kConvert, kPlaneParameter,
+                      "contract.localNormalizationPlane places the frames on the plane of a document the contract "
+                      "does not hold");
     }
 
     if (stages.normalizeGlobally)

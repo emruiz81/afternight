@@ -142,19 +142,13 @@ AFTERNIGHTPROCESSES_API void sayStageWarnings(ProgressReporter& reporter, const 
  *
  * Example:
  * "Stack: Average + Winsorized Sigma Clipping | Weighting: None | Normalization: Global (Additive With Scaling, IKSS)"
- *
- * @param drizzled whether the group's stack drizzles its lights, as describeNormalizationSettings reads it.
  */
-[[nodiscard]] QString describeStackingSettings(const StackingSettings& settings, bool drizzled = false);
+[[nodiscard]] QString describeStackingSettings(const StackingSettings& settings);
 
 /**
  * @brief Builds a compact summary for normalization settings only.
- *
- * @param drizzled whether the group's stack drizzles its lights: a drizzled Local group's stack fits its surfaces
- * itself, against the group's reference, and no reference strategy applies to it.
  */
-[[nodiscard]] AFTERNIGHTPROCESSES_API QString describeNormalizationSettings(const StackingSettings& settings,
-                                                                            bool drizzled = false);
+[[nodiscard]] AFTERNIGHTPROCESSES_API QString describeNormalizationSettings(const StackingSettings& settings);
 
 /**
  * @brief Builds a verbose reference-selection summary for stacking/normalization logs.

@@ -1,4 +1,4 @@
-version 1.4.2 2
+version 1.5.0 3
 joining 2
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API OpticalHints readOpticalHints(std::span<const CodecCard> cards) noexcept
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API PointingKeywords pointingCardKeywords(PointingCards cards) noexcept
@@ -565,6 +565,7 @@ api engine Algorithms/NoiseReduction/TotalVariationDenoise.h an::TotalVariationP
 api engine Algorithms/NoiseReduction/TotalVariationDenoise.h an::TotalVariationPlan [[nodiscard]] AFTERNIGHTENGINE_API std::uint32_t workingPlanesPerChannel() const noexcept
 api engine Algorithms/NoiseReduction/TotalVariationDenoise.h an::TotalVariationPlan [[nodiscard]] AFTERNIGHTENGINE_API std::uint64_t imagePasses() const noexcept
 api engine Algorithms/Normalization/DrizzleLocalNormalization.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<LocalNormalizationGridShape> drizzleLocalNormalizationShape(const DrizzleCanvas& canvas, std::uint32_t gridSize, std::uint32_t channelCount)
+api engine Algorithms/Normalization/DrizzleLocalNormalization.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<StackPlaneMapping> drizzleLocalNormalizationPlane(const DrizzleCanvas& canvas, double scale)
 api engine Algorithms/Normalization/GlobalNormalization.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<FrameNormalization> estimateGlobalNormalization(const NormalizationReference& reference, const NormalizationFrameStatistics& frame, NormalizationMethod method)
 api engine Algorithms/Normalization/GlobalNormalization.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<FrameNormalization> identityNormalization(NormalizationMethod method, std::uint32_t channelCount, ScaleEstimator estimator = ScaleEstimator::MedianAbsoluteDeviation)
 api engine Algorithms/Normalization/GlobalNormalization.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<MetadataTransition> globalNormalizationTransition(const FrameNormalization& normalization, const ImageSemantics& source)
@@ -2118,7 +2119,7 @@ header engine Algorithms/Multiscale/MultiscaleTransform.h 3218086fd8d6390a
 header engine Algorithms/NoiseReduction/NoiseReduction.h 212a084e66d04899
 header engine Algorithms/NoiseReduction/PatchDenoise.h fdc4be4281ca4701
 header engine Algorithms/NoiseReduction/TotalVariationDenoise.h 7d0ec2a8dcd784f2
-header engine Algorithms/Normalization/DrizzleLocalNormalization.h 2cf6b75ae6221663
+header engine Algorithms/Normalization/DrizzleLocalNormalization.h 6eaf860b52b7b891
 header engine Algorithms/Normalization/GlobalNormalization.h 42ad9b227182d969
 header engine Algorithms/Normalization/LocalNormalization.h b13fea85a8229bf6
 header engine Algorithms/Normalization/NormalizationMethod.h 2e6515e87b80d3d6
@@ -2197,7 +2198,7 @@ header engine Algorithms/Stacking/StackQuality.h b33ec72b481352ec
 header engine Algorithms/Stacking/StackRejection.h 9288df673fe6d5ee
 header engine Algorithms/Stacking/StackRejectionParameters.h a948e15c468ca27f
 header engine Algorithms/Stacking/StackRequest.h 66408db39c7bc24c
-header engine Algorithms/Stacking/StackSource.h 5bb9a0e90fcb1723
+header engine Algorithms/Stacking/StackSource.h 3e77adb3cf98cb5e
 header engine Algorithms/Stacking/StackSourceRules.h 642c033fd9085fa0
 header engine Algorithms/Stacking/StackWeightingParameters.h 4d9f774d9978ab24
 header engine Algorithms/Stacking/StackWorkingSet.h db76c0274dfcf1a3
@@ -2229,7 +2230,7 @@ header engine Core/ImageLayout.h 19a9142333de7498
 header engine Core/LibraryInfo.h 1bfecceb973c07f1
 header engine Core/Result.h e0327ad962e10e4b
 header engine Core/Status.h a843439f21221219
-header engine Core/Version.h 1bfe6f01a43f045e
+header engine Core/Version.h 09d4809167d1fa8c
 header engine IO/ArtifactIdentity.h 66c96b929d36b24e
 header engine IO/AviSequence.h 595917f483188e5e
 header engine IO/CodecCapabilities.h daadf4c45a2db525
@@ -5622,6 +5623,10 @@ member engine Algorithms/Stacking/StackSource.h an::StackLocalNormalizationFit#0
 member engine Algorithms/Stacking/StackSource.h an::StackLocalNormalizationFit#001 std::optional<LocalScaleEstimate> scale {}
 member engine Algorithms/Stacking/StackSource.h an::StackLocalNormalizationFit#002 std::optional<LocalScaleGridResult> scaleGrid {}
 member engine Algorithms/Stacking/StackSource.h an::StackLocalNormalizationFit#003 bool isReference = false
+member engine Algorithms/Stacking/StackSource.h an::StackPlaneMapping#000 double scale = 1.0
+member engine Algorithms/Stacking/StackSource.h an::StackPlaneMapping#001 double offsetX = 0.0
+member engine Algorithms/Stacking/StackSource.h an::StackPlaneMapping#002 double offsetY = 0.0
+member engine Algorithms/Stacking/StackSource.h an::StackPlaneMapping#003 ValidityRule frameValidity = ValidityRule::AllValid
 member engine Algorithms/Stacking/StackSource.h an::StackSourceBand#000 SampleType sampleType = SampleType::Float32
 member engine Algorithms/Stacking/StackSource.h an::StackSourceBand#001 const void* samples = nullptr
 member engine Algorithms/Stacking/StackSource.h an::StackSourceBand#002 const ImageLayout* layout = nullptr
@@ -5633,6 +5638,7 @@ member engine Algorithms/Stacking/StackSource.h an::StackSourceContract#001 std:
 member engine Algorithms/Stacking/StackSource.h an::StackSourceContract#002 const CalibrationMasters* masters = nullptr
 member engine Algorithms/Stacking/StackSource.h an::StackSourceContract#003 std::span<const FrameNormalization> normalization {}
 member engine Algorithms/Stacking/StackSource.h an::StackSourceContract#004 const LocalNormalizationDocument* localNormalization = nullptr
+member engine Algorithms/Stacking/StackSource.h an::StackSourceContract#005 std::optional<StackPlaneMapping> localNormalizationPlane {}
 member engine Algorithms/Stacking/StackSource.h an::StackSourceOutcome#000 StackSourceStages stages {}
 member engine Algorithms/Stacking/StackSource.h an::StackSourceOutcome#001 std::uint64_t samplesWritten = 0u
 member engine Algorithms/Stacking/StackSource.h an::StackSourceOutcome#002 std::uint64_t samplesTransformed = 0u
@@ -7636,6 +7642,7 @@ type engine Algorithms/Stacking/StackRejectionParameters.h an::StackRejectionReq
 type engine Algorithms/Stacking/StackRequest.h an::StackInputDescription struct StackInputDescription
 type engine Algorithms/Stacking/StackRequest.h an::StackRequest struct StackRequest
 type engine Algorithms/Stacking/StackSource.h an::StackLocalNormalizationFit struct StackLocalNormalizationFit
+type engine Algorithms/Stacking/StackSource.h an::StackPlaneMapping struct StackPlaneMapping
 type engine Algorithms/Stacking/StackSource.h an::StackSourceBand struct StackSourceBand
 type engine Algorithms/Stacking/StackSource.h an::StackSourceContract struct StackSourceContract
 type engine Algorithms/Stacking/StackSource.h an::StackSourceOutcome struct StackSourceOutcome

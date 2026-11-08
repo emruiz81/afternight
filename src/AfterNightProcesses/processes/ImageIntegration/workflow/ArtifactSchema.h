@@ -198,6 +198,13 @@ inline constexpr int kDrizzledMasterLevelRevision = 2;
 /// drizzled group's fingerprint carries it, so moving it stacks the drizzled masters again and nothing else.
 inline constexpr int kDrizzledMasterSolutionRevision = 1;
 
+/// How a drizzled Local group's master is normalized, as its fingerprint states it: one since its stack applies the
+/// normalization stage's document where each drizzled light lies on the plane the document was measured on; before,
+/// the drizzled stack fitted the surfaces on the drizzled lights itself, with none of the stage's reference strategy,
+/// evaluation, PSF flux scale or analysis filters. Only a drizzled Local group's fingerprint carries it, so it stacks
+/// the drizzled Local masters again and nothing else.
+inline constexpr int kDrizzledLocalNormalizationRevision = 1;
+
 /// The dense drizzle map file (`ANPIXMAP` version 3), which the planner never reuses: its maps are regenerated from the
 /// sources and settings and written as the workflow's own drizzle documents.
 inline constexpr quint32 kPixmapSchemaVersion = 3;

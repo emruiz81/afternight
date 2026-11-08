@@ -35,6 +35,7 @@
 #include "processes/ImageIntegration/workflow/ManifestDiff.h"
 #include "processes/ImageIntegration/workflow/FrameHeaderReader.h"
 #include "processes/ImageIntegration/workflow/ManifestHashing.h"
+#include "processes/ImageIntegration/workflow/ArtifactSchema.h"
 #include "processes/ImageIntegration/workflow/WorkflowRawLoadPolicy.h"
 #include "processes/ImageIntegration/tabs/CalibrationPanelUtils.h"
 #include "controls/IAppContext.h"
@@ -3019,6 +3020,44 @@ TEST(ManifestHashing, TheDrizzleKernelIsFingerprintedByItsMeaningNotItsSpelling)
     ASSERT_EQ(changed.integrationChanges.size(), 1u);
     EXPECT_EQ(changed.integrationChanges.front().settingsChanged.stages(),
               (LightStages{LightStage::Drizzle, LightStage::Stacking}));
+}
+
+// A drizzled Local master is normalized by the normalization stage's document, read where each drizzled light lies on
+// the plane it was measured on, where its stack fitted the surfaces itself before: only such a master's fingerprint
+// states how, so it alone is stacked again, and every other group's fingerprint states what it stated.
+TEST(ManifestHashing, OnlyADrizzledLocalGroupsFingerprintStatesHowItsSurfacesAreApplied)
+{
+    WorkflowManifest manifest = makeManifestWithFrames(
+        {FrameId(QStringLiteral("/tmp/drizzled_local_a.fit")), FrameId(QStringLiteral("/tmp/drizzled_local_b.fit"))});
+    WorkflowManifest::IntegrationGroup& group = manifest.integrationGroups.front();
+    const auto drizzleOf = [&manifest](const WorkflowManifest::IntegrationGroup& stated) {
+        return integrationGroupFingerprintInput(manifest, stated).value(QStringLiteral("drizzle")).toObject();
+    };
+
+    group.stacking.normalizationMode = NormalizationMode::Local;
+    group.stacking.localNormalization.enabled = true;
+    EXPECT_TRUE(drizzleOf(group).isEmpty()) << "a group that does not drizzle";
+
+    group.drizzle = WorkflowManifest::IntegrationGroup::DrizzleSettings{};
+    group.drizzle->enabled = true;
+    const QJsonObject drizzledLocal = drizzleOf(group);
+    EXPECT_EQ(drizzledLocal.value(QStringLiteral("localNormalizationRevision")).toInt(),
+              ImageIntegration::schema::kDrizzledLocalNormalizationRevision);
+    EXPECT_EQ(drizzledLocal.value(QStringLiteral("levelRevision")).toInt(),
+              ImageIntegration::schema::kDrizzledMasterLevelRevision);
+    EXPECT_EQ(drizzledLocal.value(QStringLiteral("solutionRevision")).toInt(),
+              ImageIntegration::schema::kDrizzledMasterSolutionRevision);
+
+    group.stacking.localNormalization.enabled = false;
+    EXPECT_FALSE(drizzleOf(group).contains(QStringLiteral("localNormalizationRevision")))
+        << "a drizzled group whose local normalization is off";
+    group.stacking.localNormalization.enabled = true;
+    group.stacking.normalizationMode = NormalizationMode::Global;
+    EXPECT_FALSE(drizzleOf(group).contains(QStringLiteral("localNormalizationRevision"))) << "a drizzled Global group";
+    group.stacking.normalizationMode = NormalizationMode::Local;
+    group.drizzle->enabled = false;
+    EXPECT_FALSE(drizzleOf(group).contains(QStringLiteral("localNormalizationRevision")))
+        << "a Local group whose drizzle is off";
 }
 
 TEST(ManifestHashing, WorkflowRawLoadPolicyFingerprintDocumentsNeutralRawCalibration)

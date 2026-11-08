@@ -54,8 +54,10 @@
 #include <AfterNightEngine/Algorithms/Drizzle/DrizzleModel.h>
 #include <AfterNightEngine/Algorithms/Drizzle/DrizzleStackSource.h>
 #include <AfterNightEngine/Algorithms/Geometry/Geometry.h>
+#include <AfterNightEngine/Algorithms/Normalization/DrizzleLocalNormalization.h>
 #include <AfterNightEngine/Algorithms/Stacking/StackExecutor.h>
 #include <AfterNightEngine/Algorithms/Stacking/StackQuality.h>
+#include <AfterNightEngine/Algorithms/Stacking/StackSource.h>
 #include <AfterNightEngine/Algorithms/Stacking/StackingModel.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightEngine/IO/CodecIO.h>
@@ -1714,9 +1716,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                                               QStringLiteral("Lights: %1 | Stacked: %2")
                                                   .arg(static_cast<int>(inputFrames.size()))
                                                   .arg(static_cast<int>(stackedLights.size())));
-            reporter.logger().operationDetail(
-                QStringLiteral("Settings"),
-                stage_utils::describeStackingSettings(group.stacking, plan.route == GroupRoute::Drizzle));
+            reporter.logger().operationDetail(QStringLiteral("Settings"),
+                                              stage_utils::describeStackingSettings(group.stacking));
             reporter.logger().operationDetail(QStringLiteral("Stack method"), methodRan);
             reporter.logger().operationDetail(QStringLiteral("STACKING reference frame"),
                                               stage_utils::describeReferenceSelection(group.stacking, referenceFrames));
@@ -1818,28 +1819,23 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
             std::optional<ImageIntegration::NormalizationCoefficientSet> coefficients;
             if (sanitized.normalizationMode != NormalizationMode::None && !sanitized.hdr.enabled)
             {
-                // A drizzled Local group's stack fits its surfaces itself and applies no document, so none is read: one
-                // an earlier run measured, under settings the group may no longer state, would only be said refused.
-                if (!ImageIntegration::localNormalizationFittedByDrizzledStack(group))
+                const QString path = stage_utils::normalizationArtifactPath(manifest, group);
+                ImageIntegration::NormalizationDocumentRead read =
+                    ImageIntegration::readStackNormalizationCoefficients(path, group, referenceFrames);
+                if (read.coefficients.has_value())
                 {
-                    const QString path = stage_utils::normalizationArtifactPath(manifest, group);
-                    ImageIntegration::NormalizationDocumentRead read =
-                        ImageIntegration::readStackNormalizationCoefficients(path, group, referenceFrames);
-                    if (read.coefficients.has_value())
-                    {
-                        coefficients = std::move(read.coefficients);
-                    }
-                    else if (read.failure == ImageIntegration::NormalizationDocumentFailure::OtherSettings)
-                    {
-                        warn(QStringLiteral("The normalization coefficients were measured under settings other than "
-                                            "the group's; the stack measures its own."));
-                    }
-                    else if (QFileInfo::exists(path))
-                    {
-                        warn(QStringLiteral("The normalization coefficients could not be read (%1); the stack measures "
-                                            "its own.")
-                                 .arg(read.message));
-                    }
+                    coefficients = std::move(read.coefficients);
+                }
+                else if (read.failure == ImageIntegration::NormalizationDocumentFailure::OtherSettings)
+                {
+                    warn(QStringLiteral("The normalization coefficients were measured under settings other than the "
+                                        "group's; the stack measures its own."));
+                }
+                else if (QFileInfo::exists(path))
+                {
+                    warn(QStringLiteral("The normalization coefficients could not be read (%1); the stack measures its "
+                                        "own.")
+                             .arg(read.message));
                 }
                 shape.estimator = ImageIntegration::scaleEstimatorFor(sanitized.scaleEstimator);
                 if (wantsLocal)
@@ -1860,14 +1856,16 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
             }
 
             // Runs one stack over the frames a source reads, the normalization the group's coefficients state where
-            // they describe those frames.
-            const auto runStack = [&](an::StackFrameSource& source, const an::ImageDescriptor& input,
-                                      const std::vector<std::uint32_t>& frames, const bool cometLayer,
-                                      const std::optional<std::vector<std::uint32_t>>& normalizationFrames,
-                                      const NormalizationMeasurementPlane measuredPlane,
-                                      const std::optional<ImageIntegration::DrizzleAnalysisPlaneRecord>& drizzlePlane,
-                                      const std::optional<std::pair<std::uint32_t, std::uint32_t>>& measuredExtent)
-                -> an::Result<StackRun> {
+            // they describe those frames. A source whose frames lie on the plane the coefficients were measured on
+            // enlarged - a drizzled group's - names where, and a local document is read there.
+            const auto runStack =
+                [&](an::StackFrameSource& source, const an::ImageDescriptor& input,
+                    const std::vector<std::uint32_t>& frames, const bool cometLayer,
+                    const std::optional<std::vector<std::uint32_t>>& normalizationFrames,
+                    const NormalizationMeasurementPlane measuredPlane,
+                    const std::optional<ImageIntegration::DrizzleAnalysisPlaneRecord>& drizzlePlane,
+                    const std::optional<std::pair<std::uint32_t, std::uint32_t>>& measuredExtent,
+                    const std::optional<an::StackPlaneMapping>& documentPlane) -> an::Result<StackRun> {
                 StackRun run;
                 StackShape runShape = shape;
                 const auto frameCount = static_cast<std::uint32_t>(frames.size());
@@ -1929,8 +1927,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                                  .arg(reason));
                     }
                     else if (prepared->local.has_value() &&
-                             (drizzlePlane.has_value() ||
-                              runShape.normalization == an::StackNormalizationScope::Global))
+                             runShape.normalization == an::StackNormalizationScope::Global)
                     {
                         prepared.reset();
                     }
@@ -2000,6 +1997,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     if (prepared->local.has_value())
                     {
                         contract.localNormalization = &*prepared->local;
+                        contract.localNormalizationPlane = documentPlane;
                     }
                 }
                 run.rates.assign(frameCount, an::FrameRejectionRate{});
@@ -2091,17 +2089,6 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                         run.normalization =
                             QStringLiteral("The normalization stage's coefficients, reference %1").arg(reference);
                     }
-                    else if (drizzlePlane.has_value() &&
-                             runShape.normalization == an::StackNormalizationScope::LocalThenGlobal)
-                    {
-                        // A drizzled Local group has no document: the stack fits the surfaces on the drizzled lights,
-                        // reading none of the analysis the normalization stage makes.
-                        run.normalization =
-                            QStringLiteral("Local normalization fitted by the drizzled stack, reference %1; the "
-                                           "reference strategy, the evaluation, the PSF flux scale and the hot-pixel "
-                                           "and noise filters do not apply")
-                                .arg(reference);
-                    }
                     else
                     {
                         run.normalization = QStringLiteral("Measured by the stack, reference %1").arg(reference);
@@ -2146,7 +2133,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     return described.status();
                 }
                 sayFrameReads(source);
-                return runStack(source, *described, frames, false, frames, plan.plane, std::nullopt, std::nullopt);
+                return runStack(source, *described, frames, false, frames, plan.plane, std::nullopt, std::nullopt,
+                                std::nullopt);
             };
 
             std::vector<std::uint32_t> allFrames(stackedLights.size());
@@ -2256,9 +2244,26 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 // plane measured - at the lights' own level - apply at the level they were measured at.
                 const double drizzleScale = drizzleModel->request().parameters.scale;
                 stage_utils::ScaledStackFrameSource atLightsLevel(*drizzledSource, drizzleScale * drizzleScale);
-                stacked = runStack(atLightsLevel, drizzleModel->outputDescriptor(), allFrames, false, allFrames,
-                                   NormalizationMeasurementPlane::DrizzleAnalysisPlane, drizzlePlane,
-                                   std::pair{geometry.canvas.analysisWidth, geometry.canvas.analysisHeight});
+                // The normalization stage measured the lights on the canvas's analysis plane, which the drizzled lights
+                // lie on enlarged by the scale: a local document is read where each drizzled pixel lies on it.
+                std::optional<an::StackPlaneMapping> documentPlane;
+                if (wantsLocal)
+                {
+                    an::Result<an::StackPlaneMapping> mapped =
+                        an::drizzleLocalNormalizationPlane(geometry.canvas, drizzleScale);
+                    if (!mapped.hasValue())
+                    {
+                        return engineFailure(mapped.status(), IntegrationErrorCode::DrizzleFailed,
+                                             QStringLiteral("The drizzle canvas does not lie on the plane its lights "
+                                                            "were normalized on"),
+                                             outputPath);
+                    }
+                    documentPlane = *mapped;
+                }
+                stacked =
+                    runStack(atLightsLevel, drizzleModel->outputDescriptor(), allFrames, false, allFrames,
+                             NormalizationMeasurementPlane::DrizzleAnalysisPlane, drizzlePlane,
+                             std::pair{geometry.canvas.analysisWidth, geometry.canvas.analysisHeight}, documentPlane);
                 masterGuard = geometry.canvas.edgeGuard;
                 masterWidth = geometry.canvas.outputWidth;
                 masterHeight = geometry.canvas.outputHeight;
@@ -2300,7 +2305,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     }
                     an::Result<StackRun> run = runStack(
                         source, *described, allFrames, cometLayer, cometLayer ? std::nullopt : std::optional(allFrames),
-                        NormalizationMeasurementPlane::RegisteredCanvas, std::nullopt, std::nullopt);
+                        NormalizationMeasurementPlane::RegisteredCanvas, std::nullopt, std::nullopt, std::nullopt);
                     if (!run.hasValue())
                     {
                         return run.status();
@@ -2507,8 +2512,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 {
                     referenceMetadata = *source.firstMetadata();
                 }
-                stacked =
-                    runStack(source, *described, allFrames, false, allFrames, plan.plane, std::nullopt, std::nullopt);
+                stacked = runStack(source, *described, allFrames, false, allFrames, plan.plane, std::nullopt,
+                                   std::nullopt, std::nullopt);
             }
 
             if (!exposureMerged.has_value() && !stacked.hasValue())

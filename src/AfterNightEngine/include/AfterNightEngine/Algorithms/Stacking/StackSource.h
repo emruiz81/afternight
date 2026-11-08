@@ -30,6 +30,11 @@
 /// counts for them, so a global match is measured on the samples the combine will read and a local
 /// surface is measured beside the reference it will be applied against.
 ///
+/// A local-normalization document describes the plane it was measured on. Frames of the document's
+/// own extent read it pixel for pixel; frames that lie on that plane enlarged - a drizzled stack's,
+/// whose document was measured on the drizzle canvas's analysis plane - read it through a
+/// `StackPlaneMapping`, every surface evaluated where the stack pixel lies on the document's plane.
+///
 /// Whether a frame is registered is the caller's statement rather than the stack's routing decision;
 /// a per-frame dark optimization is a plan the caller prepares per frame; a master stating a mask,
 /// zero or range rule is refused here and left to a materialized calibration; and a range rule is
@@ -157,11 +162,67 @@ struct StackSourceStages
                                                    const StackSourceStages& right) noexcept = default;
 };
 
+/// Where a stack's frames lie on the plane its local-normalization document was measured on.
+///
+/// A document's grids span the frame they were fitted on, so without a mapping a document is
+/// applied to frames of its own extent, pixel for pixel. A drizzled stack reads the drizzle canvas
+/// - its frames enlarged by the drizzle's scale - while a normalization measured before they were
+/// drizzled describes the canvas's analysis plane: the same rectangle before the scale, whose
+/// extent is not the canvas's divided by it (`Algorithms/Drizzle/DrizzleCanvas.h`). A mapping
+/// states where every stack pixel lies on the document's plane. Stack column `x`, whose centre is
+/// at `x + 0.5` in engine pixel coordinates, lies at the plane's pixel index
+/// `(x + 0.5 + offsetX) / scale - 0.5`, computed in Float64 in that order, and row `y` at
+/// `(y + 0.5 + offsetY) / scale - 0.5`. Every surface is read there exactly as `evaluateLocalGrid`
+/// reads it, a position before the plane's first pixel centre or past its last reading the nearest
+/// edge, so the surfaces are exact at every stack pixel's centre and nothing is restated onto the
+/// stack's extent; a scale of one with no offset reads the stack's own pixels, and a band stores the
+/// bits it stores with no mapping.
+///
+/// The plane covers the frames when no stack pixel lies wholly outside it: the first column ends
+/// past the plane's first edge, `offsetX + 1 > 0`, and the last column begins before its last edge,
+/// `offsetX + width - 1 < planeWidth * scale`, and the rows likewise. Every drizzle canvas lies so
+/// on its analysis plane however it was planned, whole or with its guard cropped first;
+/// `drizzleLocalNormalizationPlane` (`Algorithms/Normalization/DrizzleLocalNormalization.h`) states
+/// the mapping of a stack over a whole canvas.
+///
+/// A mapped document keeps the validity rule of the plane it was measured on, which need not be
+/// the frames': a warped plane marks where no light reaches with an exact zero, a drizzled frame
+/// with a quiet NaN under the finite-only rule. The mapping states the rule the frames carry into
+/// the tile, and each band is checked against it instead of against the document's.
+struct StackPlaneMapping
+{
+    /// How many stack pixels one pixel of the document's plane spans along each axis: finite and
+    /// positive. A drizzle's scale.
+    double scale = 1.0;
+
+    /// How many columns of the enlarged plane lie before the stack's first, in stack pixels:
+    /// finite. Zero for a stack over a whole drizzle canvas; its guard for one over the canvas a
+    /// guard was cropped from.
+    double offsetX = 0.0;
+
+    /// How many rows of the enlarged plane lie before the stack's first, in stack pixels: finite.
+    double offsetY = 0.0;
+
+    /// The rule every frame carries into the tile - finite-only after calibration, the frame's own
+    /// otherwise - which each band is checked against in place of the document's. A range rule is
+    /// restated as finite-only before it reaches the tile, so a mapping that states one is refused.
+    ValidityRule frameValidity = ValidityRule::AllValid;
+
+    /// Whether two mappings place the frames alike under the same rule.
+    ///
+    /// @param left one mapping.
+    /// @param right the other.
+    /// @return true when every member is equal.
+    [[nodiscard]] friend constexpr bool operator==(const StackPlaneMapping& left,
+                                                   const StackPlaneMapping& right) noexcept = default;
+};
+
 /// What every frame of a stack has in common on the way in, borrowed for the run.
 ///
 /// A plain aggregate with an empty default for every member but the state, so a caller names what
-/// it supplies. Nothing here is owned: the plans, the masters, the matches and the document are
-/// the caller's and must outlive every call that takes the contract.
+/// it supplies. Nothing here is owned but the plane mapping, held by value: the plans, the masters,
+/// the matches and the document are the caller's and must outlive every call that takes the
+/// contract.
 struct StackSourceContract
 {
     /// What the frames are.
@@ -184,8 +245,16 @@ struct StackSourceContract
 
     /// The prepared local-normalization document, under a local scope over frames not already
     /// brought to the reference; null when the stack fits it. Under a scope with no local stage,
-    /// or over frames already brought to the reference, it must be null.
+    /// or over frames already brought to the reference, it must be null. It describes frames of the
+    /// stack's extent, or the plane `localNormalizationPlane` places them on.
     const LocalNormalizationDocument* localNormalization = nullptr;
+
+    /// Where the frames lie on the plane `localNormalization` was measured on, when that is not
+    /// their own; nothing when the document was fitted on frames of the stack's extent. Under a
+    /// mapping the document's shape is the plane's, which must cover the frames, and each band's
+    /// rule is checked against the mapping's rather than the document's. Refused without a
+    /// document.
+    std::optional<StackPlaneMapping> localNormalizationPlane{};
 };
 
 /// Checks a contract against the model it serves, whole, and says which stages the stack runs.
@@ -196,11 +265,14 @@ struct StackSourceContract
 /// the frames' extent, numeric domain, channels and CFA phase, under an all-valid or finite-only
 /// rule; the prepared global matches - the model's method and estimator, the frames' channel count,
 /// finite and non-zero coefficients, and the identity on the reference frame; and the document -
-/// the model's extent and channels, a grid this build can hold, a known interpolation, finite grids
-/// of the shape's size, one record per frame in order, positive finite scales, a reference index
-/// that is the model's reference frame, and a post-local match on every frame exactly under
-/// `StackNormalizationScope::LocalThenGlobal`. Which rule each frame states is checked per band,
-/// against the document's, when the band is read.
+/// the model's channels and either its extent or, under a plane mapping, a plane that covers the
+/// frames, a grid this build can hold, a known interpolation, finite grids of the shape's size, one
+/// record per frame in order, positive finite scales, a reference index that is the model's
+/// reference frame, and a post-local match on every frame exactly under
+/// `StackNormalizationScope::LocalThenGlobal`; and the plane mapping - a document beside it, a
+/// finite and positive scale, finite offsets and a rule the source path carries into the tile.
+/// Which rule each frame states is checked per band, against the document's or the mapping's, when
+/// the band is read.
 ///
 /// Thread-safe with respect to everything it takes, which is only read. Allocates only a failure
 /// it has to describe.
@@ -209,13 +281,15 @@ struct StackSourceContract
 /// @param contract what the frames are and what brings them in.
 /// @return the stages; `ErrorCode::InvalidArgument` for a state outside the enumeration, an
 ///         invalid plan, a null master pointer beside plans, a non-finite coefficient or a
-///         non-positive scale, naming the member; `ErrorCode::IncompatibleArguments` when a
-///         member does not describe this stack - plans for a calibrated frame, a plan or master
-///         of another representation, extent, domain or channel set, matches or a document of
-///         the wrong count, method, estimator, channels or shape, a reference that is not the
-///         model's, matches beside a document, a document under a scope with no local stage -
-///         naming the member; and `ErrorCode::Unsupported` for a master under a mask, zero or
-///         range rule.
+///         non-positive scale, or a plane mapping's scale that is not finite and positive, offset
+///         that is not finite or rule this build does not define, naming the member;
+///         `ErrorCode::IncompatibleArguments` when a member does not describe this stack - plans
+///         for a calibrated frame, a plan or master of another representation, extent, domain or
+///         channel set, matches or a document of the wrong count, method, estimator, channels or
+///         shape, a reference that is not the model's, matches beside a document, a document under
+///         a scope with no local stage, a plane mapping without a document or whose plane leaves a
+///         pixel of the frames wholly outside it - naming the member; and `ErrorCode::Unsupported`
+///         for a master under a mask, zero or range rule, or a plane mapping stating a range rule.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<StackSourceStages>
 checkStackSourceContract(const StackModel& model, const StackSourceContract& contract);
 
@@ -384,7 +458,9 @@ struct StackSourceOutcome
 /// admitted sample is widened under the frame's numeric domain's conversion policy, calibrated
 /// step by step with the plan's scalars and the masters' matching rows exactly as `calibrateImage`
 /// calibrates it, transformed by the local surface exactly as `applyLocalNormalization` transforms
-/// it - skipped on the document's reference frame, which is not normalized - and matched exactly
+/// it - under a plane mapping with every surface read where the sample lies on the document's
+/// plane, exactly as `evaluateLocalGrid` reads it there, and skipped on the document's reference
+/// frame, which is not normalized - and matched exactly
 /// as `applyGlobalNormalization` matches it, each stage only when the stages say so; an excluded
 /// sample is written as its widened value, or as a quiet NaN under calibration or a domain-range
 /// rule, which preserves the original range membership through rounding without a separate mask.
@@ -424,13 +500,14 @@ struct StackSourceOutcome
 ///         representation, its layout does not describe the frame's width and channels, its mask
 ///         does not cover it, the tile is not at the tile width or not of the band's rows, the
 ///         table does not hold every frame, a scratch slice is short or too few are given, or the
-///         frame's rule is not the document's; `ErrorCode::InvalidArgument` for a null pointer, a
-///         misaligned pointer, a mask under a rule that reads none, no mask under the rule that
-///         needs one, or a non-finite table entry; `ErrorCode::OutOfRange` when `frameIndex` or
-///         the band's rows are outside the frame; `ErrorCode::Unsupported` for a range rule under
-///         a normalization stage; `ErrorCode::Aliasing` when the tile partly overlaps the source;
-///         and `ErrorCode::InvalidData` when an admitted sample is not finite, after which the
-///         tile band holds a partial result.
+///         frame's rule is not the document's - the mapping's, under a plane mapping;
+///         `ErrorCode::InvalidArgument` for a null pointer, a misaligned pointer, a mask under a
+///         rule that reads none, no mask under the rule that needs one, or a non-finite table
+///         entry; `ErrorCode::OutOfRange` when `frameIndex` or the band's rows are outside the
+///         frame; `ErrorCode::Unsupported` for a range rule under a normalization stage;
+///         `ErrorCode::Aliasing` when the tile partly overlaps the source; and
+///         `ErrorCode::InvalidData` when an admitted sample is not finite, after which the tile
+///         band holds a partial result.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<StackSourceOutcome>
 convertStackSourceBand(const ExecutionContext& execution, const StackModel& model, const StackSourceContract& contract,
                        const StackSourceBand& source, std::span<const double> frameNormalization,

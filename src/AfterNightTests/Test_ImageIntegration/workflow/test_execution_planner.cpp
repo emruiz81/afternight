@@ -1670,7 +1670,9 @@ TEST_F(ExecutionPlannerTest, ExecutionPlanDecisionsInvalidateLocalNormalizationW
     EXPECT_EQ(it->action, ExecutionPlanDecision::Action::Recompute);
 }
 
-TEST_F(ExecutionPlannerTest, ExecutionPlanDecisionsSkipPrecomputeForLocalNormalizationWithDrizzle)
+// A drizzled Local group's local normalization is measured before the stack as any group's is, on its canvas's analysis
+// plane, so the plan computes it. The plan skipped it, saying the drizzled stack fitted the surfaces itself.
+TEST_F(ExecutionPlannerTest, ExecutionPlanDecisionsPrecomputeLocalNormalizationWithDrizzle)
 {
     WorkflowManifest manifest;
     manifest.outputDirectory = tempPath();
@@ -1697,11 +1699,8 @@ TEST_F(ExecutionPlannerTest, ExecutionPlanDecisionsSkipPrecomputeForLocalNormali
         return decision.stage == QStringLiteral("Lights Normalization");
     });
     ASSERT_NE(it, decisions.cend());
-    EXPECT_EQ(it->action, ExecutionPlanDecision::Action::Skip);
-    // The reason says what the drizzled stack's own fit leaves out, as the run log and the dialog do.
-    EXPECT_TRUE(it->reason.contains(QStringLiteral("drizzled stack fits"))) << it->reason.toStdString();
-    EXPECT_TRUE(it->reason.contains(QStringLiteral("reference strategy"))) << it->reason.toStdString();
-    EXPECT_TRUE(it->reason.contains(QStringLiteral("PSF flux scale"))) << it->reason.toStdString();
+    EXPECT_EQ(it->action, ExecutionPlanDecision::Action::Recompute);
+    EXPECT_FALSE(it->reason.contains(QStringLiteral("drizzled stack"))) << it->reason.toStdString();
 }
 
 TEST_F(ExecutionPlannerTest, ExecutionPlanDecisionsReuseDrizzlePixmapsAndInvalidateChangedSettings)

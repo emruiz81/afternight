@@ -15,11 +15,16 @@
 #include <AfterNightEngine/Algorithms/Normalization/LocalNormalization.h>
 #include <AfterNightEngine/Algorithms/Registration/RegistrationPlan.h>
 #include <AfterNightEngine/Algorithms/Registration/RegistrationTransform.h>
+#include <AfterNightEngine/Algorithms/Stacking/StackNormalizationParameters.h>
+#include <AfterNightEngine/Algorithms/Stacking/StackRequest.h>
+#include <AfterNightEngine/Algorithms/Stacking/StackSource.h>
+#include <AfterNightEngine/Algorithms/Stacking/StackingModel.h>
 #include <AfterNightEngine/Core/EngineLimits.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightEngine/Core/ImageExtent.h>
 #include <AfterNightEngine/Core/Result.h>
 #include <AfterNightEngine/Image/ImageDescriptor.h>
+#include <AfterNightEngine/Image/ValidityDescriptor.h>
 
 #include <gtest/gtest.h>
 
@@ -355,6 +360,116 @@ TEST(DrizzleCanvasTest, TheLocalNormalizationGridDescribesTheAnalysisPlane)
     EXPECT_EQ(an::drizzleLocalNormalizationShape(*canvas, 8u, 0u).status().code(), an::ErrorCode::InvalidArgument);
     EXPECT_EQ(an::drizzleLocalNormalizationShape(an::DrizzleCanvas{}, 8u, 1u).status().code(),
               an::ErrorCode::InvalidArgument);
+}
+
+/// A stack of two Float32 frames of a canvas's extent whose scope applies a local surface.
+[[nodiscard]] an::StackModel canvasStack(std::uint32_t width, std::uint32_t height)
+{
+    const std::optional<an::ImageExtent> extent = an::ImageExtent::create(width, height, 1u, an::defaultEngineLimits());
+    EXPECT_TRUE(extent.has_value());
+    const std::optional<an::ImageDescriptor> descriptor =
+        an::ImageDescriptor::create({.extent = *extent,
+                                     .sampleType = an::SampleType::Float32,
+                                     .channelSchema = an::ChannelSchema::Mono,
+                                     .colorSpace = an::ColorSpace::Unspecified,
+                                     .numericDomain = an::NumericDomain::NormalizedLinear,
+                                     .cfa = {},
+                                     .coordinateOrigin = an::CoordinateOrigin::TopLeft,
+                                     .pixelAspectRatio = 1.0});
+    EXPECT_TRUE(descriptor.has_value());
+    an::StackRequest request{.input = an::StackInputDescription{.frameCount = 2u, .descriptor = *descriptor}};
+    request.normalization.scope = an::StackNormalizationScope::Local;
+    const std::optional<an::StackModel> model = an::StackModel::create(request);
+    EXPECT_TRUE(model.has_value());
+    return *model;
+}
+
+/// A document of two frames over a grid shape, as the normalization stage measures one on an analysis plane.
+[[nodiscard]] an::LocalNormalizationDocument analysisDocument(const an::LocalNormalizationGridShape& shape)
+{
+    an::LocalNormalizationDocument document;
+    document.request.gridSize = shape.gridSize;
+    document.shape = shape;
+    document.validity = an::ValidityRule::ZeroIsNoData;
+    document.referenceIndex = 0u;
+    document.referenceBackground.assign(static_cast<std::size_t>(shape.valueCount()), 0.2);
+    for (std::uint32_t frame = 0u; frame < 2u; ++frame)
+    {
+        an::LocalNormalizationFrameCoefficients record;
+        record.frameIndex = frame;
+        record.background.assign(static_cast<std::size_t>(shape.valueCount()), 0.2 + 0.01 * frame);
+        document.frames.push_back(std::move(record));
+    }
+    return document;
+}
+
+// A stack over a drizzle canvas reads frames that lie on the canvas's analysis plane enlarged by the scale: the mapping
+// is the scale with no offset, under the finite-only rule the drizzled frames state, and a document of the grid
+// `drizzleLocalNormalizationShape` states over the canvas covers them however the canvas was planned - its guard kept,
+// or cropped by an offset of the guard. A scale outside the drizzle's range, a canvas with no analysis plane and a
+// canvas that does not lie on its analysis plane at the stated scale are refused.
+TEST(DrizzleCanvasTest, AStackOverTheCanvasLiesOnItsAnalysisPlaneEnlarged)
+{
+    const std::array<an::RegistrationBounds, 2u> bounds{boundsOf(translation(0.0, 0.0), 41u, 29u),
+                                                        boundsOf(translation(2.5, -1.75), 41u, 29u)};
+    std::vector<an::DrizzleCanvas> canvases;
+    std::vector<double> scales;
+    for (const double scale : {1.0, 1.5, 2.0, 3.0})
+    {
+        for (const an::RegistrationCanvasMode mode :
+             {an::RegistrationCanvasMode::Reference, an::RegistrationCanvasMode::Union,
+              an::RegistrationCanvasMode::Intersection})
+        {
+            const an::Result<an::DrizzleCanvas> canvas =
+                an::planDrizzleCanvas(bounds, 0u, {.mode = mode, .scale = scale, .pixelFraction = 0.9});
+            ASSERT_TRUE(canvas.hasValue()) << canvas.status().message();
+            canvases.push_back(*canvas);
+            scales.push_back(scale);
+        }
+        const an::Result<an::DrizzleCanvas> plane = an::planDrizzleCanvasOnPlane(
+            {.minimumX = 0.25, .minimumY = -0.5, .maximumX = 40.6, .maximumY = 28.3}, scale);
+        ASSERT_TRUE(plane.hasValue()) << plane.status().message();
+        canvases.push_back(*plane);
+        scales.push_back(scale);
+    }
+    for (std::size_t index = 0u; index < canvases.size(); ++index)
+    {
+        const an::DrizzleCanvas& canvas = canvases[index];
+        const double scale = scales[index];
+        const an::Result<an::StackPlaneMapping> mapping = an::drizzleLocalNormalizationPlane(canvas, scale);
+        ASSERT_TRUE(mapping.hasValue()) << index << ": " << mapping.status().message();
+        EXPECT_EQ(*mapping,
+                  (an::StackPlaneMapping{
+                      .scale = scale, .offsetX = 0.0, .offsetY = 0.0, .frameValidity = an::ValidityRule::FiniteOnly}))
+            << index;
+        const an::Result<an::LocalNormalizationGridShape> shape = an::drizzleLocalNormalizationShape(canvas, 4u, 1u);
+        ASSERT_TRUE(shape.hasValue()) << shape.status().message();
+        const an::LocalNormalizationDocument document = analysisDocument(*shape);
+        const an::Result<an::StackSourceStages> whole =
+            an::checkStackSourceContract(canvasStack(canvas.width, canvas.height),
+                                         {.localNormalization = &document, .localNormalizationPlane = *mapping});
+        EXPECT_TRUE(whole.hasValue()) << index << ": " << whole.status().message();
+        // The same frames with the guard cropped first: the guard is the offset of the stack's first pixel.
+        an::StackPlaneMapping cropped = *mapping;
+        cropped.offsetX = static_cast<double>(canvas.edgeGuard);
+        cropped.offsetY = static_cast<double>(canvas.edgeGuard);
+        const an::Result<an::StackSourceStages> inside =
+            an::checkStackSourceContract(canvasStack(canvas.outputWidth, canvas.outputHeight),
+                                         {.localNormalization = &document, .localNormalizationPlane = cropped});
+        EXPECT_TRUE(inside.hasValue()) << index << ": " << inside.status().message();
+    }
+
+    const an::DrizzleCanvas& canvas = canvases.back();
+    for (const double scale : {std::numeric_limits<double>::quiet_NaN(), 0.5, 4.5})
+    {
+        const an::Result<an::StackPlaneMapping> refused = an::drizzleLocalNormalizationPlane(canvas, scale);
+        ASSERT_FALSE(refused.hasValue()) << scale;
+        EXPECT_EQ(refused.status().code(), an::ErrorCode::InvalidArgument) << scale;
+    }
+    EXPECT_EQ(an::drizzleLocalNormalizationPlane(an::DrizzleCanvas{}, 2.0).status().code(),
+              an::ErrorCode::InvalidArgument);
+    // A canvas planned three times as large is not its analysis plane enlarged once.
+    EXPECT_EQ(an::drizzleLocalNormalizationPlane(canvas, 1.0).status().code(), an::ErrorCode::IncompatibleArguments);
 }
 
 } // namespace

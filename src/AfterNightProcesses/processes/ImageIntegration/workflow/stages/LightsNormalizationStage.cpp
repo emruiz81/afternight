@@ -1011,8 +1011,7 @@ bool LightsNormalizationStage::shouldSkip(const WorkflowManifest& manifest) cons
 {
     const auto groups = groupsToProcess(manifest);
     return std::none_of(groups.begin(), groups.end(), [](const WorkflowManifest::IntegrationGroup* group) {
-        return group != nullptr && group->stacking.normalizationMode != NormalizationMode::None &&
-               !ImageIntegration::localNormalizationFittedByDrizzledStack(*group);
+        return group != nullptr && group->stacking.normalizationMode != NormalizationMode::None;
     });
 }
 
@@ -1026,13 +1025,6 @@ QString LightsNormalizationStage::skipReason(const WorkflowManifest& manifest) c
     if (manifest.executionMode == ExecutionMode::Incremental && groups.empty())
     {
         return QStringLiteral("No dirty integration groups in incremental plan.");
-    }
-    if (std::any_of(groups.begin(), groups.end(), [](const WorkflowManifest::IntegrationGroup* group) {
-            return group != nullptr && group->stacking.normalizationMode != NormalizationMode::None;
-        }))
-    {
-        return QStringLiteral("Every group that normalizes is drizzled with local normalization, which its stack fits "
-                              "as it reads the drizzled lights.");
     }
     return QStringLiteral("Normalization disabled for all groups.");
 }
@@ -1501,18 +1493,8 @@ StageResult LightsNormalizationStage::execute(const WorkflowManifest& manifest, 
                 report(1.0f, QStringLiteral("Normalization (disabled)"), groupLabel);
                 return StageResult::success();
             }
-            if (ImageIntegration::localNormalizationFittedByDrizzledStack(group))
-            {
-                reporter.logger().operationDetail(
-                    QStringLiteral("Skipping"),
-                    QStringLiteral("The drizzled stack fits the local normalization as it reads the drizzled lights; "
-                                   "nothing is measured beforehand."));
-                report(1.0f, QStringLiteral("Normalization (fitted by the drizzled stack)"), groupLabel);
-                return StageResult::success();
-            }
             reporter.logger().operationDetail(QStringLiteral("Normalization settings"),
-                                              stage_utils::describeNormalizationSettings(
-                                                  group.stacking, group.drizzle.has_value() && group.drizzle->enabled));
+                                              stage_utils::describeNormalizationSettings(group.stacking));
 
             const bool useLocal = group.stacking.normalizationMode == NormalizationMode::Local &&
                                   group.stacking.localNormalization.enabled;
