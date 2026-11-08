@@ -8,6 +8,7 @@
 #include <QPainterPath>
 #include <QPen>
 #include <QPolygonF>
+#include <QRectF>
 
 #include <algorithm>
 #include <cmath>
@@ -160,8 +161,18 @@ QColor annotationMarkColor(const AnnotationColors& colors, const AnnotationMarkK
     return colors.otherObject;
 }
 
-void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const AnnotationLayout& layout,
-                      const AnnotationStyle& style)
+namespace
+{
+
+/// Whether a box, grown by a margin, reaches into the part of the image drawn; every box does when no part is named.
+[[nodiscard]] bool reaches(const QRectF& box, const QRectF* area, const double margin)
+{
+    return area == nullptr || box.adjusted(-margin, -margin, margin, margin).intersects(*area);
+}
+
+/// Draws a scene's annotations; with a part of the image named, only what reaches into it.
+void paintWithin(QPainter& painter, const AnnotationScene& scene, const AnnotationLayout& layout,
+                 const AnnotationStyle& style, const QRectF* area)
 {
     if (scene.imageSize.isEmpty() || !(layout.metrics.fontSize > 0.0))
     {
@@ -190,7 +201,10 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
         {
             for (const QPolygonF& segment : line.segments)
             {
-                painter.drawPolyline(segment);
+                if (reaches(segment.boundingRect(), area, metrics.gridWidth))
+                {
+                    painter.drawPolyline(segment);
+                }
             }
         }
     }
@@ -208,6 +222,10 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
             continue;
         }
         shapes[index] = markShape(scene.marks[index], style, metrics);
+        if (!reaches(shapes[index].boundingRect(), area, 2.0 * metrics.lineWidth))
+        {
+            continue;
+        }
         drawn[index] = true;
     }
     const double fillOpacity = std::clamp(std::isfinite(style.fillOpacity) ? style.fillOpacity : 0.0, 0.0, 1.0);
@@ -270,6 +288,15 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
         {
             continue;
         }
+        QRectF bounds = label.box;
+        if (label.leader.has_value())
+        {
+            bounds = bounds.united(QRectF(label.leader->p1(), label.leader->p2()).normalized());
+        }
+        if (!reaches(bounds, area, metrics.haloWidth + metrics.lineWidth))
+        {
+            continue;
+        }
         const QColor color = labelColor(label);
         if (label.leader.has_value())
         {
@@ -295,7 +322,7 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
     }
 
     // The compass: two arrows from one point, north the longer, with their letters.
-    if (layout.compass.has_value())
+    if (layout.compass.has_value() && reaches(layout.compass->box, area, metrics.lineWidth))
     {
         const AnnotationCompassLayout& compass = *layout.compass;
         const double shaft = 1.3 * metrics.lineWidth;
@@ -340,7 +367,7 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
     }
 
     // The scale bar: a bar with a tick at each end, its length above it.
-    if (layout.scaleBar.has_value())
+    if (layout.scaleBar.has_value() && reaches(layout.scaleBar->box, area, metrics.lineWidth))
     {
         const AnnotationScaleBarLayout& bar = *layout.scaleBar;
         const double half = bar.tickLength * 0.5;
@@ -362,7 +389,7 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
     }
 
     // The panel, over everything: its box, its title and rule in the accent, its facts in two columns.
-    if (layout.panel.has_value())
+    if (layout.panel.has_value() && reaches(layout.panel->box, area, metrics.lineWidth))
     {
         const AnnotationPanelLayout& panel = *layout.panel;
         painter.setPen(roundPen(withOpacity(colors.panelText, 0.12), 0.04 * metrics.fontSize));
@@ -381,6 +408,20 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
     }
 
     painter.restore();
+}
+
+} // namespace
+
+void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const AnnotationLayout& layout,
+                      const AnnotationStyle& style)
+{
+    paintWithin(painter, scene, layout, style, nullptr);
+}
+
+void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const AnnotationLayout& layout,
+                      const AnnotationStyle& style, const QRectF& area)
+{
+    paintWithin(painter, scene, layout, style, &area);
 }
 
 } // namespace an::ui

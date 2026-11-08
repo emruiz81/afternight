@@ -11,7 +11,6 @@
 
 #include "controls/AstrometryOverlayUtils.h"
 #include "controls/AstrometryStarDisplayModule.h"
-#include "controls/BrightStarAnnotationDisplayModule.h"
 #include "controls/CatalogAnnotationDisplayModule.h"
 #include "controls/CoordinateGridDisplayModule.h"
 #include "controls/DistortionMapDisplayModule.h"
@@ -32,6 +31,8 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <span>
+#include <string>
 #include <vector>
 
 namespace
@@ -82,6 +83,121 @@ constexpr std::uint32_t kHeight = 300u;
                       "HIP 1,Alpha Field,alf Fld,120.2,10.2,1.5,A0V\n"
                       "HIP 2,,bet Fld,119.8,9.8,3.0,K0III\n"
                       "HIP 3,Far Away,,300.0,-50.0,0.5,B1V\n");
+}
+
+/// A round galaxy of the deep-sky catalogue, of a size in arcminutes.
+[[nodiscard]] an::CatalogEntry galaxyAt(const std::string& identifier, const double rightAscension,
+                                        const double declination, const double sizeArcminutes, const double magnitude)
+{
+    an::CatalogEntry entry;
+    entry.identifier = identifier;
+    entry.coordinate = {.rightAscensionDegrees = rightAscension, .declinationDegrees = declination};
+    entry.extent = an::CatalogExtent{
+        .majorAxisArcminutes = sizeArcminutes, .minorAxisArcminutes = sizeArcminutes, .positionAngleDegrees = 0.0};
+    entry.objectType = "Galaxy";
+    entry.magnitude = magnitude;
+    return entry;
+}
+
+/// A bright star of a proper name.
+[[nodiscard]] an::CatalogEntry starAt(const std::string& identifier, const std::string& name,
+                                      const double rightAscension, const double declination, const double magnitude)
+{
+    an::CatalogEntry entry;
+    entry.identifier = identifier;
+    entry.commonName = name;
+    entry.coordinate = {.rightAscensionDegrees = rightAscension, .declinationDegrees = declination};
+    entry.magnitude = magnitude;
+    return entry;
+}
+
+/// A layer's scene, as an overlay's worker builds it at the overlay's first limit.
+[[nodiscard]] an::ui::AnnotationScene layerScene(const an::WcsSolution& solution, const an::ui::BundledCatalog catalog,
+                                                 const std::vector<an::CatalogEntry>& entries)
+{
+    const bool deepSky = catalog == an::ui::BundledCatalog::DeepSky;
+    const std::span<const an::CatalogEntry> all(entries);
+    return an::ui::buildAnnotationScene(
+        an::ui::AnnotationSceneSources{.solution = &solution,
+                                       .deepSky = deepSky ? all : std::span<const an::CatalogEntry>(),
+                                       .stars = deepSky ? std::span<const an::CatalogEntry>() : all,
+                                       .cards = {}},
+        an::ui::detail::overlayAnnotationContent(catalog, 12.0));
+}
+
+/// Sixteen galaxies three pixels apart about the field's centre.
+[[nodiscard]] std::vector<an::CatalogEntry> crowdedGalaxies()
+{
+    std::vector<an::CatalogEntry> galaxies;
+    for (int index = 0; index < 16; ++index)
+    {
+        galaxies.push_back(galaxyAt(QStringLiteral("NGC 31%1").arg(index, 2, 10, QLatin1Char('0')).toStdString(),
+                                    119.97 + 0.03 * (index % 4), 9.97 + 0.03 * (index / 4), 0.6, 10.0));
+    }
+    return galaxies;
+}
+
+/// Stars of proper names a pixel or two apart among the galaxies.
+[[nodiscard]] std::vector<an::CatalogEntry> crowdedStars(const int count)
+{
+    std::vector<an::CatalogEntry> stars;
+    for (int index = 0; index < count; ++index)
+    {
+        stars.push_back(starAt(QStringLiteral("HIP %1").arg(5000 + index).toStdString(),
+                               QStringLiteral("Star %1").arg(index, 3, 10, QLatin1Char('0')).toStdString(),
+                               119.99 + 0.01 * (index % 5), 9.99 + 0.01 * ((index / 5) % 5), 4.0));
+    }
+    return stars;
+}
+
+/// A deep-sky catalogue's text of galaxies.
+[[nodiscard]] QByteArray deepSkyTextOf(const std::vector<an::CatalogEntry>& galaxies)
+{
+    QByteArray text("id,common_name,ra_deg,dec_deg,major_axis_arcmin,minor_axis_arcmin,position_angle_deg,object_type,"
+                    "magnitude\n");
+    for (const an::CatalogEntry& galaxy : galaxies)
+    {
+        text += QStringLiteral("%1,,%2,%3,%4,%4,0,Galaxy,%5\n")
+                    .arg(QString::fromStdString(galaxy.identifier))
+                    .arg(galaxy.coordinate.rightAscensionDegrees, 0, 'f', 6)
+                    .arg(galaxy.coordinate.declinationDegrees, 0, 'f', 6)
+                    .arg(galaxy.extent->majorAxisArcminutes, 0, 'f', 2)
+                    .arg(*galaxy.magnitude, 0, 'f', 1)
+                    .toUtf8();
+    }
+    return text;
+}
+
+/// A bright-star catalogue's text of stars.
+[[nodiscard]] QByteArray brightStarTextOf(const std::vector<an::CatalogEntry>& stars)
+{
+    QByteArray text("id,common_name,bayer_designation,ra_deg,dec_deg,magnitude,spectral_type\n");
+    for (const an::CatalogEntry& star : stars)
+    {
+        text += QStringLiteral("%1,%2,,%3,%4,%5,G0V\n")
+                    .arg(QString::fromStdString(star.identifier), QString::fromStdString(star.commonName))
+                    .arg(star.coordinate.rightAscensionDegrees, 0, 'f', 6)
+                    .arg(star.coordinate.declinationDegrees, 0, 'f', 6)
+                    .arg(*star.magnitude, 0, 'f', 1)
+                    .toUtf8();
+    }
+    return text;
+}
+
+/// Whether any two boxes overlap.
+[[nodiscard]] bool anyOverlap(const QVector<QRectF>& boxes)
+{
+    for (qsizetype first = 0; first < boxes.size(); ++first)
+    {
+        for (qsizetype second = first + 1; second < boxes.size(); ++second)
+        {
+            if (boxes[first].intersects(boxes[second]))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 /// The overlays' cases: an installed context and a view of a document.
@@ -225,6 +341,7 @@ TEST_F(AstrometryOverlaysTest, DeepSkyLabelsArriveFromAWorkerAndAreDrawnOnTheNex
     std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
     auto* annotations = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
     ASSERT_NE(annotations, nullptr);
+    annotations->setLayers(true, false);
     annotations->setCatalogSource(fixedCatalogs(deepSkyText(), brightStarText()));
 
     // The first paint asks a worker and draws nothing: the GUI thread never waits for the catalog.
@@ -257,9 +374,10 @@ TEST_F(AstrometryOverlaysTest, DeepSkyLabelsArriveFromAWorkerAndAreDrawnOnTheNex
 TEST_F(AstrometryOverlaysTest, BrightStarLabelsPreferTheProperNameThenTheBayerLetter)
 {
     show(fieldCards());
-    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::BrightStarLabels);
-    auto* labels = dynamic_cast<an::ui::BrightStarAnnotationDisplayModule*>(overlay.get());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
+    auto* labels = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
     ASSERT_NE(labels, nullptr);
+    labels->setLayers(false, true);
     labels->setCatalogSource(fixedCatalogs(deepSkyText(), brightStarText()));
 
     ASSERT_TRUE(pumpUntil([&]() {
@@ -272,14 +390,15 @@ TEST_F(AstrometryOverlaysTest, BrightStarLabelsPreferTheProperNameThenTheBayerLe
     EXPECT_EQ(labels->catalogQueriesAsked(), 1u);
 }
 
-// A rich field shows its brightest stars legibly: a fainter star whose label or marker would cover a brighter one's is
-// left out, and a star apart from them keeps its label.
-TEST_F(AstrometryOverlaysTest, BrightStarLabelsLeaveOutAFainterStarThatWouldCoverABrighterOne)
+// A rich field shows its stars legibly: the brightest is labelled first, a star apart from them keeps its label, and no
+// label covers another - a crowded star's label is set away from it on a leader line or left out.
+TEST_F(AstrometryOverlaysTest, CrowdedStarsAreLabelledBrightestFirstAndNoLabelCoversAnother)
 {
     show(fieldCards());
-    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::BrightStarLabels);
-    auto* labels = dynamic_cast<an::ui::BrightStarAnnotationDisplayModule*>(overlay.get());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
+    auto* labels = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
     ASSERT_NE(labels, nullptr);
+    labels->setLayers(false, true);
     labels->setCatalogSource(fixedCatalogs(
         deepSkyText(), QByteArray("id,common_name,bayer_designation,ra_deg,dec_deg,magnitude,spectral_type\n"
                                   "HIP 11,Faint One,,120.001,10.001,5.0,G0V\n"
@@ -291,9 +410,11 @@ TEST_F(AstrometryOverlaysTest, BrightStarLabelsLeaveOutAFainterStarThatWouldCove
         paint();
         return !labels->projectedLabels().isEmpty();
     }));
-    QVector<QString> drawn = labels->projectedLabels();
-    std::sort(drawn.begin(), drawn.end());
-    EXPECT_EQ(drawn, (QVector<QString>{QStringLiteral("Apart"), QStringLiteral("Brightest")}));
+    const QVector<QString> drawn = labels->projectedLabels();
+    ASSERT_FALSE(drawn.isEmpty());
+    EXPECT_EQ(drawn.front(), QStringLiteral("Brightest"));
+    EXPECT_TRUE(drawn.contains(QStringLiteral("Apart")));
+    EXPECT_FALSE(anyOverlap(labels->projectedLabelBoxes()));
 }
 
 // The entries of one object in several catalogues are one label under the designation an annotated picture gives it,
@@ -305,6 +426,7 @@ TEST_F(AstrometryOverlaysTest, EntriesOfOneObjectAreOneLabelUnderThePicturesDesi
     std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
     auto* annotations = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
     ASSERT_NE(annotations, nullptr);
+    annotations->setLayers(true, false);
     annotations->setCatalogSource(fixedCatalogs(
         QByteArray("id,common_name,ra_deg,dec_deg,major_axis_arcmin,minor_axis_arcmin,position_angle_deg,object_type,"
                    "magnitude\n"
@@ -324,13 +446,14 @@ TEST_F(AstrometryOverlaysTest, EntriesOfOneObjectAreOneLabelUnderThePicturesDesi
 }
 
 // Stars are labelled in the order an annotated picture labels them: a star of a proper name before a brighter one of a
-// Bayer letter alone, whose label it would cover.
+// Bayer letter alone beside it, which takes the place left or none.
 TEST_F(AstrometryOverlaysTest, ANamedStarIsLabelledBeforeABrighterStarOfADesignationAlone)
 {
     show(fieldCards());
-    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::BrightStarLabels);
-    auto* labels = dynamic_cast<an::ui::BrightStarAnnotationDisplayModule*>(overlay.get());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
+    auto* labels = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
     ASSERT_NE(labels, nullptr);
+    labels->setLayers(false, true);
     labels->setCatalogSource(fixedCatalogs(
         deepSkyText(), QByteArray("id,common_name,bayer_designation,ra_deg,dec_deg,magnitude,spectral_type\n"
                                   "HIP 21,,alf Tst,120.0,10.0,1.0,A0V\n"
@@ -340,7 +463,8 @@ TEST_F(AstrometryOverlaysTest, ANamedStarIsLabelledBeforeABrighterStarOfADesigna
         paint();
         return !labels->projectedLabels().isEmpty();
     }));
-    EXPECT_EQ(labels->projectedLabels(), (QVector<QString>{QStringLiteral("Named Star")}));
+    EXPECT_EQ(labels->projectedLabels().front(), QStringLiteral("Named Star"));
+    EXPECT_FALSE(anyOverlap(labels->projectedLabelBoxes()));
 }
 
 // What a live overlay's scene holds until the view offers levels of detail: its own layer, every catalogue and kind,
@@ -407,12 +531,162 @@ TEST(AstrometryOverlayContent, AStarIsLabelledByItsProperNameThenItsBayerLetterT
               (std::vector<QString>{QStringLiteral("HIP 12345"), QStringLiteral("Sirius"), QStringLiteral("alf Ori")}));
 }
 
+// A view lays its catalogue overlay's layers out together, as an annotated picture lays out its labels, at every zoom:
+// no label covers another, the deep-sky objects' and the stars' alike, and a label keeps its size on the screen.
+TEST(AstrometryOverlayLayout, NoTwoLabelsOverlapAndALabelKeepsItsSizeOnTheScreenAtEveryZoom)
+{
+    const std::optional<an::WcsSolution> solution = solutionOf(fieldCards(), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    // A Messier object among them is placed before any star, so the deep-sky layer has a label at every zoom.
+    std::vector<an::CatalogEntry> galaxies = crowdedGalaxies();
+    galaxies.push_back(galaxyAt("M 99", 120.015, 10.015, 2.0, 9.0));
+    const an::ui::AnnotationScene deepSky = layerScene(*solution, an::ui::BundledCatalog::DeepSky, galaxies);
+    const an::ui::AnnotationScene stars = layerScene(*solution, an::ui::BundledCatalog::BrightStars, crowdedStars(12));
+    const an::ui::AnnotationStyle style = an::ui::defaultAnnotationSettings().style;
+
+    for (const double scale : {0.5, 1.0, 4.0})
+    {
+        const an::ui::detail::OverlayAnnotationLayout laid =
+            an::ui::detail::layoutOverlayAnnotations(&deepSky, &stars, scale, 11.0, style);
+        ASSERT_NE(laid.scene, nullptr);
+        ASSERT_NE(laid.layout, nullptr);
+        EXPECT_NEAR(laid.layout->metrics.fontSize * scale, 11.0, 1e-9) << "zoom " << scale;
+
+        QVector<QRectF> boxes;
+        bool deepSkyLabelled = false;
+        bool starLabelled = false;
+        for (const an::ui::AnnotationLabel& label : laid.layout->labels)
+        {
+            if (label.role != an::ui::AnnotationLabelRole::Object)
+            {
+                continue;
+            }
+            boxes.push_back(label.box);
+            const bool star = laid.scene->marks[label.source].kind == an::ui::AnnotationMarkKind::Star;
+            starLabelled = starLabelled || star;
+            deepSkyLabelled = deepSkyLabelled || !star;
+        }
+        EXPECT_TRUE(deepSkyLabelled && starLabelled) << "both layers are laid out together, zoom " << scale;
+        EXPECT_FALSE(anyOverlap(boxes)) << "zoom " << scale;
+    }
+}
+
+// Every deep-sky object keeps its outline whether its label found room or not, as the view drew them; a star whose
+// label found no room is left out, as the view's star labels leave it out.
+TEST(AstrometryOverlayLayout, EveryObjectKeepsItsOutlineAndAStarWithoutALabelIsLeftOut)
+{
+    const std::optional<an::WcsSolution> solution = solutionOf(fieldCards(), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    const an::ui::AnnotationScene deepSky = layerScene(*solution, an::ui::BundledCatalog::DeepSky, crowdedGalaxies());
+    const an::ui::AnnotationScene stars = layerScene(*solution, an::ui::BundledCatalog::BrightStars, crowdedStars(120));
+    ASSERT_EQ(stars.marks.size(), 120u);
+
+    const an::ui::detail::OverlayAnnotationLayout laid = an::ui::detail::layoutOverlayAnnotations(
+        &deepSky, &stars, 1.0, 11.0, an::ui::defaultAnnotationSettings().style);
+    ASSERT_NE(laid.scene, nullptr);
+    ASSERT_NE(laid.layout, nullptr);
+    ASSERT_EQ(laid.layout->labelled.size(), laid.scene->marks.size());
+    std::size_t galaxies = 0u;
+    std::size_t starsDrawn = 0u;
+    for (std::size_t index = 0u; index < laid.scene->marks.size(); ++index)
+    {
+        if (laid.scene->marks[index].kind == an::ui::AnnotationMarkKind::Star)
+        {
+            ++starsDrawn;
+            EXPECT_TRUE(laid.layout->labelled[index]) << "a star drawn is a star labelled";
+        }
+        else
+        {
+            ++galaxies;
+        }
+    }
+    EXPECT_EQ(galaxies, 16u);
+    EXPECT_GT(starsDrawn, 0u);
+    EXPECT_LT(starsDrawn, 120u) << "a crowd of stars cannot all be labelled";
+}
+
+// One overlay draws the deep-sky objects and the bright stars, each a layer it is told to draw, and lays their labels
+// out together: no label covers another.
+TEST_F(AstrometryOverlaysTest, OneOverlayDrawsBothCataloguesAndNoLabelCoversAnother)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
+    auto* annotations = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
+    ASSERT_NE(annotations, nullptr);
+    EXPECT_TRUE(annotations->showsDeepSky());
+    EXPECT_TRUE(annotations->showsStars());
+    // A Messier object among the galaxies is placed before any star, so the deep-sky layer is labelled too.
+    std::vector<an::CatalogEntry> galaxies = crowdedGalaxies();
+    galaxies.push_back(galaxyAt("M 99", 120.015, 10.015, 2.0, 9.0));
+    annotations->setCatalogSource(fixedCatalogs(deepSkyTextOf(galaxies), brightStarTextOf(crowdedStars(12))));
+
+    ASSERT_TRUE(pumpUntil([&]() {
+        paint();
+        return !annotations->projectedLabels().isEmpty();
+    }));
+    const QVector<QString> labels = annotations->projectedLabels();
+    ASSERT_EQ(labels.size(), annotations->projectedLabelBoxes().size());
+    EXPECT_TRUE(labels.contains(QStringLiteral("M 99")));
+    EXPECT_TRUE(std::any_of(labels.begin(), labels.end(),
+                            [](const QString& label) { return label.startsWith(QStringLiteral("Star")); }));
+    EXPECT_FALSE(anyOverlap(annotations->projectedLabelBoxes()));
+    EXPECT_EQ(annotations->catalogQueriesAsked(), 2u) << "one query of each catalogue";
+
+    // The stars alone, as the view's toggles ask through the companion seam.
+    an::ui::setAstrometryOverlayLayers(*overlay, false, true);
+    EXPECT_FALSE(annotations->showsDeepSky());
+    ASSERT_TRUE(pumpUntil([&]() {
+        paint();
+        const QVector<QString> drawn = annotations->projectedLabels();
+        return !drawn.isEmpty() && std::all_of(drawn.begin(), drawn.end(), [](const QString& label) {
+            return label.startsWith(QStringLiteral("Star"));
+        });
+    }));
+}
+
+// The labels are laid out again for a zoom, at which they keep their size on the screen, and not for a scroll.
+TEST_F(AstrometryOverlaysTest, AZoomLaysTheLabelsOutAgainAndAScrollDoesNot)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
+    auto* annotations = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
+    ASSERT_NE(annotations, nullptr);
+    annotations->setLayers(true, false);
+    annotations->setCatalogSource(fixedCatalogs(deepSkyText(), brightStarText()));
+
+    ASSERT_TRUE(pumpUntil([&]() {
+        paint();
+        return !annotations->projectedLabels().isEmpty();
+    }));
+    const std::uint64_t first = annotations->layoutsMade();
+    EXPECT_GE(first, 1u);
+    ASSERT_FALSE(annotations->projectedLabelBoxes().isEmpty());
+    const double height = annotations->projectedLabelBoxes().front().height();
+
+    m_view->getViewWidget()->scaleImageView(4.0, true);
+    ASSERT_TRUE(pumpUntil([&]() {
+        paint();
+        return annotations->layoutsMade() > first;
+    }));
+    const std::uint64_t zoomed = annotations->layoutsMade();
+    ASSERT_FALSE(annotations->projectedLabelBoxes().isEmpty());
+    EXPECT_NEAR(annotations->projectedLabelBoxes().front().height(), height, 0.5)
+        << "a label keeps its size on the screen";
+
+    m_view->setViewportOffset(QPoint(150, 120));
+    paint();
+    an::tests::astrometry::pumpQuietly();
+    paint();
+    EXPECT_EQ(annotations->layoutsMade(), zoomed);
+}
+
 TEST_F(AstrometryOverlaysTest, ACatalogThatCannotBeReadDrawsNothingAndIsNotAskedForAgain)
 {
     show(fieldCards());
     std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
     auto* annotations = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
     ASSERT_NE(annotations, nullptr);
+    annotations->setLayers(true, false);
     annotations->setCatalogSource([](an::ui::BundledCatalog) -> an::Result<QByteArray> {
         return an::Status::failure(an::ErrorCode::ExternalFailure, "the catalog is not there");
     });
@@ -432,6 +706,7 @@ TEST_F(AstrometryOverlaysTest, ASourceChangedWhileAQueryRunsIsReadByTheNextQuery
     std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
     auto* annotations = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
     ASSERT_NE(annotations, nullptr);
+    annotations->setLayers(true, false);
     annotations->setCatalogSource(fixedCatalogs(deepSkyText(), brightStarText()));
     paint();
     EXPECT_EQ(annotations->catalogQueriesAsked(), 1u);
@@ -456,6 +731,7 @@ TEST_F(AstrometryOverlaysTest, AnAnswerThatLandsAfterTheOverlayIsGoneIsNeverDraw
             attached(an::ui::AstrometryOverlay::CatalogAnnotations);
         auto* annotations = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
         ASSERT_NE(annotations, nullptr);
+        annotations->setLayers(true, false);
         annotations->setCatalogSource(fixedCatalogs(deepSkyText(), brightStarText()));
         paint();
         EXPECT_EQ(annotations->catalogQueriesAsked(), 1u);
@@ -471,9 +747,11 @@ TEST_F(AstrometryOverlaysTest, TheOverlayLetsTheSessionGoOnceTheViewAndItAreGone
     // The catalog an overlay read holds a lease on the session's engine; it goes with the overlay.
     show(fieldCards());
     {
-        std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::BrightStarLabels);
-        auto* labels = dynamic_cast<an::ui::BrightStarAnnotationDisplayModule*>(overlay.get());
+        std::unique_ptr<::ImageViewWidgetDisplayModule> overlay =
+            attached(an::ui::AstrometryOverlay::CatalogAnnotations);
+        auto* labels = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
         ASSERT_NE(labels, nullptr);
+        labels->setLayers(false, true);
         labels->setCatalogSource(fixedCatalogs(deepSkyText(), brightStarText()));
         ASSERT_TRUE(pumpUntil([&]() {
             paint();

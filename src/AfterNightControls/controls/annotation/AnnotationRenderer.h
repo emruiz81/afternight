@@ -18,6 +18,7 @@
 #include "controls/annotation/AnnotationSettings.h"
 
 #include <QColor>
+#include <QRectF>
 
 class QPainter;
 
@@ -41,5 +42,18 @@ namespace an::ui
 /// @param style the style.
 AFTERNIGHTCONTROLS_API void paintAnnotations(QPainter& painter, const AnnotationScene& scene,
                                              const AnnotationLayout& layout, const AnnotationStyle& style);
+
+/// `paintAnnotations` for the part of the image a painter's device shows - a view's: a mark, a grid line's part, a
+/// label with its leader line or a decoration that does not reach into the part is not drawn, so a view's paint costs
+/// what it shows rather than all the image holds.
+///
+/// @param painter the painter, its transform from the image's pixels to its device.
+/// @param scene the scene.
+/// @param layout the scene's layout under the style.
+/// @param style the style.
+/// @param area the part of the image shown, in its own pixels.
+AFTERNIGHTCONTROLS_API void paintAnnotations(QPainter& painter, const AnnotationScene& scene,
+                                             const AnnotationLayout& layout, const AnnotationStyle& style,
+                                             const QRectF& area);
 
 } // namespace an::ui

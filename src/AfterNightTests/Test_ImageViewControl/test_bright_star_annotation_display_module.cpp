@@ -6,7 +6,6 @@
 #include "Test_ControlsAstrometry/AstrometryTestSupport.h"
 
 #include "app/BundledCatalogs.h"
-#include "controls/BrightStarAnnotationDisplayModule.h"
 
 #include <AfterNightEngine/Algorithms/Catalog/SkyCatalog.h>
 
@@ -44,7 +43,7 @@ an::CatalogRegionQuery brightQuery(const double ra, const double dec, const doub
 
 } // namespace
 
-TEST(BrightStarAnnotationDisplayModule, BundledCatalogFileLoadsSuccessfully)
+TEST(BrightStarCatalog, BundledCatalogFileLoadsSuccessfully)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();
     ASSERT_NE(direct, nullptr);
@@ -66,7 +65,7 @@ TEST(BrightStarAnnotationDisplayModule, BundledCatalogFileLoadsSuccessfully)
     EXPECT_TRUE(contains_name("Rigel"));
 }
 
-TEST(BrightStarAnnotationDisplayModule, QueryRegionFiltersByMagnitude)
+TEST(BrightStarCatalog, QueryRegionFiltersByMagnitude)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();
     ASSERT_NE(direct, nullptr);
@@ -83,7 +82,7 @@ TEST(BrightStarAnnotationDisplayModule, QueryRegionFiltersByMagnitude)
     EXPECT_EQ(bright_only.front()->commonName, "Sirius");
 }
 
-TEST(BrightStarAnnotationDisplayModule, QueryRegionNearRaWrapAround)
+TEST(BrightStarCatalog, QueryRegionNearRaWrapAround)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();
     ASSERT_NE(direct, nullptr);
@@ -97,7 +96,7 @@ TEST(BrightStarAnnotationDisplayModule, QueryRegionNearRaWrapAround)
     EXPECT_EQ(matches.front()->commonName, "Wrap Star");
 }
 
-TEST(BrightStarAnnotationDisplayModule, AStarWithNoMagnitudeIsNeverLabelledUnderALimit)
+TEST(BrightStarCatalog, AStarWithNoMagnitudeIsNeverLabelledUnderALimit)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();
     ASSERT_NE(direct, nullptr);
@@ -108,7 +107,7 @@ TEST(BrightStarAnnotationDisplayModule, AStarWithNoMagnitudeIsNeverLabelledUnder
     EXPECT_TRUE(regionEntries(direct->execution(), *catalog, brightQuery(101.3, -16.7, 2.0, 6.5)).empty());
 }
 
-TEST(BrightStarAnnotationDisplayModule, LoadFromCsvRejectsInvalidRows)
+TEST(BrightStarCatalog, LoadFromCsvRejectsInvalidRows)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();
     ASSERT_NE(direct, nullptr);

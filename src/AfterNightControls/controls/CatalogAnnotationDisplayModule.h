@@ -2,12 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// The deep-sky annotations a view draws over a solved image: the bundled catalog's objects inside the visible field,
-/// each outlined by its size and position angle and labelled with its designation.
+/// The catalogue annotations a view draws over a solved image: the bundled catalogues' deep-sky objects and bright
+/// stars, each a layer the view draws or not, kept, merged and named as an annotated picture keeps them, and laid out
+/// together as it lays out its labels - no label covers another - with every label the same size on the screen at any
+/// zoom, in the picture's palette.
 ///
-/// The catalog is read and queried for the whole image's field on a worker (`detail::FieldCatalogQueries`), which
-/// keeps, merges and names its objects as an annotated picture does (`detail::overlayAnnotationContent`), so the view
-/// and a picture of it name the same objects alike; a paint draws those near what the view shows at its scale.
+/// **Nothing waits on the GUI thread.** Each catalogue is read and queried for the whole image's field on a worker
+/// (`detail::FieldCatalogQueries`), which builds its layer's scene; the layers' scenes are laid out at the view's zoom
+/// on a worker whenever the zoom or what is drawn changes (`detail::layoutOverlayAnnotations`), so a scroll draws the
+/// layout there is, and a zoom draws the last one until its own lands. A paint draws the layout through the annotated
+/// picture's renderer over the part of the image the view shows.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -19,6 +23,7 @@
 #include <AfterNightEngine/Algorithms/Catalog/CatalogRecord.h>
 
 #include <QPointF>
+#include <QRectF>
 #include <QString>
 #include <QVector>
 
@@ -132,17 +137,37 @@ public:
     void setMagnitudeLimit(double magnitude_limit);
     [[nodiscard]] double magnitudeLimit() const;
 
-    /// The labels the last projection drew, in drawing order.
+    /// Which catalogues the overlay draws: the deep-sky objects, the bright stars, or both - as it does unless told
+    /// otherwise. A catalogue not drawn is not asked.
+    ///
+    /// @param deepSky whether the deep-sky objects are drawn.
+    /// @param stars whether the bright stars are drawn.
+    void setLayers(bool deepSky, bool stars);
+
+    /// Whether the overlay draws the deep-sky objects.
+    [[nodiscard]] bool showsDeepSky() const;
+
+    /// Whether the overlay draws the bright stars.
+    [[nodiscard]] bool showsStars() const;
+
+    /// The labels the layout drawn last placed, in the order it placed them: the most prominent object's first.
     [[nodiscard]] QVector<QString> projectedLabels() const;
 
-    /// How many catalog queries the overlay asked a worker for.
+    /// Where those labels were drawn, in the widget's pixels at the scale they were drawn at.
+    [[nodiscard]] QVector<QRectF> projectedLabelBoxes() const;
+
+    /// How many catalog queries the overlay asked a worker for, of either catalogue.
     [[nodiscard]] std::uint64_t catalogQueriesAsked() const;
 
-    /// Reads the catalog's text from another source than the product's resources.
+    /// How many layouts made on workers landed to be drawn.
+    [[nodiscard]] std::uint64_t layoutsMade() const;
+
+    /// Reads the catalogues' text from another source than the product's resources.
     void setCatalogSource(BundledCatalogSource source);
 
 private:
-    void invalidateCache();
+    /// Sets aside the layout drawn: what it was made of changed.
+    void invalidate();
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;

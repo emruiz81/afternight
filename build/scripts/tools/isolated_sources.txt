@@ -1013,7 +1013,6 @@ sources Test_ControlsAstrometry
     header   src/AfterNightControls/controls/AstrometryOverlayUtils.h
     header   src/AfterNightControls/controls/AstrometryStarDisplayModule.h
     header   src/AfterNightControls/controls/AstrometryStarOverlayUtils.h
-    header   src/AfterNightControls/controls/BrightStarAnnotationDisplayModule.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/CatalogAnnotationDisplayModule.h
     header   src/AfterNightControls/controls/CoordinateGridDisplayModule.h
@@ -1823,7 +1822,6 @@ sources Test_ImageViewControl
     header   src/AfterNightControls/controls/AutostretchApply.h
     header   src/AfterNightControls/controls/AutostretchSettingsControl.h
     header   src/AfterNightControls/controls/AutostretchSettingsControlUiBuilder.h
-    header   src/AfterNightControls/controls/BrightStarAnnotationDisplayModule.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/CalibrationPreviewUtils.h
     header   src/AfterNightControls/controls/CatalogAnnotationDisplayModule.h

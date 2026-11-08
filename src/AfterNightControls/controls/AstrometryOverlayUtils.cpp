@@ -7,6 +7,7 @@
 
 #include "app/AppContextHelpers.h"
 #include "controls/ImageViewControl.h"
+#include "controls/annotation/AnnotationLayout.h"
 #include "controls/annotation/AnnotationScene.h"
 #include "controls/annotation/AnnotationSettings.h"
 #include "session/IEngineSessionProvider.h"
@@ -23,8 +24,11 @@
 #include <QThreadPool>
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <span>
 #include <utility>
+#include <vector>
 
 namespace an::ui::detail
 {
@@ -145,6 +149,98 @@ AnnotationContent overlayAnnotationContent(const BundledCatalog catalog, const d
     return content;
 }
 
+OverlayAnnotationLayout layoutOverlayAnnotations(const AnnotationScene* deepSky, const AnnotationScene* stars,
+                                                 const double scale, const double fontPixels,
+                                                 const AnnotationStyle& style)
+{
+    OverlayAnnotationLayout result;
+    const AnnotationScene* frame = deepSky != nullptr ? deepSky : stars;
+    if (frame == nullptr || frame->imageSize.isEmpty() || !(frame->referenceLength > 0.0) || !std::isfinite(scale) ||
+        !(scale > 0.0) || !std::isfinite(fontPixels) || !(fontPixels > 0.0))
+    {
+        return result;
+    }
+    const double unitFont = annotationMetrics(1.0, style).fontSize;
+    if (!(unitFont > 0.0))
+    {
+        return result;
+    }
+
+    AnnotationScene merged;
+    merged.imageSize = frame->imageSize;
+    merged.referenceLength = frame->referenceLength;
+    for (const AnnotationScene* layer : {deepSky, stars})
+    {
+        if (layer != nullptr)
+        {
+            merged.marks.insert(merged.marks.end(), layer->marks.begin(), layer->marks.end());
+        }
+    }
+    // The order a scene of both layers is built in: the most prominent first, then by designation.
+    std::stable_sort(merged.marks.begin(), merged.marks.end(),
+                     [](const AnnotationMark& left, const AnnotationMark& right) {
+                         if (left.priority != right.priority)
+                         {
+                             return left.priority > right.priority;
+                         }
+                         return left.designation < right.designation;
+                     });
+
+    // Each mark is labelled on one line, as its overlay labels it, and every length the scene gives a mark follows the
+    // reference length that sets a label `fontPixels` tall on the screen at this scale.
+    const AnnotationLabelText deepSkyText = overlayAnnotationContent(BundledCatalog::DeepSky, 0.0).labelText;
+    const AnnotationLabelText starText = overlayAnnotationContent(BundledCatalog::BrightStars, 0.0).labelText;
+    const double reference = fontPixels / (scale * unitFont);
+    const double ratio = reference / merged.referenceLength;
+    for (AnnotationMark& mark : merged.marks)
+    {
+        mark.designation =
+            annotationLabelLines(mark, mark.kind == AnnotationMarkKind::Star ? starText : deepSkyText).first;
+        mark.name.clear();
+        mark.radius *= ratio;
+    }
+    merged.referenceLength = reference;
+
+    AnnotationContent content = overlayAnnotationContent(BundledCatalog::DeepSky, kAnnotationNoMagnitudeLimit);
+    content.labelText = AnnotationLabelText::Designation;
+    AnnotationLayout laid = layoutAnnotations(merged, content, style);
+
+    // A star whose label found no room is left out; every deep-sky object keeps its outline.
+    auto shown = std::make_shared<AnnotationScene>();
+    shown->imageSize = merged.imageSize;
+    shown->referenceLength = merged.referenceLength;
+    auto layout = std::make_shared<AnnotationLayout>();
+    layout->metrics = laid.metrics;
+    constexpr std::size_t kLeftOut = std::numeric_limits<std::size_t>::max();
+    std::vector<std::size_t> kept(merged.marks.size(), kLeftOut);
+    for (std::size_t index = 0u; index < merged.marks.size(); ++index)
+    {
+        const bool labelled = index < laid.labelled.size() && laid.labelled[index];
+        if (merged.marks[index].kind == AnnotationMarkKind::Star && !labelled)
+        {
+            continue;
+        }
+        kept[index] = shown->marks.size();
+        shown->marks.push_back(std::move(merged.marks[index]));
+        layout->labelled.push_back(labelled);
+    }
+    for (AnnotationLabel& label : laid.labels)
+    {
+        if (label.role == AnnotationLabelRole::Object)
+        {
+            if (label.source >= kept.size() || kept[label.source] == kLeftOut)
+            {
+                continue;
+            }
+            label.source = kept[label.source];
+        }
+        layout->labels.push_back(std::move(label));
+    }
+    result.scene = std::move(shown);
+    result.layout = std::move(layout);
+    return result;
+}
+
 struct FieldCatalogQueries::State
 {
     BundledCatalog catalog;
@@ -178,6 +274,11 @@ FieldCatalogQueries::FieldCatalogQueries(const BundledCatalog catalog, const dou
 std::uint64_t FieldCatalogQueries::queriesAsked() const noexcept
 {
     return m_state->queriesAsked;
+}
+
+bool FieldCatalogQueries::isAsking() const noexcept
+{
+    return m_state->asking;
 }
 
 void FieldCatalogQueries::setSource(BundledCatalogSource source)
