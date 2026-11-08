@@ -80,6 +80,7 @@
 #include <optional>
 #include <shared_mutex>
 #include <unordered_map>
+#include <vector>
 
 namespace
 {
@@ -931,6 +932,10 @@ struct ImageViewControl::Impl
     QAction* m_ImageViewModeComboBoxAction = nullptr;
     QAction* m_CalibrationPreviewAction = nullptr;
     QAction* m_StatsOverlayToggleAction = nullptr;
+    /// The toolbar's choices of how the image is presented - the channel, the display mode, the stretch's settings,
+    /// the statistics - and the separators between them, which a preview whose owner decides them does not offer.
+    std::vector<QPointer<QAction>> m_PresentationChoiceActions;
+    bool m_PresentationChoicesOffered = true;
     ViewControlTextOverlay* m_ViewControlTextOverlay = nullptr;
     StatsOverlayWidget* m_StaticPreviewStatsOverlay = nullptr;
     bool m_StaticPreviewStatsOverlayVisible = true;
@@ -1148,7 +1153,7 @@ struct ImageViewControl::Impl
     /// shows the image stretched, and one window is open at a time.
     [[nodiscard]] bool autostretchSettingsAvailable() const
     {
-        return !m_AutostretchSettingsOpen && m_ImageViewWidget &&
+        return m_PresentationChoicesOffered && !m_AutostretchSettingsOpen && m_ImageViewWidget &&
                m_ImageViewWidget->getViewMode() == ImageViewMode::AUTOSTRETCH_MODE;
     }
 
@@ -1372,7 +1377,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_MaximizeAction->setToolTip("Maximize image view (F11)");
     }
 
-    m_impl->m_ToolBar->addSeparator();
+    m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_ToolBar->addSeparator());
 
     // Create the image view channel combobox
     m_impl->m_imageViewChannelComboBox = new QComboBox();
@@ -1384,12 +1389,12 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     m_impl->m_imageViewChannelComboBox->setMinimumContentsLength(9);
     m_impl->m_imageViewChannelComboBox->setMinimumWidth(kImageChannelComboMinWidth);
 
-    m_impl->m_ToolBar->addWidget(m_impl->m_imageViewChannelComboBox);
+    m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_ToolBar->addWidget(m_impl->m_imageViewChannelComboBox));
 
     QObject::connect(m_impl->m_imageViewChannelComboBox, &QComboBox::currentTextChanged, this,
                      &ImageViewControl::on_imageViewChannelComboBox_currentTextChanged);
 
-    m_impl->m_ToolBar->addSeparator();
+    m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_ToolBar->addSeparator());
 
     // Create the image view mode combobox
     if (mode == ViewControlMode::standard)
@@ -1595,7 +1600,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_imageViewModeComboBox->setAccessibleName(QStringLiteral("Display Mode"));
         m_impl->m_imageViewModeComboBox->setToolTip(QStringLiteral("Display Mode"));
 
-        m_impl->m_ToolBar->addWidget(m_impl->m_imageViewModeComboBox);
+        m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_ToolBar->addWidget(m_impl->m_imageViewModeComboBox));
 
         QObject::connect(m_impl->m_imageViewModeComboBox, &QComboBox::currentTextChanged, this,
                          &ImageViewControl::on_imageViewModeComboBox_currentTextChanged);
@@ -1608,6 +1613,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_AutostretchSettingsAction = m_impl->m_ToolBar->addAction(
             iconManager->getIcon("settings"), "Autostretch Settings", this, &ImageViewControl::autostretchSettings);
         m_impl->m_AutostretchSettingsAction->setToolTip(tr("Autostretch Settings (Ctrl+Shift+A)"));
+        m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_AutostretchSettingsAction);
         m_impl->refreshAutostretchSettingsAvailability();
 
         m_impl->m_StatsOverlayToggleAction = m_impl->m_ToolBar->addAction(
@@ -1618,6 +1624,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_StatsOverlayToggleAction->setCheckable(true);
         m_impl->m_StatsOverlayToggleAction->setChecked(true);
         m_impl->m_StatsOverlayToggleAction->setToolTip(tr("Show / hide image statistics overlay"));
+        m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_StatsOverlayToggleAction);
 
         m_impl->updateCalibrationToolTip();
     }
@@ -3038,6 +3045,34 @@ void ImageViewControl::setMeasuresPreviewStatistics(const bool measures)
     if (!measures)
     {
         m_impl->m_Statistics.cancel();
+    }
+}
+
+void ImageViewControl::setPresentationChoicesOffered(const bool offered)
+{
+    CHECK_IF_CONTROL_IS_CLOSING;
+
+    m_impl->m_PresentationChoicesOffered = offered;
+    for (const QPointer<QAction>& action : m_impl->m_PresentationChoiceActions)
+    {
+        if (action)
+        {
+            // Hidden here rather than by the overflow, whose next pass would show it again.
+            action->setProperty(kOverflowHiddenProperty, false);
+            action->setVisible(offered);
+        }
+    }
+    m_impl->refreshAutostretchSettingsAvailability();
+    setMeasuresPreviewStatistics(offered);
+    m_impl->m_StaticPreviewStatsOverlayVisible =
+        offered && (m_impl->m_StatsOverlayToggleAction == nullptr || m_impl->m_StatsOverlayToggleAction->isChecked());
+    m_impl->updateStaticPreviewStatsOverlay(offered ? m_impl->m_StaticPreviewOverlayStats : std::nullopt);
+    m_impl->m_ShowAutostretchBanner = offered;
+    enableAutostretchBanner(offered && m_impl->m_ImageViewWidget != nullptr &&
+                            m_impl->m_ImageViewWidget->getViewMode() == ImageViewMode::AUTOSTRETCH_MODE);
+    if (auto* customToolBar = dynamic_cast<CustomToolBar*>(m_impl->m_ToolBar))
+    {
+        customToolBar->refreshOverflow();
     }
 }
 

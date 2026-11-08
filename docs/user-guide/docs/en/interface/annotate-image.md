@@ -64,10 +64,11 @@ closes with its view.
 4. Under **Style**, choose a **Palette**. Under **Text**, choose the font, its
    weight and the **Label size**; under **Lines**, the **Line width**, whether
    objects are filled and how the stars are marked. The text and the lines are
-   set apart: no choice of one changes the other. Scroll over the preview to
-   zoom, drag to move, and double-click to zoom in or fit again: the labels stay
-   sharp at every zoom, and the image is shown again at the resolution the zoom
-   needs.
+   set apart: no choice of one changes the other. The preview zooms and moves
+   as an image view does - the mouse wheel, a middle-button drag, and its
+   **Fit To Window**, **Zoom In**, **Zoom Out** and **Zoom 100%** buttons - and
+   holding the left button opens the sample lens. The labels stay sharp at
+   every zoom.
 5. Under **Info Panel and Placement**, type a **Title** - empty takes the target
    the image header names - and a **Credit**, choose the facts the panel states
    and the corners of the panel, the compass and the scale bar.
@@ -183,8 +184,12 @@ stay right near a pole and in wide fields.
 
 **The preview** is laid out again on a worker for each change of what is shown
 or how labels are placed; a change of colour only draws again. The image under
-it is presented at the size the preview shows, and again at a larger size when
-you zoom in, up to 4096 pixels on its longest side.
+it is the view's own image, shown - not copied - in a compact image view, so it
+is presented and drawn exactly as the [Image Viewer](image-viewer.md) shows an
+image at every zoom. Its toolbar offers the zoom alone: the stretch is the
+window's **Image** choice - as the view shows it, or as stored - and the
+picture is stretched as the preview shows it. A transparent picture is
+previewed over a checkerboard.
 
 ## Inputs, outputs, and metadata
 

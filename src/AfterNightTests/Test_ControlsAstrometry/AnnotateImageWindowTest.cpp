@@ -18,21 +18,30 @@
 #include "controls/annotation/AnnotationLayout.h"
 #include "controls/annotation/AnnotationScene.h"
 #include "controls/annotation/AnnotationSettings.h"
+#include "widgets/ImageViewWidget.h"
+#include "widgets/ViewPresentation.h"
 
 #include <QCheckBox>
+#include <QCoreApplication>
 #include <QColorDialog>
 #include <QComboBox>
+#include <QDialog>
 #include <QDoubleSpinBox>
 #include <QFileInfo>
 #include <QFontComboBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QTemporaryDir>
+#include <QToolBar>
 #include <QToolButton>
+#include <QtTest/QTest>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdint>
+#include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -144,10 +153,10 @@ protected:
         m_context.reset();
     }
 
-    void show(std::vector<an::CodecCard> cards)
+    void show(std::vector<an::CodecCard> cards, const std::uint32_t width = 400u, const std::uint32_t height = 300u)
     {
         std::optional<an::ui::ImageDocument> document =
-            makeCardDocument(m_context->engineSession(), 400u, 300u, std::move(cards));
+            makeCardDocument(m_context->engineSession(), width, height, std::move(cards));
         ASSERT_TRUE(document.has_value());
         m_view->setDocument(std::move(*document));
         m_view->initializeNewImageHistory("Image opened");
@@ -180,6 +189,12 @@ protected:
         return found;
     }
 
+    /// The window's preview: a view of the image.
+    [[nodiscard]] static ImageViewControl* previewOf(an::ui::AnnotateImageControl& window)
+    {
+        return window.findChild<ImageViewControl*>(QStringLiteral("annotatePreview"));
+    }
+
     QTemporaryDir m_directory;
     std::unique_ptr<PictureViewsContext> m_context;
     std::optional<InstalledContext> m_installed;
@@ -207,6 +222,140 @@ TEST_F(AnnotateImageWindowTest, TheWindowPreviewsTheAnnotationsOfTheSolvedImageA
 
     // Asking again raises the window already open.
     EXPECT_EQ(an::ui::openViewTool(an::ui::ViewTool::AnnotateImage, *m_view), &window);
+}
+
+// The preview is a view of the image itself - the image the view shows, shared and not copied - that offers its zoom
+// and none of the choices of how the image is presented, which are the window's; the annotations are drawn over it.
+TEST_F(AnnotateImageWindowTest, ThePreviewIsAViewOfTheImageItselfThatOffersItsZoomAlone)
+{
+    show(fieldCards());
+    an::ui::AnnotateImageControl& window = open();
+    ASSERT_TRUE(settled());
+    ImageViewControl* preview = previewOf(window);
+    ASSERT_NE(preview, nullptr);
+    EXPECT_EQ(preview->getViewControlMode(), ViewControlMode::st_preview);
+    ASSERT_TRUE(preview->hasImage());
+    EXPECT_TRUE(preview->document().isShared());
+    EXPECT_EQ(preview->document().asset(), m_view->document().asset());
+    ASSERT_NE(preview->getViewWidget(), nullptr);
+    EXPECT_GE(preview->getViewWidget()->getNumOfDisplayModules(), 1u) << "the annotations are a display module";
+
+    auto* toolbar = preview->findChild<QToolBar*>(QStringLiteral("anImageViewToolbar"));
+    ASSERT_NE(toolbar, nullptr);
+    std::vector<QString> offered;
+    for (QAction* action : toolbar->actions())
+    {
+        if (action->isVisible() && !action->isSeparator() && !action->text().isEmpty())
+        {
+            offered.push_back(action->text());
+        }
+    }
+    EXPECT_EQ(offered, (std::vector<QString>{QStringLiteral("Fit To Window"), QStringLiteral("Zoom In"),
+                                             QStringLiteral("Zoom Out"), QStringLiteral("Zoom 100%")}));
+    for (const QComboBox* combo : toolbar->findChildren<QComboBox*>())
+    {
+        EXPECT_FALSE(combo->isVisibleTo(preview)) << combo->accessibleName().toStdString();
+    }
+    EXPECT_FALSE(preview->previewStatistics().has_value()) << "the preview measures no statistics";
+}
+
+// The preview presents the image as the view shows it - its display mode and the stretch's settings - or as it is
+// stored; the stretch is the window's choice, and the preview's own settings are not reached by their shortcut.
+TEST_F(AnnotateImageWindowTest, ThePreviewPresentsTheImageAsTheViewShowsItOrAsItIsStored)
+{
+    show(fieldCards());
+    m_view->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
+    AutostretchParams params = m_view->getViewWidget()->getAutostretchSettings();
+    params.targetBackground = 0.18;
+    params.linkedChannels = true;
+    params.contrast = 12;
+    m_view->getViewWidget()->setAutostretchSettings(params);
+    an::ui::AnnotateImageControl& window = open();
+    ASSERT_TRUE(settled());
+    ImageViewControl* preview = previewOf(window);
+    ASSERT_NE(preview, nullptr);
+    const auto keyOf = [](const ImageViewWidget& widget) {
+        an::ui::ViewPresentationSettings settings;
+        settings.request = widget.presentationRequest();
+        return an::ui::viewPresentationKey(settings);
+    };
+    EXPECT_EQ(preview->getViewWidget()->presentationRequest().stretch, an::PresentationStretch::Automatic);
+    EXPECT_EQ(keyOf(*preview->getViewWidget()), keyOf(*m_view->getViewWidget()));
+
+    QTest::keyClick(preview->getViewWidget(), Qt::Key_A, Qt::ControlModifier | Qt::ShiftModifier);
+    QCoreApplication::processEvents();
+    EXPECT_EQ(preview->findChild<QDialog*>(), nullptr) << "the preview opens no stretch settings of its own";
+
+    an::ui::AnnotationSettings stored = window.settings();
+    stored.output.stretch = an::ui::AnnotationStretch::AsStored;
+    window.setSettings(stored);
+    EXPECT_EQ(preview->getViewWidget()->presentationRequest().stretch, an::PresentationStretch::Linear);
+
+    stored.output.stretch = an::ui::AnnotationStretch::AsShown;
+    window.setSettings(stored);
+    EXPECT_EQ(keyOf(*preview->getViewWidget()), keyOf(*m_view->getViewWidget()));
+}
+
+// Another image in the view is the preview's image too.
+TEST_F(AnnotateImageWindowTest, ThePreviewShowsTheImageTheViewShowsNow)
+{
+    show(fieldCards());
+    an::ui::AnnotateImageControl& window = open();
+    ASSERT_TRUE(settled());
+    ImageViewControl* preview = previewOf(window);
+    ASSERT_NE(preview, nullptr);
+    const std::shared_ptr<const an::consumer::ImageAsset> before = preview->document().asset();
+
+    show(fieldCards());
+    EXPECT_TRUE(pumpUntil([&]() { return preview->document().asset() == m_view->document().asset(); }));
+    EXPECT_NE(preview->document().asset(), before);
+}
+
+// A transparent picture is previewed over a checkerboard in the image's place, the annotations over it.
+TEST_F(AnnotateImageWindowTest, ATransparentPictureIsPreviewedOverACheckerboard)
+{
+    show(fieldCards());
+    an::ui::AnnotateImageControl& window = open();
+    ASSERT_TRUE(settled());
+    ImageViewControl* preview = previewOf(window);
+    ASSERT_NE(preview, nullptr);
+    const auto grabbed = [preview]() {
+        return preview->getViewWidget()->grab().toImage().convertToFormat(QImage::Format_RGB32);
+    };
+    const QImage overImage = grabbed();
+
+    an::ui::AnnotationSettings transparent = window.settings();
+    transparent.output.background = an::ui::AnnotationBackground::Transparent;
+    window.setSettings(transparent);
+    ASSERT_TRUE(settled());
+    const QImage overBoard = grabbed();
+    ASSERT_FALSE(overBoard.isNull());
+    ASSERT_EQ(overBoard.size(), overImage.size());
+
+    // The image's place is taken by a board of two colours: most of what was the image changes, and two colours cover
+    // most of the preview, the annotations over them.
+    std::int64_t changed = 0;
+    std::map<QRgb, std::int64_t> colours;
+    for (int y = 0; y < overBoard.height(); ++y)
+    {
+        for (int x = 0; x < overBoard.width(); ++x)
+        {
+            const QRgb pixel = overBoard.pixel(x, y);
+            changed += pixel != overImage.pixel(x, y) ? 1 : 0;
+            ++colours[pixel];
+        }
+    }
+    std::vector<std::int64_t> counts;
+    for (const auto& [colour, count] : colours)
+    {
+        counts.push_back(count);
+    }
+    std::sort(counts.rbegin(), counts.rend());
+    ASSERT_GE(counts.size(), 2u);
+    const std::int64_t half = static_cast<std::int64_t>(overBoard.width()) * overBoard.height() / 2;
+    EXPECT_GT(changed, half);
+    EXPECT_GT(counts[0] + counts[1], half);
+    EXPECT_GT(counts[1], counts[0] / 4) << "the board's two colours each cover a share of it";
 }
 
 TEST_F(AnnotateImageWindowTest, AnotherLevelOfDetailLaysThePreviewOutAgain)

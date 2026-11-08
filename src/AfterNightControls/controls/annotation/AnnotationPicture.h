@@ -43,6 +43,7 @@
 #include <QSize>
 #include <QSizeF>
 
+#include <cstdint>
 #include <memory>
 #include <stop_token>
 #include <vector>
@@ -104,9 +105,19 @@ struct AnnotationBase
 [[nodiscard]] AFTERNIGHTCONTROLS_API ViewPresentationSettings annotationPresentationSettings(
     const std::optional<ViewPresentationSettings>& shown, AnnotationStretch stretch, bool linear);
 
+/// The display-proxy reduction an image is presented through for a picture of a size: the largest that leaves the
+/// presentation at least the picture's size, so what is drawn of it is reduced by less than two more - or magnified -
+/// on its way to the picture. A picture the image's size or larger takes the image's own pixels.
+///
+/// @param imageSize the image's size.
+/// @param pictureSize the picture's size.
+/// @return the reduction; 1 for an empty size.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::uint32_t annotationPresentationFactor(QSize imageSize,
+                                                                                QSize pictureSize) noexcept;
+
 /// Presents an image for a picture of a size: through the largest display-proxy reduction that leaves it at least that
-/// size, stretched through the handed analysis or, when none is handed or it is refused, the whole image's measured
-/// here.
+/// size (`annotationPresentationFactor`), stretched through the handed analysis or, when none is handed or it is
+/// refused, the whole image's measured here.
 ///
 /// @param scope the presentation's admitted operation.
 /// @param image the image, under a read lease held for the call.

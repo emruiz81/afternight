@@ -151,6 +151,20 @@ ViewPresentationSettings annotationPresentationSettings(const std::optional<View
     return settings;
 }
 
+std::uint32_t annotationPresentationFactor(const QSize imageSize, const QSize pictureSize) noexcept
+{
+    if (imageSize.isEmpty() || pictureSize.isEmpty())
+    {
+        return 1u;
+    }
+    const auto width = static_cast<std::uint32_t>(imageSize.width());
+    const auto height = static_cast<std::uint32_t>(imageSize.height());
+    const double across = static_cast<double>(width) / static_cast<double>(pictureSize.width());
+    const double down = static_cast<double>(height) / static_cast<double>(pictureSize.height());
+    const auto wanted = static_cast<std::uint32_t>((std::max)(1.0, std::floor((std::min)(across, down))));
+    return (std::max)(1u, (std::min)(wanted, largestDisplayProxyFactor(width, height)));
+}
+
 an::Result<AnnotationBase> presentAnnotationBase(const an::consumer::OperationScope& scope,
                                                  const an::consumer::AssetReadLease& image,
                                                  const ViewPresentationSettings& settings,
@@ -162,12 +176,7 @@ an::Result<AnnotationBase> presentAnnotationBase(const an::consumer::OperationSc
     {
         return refused(an::ErrorCode::InvalidArgument, "the image or the picture has no size");
     }
-    const auto width = static_cast<std::uint32_t>(imageSize.width());
-    const auto height = static_cast<std::uint32_t>(imageSize.height());
-    const double across = static_cast<double>(width) / static_cast<double>(pictureSize.width());
-    const double down = static_cast<double>(height) / static_cast<double>(pictureSize.height());
-    const auto wanted = static_cast<std::uint32_t>((std::max)(1.0, std::floor((std::min)(across, down))));
-    const std::uint32_t factor = (std::min)(wanted, largestDisplayProxyFactor(width, height));
+    const std::uint32_t factor = annotationPresentationFactor(imageSize, pictureSize);
 
     ViewPresentationSettings presentation = settings;
     presentation.proxyFactor = factor;
