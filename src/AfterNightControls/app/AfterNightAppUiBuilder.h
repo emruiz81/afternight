@@ -88,6 +88,7 @@ public:
     QAction* actionFITSHeader;
     QAction* actionAstrometryInfo;
     QAction* actionPlateSolve;
+    QAction* actionAnnotateImage;
     QAction* actionAdjustBrightness_Contrast;
     QAction* actionGamma_Correction;
     QAction* actionAdjustHSL;
@@ -400,6 +401,9 @@ public:
         actionPlateSolve = new QAction(AfterNightAppClass);
         actionPlateSolve->setObjectName("actionPlateSolve");
         actionPlateSolve->setEnabled(false);
+        actionAnnotateImage = new QAction(AfterNightAppClass);
+        actionAnnotateImage->setObjectName("actionAnnotateImage");
+        actionAnnotateImage->setEnabled(false);
         actionAdjustBrightness_Contrast = new QAction(AfterNightAppClass);
         actionAdjustBrightness_Contrast->setObjectName("actionAdjustBrightness_Contrast");
         actionAdjustBrightness_Contrast->setEnabled(true);
@@ -853,6 +857,7 @@ public:
         menuInformation->addAction(actionFITSHeader);
         menuInformation->addAction(actionAstrometryInfo);
         menuInformation->addAction(actionPlateSolve);
+        menuInformation->addAction(actionAnnotateImage);
         menuInformation->addAction(actionSummary);
         menuMask->addAction(actionSelect_Mask);
         menuMask->addAction(actionRemove_Mask);
@@ -1115,6 +1120,7 @@ public:
         actionFITSHeader->setText(QCoreApplication::translate("AfterNightAppClass", "FITS Header", nullptr));
         actionAstrometryInfo->setText(QCoreApplication::translate("AfterNightAppClass", "Astrometry Info", nullptr));
         actionPlateSolve->setText(QCoreApplication::translate("AfterNightAppClass", "Plate Solve", nullptr));
+        actionAnnotateImage->setText(QCoreApplication::translate("AfterNightAppClass", "Annotate Image...", nullptr));
         actionAdjustBrightness_Contrast->setText(
             QCoreApplication::translate("AfterNightAppClass", "Brightness/Contrast", nullptr));
         actionGamma_Correction->setText(QCoreApplication::translate("AfterNightAppClass", "Gamma Correction", nullptr));

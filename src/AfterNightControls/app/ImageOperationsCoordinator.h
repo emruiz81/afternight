@@ -114,6 +114,9 @@ public:
     void imageSummary() const;
     void plateSolve() const;
 
+    /// Opens the Annotate Image window over the active view's solved image.
+    void annotateImage() const;
+
     void fitImageAllWindows() const;
 
 private:

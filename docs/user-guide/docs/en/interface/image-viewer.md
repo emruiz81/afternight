@@ -81,6 +81,7 @@ When the toolbar is too narrow, **More** moves a rightmost group of actions into
 | Star magnitude limit | Exclusive popup choices | Saved setting | ≤6, ≤8, ≤10, ≤12, ≤14, ≤16, All | Discrete | Astrometry master is on | Limits displayed catalog stars | Current solved still display | Global setting |
 | Astrometry Info | Toolbar action; `Ctrl+Shift+P` | Hidden on sequences | Information window | Open | Current still has WCS | Opens solution/projection/field information | Current solved still | Window/session only |
 | Plate Solve | Toolbar action; `Ctrl+P` | Visible for a still | Plate Solving process | Open | Current still satisfies plate-solving launch guard | Opens plate-solving controls for this target | Current still | Process-specific |
+| Annotate Image | Toolbar action; `Ctrl+Shift+L` | Visible for a solved still | [Annotate Image](annotate-image.md) window | Open | Current still has WCS | Opens the annotated-picture window for this target | Current solved still | Choices kept in `annotation/settings` |
 
 ### Real-time and static preview controls
 

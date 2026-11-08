@@ -970,6 +970,8 @@ sources Test_ControlsFiles
 # solved image. The plate-solve cases moved here from the integration suite. Its cases link the Controls library and
 # compile nothing of it.
 sources Test_ControlsAstrometry
+    unit     src/AfterNightTests/Test_ControlsAstrometry/AnnotateImageWindowTest.cpp
+    unit     src/AfterNightTests/Test_ControlsAstrometry/AnnotationTest.cpp
     unit     src/AfterNightTests/Test_ControlsAstrometry/AstrometryOverlaysTest.cpp
     unit     src/AfterNightTests/Test_ControlsAstrometry/AstrometryWebSolveTest.cpp
     unit     src/AfterNightTests/Test_ControlsAstrometry/CatalogDownloadServiceTest.cpp
@@ -995,6 +997,7 @@ sources Test_ControlsAstrometry
     header   src/AfterNightControls/app/CatalogDownloadService.h
     header   src/AfterNightControls/app/CatalogSearchService.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
+    header   src/AfterNightControls/app/FilePolicies.h
     header   src/AfterNightControls/app/GaiaCatalogSettings.h
     header   src/AfterNightControls/app/GaiaCatalogSource.h
     header   src/AfterNightControls/app/ObservationEpochUtils.h
@@ -1029,6 +1032,12 @@ sources Test_ControlsAstrometry
     header   src/AfterNightControls/controls/PlateSolveControl.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/ViewControlMode.h
+    header   src/AfterNightControls/controls/annotation/AnnotateImageControl.h
+    header   src/AfterNightControls/controls/annotation/AnnotationLayout.h
+    header   src/AfterNightControls/controls/annotation/AnnotationPicture.h
+    header   src/AfterNightControls/controls/annotation/AnnotationRenderer.h
+    header   src/AfterNightControls/controls/annotation/AnnotationScene.h
+    header   src/AfterNightControls/controls/annotation/AnnotationSettings.h
     header   src/AfterNightControls/controls/settings/SettingsDefaults.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
     header   src/AfterNightControls/dialogs/CatalogSearchDialog.h
@@ -1980,6 +1989,7 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/app/AfterNightExtensionProtocol.h
     header   src/AfterNightControls/app/AppLifecycleCoordinator.h
     header   src/AfterNightControls/app/ApplicationStorage.h
+    header   src/AfterNightControls/app/BundledCatalogs.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
     header   src/AfterNightControls/app/DialogOrchestrationCoordinator.h
     header   src/AfterNightControls/app/ExtensionCommon.h
@@ -2082,6 +2092,8 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/controls/ThumbnailPersistence.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
+    header   src/AfterNightControls/controls/annotation/AnnotateImageControl.h
+    header   src/AfterNightControls/controls/annotation/AnnotationSettings.h
     header   src/AfterNightControls/controls/settings/ExtensionManagerPage.h
     header   src/AfterNightControls/controls/settings/ExtensionStatusPage.h
     header   src/AfterNightControls/controls/settings/PathPickerWidget.h

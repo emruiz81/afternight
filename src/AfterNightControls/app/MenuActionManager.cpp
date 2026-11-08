@@ -245,6 +245,7 @@ void MenuActionManager::connectNonProcessActions() const
     connectImageOp(m_ui->actionAstrometryInfo, &ImageOperationsCoordinator::imageAstrometryInfo);
     connectImageOp(m_ui->actionImage_EXIFViewer, &ImageOperationsCoordinator::exifViewer);
     connectImageOp(m_ui->actionPlateSolve, &ImageOperationsCoordinator::plateSolve);
+    connectImageOp(m_ui->actionAnnotateImage, &ImageOperationsCoordinator::annotateImage);
     connectImageOp(m_ui->actionSummary, &ImageOperationsCoordinator::imageSummary);
     connectImageOp(m_ui->actionFit_Images_To_Window, &ImageOperationsCoordinator::fitImageAllWindows);
 
@@ -606,6 +607,7 @@ void MenuActionManager::setActionIcons() const
     m_ui->actionFITSHeader->setIcon(iconManager->getIcon("header"));
     m_ui->actionAstrometryInfo->setIcon(iconManager->getIcon("summary"));
     m_ui->actionPlateSolve->setIcon(iconManager->getIcon("grid"));
+    m_ui->actionAnnotateImage->setIcon(iconManager->getIcon("panorama"));
     m_ui->actionSummary->setIcon(iconManager->getIcon("summary"));
 
     m_ui->actionSelect_Mask->setIcon(iconManager->getIcon(""));

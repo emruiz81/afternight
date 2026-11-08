@@ -130,6 +130,7 @@ nav:
       - Dashboard: interface/dashboard.md
       - Image Viewer: interface/image-viewer.md
       - Astrometry Overlays: interface/astrometry-overlays.md
+      - Annotate Image: interface/annotate-image.md
       - Sequences: interface/sequences.md
       - Saving & Exporting: interface/saving-and-exporting.md
       - Docking Panels: interface/docking-panels.md
