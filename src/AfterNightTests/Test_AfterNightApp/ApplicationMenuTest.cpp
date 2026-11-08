@@ -24,6 +24,7 @@
 #include "controls/SettingsDialog.h"
 #include "controls/SystemInformationDialog.h"
 #include "controls/settings/ExtensionManagerPage.h"
+#include "controls/annotation/AnnotateImageControl.h"
 #include "controls/settings/SettingsKeys.h"
 #include "session/ImageDocument.h"
 #include "widgets/MaskRenderer.h"
@@ -85,6 +86,80 @@ using an::tests::app::visibleWidget;
 
 class ApplicationMenu : public an::tests::app::RealWindowCase
 {
+protected:
+    // A view the application's factory makes over a zeroed 8x4 image whose cards state a solution - a tenth of a degree
+    // a pixel about (120, 10) - which becomes the active view.
+    static ImageViewControl* makeSolvedView(const QString& name)
+    {
+        std::vector<an::CodecCard> cards;
+        const auto add = [&cards](const char* keyword, const char* value) {
+            an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, keyword, value, {});
+            EXPECT_TRUE(card.hasValue());
+            if (card.hasValue())
+            {
+                cards.push_back(std::move(*card));
+            }
+        };
+        add("CTYPE1", "'RA---TAN'");
+        add("CTYPE2", "'DEC--TAN'");
+        add("CUNIT1", "'deg'");
+        add("CUNIT2", "'deg'");
+        add("CRPIX1", "4.5");
+        add("CRPIX2", "2.5");
+        add("CRVAL1", "120");
+        add("CRVAL2", "10");
+        add("CD1_1", "-0.1");
+        add("CD1_2", "0");
+        add("CD2_1", "0");
+        add("CD2_2", "0.1");
+        add("RADESYS", "'ICRS'");
+        an::Result<an::CodecMetadata> codec = an::CodecMetadata::create(an::SourceEncoding{}, std::move(cards));
+        EXPECT_TRUE(codec.hasValue());
+        an::Result<an::consumer::SessionHold> hold = session().hold();
+        EXPECT_TRUE(hold.hasValue());
+        if (!codec.hasValue() || !hold.hasValue())
+        {
+            return nullptr;
+        }
+        const std::optional<an::ImageDescriptor> descriptor =
+            an::tests::app::monoFloatDescriptor(hold->engine(), 8u, 4u);
+        EXPECT_TRUE(descriptor.has_value());
+        if (!descriptor.has_value())
+        {
+            return nullptr;
+        }
+        an::Result<an::Image<float>> image = an::Image<float>::create(
+            hold->engine(), *descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed,
+            an::ImageMetadata::create(an::AcquisitionMetadata{}, an::ImageSemantics{}, an::AstrometricSolution{},
+                                      an::Provenance{}, std::move(*codec), std::nullopt));
+        EXPECT_TRUE(image.hasValue());
+        if (!image.hasValue())
+        {
+            return nullptr;
+        }
+        an::Result<an::consumer::ImageAsset> asset =
+            an::consumer::ImageAsset::adopt(session(), an::consumer::AnyImage(std::move(*image)));
+        EXPECT_TRUE(asset.hasValue());
+        if (!asset.hasValue())
+        {
+            return nullptr;
+        }
+        an::Result<an::ui::ImageDocument> document =
+            an::ui::ImageDocument::create(std::move(*asset), an::ui::DocumentNames{.displayName = name});
+        EXPECT_TRUE(document.hasValue());
+        if (!document.hasValue())
+        {
+            return nullptr;
+        }
+        ImageViewControl* const view = context().getViewFactory()->createNewImageViewControlFromImage(
+            nullptr, std::move(*document), nullptr, name.toStdString());
+        EXPECT_NE(view, nullptr);
+        if (view != nullptr)
+        {
+            s_window->setActiveImageViewControl(view);
+        }
+        return view;
+    }
 };
 
 // ---- The file menu.
@@ -490,6 +565,39 @@ TEST_F(ApplicationMenu, PlateSolveOpensThePlateSolveWindowOverTheActiveView)
 {
     EXPECT_TRUE(
         opensToolWindow("actionPlateSolve", [](QWidget* window) { return isA<an::ui::PlateSolveControl>(window); }));
+}
+
+// Annotate Image is offered for a view whose image states a solution, and opens its window over that view.
+TEST_F(ApplicationMenu, AnnotateImageOpensTheAnnotationWindowOverASolvedViewAndIsNotOfferedForAnotherView)
+{
+    ImageViewControl* const unsolved = makeView(QStringLiteral("unsolved"));
+    ASSERT_NE(unsolved, nullptr);
+    EXPECT_FALSE(menuAction("actionAnnotateImage")->isEnabled());
+
+    ImageViewControl* const view = makeSolvedView(QStringLiteral("solved"));
+    ASSERT_NE(view, nullptr);
+    ASSERT_TRUE(view->canAnnotateCurrentImage());
+    ASSERT_TRUE(processEventsUntil([]() { return menuAction("actionAnnotateImage")->isEnabled(); }));
+
+    invoke("actionAnnotateImage");
+
+    an::ui::AnnotateImageControl* opened = nullptr;
+    EXPECT_TRUE(processEventsUntil([view, &opened]() {
+        for (QWidget* window : visibleChildWindows(*view))
+        {
+            if (auto* annotate = dynamic_cast<an::ui::AnnotateImageControl*>(window); annotate != nullptr)
+            {
+                opened = annotate;
+                return true;
+            }
+        }
+        return false;
+    }));
+    if (opened != nullptr)
+    {
+        EXPECT_TRUE(processEventsUntil([opened]() { return !opened->isWorking(); }));
+        opened->close();
+    }
 }
 
 TEST_F(ApplicationMenu, SummaryOpensTheSummaryWindowOverTheActiveView)

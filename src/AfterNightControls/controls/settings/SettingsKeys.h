@@ -136,4 +136,7 @@ inline constexpr auto PLATESOLVE_CATALOG_ANNOTATIONS_ENABLED = "platesolve/catal
 inline constexpr auto PLATESOLVE_STAR_LABELS_ENABLED = "platesolve/starLabelsEnabled";
 inline constexpr auto PLATESOLVE_CATALOG_MAGNITUDE_LIMIT = "platesolve/catalogMagnitudeLimit";
 
+// Annotate Image: every choice of an annotated picture but its title, as storedAnnotationSettings writes them
+inline constexpr auto ANNOTATION_SETTINGS = "annotation/settings";
+
 } // namespace SettingsKeys

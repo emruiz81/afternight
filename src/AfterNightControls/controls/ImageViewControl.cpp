@@ -913,6 +913,7 @@ struct ImageViewControl::Impl
     QAction* m_AstrometrySettingsAction = nullptr;
     QAction* m_AstrometryInfoAction = nullptr;
     QAction* m_PlateSolveToolbarAction = nullptr;
+    QAction* m_AnnotateImageToolbarAction = nullptr;
     QMenu* m_AstrometrySettingsMenu = nullptr;
     QAction* m_AstrometryGridMenuAction = nullptr;
     QAction* m_AstrometryAnnotationsMenuAction = nullptr;
@@ -1502,6 +1503,12 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
             m_impl->m_ToolBar->addAction(iconManager->getIcon("info"), tr("Astrometry Info"));
         m_impl->m_AstrometryInfoAction->setToolTip(tr("Show astrometry solution details (Ctrl+Shift+P)"));
 
+        // Annotated picture button (shown only for a solved image)
+        m_impl->m_AnnotateImageToolbarAction =
+            m_impl->m_ToolBar->addAction(iconManager->getIcon("panorama"), tr("Annotate Image"));
+        m_impl->m_AnnotateImageToolbarAction->setToolTip(
+            tr("Export a picture of the solved image with its objects, stars and coordinates named (Ctrl+Shift+L)"));
+
         // Plate solve button (shown only when no astrometry)
         m_impl->m_PlateSolveToolbarAction =
             m_impl->m_ToolBar->addAction(iconManager->getIcon("global"), tr("Plate Solve"));
@@ -1889,6 +1896,12 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     {
         QObject::connect(m_impl->m_PlateSolveToolbarAction, &QAction::triggered, this,
                          &ImageViewControl::executePlateSolve);
+    }
+
+    if (m_impl->m_AnnotateImageToolbarAction)
+    {
+        QObject::connect(m_impl->m_AnnotateImageToolbarAction, &QAction::triggered, this,
+                         &ImageViewControl::executeAnnotateImage);
     }
 
     m_impl->m_ScrollArea->setOverlayWidget(m_impl->m_ViewControlTextOverlay);
@@ -2691,6 +2704,13 @@ void ImageViewControl::executePlateSolve()
     CHECK_IF_CONTROL_IS_CLOSING;
 
     (void)an::ui::openViewTool(an::ui::ViewTool::PlateSolve, *this);
+}
+
+void ImageViewControl::executeAnnotateImage()
+{
+    CHECK_IF_CONTROL_IS_CLOSING;
+
+    (void)an::ui::openViewTool(an::ui::ViewTool::AnnotateImage, *this);
 }
 
 void ImageViewControl::adjustImageToWindow()
@@ -3658,6 +3678,10 @@ void ImageViewControl::refreshTheme()
     if (m_impl->m_PlateSolveToolbarAction)
     {
         m_impl->m_PlateSolveToolbarAction->setIcon(iconManager->getIcon("search"));
+    }
+    if (m_impl->m_AnnotateImageToolbarAction)
+    {
+        m_impl->m_AnnotateImageToolbarAction->setIcon(iconManager->getIcon("panorama"));
     }
     if (m_impl->m_RTPreviewShowOriginalAction)
     {
@@ -4646,6 +4670,11 @@ void ImageViewControl::updateImageActions()
         m_impl->m_PlateSolveToolbarAction->setVisible(hasImage && !isSeq);
         m_impl->m_PlateSolveToolbarAction->setEnabled(canPlateSolveCurrentImage());
     }
+    if (m_impl->m_AnnotateImageToolbarAction)
+    {
+        m_impl->m_AnnotateImageToolbarAction->setVisible(hasAstrometry && !isSeq);
+        m_impl->m_AnnotateImageToolbarAction->setEnabled(hasAstrometry && !isSeq);
+    }
 
     if (auto* customToolBar = dynamic_cast<CustomToolBar*>(m_impl->m_ToolBar))
     {
@@ -5175,6 +5204,11 @@ bool ImageViewControl::isExifActionEnabled() const
 bool ImageViewControl::canPlateSolveCurrentImage() const
 {
     return m_impl->hasImage() && !isSequence();
+}
+
+bool ImageViewControl::canAnnotateCurrentImage() const
+{
+    return canPlateSolveCurrentImage() && imageSolution().has_value();
 }
 
 ImageViewWorkTelemetry ImageViewControl::workTelemetry() const
@@ -5796,6 +5830,10 @@ bool ImageViewControl::eventFilter(QObject* watched, QEvent* event)
         case Qt::Key_W:
             if (isShortcutActionAvailable(m_impl->m_AstrometryToggleAction))
                 m_impl->m_AstrometryToggleAction->toggle();
+            return true;
+        case Qt::Key_L:
+            if (isShortcutActionAvailable(m_impl->m_AnnotateImageToolbarAction))
+                executeAnnotateImage();
             return true;
         case Qt::Key_K:
             if (m_impl->m_ViewControlMode == ViewControlMode::rt_preview)

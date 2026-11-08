@@ -130,12 +130,12 @@ try
 
     $actual_text = [System.IO.File]::ReadAllText($actual_one)
     $required_baseline_fragments = @(
-        '| Navigated pages | 112 |',
-        '| Tracker page rows | 112 |',
+        '| Navigated pages | 113 |',
+        '| Tracker page rows | 113 |',
         '| Registered built-in actions | 122 |',
         '| Registered actions with no menu | 0 |',
         '| Direct-wired Process menu actions outside the registry | 3 |',
-        '| Direct-wired Image menu actions outside the registry | 32 |',
+        '| Direct-wired Image menu actions outside the registry | 33 |',
         '| Parity findings | 0 |',
         '| Pages missing one or more required headings | 3 |',
         '| Required-heading findings | 36 |',

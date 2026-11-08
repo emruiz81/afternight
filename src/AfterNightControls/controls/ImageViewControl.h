@@ -307,6 +307,9 @@ public:
 
     void executePlateSolve();
 
+    /// Opens the Annotate Image window over the view's solved image, or raises the one open.
+    void executeAnnotateImage();
+
     void adjustImageToWindow();
 
     void switchMaximized();
@@ -570,6 +573,9 @@ public:
     [[nodiscard]] bool isExifActionEnabled() const;
 
     bool canPlateSolveCurrentImage() const;
+
+    /// Whether the view can annotate its image: a still image that states an astrometric solution.
+    [[nodiscard]] bool canAnnotateCurrentImage() const;
 
     /// What the view's reads, edits and writes came to so far.
     [[nodiscard]] ImageViewWorkTelemetry workTelemetry() const;

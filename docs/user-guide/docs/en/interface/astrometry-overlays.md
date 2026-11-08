@@ -306,6 +306,9 @@ legend—not the raw on-screen arrow length.
   prerequisites and interpretation.
 - Use the broader [Image Viewer](image-viewer.md) guide for display mode,
   channels, zoom/pan, status coordinates, and toolbar overflow behavior.
+- Make a picture with the objects, stars and coordinates named on it, to share
+  or print, with [Annotate Image](annotate-image.md). The overlays here are drawn
+  over the view only; that window writes a file or opens a new image.
 - Preserve a newly written solution with [Saving And Exporting](saving-and-exporting.md),
   then reopen and verify the WCS before downstream
   [Image Registration](../processes/registration-alignment/image-registration.md)

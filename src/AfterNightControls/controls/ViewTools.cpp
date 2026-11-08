@@ -3,11 +3,11 @@
 
 /// @file
 /// The opener of the tool windows a view shows over its document - the statistics, the histogram, the FITS header,
-/// the Exif fields, the summary, the astrometric solution and the plate solve - defined beside the windows, as the
-/// view's companion seam declares it, so the view compiles with none of their headers.
+/// the Exif fields, the summary, the astrometric solution, the plate solve and the annotated picture - defined beside
+/// the windows, as the view's companion seam declares it, so the view compiles with none of their headers.
 ///
-/// Each window is a child of the view, deleted when it is closed and with the view. The astrometry and plate-solve
-/// windows are one per view: asking for one already open raises it. The others open a window each time.
+/// Each window is a child of the view, deleted when it is closed and with the view. The astrometry, plate-solve and
+/// annotation windows are one per view: asking for one already open raises it. The others open a window each time.
 
 #include "stdafx.hpp"
 
@@ -20,6 +20,7 @@
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
 #include "controls/PlateSolveControl.h"
+#include "controls/annotation/AnnotateImageControl.h"
 
 #include <QWidget>
 
@@ -76,6 +77,8 @@ QWidget* openViewTool(const ViewTool tool, ::ImageViewControl& view)
         return raiseOrOpen<ImageAstrometryInfoControl>(view);
     case ViewTool::PlateSolve:
         return raiseOrOpen<PlateSolveControl>(view);
+    case ViewTool::AnnotateImage:
+        return raiseOrOpen<AnnotateImageControl>(view);
     }
     return nullptr;
 }

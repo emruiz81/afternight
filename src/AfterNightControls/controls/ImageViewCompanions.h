@@ -234,7 +234,10 @@ enum class ViewTool : std::uint8_t
     AstrometryInfo,
 
     /// The plate solve.
-    PlateSolve
+    PlateSolve,
+
+    /// The annotated picture of a solved image.
+    AnnotateImage
 };
 
 /// Opens a tool window over a view. Defined beside the tools.

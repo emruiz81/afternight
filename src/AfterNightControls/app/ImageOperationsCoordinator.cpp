@@ -449,6 +449,15 @@ void ImageOperationsCoordinator::plateSolve() const
     }
 }
 
+void ImageOperationsCoordinator::annotateImage() const
+{
+    auto* control = activeControlOrNotify("AnnotateImage", "No selected image to process");
+    if (control)
+    {
+        control->executeAnnotateImage();
+    }
+}
+
 void ImageOperationsCoordinator::fitImageAllWindows() const
 {
     auto* active = activeControl();
