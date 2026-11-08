@@ -3,7 +3,7 @@
 ![Solved M83 field with an equatorial grid, catalog annotation, detected-star markers, and SIP distortion vectors](../assets/images/interface/astrometry-overlays.png)
 
 *The overlays share the viewer without changing image pixels: the grid provides
-coordinates, the ellipse identifies M83, and the vector field visualizes the
+coordinates, the outline identifies M83, and the vector field visualizes the
 SIP correction.*
 
 ## Purpose, audience, prerequisites, and expected result
@@ -138,7 +138,10 @@ projects them again without asking.
   Messier aliases, 109 project-maintained Caldwell rows, and curated common
   names/extents. An object with known size is drawn as a projected ellipse
   using its major/minor axes and position angle; an object without extent is
-  drawn as a small point outline. Labels use the compact catalog ID.
+  drawn as a small point outline. NGC 2000.0 states one diameter and no
+  orientation, so an object whose extent is not curated is drawn as a circle
+  of that diameter; only the curated objects and the Caldwell rows carry an
+  axis ratio and a position angle. Labels use the compact catalog ID.
   Coincident aliases are collapsed, and annotations projected within 12 screen
   pixels are de-duplicated. The current generator recreates the NGC/IC and
   Messier portion but not the directly maintained Caldwell rows.
