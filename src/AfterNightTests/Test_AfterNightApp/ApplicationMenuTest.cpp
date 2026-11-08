@@ -3,10 +3,10 @@
 
 // The application's menus, invoked on the application's own main window as a person invokes them:
 // the file menu's open and saves through the application's file dialog, the image menu's closes, rename, history,
-// zoom and Show in File Browser over the active view, its tool windows, the mask menu over a view with a mask, and the
-// application menu's windows. Each case triggers the action the menu holds and observes what it did - a view made or
-// gone, a file written, a window shown, a view's state changed - and answers the dialogs the action opens the way a
-// person would.
+// zoom and Show in File Browser over the active view and in the image's context menu, its tool windows, the mask menu
+// over a view with a mask, and the application menu's windows. Each case triggers the action the menu holds and
+// observes what it did - a view made or gone, a file written, a window shown, a view's state changed - and answers the
+// dialogs the action opens the way a person would.
 
 #include "ApplicationDriving.h"
 #include "app/ProcessRegistry.h"
@@ -35,6 +35,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QCoreApplication>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -559,6 +560,74 @@ TEST_F(ApplicationMenu, ShowInFileBrowserSaysSoWhenTheFileIsNoLongerOnDisk)
     EXPECT_TRUE(processEventsUntil([&]() { return warning.seen; }));
     EXPECT_EQ(warning.title, QStringLiteral("File Not Found"));
     EXPECT_TRUE(warning.text.contains(QDir::cleanPath(path))) << warning.text.toStdString();
+}
+
+// The image's own context menu ends with the same entry, offered as the Image menu offers it.
+class ApplicationMenuContextMenu : public ApplicationMenu
+{
+protected:
+    // The last entry of a menu, as it was when the menu was shown.
+    struct Entry
+    {
+        bool shown = false;
+        QString objectName;
+        QString text;
+        bool enabled = false;
+    };
+
+    // Right-clicks a view as a person does and answers the last entry of the menu it shows, closing the menu.
+    static Entry lastContextMenuEntry(ImageViewControl& view)
+    {
+        auto last = std::make_shared<Entry>();
+        answerWhenShown([last](QWidget* widget) {
+            auto* menu = qobject_cast<QMenu*>(widget);
+            if (menu == nullptr)
+            {
+                return false;
+            }
+            last->shown = true;
+            const QList<QAction*> entries = menu->actions();
+            if (!entries.isEmpty())
+            {
+                last->objectName = entries.back()->objectName();
+                last->text = entries.back()->text();
+                last->enabled = entries.back()->isEnabled();
+            }
+            menu->close();
+            return true;
+        });
+        const QPoint at(4, 4);
+        QContextMenuEvent event(QContextMenuEvent::Mouse, at, view.mapToGlobal(at));
+        QCoreApplication::sendEvent(&view, &event);
+        return *last;
+    }
+};
+
+TEST_F(ApplicationMenuContextMenu, TheImagesContextMenuEndsWithShowInFileBrowserForAViewOfAFile)
+{
+    const QString path = filePath(QStringLiteral("context.fits"));
+    writeFile(path, an::CodecFormat::Fits, 0.5f);
+    ImageViewControl* const view = openThroughTheFileMenu(path);
+    ASSERT_NE(view, nullptr);
+    s_window->setActiveImageViewControl(view);
+
+    const Entry last = lastContextMenuEntry(*view);
+
+    ASSERT_TRUE(last.shown) << "the view showed no context menu";
+    EXPECT_EQ(last.objectName, QStringLiteral("actionShow_In_File_Browser")) << last.text.toStdString();
+    EXPECT_TRUE(last.enabled);
+}
+
+TEST_F(ApplicationMenuContextMenu, TheImagesContextMenuOffersShowInFileBrowserDisabledForAnImageThatHasNeverBeenAFile)
+{
+    ImageViewControl* const view = makeView(QStringLiteral("made"));
+    ASSERT_NE(view, nullptr);
+
+    const Entry last = lastContextMenuEntry(*view);
+
+    ASSERT_TRUE(last.shown) << "the view showed no context menu";
+    EXPECT_EQ(last.objectName, QStringLiteral("actionShow_In_File_Browser")) << last.text.toStdString();
+    EXPECT_FALSE(last.enabled);
 }
 
 // ---- The mask menu, over a view with a mask.
