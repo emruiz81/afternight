@@ -5513,11 +5513,11 @@ void ExtensionNativeProcessWindow::setupManualMaskEditor(const QJsonObject& obj,
 
     const auto& spacing = an::ui::tokens().spacing;
     const QString id = obj.value(QStringLiteral("id")).toString(QStringLiteral("manual_mask"));
-    const QString label = obj.value(QStringLiteral("label")).toString(tr("Manual Protection Mask"));
+    const QString label = obj.value(QStringLiteral("label")).toString(tr("Manual Mask"));
     const QString tooltip = tooltipText(obj);
     manual_mask_use_param_id_ =
         obj.value(QStringLiteral("use_param")).toString(QStringLiteral("use_manual_mask")).trimmed();
-    const QString use_label = obj.value(QStringLiteral("use_label")).toString(tr("Use manual protection mask"));
+    const QString use_label = obj.value(QStringLiteral("use_label")).toString(tr("Use manual mask"));
     manual_mask_use_default_ = obj.value(QStringLiteral("use_default")).toBool(false);
 
     manual_mask_display_param_id_ = obj.value(QStringLiteral("display_param")).toString().trimmed();
@@ -5554,7 +5554,7 @@ void ExtensionNativeProcessWindow::setupManualMaskEditor(const QJsonObject& obj,
     use_checkbox->setProperty("anParamId", manual_mask_use_param_id_);
     use_checkbox->setChecked(false);
     use_checkbox->setEnabled(false);
-    applyTooltip(use_checkbox, tr("Use the stored manual protection mask when previewing or applying Nox."));
+    applyTooltip(use_checkbox, tr("Use the stored manual mask when previewing or applying."));
     use_layout->addWidget(use_checkbox, 0, 1, Qt::AlignLeft | Qt::AlignVCenter);
     group_layout->addWidget(use_row);
 
@@ -5566,7 +5566,7 @@ void ExtensionNativeProcessWindow::setupManualMaskEditor(const QJsonObject& obj,
     auto* edit_button = new QPushButton(tr("Edit Mask"), action_row);
     edit_button->setObjectName(QStringLiteral("anNativeManualMaskEditButton"));
     edit_button->setProperty("anProcessButtonRole", QStringLiteral("primary"));
-    applyTooltip(edit_button, tr("Edit the manual protection mask on the original source image."));
+    applyTooltip(edit_button, tr("Edit the manual mask on the original source image."));
     action_layout->addWidget(edit_button, 0);
 
     auto* cancel_button = new QPushButton(tr("Cancel"), action_row);
@@ -5579,7 +5579,7 @@ void ExtensionNativeProcessWindow::setupManualMaskEditor(const QJsonObject& obj,
     auto* clear_button = new QPushButton(tr("Clear Mask"), action_row);
     clear_button->setObjectName(QStringLiteral("anNativeManualMaskClearButton"));
     clear_button->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
-    applyTooltip(clear_button, tr("Remove all painted manual protection."));
+    applyTooltip(clear_button, tr("Remove everything painted on the manual mask."));
     action_layout->addWidget(clear_button, 0);
     action_layout->addStretch(1);
     group_layout->addWidget(action_row);
