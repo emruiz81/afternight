@@ -5,6 +5,7 @@
 
 #include "app/ImageOperationsCoordinator.h"
 
+#include "app/ShowInFileBrowser.h"
 #include "controls/ImageRenameControl.h"
 #include "controls/ImageViewControl.h"
 
@@ -401,6 +402,24 @@ void ImageOperationsCoordinator::imageAstrometryInfo() const
     {
         control->executeAstrometryInfoViewer();
     }
+}
+
+void ImageOperationsCoordinator::showInFileBrowser() const
+{
+    auto* control = activeControl();
+    if (!control)
+    {
+        return;
+    }
+
+    // The sequence's file for a sequence, otherwise the file the document was read from or last saved to.
+    const QString path = QString::fromStdString(control->getFileName());
+    if (path.isEmpty())
+    {
+        return;
+    }
+
+    (void)an::ui::showInFileBrowser(messageParent(), path, m_dependencies.revealInFileBrowser);
 }
 
 void ImageOperationsCoordinator::exifViewer() const

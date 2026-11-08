@@ -16,11 +16,10 @@
 #include <QGraphicsOpacityEffect>
 #include <QLocale>
 
-#include "app/DesktopUtils.h"
+#include "app/ShowInFileBrowser.h"
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QMenu>
-#include <QMessageBox>
 #include <QPainter>
 #include <QPainterPath>
 #include <QProcess>
@@ -140,20 +139,6 @@ QString normalizeLocalFilePath(const QString& inputPath)
     }
 
     return cleanLocalPath(trimmedPath);
-}
-
-void showInFileBrowser(QWidget* parent, const QString& inputPath)
-{
-    const QString normalizedPath = QDir::cleanPath(normalizeLocalFilePath(inputPath));
-    const QFileInfo fileInfo(normalizedPath);
-    if (!fileInfo.exists())
-    {
-        QMessageBox::warning(parent, QObject::tr("File Not Found"),
-                             QObject::tr("The file does not exist on disk:\n%1").arg(normalizedPath));
-        return;
-    }
-
-    an::ui::revealInFileManager(fileInfo.absoluteFilePath());
 }
 
 void repolishWidget(QWidget* widget)
@@ -679,7 +664,7 @@ void ImageThumbnailWidget::contextMenuEvent(QContextMenuEvent* event)
     }
     else if (chosenAction == openFolderAction)
     {
-        showInFileBrowser(this, filePath);
+        (void)an::ui::showInFileBrowser(this, filePath);
     }
     else if (chosenAction == copyPathAction)
     {

@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 // The application's menus, invoked on the application's own main window as a person invokes them:
-// the file menu's open and saves through the application's file dialog, the image menu's closes, rename, history and
-// zoom over the active view, its tool windows, the mask menu over a view with a mask, and the application menu's
-// windows. Each case triggers the action the menu holds and observes what it did - a view made or gone, a file written,
-// a window shown, a view's state changed - and answers the dialogs the action opens the way a person would.
+// the file menu's open and saves through the application's file dialog, the image menu's closes, rename, history,
+// zoom and Show in File Browser over the active view, its tool windows, the mask menu over a view with a mask, and the
+// application menu's windows. Each case triggers the action the menu holds and observes what it did - a view made or
+// gone, a file written, a window shown, a view's state changed - and answers the dialogs the action opens the way a
+// person would.
 
 #include "ApplicationDriving.h"
 #include "app/ProcessRegistry.h"
@@ -39,6 +40,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QLabel>
@@ -493,6 +495,70 @@ TEST_F(ApplicationMenu, SummaryOpensTheSummaryWindowOverTheActiveView)
 {
     EXPECT_TRUE(
         opensToolWindow("actionSummary", [](QWidget* window) { return isNamed(window, "ImageSummaryViewerControl"); }));
+}
+
+// ---- The image menu: Show in File Browser, offered while the active view's image is a file.
+
+TEST_F(ApplicationMenu, ShowInFileBrowserIsOfferedDisabledWithNoView)
+{
+    ASSERT_TRUE(views().empty());
+    QAction* const show = menuAction("actionShow_In_File_Browser");
+    ASSERT_NE(show, nullptr);
+    EXPECT_FALSE(show->isEnabled());
+}
+
+TEST_F(ApplicationMenu, ShowInFileBrowserIsOfferedDisabledForAnImageThatHasNeverBeenAFile)
+{
+    ImageViewControl* const view = makeView(QStringLiteral("made"));
+    ASSERT_NE(view, nullptr);
+    EXPECT_FALSE(menuAction("actionShow_In_File_Browser")->isEnabled());
+}
+
+TEST_F(ApplicationMenu, ShowInFileBrowserIsOfferedForAViewOfAFile)
+{
+    const QString path = filePath(QStringLiteral("shown.fits"));
+    writeFile(path, an::CodecFormat::Fits, 0.5f);
+    ImageViewControl* const view = openThroughTheFileMenu(path);
+    ASSERT_NE(view, nullptr);
+    s_window->setActiveImageViewControl(view);
+    EXPECT_TRUE(menuAction("actionShow_In_File_Browser")->isEnabled());
+}
+
+// Saving an image that has never been a file makes it one: the entry is offered as soon as the save lands.
+TEST_F(ApplicationMenu, ShowInFileBrowserIsOfferedOnceAMadeImageIsSaved)
+{
+    ImageViewControl* const view = makeView(QStringLiteral("made then saved"), 0.375f);
+    ASSERT_NE(view, nullptr);
+    ASSERT_FALSE(menuAction("actionShow_In_File_Browser")->isEnabled());
+    const QString path = filePath(QStringLiteral("made-then-saved.fits"));
+
+    Answered dialog;
+    chooseInTheNextFileDialog({path}, &dialog);
+    invoke("actionSave_as");
+
+    EXPECT_TRUE(dialog.seen);
+    ASSERT_TRUE(processEventsUntil([&]() { return QFileInfo::exists(path); }));
+    EXPECT_TRUE(processEventsUntil([]() { return menuAction("actionShow_In_File_Browser")->isEnabled(); }));
+}
+
+// A file deleted since it was opened is not handed to the file manager: the entry says the file is not on disk, as the
+// dashboard's recent files do.
+TEST_F(ApplicationMenu, ShowInFileBrowserSaysSoWhenTheFileIsNoLongerOnDisk)
+{
+    const QString path = filePath(QStringLiteral("deleted.fits"));
+    writeFile(path, an::CodecFormat::Fits, 0.5f);
+    ImageViewControl* const view = openThroughTheFileMenu(path);
+    ASSERT_NE(view, nullptr);
+    s_window->setActiveImageViewControl(view);
+    ASSERT_TRUE(QFile::remove(path));
+
+    Answered warning;
+    answerTheNextMessageBox(&warning);
+    invoke("actionShow_In_File_Browser");
+
+    EXPECT_TRUE(processEventsUntil([&]() { return warning.seen; }));
+    EXPECT_EQ(warning.title, QStringLiteral("File Not Found"));
+    EXPECT_TRUE(warning.text.contains(QDir::cleanPath(path))) << warning.text.toStdString();
 }
 
 // ---- The mask menu, over a view with a mask.

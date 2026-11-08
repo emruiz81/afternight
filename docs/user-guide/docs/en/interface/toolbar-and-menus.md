@@ -72,6 +72,7 @@ parameters remain authoritative on their linked process pages.
 | **Image** | **Sequence** | **Convert**; **Extract Frame**; **Extract Sequence**; **Export...** |
 | **Image > Sequence** | **Convert** | **Convert to SER**; **Convert to Image List**; **Convert to FITS** |
 | **Image** | **View** | **Zoom In**; **Zoom Out**; **Zoom 100%**; **Fit To Window**; **Maximize View** / **Restore View** |
+| **Image** | Direct | **Show in File Browser** |
 
 | UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -94,6 +95,7 @@ parameters remain authoritative on their linked process pages.
 | **Mask > Rendering Mode** | Exclusive checkable choices | Current renderer state | **Overlay Red/Green/Blue/Yellow/Magenta/Cyan**, **Replace**, **Multiply** | Changes mask visualization | Assigned mask required | Display-only visualization can obscure image detail | Active image view | Runtime |
 | **Image > Sequence** | Submenu | Disabled for still images | **Convert to SER**, **Convert to Image List**, **Convert to FITS**, **Extract Frame**, **Extract Sequence**, **Export...** | Converts, extracts, or exports sequence content | Sequence required; current SER/image-list target is disabled; **Convert to FITS** is always disabled in current source | Potentially substantial disk I/O and output volume | Active sequence | Output files only |
 | **Image > View** | Submenu | Disabled without data | **Zoom In**, **Zoom Out**, **Zoom 100%**, **Fit To Window**, **Maximize/Restore View** | Changes display scale or workspace presentation | Maximize menu action is disabled for a floating view | Display-only, except maximize temporarily changes dock state | Active view/main dock | Runtime; current source does not serialize layout |
+| **Image > Show in File Browser** | Action | Disabled unless the active image is a file | Active image's file: the one it was read from or last saved to; a sequence's file for a sequence | Opens the platform file manager with the file selected | Disabled for an image a process created and nobody saved, enabled once it is saved; a file moved or deleted since shows **File Not Found** | External file-manager action exposes the path | Active image | None |
 
 ### Process, extension, window, help, and about menus
 

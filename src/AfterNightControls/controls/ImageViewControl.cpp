@@ -3037,6 +3037,15 @@ void ImageViewControl::notifyImageSaved()
     if (m_impl->m_ViewControlMode == ViewControlMode::standard)
     {
         resetPendingChanges();
+
+        // A save can make an image a file for the first time: the menus offer what a file has.
+        if (auto* context = an::ui::appContext())
+        {
+            if (auto* actionStateManager = context->getActionStateManager())
+            {
+                actionStateManager->updateActiveImageActions();
+            }
+        }
     }
 }
 
