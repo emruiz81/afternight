@@ -236,17 +236,32 @@ has three or the mode or filter makes colour, and one otherwise. CFA mosaics
 are treated as grayscale sample planes, and the result states no color filter
 array.
 
-The result's metadata is built from both images. Its exposure is the sum of
-the exposures the two images state - even for Difference, Replace, low opacity,
-or a mask - recorded once, and the images' `EXPOSURE` and `EXPTIME` cards are
-dropped. The object, instrument, telescope, observer, filter, sensor
-temperature, gain, binning, and exposure start are kept when both images state
-the same value and dropped otherwise; every other header card of the base is
-kept only when the blend image states it identically. The base's world
-coordinate (WCS) cards and plate solution are kept, because the pixel grid is
-the base's, without checking registration. The output processing state is then
-set to nonlinear with `image-blend` provenance, and the lineage names the
-engine composition.
+The result's metadata is built from both images. Its exposure is the light the
+two hold together - even for Difference, Replace, low opacity, or a mask -
+recorded once: each image's whole integration - its `TOTEXP` card, else its
+`LIVETIME` card, else its exposure times its frame count (`STACKCNT`, else
+`NCOMBINE`, else one) - summed. Two images that state the same exposure start
+are one acquisition - an image and a copy made of it, such as its starless
+image, its stars or a channel taken out of it - and count once, with the
+larger integration and the larger frame count either states, since a copy such
+as a StarNet output may have lost its `TOTEXP` and `STACKCNT` cards: a master
+blended with its own starless image states the master's integration and frame
+count. The images' `EXPOSURE` and `EXPTIME` cards are dropped; the result
+states its own `EXPTIME` and `TOTEXP` as that total, `LIVETIME` the same when
+either image states one, and `STACKCNT` and `NCOMBINE` as their frame counts,
+summed the same way, each when either image states it.
+
+The observation start is the earliest either image states, and its
+`DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` cards
+are taken together from that image. The object, instrument, telescope,
+observer, filter, sensor temperature, gain, and binning are kept when both
+images state the same value and dropped otherwise; every other header card of
+the base is kept only when the blend image states it identically. The base's
+world coordinate (WCS) cards, plate solution and pointing cards (`RA`, `DEC`,
+`OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA`, `TELDEC`) are kept, because
+the pixel grid is the base's, without checking registration. The output
+processing state is then set to nonlinear with `image-blend` provenance, and
+the lineage names the engine composition.
 
 For a base sequence, one fixed blend view image is reused for every frame and a
 temporary sequence replaces the original only after success. It does not pair

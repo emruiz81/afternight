@@ -13,6 +13,7 @@
 
 #include <AfterNightEngine/IO/CombinedMetadata.h>
 
+#include <AfterNightEngine/Algorithms/Astrometry/AstrometryHints.h>
 #include <AfterNightEngine/Algorithms/Astrometry/WcsCards.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightEngine/Core/Result.h>
@@ -32,6 +33,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
@@ -240,12 +242,15 @@ TEST(CombinedMetadataTest, KeepsAnAcquisitionFactOnlyWhenEverySourceStatesIt)
     EXPECT_EQ(dropped.filterName(), "");
     EXPECT_EQ(dropped.sensorTemperatureCelsius(), std::nullopt);
     EXPECT_EQ(dropped.binning(), std::nullopt);
-    EXPECT_EQ(dropped.exposureStart(), std::nullopt);
     EXPECT_EQ(dropped.rawCamera(), std::nullopt);
+    // The observation began when the earliest source's did, whichever source that is.
+    EXPECT_EQ(dropped.exposureStart(), (std::optional<an::UtcInstant>{an::UtcInstant{1700000000000000000}}));
+    EXPECT_EQ(combine(differing, first).acquisition().exposureStart(),
+              (std::optional<an::UtcInstant>{an::UtcInstant{1700000000000000000}}));
 
-    // A fact one source does not state is not common.
+    // A fact one source does not state is not common; the start one source states is still the earliest.
     const an::AcquisitionMetadata partial = combine(first, source({})).acquisition();
-    EXPECT_EQ(partial, an::AcquisitionMetadata{});
+    EXPECT_EQ(partial, *an::AcquisitionMetadata::create({.exposureStart = an::UtcInstant{1700000000000000000}}));
 }
 
 TEST(CombinedMetadataTest, TakesTheOutcomesMeaningWhenTheEffectRestatesIt)
@@ -423,8 +428,9 @@ TEST(CombinedMetadataTest, DropsTheCardsThatDescribeOneFile)
         held.push_back(std::move(stamp));
     const an::ImageMetadata stated = source({.acquisition = {.exposureSeconds = 300.0}, .cards = std::move(held)});
 
+    // The sources' exposure cards go; the combination states its own integration after the cards it keeps.
     const an::CodecMetadata combined = combine(stated, stated).codec();
-    EXPECT_EQ(keywordsOf(combined), (std::vector<std::string>{"Fits:GAIN"}));
+    EXPECT_EQ(keywordsOf(combined), (std::vector<std::string>{"Fits:GAIN", "Fits:EXPTIME", "Fits:TOTEXP"}));
     EXPECT_EQ(combine(stated, stated).acquisition().exposureSeconds(), std::optional<double>(600.0));
 
     // A single source's exposure is the combination's, and its cards say so; the per-file cards still go.
@@ -434,6 +440,27 @@ TEST(CombinedMetadataTest, DropsTheCardsThatDescribeOneFile)
     EXPECT_EQ(keywordsOf(single->codec()),
               (std::vector<std::string>{"Fits:EXPOSURE", "Fits:EXPTIME", "Fits:GAIN", "Jpeg:Exif.Photo.ExposureTime",
                                         "CameraRaw:Exif.Photo.ExposureTime"}));
+}
+
+TEST(CombinedMetadataTest, ThePointingKeptIsEveryPairTheObservedPointingNames)
+{
+    // Two sources that point a little apart under every pair a frame's observed pointing is read from: the first
+    // source's values are the combination's, and a value the sources differ in outside those pairs is not.
+    std::vector<an::CodecCard> first;
+    std::vector<an::CodecCard> second;
+    for (const an::PointingCards pair : an::observedPointingCards())
+    {
+        const an::PointingKeywords keywords = an::pointingCardKeywords(pair);
+        first.push_back(fits(std::string(keywords.rightAscension), "83.8"));
+        first.push_back(fits(std::string(keywords.declination), "-5.4"));
+        second.push_back(fits(std::string(keywords.rightAscension), "83.9"));
+        second.push_back(fits(std::string(keywords.declination), "-5.5"));
+    }
+    first.push_back(fits("AIRMASS", "1.2"));
+    second.push_back(fits("AIRMASS", "1.3"));
+    const an::CodecMetadata kept = combine(source({.cards = first}), source({.cards = second})).codec();
+    first.pop_back();
+    EXPECT_EQ(std::vector<an::CodecCard>(kept.cards().begin(), kept.cards().end()), first);
 }
 
 TEST(CombinedMetadataTest, TheExposureCardsDroppedAreTheOnesTheProjectionReads)
@@ -451,7 +478,135 @@ TEST(CombinedMetadataTest, TheExposureCardsDroppedAreTheOnesTheProjectionReads)
         EXPECT_EQ(an::projectAcquisition(alone).acquisition.exposureSeconds, std::optional<double>(2.5))
             << spelling.keyword();
         const an::ImageMetadata stated = source({.acquisition = {.exposureSeconds = 2.5}, .cards = {spelling}});
-        EXPECT_TRUE(combine(stated, stated).codec().cards().empty()) << spelling.keyword();
+        // The source's spelling goes, and the combination's own integration is all that states an exposure.
+        const an::CodecMetadata combined = combine(stated, stated).codec();
+        EXPECT_EQ(keywordsOf(combined), (std::vector<std::string>{"Fits:EXPTIME", "Fits:TOTEXP"}))
+            << spelling.keyword();
+        ASSERT_NE(combined.find(an::CodecNamespace::Fits, "EXPTIME"), nullptr);
+        EXPECT_EQ(combined.find(an::CodecNamespace::Fits, "EXPTIME")->value(), "5") << spelling.keyword();
+    }
+}
+
+namespace
+{
+
+/// A mono master of one filter as the stacking stage writes it, read back: the observing context its first light
+/// carried, where the mount pointed and when that light began, its sub-exposure as the acquisition record and its
+/// integration and frame count as cards, and the run's world coordinates when it was solved.
+[[nodiscard]] an::ImageMetadata masterOf(std::string filter, std::string rightAscension, std::string dateObs,
+                                         std::int64_t startNanoseconds, double integration, int frames,
+                                         std::string airmass, bool solved)
+{
+    std::vector<an::CodecCard> cards;
+    if (solved)
+    {
+        cards = wcsCardsAt("161.12779589800232");
+    }
+    const auto add = [&](std::string keyword, std::string value) { cards.push_back(fits(keyword, std::move(value))); };
+    add("EXPTIME", std::to_string(static_cast<int>(integration)));
+    add("TOTEXP", std::to_string(static_cast<int>(integration)));
+    add("STACKCNT", std::to_string(frames));
+    add("TELESCOP", "'Duoptic APO 90'");
+    add("FOCALLEN", "432.0");
+    add("XPIXSZ", "2.315");
+    add("RA", std::move(rightAscension));
+    add("DEC", "-59.8894394779668");
+    add("OBJCTRA", "'10 44 19'");
+    add("OBJCTDEC", "'-59 53 21'");
+    add("AIRMASS", std::move(airmass));
+    add("DATE-OBS", "'" + dateObs + "'");
+    add("DATE-LOC", "'" + dateObs.replace(11u, 2u, "21") + "'");
+    add("FILTER", "'" + filter + "'");
+    add("OBJECT", "'Carina Nebula'");
+    return source(
+        {.acquisition = {.objectName = "Carina Nebula",
+                         .filterName = std::move(filter),
+                         .exposureSeconds = 120.0,
+                         .exposureStart = an::UtcInstant{startNanoseconds}},
+         .solution = solved ? std::optional<an::AstrometricSolutionRequest>(solutionAt(161.1278)) : std::nullopt,
+         .cards = std::move(cards)});
+}
+
+/// The value of the first card of a keyword, or nothing.
+[[nodiscard]] std::optional<std::string> valueOf(const an::CodecMetadata& codec, std::string_view keyword)
+{
+    const an::CodecCard* found = codec.find(an::CodecNamespace::Fits, std::string(keyword));
+    return found == nullptr ? std::nullopt : std::optional<std::string>(found->value());
+}
+
+} // namespace
+
+TEST(CombinedMetadataTest, AColourCompositionOfThreeMastersKeepsWhatStillDescribesIt)
+{
+    // Red, green and blue masters of one target and one telescope, taken over one night: each began at its own time,
+    // the mount pointed a little differently at each, and each integrates its own frames. The green began first.
+    const an::ImageMetadata red =
+        masterOf("Red", "161.073958281148", "2026-03-24T03:07:03.043", 1774321623043000000, 25920.0, 216, "1.21", true);
+    const an::ImageMetadata green = masterOf("Green", "161.075815757531", "2026-03-24T00:49:11.056",
+                                             1774313351056000000, 18840.0, 157, "1.11", true);
+    const an::ImageMetadata blue = masterOf("Blue", "161.175056262942", "2026-03-24T04:36:55.101", 1774327015101000000,
+                                            13800.0, 115, "1.19", false);
+    const std::array<const an::ImageMetadata*, 3u> sources{&red, &green, &blue};
+    const an::Result<an::ImageMetadata> combined = an::combinedImageMetadata(sources, kPreserving, preserved());
+    ASSERT_TRUE(combined.hasValue()) << combined.status().message();
+    const an::CodecMetadata& cards = combined->codec();
+
+    // The equipment and the target every master states the same way.
+    EXPECT_EQ(valueOf(cards, "TELESCOP"), std::optional<std::string>("'Duoptic APO 90'"));
+    EXPECT_EQ(valueOf(cards, "FOCALLEN"), std::optional<std::string>("432.0"));
+    EXPECT_EQ(valueOf(cards, "XPIXSZ"), std::optional<std::string>("2.315"));
+    EXPECT_EQ(valueOf(cards, "OBJECT"), std::optional<std::string>("'Carina Nebula'"));
+    // The red master's world coordinates and pointing: the composite is on its grid.
+    EXPECT_EQ(an::checkWcsCards(cards.cards()), an::WcsCardError::None);
+    EXPECT_EQ(valueOf(cards, "CRVAL1"), std::optional<std::string>("161.12779589800232"));
+    EXPECT_EQ(valueOf(cards, "RA"), std::optional<std::string>("161.073958281148"));
+    EXPECT_EQ(valueOf(cards, "DEC"), std::optional<std::string>("-59.8894394779668"));
+    EXPECT_EQ(valueOf(cards, "OBJCTRA"), std::optional<std::string>("'10 44 19'"));
+    // The night began with the green master's first light.
+    EXPECT_EQ(valueOf(cards, "DATE-OBS"), std::optional<std::string>("'2026-03-24T00:49:11.056'"));
+    EXPECT_EQ(valueOf(cards, "DATE-LOC"), std::optional<std::string>("'2026-03-24T21:49:11.056'"));
+    EXPECT_EQ(combined->acquisition().exposureStart(),
+              (std::optional<an::UtcInstant>{an::UtcInstant{1774313351056000000}}));
+    // All the light: 58560 seconds over 488 frames, not three sub-exposures.
+    EXPECT_EQ(valueOf(cards, "EXPTIME"), std::optional<std::string>("58560"));
+    EXPECT_EQ(valueOf(cards, "TOTEXP"), std::optional<std::string>("58560"));
+    EXPECT_EQ(valueOf(cards, "STACKCNT"), std::optional<std::string>("488"));
+    EXPECT_EQ(combined->acquisition().exposureSeconds(), std::optional<double>(58560.0));
+    // What described one master's light alone no longer describes the composite.
+    EXPECT_EQ(valueOf(cards, "FILTER"), std::nullopt);
+    EXPECT_EQ(valueOf(cards, "AIRMASS"), std::nullopt);
+    EXPECT_EQ(combined->acquisition().filterName(), "");
+    std::size_t dates = 0u;
+    for (const an::CodecCard& held : cards.cards())
+    {
+        dates += held.keyword() == "DATE-OBS" ? 1u : 0u;
+    }
+    EXPECT_EQ(dates, 1u);
+}
+
+TEST(CombinedMetadataTest, ACopyOfOneAcquisitionCountsOnce)
+{
+    // A master combined with itself holds the light of one acquisition.
+    const an::ImageMetadata master =
+        masterOf("Red", "161.073958281148", "2026-03-24T03:07:03.043", 1774321623043000000, 25920.0, 216, "1.21", true);
+    const an::CodecMetadata cards = combine(master, master).codec();
+    EXPECT_EQ(valueOf(cards, "EXPTIME"), std::optional<std::string>("25920"));
+    EXPECT_EQ(valueOf(cards, "STACKCNT"), std::optional<std::string>("216"));
+    EXPECT_EQ(combine(master, master).acquisition().exposureSeconds(), std::optional<double>(25920.0));
+    // Every card the two state the same way stays, the filter and the airmass with them.
+    EXPECT_EQ(valueOf(cards, "FILTER"), std::optional<std::string>("'Red'"));
+    EXPECT_EQ(valueOf(cards, "DATE-OBS"), std::optional<std::string>("'2026-03-24T03:07:03.043'"));
+
+    // Its starless image keeps the acquisition record - the sub-exposure and when the light began - but none of the
+    // master's cards: it is the same acquisition, and the master's integration and frames are the light both hold.
+    const an::ImageMetadata starless =
+        source({.acquisition = {.exposureSeconds = 120.0, .exposureStart = an::UtcInstant{1774321623043000000}}});
+    for (const auto& [first, second] : {std::pair{&master, &starless}, std::pair{&starless, &master}})
+    {
+        const an::ImageMetadata blended = combine(*first, *second);
+        EXPECT_EQ(valueOf(blended.codec(), "EXPTIME"), std::optional<std::string>("25920"));
+        EXPECT_EQ(valueOf(blended.codec(), "STACKCNT"), std::optional<std::string>("216"));
+        EXPECT_EQ(blended.acquisition().exposureSeconds(), std::optional<double>(25920.0));
     }
 }
 

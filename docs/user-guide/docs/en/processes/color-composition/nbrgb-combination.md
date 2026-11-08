@@ -227,18 +227,33 @@ non-finite samples upstream, especially before enabling min/max rescaling.
   dimensions and pixel type match the RGB target. No mask, continuum map, fit
   coefficients, report, preset, or direct disk file is produced.
 - The result's metadata is built from the RGB source and every selected
-  narrowband source. Its exposure is the sum of the exposures they state,
-  recorded once. The object, instrument, telescope, observer, filter, sensor
-  temperature, gain, binning, and exposure start are kept when every selected
-  source states the same value and dropped otherwise, so a filter is kept only
-  when every source shares it.
+  narrowband source. Its exposure is the light they hold together, recorded
+  once: the sum, over the distinct acquisitions, of each source's whole
+  integration - its `TOTEXP` card, else its `LIVETIME` card, else its exposure
+  times its frame count (`STACKCNT`, else `NCOMBINE`, else one). Sources that
+  state the same exposure start are one acquisition - an image and copies made
+  of it, such as its starless image, its stars or a channel taken out of it -
+  and count once, with the largest integration and the largest frame count any
+  of them states, since a copy such as a StarNet output may have lost its
+  `TOTEXP` and `STACKCNT` cards; a source that states no exposure start always
+  counts on its own. The observation start is the earliest any source states.
+  The object, instrument, telescope, observer, filter, sensor temperature,
+  gain, and binning are kept when every selected source states the same value
+  and dropped otherwise, so a filter is kept only when every source shares it.
 - The result keeps the header cards every selected source states identically,
   but no exposure, processing-state or identity card of a source; a card the
-  sources state differently, or only some state, is dropped. It keeps the RGB
-  target's plate solution with its world coordinate (WCS) cards, so the viewer,
-  the astrometry window and a new plate solve find it on the result. The
-  solution describes the RGB target's grid; it does not prove that the
-  narrowband sources were registered to it.
+  sources state differently, or only some state, is dropped, except the RGB
+  target's pointing cards (`RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`,
+  `OBJDEC`, `TELRA`, `TELDEC`), kept because the result is on its grid, and the
+  observation-start cards (`DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`,
+  `MJD-BEG`, `TIME-OBS`), taken together from the source that began earliest.
+  The result states its own `EXPTIME` and `TOTEXP` as the exposure above,
+  `LIVETIME` the same when a source states one, and `STACKCNT` and `NCOMBINE`
+  as the frame counts of the distinct acquisitions summed, each when a source
+  states it. It keeps the RGB target's plate solution with its world coordinate
+  (WCS) cards, so the viewer, the astrometry window and a new plate solve find
+  it on the result. The solution describes the RGB target's grid; it does not
+  prove that the narrowband sources were registered to it.
 - If every input explicitly declares linear state, the output is marked linear
   RGB with `nbrgb-combination` provenance. If any input declares nonlinear, the
   output is marked nonlinear. Otherwise the combined state is unknown. The
