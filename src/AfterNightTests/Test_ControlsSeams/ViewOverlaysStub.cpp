@@ -55,6 +55,11 @@ void setAstrometryOverlayMagnitudeLimit(::ImageViewWidgetDisplayModule&, double 
     an::tests::viewer::companionRecord().magnitudeLimits.push_back(limit);
 }
 
+void setAstrometryOverlayLayers(::ImageViewWidgetDisplayModule&, const bool deepSky, const bool stars)
+{
+    an::tests::viewer::companionRecord().overlayLayers.emplace_back(deepSky, stars);
+}
+
 void setAstrometryOverlayStars(::ImageViewWidgetDisplayModule& overlay, std::shared_ptr<const ViewOverlayStars> stars)
 {
     const auto* standIn = dynamic_cast<const an::tests::viewer::StandInOverlay*>(&overlay);
