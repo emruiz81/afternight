@@ -532,7 +532,10 @@ public:
 
     [[nodiscard]] QCheckBox* getRTPreviewAreaCheckBox() const;
 
-    void setAutostretchSettingsActionEnabled(bool enabled);
+    /// Tells the view whether its Autostretch Settings window is open. The window's button and shortcut are
+    /// offered only while the view shows its image stretched and no such window is open, and the display mode
+    /// stays as it is while one is.
+    void setAutostretchSettingsOpen(bool open);
 
     void setViewMode(ImageViewMode mode);
 
