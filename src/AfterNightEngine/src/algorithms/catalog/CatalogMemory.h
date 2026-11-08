@@ -74,6 +74,21 @@ private:
     MemoryResource& m_memory;
 };
 
+/// The bounds of a catalog's pool: what is pooled and how many blocks a chunk holds.
+///
+/// The blocks an index is made of - a node, a key, a short position list - are pooled; a table -
+/// the entries, the declination index, a bucket array - is larger than any pooled block and goes
+/// to the context one to one. The bounds are stated rather than left to the library: MSVC's
+/// defaults pool every request whatever its size, rounding a table up to a power of two inside a
+/// chunk of several such blocks, so a star catalog of 83 479 entries held 204 MiB where its
+/// tables and indices need about a quarter of that.
+///
+/// @return the options the pool is built with.
+[[nodiscard]] inline std::pmr::pool_options catalogPoolOptions() noexcept
+{
+    return std::pmr::pool_options{.max_blocks_per_chunk = 1024u, .largest_required_pool_block = 4096u};
+}
+
 /// The memory resource one catalog's persistent state is allocated from.
 ///
 /// The shared-control allocator retains this resource through destruction of the control block,
@@ -85,7 +100,7 @@ private:
 /// them separately measures the budget check rather than the index, so the small requests are
 /// pooled and the pool takes its chunks from that allocator. What is budgeted, counted and leased
 /// is unchanged - every byte still comes from the context - and a request too large for a pool
-/// still reaches it one to one.
+/// still reaches it one to one, as `catalogPoolOptions` bounds the pool.
 ///
 /// The pool is the unsynchronized one because one of these belongs to exactly one catalog, and a
 /// catalog allocates on one thread while it is built and frees on one thread when the last handle
@@ -102,7 +117,7 @@ public:
         : m_lease(EngineContextState::retain(execution)), m_upstream(*execution.memoryResource())
 #if !defined(_MSC_VER) || _ITERATOR_DEBUG_LEVEL == 0
           ,
-          m_pool(&m_upstream)
+          m_pool(catalogPoolOptions(), &m_upstream)
 #endif
     {
     }
