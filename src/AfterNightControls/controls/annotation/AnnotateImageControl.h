@@ -7,8 +7,10 @@
 /// they make, and the picture exported to a file or opened as an image of its own.
 ///
 /// **The preview is the picture, smaller.** It draws the scene and layout the export draws, over the image presented
-/// as the picture presents it, so what the preview shows is what the file holds. Zoomed in, it asks for the image
-/// presented at the size it now shows, and the annotations, drawn as outlines, stay sharp at every zoom.
+/// as the picture presents it, so what the preview shows is what the file holds. The preview is a view of the image
+/// itself - the view's image shared, never copied, in a compact view that offers its zoom and lens and leaves the
+/// stretch to the window - so it presents and draws the image exactly as an image view does, and the annotations are
+/// a display module over it that stays sharp at every zoom. The picture is presented as the preview presents it.
 ///
 /// **Nothing waits.** The catalogues' entries are read once for the solution, the scene and its layout are built
 /// again for each change of the choices, the preview's image is presented for each stretch and size, and the picture
@@ -72,7 +74,6 @@ public:
 
     /// The layout the preview draws now, or null before the first lands.
     [[nodiscard]] std::shared_ptr<const AnnotationLayout> layout() const;
-
     /// Draws the picture the choices make and writes it to a file, its container named by its extension, through the
     /// export settings; the window says when it is written or why not.
     ///

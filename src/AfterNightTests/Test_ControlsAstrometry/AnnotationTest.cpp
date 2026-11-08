@@ -861,6 +861,18 @@ TEST(AnnotationDrawing, AFillTintsAnOutlinedObjectAndLeavesBracketsAndRegionsCle
     EXPECT_EQ(alphaAt(drawn(region, style), centre + QPointF(300.0, 0.0)), 0);
 }
 
+TEST(AnnotationPicture, AnImageIsPresentedThroughTheLargestReductionThatLeavesItAtLeastThePicturesSize)
+{
+    const QSize image(2400, 1800);
+    EXPECT_EQ(an::ui::annotationPresentationFactor(image, QSize(600, 450)), 4u);
+    EXPECT_EQ(an::ui::annotationPresentationFactor(image, QSize(700, 525)), 3u);
+    EXPECT_EQ(an::ui::annotationPresentationFactor(image, QSize(1600, 1200)), 1u);
+    EXPECT_EQ(an::ui::annotationPresentationFactor(image, image), 1u);
+    EXPECT_EQ(an::ui::annotationPresentationFactor(image, QSize(4800, 3600)), 1u) << "a reduction never magnifies";
+    EXPECT_EQ(an::ui::annotationPresentationFactor(image, QSize()), 1u);
+    EXPECT_EQ(an::ui::annotationPresentationFactor(QSize(), QSize(600, 450)), 1u);
+}
+
 // The lines' opacity and the dark edge behind them are the lines' own choices: a plain label keeps the edge behind the
 // lines, and no text choice takes it away.
 TEST(AnnotationDrawing, TheLinesOpacityAndTheirDarkEdgeAreTheLinesOwn)

@@ -14,7 +14,9 @@
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewFiles.h"
+#include "controls/ImageViewScrollArea.h"
 #include "controls/ProgressDialogControl.h"
+#include "controls/ViewControlMode.h"
 #include "controls/annotation/AnnotationLayout.h"
 #include "controls/annotation/AnnotationPicture.h"
 #include "controls/annotation/AnnotationRenderer.h"
@@ -24,6 +26,7 @@
 #include "session/ImageDocument.h"
 #include "theme/AnDesignTokens.h"
 #include "widgets/ImageViewWidget.h"
+#include "widgets/ImageViewWidgetDisplayModule.h"
 
 #include <AfterNightPlatform/Logging.h>
 
@@ -37,6 +40,7 @@
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDoubleSpinBox>
+#include <QEvent>
 #include <QFontComboBox>
 #include <QDir>
 #include <QFile>
@@ -46,9 +50,9 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPixmap>
 #include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
@@ -59,7 +63,6 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
-#include <QWheelEvent>
 
 #include <verdigris/wobjectimpl.h>
 
@@ -78,15 +81,6 @@ namespace an::ui
 {
 namespace
 {
-
-/// The preview's longest side it first asks the image presented at, before it knows its own size.
-constexpr std::uint32_t kFirstPreviewEdge = 1600u;
-
-/// The most the preview asks the image presented at, however far it is zoomed: the annotations stay sharp past it.
-constexpr std::uint32_t kLargestPreviewEdge = 4096u;
-
-/// How far the preview zooms in, as a multiple of the fitted picture.
-constexpr double kLargestZoom = 16.0;
 
 /// The output sizes the window offers, as long edges, below the image's own.
 constexpr std::array<std::uint32_t, 7> kOutputEdges{4096u, 3840u, 2560u, 2048u, 1600u, 1280u, 1024u};
@@ -218,52 +212,32 @@ enum class Change : std::uint8_t
     Output
 };
 
-/// The preview: the picture's base scaled into the widget and the annotations drawn over it at the same scale, zoomed
-/// about the cursor by the wheel, moved by dragging and fitted again by a double click.
-class AnnotationPreview final : public QWidget
+/// The annotations drawn over the preview, a view of the image: the picture's scene and layout at the view's zoom, over
+/// a checkerboard in the image's place when the picture is transparent, and a small pill in the corner shown while a
+/// newer drawing is on its way.
+class AnnotationOverlay final : public ImageViewWidgetDisplayModule
 {
 public:
-    explicit AnnotationPreview(QWidget* parent) : QWidget(parent)
-    {
-        setMinimumSize(480, 360);
-        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-        setMouseTracking(false);
-        setFocusPolicy(Qt::WheelFocus);
-    }
-
-    /// Called with the long edge the image is now shown at, in device pixels, when it outgrows the base.
-    std::function<void(std::uint32_t)> wantsResolution;
-
-    void setPicture(const QSize imageSize, const bool transparent)
-    {
-        if (imageSize != m_imageSize)
-        {
-            m_zoom = 1.0;
-            m_pan = QPointF();
-        }
-        m_imageSize = imageSize;
-        m_transparent = transparent;
-        update();
-    }
-
-    void setBase(std::shared_ptr<const AnnotationBase> base)
-    {
-        m_base = std::move(base);
-        m_baseImage = m_base != nullptr ? m_base->image() : QImage();
-        update();
-    }
-
     void setDrawing(std::shared_ptr<const AnnotationScene> scene, std::shared_ptr<const AnnotationLayout> layout)
     {
         m_scene = std::move(scene);
         m_layout = std::move(layout);
-        update();
+        repaint();
     }
 
     void setStyle(const AnnotationStyle& style)
     {
         m_style = style;
-        update();
+        repaint();
+    }
+
+    void setTransparent(const bool transparent)
+    {
+        if (transparent != m_transparent)
+        {
+            m_transparent = transparent;
+            repaint();
+        }
     }
 
     void setBusy(const bool busy)
@@ -271,234 +245,163 @@ public:
         if (busy != m_busy)
         {
             m_busy = busy;
-            update();
+            repaint();
         }
     }
 
-    void setMessage(const QString& message)
+    bool supportsContextMenu() override
     {
-        m_message = message;
-        update();
+        return false;
     }
 
-    /// The longest side the image is shown at now, in device pixels.
-    [[nodiscard]] std::uint32_t shownEdge() const
+    void onDraw(QPainter& painter) override
     {
-        const QRectF shown = pictureRect();
-        return static_cast<std::uint32_t>(std::ceil((std::max)(shown.width(), shown.height()) * devicePixelRatioF()));
-    }
-
-protected:
-    void paintEvent(QPaintEvent* /*event*/) override
-    {
-        const auto& tokenSet = an::ui::tokens();
-        QPainter painter(this);
-        painter.fillRect(rect(), tokenSet.colors.bgPrimary);
-        if (m_imageSize.isEmpty())
+        if (m_ViewWidget == nullptr)
         {
-            painter.setPen(tokenSet.colors.textSecondary);
-            painter.setFont(tokenSet.typography.body);
-            painter.drawText(rect(), Qt::AlignCenter | Qt::TextWordWrap, m_message);
             return;
         }
-        const QRectF target = pictureRect();
-        const double scale = target.width() / m_imageSize.width();
+        const QSize imageSize = m_ViewWidget->imageSize();
+        const double scale = m_ViewWidget->getCurrentScaleFactor();
+        if (imageSize.isEmpty() || !std::isfinite(scale) || scale <= 0.0)
+        {
+            return;
+        }
+        const auto& tokenSet = an::ui::tokens();
+        const QRectF image(0.0, 0.0, imageSize.width() * scale, imageSize.height() * scale);
         painter.save();
-        painter.setClipRect(target.intersected(QRectF(rect())));
         if (m_transparent)
         {
-            // A checkerboard of the theme's two surfaces shows what is transparent.
-            const double cell = 10.0;
-            painter.fillRect(target, tokenSet.colors.bgSurface);
-            const QRectF visible = target.intersected(QRectF(rect()));
-            for (double y = std::floor((visible.top() - target.top()) / cell) * cell + target.top();
-                 y < visible.bottom(); y += cell)
+            // A checkerboard of the theme's two surfaces shows what is transparent; the tiled brush paints only what
+            // the view shows of it.
+            constexpr int kCell = 10;
+            QPixmap tile(2 * kCell, 2 * kCell);
+            tile.fill(tokenSet.colors.bgSurface);
             {
-                for (double x = std::floor((visible.left() - target.left()) / cell) * cell + target.left();
-                     x < visible.right(); x += cell)
-                {
-                    const auto column = static_cast<long>(std::lround((x - target.left()) / cell));
-                    const auto row = static_cast<long>(std::lround((y - target.top()) / cell));
-                    if (((column + row) & 1L) != 0L)
-                    {
-                        painter.fillRect(QRectF(x, y, cell, cell), tokenSet.colors.bgCard);
-                    }
-                }
+                QPainter cells(&tile);
+                cells.fillRect(kCell, 0, kCell, kCell, tokenSet.colors.bgCard);
+                cells.fillRect(0, kCell, kCell, kCell, tokenSet.colors.bgCard);
             }
+            painter.setBrushOrigin(image.topLeft());
+            painter.fillRect(image, QBrush(tile));
         }
-        else if (!m_baseImage.isNull() && m_base != nullptr)
+        if (m_scene != nullptr && m_layout != nullptr && !m_scene->imageSize.isEmpty())
         {
-            painter.fillRect(target, Qt::black);
-            painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
-            painter.drawImage(
-                QRectF(target.topLeft(), QSizeF(m_base->covers.width() * scale, m_base->covers.height() * scale)),
-                m_baseImage);
-        }
-        else
-        {
-            painter.fillRect(target, Qt::black);
-        }
-        if (m_scene != nullptr && m_layout != nullptr)
-        {
-            painter.translate(target.topLeft());
-            painter.scale(scale, scale);
+            // The scene is laid out in the image's own pixels, as the picture draws it, at the view's zoom.
+            painter.scale(image.width() / m_scene->imageSize.width(), image.height() / m_scene->imageSize.height());
             paintAnnotations(painter, *m_scene, *m_layout, m_style);
         }
         painter.restore();
 
         if (m_busy)
         {
-            // A small pill in the corner while a newer drawing is on its way.
-            painter.setRenderHint(QPainter::Antialiasing, true);
-            painter.setFont(tokenSet.typography.caption);
-            const QString text = translated("Updating…");
-            const QFontMetrics metrics(painter.font());
-            const int padding = tokenSet.spacing.sm;
-            const QRect pill(rect().right() - metrics.horizontalAdvance(text) - 3 * padding, rect().top() + padding,
-                             metrics.horizontalAdvance(text) + 2 * padding, metrics.height() + padding);
-            QColor fill = tokenSet.colors.bgSurface;
-            fill.setAlpha(220);
-            painter.setPen(Qt::NoPen);
-            painter.setBrush(fill);
-            painter.drawRoundedRect(pill, tokenSet.radius.md, tokenSet.radius.md);
-            painter.setPen(tokenSet.colors.textSecondary);
-            painter.drawText(pill, Qt::AlignCenter, text);
+            drawBusy(painter);
         }
-    }
-
-    void wheelEvent(QWheelEvent* event) override
-    {
-        if (m_imageSize.isEmpty())
-        {
-            return;
-        }
-        const double steps = event->angleDelta().y() / 120.0;
-        const double zoom = std::clamp(m_zoom * std::pow(1.25, steps), 1.0, kLargestZoom);
-        zoomAbout(event->position(), zoom);
-        event->accept();
-    }
-
-    void mousePressEvent(QMouseEvent* event) override
-    {
-        if (event->button() == Qt::LeftButton && m_zoom > 1.0)
-        {
-            m_dragFrom = event->position();
-            m_dragging = true;
-            setCursor(Qt::ClosedHandCursor);
-        }
-    }
-
-    void mouseMoveEvent(QMouseEvent* event) override
-    {
-        if (m_dragging)
-        {
-            m_pan += event->position() - m_dragFrom;
-            m_dragFrom = event->position();
-            clampPan();
-            update();
-        }
-    }
-
-    void mouseReleaseEvent(QMouseEvent* /*event*/) override
-    {
-        m_dragging = false;
-        unsetCursor();
-    }
-
-    void mouseDoubleClickEvent(QMouseEvent* event) override
-    {
-        if (m_zoom > 1.0)
-        {
-            m_zoom = 1.0;
-            m_pan = QPointF();
-        }
-        else
-        {
-            zoomAbout(event->position(), 4.0);
-        }
-        update();
-        askResolution();
-    }
-
-    void resizeEvent(QResizeEvent* event) override
-    {
-        QWidget::resizeEvent(event);
-        clampPan();
-        askResolution();
     }
 
 private:
-    /// The picture fitted into the widget with a margin, before any zoom.
-    [[nodiscard]] QRectF fittedRect() const
+    void repaint() const
     {
-        const double margin = an::ui::tokens().spacing.md;
-        const QRectF area = QRectF(rect()).adjusted(margin, margin, -margin, -margin);
-        if (m_imageSize.isEmpty() || area.isEmpty())
+        if (m_ViewWidget != nullptr)
         {
-            return area;
+            m_ViewWidget->update();
         }
-        const double scale = (std::min)(area.width() / m_imageSize.width(), area.height() / m_imageSize.height());
-        const QSizeF size(m_imageSize.width() * scale, m_imageSize.height() * scale);
-        return QRectF(area.center() - QPointF(size.width() * 0.5, size.height() * 0.5), size);
     }
 
-    /// Where the picture is drawn now, zoomed and moved.
-    [[nodiscard]] QRectF pictureRect() const
+    /// A small pill in the corner of what the view shows.
+    void drawBusy(QPainter& painter) const
     {
-        const QRectF fitted = fittedRect();
-        const QSizeF size = fitted.size() * m_zoom;
-        return QRectF(fitted.center() + m_pan - QPointF(size.width() * 0.5, size.height() * 0.5), size);
-    }
-
-    void zoomAbout(const QPointF at, const double zoom)
-    {
-        const QRectF before = pictureRect();
-        if (before.isEmpty())
+        const auto& tokenSet = an::ui::tokens();
+        const QRect shown = m_ViewWidget->visibleRegion().boundingRect();
+        if (shown.isEmpty())
         {
             return;
         }
-        const QPointF fraction((at.x() - before.left()) / before.width(), (at.y() - before.top()) / before.height());
-        m_zoom = zoom;
-        const QRectF fitted = fittedRect();
-        const QSizeF size = fitted.size() * m_zoom;
-        const QPointF topLeft = at - QPointF(fraction.x() * size.width(), fraction.y() * size.height());
-        m_pan = topLeft + QPointF(size.width() * 0.5, size.height() * 0.5) - fitted.center();
-        clampPan();
-        update();
-        askResolution();
+        painter.save();
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        painter.setFont(tokenSet.typography.caption);
+        const QString text = translated("Updating…");
+        const QFontMetrics metrics(painter.font());
+        const int padding = tokenSet.spacing.sm;
+        const QRect pill(shown.right() - metrics.horizontalAdvance(text) - 3 * padding, shown.top() + padding,
+                         metrics.horizontalAdvance(text) + 2 * padding, metrics.height() + padding);
+        QColor fill = tokenSet.colors.bgSurface;
+        fill.setAlpha(220);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(fill);
+        painter.drawRoundedRect(pill, tokenSet.radius.md, tokenSet.radius.md);
+        painter.setPen(tokenSet.colors.textSecondary);
+        painter.drawText(pill, Qt::AlignCenter, text);
+        painter.restore();
     }
 
-    /// Keeps a zoomed picture covering the widget's middle, so it cannot be dragged away.
-    void clampPan()
-    {
-        const QRectF fitted = fittedRect();
-        const double reachX = (std::max)(0.0, (fitted.width() * m_zoom - fitted.width()) * 0.5);
-        const double reachY = (std::max)(0.0, (fitted.height() * m_zoom - fitted.height()) * 0.5);
-        m_pan.setX(std::clamp(m_pan.x(), -reachX, reachX));
-        m_pan.setY(std::clamp(m_pan.y(), -reachY, reachY));
-    }
-
-    void askResolution()
-    {
-        if (wantsResolution && !m_imageSize.isEmpty())
-        {
-            wantsResolution(shownEdge());
-        }
-    }
-
-    QSize m_imageSize;
-    bool m_transparent = false;
-    std::shared_ptr<const AnnotationBase> m_base;
-    QImage m_baseImage;
     std::shared_ptr<const AnnotationScene> m_scene;
     std::shared_ptr<const AnnotationLayout> m_layout;
     AnnotationStyle m_style;
-    QString m_message;
+    bool m_transparent = false;
     bool m_busy = false;
-    double m_zoom = 1.0;
-    QPointF m_pan;
-    QPointF m_dragFrom;
-    bool m_dragging = false;
+};
+
+/// Keeps the preview fitted to its window - when it is first shown, when it shows an image of another size and whenever
+/// the window is resized - until the person zooms it.
+class PreviewFit final : public QObject, public ImageViewControlListener
+{
+public:
+    explicit PreviewFit(ImageViewControl* preview)
+        : QObject(preview), ImageViewControlListener(preview), m_preview(preview)
+    {
+        if (preview->getScrollArea() != nullptr && preview->getScrollArea()->viewport() != nullptr)
+        {
+            preview->getScrollArea()->viewport()->installEventFilter(this);
+        }
+    }
+
+    /// Fits the preview now and keeps it fitted.
+    void fit()
+    {
+        m_fitted = true;
+        fitNow();
+        queueFit();
+    }
+
+    void onImageViewScaled(ImageViewControl* /*ctrl*/) override
+    {
+        if (!m_fitting)
+        {
+            m_fitted = false;
+        }
+    }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (m_fitted && (event->type() == QEvent::Resize || event->type() == QEvent::Show))
+        {
+            queueFit();
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    /// Fits once the layout the event belongs to has settled.
+    void queueFit()
+    {
+        QTimer::singleShot(0, this, [this]() { fitNow(); });
+    }
+
+    void fitNow()
+    {
+        if (!m_fitted || !m_preview->hasImage())
+        {
+            return;
+        }
+        m_fitting = true;
+        m_preview->fitToWindow();
+        m_fitting = false;
+    }
+
+    ImageViewControl* m_preview;
+    bool m_fitted = true;
+    bool m_fitting = false;
 };
 
 /// A colour the window lets a person set, with the member of the colours it is.
@@ -529,21 +432,14 @@ struct AnnotateImageControl::Impl
     std::shared_ptr<const AnnotationCatalogEntries> catalogs;
     std::shared_ptr<const AnnotationScene> scene;
     std::shared_ptr<const AnnotationLayout> layout;
-    std::shared_ptr<const AnnotationBase> base;
-    std::uint32_t baseEdge = 0u;
-    AnnotationStretch baseStretch = AnnotationStretch::AsShown;
-    std::optional<an::consumer::AssetRevision> baseRevision;
-    std::uint32_t wantedEdge = kFirstPreviewEdge;
 
     // The requests on their way; each answer lands only while it is still the latest of its kind.
     std::uint64_t catalogRequest = 0u;
     std::uint64_t drawingRequest = 0u;
-    std::uint64_t baseRequest = 0u;
     bool catalogBusy = false;
     bool drawingBusy = false;
     bool drawingAgain = false;
     bool drawingStale = false;
-    bool baseBusy = false;
     bool pictureBusy = false;
     std::optional<std::pair<bool, QString>> pendingPicture;
 
@@ -552,15 +448,18 @@ struct AnnotateImageControl::Impl
     AnnotationPalette paletteChoice = AnnotationPalette::Aurora;
     std::stop_source closing;
     QTimer* drawingTimer = nullptr;
-    QTimer* baseTimer = nullptr;
     QTimer* saveTimer = nullptr;
 
     QString lastOutcome;
     std::size_t picturesMade = 0u;
     bool syncing = false;
 
-    // The widgets.
-    AnnotationPreview* preview = nullptr;
+    // The widgets. The preview is a view of the view's image, shared rather than copied, with the annotations drawn
+    // over it; the overlay and the fit belong to it.
+    ImageViewControl* preview = nullptr;
+    std::unique_ptr<AnnotationOverlay> overlay;
+    PreviewFit* previewFit = nullptr;
+    QSize previewImageSize;
     QLabel* summary = nullptr;
     AnInfoBanner* banner = nullptr;
     QButtonGroup* detailGroup = nullptr;
@@ -632,12 +531,19 @@ struct AnnotateImageControl::Impl
 
     [[nodiscard]] bool working() const
     {
-        return catalogBusy || drawingBusy || baseBusy || pictureBusy;
+        return catalogBusy || drawingBusy || pictureBusy || !previewIdle();
+    }
+
+    /// Whether the preview has nothing on its way: no presentation of its image.
+    [[nodiscard]] bool previewIdle() const
+    {
+        const ImageViewWidget* widget = preview != nullptr ? preview->getViewWidget() : nullptr;
+        return widget == nullptr || (preview->isWorkIdle() && widget->isPresentationIdle());
     }
 
     void refreshBusy()
     {
-        preview->setBusy(catalogBusy || drawingBusy || baseBusy);
+        overlay->setBusy(catalogBusy || drawingBusy);
         const bool ready = solution.has_value() && scene != nullptr && layout != nullptr && !pictureBusy;
         exportButton->setEnabled(ready);
         openButton->setEnabled(ready);
@@ -699,14 +605,14 @@ struct AnnotateImageControl::Impl
     {
         const bool solutionChanged = readImage();
         refillOutputSizes();
-        preview->setPicture(imageSize, settings.output.background == AnnotationBackground::Transparent);
+        showImageInPreview();
+        presentPreviewAsChosen();
         if (!solution.has_value())
         {
             catalogs.reset();
             scene.reset();
             layout.reset();
-            preview->setDrawing(nullptr, nullptr);
-            preview->setMessage(translated("The image states no astrometric solution. Plate solve it to annotate it."));
+            overlay->setDrawing(nullptr, nullptr);
             showProblem(translated("The image states no astrometric solution. Plate solve it first."));
             refreshBusy();
             return;
@@ -721,8 +627,78 @@ struct AnnotateImageControl::Impl
         {
             requestDrawing();
         }
-        requestBase(true);
         refreshBusy();
+    }
+
+    /// Shows the view's image in the preview - the same image, shared and never copied - and fits it to the window when
+    /// it is the first or another size.
+    void showImageInPreview()
+    {
+        std::shared_ptr<const an::consumer::ImageAsset> asset =
+            view != nullptr && view->hasImage() ? view->document().asset() : nullptr;
+        if (asset == nullptr)
+        {
+            if (preview->hasImage())
+            {
+                preview->clear();
+            }
+            previewImageSize = QSize();
+            return;
+        }
+        if (preview->hasImage() && preview->document().asset() == asset)
+        {
+            return;
+        }
+        an::Result<ImageDocument> shared =
+            ImageDocument::share(std::move(asset), DocumentNames{.displayName = imageName});
+        if (!shared.hasValue())
+        {
+            LOG_WARNING("Annotate Image: the preview cannot show the image: {}", shared.status().message());
+            preview->clear();
+            previewImageSize = QSize();
+            return;
+        }
+        preview->setDocument(std::move(*shared));
+        if (imageSize != previewImageSize)
+        {
+            previewImageSize = imageSize;
+            previewFit->fit();
+        }
+    }
+
+    /// Presents the preview's image as the picture's stretch says: as the view shows it - its display mode and the
+    /// stretch's settings, the whole image rather than a channel of it - or every channel at full scale, unstretched.
+    /// The picture is presented as the preview presents it.
+    void presentPreviewAsChosen()
+    {
+        ImageViewWidget* shown = preview->getViewWidget();
+        ImageViewWidget* source = view != nullptr ? view->getViewWidget() : nullptr;
+        overlay->setTransparent(settings.output.background == AnnotationBackground::Transparent);
+        if (shown == nullptr)
+        {
+            return;
+        }
+        if (settings.output.stretch == AnnotationStretch::AsShown && source != nullptr)
+        {
+            shown->setAutostretchSettings(source->getAutostretchSettings());
+            shown->setImageHoldsAutostretch(source->imageHoldsAutostretch());
+            preview->setViewMode(source->getViewMode());
+        }
+        else if (settings.output.stretch == AnnotationStretch::AsShown && linear)
+        {
+            // Each colour channel takes its own stretch, as a view's automatic stretch shows an image unless asked to
+            // link them.
+            AutostretchParams automatic;
+            automatic.linkedChannels = false;
+            shown->setAutostretchSettings(automatic);
+            shown->setImageHoldsAutostretch(false);
+            preview->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
+        }
+        else
+        {
+            shown->setImageHoldsAutostretch(false);
+            preview->setViewMode(ImageViewMode::LINEAR_MODE);
+        }
     }
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -827,8 +803,8 @@ struct AnnotateImageControl::Impl
                 {
                     impl.scene = std::move(drawn.first);
                     impl.layout = std::move(drawn.second);
-                    impl.preview->setDrawing(impl.scene, impl.layout);
-                    impl.preview->setStyle(impl.settings.style);
+                    impl.overlay->setDrawing(impl.scene, impl.layout);
+                    impl.overlay->setStyle(impl.settings.style);
                     impl.refreshSummary();
                 }
                 if (impl.drawingAgain || impl.drawingStale)
@@ -840,123 +816,6 @@ struct AnnotateImageControl::Impl
                     const auto [open, path] = *impl.pendingPicture;
                     impl.pendingPicture.reset();
                     impl.makePicture(open, path);
-                }
-                impl.refreshBusy();
-            });
-    }
-
-    /// Presents the image for the preview at the size it is shown, or larger when it is zoomed.
-    void requestBase(const bool force)
-    {
-        if (!solution.has_value() || imageSize.isEmpty() || view == nullptr)
-        {
-            return;
-        }
-        if (settings.output.background == AnnotationBackground::Transparent)
-        {
-            preview->setBase(nullptr);
-            return;
-        }
-        // The image kept is shown again at once - after a transparent spell - until a newer one lands.
-        if (base != nullptr)
-        {
-            preview->setBase(base);
-        }
-        const auto longest = static_cast<std::uint32_t>((std::max)(imageSize.width(), imageSize.height()));
-        const std::uint32_t edge = (std::min)({wantedEdge, kLargestPreviewEdge, longest});
-        const an::consumer::EngineSession* session = currentSession();
-        std::shared_ptr<const an::consumer::ImageAsset> asset = view->document().asset();
-        if (session == nullptr || asset == nullptr)
-        {
-            return;
-        }
-        // The image is leased before the presentation is admitted: an edit of the view holds its writer while it waits
-        // for admission, and a presentation admitted first would wait for the edit that waits for it.
-        an::Result<an::consumer::AssetReadLease> lease = asset->tryRead();
-        if (!lease.hasValue())
-        {
-            baseTimer->start();
-            return;
-        }
-        const an::consumer::AssetRevision revision = lease->revision();
-        if (!force && base != nullptr && baseStretch == settings.output.stretch && edge <= baseEdge &&
-            baseRevision == revision)
-        {
-            return;
-        }
-        std::optional<ViewPresentationSettings> shown;
-        if (auto* widget = view->getViewWidget(); widget != nullptr)
-        {
-            shown = widget->framePresentationSettings();
-        }
-        const ViewPresentationSettings presentation =
-            annotationPresentationSettings(shown, settings.output.stretch, linear);
-        std::optional<an::DisplayPresentationAnalysis> analysis;
-        if (auto* widget = view->getViewWidget(); widget != nullptr)
-        {
-            analysis = widget->keptAnalysisOf(lease->revision(), presentation);
-        }
-        auto held = std::make_shared<an::consumer::AssetReadLease>(std::move(*lease));
-        const std::uint64_t request = ++baseRequest;
-        const AnnotationStretch stretchAsked = settings.output.stretch;
-        baseBusy = true;
-        refreshBusy();
-        QPointer<AnnotateImageControl> guard(window);
-        runThenLand(
-            [session, held, presentation, analysis, edge, imageSize = imageSize,
-             stop = closing.get_token()]() -> an::Result<std::shared_ptr<const AnnotationBase>> {
-                return viewWorkOutcome([&]() -> an::Result<std::shared_ptr<const AnnotationBase>> {
-                    an::Result<an::consumer::OperationScope> scope = session->admit(an::consumer::OperationRequest{
-                        .purpose = an::consumer::OperationPurpose::Preview, .stopToken = stop});
-                    if (!scope.hasValue())
-                    {
-                        held->release();
-                        return scope.status();
-                    }
-                    an::Result<AnnotationBase> presented =
-                        presentAnnotationBase(*scope, *held, presentation, analysis.has_value() ? &*analysis : nullptr,
-                                              &session->memory(), annotationPictureSize(imageSize, edge));
-                    held->release();
-                    scope->end();
-                    if (!presented.hasValue())
-                    {
-                        return presented.status();
-                    }
-                    return std::shared_ptr<const AnnotationBase>(
-                        std::make_shared<const AnnotationBase>(std::move(*presented)));
-                });
-            },
-            [guard, request, edge, stretchAsked,
-             revision](an::Result<std::shared_ptr<const AnnotationBase>> presented) {
-                if (!guard)
-                {
-                    return;
-                }
-                Impl& impl = *guard->m_impl;
-                if (request != impl.baseRequest)
-                {
-                    return;
-                }
-                impl.baseBusy = false;
-                if (!presented.hasValue())
-                {
-                    if (presented.status().code() != an::ErrorCode::Cancelled)
-                    {
-                        LOG_WARNING("Annotate Image: the preview's image could not be presented: {}",
-                                    presented.status().message());
-                        impl.showProblem(translated("The image could not be shown: %1")
-                                             .arg(QString::fromUtf8(presented.status().message())));
-                    }
-                    impl.refreshBusy();
-                    return;
-                }
-                impl.base = std::move(*presented);
-                impl.baseEdge = edge;
-                impl.baseStretch = stretchAsked;
-                impl.baseRevision = revision;
-                if (impl.settings.output.background == AnnotationBackground::Image)
-                {
-                    impl.preview->setBase(impl.base);
                 }
                 impl.refreshBusy();
             });
@@ -1044,23 +903,25 @@ struct AnnotateImageControl::Impl
                         AnInfoBanner::Tone::Warning);
             return;
         }
+        // The picture is presented as the preview presents the image - the stretch the window chose - and through the
+        // whole-image analysis the preview or the view keeps of this revision, when either does.
+        const ImageViewWidget* previewed = preview->getViewWidget();
+        const ImageViewWidget* source = view->getViewWidget();
         std::optional<ViewPresentationSettings> shown;
-        if (auto* widget = view->getViewWidget(); widget != nullptr)
+        if (previewed != nullptr)
         {
-            shown = widget->framePresentationSettings();
+            shown.emplace();
+            shown->request = previewed->presentationRequest();
         }
-        const ViewPresentationSettings presentation =
-            annotationPresentationSettings(shown, settings.output.stretch, linear);
+        const ViewPresentationSettings presentation = annotationPresentationSettings(
+            shown, previewed != nullptr ? AnnotationStretch::AsShown : settings.output.stretch, linear);
         std::optional<an::DisplayPresentationAnalysis> analysis;
-        if (base != nullptr && baseStretch == settings.output.stretch && baseRevision == lease->revision())
+        for (const ImageViewWidget* keeper : {previewed, source})
         {
-            // The preview's image was stretched through this revision's whole-image analysis: the picture takes the
-            // same.
-            analysis = base->analysis;
-        }
-        else if (auto* widget = view->getViewWidget(); widget != nullptr)
-        {
-            analysis = widget->keptAnalysisOf(lease->revision(), presentation);
+            if (keeper != nullptr && !analysis.has_value())
+            {
+                analysis = keeper->keptAnalysisOf(lease->revision(), presentation);
+            }
         }
         auto held = std::make_shared<an::consumer::AssetReadLease>(std::move(*lease));
 
@@ -1208,7 +1069,7 @@ struct AnnotateImageControl::Impl
         switch (change)
         {
         case Change::Drawing:
-            preview->setStyle(settings.style);
+            overlay->setStyle(settings.style);
             break;
         case Change::Layout:
         case Change::Scene:
@@ -1220,8 +1081,7 @@ struct AnnotateImageControl::Impl
             drawingTimer->start();
             break;
         case Change::Base:
-            preview->setPicture(imageSize, settings.output.background == AnnotationBackground::Transparent);
-            requestBase(false);
+            presentPreviewAsChosen();
             break;
         case Change::Output:
             break;
@@ -2143,10 +2003,21 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
 
     auto* previewColumn = new QVBoxLayout();
     previewColumn->setSpacing(tokenSet.spacing.xs);
-    impl.preview = new AnnotationPreview(this);
+    // The preview is a view of the image, as compact as a list's: its zoom, its lens, and none of the choices of how
+    // the image is presented, which are the window's.
+    impl.preview = new ImageViewControl(this);
     impl.preview->setObjectName(QStringLiteral("annotatePreview"));
-    impl.preview->setToolTip(translated("Scroll to zoom, drag to move, double-click to zoom in or fit"));
-    impl.preview->setMessage(translated("Reading the image…"));
+    impl.preview->initialize("annotatePreview", ViewControlMode::st_preview);
+    impl.preview->setPresentationChoicesOffered(false);
+    impl.preview->setToolTip(
+        translated("Scroll to zoom, drag with the middle button to move, hold the left button for the lens"));
+    impl.preview->setMinimumSize(480, 360);
+    impl.overlay = std::make_unique<AnnotationOverlay>();
+    if (ImageViewWidget* widget = impl.preview->getViewWidget(); widget != nullptr)
+    {
+        impl.overlay->attachToViewWidget(widget);
+    }
+    impl.previewFit = new PreviewFit(impl.preview);
     previewColumn->addWidget(impl.preview, 1);
     impl.summary = new QLabel(this);
     impl.summary->setObjectName(QStringLiteral("annotateSummary"));
@@ -2183,23 +2054,11 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     impl.drawingTimer->setSingleShot(true);
     impl.drawingTimer->setInterval(60);
     connect(impl.drawingTimer, &QTimer::timeout, this, [this]() { m_impl->requestDrawing(); });
-    impl.baseTimer = new QTimer(this);
-    impl.baseTimer->setSingleShot(true);
-    impl.baseTimer->setInterval(250);
-    connect(impl.baseTimer, &QTimer::timeout, this, [this]() { m_impl->requestBase(false); });
     impl.saveTimer = new QTimer(this);
     impl.saveTimer->setSingleShot(true);
     impl.saveTimer->setInterval(500);
     connect(impl.saveTimer, &QTimer::timeout, this, [this]() { m_impl->save(); });
 
-    impl.preview->wantsResolution = [this](const std::uint32_t edge) {
-        Impl& state = *m_impl;
-        if (edge > state.baseEdge + state.baseEdge / 4u || state.base == nullptr)
-        {
-            state.wantedEdge = (std::max)(edge, kFirstPreviewEdge);
-            state.baseTimer->start();
-        }
-    };
     connect(reset, &QPushButton::clicked, this, [this]() {
         Impl& state = *m_impl;
         const QString keptCredit = state.settings.content.credit;
@@ -2242,7 +2101,7 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     connect(close, &QPushButton::clicked, this, &QDialog::close);
 
     impl.showSettings();
-    impl.preview->setStyle(impl.settings.style);
+    impl.overlay->setStyle(impl.settings.style);
     resize(1320, 860);
     setMinimumSize(980, 640);
     impl.refreshFromImage();
@@ -2294,7 +2153,7 @@ void AnnotateImageControl::setSettings(const AnnotationSettings& settings)
     Impl& impl = *m_impl;
     impl.settings = settings;
     impl.showSettings();
-    impl.preview->setStyle(settings.style);
+    impl.overlay->setStyle(settings.style);
     impl.changed(Change::Scene);
     impl.changed(Change::Base);
 }

@@ -214,6 +214,14 @@ public:
     /// The statistics the static preview's overlay shows now, or nothing.
     [[nodiscard]] std::optional<an::ui::ViewImageStatistics> previewStatistics() const;
 
+    /// Whether the static preview offers the choices of how its image is presented - the channel, the display mode,
+    /// the stretch's settings and the statistics overlay - or its zoom alone, for a preview whose owner decides how the
+    /// image is presented (`setViewMode`, `ImageViewWidget::setAutostretchSettings`). One that offers none measures no
+    /// statistics, shows no autostretch banner, and opens no stretch settings by their shortcut.
+    ///
+    /// @param offered whether the choices are offered; they are unless told otherwise.
+    void setPresentationChoicesOffered(bool offered);
+
     /// Writes the view's image to a file, in the container its extension names, as the export settings decide. The
     /// write runs on the calling thread under a read lease; the view's pending changes are cleared only when the
     /// document still holds what was written.
