@@ -861,6 +861,52 @@ TEST(AnnotationDrawing, AFillTintsAnOutlinedObjectAndLeavesBracketsAndRegionsCle
     EXPECT_EQ(alphaAt(drawn(region, style), centre + QPointF(300.0, 0.0)), 0);
 }
 
+// The cells a layout keeps its placed boxes in are four labels' sizes, but text set a fraction of a pixel tall against
+// a large frame - a view zoomed far into a large image - never makes more of them than a bound.
+TEST(AnnotationLayout, ALayoutsCellsStayBoundedHoweverSmallItsTextIsSet)
+{
+    const QSizeF frame(9576.0, 6388.0);
+    EXPECT_DOUBLE_EQ(an::ui::annotationLayoutCellSize(frame, 100.0), 400.0);
+    for (const double fontSize : {2.0, 0.5, 0.1, 0.001})
+    {
+        const double cell = an::ui::annotationLayoutCellSize(frame, fontSize);
+        EXPECT_GE(cell, 4.0 * fontSize);
+        EXPECT_LE(std::ceil(frame.width() / cell) * std::ceil(frame.height() / cell),
+                  static_cast<double>(an::ui::kAnnotationLayoutMostCells))
+            << "text " << fontSize << " pixels tall";
+    }
+}
+
+// Drawn for the part of the image a view shows, only what lies in that part is drawn, so a view's paint costs what it
+// shows: an object and its label outside the part are not drawn.
+TEST(AnnotationDrawing, OnlyWhatLiesInThePartShownIsDrawn)
+{
+    an::ui::AnnotationScene scene = sceneOfOne(an::ui::AnnotationMarkKind::Galaxy, QPointF(400.0, 400.0), 100.0);
+    an::ui::AnnotationScene far = sceneOfOne(an::ui::AnnotationMarkKind::Galaxy, QPointF(1600.0, 1150.0), 100.0);
+    far.marks.front().designation = QStringLiteral("NGC 2");
+    scene.marks.push_back(far.marks.front());
+    const an::ui::AnnotationStyle style = an::ui::defaultAnnotationSettings().style;
+    const an::ui::AnnotationLayout layout = an::ui::layoutAnnotations(scene, marksAlone(), style);
+    ASSERT_EQ(layout.labelled, (std::vector<bool>{true, true}));
+
+    QImage image(scene.imageSize, QImage::Format_ARGB32);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    an::ui::paintAnnotations(painter, scene, layout, style, QRectF(0.0, 0.0, 1000.0, 750.0));
+    painter.end();
+
+    EXPECT_GT(alphaAt(image, QPointF(500.0, 400.0)), 0) << "the object in the part shown is drawn";
+    int drawnOutside = 0;
+    for (int y = 800; y < image.height(); y += 2)
+    {
+        for (int x = 1050; x < image.width(); x += 2)
+        {
+            drawnOutside += image.pixelColor(x, y).alpha() > 0 ? 1 : 0;
+        }
+    }
+    EXPECT_EQ(drawnOutside, 0) << "nothing of the object outside it is drawn";
+}
+
 TEST(AnnotationPicture, AnImageIsPresentedThroughTheLargestReductionThatLeavesItAtLeastThePicturesSize)
 {
     const QSize image(2400, 1800);

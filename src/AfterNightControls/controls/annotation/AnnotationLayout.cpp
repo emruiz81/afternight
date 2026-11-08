@@ -701,6 +701,20 @@ std::pair<QString, QString> annotationLabelLines(const AnnotationMark& mark, con
     return labelLines(mark, text);
 }
 
+double annotationLayoutCellSize(const QSizeF frame, const double fontSize) noexcept
+{
+    const double width = (std::max)(1.0, frame.width());
+    const double height = (std::max)(1.0, frame.height());
+    double cell = (std::max)(1.0, std::isfinite(fontSize) ? 4.0 * fontSize : 1.0);
+    cell = (std::max)(cell, std::sqrt(width * height / kAnnotationLayoutMostCells));
+    // The cells cover the frame in whole rows and columns: widen them until those fit the bound.
+    while (std::ceil(width / cell) * std::ceil(height / cell) > kAnnotationLayoutMostCells)
+    {
+        cell *= 1.01;
+    }
+    return cell;
+}
+
 AnnotationMetrics annotationMetrics(const double referenceLength, const AnnotationStyle& style) noexcept
 {
     const double reference = std::isfinite(referenceLength) ? (std::max)(0.0, referenceLength) : 0.0;
@@ -732,7 +746,7 @@ AnnotationLayout layoutAnnotations(const AnnotationScene& scene, const Annotatio
     const AnnotationMetrics& metrics = layout.metrics;
     const QRectF frame(0.0, 0.0, scene.imageSize.width(), scene.imageSize.height());
     const TextShaper shaper(style);
-    Occupancy occupied(frame, 4.0 * metrics.fontSize);
+    Occupancy occupied(frame, annotationLayoutCellSize(frame.size(), metrics.fontSize));
 
     // The decorations first, stacked from their corners inward: they keep their places whatever the labels do.
     CornerStacks stacks(frame, metrics.margin);

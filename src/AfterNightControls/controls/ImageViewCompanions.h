@@ -259,11 +259,9 @@ enum class AstrometryOverlay : std::uint8_t
     /// The SIP distortion map.
     DistortionMap,
 
-    /// The deep-sky catalogue's annotations.
-    CatalogAnnotations,
-
-    /// The bright stars' labels.
-    BrightStarLabels
+    /// The bundled catalogues' annotations: the deep-sky objects and the bright stars, each a layer
+    /// (`setAstrometryOverlayLayers`), laid out together.
+    CatalogAnnotations
 };
 
 /// The stars a view detected for its overlay, with the solution that places them on the sky.
@@ -290,6 +288,15 @@ createAstrometryOverlay(AstrometryOverlay overlay, ::ImageViewControl& view);
 /// @param overlay an overlay `createAstrometryOverlay` made.
 /// @param limit the magnitude.
 AFTERNIGHTCONTROLS_API void setAstrometryOverlayMagnitudeLimit(::ImageViewWidgetDisplayModule& overlay, double limit);
+
+/// Sets which catalogues a catalogue overlay draws; an overlay that labels no catalogue ignores it. Defined beside the
+/// overlays.
+///
+/// @param overlay an overlay `createAstrometryOverlay` made.
+/// @param deepSky whether the deep-sky objects are drawn.
+/// @param stars whether the bright stars are drawn.
+AFTERNIGHTCONTROLS_API void setAstrometryOverlayLayers(::ImageViewWidgetDisplayModule& overlay, bool deepSky,
+                                                       bool stars);
 
 /// Hands the stars a view detected to the overlay that draws them; an overlay that draws no stars ignores it. Defined
 /// beside the overlays.

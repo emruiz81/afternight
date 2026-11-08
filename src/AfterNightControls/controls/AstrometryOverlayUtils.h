@@ -37,7 +37,9 @@ class ImageViewControl;
 namespace an::ui
 {
 struct AnnotationContent;
+struct AnnotationLayout;
 struct AnnotationScene;
+struct AnnotationStyle;
 } // namespace an::ui
 
 namespace an::ui::detail
@@ -105,6 +107,33 @@ struct VisibleSky
 [[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationContent overlayAnnotationContent(BundledCatalog catalog,
                                                                                 double magnitudeLimit);
 
+/// What a view's catalog overlay draws at a zoom: its layers' marks in one scene and where their labels go.
+struct OverlayAnnotationLayout
+{
+    /// The marks drawn, most prominent first, each labelled on one line, with every length set for the zoom.
+    std::shared_ptr<const AnnotationScene> scene;
+
+    /// Where their labels go.
+    std::shared_ptr<const AnnotationLayout> layout;
+};
+
+/// Lays out what a view's catalog overlay draws at a zoom, as an annotated picture lays out its labels: the deep-sky
+/// objects' and the stars' marks in one scene, ordered as a scene of both is, each labelled on one line as its overlay
+/// labels it, and every length set so a label is `fontPixels` tall on the screen at `scale` - at every zoom alike. No
+/// label covers another; every deep-sky object keeps its outline, and a star whose label found no room is left out,
+/// as the view's star labels leave it out. Lays out on any thread a `QGuiApplication` lets read fonts on.
+///
+/// @param deepSky the deep-sky layer's scene, or null when it is not drawn.
+/// @param stars the star layer's scene, or null when it is not drawn.
+/// @param scale the view's scale: its widget's pixels to the image's.
+/// @param fontPixels a label's size on the screen, in the widget's pixels.
+/// @param style the style the marks and labels are drawn in.
+/// @return the layout; an empty one for no layer, no frame or a scale or size that is not positive.
+[[nodiscard]] AFTERNIGHTCONTROLS_API OverlayAnnotationLayout layoutOverlayAnnotations(const AnnotationScene* deepSky,
+                                                                                      const AnnotationScene* stars,
+                                                                                      double scale, double fontPixels,
+                                                                                      const AnnotationStyle& style);
+
 /// The entries a bundled catalog holds inside an image's field, at a magnitude limit, as a worker found them.
 struct FieldCatalogEntries
 {
@@ -146,6 +175,9 @@ public:
 
     /// How many queries were asked of workers.
     [[nodiscard]] std::uint64_t queriesAsked() const noexcept;
+
+    /// Whether a query is on its way: an answer of null then means one is coming, not that the catalog failed.
+    [[nodiscard]] bool isAsking() const noexcept;
 
     /// Reads the catalog's text from another source; a catalog already read is read again by the next query.
     ///

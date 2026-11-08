@@ -1028,8 +1028,19 @@ struct ImageViewControl::Impl
     std::unique_ptr<ImageViewWidgetDisplayModule> m_AstrometryStarDisplayModule;
     std::unique_ptr<ImageViewWidgetDisplayModule> m_CoordinateGridDisplayModule;
     std::unique_ptr<ImageViewWidgetDisplayModule> m_DistortionMapDisplayModule;
+    /// The catalogue annotations: the deep-sky objects and the bright stars, each a layer of the one overlay.
     std::unique_ptr<ImageViewWidgetDisplayModule> m_CatalogAnnotationDisplayModule;
-    std::unique_ptr<ImageViewWidgetDisplayModule> m_BrightStarAnnotationDisplayModule;
+
+    /// Draws the catalogue annotations' layers the menu checks while the astrometry overlays are shown, and nothing
+    /// when neither is checked.
+    void showCatalogAnnotations(const bool shown, const bool deepSky, const bool stars) const
+    {
+        if (m_CatalogAnnotationDisplayModule)
+        {
+            an::ui::setAstrometryOverlayLayers(*m_CatalogAnnotationDisplayModule, deepSky, stars);
+            m_CatalogAnnotationDisplayModule->enableDisplayModule(shown && (deepSky || stars));
+        }
+    }
 
     [[nodiscard]] bool hasCalibrationInput() const
     {
@@ -1697,18 +1708,13 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                       astrometryOverlayEnabled && coordinateGridEnabled);
         attachOverlay(m_impl->m_DistortionMapDisplayModule, an::ui::AstrometryOverlay::DistortionMap,
                       astrometryOverlayEnabled && distortionMapEnabled);
-        attachOverlay(m_impl->m_CatalogAnnotationDisplayModule, an::ui::AstrometryOverlay::CatalogAnnotations,
-                      astrometryOverlayEnabled && catalogAnnotationsEnabled);
-        attachOverlay(m_impl->m_BrightStarAnnotationDisplayModule, an::ui::AstrometryOverlay::BrightStarLabels,
-                      astrometryOverlayEnabled && starLabelsEnabled);
-        for (ImageViewWidgetDisplayModule* labelled :
-             {m_impl->m_CatalogAnnotationDisplayModule.get(), m_impl->m_BrightStarAnnotationDisplayModule.get()})
+        attachOverlay(m_impl->m_CatalogAnnotationDisplayModule, an::ui::AstrometryOverlay::CatalogAnnotations, false);
+        if (m_impl->m_CatalogAnnotationDisplayModule)
         {
-            if (labelled != nullptr)
-            {
-                an::ui::setAstrometryOverlayMagnitudeLimit(*labelled, catalogMagnitudeLimit);
-            }
+            an::ui::setAstrometryOverlayMagnitudeLimit(*m_impl->m_CatalogAnnotationDisplayModule,
+                                                       catalogMagnitudeLimit);
         }
+        m_impl->showCatalogAnnotations(astrometryOverlayEnabled, catalogAnnotationsEnabled, starLabelsEnabled);
     }
     const auto persistBoolSetting = [this](const QString& key, const bool enabled) {
         if (auto* persistence = an::ui::appContext()->getGlobalSettings())
@@ -1753,14 +1759,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                 {
                     m_impl->m_DistortionMapDisplayModule->enableDisplayModule(enabled && sipChecked);
                 }
-                if (m_impl->m_CatalogAnnotationDisplayModule)
-                {
-                    m_impl->m_CatalogAnnotationDisplayModule->enableDisplayModule(enabled && annotationsChecked);
-                }
-                if (m_impl->m_BrightStarAnnotationDisplayModule)
-                {
-                    m_impl->m_BrightStarAnnotationDisplayModule->enableDisplayModule(enabled && starLabelsChecked);
-                }
+                m_impl->showCatalogAnnotations(enabled, annotationsChecked, starLabelsChecked);
                 if (m_impl->m_AstrometryStarDisplayModule)
                 {
                     m_impl->m_AstrometryStarDisplayModule->enableDisplayModule(enabled && starsChecked);
@@ -1816,11 +1815,9 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                          [this, persistBoolSetting](bool enabled) {
                              const bool masterEnabled =
                                  m_impl->m_AstrometryToggleAction && m_impl->m_AstrometryToggleAction->isChecked();
-                             if (m_impl->m_CatalogAnnotationDisplayModule)
-                             {
-                                 m_impl->m_CatalogAnnotationDisplayModule->enableDisplayModule(masterEnabled &&
-                                                                                               enabled);
-                             }
+                             const bool starLabelsChecked = m_impl->m_AstrometryStarLabelsMenuAction &&
+                                                            m_impl->m_AstrometryStarLabelsMenuAction->isChecked();
+                             m_impl->showCatalogAnnotations(masterEnabled, enabled, starLabelsChecked);
                              persistBoolSetting(SettingsKeys::PLATESOLVE_CATALOG_ANNOTATIONS_ENABLED, enabled);
                              if (m_impl->m_ImageViewWidget)
                              {
@@ -1835,11 +1832,9 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                          [this, persistBoolSetting](bool enabled) {
                              const bool masterEnabled =
                                  m_impl->m_AstrometryToggleAction && m_impl->m_AstrometryToggleAction->isChecked();
-                             if (m_impl->m_BrightStarAnnotationDisplayModule)
-                             {
-                                 m_impl->m_BrightStarAnnotationDisplayModule->enableDisplayModule(masterEnabled &&
-                                                                                                  enabled);
-                             }
+                             const bool annotationsChecked = m_impl->m_AstrometryAnnotationsMenuAction &&
+                                                             m_impl->m_AstrometryAnnotationsMenuAction->isChecked();
+                             m_impl->showCatalogAnnotations(masterEnabled, annotationsChecked, enabled);
                              persistBoolSetting(SettingsKeys::PLATESOLVE_STAR_LABELS_ENABLED, enabled);
                              if (m_impl->m_ImageViewWidget)
                              {
@@ -1904,11 +1899,6 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                              {
                                  an::ui::setAstrometryOverlayMagnitudeLimit(*m_impl->m_CatalogAnnotationDisplayModule,
                                                                             magnitude_limit);
-                             }
-                             if (m_impl->m_BrightStarAnnotationDisplayModule)
-                             {
-                                 an::ui::setAstrometryOverlayMagnitudeLimit(
-                                     *m_impl->m_BrightStarAnnotationDisplayModule, magnitude_limit);
                              }
                              persistStringSetting(SettingsKeys::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT,
                                                   QString::number(magnitude_limit, 'f', 1));
@@ -5306,7 +5296,6 @@ ImageViewControl::~ImageViewControl()
     m_impl->m_CoordinateGridDisplayModule.reset();
     m_impl->m_DistortionMapDisplayModule.reset();
     m_impl->m_CatalogAnnotationDisplayModule.reset();
-    m_impl->m_BrightStarAnnotationDisplayModule.reset();
     m_impl->m_History.reset();
     if (m_impl->m_SequencePlayer)
     {

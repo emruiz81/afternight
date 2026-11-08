@@ -27,6 +27,7 @@
 #include <QPainterPath>
 #include <QPointF>
 #include <QRectF>
+#include <QSizeF>
 #include <QString>
 
 #include <cstddef>
@@ -182,6 +183,19 @@ struct AnnotationLayout
     std::optional<AnnotationCompassLayout> compass;
     std::optional<AnnotationScaleBarLayout> scaleBar;
 };
+
+/// The most cells a layout keeps its placed boxes in.
+inline constexpr double kAnnotationLayoutMostCells = 262144.0;
+
+/// The size of the cells a layout keeps its placed boxes in, so a test of a place reads only the boxes near it: four
+/// labels' sizes, but never so small that the frame holds more than `kAnnotationLayoutMostCells` of them - text set a
+/// fraction of a pixel tall against a large frame, as a view zoomed far into a large image sets it, would otherwise
+/// make a layout's bookkeeping grow with the square of the zoom.
+///
+/// @param frame the frame's size.
+/// @param fontSize a label's font size, in the frame's pixels.
+/// @return the cell's side, in the frame's pixels.
+[[nodiscard]] AFTERNIGHTCONTROLS_API double annotationLayoutCellSize(QSizeF frame, double fontSize) noexcept;
 
 /// A mark's label text as the choices say: its first line and its second - the name under the designation - which is
 /// empty for a label of one line. A view's overlay that labels a mark on one line draws the first.
