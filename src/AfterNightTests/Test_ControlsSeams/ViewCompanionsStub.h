@@ -10,6 +10,7 @@
 #pragma once
 
 #include "controls/ImageViewCompanions.h"
+#include "controls/annotation/AnnotationSettings.h"
 
 #include <AfterNightConsumerRuntime/ImageAsset.h>
 
@@ -69,8 +70,8 @@ struct CompanionRecord
     /// The stars handed to the detected-stars overlay, in order; a null entry cleared them.
     std::vector<std::shared_ptr<const an::ui::ViewOverlayStars>> overlayStars;
 
-    /// The magnitude limits handed to the catalogue overlays.
-    std::vector<double> magnitudeLimits;
+    /// The choices handed to the overlays, in order, each with the overlay it was handed to.
+    std::vector<std::pair<an::ui::AstrometryOverlay, an::ui::AnnotationViewChoices>> overlayChoices;
 
     /// The layers handed to the catalogue overlay, in order: whether it draws the deep-sky objects, and the bright
     /// stars.

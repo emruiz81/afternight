@@ -29,7 +29,7 @@ the settings popup.
 | Enabled/visible when | **Show Astrometry** and **Astrometry Settings** are visible only for a non-sequence image with a parsable celestial WCS. Settings is enabled only while the master switch is on. **Astrometry Info** remains visible for a still image but is disabled without WCS. Focused-view shortcuts honor the same visible/enabled gates. |
 | Supported inputs/state | A standard still-image view whose in-memory metadata contains a valid celestial WCS. Pixel type, channel count, linear/nonlinear state, display channel, autostretch, masks, and zoom do not alter the stored solution. Sequence views do not expose these overlays. |
 | Outputs/side effects | Display-only painter layers in the current image view. Overlay changes do not edit pixels, metadata, image history, masks, or files. Plate Solve and Clear Astrometry are separate metadata-changing actions. |
-| Persistence | The master switch starts off in each newly created image view and is not saved. Grid, deep-sky annotations, bright-star labels, detected stars, SIP map, and magnitude limit are written immediately to global settings for later image views. Other already-open views keep their own current action state. |
+| Persistence | The master switch starts off in each newly created image view and is not saved. Grid, deep-sky annotations, bright-star labels, detected stars, SIP map, and the level of detail, labels and palette are written immediately to global settings for later image views. Other already-open views keep their own current action state. |
 | External dependencies | Grid, deep-sky annotations, and bright-star labels work offline from WCS plus bundled catalogs. The SIP map needs forward `A`/`B` SIP coefficients. Detected-star markers need the stars the view detected after an in-app solve, or copied with a duplicated view; no catalog is used for them. A solver/catalog/network may be needed only to create the WCS in the first place. |
 
 ## Before you start
@@ -61,9 +61,13 @@ the settings popup.
 3. Select **Astrometry Settings**. Enable **Deep-Sky Annotations**, **Star
    Labels**, **Detected Stars**, or **SIP Distortion Map** as needed. A checked
    layer is still gated by the master switch and its own data prerequisite.
-4. Set **Magnitude Limit**. Smaller limiting magnitudes retain only brighter
-   catalog entries; larger values can make wide fields crowded and slower to
-   redraw. The limit does not affect the grid, detected stars, or SIP vectors.
+4. Choose a **Level of Detail**, the **Labels** and a **Palette** - the choices
+   [Annotate Image](annotate-image.md) offers for a picture. **Essential** names
+   the Messier and Caldwell objects and the named ones; **Standard**, the
+   default, every catalogue to magnitude 12; **Detailed** and **Complete**
+   fainter and smaller objects. Fuller levels make wide fields crowded and
+   slower to lay out. The palette also colours the grid; none of the choices
+   affects detected stars or SIP vectors.
 5. Pan or zoom to the region of interest. The grid is laid out again for what
    the view shows, and the catalog labels for each zoom. Check object outlines and names
    against image structure, but treat them as WCS/catalog projections rather
@@ -77,13 +81,15 @@ the settings popup.
 | UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Show Astrometry (`Ctrl+Shift+W`) | Checkable toolbar action | Off | Off/On | Master-enables every checked overlay layer. Turning it off hides all astrometry painters without changing their selections. | Visible and enabled only for a solved still image. It does not create a solution. | Several active layers can obscure the image and add redraw work. | Current standard image view, display only | View lifetime only; every new view starts off. |
-| Astrometry Settings | Toolbar popup action | Disabled until the master is on | Click action | Opens the layer and magnitude menu. | Visible only for a solved still; enabled only while **Show Astrometry** is on. Focused-view shortcuts can toggle individual settings without opening the popup. | No image change. | Current view controls | Popup state is transient; sub-options persist as described below. |
+| Astrometry Settings | Toolbar popup action | Disabled until the master is on | Click action | Opens the layers and the **Level of Detail**, **Labels** and **Palette** choices. | Visible only for a solved still; enabled only while **Show Astrometry** is on. Focused-view shortcuts can toggle individual settings without opening the popup. | No image change. | Current view controls | Popup state is transient; sub-options persist as described below. |
 | Equatorial Grid (`Ctrl+1`) | Checkable layer | On | Off/On | Draws Annotate Image's grid of the part shown: right-ascension and declination lines at round steps for that part, labelled where they meet the view's edges. | Drawn only when WCS parses and the master plus this option are on. | Dense fine-field grids add projection and label work. | Current viewport | Global key `platesolve/coordinateGridEnabled`; immediate write. |
-| Deep-Sky Annotations (`Ctrl+2`) | Checkable layer | Off | Off/On | Queries the bundled NGC/IC catalog plus Messier and Caldwell entries, projects object centers/outlines, and labels compact catalog IDs. | Requires WCS and the bundled object catalog; gated by the master. | Wide fields and faint limits increase markers; labels never overlap, so more of them are set on leader lines or left out. Catalog sizes/position angles include project-curated approximations, and the Caldwell rows have the provenance limitation recorded below. | Current viewport | Global key `platesolve/catalogAnnotationsEnabled`; immediate write. |
-| Star Labels (`Ctrl+3`) | Checkable layer | Off | Off/On | Projects entries from the bundled bright-star catalog and labels common name, then Bayer/Flamsteed-style designation, then catalog ID as available. | Requires WCS and the bundled HYG-derived catalog; gated by the master. This is not a label switch for detected-star ellipses. | Stars are labelled in the order Annotate Image labels them - a proper name before a designation alone, each brighter before fainter - and a star whose label finds no room beside it or on a leader line is not drawn, so a rich field shows its most prominent stars legibly. Bundled coordinates are J2000 ICRS and this display path does not apply proper-motion correction. | Current viewport | Global key `platesolve/starLabelsEnabled`; immediate write. |
+| Deep-Sky Annotations (`Ctrl+2`) | Checkable layer | Off | Off/On | Queries the bundled NGC/IC catalog plus Messier and Caldwell entries, keeps the objects the level of detail names, projects their centers/outlines, and labels them as **Labels** says. | Requires WCS and the bundled object catalog; gated by the master. | Wide fields and the fuller levels increase markers; labels never overlap, so more of them are set on leader lines or left out. Catalog sizes/position angles include project-curated approximations, and the Caldwell rows have the provenance limitation recorded below. | Current viewport | Global key `platesolve/catalogAnnotationsEnabled`; immediate write. |
+| Star Labels (`Ctrl+3`) | Checkable layer | Off | Off/On | Projects the stars of the bundled bright-star catalog the level of detail names and labels them as **Labels** says: a designation (`α Lyr`), a proper name (`Vega`), or both. | Requires WCS and the bundled HYG-derived catalog; gated by the master. This is not a label switch for detected-star ellipses. | Stars are labelled in the order Annotate Image labels them - a proper name before a designation alone, each brighter before fainter - and a star whose label finds no room beside it or on a leader line is not drawn, so a rich field shows its most prominent stars legibly; a star the level marks without a name is drawn without a label. Bundled coordinates are J2000 ICRS and this display path does not apply proper-motion correction. | Current viewport | Global key `platesolve/starLabelsEnabled`; immediate write. |
 | Detected Stars (`Ctrl+4`) | Checkable layer | Off | Off/On | Draws fitted ellipses around the stars the view detected; saturated detections use the error color. | Requires the view's detected stars as well as the master. The normal population path runs asynchronously after Plate Solve writes WCS; simply opening an already-solved file does not start this detection pass. | Up to 5,000 markers may be painted. These are image detections, not the bundled bright-star labels. | Current image/detected stars | Global key `platesolve/detectedStarsEnabled`; immediate write. The detected stars themselves are in-memory view state, not this preference. |
 | SIP Distortion Map (`Ctrl+5`) | Checkable layer | Off | Off/On | Draws sampled forward SIP displacement arrows and a legend containing the largest actual displacement in pixels. | Requires a valid forward SIP model (`A_ORDER`/`B_ORDER` and coefficients); inverse-only `AP`/`BP` data is insufficient. Gated by the master. | Arrow lengths are display-scaled for legibility and are not a literal screen-length measurement; use the legend for the actual maximum. | Whole image model, filtered to current viewport | Global key `platesolve/distortionMapEnabled`; immediate write. |
-| Magnitude Limit | Exclusive choice, apparent magnitude | `Mag <= 12` | `Mag <= 6`, `8`, `10`, `12`, `14`, `16`, or **All Catalog Objects** (`99`) | Sets the upper numeric magnitude accepted by both bundled catalog queries; a smaller number shows brighter entries. | Does not filter detected stars, grid lines, or SIP vectors. Named deep-sky entries whose catalog magnitude is unknown remain eligible. The bundled bright-star file itself stops at visual magnitude 9, so choices of 10 and fainter add no more bright-star rows. | Larger limits mainly increase deep-sky density and layout work; labels never overlap, so more of them are left out. | Current view's two bundled catalog layers | Global key `platesolve/catalogMagnitudeLimit`; immediate write for later views. |
+| Level of Detail | Exclusive choice | **Standard** | **Essential**, **Standard**, **Detailed**, **Complete** | Names the bundled catalogs as Annotate Image's levels do. **Essential**: the Messier and Caldwell objects and the named ones, and the stars to magnitude 2.5 by proper name. **Standard**: every catalog to magnitude 12 and objects large enough to show, and the stars to 4.5 by name and designation. **Detailed**: every catalog to magnitude 14, smaller objects and objects of no measured magnitude, and the stars to 6, the unnamed ones marked. **Complete**: every galaxy, nebula and cluster the catalogs hold in the field, and every bright star, by catalog number when it has no name. | Does not filter detected stars, grid lines, or SIP vectors. The smallest object a level names is a share of the part of the image the view shows, so zooming in names smaller objects; a Messier, Caldwell or named object is named whatever its size. | Fuller levels increase density and layout work; labels never overlap, so more of them are set on leader lines or left out. | Current view's two bundled catalog layers | Global key `annotation/view`, with the labels and the palette; immediate write for later views. A view that kept a magnitude limit before levels existed starts at the level naming about as much: 6 or brighter **Essential**, 8 to 12 **Standard**, 14 **Detailed**, 16 or all objects **Complete**. |
+| Labels | Exclusive choice | **Designation** | **Designation**, **Name**, **Designation and Name** | What every catalog label says, as Annotate Image's label text: an object's designation, else its name (`M 42`, `α Lyr`); its common name, else its designation (`Orion Nebula`, `Vega`); or its designation with its common name on a second line. | Applies to both catalog layers; the grid's labels are coordinates. | Two-line labels take more room, so fewer of them fit in a crowded field. | Current view's two bundled catalog layers | Global key `annotation/view`; immediate write for later views. |
+| Palette | Exclusive choice | **Aurora** | Annotate Image's palettes: Aurora, Moonlight, Glacier, Amethyst, Amber, Verdant, Rose, Atlas, Ember, Ink | The colours the grid, the outlines, the star rings and the labels are drawn in, a colour for each kind of object: **Ember** red for a dark-adapted eye, **Ink** dark lines for a bright image. | The view's own choice: choosing a palette in Annotate Image does not recolour a view. | Display only. | Current view's grid and catalog layers | Global key `annotation/view`; immediate write for later views. |
 | Astrometry Info (`Ctrl+Shift+P`) | Toolbar action | Visible, disabled when unsolved | Click action | Opens the solution summary for the current image. | Still images only; enabled when WCS parses. | Inspection only. | Current image metadata | No overlay preference change. See [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md). |
 | Plate Solve (`Ctrl+P`) | Toolbar action | Visible for a still image | Click action | Opens the solver workflow that can write WCS/SIP metadata and then launch post-solve star detection. | Hidden for sequences and requires a current image. The dialog still opens when no solver is configured; its **Solve** button remains disabled until a supported backend and required catalog/path are configured. | Solving can use CPU, disk catalogs, an external program, or network upload depending on backend. | Current still image | Solver settings persist separately; written metadata marks the image pending. |
 
@@ -93,7 +99,7 @@ the settings popup.
 
 Each standard image view owns its overlay painters and action state. The master
 switch gates every painter and deliberately starts off for a new view. Changing
-a sub-layer or magnitude writes its global preference immediately, but it also
+a sub-layer or an annotation choice writes its global preference immediately, but it also
 changes only the view where the action was triggered. A later-created view
 loads the saved choices; another view that is already open is not synchronized.
 
@@ -122,17 +128,19 @@ labels a picture's grid: `08h 00m` or `+10° 00′`, with a true minus sign, pri
 and double primes, and seconds at the finer steps. A label is rounded once and
 the rounding carries into every field: a right ascension of 10h 29m 59.7s is
 labelled `10h 30m 00s`, never with sixty seconds under the same minute. The
-lines and labels are drawn in Annotate Image's palette, and a label keeps its
-size on the screen at every zoom.
+lines and labels are drawn in the view's **Palette**, and a label keeps its size
+on the screen at every zoom.
 
 ### Bundled catalog annotations and labels
 
 Both catalog layers read their bundled catalog on a worker the first time they
 are drawn and ask it, on the worker, for the entries inside the whole image's
-field and a margin - two degrees for deep-sky objects, one for bright stars - at
-the magnitude limit. Each paint projects the last answer through the WCS, so the
-labels appear on the paint after the answer lands, and panning or zooming
-projects them again without asking.
+field and a margin - two degrees for deep-sky objects, one for bright stars -
+that the level of detail names. The detailed and complete levels name objects no
+catalog measured a magnitude for, so their deep-sky query states no magnitude
+limit. Each paint projects the last answer through the WCS, so the labels appear
+on the paint after the answer lands, and panning or zooming projects them again
+without asking.
 
 - **Deep-Sky Annotations** use the bundled NGC 2000.0-derived NGC/IC rows,
   Messier aliases, 109 project-maintained Caldwell rows, and curated common
@@ -141,7 +149,7 @@ projects them again without asking.
   drawn as a small point outline. NGC 2000.0 states one diameter and no
   orientation, so an object whose extent is not curated is drawn as a circle
   of that diameter; only the curated objects and the Caldwell rows carry an
-  axis ratio and a position angle. Labels use the compact catalog ID.
+  axis ratio and a position angle. A label says what **Labels** says.
   Objects are kept, merged and named as [Annotate Image](annotate-image.md)
   does: the entries of one object in several catalogues - M 42 and NGC 1976,
   or the Carina Nebula as NGC 3372 and C 92 - are one annotation under the
@@ -150,23 +158,30 @@ projects them again without asking.
   directly maintained Caldwell rows.
 - **Star Labels** use the bundled HYG 4.2 subset filtered at generation time to
   visual magnitude 9 or brighter: 83,479 stars, where HYG's Hipparcos core is
-  still close to complete. The marker is a ring. Label preference is common
-  name, designation, then ID. Stars are labelled in the order Annotate Image
+  still close to complete. The marker is a ring. The level decides which stars
+  are named and by what - proper names at the essential level, designations too
+  at the standard and detailed levels, catalog numbers at the complete level -
+  and a label says what **Labels** says. Stars are labelled in the order Annotate Image
   labels them: a star with a proper name before one with a designation alone,
   each brighter before fainter.
 
 The two layers are one overlay, laid out together as Annotate Image lays out a
 picture's labels. No label covers another: a label that finds no room beside
 its object is set farther away on a leader line, or left out. A deep-sky object
-whose label is left out keeps its outline; a star without a label is not drawn.
-Labels keep their size on the screen at every zoom: they are laid out again on
-a worker when the zoom changes, and until that layout lands the previous one is
-drawn at the new zoom, while scrolling draws the layout there is. Outlines,
-markers and labels are drawn in Annotate Image's default palette, Aurora.
+whose label is left out keeps its outline; a star whose label is left out is not
+drawn, and a star the level marks without a name is drawn without a label. The
+smallest object a level names is a share of the part of the image the view
+shows, as a picture's is of its frame, so zooming in names the smaller objects,
+as a map does. Labels keep their size on the screen at every zoom: they are laid
+out again on a worker when the zoom, the labels or the level changes, and until
+that layout lands the previous one is drawn, while scrolling draws the layout
+there is. Outlines, markers and labels are drawn in the view's **Palette**,
+Aurora by default.
 
 For catalog magnitude, lower numeric values are brighter. Deep-sky entries with
-an unknown magnitude but a curated common name bypass the numeric cutoff so
-important named objects are not silently lost. Catalog projection confirms
+an unknown magnitude but a curated common name are named at every level, so
+important named objects are not silently lost; the detailed and complete levels
+name the unnamed ones of unknown magnitude too. Catalog projection confirms
 where the current WCS places an entry; it does not validate that the visible
 feature is truly that object.
 
@@ -240,15 +255,16 @@ legend—not the raw on-screen arrow length.
 ## Performance and responsiveness
 
 - The grid is laid out again for every zoom, scroll and resize of the view;
-  the catalogue labels' layout is made again on a worker for every zoom, and
-  the catalogue answers for every solution and magnitude limit. Renaming or
+  the catalogue labels' layout is made again on a worker for every zoom and
+  every choice of labels, and the catalogue answers for every solution and
+  level of detail. Renaming or
   updating the image sets the cached display work aside.
 - Each catalog layer reads its bundled catalog on a worker the first time it
   is drawn, and keeps it while the view lives; drawing never waits for it. The
-  catalog is queried on a worker once per solution and magnitude limit, and
+  catalog is queried on a worker once per solution and level of detail, and
   requires no network.
-- A paint projects only the entries the last query answered. Use a brighter
-  magnitude limit or disable one label layer if a wide field becomes cluttered.
+- A paint projects only the entries the last query answered. Choose a lower
+  level of detail or disable one label layer if a wide field becomes cluttered.
 - The detected-star pass is asynchronous, but drawing can still iterate up to
   5,000 ellipses on each repaint. Disable **Detected Stars** when it is not the
   layer being inspected.
@@ -268,7 +284,9 @@ legend—not the raw on-screen arrow length.
   `CRPIX = (500, 400)` restated with the first pixel's center at `(0.5, 0.5)`. Separate synthetic SIP metadata is sampled on a 5 by 4 grid; all
   20 sampled displacements match direct forward-polynomial evaluation. Grid
   tests cover spacing for the part shown, RA wrap, a field about the pole, and
-  label formats.
+  label formats. Catalog tests cover what each level of detail names, objects
+  of no measured magnitude, the smallest size of the part shown, the label
+  choices and the palette, and the saved magnitude limit a view starts from.
   This verifies projection/filter mechanics only. It does not claim that a GUI
   rendering was inspected, that a real sky image was solved, that annotations
   align visually with project-owned data, or that a particular frame rate was
@@ -294,9 +312,9 @@ legend—not the raw on-screen arrow length.
   deep-sky generator does not recreate them. Treat their positions, magnitudes,
   extents, and names as project-maintained orientation data rather than a
   reproducible scientific catalog source.
-- The magnitude choice is shared by both bundled catalog layers, but the
-  bright-star source contains nothing fainter than magnitude 9. Fainter menu
-  choices mostly affect deep-sky annotations.
+- The level of detail sets both bundled catalog layers, and the bright-star
+  source contains nothing fainter than magnitude 9: the complete level names
+  every star of it.
 - SIP arrows are deliberately rescaled. Only the legend is an actual maximum
   displacement measurement in source-image pixels.
 - Overlays are not supported in sequence views, real-time preview views, or
@@ -308,13 +326,14 @@ legend—not the raw on-screen arrow length.
 | --- | --- | --- | --- |
 | **Show Astrometry** is absent | The active view is a sequence, has no image, or its metadata does not parse as celestial WCS (for example a non-`TAN` projection, or a header that states FK5). | Activate a still image; inspect Astrometry Info/FITS headers; run Plate Solve and write WCS. | `ImageViewControl::updateImageActions`; `readImageWcsSolution`; `parseWcsCards` |
 | **Astrometry Settings** is visible but disabled | The WCS is valid, but the master switch is off. | Turn on **Show Astrometry** or press `Ctrl+Shift+W`. | Image-view action wiring |
-| Grid appears but no catalog objects | The relevant catalog layer is off, the magnitude limit is too bright, no bundled entries intersect the visible WCS footprint, or the bundled resource failed to load. | Enable one catalog layer, try a fainter limit, pan to a known field, and inspect the Session Console for the one-time catalog warning. | Catalog display modules and catalog-load service |
-| Star Labels stop getting denser after `Mag <= 10` | The bundled bright-star subset was generated through visual magnitude 9. | This is expected; use the setting to control deep-sky density or choose `Mag <= 6` or `8` for fewer bright-star labels. | `bright_star_catalog.csv`; generator; bright-star query test |
+| Grid appears but no catalog objects | The relevant catalog layer is off, the level of detail names none of the field's objects, no bundled entries intersect the visible WCS footprint, or the bundled resource failed to load. | Enable one catalog layer, choose a fuller level, pan to a known field, and inspect the Session Console for the one-time catalog warning. | Catalog display modules and catalog-load service |
+| A small object is named only when the view is zoomed in | The smallest object a level names is a share of the part of the image the view shows. | Zoom in, or choose **Detailed** or **Complete**, which name smaller objects. | Catalog overlay tests |
+| Star Labels stop getting denser at **Complete** | The bundled bright-star subset was generated through visual magnitude 9, which the complete level names in full. | This is expected; choose a lower level for fewer star labels. | `bright_star_catalog.csv`; generator; bright-star query test |
 | Some stars of a rich field have no label | Its label found no room beside it or on a leader line - the room went to a named or brighter star - and a star without a label is not drawn. | Zoom in: the stars spread apart and more of them are labelled. | Bright-star label tests |
 | Detected Stars is checked but no ellipses appear | The view holds no detected stars: opening a pre-solved file does not launch post-solve detection, any later edit of the image clears them, a mosaic is not detected, and a detection that found nothing or failed (see the Session Console) draws nothing. | Run Plate Solve in AfterNight to detect the stars again (demosaic a mosaic first), or use the grid/catalog layers. | `runPostPlateSolveStarDetection`; `detectViewOverlayStars` |
 | SIP map is checked but empty | WCS has no valid forward SIP `A`/`B` model, only inverse coefficients, zero displacement, or no visible vectors. | Inspect SIP status/header cards. A valid ordinary WCS can still drive the other layers. | `parseWcsCards`; `SipDistortion::hasForwardModel`; distortion-map tests |
 | SIP arrows look much larger than the reported distortion | Display arrows are normalized and clamped for visibility. | Read **SIP distortion max _n_ px**; use direction/color for relative interpretation. | `DistortionMapDisplayModule::onDraw` |
-| Labels shift or redraw while panning/zooming | Grid spacing follows the visible field, and catalogue labels are laid out again on a worker when the zoom changes - not when panning; the previous layout is drawn at the new zoom until the new one lands. | Let the layout land; lower the magnitude limit or turn a label layer off for a lighter layout. | Overlay cache keys and display modules |
+| Labels shift or redraw while panning/zooming | Grid spacing follows the visible field, and catalogue labels are laid out again on a worker when the zoom changes - not when panning; the previous layout is drawn at the new zoom until the new one lands. | Let the layout land; choose a lower level of detail or turn a label layer off for a lighter layout. | Overlay cache keys and display modules |
 
 ## Related workflow steps
 

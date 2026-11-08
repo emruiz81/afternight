@@ -1572,6 +1572,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/controls/StarsFilterControlV1.cpp
     unit     src/AfterNightControls/controls/StarsFilterControlV2.cpp
     unit     src/AfterNightControls/controls/StarsFilterWindow.cpp
+    unit     src/AfterNightControls/controls/annotation/AnnotationSettings.cpp
     unit     src/AfterNightControls/controls/drawing/BrushEngine.cpp
     unit     src/AfterNightControls/controls/drawing/CoveragePlane.cpp
     unit     src/AfterNightControls/controls/drawing/DrawingCanvasController.cpp
@@ -1681,6 +1682,7 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/controls/StaticPreviewCacheLimits.h
     header   src/AfterNightControls/controls/ToolbarOverflowLayout.h
     header   src/AfterNightControls/controls/ViewControlMode.h
+    header   src/AfterNightControls/controls/annotation/AnnotationSettings.h
     header   src/AfterNightControls/controls/drawing/BrushEngine.h
     header   src/AfterNightControls/controls/drawing/CoveragePlane.h
     header   src/AfterNightControls/controls/drawing/DrawingCanvasController.h

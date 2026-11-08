@@ -4,6 +4,7 @@
 #include "stdafx.hpp"
 #include "controls/annotation/AnnotationSettings.h"
 
+#include <QCoreApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
@@ -22,6 +23,15 @@ namespace
 
 /// The version of the stored text, written for a later reader; every version is read field by field.
 constexpr int kStoredVersion = 2;
+
+/// The version of a view's stored choices.
+constexpr int kStoredViewVersion = 1;
+
+/// A name or a sentence as a person reads it.
+[[nodiscard]] QString translated(const char* text)
+{
+    return QCoreApplication::translate("an::ui::AnnotationSettings", text);
+}
 
 /// A deep-sky selection's values for each level of detail.
 [[nodiscard]] AnnotationDeepSkySelection deepSkyOf(const AnnotationDetail detail)
@@ -360,6 +370,27 @@ constexpr std::array<NamedValue<AnnotationBackground>, 2> kBackgrounds{{
     {AnnotationBackground::Transparent, "transparent"},
 }};
 
+// A view stores the level and the palette it chose by name; a picture stores the values they wrote instead.
+constexpr std::array<NamedValue<AnnotationDetail>, 4> kDetailNames{{
+    {AnnotationDetail::Essential, "essential"},
+    {AnnotationDetail::Standard, "standard"},
+    {AnnotationDetail::Detailed, "detailed"},
+    {AnnotationDetail::Complete, "complete"},
+}};
+
+constexpr std::array<NamedValue<AnnotationPalette>, 10> kPaletteNames{{
+    {AnnotationPalette::Aurora, "aurora"},
+    {AnnotationPalette::Moonlight, "moonlight"},
+    {AnnotationPalette::Glacier, "glacier"},
+    {AnnotationPalette::Amethyst, "amethyst"},
+    {AnnotationPalette::Amber, "amber"},
+    {AnnotationPalette::Verdant, "verdant"},
+    {AnnotationPalette::Rose, "rose"},
+    {AnnotationPalette::Atlas, "atlas"},
+    {AnnotationPalette::Ember, "ember"},
+    {AnnotationPalette::Ink, "ink"},
+}};
+
 template <typename EnumT, std::size_t N>
 [[nodiscard]] QString nameOf(const std::array<NamedValue<EnumT>, N>& table, const EnumT value)
 {
@@ -489,9 +520,103 @@ AnnotationDetail annotationDetailOf(const AnnotationContent& content)
     return AnnotationDetail::Custom;
 }
 
+std::span<const AnnotationDetail> annotationDetails() noexcept
+{
+    return kDetails;
+}
+
+QString annotationDetailName(const AnnotationDetail detail)
+{
+    switch (detail)
+    {
+    case AnnotationDetail::Essential:
+        return translated("Essential");
+    case AnnotationDetail::Standard:
+        return translated("Standard");
+    case AnnotationDetail::Detailed:
+        return translated("Detailed");
+    case AnnotationDetail::Complete:
+        return translated("Complete");
+    case AnnotationDetail::Custom:
+        break;
+    }
+    return translated("Custom");
+}
+
+QString annotationDetailDescription(const AnnotationDetail detail)
+{
+    switch (detail)
+    {
+    case AnnotationDetail::Essential:
+        return translated("The Messier and Caldwell objects and the named ones, and the brightest stars by name");
+    case AnnotationDetail::Standard:
+        return translated(
+            "Every catalogue to magnitude 12, objects large enough to show, and stars to magnitude 4.5 by "
+            "name and designation");
+    case AnnotationDetail::Detailed:
+        return translated(
+            "Every catalogue to magnitude 14 and smaller objects, and stars to magnitude 6, the unnamed ones "
+            "marked");
+    case AnnotationDetail::Complete:
+        return translated(
+            "Every galaxy, nebula and cluster the catalogues hold in the field, and every bright star, by "
+            "catalogue number when it has no name");
+    case AnnotationDetail::Custom:
+        break;
+    }
+    return {};
+}
+
+AnnotationDetail annotationDetailOfMagnitudeLimit(const double limit) noexcept
+{
+    if (std::isnan(limit))
+    {
+        return AnnotationDetail::Standard;
+    }
+    if (limit <= 6.0)
+    {
+        return AnnotationDetail::Essential;
+    }
+    if (limit <= 12.0)
+    {
+        return AnnotationDetail::Standard;
+    }
+    return limit <= 14.0 ? AnnotationDetail::Detailed : AnnotationDetail::Complete;
+}
+
 std::span<const AnnotationPalette> annotationPalettes() noexcept
 {
     return kPalettes;
+}
+
+QString annotationPaletteName(const AnnotationPalette palette)
+{
+    switch (palette)
+    {
+    case AnnotationPalette::Aurora:
+        return translated("Aurora");
+    case AnnotationPalette::Moonlight:
+        return translated("Moonlight");
+    case AnnotationPalette::Ember:
+        return translated("Ember - for dark-adapted eyes");
+    case AnnotationPalette::Ink:
+        return translated("Ink - for bright images and print");
+    case AnnotationPalette::Glacier:
+        return translated("Glacier");
+    case AnnotationPalette::Amethyst:
+        return translated("Amethyst");
+    case AnnotationPalette::Amber:
+        return translated("Amber");
+    case AnnotationPalette::Verdant:
+        return translated("Verdant");
+    case AnnotationPalette::Rose:
+        return translated("Rose");
+    case AnnotationPalette::Atlas:
+        return translated("Atlas");
+    case AnnotationPalette::Custom:
+        break;
+    }
+    return translated("Custom");
 }
 
 AnnotationColors annotationPaletteColors(const AnnotationPalette palette)
@@ -773,6 +898,36 @@ AnnotationSettings annotationSettingsFromStored(const QString& stored)
     settings.output.stretch = readEnum(output, "stretch", kStretches, settings.output.stretch);
     settings.output.background = readEnum(output, "background", kBackgrounds, settings.output.background);
     return settings;
+}
+
+QString storedAnnotationViewChoices(const AnnotationViewChoices& choices)
+{
+    const AnnotationViewChoices defaults;
+    QJsonObject root;
+    root.insert(QStringLiteral("version"), kStoredViewVersion);
+    root.insert(QStringLiteral("detail"),
+                nameOf(kDetailNames, choices.detail == AnnotationDetail::Custom ? defaults.detail : choices.detail));
+    root.insert(QStringLiteral("labelText"), nameOf(kLabelTexts, choices.labelText));
+    root.insert(
+        QStringLiteral("palette"),
+        nameOf(kPaletteNames, choices.palette == AnnotationPalette::Custom ? defaults.palette : choices.palette));
+    return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
+}
+
+AnnotationViewChoices annotationViewChoicesFromStored(const QString& stored)
+{
+    AnnotationViewChoices choices;
+    QJsonParseError error{};
+    const QJsonDocument document = QJsonDocument::fromJson(stored.toUtf8(), &error);
+    if (error.error != QJsonParseError::NoError || !document.isObject())
+    {
+        return choices;
+    }
+    const QJsonObject root = document.object();
+    choices.detail = readEnum(root, "detail", kDetailNames, choices.detail);
+    choices.labelText = readEnum(root, "labelText", kLabelTexts, choices.labelText);
+    choices.palette = readEnum(root, "palette", kPaletteNames, choices.palette);
+    return choices;
 }
 
 } // namespace an::ui

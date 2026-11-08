@@ -3,15 +3,16 @@
 
 /// @file
 /// The catalogue annotations a view draws over a solved image: the bundled catalogues' deep-sky objects and bright
-/// stars, each a layer the view draws or not, kept, merged and named as an annotated picture keeps them, and laid out
-/// together as it lays out its labels - no label covers another - with every label the same size on the screen at any
-/// zoom, in the picture's palette.
+/// stars, each a layer the view draws or not, kept, merged and named as an annotated picture keeps them at the level of
+/// detail the view's choices name, and laid out together as it lays out its labels - no label covers another - with
+/// every label the same size on the screen at any zoom, saying what the choices say, in the palette they name.
 ///
 /// **Nothing waits on the GUI thread.** Each catalogue is read and queried for the whole image's field on a worker
-/// (`detail::FieldCatalogQueries`), which builds its layer's scene; the layers' scenes are laid out at the view's zoom
-/// on a worker whenever the zoom or what is drawn changes (`detail::layoutOverlayAnnotations`), so a scroll draws the
-/// layout there is, and a zoom draws the last one until its own lands. A paint draws the layout through the annotated
-/// picture's renderer over the part of the image the view shows.
+/// (`detail::FieldCatalogQueries`), which builds its layer's scene at the level; the layers' scenes are laid out at the
+/// view's zoom on a worker whenever the zoom, the labels or what is drawn changes (`detail::layoutOverlayAnnotations`),
+/// so a scroll draws the layout there is, and a zoom draws the last one until its own lands. The level's smallest size
+/// is a share of the part of the image the view shows, so zooming in names the smaller objects. A paint draws the
+/// layout through the annotated picture's renderer over the part of the image the view shows.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -38,6 +39,8 @@ class QPainter;
 
 namespace an::ui
 {
+
+struct AnnotationViewChoices;
 
 struct CatalogAnnotationProjectedShape
 {
@@ -134,8 +137,15 @@ public:
     void onImageRenamed(ImageViewControl* ctrl) override;
     void onImageViewControlDestroyed(ImageViewControl* ctrl) override;
 
-    void setMagnitudeLimit(double magnitude_limit);
-    [[nodiscard]] double magnitudeLimit() const;
+    /// Sets what the overlay names and how it looks, as the view's menu chose: the level of detail it names the
+    /// catalogues at, what a label says and the palette it draws in. Until the new labels land, the last ones are
+    /// drawn.
+    ///
+    /// @param choices the choices.
+    void setChoices(const AnnotationViewChoices& choices);
+
+    /// What the overlay names and how it looks.
+    [[nodiscard]] AnnotationViewChoices choices() const;
 
     /// Which catalogues the overlay draws: the deep-sky objects, the bright stars, or both - as it does unless told
     /// otherwise. A catalogue not drawn is not asked.
@@ -150,7 +160,8 @@ public:
     /// Whether the overlay draws the bright stars.
     [[nodiscard]] bool showsStars() const;
 
-    /// The labels the layout drawn last placed, in the order it placed them: the most prominent object's first.
+    /// The first line of each label the layout drawn last placed, in the order it placed them: the most prominent
+    /// object's first.
     [[nodiscard]] QVector<QString> projectedLabels() const;
 
     /// Where those labels were drawn, in the widget's pixels at the scale they were drawn at.

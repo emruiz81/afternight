@@ -73,7 +73,7 @@ an::Result<an::SkyCatalog> loadBundledCatalog(const an::consumer::EngineSession&
 }
 
 an::CatalogRegionQuery bundledCatalogRegionQuery(const BundledCatalog catalog, const an::SkyCoordinate& center,
-                                                 const double radiusDegrees, const double magnitudeLimit)
+                                                 const double radiusDegrees, const std::optional<double> magnitudeLimit)
 {
     an::CatalogRegionQuery query;
     query.center = center;

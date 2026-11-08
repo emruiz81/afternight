@@ -785,6 +785,9 @@ void addDeepSky(const AnnotationSceneSources& sources, const AnnotationContent& 
         mark.designation = object.candidate.designation;
         mark.name = object.name;
         mark.magnitude = measuredMagnitude(*object.candidate.entry);
+        mark.majorPixels = object.candidate.majorPixels;
+        mark.notable = !object.name.isEmpty() || object.candidate.catalogue == Catalogue::Messier ||
+                       object.candidate.catalogue == Catalogue::Caldwell;
         mark.priority = deepSkyPriority(object.candidate.catalogue, !object.name.isEmpty(),
                                         object.candidate.majorPixels, mark.magnitude, reference);
         marks.push_back(std::move(mark));

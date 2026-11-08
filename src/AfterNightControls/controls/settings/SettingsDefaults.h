@@ -129,6 +129,5 @@ inline constexpr bool PLATESOLVE_DISTORTION_MAP_ENABLED = false;
 inline constexpr bool PLATESOLVE_DETECTED_STARS_ENABLED = false;
 inline constexpr bool PLATESOLVE_CATALOG_ANNOTATIONS_ENABLED = false;
 inline constexpr bool PLATESOLVE_STAR_LABELS_ENABLED = false;
-inline constexpr double PLATESOLVE_CATALOG_MAGNITUDE_LIMIT = 12.0;
 
 } // namespace SettingsDefaults

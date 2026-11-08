@@ -20,6 +20,9 @@
 /// choices; changing one of them afterwards leaves the others as they are, and the level or palette reads as custom
 /// (`annotationDetailOf`, `annotationPaletteOf`). A person's own colours are kept apart
 /// (`AnnotationStyle::customColors`), so choosing a palette and then the custom one again brings them back.
+///
+/// **A view takes three of them.** The live annotations of an image view offer a level of detail, what a label says
+/// and a palette (`AnnotationViewChoices`), named as a picture names them and stored apart from a picture's choices.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -520,6 +523,24 @@ struct AnnotationSettings
     [[nodiscard]] friend bool operator==(const AnnotationSettings& left, const AnnotationSettings& right) = default;
 };
 
+/// What a view's live annotations name and how they look: the choices of an annotated picture its menu offers - a level
+/// of detail, what a label says and a palette. A view offers no custom level or palette.
+struct AnnotationViewChoices
+{
+    /// How much of the catalogues the view names; never `AnnotationDetail::Custom`.
+    AnnotationDetail detail = AnnotationDetail::Standard;
+
+    /// What an object's label says.
+    AnnotationLabelText labelText = AnnotationLabelText::Designation;
+
+    /// The colours the annotations and the grid are drawn in; never `AnnotationPalette::Custom`.
+    AnnotationPalette palette = AnnotationPalette::Aurora;
+
+    /// Field-wise equality.
+    [[nodiscard]] friend bool operator==(const AnnotationViewChoices& left,
+                                         const AnnotationViewChoices& right) noexcept = default;
+};
+
 /// A magnitude limit that marks every magnitude.
 inline constexpr double kAnnotationNoMagnitudeLimit = 99.0;
 
@@ -560,6 +581,31 @@ AFTERNIGHTCONTROLS_API void applyAnnotationDetail(AnnotationContent& content, An
 /// @return the level, or `AnnotationDetail::Custom` when no level's values are the choices'.
 [[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationDetail annotationDetailOf(const AnnotationContent& content);
 
+/// The levels of detail a person chooses from, in the order they are offered.
+///
+/// @return every level but `AnnotationDetail::Custom`.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::span<const AnnotationDetail> annotationDetails() noexcept;
+
+/// A level of detail's name, as a person chooses it: `Essential`, `Standard`, `Detailed`, `Complete`.
+///
+/// @param detail the level; `AnnotationDetail::Custom` is named `Custom`.
+/// @return the name.
+[[nodiscard]] AFTERNIGHTCONTROLS_API QString annotationDetailName(AnnotationDetail detail);
+
+/// What a level of detail names, in a sentence a person reads beside its name.
+///
+/// @param detail the level.
+/// @return the sentence; empty for `AnnotationDetail::Custom`.
+[[nodiscard]] AFTERNIGHTCONTROLS_API QString annotationDetailDescription(AnnotationDetail detail);
+
+/// The level of detail that names about what a view named at a magnitude limit, for a view that kept a limit before it
+/// offered levels: the notable objects alone to the sixth magnitude, the standard level to the twelfth, the detailed
+/// level to the fourteenth and every object at a fainter limit.
+///
+/// @param limit the magnitude limit.
+/// @return the level; the standard one for a limit that is no number.
+[[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationDetail annotationDetailOfMagnitudeLimit(double limit) noexcept;
+
 /// The palettes a person chooses from, in the order they are offered.
 ///
 /// @return every palette but `AnnotationPalette::Custom`.
@@ -576,6 +622,12 @@ AFTERNIGHTCONTROLS_API void applyAnnotationDetail(AnnotationContent& content, An
 /// @param colors the colours.
 /// @return the palette, or `AnnotationPalette::Custom` when no palette's colours are these.
 [[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationPalette annotationPaletteOf(const AnnotationColors& colors);
+
+/// A palette's name, as a person chooses it: `Aurora`, `Ember - for dark-adapted eyes`.
+///
+/// @param palette the palette; `AnnotationPalette::Custom` is named `Custom`.
+/// @return the name.
+[[nodiscard]] AFTERNIGHTCONTROLS_API QString annotationPaletteName(AnnotationPalette palette);
 
 /// The length every size of a picture is a fraction of: the geometric mean of the image's width and height.
 ///
@@ -604,5 +656,18 @@ AFTERNIGHTCONTROLS_API void applyAnnotationDetail(AnnotationContent& content, An
 /// @param stored the stored text.
 /// @return the choices.
 [[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationSettings annotationSettingsFromStored(const QString& stored);
+
+/// The text a view's choices are stored as: a JSON object naming each choice.
+///
+/// @param choices the choices; a custom level or palette is stored as the default.
+/// @return the text.
+[[nodiscard]] AFTERNIGHTCONTROLS_API QString storedAnnotationViewChoices(const AnnotationViewChoices& choices);
+
+/// The view's choices stored text names. Each choice is read through a fixed table; one that is missing, or names
+/// nothing a view offers - a custom level or palette among them - reads as its default.
+///
+/// @param stored the stored text.
+/// @return the choices.
+[[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationViewChoices annotationViewChoicesFromStored(const QString& stored);
 
 } // namespace an::ui

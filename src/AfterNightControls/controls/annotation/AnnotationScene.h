@@ -98,6 +98,12 @@ struct AnnotationMark
     /// Its magnitude, when a catalogue states one.
     std::optional<double> magnitude;
 
+    /// A deep-sky object's major axis in pixels, when a catalogue states its size; zero otherwise.
+    double majorPixels = 0.0;
+
+    /// Whether it is marked whatever its size: a Messier, Caldwell or named deep-sky object.
+    bool notable = false;
+
     /// How prominent it is: a label of a higher priority is placed first.
     double priority = 0.0;
 

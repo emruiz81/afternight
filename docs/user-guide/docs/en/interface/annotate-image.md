@@ -271,7 +271,8 @@ smaller **Size** is faster and lighter.
 
 - Before: [Plate Solving](../processes/registration-alignment/plate-solving.md)
   writes the WCS this window needs; [Astrometry Overlays](astrometry-overlays.md)
-  check it in the view.
+  check it in the view, naming the sky at this window's levels of detail, label
+  texts and palettes, chosen in the view's own menu.
 - After: [Saving & Exporting](saving-and-exporting.md) saves an opened picture in
   any format, and the [Image Viewer](image-viewer.md) shows it.
 

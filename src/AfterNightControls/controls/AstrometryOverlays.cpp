@@ -14,6 +14,7 @@
 #include "controls/DistortionMapDisplayModule.h"
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
+#include "controls/annotation/AnnotationSettings.h"
 
 #include <utility>
 
@@ -37,11 +38,15 @@ std::unique_ptr<::ImageViewWidgetDisplayModule> createAstrometryOverlay(const As
     return nullptr;
 }
 
-void setAstrometryOverlayMagnitudeLimit(::ImageViewWidgetDisplayModule& overlay, const double limit)
+void setAstrometryOverlayChoices(::ImageViewWidgetDisplayModule& overlay, const AnnotationViewChoices& choices)
 {
     if (auto* annotations = dynamic_cast<CatalogAnnotationDisplayModule*>(&overlay); annotations != nullptr)
     {
-        annotations->setMagnitudeLimit(limit);
+        annotations->setChoices(choices);
+    }
+    else if (auto* grid = dynamic_cast<CoordinateGridDisplayModule*>(&overlay); grid != nullptr)
+    {
+        grid->setPalette(choices.palette);
     }
 }
 
