@@ -6,7 +6,8 @@
 /// later open reads under and building the export intent from the settings database it wrote, and setting a database
 /// of another format aside rather than reading it; the runtime storage coordinator's session directory, which it alone
 /// reclaims, and its sweep of the directories of sessions that ended; the action state over the image's description and
-/// the view's history; and the image operations, the rename among them, reaching the view's history through the view.
+/// the view's history; the image operations, the rename among them, reaching the view's history through the view; and
+/// Show in File Browser, offered while the active view's image is a file and revealing the file its document names.
 
 #include "Test_ControlsFiles/FilesTestContext.h"
 
@@ -29,12 +30,15 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QLineEdit>
 #include <QLockFile>
 #include <QMainWindow>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSqlDatabase>
 #include <QSqlQuery>
+#include <QStringList>
 #include <QTemporaryDir>
 
 #include <gtest/gtest.h>
@@ -656,5 +660,131 @@ TEST_F(CoordinatorTest, ARenameIsRecordedInTheViewsHistory)
     ok->click();
     EXPECT_EQ(view->getUniqueName(), "after");
     EXPECT_EQ(view->viewHistory()->previousStepName(), "Rename");
+    pumpQuietly();
+}
+
+// Show in File Browser is offered for the active view's image only while the image has a file: not with no view, not
+// for an image a process made and nobody saved, and once the image names the file it was read from or saved to.
+TEST_F(CoordinatorTest, ShowInFileBrowserIsOfferedOnlyForAnImageThatIsAFile)
+{
+    QMainWindow window;
+    an::ui::app::AfterNightAppUiElements ui = an::ui::app::buildAfterNightAppUi(&window);
+    ImageViewControlManager manager;
+    an::ui::ActionStateCoordinator::Dependencies deps;
+    deps.ui = &ui;
+    deps.imageViewControlManager = &manager;
+    deps.timerContext = &window;
+    an::ui::ActionStateCoordinator coordinator(deps);
+
+    coordinator.updateActiveImageActions();
+    EXPECT_FALSE(ui.actionShow_In_File_Browser->isEnabled()) << "no view";
+
+    ImageViewControl* view = showView<float>("made");
+    manager.setActiveImageViewControl(view);
+    coordinator.updateActiveImageActions();
+    EXPECT_FALSE(ui.actionShow_In_File_Browser->isEnabled()) << "an image that has never been a file";
+
+    an::ui::DocumentNames names = view->document().names();
+    names.sourcePath = QStringLiteral("/somewhere/saved.fits");
+    view->document().setNames(std::move(names));
+    coordinator.updateActiveImageActions();
+    EXPECT_TRUE(ui.actionShow_In_File_Browser->isEnabled()) << "an image that names its file";
+
+    manager.setActiveImageViewControl(nullptr);
+    coordinator.updateActiveImageActions();
+    EXPECT_FALSE(ui.actionShow_In_File_Browser->isEnabled()) << "no active view again";
+    pumpQuietly();
+}
+
+// The action hands the file the active view's document names to the reveal function the application wires - a
+// sequence's file for a sequence - and reveals nothing, saying nothing, for an image that has never been a file.
+TEST_F(CoordinatorTest, ShowInFileBrowserRevealsTheFileTheActiveViewsDocumentNames)
+{
+    QTemporaryDir files;
+    ASSERT_TRUE(files.isValid());
+    const auto touch = [&files](const QString& name) {
+        const QString path = files.filePath(name);
+        QFile file(path);
+        EXPECT_TRUE(file.open(QIODevice::WriteOnly));
+        file.write("x");
+        return path;
+    };
+    const QString imagePath = touch(QStringLiteral("read.fits"));
+    const QString sequencePath = touch(QStringLiteral("frames.ser"));
+
+    ImageViewControl* image = showView<float>("read");
+    an::ui::DocumentNames names = image->document().names();
+    names.sourcePath = imagePath;
+    image->document().setNames(std::move(names));
+
+    ImageViewControl* sequence = showView<float>("frames");
+    an::ui::DocumentSequence frames;
+    frames.sourcePath = sequencePath;
+    sequence->document().setSequence(frames);
+
+    ImageViewControl* made = showView<float>("made");
+
+    ImageViewControl* active = image;
+    QStringList revealed;
+    QStringList errors;
+    an::ui::ImageOperationsCoordinator::Dependencies deps;
+    deps.activeViewControl = [&active]() { return active; };
+    deps.listViewControls = [&active]() { return std::vector<ImageViewControl*>{active}; };
+    deps.notifyErrorMessage = [&errors](const QString& title, const QString&) { errors.push_back(title); };
+    deps.revealInFileBrowser = [&revealed](const QString& path) {
+        revealed.push_back(path);
+        return true;
+    };
+    an::ui::ImageOperationsCoordinator coordinator(deps);
+
+    coordinator.showInFileBrowser();
+    ASSERT_EQ(revealed.size(), 1);
+    EXPECT_EQ(revealed.back(), QFileInfo(imagePath).absoluteFilePath());
+
+    active = sequence;
+    coordinator.showInFileBrowser();
+    ASSERT_EQ(revealed.size(), 2);
+    EXPECT_EQ(revealed.back(), QFileInfo(sequencePath).absoluteFilePath());
+
+    active = made;
+    coordinator.showInFileBrowser();
+    EXPECT_EQ(revealed.size(), 2) << "an image that has never been a file reveals nothing";
+    EXPECT_TRUE(errors.empty());
+    pumpQuietly();
+}
+
+// A file moved or deleted since it was opened is not handed to the file manager: a warning over the window says the
+// file is not on disk - the one the dashboard's recent files give - and the action returns without waiting for it.
+TEST_F(CoordinatorTest, ShowInFileBrowserWarnsWhenTheFileIsNoLongerOnDisk)
+{
+    QTemporaryDir files;
+    ASSERT_TRUE(files.isValid());
+    const QString gone = files.filePath(QStringLiteral("gone.fits"));
+    ImageViewControl* view = showView<float>("gone");
+    an::ui::DocumentNames names = view->document().names();
+    names.sourcePath = gone;
+    view->document().setNames(std::move(names));
+
+    QMainWindow window;
+    QStringList revealed;
+    an::ui::ImageOperationsCoordinator::Dependencies deps;
+    deps.activeViewControl = [view]() { return view; };
+    deps.listViewControls = [view]() { return std::vector<ImageViewControl*>{view}; };
+    deps.messageParent = [&window]() -> QWidget* { return &window; };
+    deps.revealInFileBrowser = [&revealed](const QString& path) {
+        revealed.push_back(path);
+        return true;
+    };
+    an::ui::ImageOperationsCoordinator coordinator(deps);
+
+    coordinator.showInFileBrowser();
+
+    EXPECT_TRUE(revealed.empty());
+    auto* box = window.findChild<QMessageBox*>();
+    ASSERT_NE(box, nullptr);
+    EXPECT_TRUE(box->isVisible());
+    EXPECT_EQ(box->windowTitle(), QStringLiteral("File Not Found"));
+    EXPECT_TRUE(box->text().contains(gone)) << box->text().toStdString();
+    box->close();
     pumpQuietly();
 }

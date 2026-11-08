@@ -16,7 +16,7 @@
 #include <QGuiApplication>
 #include <QUrl>
 
-#include "app/DesktopUtils.h"
+#include "app/ShowInFileBrowser.h"
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QLineEdit>
@@ -53,20 +53,6 @@ void askTextWithoutBlocking(QWidget* parent, const QString& title, const QString
                          }
                      });
     dialog->open();
-}
-
-void showInFileBrowser(QWidget* parent, const QString& path)
-{
-    const QFileInfo fileInfo(path);
-    if (!fileInfo.exists())
-    {
-        ImageIntegration::detail::openNonBlockingMessageBox(
-            parent, QMessageBox::Warning, QObject::tr("File Not Found"),
-            QObject::tr("The file does not exist on disk:\n%1").arg(path));
-        return;
-    }
-
-    an::ui::revealInFileManager(fileInfo.absoluteFilePath());
 }
 
 QStringList collectSelectedFramePaths(GroupTreeModel* model, const QModelIndexList& selectedIndices)
@@ -594,7 +580,7 @@ void TreeContextMenuHandler::buildActionsForFrameType(QMenu& menu, FrameType typ
             if (model)
             {
                 QString path = model->data(selectedIndices.first(), Qt::ToolTipRole).toString();
-                showInFileBrowser(qobject_cast<QWidget*>(parent()), path);
+                (void)an::ui::showInFileBrowser(qobject_cast<QWidget*>(parent()), path);
             }
         });
     }

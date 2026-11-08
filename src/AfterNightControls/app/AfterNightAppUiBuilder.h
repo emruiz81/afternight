@@ -32,6 +32,7 @@ public:
     QAction* actionClose_All;
     QAction* actionDuplicate;
     QAction* actionRename;
+    QAction* actionShow_In_File_Browser;
     QAction* actionExtract_Red_Channel;
     QAction* actionExtract_Green_Channel;
     QAction* actionExtract_Blue_Channel;
@@ -279,6 +280,9 @@ public:
         actionDuplicate->setObjectName("actionDuplicate");
         actionRename = new QAction(AfterNightAppClass);
         actionRename->setObjectName("actionRename");
+        actionShow_In_File_Browser = new QAction(AfterNightAppClass);
+        actionShow_In_File_Browser->setObjectName("actionShow_In_File_Browser");
+        actionShow_In_File_Browser->setEnabled(false);
         actionExtract_Red_Channel = new QAction(AfterNightAppClass);
         actionExtract_Red_Channel->setObjectName("actionExtract_Red_Channel");
         actionExtract_Green_Channel = new QAction(AfterNightAppClass);
@@ -780,6 +784,8 @@ public:
         menuImage->addAction(menuMask->menuAction());
         menuImage->addAction(menuSequence->menuAction());
         menuImage->addAction(menuView->menuAction());
+        menuImage->addSeparator();
+        menuImage->addAction(actionShow_In_File_Browser);
         menuActions->addAction(actionDuplicate);
         menuActions->addAction(actionRename);
         menuActions->addAction(actionClose_2);
@@ -1028,6 +1034,8 @@ public:
         actionClose_All->setText(QCoreApplication::translate("AfterNightAppClass", "Close All", nullptr));
         actionDuplicate->setText(QCoreApplication::translate("AfterNightAppClass", "Duplicate", nullptr));
         actionRename->setText(QCoreApplication::translate("AfterNightAppClass", "Rename", nullptr));
+        actionShow_In_File_Browser->setText(
+            QCoreApplication::translate("AfterNightAppClass", "Show in File Browser", nullptr));
         actionExtract_Red_Channel->setText(
             QCoreApplication::translate("AfterNightAppClass", "Extract Red Channel", nullptr));
         actionExtract_Green_Channel->setText(
