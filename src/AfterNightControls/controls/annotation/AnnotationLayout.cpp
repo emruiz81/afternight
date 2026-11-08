@@ -696,6 +696,11 @@ void placeGridLabels(const AnnotationScene& scene, const AnnotationMetrics& metr
 
 } // namespace
 
+std::pair<QString, QString> annotationLabelLines(const AnnotationMark& mark, const AnnotationLabelText text)
+{
+    return labelLines(mark, text);
+}
+
 AnnotationMetrics annotationMetrics(const double referenceLength, const AnnotationStyle& style) noexcept
 {
     const double reference = std::isfinite(referenceLength) ? (std::max)(0.0, referenceLength) : 0.0;
