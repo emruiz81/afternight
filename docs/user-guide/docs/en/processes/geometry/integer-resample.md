@@ -10,9 +10,13 @@ more important than arbitrary output dimensions.
 
 The result keeps the sample representation, channel layout, acquisition record
 and meaning. A plate solution the image's header cards state is carried, scaled
-by the factor, so no new plate solve is needed; the other header cards read from
-the file are dropped. Neither direction is a flux-conserving scientific binning
-model, and neither adds information or SNR.
+by the factor, so no new plate solve is needed, and so are the frame's observing
+context - its optics, site, pointing, camera settings, filter, object, frame
+type and date, with its pixel size restated for the new pixels - and the light
+it holds, its `EXPTIME`, `TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE` cards
+as it states them; the other header cards read from the file are dropped.
+Neither direction is a flux-conserving scientific binning model, and neither
+adds information or SNR.
 
 ## At a glance
 
@@ -171,9 +175,11 @@ channel layout and pixel aspect. It follows the geometry policy every geometry
 change shares (Crop, Resize, Rotate, CFA Integer Resample and the
 **Image > Fast Geometry** turns and mirrors): the acquisition record and meaning are
 kept, and the writer writes the acquisition record when the image is saved; every
-header card read from the file is dropped except a plate solution and the
-`PLTSOLVR` card naming its solver; an output decision is withdrawn; and the
-lineage records `an::transformImageGeometry` with `Integer Resample`.
+header card read from the file is dropped except a plate solution, the
+`PLTSOLVR` card naming its solver and the frame's observing context and
+integration cards, which [Crop](crop.md#inputs-outputs-and-metadata) lists; an
+output decision is withdrawn; and the lineage records
+`an::transformImageGeometry` with `Integer Resample`.
 
 Plate solution: a solution the image's header cards state is carried with its
 scale divided by the factor for Downsample or multiplied by it for Upsample, its
@@ -181,6 +187,12 @@ reference pixel moved with the grid, so every result pixel points where its
 block pointed. The same move is applied to every frame of a sequence; the new
 sequence keeps what its container stores. Rotate, CFA Integer Resample and the
 turns and mirrors drop the solution.
+
+Pixel size: the observing context's `XPIXSZ` and `YPIXSZ` are multiplied by
+the factor for Downsample and divided by it for Upsample - the exact factor,
+whatever trailing pixels a Downsample discards - so the plate scale the optics
+imply is still the result's: a Downsample by 2 of a frame of 2.315 µm pixels
+states 4.63, and an Upsample by 2 states 1.1575.
 
 Validity: where every output was written, the image's validity rule is kept and
 an explicit mask is resampled with the samples; where a block had no valid
@@ -237,8 +249,9 @@ clamping.
 - Upsample copies values exactly but inflates sum/storage by factor squared and
   adds no detail or SNR.
 - A mosaic resampled after **Yes** mixes its colour positions into one grey plane.
-- Only the plate solution and the card naming its solver survive among the
-  header cards; any other card read from the file is dropped.
+- Only the plate solution, the card naming its solver and the frame's observing
+  context and integration cards survive among the header cards; any other card
+  read from the file is dropped.
 - A large Upsample can exhaust memory: Target Px and the size estimate show what
   it asks for. A Downsample factor larger than a side shows `1` and is refused.
 - If the target's dimensions change while the window is open, **Original Px**,

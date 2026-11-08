@@ -388,12 +388,25 @@ struct Warped
             return ran.status();
         }
     }
-    const an::Result<an::MetadataTransition> change = an::operationTransition(
+    an::Result<an::MetadataTransition> change = an::operationTransition(
         an::kRegistrationWarpEffect,
         an::OperationOutcome{.operation = "an::warpRegisteredImage", .detail = "onto the registration's reference"});
     if (!change.hasValue())
     {
         return change.status();
+    }
+    // A registered frame is still its exposure: the cards that described its own grid go, and its observing context -
+    // optics, site, pointing, camera settings, filter and time, which a later stack groups and weighs it by - stays, as
+    // the engine carries a derived product's.
+    if (an::Result<an::CodecMetadata> observing = an::ui::derivedFrameCards(source.metadata().codec());
+        !observing.hasValue())
+    {
+        return observing.status();
+    }
+    else if (!observing->cards().empty())
+    {
+        change->clearCodecMetadata = false;
+        change->codec = std::move(*observing);
     }
     if (an::Status stated = warped->transition(plan->destinationDescriptor(), *change); stated.failed())
     {

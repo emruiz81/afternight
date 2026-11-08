@@ -14,7 +14,11 @@ channel layout, and exactly the source samples inside the rectangle. Crop keeps
 the image's acquisition record and meaning, and carries a plate solution its
 header cards state with the pixels: the reference pixel moves by the crop's
 origin, so every retained pixel still points where it pointed and no new plate
-solve is needed. The other header cards read from the file are dropped.
+solve is needed. The frame's observing context - its optics, site, pointing,
+camera settings, filter, object, frame type and date - and the light it holds,
+its `EXPTIME`, `TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE` cards as it
+states them, stay among its header cards; the other header cards read from
+the file are dropped.
 
 ## At a glance
 
@@ -160,6 +164,26 @@ turns and mirrors:
   resize and an integer resample, moved with the pixels, together with the
   `PLTSOLVR` card naming its solver; a rotation, a filter-array integer resample
   and the turns and mirrors drop it;
+- the frame's observing context is kept, as FITS cards: the telescope and
+  optics (`TELESCOP`, `LENSMODE`, `FOCALLEN`, `FOCRATIO`, `APTDIA`, `APTAREA`,
+  `XPIXSZ`, `YPIXSZ`, `XBINNING`, `YBINNING`, `EGAIN`), the site (`SITELAT`,
+  `SITELONG`, `SITEELEV` and their other spellings), where the mount pointed
+  (`RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJCTROT`, `OBJRA`, `OBJDEC`, `TELRA`,
+  `TELDEC`, `CENTALT`, `CENTAZ`, `AIRMASS`, `PIERSIDE`), the camera and its
+  settings (`CAMERAID`, `CAMMAKE`, `INSTRUME`, `SET-TEMP`, `CCD-TEMP`, `GAIN`
+  or `ISOSPEED`, `OFFSET`, `USBLIMIT`), the filter wheel and focuser
+  (`FWHEEL`, `FOCNAME`, `FOCPOS`, `FOCUSPOS`, `FOCUSSZ`, `FOCTEMP`,
+  `FOCUSTEM`), `FILTER`, `OBJECT`, `IMAGETYP`, `SWCREATE`, `DATE-OBS`,
+  `DATE-LOC` and, when the frame states no `EXPTIME`, `EXPOSURE`; so is the
+  light the frame holds, its `EXPTIME`, `TOTEXP`, `LIVETIME`, `STACKCNT` and
+  `NCOMBINE` cards as it states them, for a stacked master its whole
+  integration and frame count. For a camera file,
+  the facts its Exif states - the exposure, ISO speed, camera, lens, software,
+  sensor temperature, focal length and aperture, pixel size, dates and GPS
+  position - are written as those cards. A step that rescales the frame
+  divides `XPIXSZ` and `YPIXSZ` by its scale along each axis - a resize by its
+  own scale on each axis, an integer resample by its exact factor - so the
+  plate scale the optics imply is still the result's;
 - every other header card read from the file (FITS cards, Exif) is dropped;
 - an output decision made for the image is withdrawn;
 - the lineage records `an::transformImageGeometry` with the process name.
@@ -214,8 +238,9 @@ the estimates shown in the dialog exclude that overhead and any codec behavior.
 - Active masks and channel selections do not limit the crop.
 - The same rectangle is applied to every sequence frame without registration or
   per-frame validity analysis.
-- Only the plate solution and the card naming its solver survive among the
-  header cards; any other card read from the file is dropped.
+- Only the plate solution, the card naming its solver and the frame's observing
+  context and integration cards survive among the header cards; any other card
+  read from the file is dropped.
 - A still crop has no Cancel; closing the window during a run hides it until the
   run lands but does not stop it.
 - Crop preserves retained samples but can remove flux or background area needed

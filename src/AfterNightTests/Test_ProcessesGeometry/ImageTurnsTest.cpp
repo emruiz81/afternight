@@ -151,8 +151,8 @@ TEST_P(ImageTurnsTest, EveryRepresentationIsTurnedExactlyAndKept)
     }
 }
 
-// metadata: a turn keeps the acquisition record and the meaning and drops the solution and the codec's cards, the one
-// policy every geometry change follows.
+// metadata: a turn keeps the acquisition record, the meaning and the frame's observing context, and drops the solution
+// and the codec's other cards, the one policy every geometry change follows.
 TEST_P(ImageTurnsTest, ATurnKeepsTheRecordAndDropsTheSolutionAndCards)
 {
     const fixtures::FixtureImage* image = fixtures::fixtureNamed("scene-rgb-float32");
@@ -173,7 +173,9 @@ TEST_P(ImageTurnsTest, ATurnKeepsTheRecordAndDropsTheSolutionAndCards)
         std::visit([](const auto& typed) -> const an::ImageMetadata& { return typed.metadata(); }, lease->image());
     EXPECT_EQ(metadata.acquisition(), describedMetadata().acquisition());
     EXPECT_FALSE(metadata.astrometry().present());
-    EXPECT_TRUE(metadata.codec().cards().empty());
+    ASSERT_EQ(metadata.codec().cards().size(), 1u) << "the observing context stays and no other card";
+    EXPECT_EQ(metadata.codec().cards().front().keyword(), "OBJECT");
+    EXPECT_EQ(metadata.codec().cards().front().value(), "'M 42'");
     EXPECT_EQ(metadata.semantics().transferFunction(), an::TransferFunction::Linear);
     ASSERT_FALSE(metadata.provenance().entries().empty());
     EXPECT_EQ(metadata.provenance().entries().back().operation(), "an::transformImageGeometry");

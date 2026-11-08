@@ -60,10 +60,14 @@ after a valid track is fitted.
   automatic solve - is used for Gaia enrichment and never replaces a transform.
   A SIP distortion the frame's own cards state is used: star matching corrects
   the frame's stars by it, and **Align** undoes it while resampling.
-- Expect no WCS on standalone aligned outputs. **Align** copies each source's
-  metadata but drops its plate solution (WCS) cards, because the warp
-  invalidates them; plate solve an aligned or final product when you need sky
-  coordinates.
+- Expect no WCS on standalone aligned outputs. **Align** keeps each source's
+  acquisition record, its observing context - optics, site, pointing, camera
+  settings, filter, object, frame type and date - and the light it holds, its
+  `EXPTIME`, `TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE` cards as it states
+  them, which a later stack groups and weighs the frames by. It drops the
+  plate solution (WCS) cards, because the warp invalidates them, and the
+  source's other header cards; plate solve an aligned or final product when
+  you need sky coordinates.
 
 ## Procedure
 
@@ -426,9 +430,11 @@ found with **Solve...** or the automatic solve contributes no distortion.
 - **Pixel/color state:** mono remains mono. CFA is debayered before warping and
   produces RGB. RGB channels are warped together. Areas a frame does not reach
   are zero and marked invalid.
-- **Metadata/WCS:** ordinary alignment copies source metadata but drops the
-  plate solution (WCS) cards, because the warp invalidates them. Re-solve final
-  products when accurate sky coordinates are required.
+- **Metadata/WCS:** ordinary alignment keeps each source's acquisition record
+  and, as FITS cards, its observing context and integration cards; it drops the
+  plate solution (WCS) cards, because the warp invalidates them, and the
+  source's other header cards. Re-solve final products when accurate sky
+  coordinates are required.
 - **SIP:** a SIP distortion a frame's own cards state is corrected before its
   stars are matched and undone while it is aligned; Phase Correlation applies
   none.
