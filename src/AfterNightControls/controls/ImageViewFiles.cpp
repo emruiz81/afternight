@@ -24,6 +24,7 @@
 #include <AfterNightEngine/IO/CodecIO.h>
 #include <AfterNightEngine/IO/CodecRegistry.h>
 #include <AfterNightEngine/IO/CodecRequests.h>
+#include <AfterNightEngine/IO/ObservationCards.h>
 #include <AfterNightEngine/IO/OutputTransaction.h>
 #include <AfterNightEngine/Image/AcquisitionMetadata.h>
 #include <AfterNightEngine/Image/ConversionPolicy.h>
@@ -43,12 +44,16 @@
 
 #include <AfterNightPlatform/Logging.h>
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace an::ui
 {
@@ -969,11 +974,26 @@ orientTyped(const an::consumer::OperationScope& scope, const an::Image<SampleT>&
             return ran.status();
         }
     }
-    const an::Result<an::MetadataTransition> change = an::operationTransition(
+    an::Result<an::MetadataTransition> change = an::operationTransition(
         effect, an::OperationOutcome{.operation = "an::transformImageGeometry", .detail = lineage});
     if (!change.hasValue())
     {
         return change.status();
+    }
+    // A turned or mirrored frame is still that frame: the cards that described its layout go, and its observing context
+    // - optics, site, pointing, camera settings and time - stays, as the engine carries a derived product's.
+    if (change->clearCodecMetadata)
+    {
+        an::Result<an::CodecMetadata> observing = derivedFrameCards(image.metadata().codec());
+        if (!observing.hasValue())
+        {
+            return observing.status();
+        }
+        if (!observing->cards().empty())
+        {
+            change->clearCodecMetadata = false;
+            change->codec = std::move(*observing);
+        }
     }
     if (an::Status stated = result->transition(*change); stated.failed())
     {
@@ -1560,6 +1580,29 @@ an::Result<ViewImageStatistics> measureViewImage(const an::consumer::EngineSessi
         }
         return statistics;
     });
+}
+
+an::Result<an::CodecMetadata> derivedFrameCards(const an::CodecMetadata& frame)
+{
+    // The light the frame holds, as it states it, ahead of its observing context.
+    constexpr std::array<std::string_view, 5u> kIntegrationKeywords{"EXPTIME", "TOTEXP", "LIVETIME", "STACKCNT",
+                                                                    "NCOMBINE"};
+    std::vector<an::CodecCard> light;
+    for (const an::CodecCard& card : frame.cards())
+    {
+        if (card.origin() == an::CodecNamespace::Fits &&
+            std::find(kIntegrationKeywords.begin(), kIntegrationKeywords.end(), card.keyword()) !=
+                kIntegrationKeywords.end())
+        {
+            light.push_back(card);
+        }
+    }
+    an::Result<an::CodecMetadata> kept = an::CodecMetadata::create(an::SourceEncoding{}, std::move(light));
+    if (!kept.hasValue())
+    {
+        return kept.status();
+    }
+    return an::withObservationCards(*kept, frame);
 }
 
 an::Status writeViewImage(const an::consumer::EngineSession& session, const an::consumer::ImageAsset& image,

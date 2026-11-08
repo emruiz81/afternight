@@ -40,8 +40,11 @@ the session.
 3. Check the view type. The whole **Image > Sequence** menu is disabled for a
    still. Color extraction and Convert to Grayscale are disabled for monochrome;
    Convert to RGB is disabled for RGB.
-4. Expect all Fast Geometry actions to remove the WCS/SIP solution and the
-   header cards because the pixel coordinate system changes.
+4. Expect all Fast Geometry actions to remove the WCS/SIP solution, because the
+   pixel coordinate system changes, and every header card but the frame's
+   observing context - its optics, site, pointing, camera settings, filter,
+   object, frame type and date - and its integration cards, the `EXPTIME`,
+   `TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE` it states.
 
 ## Procedure
 
@@ -148,7 +151,7 @@ metadata, and state consequences.
 | Extract Green Channel | Same; registered | RGB | One new monochrome G view/sequence; source unchanged. | Same as Red. |
 | Extract Blue Channel | Same; registered | RGB | One new monochrome B view/sequence; source unchanged. | Same as Red. |
 | Extract RGB Channels | Same; registered | RGB | Three new monochrome R, G, and B views/sequences; source unchanged. | Same source pixel type and dimensions for all three; metadata copied. |
-| Extract CIE L* | Same; registered | RGB | One L* component view/sequence. | RGB is read as fractions of full scale - linear when the image says so, sRGB-encoded otherwise - and converted to CIE L*a*b*; L* is a 32-bit floating image (64-bit for a 64-bit source) in the unit interval, whatever the source's pixel type. The component keeps the acquisition record and the WCS/SIP solution and drops the header cards, for a still and a sequence frame alike. |
+| Extract CIE L* | Same; registered | RGB | One L* component view/sequence. | RGB is read as fractions of full scale - linear when the image says so, sRGB-encoded otherwise - and converted to CIE L*a*b*; L* is a 32-bit floating image (64-bit for a 64-bit source) in the unit interval, whatever the source's pixel type. The component keeps the acquisition record, the WCS/SIP solution and, of the header cards, only the frame's observing context and integration cards, for a still and a sequence frame alike. |
 | Extract CIE a* | Same; registered | RGB | One a* component view/sequence. | Same Lab conversion, floating encoding, and metadata behavior as CIE L*. |
 | Extract CIE b* | Same; registered | RGB | One b* component view/sequence. | Same Lab conversion, floating encoding, and metadata behavior as CIE L*. |
 | Extract CIE c* | Same; registered | RGB | One LCh chroma component view/sequence. | RGB→Lab→LCh with the same floating encoding and metadata behavior as CIE L*. |
@@ -215,7 +218,7 @@ video beyond 8-bit - is refused by name; use Convert to Image List first.
 
 | UI label/action | Menu path and wiring | Enabled when | Output and source effect | Precision and metadata consequence |
 | --- | --- | --- | --- | --- |
-| Horizontal Mirror | **Image > Fast Geometry**; direct | Active image | Reverses each row. A still image is the view's own edit; a sequence is replaced by a new temporary sequence with every frame mirrored. History: **Image Horizontal Mirror** for a still, **Sequence Horizontal Mirror** for a sequence. | Every sample is copied exactly, in every pixel type; channels kept. The acquisition record and the image's meaning are kept; the WCS/SIP solution is invalidated, the header cards are dropped and any output decision is withdrawn. |
+| Horizontal Mirror | **Image > Fast Geometry**; direct | Active image | Reverses each row. A still image is the view's own edit; a sequence is replaced by a new temporary sequence with every frame mirrored. History: **Image Horizontal Mirror** for a still, **Sequence Horizontal Mirror** for a sequence. | Every sample is copied exactly, in every pixel type; channels kept. The acquisition record, the image's meaning and, of the header cards, the frame's observing context and integration cards are kept; the WCS/SIP solution is invalidated, the other header cards are dropped and any output decision is withdrawn. |
 | Vertical Mirror | Same; direct | Active image | Reverses row order. History: **Image Vertical Mirror** / **Sequence Vertical Mirror**. | Same as Horizontal Mirror. |
 | Rotate 180º | Same; direct | Active image | Reverses both axes; width/height unchanged. History: **Image Rotation** / **Sequence Rotation**, described "180 degrees". | Same as Horizontal Mirror. |
 | Rotate 90º Left | Same; direct | Active image | Turns a quarter turn counter-clockwise; width and height swap. History: **Image Rotation** / **Sequence Rotation**, described "90 degrees left". | Same as Horizontal Mirror; a non-square pixel aspect is inverted with the axes. |
@@ -246,8 +249,9 @@ Console.
 
 Each mirror and turn moves an explicit validity mask with its samples; any
 other validity rule is kept as stated. Nothing is interpolated: every sample is
-copied exactly. A turn drops the header cards with the solution, as every
-geometry change does.
+copied exactly. A turn drops the solution and every header card but the
+frame's observing context and integration cards, which every geometry change
+keeps.
 
 ### Sequence actions
 
@@ -340,7 +344,7 @@ source sample copied bit for bit; they do not interpolate.
 | --- | --- | --- | --- | --- |
 | Channel extraction + later recombination | Keep the source type; use RGB channels for literal component separation. | Wrong component selected or expected output count missing. | Early 8-bit conversion shows banding/quantization in later edits. | Extract first, inspect names/counts, then convert precision only for a required destination. |
 | Color-space component + integer storage | A component is already float32; convert it to an integer type only for a destination that needs one. | Converting a component to 8 bits collapses subtle edits to the same code. | Float64 increases memory/disk use without recovering source detail. | Choose component, process in float, then convert only at final output. |
-| Geometry + astrometry | Duplicate or save first; plan to plate-solve again. | Coordinates are gone after the turn, and header cards such as exposure or filter are no longer written when the result is saved. | Not applicable; transforms are exact. | Geometry, verify orientation, then obtain a new WCS/SIP solution. |
+| Geometry + astrometry | Duplicate or save first; plan to plate-solve again. | Coordinates are gone after the turn, and header cards outside the frame's observing context and integration cards are no longer written when the result is saved. | Not applicable; transforms are exact. | Geometry, verify orientation, then obtain a new WCS/SIP solution. |
 | Negative + mask | Verify Enable Mask, Show Mask, and rendering mode before running. | Intended protected/affected region is reversed or unchanged. | Full-strength inversion in the wrong region. | Select mask, inspect/invert state, enable, then run Negative once. |
 | Sequence container conversion | Use Image List for broadly preserved frame type/metadata; use SER for compatible compact video-style data. | Destination is the same type and the action is disabled/rejected. | SER forces unsupported high/signed/float precision to 16-bit unsigned. | Inspect type/channels/FPS, choose destination, wait for finalization, verify first/last frame. |
 
@@ -353,10 +357,12 @@ so saving cannot silently overwrite the original.
 
 Raw R/G/B channel extraction and all type-conversion outputs preserve dimensions
 and copy image metadata, header cards included. A color-space component is a
-measurement of the image: it keeps the acquisition record and the WCS/SIP solution
-and drops the header cards, for a still and a sequence frame alike. Grayscale/RGB
-conversion keeps the image's metadata. Geometry keeps the acquisition record and
-the image's meaning, invalidates the WCS/SIP solution and drops the header cards.
+measurement of the image: it keeps the acquisition record, the WCS/SIP solution
+and, of the header cards, only the frame's observing context and integration
+cards, for a still and a sequence frame alike. Grayscale/RGB conversion keeps
+the image's metadata. Geometry keeps the acquisition record, the image's
+meaning and the frame's observing context and integration cards, invalidates
+the WCS/SIP solution and drops the other header cards.
 Negative retains metadata because it replaces/redefines pixels in the active image. Mask state
 actions never rewrite samples or metadata.
 
@@ -400,8 +406,9 @@ a detached sequence job is active.
 - **Convert to FITS** is currently disabled and has no working conversion path.
 - **Automatic MTF Transform** is not reachable; display auto-stretch is separate
   and does not commit pixel data.
-- Fast Geometry discards WCS/SIP and the header cards; grayscale/RGB conversion
-  keeps the image's metadata. Re-solve geometry-dependent data after a mirror or
+- Fast Geometry discards WCS/SIP and every header card but the frame's
+  observing context and integration cards; grayscale/RGB conversion keeps the
+  image's metadata. Re-solve geometry-dependent data after a mirror or
   rotation.
 - When Image History cannot keep the image a still mirror or turn replaces,
   the history says so once, in a message titled **Image History**, and the image
@@ -426,7 +433,7 @@ a detached sequence job is active.
 | Extract Channel is disabled | Active image is not RGB. | Select an RGB view, or use Convert to RGB for a monochrome image before extracting. | `ActionStateCoordinator::setEnableImageColorActions` |
 | A precision-conversion item is disabled | The image already has that type, or the selected SER/video sequence cannot store the requested type. | Inspect the active type; choose a compatible destination or Convert to Image List. | `ActionStateCoordinator::updateActiveImageActions` |
 | Convert to FITS is disabled | Current action-state code always disables it for sequences. | Use Convert to Image List, which writes the supported image-list/FITS frame path. | `ActionStateCoordinator::updateActiveImageActions`; `ImageOperationsCoordinator::convertToFITSSeq` |
-| Coordinates no longer solve after mirror/rotate | The operation intentionally invalidates WCS/SIP and drops the header cards. | Plate-solve the transformed result again. | `ImageViewControl::orientImage`; `orientViewImage`; `ImageTurnsTest` |
+| Coordinates no longer solve after mirror/rotate | The operation intentionally invalidates WCS/SIP and drops every header card but the frame's observing context and integration cards. | Plate-solve the transformed result again. | `ImageViewControl::orientImage`; `orientViewImage`; `ImageTurnsTest` |
 | A still mirror or turn did nothing, with an **Image History** message | Image History could not keep the image the edit replaces; it says so once and nothing changes. | Free memory or close other views, and retry. | `ImageHistoryTracker.cpp`; `GeometryProcessCase.AnEditTheHistoryCannotKeepIsSaidOnceAndChangesNothing` |
 | A still mirror or turn did nothing and no message appeared | A failure of the view's own: the turn could not be computed, or the view could not show a result the history had recorded; the reason is only in the Session Console. | Read the Session Console, free memory or close other views, and retry. | `ImageViewControl::startNextEdit` |
 | "Another process is executing for this sequence, please cancel that job first before running this process" after a mirror or turn | Another run holds the sequence view. | Wait for or cancel that run, then retry. | `NonInteractiveProcesses.cpp` (`replaceSequence`); `ImageTurnsTest` |

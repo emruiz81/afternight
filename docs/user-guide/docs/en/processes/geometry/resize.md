@@ -9,9 +9,13 @@ cannot reveal detail or signal absent from the source.
 
 The result keeps the source sample representation, channel layout, pixel
 aspect, acquisition record and meaning. A plate solution the image's header
-cards state is carried, scaled with the pixels, so no new plate solve is needed;
-the other header cards read from the file are dropped. Interpolation changes
-noise correlation, sharpness, extrema, and photometric sums.
+cards state is carried, scaled with the pixels, so no new plate solve is needed,
+and so are the frame's observing context - its optics, site, pointing, camera
+settings, filter, object, frame type and date, with its pixel size restated for
+the new pixels - and the light it holds, its `EXPTIME`, `TOTEXP`, `LIVETIME`,
+`STACKCNT` and `NCOMBINE` cards as it states them; the other header cards read
+from the file are dropped. Interpolation changes noise correlation, sharpness,
+extrema, and photometric sums.
 
 ## At a glance
 
@@ -200,10 +204,16 @@ Rotate, both integer resamples and the **Image > Fast Geometry** turns and
 mirrors):
 the acquisition record and meaning are kept, and the writer writes the
 acquisition record when the image is saved; every header card read from the file
-(FITS cards, Exif) is dropped except a plate solution and the `PLTSOLVR` card
-naming its solver; an output decision is withdrawn; and the lineage records
-`an::transformImageGeometry` with `Resize`. The result's description states the
-new dimensions and the source's pixel aspect.
+(FITS cards, Exif) is dropped except a plate solution, the `PLTSOLVR` card
+naming its solver and the frame's observing context and integration cards,
+which [Crop](crop.md#inputs-outputs-and-metadata) lists; an output decision is
+withdrawn; and the lineage records `an::transformImageGeometry` with `Resize`.
+The result's description states the new dimensions and the source's pixel
+aspect.
+
+Pixel size: the observing context's `XPIXSZ` and `YPIXSZ` are divided by the
+resize's scale along each axis, so the plate scale the optics imply is still
+the result's: a 50% resize of a frame of 2.315 µm pixels states 4.63.
 
 Plate solution: a solution the image's header cards state is carried with its
 scale matrix multiplied by the axis scales and its reference pixel moved with

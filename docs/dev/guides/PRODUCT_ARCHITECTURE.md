@@ -639,11 +639,12 @@ over every frame of its sequence through `openProcessFrames` and one `createProc
 admission, and opens what it makes on the GUI thread; a worker never waits for it. A stored channel is
 `extractChannelScope`'s copy, keeping the image's cards, meaning and its plane of an explicit mask; a colour component
 is the scope's Float32 plane - Float64 for a Float64 image - in the unit interval, keeping only the acquisition record,
-the solution and the lineage; a conversion reads every sample as a fraction of its representation's range and writes
-it in double to the nearest code, a full-scale sample saturating, and a conversion to the image's own representation
-is an exact copy. A component is a floating plane so that no hue, chroma or lightness is rounded to the image's codes
-before anything reads it, and it drops the cards, which describe the colour image, but keeps the acquisition record
-and the solution because its pixels are the image's. Duplicate,
+the solution, the lineage and the frame's observing context and integration cards (`derivedFrameCards`); a conversion
+reads every sample as a fraction of its representation's range and writes it in double to the nearest code, a
+full-scale sample saturating, and a conversion to the image's own representation is an exact copy. A component is a
+floating plane so that no hue, chroma or lightness is rounded to the image's codes before anything reads it, and it
+drops the other cards, which describe the colour image, but keeps the acquisition record, the observing context, the
+integration cards and the solution because its pixels are the image's and hold its light. Duplicate,
 Extract Frame and the container conversions open or show sequences through the file companions; grey, colour and the
 negative are `editImage` edits of a still view and frame-by-frame replacements of a sequence (`greyImageOf`,
 `colourImageOf`, `negativeImageOf`, the negative of a signed image the complement of its fractions), and a sequence's
@@ -677,11 +678,15 @@ repository are described in `docs/dev/SPCC_*.md`.
 Crop, resize, rotate, the integer and CFA integer resamples, debayer, split and merge CFA and extract sequence are
 own-thread windows that turn their dialog into a value on the GUI thread when Apply is pressed (`settings()`) and run
 it through two units. `GeometryProcessSupport.h`: each step the engine's plan (`planGeometryStep`, `transformImage`)
-under one policy for a geometry change - the acquisition record and the meaning kept, the codec's cards dropped, an
-output decision withdrawn, the validity rule kept where every sample was written and stated as the mask written where
-one was not, as the view's own turns follow - and the solution the cards state moved with the pixels of a crop, a
-resize or an integer resample (`movedSolution`, the engine's `cropWcsSolution` and `resizeWcsSolution`) with the
-solver's card, and dropped by a rotation or a filter-array resample; the dialogs' eight interpolations, Auto saying
+under one policy for a geometry change - the acquisition record and the meaning kept, the frame's observing context
+and integration cards kept (`derivedFrameCards`: the engine's `withObservationCards` and the frame's own `EXPTIME`,
+`TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE`) and the codec's other cards dropped, an output decision withdrawn, the
+validity rule kept where every sample was written and stated as the mask written where one was not, as the view's own
+turns follow - and the solution the cards state moved with the pixels of a crop, a resize or an integer resample
+(`movedSolution`, the engine's `cropWcsSolution` and `resizeWcsSolution`) with the solver's card, and dropped by a
+rotation or a filter-array resample; a step that rescales the frame divides the context's `XPIXSZ` and `YPIXSZ` by
+its scale along each axis (`withPixelScale`), a resize by its own and either integer resample by its exact factor;
+the dialogs' eight interpolations, Auto saying
 what it chooses and the step naming what ran; a resize that repeats the edge sample under the dark-ringing guard and
 keeps the source's pixel aspect, a rotation clockwise about the image's centre on a black border, a normalized
 floating result held to the unit interval; and the runs, `runInPlace` (an `editImage` edit, or every frame of a
@@ -690,7 +695,11 @@ shows as one history step) and `runToNewViews` (views of what a still image or e
 output, each published whole), every failure said under the process's title, an edit the history refuses said once by
 the history, and a stop the person asked for quiet. A filter-array resample drops the solution because its planes'
 samples sit at different places within each block, which one solution cannot describe, and a resize keeps the
-source's pixel aspect because the engine states unequal axis scales as stretched pixels, which a rotation refuses. A
+source's pixel aspect because the engine states unequal axis scales as stretched pixels, which a rotation refuses. The
+observing context stays because a cropped, turned or resized frame is still that frame, whose plate solve and header
+still need its optics, its site and where it pointed, the integration cards because it holds the same light - for a
+stacked master its whole integration and frame count - and a rescaled frame restates its pixel size so that the
+plate scale its optics imply is still its own. A
 crop keeps a mosaic's filters under its samples through its
 phase; a resize, rotation or integer resample of a mosaic reads it as grey only when the person says so.
 `CfaProcessSupport.h`: `splitMosaicPlanes`, `joinMosaicPlanes`, `extractHydrogenAlpha`, `extractGreen` and

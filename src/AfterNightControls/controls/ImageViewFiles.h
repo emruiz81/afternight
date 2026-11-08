@@ -364,6 +364,17 @@ measureViewImage(const an::consumer::EngineSession& session, const an::consumer:
 [[nodiscard]] AFTERNIGHTCONTROLS_API bool containerHoldsFilterArray(an::CodecFormat format,
                                                                     an::CfaPattern pattern) noexcept;
 
+/// The cards an image made from one frame keeps when the operation that made it drops the frame's own: the frame's
+/// observing context, as the engine carries a derived product's (`an::withObservationCards`) - its optics, site,
+/// pointing, camera settings, filter, object, frame type and time - and the light the frame holds, its `EXPTIME`,
+/// `TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE` cards as it states them. A crop, a turn, a resize, a channel taken
+/// out of a frame and a registered copy of it are still that frame; only the cards that described its samples or its
+/// grid no longer describe them.
+///
+/// @param frame the cards of the frame the image was made from.
+/// @return the cards the image keeps, none for a frame that states none of them; or what the carry refused.
+[[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<an::CodecMetadata> derivedFrameCards(const an::CodecMetadata& frame);
+
 /// Writes an image to a file through the output transaction: whole, or absent with nothing beside it.
 ///
 /// The image is written in the representation the intent states. When that is not the image's own, a copy is converted

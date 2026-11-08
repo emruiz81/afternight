@@ -9,9 +9,13 @@ for framing and orientation changes that cannot use the exact non-interpolating
 90/180-degree Image-menu actions.
 
 The result keeps the source sample representation, channel layout, acquisition
-record and meaning, but arbitrary rotation resamples pixels, adds black border
-areas, drops the plate solution and drops the header cards read from the file.
-It does not preserve scientific flux or increase resolution.
+record and meaning, and, among the header cards read from the file, the frame's
+observing context - its optics, site, pointing, camera settings, filter,
+object, frame type and date - and the light it holds, its `EXPTIME`, `TOTEXP`,
+`LIVETIME`, `STACKCNT` and `NCOMBINE` cards as it states them, but arbitrary
+rotation resamples pixels, adds black border areas, drops the plate solution
+and drops the other header cards. It does not preserve scientific flux or
+increase resolution.
 
 ## At a glance
 
@@ -182,8 +186,10 @@ Rotate modifies the attached target and keeps its sample representation and
 channel layout. It follows the geometry policy every geometry change shares
 (Crop, Resize, both integer resamples and the **Image > Fast Geometry** turns
 and mirrors): the acquisition record and meaning are kept, and the writer writes the
-acquisition record when the image is saved; the header cards read from the file
-are dropped; an output decision is withdrawn; and the lineage records
+acquisition record when the image is saved; of the header cards read from the
+file, the frame's observing context and integration cards, which
+[Crop](crop.md#inputs-outputs-and-metadata) lists, are kept and the others are
+dropped; an output decision is withdrawn; and the lineage records
 `an::transformImageGeometry` with `Rotate`. Crop, Resize and Integer Resample
 carry a plate solution moved with the pixels; Rotate drops it, together with the
 card naming its solver, on a still image and on every frame of a sequence.

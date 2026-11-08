@@ -162,11 +162,19 @@ respective original values. This is not ordinary whole-mosaic nearest neighbor.
   player has selected, writes the resampled frames into a new sequence of the
   same container in AfterNight's temporary directory, publishes it only when
   every frame is written, shows it in the view, and records one history step.
-- The result keeps the acquisition record and meaning, drops the header cards and
-  the plate solution, and withdraws any output decision; its lineage names the
-  engine's geometry operation and **CFA Integer Resample**. A sample every
-  output was written from keeps the source's validity rule; a mask moves with its
-  samples; a sample the step could not write is marked invalid in a mask.
+- The result keeps the acquisition record and meaning and, among the header
+  cards, the frame's observing context - its optics, site, pointing, camera
+  settings, filter, object, frame type and date - and the light it holds, its
+  `EXPTIME`, `TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE` cards as it
+  states them, which [Crop](../geometry/crop.md#inputs-outputs-and-metadata)
+  lists. Its `XPIXSZ` and `YPIXSZ` are multiplied by the factor for Downsample
+  and divided by it for Upsample - the exact factor, whatever edges the
+  resample drops - so the plate scale the optics imply is still the result's.
+  It drops the other header cards and the plate solution, and withdraws any
+  output decision; its lineage names the engine's geometry operation and
+  **CFA Integer Resample**. A sample every output was written from keeps the
+  source's validity rule; a mask moves with its samples; a sample the step
+  could not write is marked invalid in a mask.
 - No auxiliary image/file is produced. Save/export remains a separate action.
 
 ## Performance

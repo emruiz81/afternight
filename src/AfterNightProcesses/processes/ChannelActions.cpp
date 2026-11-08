@@ -8,6 +8,7 @@
 #include "stdafx.hpp"
 
 #include "processes/ChannelActions.h"
+#include "controls/ImageViewFiles.h"
 #include "processes/MaskProcessUtils.h"
 #include "processes/PointwiseProcessUtils.h"
 
@@ -496,6 +497,32 @@ intersectionOfPlanes(const an::EngineContext& engine, const an::ImageDescriptor&
                                                                      : an::ValidityPolicy::Preserve}};
 }
 
+/// Keeps the observing context of the frame an image was made from - optics, site, pointing, camera settings and time,
+/// as the engine carries a derived product's - in a transition that drops the frame's cards: the image is still of
+/// that frame, and only the cards that described its samples no longer describe it.
+///
+/// @param change the transition, restated in place when it drops the cards.
+/// @param source the cards of the frame the image was made from.
+/// @return success, or what the carry refused.
+[[nodiscard]] an::Status keepObservingContext(an::MetadataTransition& change, const an::CodecMetadata& source)
+{
+    if (!change.clearCodecMetadata)
+    {
+        return an::Status::success();
+    }
+    an::Result<an::CodecMetadata> observing = an::ui::derivedFrameCards(source);
+    if (!observing.hasValue())
+    {
+        return observing.status();
+    }
+    if (!observing->cards().empty())
+    {
+        change.clearCodecMetadata = false;
+        change.codec = std::move(*observing);
+    }
+    return an::Status::success();
+}
+
 /// States what was done on a new image that carries its source's metadata.
 template <typename SampleT>
 [[nodiscard]] an::Status record(an::Image<SampleT>& image, const an::OperationEffect& effect, std::string operation,
@@ -506,12 +533,16 @@ template <typename SampleT>
     {
         stated.validity.produced = semantics->validity();
     }
-    const an::Result<an::MetadataTransition> change = an::operationTransition(
+    an::Result<an::MetadataTransition> change = an::operationTransition(
         stated, an::OperationOutcome{
                     .operation = std::move(operation), .detail = std::move(detail), .semantics = std::move(semantics)});
     if (!change.hasValue())
     {
         return change.status();
+    }
+    if (an::Status kept = keepObservingContext(*change, image.metadata().codec()); kept.failed())
+    {
+        return kept;
     }
     return image.transition(*change);
 }
@@ -1432,12 +1463,16 @@ orientTyped(const an::ui::ExecutionScope& scope, const an::Image<SampleT>& image
             return ran.status();
         }
     }
-    const an::Result<an::MetadataTransition> change =
+    an::Result<an::MetadataTransition> change =
         an::operationTransition(kOrientationEffect, an::OperationOutcome{.operation = "an::transformImageGeometry",
                                                                          .detail = orientationLineage(orientation)});
     if (!change.hasValue())
     {
         return change.status();
+    }
+    if (an::Status kept = keepObservingContext(*change, image.metadata().codec()); kept.failed())
+    {
+        return kept;
     }
     if (an::Status stated = result->transition(*change); stated.failed())
     {
