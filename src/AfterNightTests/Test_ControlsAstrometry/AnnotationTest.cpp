@@ -26,14 +26,19 @@
 
 #include <QColor>
 #include <QImage>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QPainter>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <numbers>
 #include <optional>
 #include <random>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -142,12 +147,26 @@ TEST(AnnotationSettings, StoredChoicesReadBackAsThemselvesAndTheTitleIsNotStored
     settings.content.title = QStringLiteral("Carina Nebula");
     settings.style.colors = an::ui::annotationPaletteColors(an::ui::AnnotationPalette::Ember);
     settings.style.colors.halo = QColor(1, 2, 3, 45);
+    settings.style.customColors = an::ui::annotationPaletteColors(an::ui::AnnotationPalette::Rose);
+    settings.style.customColors->galaxy = QColor(10, 200, 30, 240);
+    settings.style.fontFamily = QStringLiteral("Georgia");
+    settings.style.fontWeight = an::ui::AnnotationFontWeight::Bold;
+    settings.style.italicLabels = true;
     settings.style.textSize = 1.7;
+    settings.style.panelSize = 0.65;
+    settings.style.labelsInObjectColor = false;
     settings.style.lineWidth = 0.75;
+    settings.style.lineOpacity = 0.4;
+    settings.style.lineHalo = false;
+    settings.style.fillObjects = true;
+    settings.style.fillOpacity = 0.3;
+    settings.style.starMarker = an::ui::AnnotationStarMarker::Reticle;
     settings.style.gridOpacity = 0.2;
     settings.style.labelBacking = an::ui::AnnotationLabelBacking::Badge;
     settings.style.marker = an::ui::AnnotationMarker::Brackets;
     settings.style.panelCorner = an::ui::AnnotationCorner::TopLeft;
+    settings.content.stars.naming = an::ui::AnnotationStarNaming::CatalogueNumbers;
+    settings.content.stars.markUnnamed = true;
     settings.output.longEdge = 2048u;
     settings.output.stretch = an::ui::AnnotationStretch::AsStored;
     settings.output.background = an::ui::AnnotationBackground::Transparent;
@@ -178,6 +197,94 @@ TEST(AnnotationSettings, AStoredTextOfAnotherVersionReadsAsFarAsItGoes)
     EXPECT_DOUBLE_EQ(read.content.deepSky.magnitudeLimit, defaults.content.deepSky.magnitudeLimit);
 }
 
+// The first version stored whether a star was named by its Bayer letter; the naming that says the same is read from it,
+// and a style's opacities and sizes out of their ranges read as their defaults.
+TEST(AnnotationSettings, TheFirstVersionsStarNamingAndOutOfRangeLooksReadAsTheySaid)
+{
+    const an::ui::AnnotationSettings defaults = an::ui::defaultAnnotationSettings();
+    EXPECT_EQ(an::ui::annotationSettingsFromStored(QStringLiteral(R"({"version":1,"stars":{"bayerLetters":false}})"))
+                  .content.stars.naming,
+              an::ui::AnnotationStarNaming::ProperNames);
+    EXPECT_EQ(an::ui::annotationSettingsFromStored(QStringLiteral(R"({"version":1,"stars":{"bayerLetters":true}})"))
+                  .content.stars.naming,
+              an::ui::AnnotationStarNaming::Designations);
+    const an::ui::AnnotationSettings read = an::ui::annotationSettingsFromStored(QStringLiteral(
+        R"({"style":{"lineOpacity":0.0,"fillOpacity":3,"panelSize":9,"fontWeight":"heavy","starMarker":"dot"}})"));
+    EXPECT_DOUBLE_EQ(read.style.lineOpacity, defaults.style.lineOpacity) << "a line is never stored invisible";
+    EXPECT_DOUBLE_EQ(read.style.fillOpacity, defaults.style.fillOpacity);
+    EXPECT_DOUBLE_EQ(read.style.panelSize, defaults.style.panelSize);
+    EXPECT_EQ(read.style.fontWeight, defaults.style.fontWeight);
+    EXPECT_EQ(read.style.starMarker, defaults.style.starMarker);
+}
+
+// A person's own colours are kept apart from the palette chosen; text written before they were reads colours no
+// palette has as theirs, and a palette's as no colours of their own yet.
+TEST(AnnotationSettings, ThePersonsOwnColoursAreReadAsTheTextKeptThem)
+{
+    an::ui::AnnotationSettings custom = an::ui::defaultAnnotationSettings();
+    custom.style.colors.nebula = QColor(1, 2, 3);
+    QJsonObject root = QJsonDocument::fromJson(an::ui::storedAnnotationSettings(custom).toUtf8()).object();
+    QJsonObject style = root.value(QStringLiteral("style")).toObject();
+    style.remove(QStringLiteral("customColors"));
+    root.insert(QStringLiteral("style"), style);
+    const an::ui::AnnotationSettings older =
+        an::ui::annotationSettingsFromStored(QString::fromUtf8(QJsonDocument(root).toJson()));
+    ASSERT_TRUE(older.style.customColors.has_value());
+    EXPECT_EQ(*older.style.customColors, custom.style.colors);
+
+    const an::ui::AnnotationSettings preset =
+        an::ui::annotationSettingsFromStored(an::ui::storedAnnotationSettings(an::ui::defaultAnnotationSettings()));
+    EXPECT_FALSE(preset.style.customColors.has_value());
+}
+
+// Every palette offered is its own: no two share their colours, and each reads back as itself.
+TEST(AnnotationSettings, EveryPaletteOfferedIsDistinctAndReadsBackAsItself)
+{
+    const std::span<const an::ui::AnnotationPalette> palettes = an::ui::annotationPalettes();
+    ASSERT_EQ(palettes.size(), 10u);
+    EXPECT_EQ(std::count(palettes.begin(), palettes.end(), an::ui::AnnotationPalette::Custom), 0);
+    for (std::size_t first = 0u; first < palettes.size(); ++first)
+    {
+        const an::ui::AnnotationColors colors = an::ui::annotationPaletteColors(palettes[first]);
+        EXPECT_EQ(an::ui::annotationPaletteOf(colors), palettes[first]);
+        for (std::size_t second = first + 1u; second < palettes.size(); ++second)
+        {
+            EXPECT_FALSE(colors == an::ui::annotationPaletteColors(palettes[second]))
+                << "palettes " << first << " and " << second << " are one";
+        }
+        // Each kind of object stays told apart from the others inside its palette.
+        const std::array<QColor, 5> kinds{colors.galaxy, colors.nebula, colors.planetaryNebula, colors.openCluster,
+                                          colors.globularCluster};
+        if (palettes[first] != an::ui::AnnotationPalette::Moonlight)
+        {
+            for (std::size_t a = 0u; a < kinds.size(); ++a)
+            {
+                for (std::size_t b = a + 1u; b < kinds.size(); ++b)
+                {
+                    EXPECT_NE(kinds[a], kinds[b]) << "palette " << first << " kinds " << a << " and " << b;
+                }
+            }
+        }
+    }
+}
+
+// The text and the lines are set apart: the halo around a letter follows the text's size alone, never the lines'.
+TEST(AnnotationSettings, TheLettersHaloFollowsTheTextAndNeverTheLines)
+{
+    an::ui::AnnotationStyle style = an::ui::defaultAnnotationSettings().style;
+    const an::ui::AnnotationMetrics plain = an::ui::annotationMetrics(1000.0, style);
+    style.lineWidth = an::ui::kAnnotationMaximumLineWidth;
+    const an::ui::AnnotationMetrics thick = an::ui::annotationMetrics(1000.0, style);
+    EXPECT_DOUBLE_EQ(thick.haloWidth, plain.haloWidth);
+    EXPECT_DOUBLE_EQ(thick.fontSize, plain.fontSize);
+    EXPECT_GT(thick.lineWidth, 2.5 * plain.lineWidth);
+    style.lineWidth = 1.0;
+    style.textSize = 2.0;
+    const an::ui::AnnotationMetrics large = an::ui::annotationMetrics(1000.0, style);
+    EXPECT_DOUBLE_EQ(large.haloWidth, 2.0 * plain.haloWidth);
+    EXPECT_DOUBLE_EQ(large.lineWidth, plain.lineWidth);
+}
+
 TEST(AnnotationSettings, ALevelOfDetailAndAPaletteReadBackFromTheirValuesUntilOneIsChanged)
 {
     an::ui::AnnotationContent content;
@@ -191,9 +298,7 @@ TEST(AnnotationSettings, ALevelOfDetailAndAPaletteReadBackFromTheirValuesUntilOn
     content.stars.magnitudeLimit = 3.3;
     EXPECT_EQ(an::ui::annotationDetailOf(content), an::ui::AnnotationDetail::Custom);
 
-    for (const an::ui::AnnotationPalette palette :
-         {an::ui::AnnotationPalette::Aurora, an::ui::AnnotationPalette::Moonlight, an::ui::AnnotationPalette::Ember,
-          an::ui::AnnotationPalette::Ink})
+    for (const an::ui::AnnotationPalette palette : an::ui::annotationPalettes())
     {
         EXPECT_EQ(an::ui::annotationPaletteOf(an::ui::annotationPaletteColors(palette)), palette);
     }
@@ -353,6 +458,7 @@ TEST(AnnotationScene, AStarIsNamedByItsProperNameAndByItsBayerLetterWhenThoseAre
         starEntry("", "γ Fld", 119.6, 9.7, 4.6), starEntry("Far Away", "δ Fld", 200.0, 10.0, 1.0)};
     an::ui::AnnotationContent content = an::ui::defaultAnnotationSettings().content;
     content.layers.deepSky = false;
+    content.stars.magnitudeLimit = 4.0;
     an::ui::AnnotationScene scene = sceneOf(*solution, {}, stars, {}, content);
     ASSERT_EQ(scene.marks.size(), 2u);
     EXPECT_EQ(scene.marks[0].name, QStringLiteral("Alpha Field"));
@@ -361,13 +467,55 @@ TEST(AnnotationScene, AStarIsNamedByItsProperNameAndByItsBayerLetterWhenThoseAre
     EXPECT_GT(scene.marks[0].radius, scene.marks[1].radius);
     EXPECT_EQ(scene.marks[1].designation, QStringLiteral("β Fld"));
 
-    content.stars.bayerLetters = false;
+    content.stars.naming = an::ui::AnnotationStarNaming::ProperNames;
     scene = sceneOf(*solution, {}, stars, {}, content);
     ASSERT_EQ(scene.marks.size(), 1u);
     EXPECT_TRUE(scene.marks[0].designation.isEmpty());
 
-    content.stars = an::ui::AnnotationStarSelection{.magnitudeLimit = 5.0, .bayerLetters = true};
+    content.stars =
+        an::ui::AnnotationStarSelection{.magnitudeLimit = 5.0, .naming = an::ui::AnnotationStarNaming::Designations};
     EXPECT_EQ(sceneOf(*solution, {}, stars, {}, content).marks.size(), 3u);
+}
+
+// Every star, named or not, as the viewer's star labels do: by its name, its designation, else its catalogue number;
+// and a star the naming leaves unnamed is still marked when the choices say so, without a label.
+TEST(AnnotationScene, EveryStarIsNamedByItsNumberWhenItHasNoNameOrMarkedWithoutOne)
+{
+    const std::optional<an::WcsSolution> solution = solutionOf(fieldCards(), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    const std::vector<an::CatalogEntry> stars{starEntry("Alpha Field", "α Fld", 120.2, 10.2, 1.5),
+                                              starEntry("", "β Fld", 119.8, 9.8, 3.0),
+                                              starEntry("", "", 119.6, 9.7, 5.2)};
+    an::ui::AnnotationContent content = an::ui::defaultAnnotationSettings().content;
+    content.layers.deepSky = false;
+    content.stars = an::ui::AnnotationStarSelection{.magnitudeLimit = 6.0,
+                                                    .naming = an::ui::AnnotationStarNaming::CatalogueNumbers};
+    an::ui::AnnotationScene scene = sceneOf(*solution, {}, stars, {}, content);
+    ASSERT_EQ(scene.marks.size(), 3u);
+    EXPECT_EQ(scene.marks[0].name, QStringLiteral("Alpha Field"));
+    EXPECT_EQ(scene.marks[0].designation, QStringLiteral("α Fld"));
+    EXPECT_EQ(scene.marks[1].designation, QStringLiteral("β Fld"));
+    EXPECT_EQ(scene.marks[2].designation, QString::fromStdString(stars[2].identifier))
+        << "a star of no name or designation is named by its catalogue number";
+    EXPECT_TRUE(std::none_of(scene.marks.begin(), scene.marks.end(),
+                             [](const an::ui::AnnotationMark& mark) { return mark.markOnly; }));
+
+    content.stars.naming = an::ui::AnnotationStarNaming::ProperNames;
+    EXPECT_EQ(sceneOf(*solution, {}, stars, {}, content).marks.size(), 1u);
+    content.stars.markUnnamed = true;
+    scene = sceneOf(*solution, {}, stars, {}, content);
+    ASSERT_EQ(scene.marks.size(), 3u);
+    EXPECT_FALSE(scene.marks[0].markOnly);
+    for (std::size_t index = 1u; index < scene.marks.size(); ++index)
+    {
+        EXPECT_TRUE(scene.marks[index].markOnly);
+        EXPECT_TRUE(scene.marks[index].designation.isEmpty() && scene.marks[index].name.isEmpty());
+    }
+    const an::ui::AnnotationLayout layout =
+        an::ui::layoutAnnotations(scene, content, an::ui::defaultAnnotationSettings().style);
+    EXPECT_TRUE(layout.labelled[0]);
+    EXPECT_EQ(std::count(layout.labelled.begin(), layout.labelled.end(), true), 1)
+        << "a star marked without a name takes no label";
 }
 
 TEST(AnnotationScene, TheCompassAndTheScaleFollowTheSolutionAtEachCorner)
@@ -622,6 +770,192 @@ TEST(AnnotationLayout, TheSameSkyOnAFrameTwiceTheSizeIsLaidOutTheSameWayTwiceAsL
         EXPECT_NEAR(two.width(), 2.0 * one.width(), 0.05);
         EXPECT_NEAR(two.height(), 2.0 * one.height(), 0.05);
     }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The drawing
+
+/// A frame large enough that a line is some pixels wide.
+constexpr QSize kDrawingFrame(2000, 1500);
+
+/// A scene of the drawing frame holding one mark: a galaxy outlined as a circle of a radius about a point, or a star of
+/// that marker radius.
+[[nodiscard]] an::ui::AnnotationScene sceneOfOne(const an::ui::AnnotationMarkKind kind, const QPointF centre,
+                                                 const double radius, const bool markOnly = false)
+{
+    an::ui::AnnotationScene scene;
+    scene.imageSize = kDrawingFrame;
+    scene.referenceLength = an::ui::annotationReferenceLength(scene.imageSize);
+    an::ui::AnnotationMark mark;
+    mark.kind = kind;
+    mark.center = centre;
+    if (kind == an::ui::AnnotationMarkKind::Star)
+    {
+        mark.radius = radius;
+    }
+    else
+    {
+        for (int step = 0; step < 96; ++step)
+        {
+            const double angle = 2.0 * std::numbers::pi * step / 96.0;
+            mark.outline << centre + QPointF(std::cos(angle), std::sin(angle)) * radius;
+        }
+    }
+    mark.markOnly = markOnly;
+    mark.designation = markOnly ? QString() : QStringLiteral("NGC 1");
+    mark.priority = 100.0;
+    scene.marks.push_back(mark);
+    return scene;
+}
+
+/// The choices of a scene of marks alone: no grid, no decoration, no panel.
+[[nodiscard]] an::ui::AnnotationContent marksAlone()
+{
+    an::ui::AnnotationContent content = an::ui::defaultAnnotationSettings().content;
+    content.layers = an::ui::AnnotationLayers{
+        .grid = false, .deepSky = true, .stars = true, .compass = false, .scaleBar = false, .infoPanel = false};
+    return content;
+}
+
+/// A scene laid out and drawn over transparent pixels, as a transparent picture is.
+[[nodiscard]] QImage drawn(const an::ui::AnnotationScene& scene, const an::ui::AnnotationStyle& style)
+{
+    const an::ui::AnnotationLayout layout = an::ui::layoutAnnotations(scene, marksAlone(), style);
+    QImage image(scene.imageSize, QImage::Format_ARGB32);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    an::ui::paintAnnotations(painter, scene, layout, style);
+    painter.end();
+    return image;
+}
+
+[[nodiscard]] int alphaAt(const QImage& image, const QPointF point)
+{
+    return image.pixelColor(point.toPoint()).alpha();
+}
+
+// The fill tints an outlined object at its opacity, in its colour; brackets have no area to fill, and a region that
+// spans the frame is left clear, or it would tint the whole image.
+TEST(AnnotationDrawing, AFillTintsAnOutlinedObjectAndLeavesBracketsAndRegionsClear)
+{
+    const QPointF centre(1000.0, 750.0);
+    const an::ui::AnnotationScene object = sceneOfOne(an::ui::AnnotationMarkKind::Galaxy, centre, 120.0);
+    an::ui::AnnotationStyle style = an::ui::defaultAnnotationSettings().style;
+    EXPECT_EQ(alphaAt(drawn(object, style), centre), 0) << "an object is not filled unless the style says so";
+
+    style.fillObjects = true;
+    style.fillOpacity = 0.3;
+    const QImage filled = drawn(object, style);
+    const QColor tint = filled.pixelColor(centre.toPoint());
+    EXPECT_NEAR(tint.alpha(), 0.3 * 255.0, 6.0);
+    EXPECT_NEAR(tint.red(), style.colors.galaxy.red(), 6.0) << "the fill is the object's colour";
+    EXPECT_NEAR(tint.green(), style.colors.galaxy.green(), 6.0);
+    EXPECT_NEAR(tint.blue(), style.colors.galaxy.blue(), 6.0);
+    EXPECT_EQ(alphaAt(filled, QPointF(200.0, 200.0)), 0) << "nothing outside the object is tinted";
+
+    style.marker = an::ui::AnnotationMarker::Brackets;
+    EXPECT_EQ(alphaAt(drawn(object, style), centre), 0);
+    style.marker = an::ui::AnnotationMarker::Outline;
+
+    const an::ui::AnnotationScene region = sceneOfOne(an::ui::AnnotationMarkKind::Nebula, centre, 900.0);
+    EXPECT_EQ(alphaAt(drawn(region, style), centre + QPointF(300.0, 0.0)), 0);
+}
+
+// The lines' opacity and the dark edge behind them are the lines' own choices: a plain label keeps the edge behind the
+// lines, and no text choice takes it away.
+TEST(AnnotationDrawing, TheLinesOpacityAndTheirDarkEdgeAreTheLinesOwn)
+{
+    const QPointF centre(1000.0, 750.0);
+    const double radius = 200.0;
+    const an::ui::AnnotationScene object = sceneOfOne(an::ui::AnnotationMarkKind::Galaxy, centre, radius);
+    an::ui::AnnotationStyle style = an::ui::defaultAnnotationSettings().style;
+    style.lineWidth = an::ui::kAnnotationMaximumLineWidth;
+    const an::ui::AnnotationMetrics metrics = an::ui::annotationMetrics(object.referenceLength, style);
+    ASSERT_GT(metrics.lineWidth, 4.0);
+    const QPointF onLine = centre + QPointF(radius, 0.0);
+    const QPointF besideLine = centre + QPointF(radius + 0.95 * metrics.lineWidth, 0.0);
+
+    style.lineHalo = false;
+    EXPECT_GT(alphaAt(drawn(object, style), onLine), 240);
+    style.lineOpacity = 0.3;
+    EXPECT_NEAR(alphaAt(drawn(object, style), onLine), 0.3 * 255.0, 8.0);
+    style.lineOpacity = 1.0;
+    EXPECT_EQ(alphaAt(drawn(object, style), besideLine), 0) << "no edge when the lines have none";
+
+    style.lineHalo = true;
+    style.labelBacking = an::ui::AnnotationLabelBacking::Plain;
+    const QImage edged = drawn(object, style);
+    EXPECT_GT(alphaAt(edged, besideLine), 0) << "a plain label leaves the lines their edge";
+    const QColor edge = edged.pixelColor(besideLine.toPoint());
+    EXPECT_LT(edge.red() + edge.green() + edge.blue(), 120) << "the edge is the halo's dark colour";
+}
+
+// A ring surrounds its star; a reticle points at it from four sides and leaves it clear, and a star marked without a
+// label is drawn whether or not the style marks the objects whose labels found no room.
+TEST(AnnotationDrawing, AReticleLeavesItsStarClearWhereARingSurroundsIt)
+{
+    const QPointF centre(1000.0, 750.0);
+    const double radius = 20.0;
+    const an::ui::AnnotationScene star = sceneOfOne(an::ui::AnnotationMarkKind::Star, centre, radius, true);
+    an::ui::AnnotationStyle style = an::ui::defaultAnnotationSettings().style;
+    style.lineWidth = an::ui::kAnnotationMaximumLineWidth;
+    style.lineHalo = false;
+    style.unlabelledMarks = false;
+    const QPointF onRing = centre + QPointF(radius * std::cos(0.8), radius * std::sin(0.8));
+    const QPointF alongTick = centre + QPointF(0.5 * (1.0 + an::ui::kAnnotationReticleReach) * radius, 0.0);
+
+    const QImage ring = drawn(star, style);
+    EXPECT_GT(alphaAt(ring, onRing), 200) << "a star marked without a label is drawn";
+    EXPECT_EQ(alphaAt(ring, centre), 0);
+
+    style.starMarker = an::ui::AnnotationStarMarker::Reticle;
+    const QImage reticle = drawn(star, style);
+    EXPECT_GT(alphaAt(reticle, alongTick), 200);
+    EXPECT_EQ(alphaAt(reticle, onRing), 0) << "a reticle draws no ring";
+    EXPECT_EQ(alphaAt(reticle, centre), 0) << "the star itself is left clear";
+    EXPECT_EQ(alphaAt(reticle, centre + QPointF(0.6 * radius, 0.0)), 0);
+}
+
+// The panel's text has a size of its own: a larger panel leaves the labels' size as it is.
+TEST(AnnotationLayout, ThePanelsTextFollowsItsOwnSize)
+{
+    an::ui::AnnotationScene scene = sceneOfOne(an::ui::AnnotationMarkKind::Galaxy, QPointF(1000.0, 750.0), 60.0);
+    scene.panel.title = QStringLiteral("A field");
+    scene.panel.facts = {an::ui::AnnotationFact{.label = QStringLiteral("Field"), .value = QStringLiteral("2° × 1°")},
+                         an::ui::AnnotationFact{.label = QStringLiteral("Scale"), .value = QStringLiteral("1.1″/px")}};
+    an::ui::AnnotationContent content = marksAlone();
+    content.layers.infoPanel = true;
+    an::ui::AnnotationStyle style = an::ui::defaultAnnotationSettings().style;
+    const an::ui::AnnotationLayout ordinary = an::ui::layoutAnnotations(scene, content, style);
+    style.panelSize = 2.0;
+    const an::ui::AnnotationLayout larger = an::ui::layoutAnnotations(scene, content, style);
+    ASSERT_TRUE(ordinary.panel.has_value() && larger.panel.has_value());
+    EXPECT_NEAR(larger.panel->box.width(), 2.0 * ordinary.panel->box.width(), 0.02 * ordinary.panel->box.width());
+    EXPECT_NEAR(larger.panel->box.height(), 2.0 * ordinary.panel->box.height(), 0.02 * ordinary.panel->box.height());
+    EXPECT_DOUBLE_EQ(larger.metrics.fontSize, ordinary.metrics.fontSize);
+    ASSERT_EQ(larger.labels.size(), ordinary.labels.size());
+    EXPECT_NEAR(larger.labels.front().box.height(), ordinary.labels.front().box.height(), 1.0e-9);
+}
+
+// A label is set where it crosses no other object's outline: a small galaxy just under a large one is labelled below
+// itself, though above is the place it tries first.
+TEST(AnnotationLayout, ALabelIsSetWhereItCrossesNoOtherObjectsOutline)
+{
+    an::ui::AnnotationScene scene = sceneOfOne(an::ui::AnnotationMarkKind::Galaxy, QPointF(1000.0, 700.0), 150.0);
+    scene.marks.front().designation = QStringLiteral("NGC 2");
+    an::ui::AnnotationScene small = sceneOfOne(an::ui::AnnotationMarkKind::Galaxy, QPointF(1000.0, 872.0), 20.0);
+    small.marks.front().priority = 50.0;
+    scene.marks.push_back(small.marks.front());
+    const an::ui::AnnotationLayout layout =
+        an::ui::layoutAnnotations(scene, marksAlone(), an::ui::defaultAnnotationSettings().style);
+    ASSERT_EQ(layout.labels.size(), 2u);
+    const an::ui::AnnotationLabel& label = layout.labels[1];
+    ASSERT_EQ(label.source, 1u);
+    const QPolygonF& large = scene.marks.front().outline;
+    EXPECT_TRUE(std::none_of(large.begin(), large.end(), [&label](const QPointF& point) {
+        return label.box.contains(point);
+    })) << "the label crosses the large galaxy's outline";
+    EXPECT_GT(label.box.top(), scene.marks[1].center.y()) << "the free place is below the small galaxy";
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

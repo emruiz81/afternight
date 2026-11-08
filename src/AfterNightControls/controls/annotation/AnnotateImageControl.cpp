@@ -37,6 +37,7 @@
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDoubleSpinBox>
+#include <QFontComboBox>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -47,6 +48,7 @@
 #include <QLineEdit>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
@@ -129,6 +131,72 @@ template <typename WorkT, typename DoneT> void runThenLand(WorkT work, DoneT don
     painter.setBrush(color);
     painter.drawRoundedRect(QRectF(0.5, 0.5, 27.0, 15.0), 3.0, 3.0);
     return QIcon(pixmap);
+}
+
+/// The size of a palette's swatch in the palettes' list.
+constexpr QSize kPaletteSwatchSize(44, 16);
+
+/// A palette's swatch: a stripe of each kind of object's colour, over its panel's colour.
+[[nodiscard]] QIcon paletteSwatch(const AnnotationColors& colors)
+{
+    QPixmap pixmap(kPaletteSwatchSize);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    const QRectF box(0.5, 0.5, kPaletteSwatchSize.width() - 1.0, kPaletteSwatchSize.height() - 1.0);
+    QPainterPath rounded;
+    rounded.addRoundedRect(box, 3.0, 3.0);
+    painter.setClipPath(rounded);
+    QColor panel = colors.panel;
+    panel.setAlpha(255);
+    painter.fillRect(box, panel);
+    const std::array<QColor, 5> stripes{colors.galaxy, colors.nebula, colors.planetaryNebula, colors.openCluster,
+                                        colors.globularCluster};
+    const double width = (box.width() - 4.0) / static_cast<double>(stripes.size());
+    for (std::size_t index = 0u; index < stripes.size(); ++index)
+    {
+        QColor stripe = stripes[index];
+        stripe.setAlpha(255);
+        painter.fillRect(QRectF(box.left() + 2.0 + width * static_cast<double>(index), box.top() + 3.0, width - 1.0,
+                                box.height() - 6.0),
+                         stripe);
+    }
+    painter.setClipping(false);
+    painter.setPen(QPen(an::ui::tokens().colors.borderSubtle, 1.0));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRoundedRect(box, 3.0, 3.0);
+    return QIcon(pixmap);
+}
+
+/// A palette's name, as the palettes' list offers it.
+[[nodiscard]] QString paletteName(const AnnotationPalette palette)
+{
+    switch (palette)
+    {
+    case AnnotationPalette::Aurora:
+        return translated("Aurora");
+    case AnnotationPalette::Moonlight:
+        return translated("Moonlight");
+    case AnnotationPalette::Ember:
+        return translated("Ember - for dark-adapted eyes");
+    case AnnotationPalette::Ink:
+        return translated("Ink - for bright images and print");
+    case AnnotationPalette::Glacier:
+        return translated("Glacier");
+    case AnnotationPalette::Amethyst:
+        return translated("Amethyst");
+    case AnnotationPalette::Amber:
+        return translated("Amber");
+    case AnnotationPalette::Verdant:
+        return translated("Verdant");
+    case AnnotationPalette::Rose:
+        return translated("Rose");
+    case AnnotationPalette::Atlas:
+        return translated("Atlas");
+    case AnnotationPalette::Custom:
+        break;
+    }
+    return translated("Custom");
 }
 
 /// What a change of the choices makes the window do again.
@@ -478,6 +546,10 @@ struct AnnotateImageControl::Impl
     bool baseBusy = false;
     bool pictureBusy = false;
     std::optional<std::pair<bool, QString>> pendingPicture;
+
+    /// The palette the list shows: the one chosen, or the custom one once the person chose it or set a colour, even
+    /// while their colours are still a palette's.
+    AnnotationPalette paletteChoice = AnnotationPalette::Aurora;
     std::stop_source closing;
     QTimer* drawingTimer = nullptr;
     QTimer* baseTimer = nullptr;
@@ -501,12 +573,22 @@ struct AnnotateImageControl::Impl
     QCheckBox* panelLayer = nullptr;
     QComboBox* labelText = nullptr;
     QComboBox* palette = nullptr;
-    AnSliderControl* textSize = nullptr;
-    AnSliderControl* lineWidth = nullptr;
-    AnSliderControl* gridOpacity = nullptr;
+    AnCollapsibleSection* colorsSection = nullptr;
+    QFontComboBox* font = nullptr;
+    QComboBox* fontWeight = nullptr;
+    QCheckBox* italic = nullptr;
+    QComboBox* labelColors = nullptr;
     QComboBox* backing = nullptr;
+    AnSliderControl* textSize = nullptr;
+    AnSliderControl* panelSize = nullptr;
     QComboBox* marker = nullptr;
-    QCheckBox* objectColors = nullptr;
+    QComboBox* starMarker = nullptr;
+    AnSliderControl* lineWidth = nullptr;
+    AnSliderControl* lineOpacity = nullptr;
+    QCheckBox* fill = nullptr;
+    AnSliderControl* fillOpacity = nullptr;
+    AnSliderControl* gridOpacity = nullptr;
+    QCheckBox* lineHalo = nullptr;
     QCheckBox* leaders = nullptr;
     QCheckBox* unlabelled = nullptr;
     std::vector<std::pair<QToolButton*, QColor AnnotationColors::*>> colorButtons;
@@ -538,7 +620,8 @@ struct AnnotateImageControl::Impl
     QCheckBox* unmeasured = nullptr;
     QDoubleSpinBox* minimumSize = nullptr;
     QDoubleSpinBox* starMagnitude = nullptr;
-    QCheckBox* bayer = nullptr;
+    QComboBox* starNaming = nullptr;
+    QCheckBox* markUnnamed = nullptr;
     QComboBox* gridDensity = nullptr;
     QCheckBox* gridLabels = nullptr;
     QComboBox* outputSize = nullptr;
@@ -1173,10 +1256,9 @@ struct AnnotateImageControl::Impl
 
     void refreshPalette()
     {
-        const AnnotationPalette current = annotationPaletteOf(settings.style.colors);
         const bool wasSyncing = syncing;
         syncing = true;
-        palette->setCurrentIndex(palette->findData(static_cast<int>(current)));
+        palette->setCurrentIndex(palette->findData(static_cast<int>(paletteChoice)));
         const QColor rim = an::ui::tokens().colors.borderSubtle;
         for (const auto& [button, member] : colorButtons)
         {
@@ -1190,12 +1272,20 @@ struct AnnotateImageControl::Impl
         QStringList parts;
         if (scene != nullptr && layout != nullptr)
         {
+            // A star marked without a label by choice is not one whose label found no room.
             const auto labelled = static_cast<int>(std::count(layout->labelled.begin(), layout->labelled.end(), true));
-            const auto marks = static_cast<int>(scene->marks.size());
-            parts << (marks == 1 ? translated("1 object") : translated("%1 objects").arg(marks));
-            if (labelled < marks)
+            const auto markedOnly = static_cast<int>(std::count_if(
+                scene->marks.begin(), scene->marks.end(), [](const AnnotationMark& mark) { return mark.markOnly; }));
+            const auto named = static_cast<int>(scene->marks.size()) - markedOnly;
+            parts << (named == 1 ? translated("1 object") : translated("%1 objects").arg(named));
+            if (labelled < named)
             {
                 parts << translated("%1 labelled").arg(labelled);
+            }
+            if (markedOnly > 0)
+            {
+                parts << (markedOnly == 1 ? translated("1 more star marked")
+                                          : translated("%1 more stars marked").arg(markedOnly));
             }
             if (title->text().trimmed().isEmpty())
             {
@@ -1245,6 +1335,7 @@ struct AnnotateImageControl::Impl
     /// Shows the choices in the widgets without reacting to them.
     void showSettings()
     {
+        paletteChoice = annotationPaletteOf(settings.style.colors);
         syncing = true;
         const AnnotationContent& content = settings.content;
         const AnnotationStyle& style = settings.style;
@@ -1255,12 +1346,24 @@ struct AnnotateImageControl::Impl
         scaleBarLayer->setChecked(content.layers.scaleBar);
         panelLayer->setChecked(content.layers.infoPanel);
         labelText->setCurrentIndex(labelText->findData(static_cast<int>(content.labelText)));
-        textSize->setValue(static_cast<int>(std::lround(style.textSize * 100.0)));
-        lineWidth->setValue(static_cast<int>(std::lround(style.lineWidth * 100.0)));
-        gridOpacity->setValue(static_cast<int>(std::lround(style.gridOpacity * 100.0)));
+        // An empty typeface is the system's sans-serif one, which the list shows as the application's own.
+        font->setCurrentFont(style.fontFamily.trimmed().isEmpty() ? QFont() : QFont(style.fontFamily));
+        fontWeight->setCurrentIndex(fontWeight->findData(static_cast<int>(style.fontWeight)));
+        italic->setChecked(style.italicLabels);
+        labelColors->setCurrentIndex(labelColors->findData(static_cast<int>(style.labelsInObjectColor)));
         backing->setCurrentIndex(backing->findData(static_cast<int>(style.labelBacking)));
+        textSize->setValue(static_cast<int>(std::lround(style.textSize * 100.0)));
+        panelSize->setValue(static_cast<int>(std::lround(style.panelSize * 100.0)));
         marker->setCurrentIndex(marker->findData(static_cast<int>(style.marker)));
-        objectColors->setChecked(style.labelsInObjectColor);
+        starMarker->setCurrentIndex(starMarker->findData(static_cast<int>(style.starMarker)));
+        lineWidth->setValue(static_cast<int>(std::lround(style.lineWidth * 100.0)));
+        lineOpacity->setValue(static_cast<int>(std::lround(style.lineOpacity * 100.0)));
+        fill->setChecked(style.fillObjects);
+        fill->setEnabled(style.marker == AnnotationMarker::Outline);
+        fillOpacity->setValue(static_cast<int>(std::lround(style.fillOpacity * 100.0)));
+        fillOpacity->setEnabled(style.fillObjects && style.marker == AnnotationMarker::Outline);
+        gridOpacity->setValue(static_cast<int>(std::lround(style.gridOpacity * 100.0)));
+        lineHalo->setChecked(style.lineHalo);
         leaders->setChecked(style.leaderLines);
         unlabelled->setChecked(style.unlabelledMarks);
         title->setText(content.title);
@@ -1310,8 +1413,18 @@ struct AnnotateImageControl::Impl
         unmeasured->setChecked(deepSky.unmeasured);
         minimumSize->setValue(deepSky.minimumSize * 100.0);
         starMagnitude->setValue(settings.content.stars.magnitudeLimit);
-        bayer->setChecked(settings.content.stars.bayerLetters);
+        starNaming->setCurrentIndex(starNaming->findData(static_cast<int>(settings.content.stars.naming)));
+        markUnnamed->setChecked(settings.content.stars.markUnnamed);
         syncing = wasSyncing;
+    }
+
+    /// Sets one colour: the colours become the person's own, kept for the custom palette.
+    void setColor(QColor AnnotationColors::* member, const QColor& color)
+    {
+        settings.style.colors.*member = color;
+        settings.style.customColors = settings.style.colors;
+        paletteChoice = AnnotationPalette::Custom;
+        changed(Change::Drawing);
     }
 
     void save() const
@@ -1412,10 +1525,14 @@ struct AnnotateImageControl::Impl
              {translated("Detailed"), AnnotationDetail::Detailed},
              {translated("Complete"), AnnotationDetail::Complete}}};
         const std::array<QString, 4> detailTips{
-            translated("The Messier and Caldwell objects and the named ones, and the brightest named stars"),
-            translated("Every catalogue to magnitude 12, objects large enough to show, and stars to magnitude 4"),
-            translated("Every catalogue to magnitude 14 and smaller objects, and stars to magnitude 5.5"),
-            translated("Every galaxy, nebula and cluster the catalogues hold in the field, and every bright star")};
+            translated("The Messier and Caldwell objects and the named ones, and the brightest stars by name"),
+            translated("Every catalogue to magnitude 12, objects large enough to show, and stars to magnitude 4.5 by "
+                       "name and designation"),
+            translated(
+                "Every catalogue to magnitude 14 and smaller objects, and stars to magnitude 6, the unnamed ones "
+                "marked"),
+            translated("Every galaxy, nebula and cluster the catalogues hold in the field, and every bright star, by "
+                       "catalogue number when it has no name")};
         for (std::size_t index = 0u; index < details.size(); ++index)
         {
             auto* button = new QPushButton(details[index].first, contentSection->contentWidget());
@@ -1452,7 +1569,7 @@ struct AnnotateImageControl::Impl
             translated("Deep-sky objects"), content, "annotateDeepSky",
             [this](bool on) { settings.content.layers.deepSky = on; }, Change::Scene);
         starsLayer = checkBox(
-            translated("Star names"), content, "annotateStars", [this](bool on) { settings.content.layers.stars = on; },
+            translated("Stars"), content, "annotateStars", [this](bool on) { settings.content.layers.stars = on; },
             Change::Scene);
         compassLayer = checkBox(
             translated("Compass"), content, "annotateCompass",
@@ -1484,24 +1601,20 @@ struct AnnotateImageControl::Impl
         contentSection->setExpanded(true);
         layoutColumn->addWidget(contentSection);
 
-        // How it looks.
+        // How it looks: the palette, then the text and the lines, each set apart from the other.
         auto* styleSection = new AnCollapsibleSection(translated("Style"), column);
         styleSection->setObjectName(QStringLiteral("annotateStyleSection"));
         QWidget* look = styleSection->contentWidget();
         auto* styleLayout = new QVBoxLayout();
         styleLayout->setSpacing(tokenSet.spacing.sm);
-        auto* styleForm = new QFormLayout();
+        auto* paletteForm = new QFormLayout();
         palette = new QComboBox(look);
         palette->setObjectName(QStringLiteral("annotatePalette"));
-        const std::array<std::pair<QString, AnnotationPalette>, 4> palettes{
-            {{translated("Aurora"), AnnotationPalette::Aurora},
-             {translated("Moonlight"), AnnotationPalette::Moonlight},
-             {translated("Ember"), AnnotationPalette::Ember},
-             {translated("Ink"), AnnotationPalette::Ink}}};
-        for (const auto& [text, value] : palettes)
+        palette->setIconSize(kPaletteSwatchSize);
+        for (const AnnotationPalette value : annotationPalettes())
         {
-            const AnnotationColors colors = annotationPaletteColors(value);
-            palette->addItem(swatchOf(colors.nebula, colors.galaxy), text, static_cast<int>(value));
+            palette->addItem(paletteSwatch(annotationPaletteColors(value)), paletteName(value),
+                             static_cast<int>(value));
         }
         palette->addItem(translated("Custom"), static_cast<int>(AnnotationPalette::Custom));
         QObject::connect(palette, &QComboBox::currentIndexChanged, window, [this](const int) {
@@ -1510,54 +1623,163 @@ struct AnnotateImageControl::Impl
                 return;
             }
             const auto chosen = static_cast<AnnotationPalette>(palette->currentData().toInt());
-            if (chosen != AnnotationPalette::Custom)
+            if (chosen == AnnotationPalette::Custom)
+            {
+                // The person's own colours come back; the first time, they start from the palette shown, and the
+                // colours open to be set.
+                if (settings.style.customColors.has_value())
+                {
+                    settings.style.colors = *settings.style.customColors;
+                }
+                else
+                {
+                    settings.style.customColors = settings.style.colors;
+                }
+                colorsSection->setExpanded(true);
+            }
+            else
             {
                 settings.style.colors = annotationPaletteColors(chosen);
             }
+            paletteChoice = chosen;
             changed(Change::Drawing);
         });
-        styleForm->addRow(translated("Palette"), palette);
+        paletteForm->addRow(translated("Palette"), palette);
+        styleLayout->addLayout(paletteForm);
+
+        // The text: its typeface, its weight and slant, its colour, its backing and its sizes.
+        auto* textSection = new AnCollapsibleSection(translated("Text"), look);
+        textSection->setObjectName(QStringLiteral("annotateTextSection"));
+        QWidget* text = textSection->contentWidget();
+        auto* textLayout = new QVBoxLayout();
+        textLayout->setSpacing(tokenSet.spacing.sm);
+        auto* textForm = new QFormLayout();
+        font = new QFontComboBox(text);
+        font->setObjectName(QStringLiteral("annotateFont"));
+        font->setFontFilters(QFontComboBox::ScalableFonts);
+        font->setEditable(false);
+        QObject::connect(font, &QFontComboBox::currentFontChanged, window, [this](const QFont& chosen) {
+            if (syncing)
+            {
+                return;
+            }
+            settings.style.fontFamily = chosen.family();
+            changed(Change::Layout);
+        });
+        textForm->addRow(translated("Font"), font);
+        fontWeight = comboBox<AnnotationFontWeight>(
+            text, "annotateFontWeight",
+            {{translated("Light"), AnnotationFontWeight::Light},
+             {translated("Regular"), AnnotationFontWeight::Regular},
+             {translated("Medium"), AnnotationFontWeight::Medium},
+             {translated("Bold"), AnnotationFontWeight::Bold}},
+            [this](AnnotationFontWeight value) { settings.style.fontWeight = value; }, Change::Layout);
+        italic = checkBox(
+            translated("Italic labels"), text, "annotateItalic", [this](bool on) { settings.style.italicLabels = on; },
+            Change::Layout);
+        auto* weightRow = new QHBoxLayout();
+        weightRow->setSpacing(tokenSet.spacing.sm);
+        weightRow->addWidget(fontWeight, 1);
+        weightRow->addWidget(italic);
+        textForm->addRow(translated("Weight"), weightRow);
+        labelColors = comboBox<bool>(
+            text, "annotateLabelColors",
+            {{translated("Each object's colour"), true}, {translated("The text colour"), false}},
+            [this](bool value) { settings.style.labelsInObjectColor = value; }, Change::Drawing);
+        textForm->addRow(translated("Colour"), labelColors);
         backing = comboBox<AnnotationLabelBacking>(
-            look, "annotateBacking",
+            text, "annotateBacking",
             {{translated("Halo"), AnnotationLabelBacking::Halo},
              {translated("Badge"), AnnotationLabelBacking::Badge},
              {translated("Plain"), AnnotationLabelBacking::Plain}},
             [this](AnnotationLabelBacking value) { settings.style.labelBacking = value; }, Change::Layout);
-        styleForm->addRow(translated("Label style"), backing);
-        marker = comboBox<AnnotationMarker>(
-            look, "annotateMarker",
-            {{translated("Outlines"), AnnotationMarker::Outline}, {translated("Brackets"), AnnotationMarker::Brackets}},
-            [this](AnnotationMarker value) { settings.style.marker = value; }, Change::Drawing);
-        styleForm->addRow(translated("Objects"), marker);
-        styleLayout->addLayout(styleForm);
+        textForm->addRow(translated("Backing"), backing);
+        textLayout->addLayout(textForm);
         textSize = slider(
-            translated("Text size"), look, "annotateTextSize", static_cast<int>(kAnnotationMinimumTextSize * 100.0),
+            translated("Label size"), text, "annotateTextSize", static_cast<int>(kAnnotationMinimumTextSize * 100.0),
             static_cast<int>(kAnnotationMaximumTextSize * 100.0),
             [this](int value) { settings.style.textSize = value / 100.0; }, Change::Layout);
+        panelSize = slider(
+            translated("Panel size"), text, "annotatePanelSize", static_cast<int>(kAnnotationMinimumPanelSize * 100.0),
+            static_cast<int>(kAnnotationMaximumPanelSize * 100.0),
+            [this](int value) { settings.style.panelSize = value / 100.0; }, Change::Layout);
+        textLayout->addWidget(textSize);
+        textLayout->addWidget(panelSize);
+        textSection->setContentLayout(textLayout);
+        textSection->setExpanded(true);
+        styleLayout->addWidget(textSection);
+
+        // The lines: how objects and stars are marked, the lines' width and opacity, the fill and the grid.
+        auto* linesSection = new AnCollapsibleSection(translated("Lines"), look);
+        linesSection->setObjectName(QStringLiteral("annotateLinesSection"));
+        QWidget* lines = linesSection->contentWidget();
+        auto* linesLayout = new QVBoxLayout();
+        linesLayout->setSpacing(tokenSet.spacing.sm);
+        auto* linesForm = new QFormLayout();
+        marker = comboBox<AnnotationMarker>(
+            lines, "annotateMarker",
+            {{translated("Outlines"), AnnotationMarker::Outline}, {translated("Brackets"), AnnotationMarker::Brackets}},
+            [this](AnnotationMarker value) {
+                settings.style.marker = value;
+                fill->setEnabled(value == AnnotationMarker::Outline);
+                fillOpacity->setEnabled(value == AnnotationMarker::Outline && settings.style.fillObjects);
+            },
+            Change::Drawing);
+        linesForm->addRow(translated("Objects"), marker);
+        starMarker = comboBox<AnnotationStarMarker>(
+            lines, "annotateStarMarker",
+            {{translated("Rings"), AnnotationStarMarker::Ring},
+             {translated("Reticles"), AnnotationStarMarker::Reticle}},
+            [this](AnnotationStarMarker value) { settings.style.starMarker = value; }, Change::Layout);
+        linesForm->addRow(translated("Stars"), starMarker);
+        linesLayout->addLayout(linesForm);
         lineWidth = slider(
-            translated("Line width"), look, "annotateLineWidth", static_cast<int>(kAnnotationMinimumLineWidth * 100.0),
+            translated("Line width"), lines, "annotateLineWidth", static_cast<int>(kAnnotationMinimumLineWidth * 100.0),
             static_cast<int>(kAnnotationMaximumLineWidth * 100.0),
             [this](int value) { settings.style.lineWidth = value / 100.0; }, Change::Layout);
+        lineOpacity = slider(
+            translated("Line opacity"), lines, "annotateLineOpacity",
+            static_cast<int>(kAnnotationMinimumLineOpacity * 100.0), 100,
+            [this](int value) { settings.style.lineOpacity = value / 100.0; }, Change::Drawing);
+        linesLayout->addWidget(lineWidth);
+        linesLayout->addWidget(lineOpacity);
+        fill = checkBox(
+            translated("Fill objects with their colour"), lines, "annotateFill",
+            [this](bool on) {
+                settings.style.fillObjects = on;
+                fillOpacity->setEnabled(on && settings.style.marker == AnnotationMarker::Outline);
+            },
+            Change::Drawing);
+        fill->setToolTip(translated("Tints the area of every outlined galaxy, nebula and cluster; a region that spans "
+                                    "much of the picture is left unfilled"));
+        fillOpacity = slider(
+            translated("Fill opacity"), lines, "annotateFillOpacity", 0, 100,
+            [this](int value) { settings.style.fillOpacity = value / 100.0; }, Change::Drawing);
+        linesLayout->addWidget(fill);
+        linesLayout->addWidget(fillOpacity);
         gridOpacity = slider(
-            translated("Grid opacity"), look, "annotateGridOpacity", 0, 100,
+            translated("Grid opacity"), lines, "annotateGridOpacity", 0, 100,
             [this](int value) { settings.style.gridOpacity = value / 100.0; }, Change::Drawing);
-        styleLayout->addWidget(textSize);
-        styleLayout->addWidget(lineWidth);
-        styleLayout->addWidget(gridOpacity);
-        objectColors = checkBox(
-            translated("Labels in their objects' colours"), look, "annotateObjectColors",
-            [this](bool on) { settings.style.labelsInObjectColor = on; }, Change::Drawing);
+        linesLayout->addWidget(gridOpacity);
+        lineHalo = checkBox(
+            translated("Dark edge behind lines"), lines, "annotateLineHalo",
+            [this](bool on) { settings.style.lineHalo = on; }, Change::Drawing);
+        lineHalo->setToolTip(translated("A soft edge in the halo colour behind every line, so it reads over a bright "
+                                        "part of the image"));
         leaders = checkBox(
-            translated("Leader lines for crowded labels"), look, "annotateLeaders",
+            translated("Leader lines for crowded labels"), lines, "annotateLeaders",
             [this](bool on) { settings.style.leaderLines = on; }, Change::Layout);
         unlabelled = checkBox(
-            translated("Mark objects whose labels do not fit"), look, "annotateUnlabelled",
+            translated("Mark objects whose labels do not fit"), lines, "annotateUnlabelled",
             [this](bool on) { settings.style.unlabelledMarks = on; }, Change::Drawing);
-        styleLayout->addWidget(objectColors);
-        styleLayout->addWidget(leaders);
-        styleLayout->addWidget(unlabelled);
+        linesLayout->addWidget(lineHalo);
+        linesLayout->addWidget(leaders);
+        linesLayout->addWidget(unlabelled);
+        linesSection->setContentLayout(linesLayout);
+        linesSection->setExpanded(true);
+        styleLayout->addWidget(linesSection);
 
-        auto* colorsSection = new AnCollapsibleSection(translated("Colours"), look);
+        colorsSection = new AnCollapsibleSection(translated("Colours"), look);
         colorsSection->setObjectName(QStringLiteral("annotateColorsSection"));
         auto* colorsGrid = new QGridLayout();
         colorsGrid->setHorizontalSpacing(tokenSet.spacing.sm);
@@ -1590,10 +1812,8 @@ struct AnnotateImageControl::Impl
                 dialog->setAttribute(Qt::WA_DeleteOnClose);
                 dialog->setOption(QColorDialog::ShowAlphaChannel, true);
                 dialog->setWindowTitle(translated("%1 colour").arg(translated(role.name)));
-                QObject::connect(dialog, &QColorDialog::colorSelected, window, [this, role](const QColor& color) {
-                    settings.style.colors.*role.member = color;
-                    changed(Change::Drawing);
-                });
+                QObject::connect(dialog, &QColorDialog::colorSelected, window,
+                                 [this, role](const QColor& color) { setColor(role.member, color); });
                 dialog->open();
             });
             colorButtons.emplace_back(button, role.member);
@@ -1804,10 +2024,20 @@ struct AnnotateImageControl::Impl
             changed(Change::Scene);
         });
         limitsForm->addRow(translated("Faintest star"), starMagnitude);
-        bayer = checkBox(
-            translated("Name stars by their Bayer letters too"), limits, "annotateBayer",
-            [this](bool on) { settings.content.stars.bayerLetters = on; }, Change::Scene);
-        limitsForm->addRow(QString(), bayer);
+        starNaming = comboBox<AnnotationStarNaming>(
+            limits, "annotateStarNaming",
+            {{translated("Proper names"), AnnotationStarNaming::ProperNames},
+             {translated("Names and designations"), AnnotationStarNaming::Designations},
+             {translated("Every star, by number when unnamed"), AnnotationStarNaming::CatalogueNumbers}},
+            [this](AnnotationStarNaming value) { settings.content.stars.naming = value; }, Change::Scene);
+        starNaming->setToolTip(translated("Designations are Bayer letters and Flamsteed numbers, such as α Ori and 61 "
+                                          "Cyg; a star with neither is named by its catalogue number, such as HIP "
+                                          "27989"));
+        limitsForm->addRow(translated("Star labels"), starNaming);
+        markUnnamed = checkBox(
+            translated("Mark the stars left unnamed"), limits, "annotateMarkUnnamed",
+            [this](bool on) { settings.content.stars.markUnnamed = on; }, Change::Scene);
+        limitsForm->addRow(QString(), markUnnamed);
         gridDensity = comboBox<AnnotationGridDensity>(
             limits, "annotateGridDensity",
             {{translated("Coarse"), AnnotationGridDensity::Coarse},
@@ -1929,7 +2159,7 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     auto* reset = new QPushButton(translated("Reset"), this);
     reset->setObjectName(QStringLiteral("annotateReset"));
     reset->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
-    reset->setToolTip(translated("Go back to the default choices; the credit is kept"));
+    reset->setToolTip(translated("Go back to the default choices; the credit and your own colours are kept"));
     buttons->addWidget(reset);
     buttons->addStretch(1);
     impl.openButton = new QPushButton(translated("Open as Image"), this);
@@ -1973,8 +2203,10 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     connect(reset, &QPushButton::clicked, this, [this]() {
         Impl& state = *m_impl;
         const QString keptCredit = state.settings.content.credit;
+        const std::optional<AnnotationColors> keptColors = state.settings.style.customColors;
         state.settings = defaultAnnotationSettings();
         state.settings.content.credit = keptCredit;
+        state.settings.style.customColors = keptColors;
         state.showSettings();
         state.changed(Change::Scene);
         state.changed(Change::Base);

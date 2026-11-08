@@ -307,40 +307,50 @@ the session and solves with `solvePlate` against `GaiaCatalogSource::regionCatal
 tiles inside a HEALPix disc, mapped, decoded and carried to the epoch - one region for a hinted solve and one per
 blind centre; the astrometry.net web solver is one state machine on the worker (`setAstrometryWebEndpoint` points it
 elsewhere). The bundled catalogs are read by `loadBundledCatalog` on a worker by each owner and never kept in process
-state, because a `SkyCatalog` leases the session's engine. The overlays (`controls/*DisplayModule`, made behind the
-seam in `controls/AstrometryOverlays.cpp`) ask `FieldCatalogQueries` for the field's entries on a worker, project the
-last answer at paint and draw an engine pixel coordinate times the scale, with no half pixel to subtract. The SPCC
+state, because a `SkyCatalog` leases the session's engine. A reader that only asks what lies in a field - the overlays,
+Annotate Image - builds no name index: the bright stars, 83 479 to magnitude 9, then hold about 19 MiB and load in
+about 40 ms, where the catalog search's copy with its index holds about 51 MiB. The overlays (`controls/*DisplayModule`,
+made behind the seam in `controls/AstrometryOverlays.cpp`) ask `FieldCatalogQueries` for the field's entries on a
+worker, project the last answer at paint and draw an engine pixel coordinate times the scale, with no half pixel to
+subtract; the star labels are measured when the view or the answer changes, brightest first, and a fainter star whose
+label or marker would cover a brighter one's is left out, so a paint draws a bounded number of them. The SPCC
 region is the solution's `fieldCenter` and `queryRadiusDegrees`, its chunks `selectSpectrumChunksForRegion` on a
 worker. `Test_ControlsAstrometry` holds all of it.
 
 ### The annotated picture (`controls/annotation/`)
 
-Annotate Image makes a picture of a solved image with its objects, stars and coordinates named, in four steps that
-each know nothing of the one after it. `AnnotationSettings.h` is what a person chooses - layers, a level of detail
-that writes the catalogue selection, label text, palette, sizes, corners, output - stored as one JSON text under
-`annotation/settings` (title excepted) and read back field by field through fixed tables. `buildAnnotationScene`
+Annotate Image makes a picture of a solved image with its objects, stars and coordinates named, in four steps that each
+know nothing of the one after it. `controls/annotation/AnnotationSettings.h` is what a person chooses - layers, a level
+of detail that writes the catalogue selection, label text, palette, sizes, corners, output - stored as one JSON text
+under `annotation/settings` (title excepted) and read back field by field through fixed tables. `buildAnnotationScene`
 turns a `WcsSolution`, the bundled catalogues' entries (`queryAnnotationCatalogs`: both catalogues, the field's radius
 and two degrees more, on a worker) and the header cards into marks, grid lines clipped to the frame with their edge
 crossings, the sky's directions and scale at each corner, and the panel's facts. Entries of different catalogues that
-name one object - one position, or one common name close together - become one mark under the designation people
-use most (Messier, NGC, IC, Caldwell); two entries of one catalogue never merge. `layoutAnnotations` shapes every
-label into glyph outlines (`QPainterPath::addText`, unhinted, at one size and scaled) and places them greedily in the
-scene's priority order against an occupancy grid: the decorations first in their corner stacks, then the grid's edge
-labels, then each mark's label beside it, on a leader line farther out, or not at all. `paintAnnotations` draws a
-scene through a layout with any `QPainter`. Every length is a fraction of the image's reference length - the
-geometric mean of its sides - so the window's preview, a smaller picture and the full-size one are one drawing at
-different scales and the preview shows where the picture puts a label. The base under the annotations is the view's
-own presentation (`presentAnnotationBase`: `presentForView` at the largest display-proxy factor that leaves it at
-least the picture's size, stretched through the whole image's analysis, the view's kept one when it has it), so a
-picture of any size is stretched as the view stretches the image. `annotatedPictureAsset` makes the drawn picture an
-image of the session - eight-bit display RGB, recorded nonlinear, `derivedFrameCards` plus the solution
-`resizeWcsSolution` moves to the picture's grid - which `writeViewImage` writes under the export settings' intent or
-a new view shows. `AnnotateImageControl` runs each step on a worker and drops an answer a later request, a change of
-the image or its closing made stale: the catalogue query once per solution, the scene and layout once per change of
-what is shown or placed (a colour only repaints), the preview's base per stretch and zoom, and the picture with its
-own read lease taken on the GUI thread before admission. It is one per view (`ViewTool::AnnotateImage`), opened from
-the view's toolbar and **Image > Information**, the latter enabled by `ImageViewControl::canAnnotateCurrentImage`.
-`Test_ControlsAstrometry` holds the steps and the window, and `ApplicationMenu` the menu entry.
+name one object - one position, or one common name close together - become one mark under the designation people use
+most (Messier, NGC, IC, Caldwell); two entries of one catalogue never merge. `layoutAnnotations` shapes every label into
+glyph outlines (`QPainterPath::addText`, unhinted, at one size and scaled) and places them greedily in the scene's
+priority order against an occupancy grid: the decorations first in their corner stacks, then the grid's edge labels,
+then each mark's label beside it, on a leader line farther out, or not at all; a place that covers a smaller mark or
+crosses another object's outline costs more than a leader line, so a label covers another object only when no line
+reaches a free place. A star is named by its proper name, its Bayer or Flamsteed designation or, when every star is
+asked for, its catalogue number, and a star left unnamed may be marked alone (`AnnotationMark::markOnly`).
+`paintAnnotations` draws a scene through a layout with any `QPainter`. The style sets the text and the lines apart -
+typeface, weight, slant, label and panel sizes and backing on one side; line width and opacity, the dark edge behind the
+lines, the fill and the star marker on the other - so no choice of one changes the other: the letters' halo follows the
+text's size alone. Every length is a fraction of the image's reference length - the geometric mean of its sides - so the
+window's preview, a smaller picture and the full-size one are one drawing at different scales and the preview shows
+where the picture puts a label. The base under the annotations is the view's own presentation (`presentAnnotationBase`:
+`presentForView` at the largest display-proxy factor that leaves it at least the picture's size, stretched through the
+whole image's analysis, the view's kept one when it has it), so a picture of any size is stretched as the view stretches
+the image. `annotatedPictureAsset` makes the drawn picture an image of the session - eight-bit display RGB, recorded
+nonlinear, `derivedFrameCards` plus the solution `resizeWcsSolution` moves to the picture's grid - which
+`writeViewImage` writes under the export settings' intent or a new view shows. `AnnotateImageControl` runs each step on
+a worker and drops an answer a later request, a change of the image or its closing made stale: the catalogue query once
+per solution, the scene and layout once per change of what is shown or placed (a colour only repaints), the preview's
+base per stretch and zoom, and the picture with its own read lease taken on the GUI thread before admission. It is one
+per view (`ViewTool::AnnotateImage`), opened from the view's toolbar and **Image > Information**, the latter enabled by
+`ImageViewControl::canAnnotateCurrentImage`. `Test_ControlsAstrometry` holds the steps and the window, and
+`ApplicationMenu` the menu entry.
 
 ### Statistics, curves and stars (`widgets/HistogramComputation.h`, `widgets/HistogramCompanions.h`, `widgets/ToneCurveModel.h`, `controls/StarFilter.h`)
 

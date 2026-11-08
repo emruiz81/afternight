@@ -41,7 +41,7 @@ enum class BundledCatalog : std::uint8_t
     /// The deep-sky objects: galaxies, nebulae and clusters, with their sizes.
     DeepSky,
 
-    /// The bright stars, to visual magnitude 6.5, with their proper names and Bayer letters.
+    /// The bright stars, to visual magnitude 9, with their proper names and Bayer and Flamsteed designations.
     BrightStars
 };
 
@@ -61,14 +61,19 @@ enum class BundledCatalog : std::uint8_t
 /// source - a copy of its own, or a test's catalog. Called on a worker.
 using BundledCatalogSource = std::function<an::Result<QByteArray>(BundledCatalog catalog)>;
 
-/// A catalog text in a bundled catalog's columns, read into a sky catalog with its name index.
+/// A catalog text in a bundled catalog's columns, read into a sky catalog.
+///
+/// A reader that only asks what lies in a field builds no name index: the index holds about twice what the entries
+/// do - some 30 MiB for the bright stars - and only a search by name reads it.
 ///
 /// @param execution the operation reading it.
 /// @param catalog which catalog's columns the text has.
 /// @param text the text.
+/// @param nameIndex whether to build the index a search by name reads.
 /// @return the catalog; or what the text parse or the catalog build refused.
 [[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<an::SkyCatalog>
-buildBundledCatalog(const an::ExecutionContext& execution, BundledCatalog catalog, std::string_view text);
+buildBundledCatalog(const an::ExecutionContext& execution, BundledCatalog catalog, std::string_view text,
+                    bool nameIndex = true);
 
 /// A bundled catalog read from the product's resources, under an operation admitted in the session. For a worker: the
 /// admission waits.
@@ -77,10 +82,11 @@ buildBundledCatalog(const an::ExecutionContext& execution, BundledCatalog catalo
 /// @param catalog which catalog.
 /// @param stop the read's stop.
 /// @param source where the text comes from; empty reads the product's resources.
+/// @param nameIndex whether to build the index a search by name reads; a reader of fields alone leaves it out.
 /// @return the catalog; or what the text read, the admission, the text parse or the catalog build refused.
 [[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<an::SkyCatalog>
 loadBundledCatalog(const an::consumer::EngineSession& session, BundledCatalog catalog, std::stop_token stop,
-                   const BundledCatalogSource& source = {});
+                   const BundledCatalogSource& source = {}, bool nameIndex = true);
 
 /// The region query a bundled catalog is asked for an overlay: the deep-sky objects admit a named object nobody
 /// measured a magnitude for, and the bright stars do not.

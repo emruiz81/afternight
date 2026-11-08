@@ -89,7 +89,8 @@ an::Result<AnnotationCatalogEntries> queryAnnotationCatalogs(const an::consumer:
     AnnotationCatalogEntries entries;
     for (const BundledCatalog catalog : {BundledCatalog::DeepSky, BundledCatalog::BrightStars})
     {
-        an::Result<an::SkyCatalog> loaded = loadBundledCatalog(session, catalog, stop, source);
+        // A picture asks only what lies in its field, so the catalog is built without a name index.
+        an::Result<an::SkyCatalog> loaded = loadBundledCatalog(session, catalog, stop, source, false);
         if (!loaded.hasValue())
         {
             return loaded.status();

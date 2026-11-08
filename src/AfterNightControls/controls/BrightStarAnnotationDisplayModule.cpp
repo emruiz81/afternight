@@ -12,14 +12,17 @@
 
 #include <AfterNightPlatform/Logging.h>
 
+#include <QFont>
 #include <QFontMetrics>
 #include <QPainter>
 #include <QVector>
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <optional>
 #include <utility>
+#include <vector>
 
 namespace an::ui
 {
@@ -29,15 +32,129 @@ namespace
 /// How far past the visible sky a star may lie and still be considered: its label may reach into the view.
 constexpr double kVisibleMarginDegrees = 1.0;
 
-/// What a projection depends on: the entries the field query answered and the view state.
+/// The most stars labelled at once. Labels never cover one another, so a view rarely holds this many; the bound
+/// keeps a wide field zoomed out to a fixed cost however many stars the catalog has in it.
+constexpr qsizetype kMostLabels = 600;
+
+/// How far a star's marker reaches from its centre, in widget pixels.
+constexpr double kMarkerReach = 4.0;
+
+/// The boxes placed so far, kept in cells so a test reads only the boxes near the box it tests.
+class PlacedBoxes
+{
+public:
+    explicit PlacedBoxes(const QRectF& area) : m_area(area)
+    {
+        m_columns = (std::max)(1, static_cast<int>(std::ceil(area.width() / kCell)));
+        m_rows = (std::max)(1, static_cast<int>(std::ceil(area.height() / kCell)));
+        m_cells.resize(static_cast<std::size_t>(m_columns) * static_cast<std::size_t>(m_rows));
+    }
+
+    [[nodiscard]] bool intersects(const QRectF& box) const
+    {
+        bool met = false;
+        visit(box, [this, &box, &met](const std::vector<std::uint32_t>& cell) {
+            for (const std::uint32_t index : cell)
+            {
+                if (m_boxes[index].intersects(box))
+                {
+                    met = true;
+                    return true;
+                }
+            }
+            return false;
+        });
+        return met;
+    }
+
+    void add(const QRectF& box)
+    {
+        const auto index = static_cast<std::uint32_t>(m_boxes.size());
+        m_boxes.push_back(box);
+        visit(box, [index](std::vector<std::uint32_t>& cell) {
+            cell.push_back(index);
+            return false;
+        });
+    }
+
+private:
+    static constexpr double kCell = 64.0;
+
+    template <typename CellsT, typename VisitT> static void visitCells(CellsT& self, const QRectF& box, VisitT&& visit)
+    {
+        const int left =
+            std::clamp(static_cast<int>(std::floor((box.left() - self.m_area.left()) / kCell)), 0, self.m_columns - 1);
+        const int right =
+            std::clamp(static_cast<int>(std::floor((box.right() - self.m_area.left()) / kCell)), 0, self.m_columns - 1);
+        const int top =
+            std::clamp(static_cast<int>(std::floor((box.top() - self.m_area.top()) / kCell)), 0, self.m_rows - 1);
+        const int bottom =
+            std::clamp(static_cast<int>(std::floor((box.bottom() - self.m_area.top()) / kCell)), 0, self.m_rows - 1);
+        for (int row = top; row <= bottom; ++row)
+        {
+            for (int column = left; column <= right; ++column)
+            {
+                if (visit(self.m_cells[static_cast<std::size_t>(row) * static_cast<std::size_t>(self.m_columns) +
+                                       static_cast<std::size_t>(column)]))
+                {
+                    return;
+                }
+            }
+        }
+    }
+
+    template <typename VisitT> void visit(const QRectF& box, VisitT&& visit) const
+    {
+        visitCells(*this, box, std::forward<VisitT>(visit));
+    }
+
+    template <typename VisitT> void visit(const QRectF& box, VisitT&& visit)
+    {
+        visitCells(*this, box, std::forward<VisitT>(visit));
+    }
+
+    QRectF m_area;
+    int m_columns = 1;
+    int m_rows = 1;
+    std::vector<QRectF> m_boxes;
+    std::vector<std::vector<std::uint32_t>> m_cells;
+};
+
+/// What a label's box is measured with: the theme's caption face and its spacing, read in the paint.
+struct LabelGeometry
+{
+    QFont font;
+    int horizontalPadding = 0;
+    int verticalPadding = 0;
+    int margin = 0;
+
+    [[nodiscard]] bool operator==(const LabelGeometry& other) const
+    {
+        return font == other.font && horizontalPadding == other.horizontalPadding &&
+               verticalPadding == other.verticalPadding && margin == other.margin;
+    }
+};
+
+[[nodiscard]] LabelGeometry currentLabelGeometry()
+{
+    const auto& tokenSet = an::ui::tokens();
+    return LabelGeometry{.font = tokenSet.typography.caption,
+                         .horizontalPadding = tokenSet.spacing.xs,
+                         .verticalPadding = (std::max)(1, tokenSet.spacing.xs / 2),
+                         .margin = tokenSet.spacing.xs};
+}
+
+/// What a projection depends on: the entries the field query answered, the view state and what labels are measured
+/// with.
 struct CacheKey
 {
     std::shared_ptr<const detail::FieldCatalogEntries> entries;
     detail::OverlayViewState view;
+    LabelGeometry geometry;
 
     [[nodiscard]] bool matches(const CacheKey& other) const
     {
-        return entries == other.entries && view.matches(other.view);
+        return entries == other.entries && view.matches(other.view) && geometry == other.geometry;
     }
 };
 
@@ -46,6 +163,9 @@ struct BrightStarAnnotation
     const an::CatalogEntry* star = nullptr;
     BrightStarAnnotationProjectedPoint projected;
     QString label;
+
+    /// Where the label is drawn, in widget pixels.
+    QRect bubble;
 };
 
 } // namespace
@@ -58,7 +178,6 @@ struct BrightStarAnnotationDisplayModule::Impl
     // Default to 12.0 so the overlay starts with a reasonable visual density. The magnitude submenu overrides.
     double magnitudeLimit = 12.0;
     QVector<BrightStarAnnotation> annotations;
-    QRectF cachedVisibleWidgetRect;
 
     /// The bright stars inside the image's field, queried on a worker.
     detail::FieldCatalogQueries queries{BundledCatalog::BrightStars, kVisibleMarginDegrees};
@@ -94,6 +213,7 @@ void BrightStarAnnotationDisplayModule::onDraw(QPainter& painter)
     CacheKey key;
     key.entries = m_impl->queries.answer(*solution, m_impl->magnitudeLimit, view_widget);
     key.view = detail::overlayViewState(control);
+    key.geometry = currentLabelGeometry();
     if (!key.entries)
     {
         // A worker is reading the catalog's stars in this field; its answer repaints the view.
@@ -122,8 +242,19 @@ void BrightStarAnnotationDisplayModule::onDraw(QPainter& painter)
             return;
         }
 
+        // The entries come brightest first. Each star's label is measured once here rather than in every paint, and a
+        // star whose label or marker would cover a brighter one's is left out, so a rich field shows its brightest
+        // stars legibly and the work a paint does is bounded by the view's area, not by the catalog's depth.
+        const LabelGeometry& geometry = key.geometry;
+        const QFontMetrics metrics(geometry.font);
+        const QRect visible_rect = visible_widget_rect.toAlignedRect();
+        PlacedBoxes placed(visible_widget_rect.adjusted(-16.0, -16.0, 16.0, 16.0));
         for (const an::CatalogEntry& star : key.entries->entries)
         {
+            if (m_impl->annotations.size() >= kMostLabels)
+            {
+                break;
+            }
             if (an::angularSeparationDegrees(sky->center, star.coordinate) > sky->radiusDegrees + kVisibleMarginDegrees)
             {
                 continue;
@@ -143,11 +274,32 @@ void BrightStarAnnotationDisplayModule::onDraw(QPainter& painter)
             {
                 continue;
             }
+
+            const QPointF center = projected.center;
+            QRect text_rect = metrics.boundingRect(annotation.label);
+            text_rect.adjust(-geometry.horizontalPadding, -geometry.verticalPadding, geometry.horizontalPadding,
+                             geometry.verticalPadding);
+            QPoint top_left(qRound(center.x() + geometry.margin),
+                            qRound(center.y() - text_rect.height() - geometry.margin));
+            top_left.setX(std::clamp(top_left.x(), visible_rect.left() + geometry.margin,
+                                     (std::max)(visible_rect.left() + geometry.margin,
+                                                visible_rect.right() - text_rect.width() - geometry.margin)));
+            top_left.setY(std::clamp(top_left.y(), visible_rect.top() + geometry.margin,
+                                     (std::max)(visible_rect.top() + geometry.margin,
+                                                visible_rect.bottom() - text_rect.height() - geometry.margin)));
+            annotation.bubble = QRect(top_left, text_rect.size());
+            const QRectF marker(center.x() - kMarkerReach, center.y() - kMarkerReach, 2.0 * kMarkerReach,
+                                2.0 * kMarkerReach);
+            if (placed.intersects(QRectF(annotation.bubble)) || placed.intersects(marker))
+            {
+                continue;
+            }
+            placed.add(QRectF(annotation.bubble));
+            placed.add(marker);
             m_impl->annotations.append(std::move(annotation));
         }
 
         m_impl->hasAstrometricSolution = true;
-        m_impl->cachedVisibleWidgetRect = visible_widget_rect;
     }
 
     if (!m_impl->hasAstrometricSolution || m_impl->annotations.isEmpty())
@@ -166,15 +318,10 @@ void BrightStarAnnotationDisplayModule::onDraw(QPainter& painter)
     label_fill_color.setAlpha(205);
     QColor label_border_color = token_set.colors.borderSubtle;
     label_border_color.setAlpha(215);
-    const QRect visible_rect = m_impl->cachedVisibleWidgetRect.toAlignedRect();
 
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setFont(token_set.typography.caption);
-    const QFontMetrics metrics(painter.font());
-    const int horizontal_padding = token_set.spacing.xs;
-    const int vertical_padding = (std::max)(1, token_set.spacing.xs / 2);
-    const int margin = token_set.spacing.xs;
+    painter.setFont(m_impl->cacheKey.geometry.font);
 
     QPen pen(stroke_color);
     pen.setCosmetic(true);
@@ -191,21 +338,10 @@ void BrightStarAnnotationDisplayModule::onDraw(QPainter& painter)
         const QPointF center = annotation.projected.center;
         painter.setBrush(dot_fill_color);
         painter.drawEllipse(center, 2.5, 2.5);
-        painter.drawLine(center + QPointF(-4.0, 0.0), center + QPointF(4.0, 0.0));
-        painter.drawLine(center + QPointF(0.0, -4.0), center + QPointF(0.0, 4.0));
+        painter.drawLine(center + QPointF(-kMarkerReach, 0.0), center + QPointF(kMarkerReach, 0.0));
+        painter.drawLine(center + QPointF(0.0, -kMarkerReach), center + QPointF(0.0, kMarkerReach));
 
-        QRect text_rect = metrics.boundingRect(annotation.label);
-        text_rect.adjust(-horizontal_padding, -vertical_padding, horizontal_padding, vertical_padding);
-
-        QPoint top_left(qRound(center.x() + margin), qRound(center.y() - text_rect.height() - margin));
-        top_left.setX(
-            std::clamp(top_left.x(), visible_rect.left() + margin,
-                       (std::max)(visible_rect.left() + margin, visible_rect.right() - text_rect.width() - margin)));
-        top_left.setY(
-            std::clamp(top_left.y(), visible_rect.top() + margin,
-                       (std::max)(visible_rect.top() + margin, visible_rect.bottom() - text_rect.height() - margin)));
-
-        const QRect bubble_rect(top_left, text_rect.size());
+        const QRect& bubble_rect = annotation.bubble;
         painter.setPen(label_border_color);
         painter.setBrush(label_fill_color);
         painter.drawRoundedRect(bubble_rect, token_set.radius.sm, token_set.radius.sm);

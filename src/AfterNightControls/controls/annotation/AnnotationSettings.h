@@ -18,7 +18,8 @@
 ///
 /// **A preset is a set of values, not a mode.** Choosing a level of detail or a palette writes its values into the
 /// choices; changing one of them afterwards leaves the others as they are, and the level or palette reads as custom
-/// (`annotationDetailOf`, `annotationPaletteOf`).
+/// (`annotationDetailOf`, `annotationPaletteOf`). A person's own colours are kept apart
+/// (`AnnotationStyle::customColors`), so choosing a palette and then the custom one again brings them back.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -28,6 +29,8 @@
 #include <QString>
 
 #include <cstdint>
+#include <optional>
+#include <span>
 
 namespace an::ui
 {
@@ -35,16 +38,19 @@ namespace an::ui
 /// How much of the catalogues an annotation names.
 enum class AnnotationDetail : std::uint8_t
 {
-    /// The Messier and Caldwell objects and the named ones, and the brightest named stars.
+    /// The Messier and Caldwell objects and the named ones, and the brightest stars by their proper names.
     Essential,
 
-    /// Every catalogue to the twelfth magnitude and the objects large enough to show, and the stars to the fourth.
+    /// Every catalogue to the twelfth magnitude and the objects large enough to show, and the stars to magnitude 4.5
+    /// by their names and designations.
     Standard,
 
-    /// The catalogues to the fourteenth magnitude and smaller objects, and the stars to magnitude 5.5.
+    /// The catalogues to the fourteenth magnitude and smaller objects, and the stars to the sixth, the unnamed ones
+    /// marked.
     Detailed,
 
-    /// Every galaxy, nebula and cluster the catalogues hold in the field, and every bright star.
+    /// Every galaxy, nebula and cluster the catalogues hold in the field, and every star of the bright-star catalogue,
+    /// each by its name, its designation or its catalogue number.
     Complete,
 
     /// Choices no level makes.
@@ -65,6 +71,24 @@ enum class AnnotationPalette : std::uint8_t
 
     /// Dark lines and labels with a light halo, for a bright image or print.
     Ink,
+
+    /// Icy blues, from cyan to periwinkle.
+    Glacier,
+
+    /// Violets and lavenders.
+    Amethyst,
+
+    /// Golds and warm yellows.
+    Amber,
+
+    /// Greens, from mint to lime.
+    Verdant,
+
+    /// Pinks and roses.
+    Rose,
+
+    /// The colours of a printed star atlas: red galaxies, green nebulae, yellow clusters.
+    Atlas,
 
     /// Colours no palette has.
     Custom
@@ -119,6 +143,38 @@ enum class AnnotationMarker : std::uint8_t
     Brackets
 };
 
+/// How heavy a picture's letters are.
+enum class AnnotationFontWeight : std::uint8_t
+{
+    Light,
+    Regular,
+    Medium,
+    Bold
+};
+
+/// Which stars a picture names, and by what.
+enum class AnnotationStarNaming : std::uint8_t
+{
+    /// The stars that have a proper name, by it: `Sirius`, `Betelgeuse`.
+    ProperNames,
+
+    /// Those, and the stars that have a Bayer or Flamsteed designation: `α Ori`, `61 Cyg`.
+    Designations,
+
+    /// Every star: by its name or designation, else by its catalogue number, `HIP 27989`.
+    CatalogueNumbers
+};
+
+/// How a star is marked.
+enum class AnnotationStarMarker : std::uint8_t
+{
+    /// A ring around it.
+    Ring,
+
+    /// Four short ticks pointing at it, which leave the star itself clear.
+    Reticle
+};
+
 /// A corner of the picture.
 enum class AnnotationCorner : std::uint8_t
 {
@@ -157,7 +213,7 @@ struct AnnotationLayers
     /// The galaxies, nebulae and clusters.
     bool deepSky = true;
 
-    /// The bright stars' names.
+    /// The bright stars.
     bool stars = true;
 
     /// The arrows to celestial north and east.
@@ -225,14 +281,17 @@ struct AnnotationDeepSkySelection
                                          const AnnotationDeepSkySelection& right) noexcept = default;
 };
 
-/// Which bright stars a picture names.
+/// Which bright stars a picture marks and names.
 struct AnnotationStarSelection
 {
-    /// The faintest magnitude named.
-    double magnitudeLimit = 4.0;
+    /// The faintest magnitude marked.
+    double magnitudeLimit = 4.5;
 
-    /// Whether a star with no proper name is named by its Bayer letter.
-    bool bayerLetters = true;
+    /// Which stars are named, and by what.
+    AnnotationStarNaming naming = AnnotationStarNaming::Designations;
+
+    /// Whether a star the naming gives no label is still marked, without one.
+    bool markUnnamed = false;
 
     /// Field-wise equality.
     [[nodiscard]] friend bool operator==(const AnnotationStarSelection& left,
@@ -351,34 +410,67 @@ struct AnnotationColors
     [[nodiscard]] friend bool operator==(const AnnotationColors& left, const AnnotationColors& right) = default;
 };
 
-/// How a picture looks.
+/// How a picture looks. The text and the lines are set apart: no choice of one changes the other.
 struct AnnotationStyle
 {
     /// The colours.
     AnnotationColors colors{};
 
+    /// The person's own colours, kept while a palette is chosen so the custom palette can be chosen again; none until
+    /// the person makes them.
+    std::optional<AnnotationColors> customColors{};
+
+    // The text.
+
+    /// The typeface of every text of the picture; empty takes the system's sans-serif face.
+    QString fontFamily;
+
+    /// How heavy the letters are; a designation and a title are drawn a step heavier than the rest.
+    AnnotationFontWeight fontWeight = AnnotationFontWeight::Regular;
+
+    /// Whether the objects' and stars' labels are slanted; the grid's labels and the panel stay upright.
+    bool italicLabels = false;
+
     /// The labels' size, as a multiple of the default; from `kAnnotationMinimumTextSize` to
     /// `kAnnotationMaximumTextSize`.
     double textSize = 1.0;
+
+    /// The panel's text size, as a multiple of the labels'; from `kAnnotationMinimumPanelSize` to
+    /// `kAnnotationMaximumPanelSize`.
+    double panelSize = 1.0;
+
+    /// How a label stands out from the image.
+    AnnotationLabelBacking labelBacking = AnnotationLabelBacking::Halo;
+
+    /// Whether a label takes its object's colour rather than the text colour.
+    bool labelsInObjectColor = true;
+
+    // The lines.
 
     /// The lines' width, as a multiple of the default; from `kAnnotationMinimumLineWidth` to
     /// `kAnnotationMaximumLineWidth`.
     double lineWidth = 1.0;
 
-    /// How opaque the grid's lines are, from zero to one.
-    double gridOpacity = 0.45;
+    /// How opaque the objects' and stars' lines and the leader lines are, from `kAnnotationMinimumLineOpacity` to one.
+    double lineOpacity = 1.0;
 
-    /// The labels' typeface; empty takes the system's sans-serif face.
-    QString fontFamily;
-
-    /// How a label stands out from the image.
-    AnnotationLabelBacking labelBacking = AnnotationLabelBacking::Halo;
+    /// Whether a soft dark edge in the halo colour is drawn behind the lines, so they read over a bright image.
+    bool lineHalo = false;
 
     /// How a deep-sky object is marked.
     AnnotationMarker marker = AnnotationMarker::Outline;
 
-    /// Whether a label takes its object's colour rather than the text colour.
-    bool labelsInObjectColor = true;
+    /// Whether an outlined object is filled with its colour; an object whose outline spans much of the frame is not.
+    bool fillObjects = false;
+
+    /// How opaque that fill is, from zero to one.
+    double fillOpacity = 0.15;
+
+    /// How a star is marked.
+    AnnotationStarMarker starMarker = AnnotationStarMarker::Ring;
+
+    /// How opaque the grid's lines are, from zero to one.
+    double gridOpacity = 0.45;
 
     /// Whether a label that cannot sit beside its object may sit further away, joined to it by a line.
     bool leaderLines = true;
@@ -432,15 +524,22 @@ struct AnnotationSettings
 inline constexpr double kAnnotationNoMagnitudeLimit = 99.0;
 
 /// The faintest magnitude the bundled bright-star catalogue holds.
-inline constexpr double kAnnotationFaintestStar = 6.5;
+inline constexpr double kAnnotationFaintestStar = 9.0;
 
 /// The smallest and largest text size a style takes.
 inline constexpr double kAnnotationMinimumTextSize = 0.5;
 inline constexpr double kAnnotationMaximumTextSize = 2.5;
 
+/// The smallest and largest panel text a style takes, as multiples of the labels' size.
+inline constexpr double kAnnotationMinimumPanelSize = 0.5;
+inline constexpr double kAnnotationMaximumPanelSize = 2.0;
+
 /// The thinnest and widest line a style takes.
 inline constexpr double kAnnotationMinimumLineWidth = 0.5;
 inline constexpr double kAnnotationMaximumLineWidth = 3.0;
+
+/// The faintest lines a style takes: a line is never drawn invisible.
+inline constexpr double kAnnotationMinimumLineOpacity = 0.1;
 
 /// The default choices: the standard level of detail in the Aurora palette, at the image's size and as the view shows
 /// it.
@@ -460,6 +559,11 @@ AFTERNIGHTCONTROLS_API void applyAnnotationDetail(AnnotationContent& content, An
 /// @param content the choices.
 /// @return the level, or `AnnotationDetail::Custom` when no level's values are the choices'.
 [[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationDetail annotationDetailOf(const AnnotationContent& content);
+
+/// The palettes a person chooses from, in the order they are offered.
+///
+/// @return every palette but `AnnotationPalette::Custom`.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::span<const AnnotationPalette> annotationPalettes() noexcept;
 
 /// A palette's colours.
 ///

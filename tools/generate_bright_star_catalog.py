@@ -10,12 +10,21 @@ Source:
 Output format matches an::star_catalog CSV parser:
   id, common_name, bayer_designation, ra_deg, dec_deg, magnitude, spectral_type
 
-This generator keeps only stars brighter than or equal to visual magnitude 6.5
-and emits J2000 ICRS coordinates in degrees.
+This generator keeps only stars brighter than or equal to visual magnitude 9.0,
+where HYG's Hipparcos core is still close to complete, and emits J2000 ICRS
+coordinates in degrees, one row a line ending in CRLF as the repository keeps
+its text files.
+
+Usage:
+  generate_bright_star_catalog.py [output.csv] [--archive hygdata_v42.csv.gz]
+
+--archive reads a copy of the archive already downloaded instead of fetching
+it; either way its SHA-256 must be the one recorded below.
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 import gzip
 import hashlib
@@ -25,9 +34,10 @@ import sys
 import urllib.request
 
 HYG_URL = "https://www.astronexus.com/downloads/catalogs/hygdata_v42.csv.gz"
-# SHA-256 of the compressed download — update if the upstream file is updated.
-HYG_EXPECTED_SHA256 = None  # Set to a hex string after verifying a known-good download
-MAGNITUDE_LIMIT = 6.5
+# SHA-256 of the compressed download — update if the upstream file is updated. This archive reproduces the
+# catalogue the product shipped at magnitude 6.5 byte for byte.
+HYG_EXPECTED_SHA256 = "5ca9431ff364c8002a4a3efa91b2b9296746aea1543374db4cb6b4fab049d601"
+MAGNITUDE_LIMIT = 9.0
 
 GREEK_MAP = {
     "Alp": "α",
@@ -95,9 +105,13 @@ def build_designation(row: dict[str, str]) -> str:
     return ""
 
 
-def load_catalog() -> list[dict[str, object]]:
-    with urllib.request.urlopen(HYG_URL) as response:
-        payload = response.read()
+def load_catalog(archive: str | None = None) -> list[dict[str, object]]:
+    if archive is not None:
+        with open(archive, "rb") as handle:
+            payload = handle.read()
+    else:
+        with urllib.request.urlopen(HYG_URL) as response:
+            payload = response.read()
 
     if HYG_EXPECTED_SHA256 is not None:
         actual_hash = hashlib.sha256(payload).hexdigest()
@@ -152,11 +166,11 @@ def load_catalog() -> list[dict[str, object]]:
 
 
 def write_csv(stars: list[dict[str, object]], path: str) -> None:
-    with open(path, "w", encoding="utf-8", newline="") as handle:
+    with open(path, "w", encoding="utf-8", newline="\r\n") as handle:
         handle.write("# Generated from the HYG Database v4.2 (astronexus)\n")
         handle.write("# Source URL: https://www.astronexus.com/hyg\n")
         handle.write("# Source license: CC BY-SA 4.0\n")
-        handle.write("# Filter: visual magnitude <= 6.5; J2000 ICRS coordinates in degrees\n")
+        handle.write(f"# Filter: visual magnitude <= {MAGNITUDE_LIMIT:g}; J2000 ICRS coordinates in degrees\n")
 
         writer = csv.writer(handle, lineterminator="\n")
         writer.writerow(
@@ -186,8 +200,12 @@ def write_csv(stars: list[dict[str, object]], path: str) -> None:
 
 
 def main() -> int:
-    output_path = sys.argv[1] if len(sys.argv) > 1 else "bright_star_catalog.csv"
-    stars = load_catalog()
+    parser = argparse.ArgumentParser(description="Generate the bundled bright-star catalogue from HYG v4.2.")
+    parser.add_argument("output", nargs="?", default="bright_star_catalog.csv", help="the CSV file to write")
+    parser.add_argument("--archive", help="a downloaded hygdata_v42.csv.gz to read instead of fetching it")
+    arguments = parser.parse_args()
+    output_path = arguments.output
+    stars = load_catalog(arguments.archive)
     write_csv(stars, output_path)
     print(f"Wrote {len(stars)} bright stars to {output_path}")
     return 0

@@ -263,6 +263,30 @@ TEST_F(AstrometryOverlaysTest, BrightStarLabelsPreferTheProperNameThenTheBayerLe
     EXPECT_EQ(labels->catalogQueriesAsked(), 1u);
 }
 
+// A rich field shows its brightest stars legibly: a fainter star whose label or marker would cover a brighter one's is
+// left out, and a star apart from them keeps its label.
+TEST_F(AstrometryOverlaysTest, BrightStarLabelsLeaveOutAFainterStarThatWouldCoverABrighterOne)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::BrightStarLabels);
+    auto* labels = dynamic_cast<an::ui::BrightStarAnnotationDisplayModule*>(overlay.get());
+    ASSERT_NE(labels, nullptr);
+    labels->setCatalogSource(fixedCatalogs(
+        deepSkyText(), QByteArray("id,common_name,bayer_designation,ra_deg,dec_deg,magnitude,spectral_type\n"
+                                  "HIP 11,Faint One,,120.001,10.001,5.0,G0V\n"
+                                  "HIP 12,Brightest,,120.0,10.0,2.0,A0V\n"
+                                  "HIP 13,Middle One,,120.0015,9.9995,3.5,F0V\n"
+                                  "HIP 14,Apart,,119.0,9.0,6.0,K0V\n")));
+
+    ASSERT_TRUE(pumpUntil([&]() {
+        paint();
+        return !labels->projectedLabels().isEmpty();
+    }));
+    QVector<QString> drawn = labels->projectedLabels();
+    std::sort(drawn.begin(), drawn.end());
+    EXPECT_EQ(drawn, (QVector<QString>{QStringLiteral("Apart"), QStringLiteral("Brightest")}));
+}
+
 TEST_F(AstrometryOverlaysTest, ACatalogThatCannotBeReadDrawsNothingAndIsNotAskedForAgain)
 {
     show(fieldCards());

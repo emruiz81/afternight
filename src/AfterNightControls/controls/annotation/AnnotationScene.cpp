@@ -782,9 +782,17 @@ void addStars(const AnnotationSceneSources& sources, const AnnotationContent& co
         {
             continue;
         }
+        const AnnotationStarNaming naming = content.stars.naming;
         const QString name = QString::fromStdString(star.commonName).trimmed();
-        const QString bayer = QString::fromStdString(star.designation).trimmed();
-        if (name.isEmpty() && (!content.stars.bayerLetters || bayer.isEmpty()))
+        QString designation = naming == AnnotationStarNaming::ProperNames
+                                  ? QString()
+                                  : QString::fromStdString(star.designation).trimmed();
+        if (naming == AnnotationStarNaming::CatalogueNumbers && name.isEmpty() && designation.isEmpty())
+        {
+            designation = QString::fromStdString(star.identifier).trimmed();
+        }
+        const bool named = !name.isEmpty() || !designation.isEmpty();
+        if (!named && !content.stars.markUnnamed)
         {
             continue;
         }
@@ -798,11 +806,13 @@ void addStars(const AnnotationSceneSources& sources, const AnnotationContent& co
         mark.kind = AnnotationMarkKind::Star;
         mark.center = *centre;
         mark.radius = kStarRadius * reference * std::clamp(1.6 - 0.15 * *magnitude, 0.7, 1.6);
-        mark.designation = content.stars.bayerLetters ? bayer : QString();
+        mark.designation = designation;
         mark.name = name;
         mark.magnitude = magnitude;
+        mark.markOnly = !named;
+        // A named star before a designated one, and each brighter before fainter; a star marked alone after them all.
         const double brightness = 15.0 * std::clamp((kAnnotationFaintestStar - *magnitude) / 8.0, 0.0, 1.0);
-        mark.priority = (name.isEmpty() ? 25.0 : 65.0) + brightness;
+        mark.priority = (!named ? 0.0 : (name.isEmpty() ? 25.0 : 65.0)) + brightness;
         marks.push_back(std::move(mark));
     }
 }
