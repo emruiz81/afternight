@@ -3,11 +3,15 @@
 
 // AfterNightEngine - planning, input, catalog-search, and matching plate-solver stages.
 //
-// Planning checks every request field and derives the search geometry without allocating. Input
-// preparation and the catalog search both thin their point sets with one spatial selection, so
-// that a bright corner of the frame or of the catalog cone cannot take every slot the matcher has.
-// Matching hands both sides to the star-alignment matcher in a shared frame: image positions about
-// the image centre, catalog positions in pseudo pixels about the trial centre.
+// Planning checks every request field and derives the search geometry without allocating. The
+// matcher forms its triangles from each side's brightest points, so the two sides must rank the
+// same stars first. Input preparation and the catalog search therefore both keep, where enough
+// stars lie in it, the matching disc - the largest circle about the image centre inside the frame,
+// the one region the field's unknown rotation cannot change - brightest first on both sides. A
+// sparser field keeps the frame, thinned by one spatial selection so that a bright corner of the
+// frame or of the catalog cone cannot take every slot the matcher has. Matching hands both sides to
+// the star-alignment matcher in a shared frame: image positions about the image centre, catalog
+// positions in pseudo pixels about the trial centre.
 
 #include <AfterNightEngine/Algorithms/Astrometry/PlateSolver.h>
 
@@ -59,6 +63,19 @@ constexpr std::uint64_t kMaximumInputStars = 1000000u;
 
 /// Arcseconds in one degree.
 constexpr double kArcsecondsPerDegree = 3600.0;
+
+/// The fewest stars the matching disc must hold for a side to be matched over it: enough for the matcher's brightest
+/// triangle seed group, sixty points, to lie inside it.
+constexpr std::size_t kMatchingDiscMinimumStars = 60u;
+
+/// The radius of the matching disc, in pixels: the largest circle about the image centre that lies inside the frame.
+///
+/// @param request the checked request, for the image dimensions.
+/// @return half the shorter side.
+[[nodiscard]] double matchingDiscRadius(const PlateSolveRequest& request) noexcept
+{
+    return 0.5 * static_cast<double>((std::min)(request.imageWidth, request.imageHeight));
+}
 
 /// Whether a value is finite and above zero.
 ///
@@ -434,6 +451,32 @@ Result<PlateSolveInput> preparePlateSolveInput(const ExecutionContext& execution
 
     try
     {
+        // A crowded frame is matched over its disc, brightest first, as the catalog search keeps the catalog.
+        const double centerX = 0.5 * static_cast<double>(plan.request().imageWidth);
+        const double centerY = 0.5 * static_cast<double>(plan.request().imageHeight);
+        const double disc = matchingDiscRadius(plan.request());
+        const auto insideDisc = [&](const PlateSolveStar& star) {
+            return std::hypot(star.position.x - centerX, star.position.y - centerY) <= disc;
+        };
+        if (static_cast<std::size_t>(std::count_if(stars.begin(), stars.end(), insideDisc)) >=
+            kMatchingDiscMinimumStars)
+        {
+            std::vector<PlateSolveStar> selected;
+            selected.reserve((std::min)(stars.size(), static_cast<std::size_t>(plan.request().maximumImageStars)));
+            for (const PlateSolveStar& star : stars)
+            {
+                if (selected.size() == plan.request().maximumImageStars)
+                {
+                    break;
+                }
+                if (insideDisc(star))
+                {
+                    selected.push_back(star);
+                }
+            }
+            return PlateSolveInput{.stars = std::move(selected),
+                                   .suppliedStarCount = static_cast<std::uint32_t>(stars.size())};
+        }
         const std::vector<PlateSolveStar> values(stars.begin(), stars.end());
         std::vector<PlateSolveStar> selected =
             spatialSelection(values, plan.request().maximumImageStars, 0.5, maximumX, 0.5, maximumY,
@@ -535,31 +578,50 @@ Result<PlateSolveCatalogSearchResult> searchPlateSolveCatalog(const ExecutionCon
                            "fewer than three catalog point sources project at this trial centre");
         }
 
-        // Prefer the sources that can be in the frame: a rectangle 1.1 times the image about the
-        // trial centre, aligned with east and north because the field's rotation is not known yet.
-        // With sixteen or more inside, the rest are dropped; with fewer, the ones outside stay,
-        // behind those inside.
-        const double preferredHalfWidth = 0.55 * static_cast<double>(plan.request().imageWidth);
-        const double preferredHalfHeight = 0.55 * static_cast<double>(plan.request().imageHeight);
-        const auto preferredEnd = std::stable_partition(result.stars.begin(), result.stars.end(),
-                                                        [preferredHalfWidth, preferredHalfHeight](const auto& star) {
-                                                            return std::abs(star.matchingX) <= preferredHalfWidth &&
-                                                                   std::abs(star.matchingY) <= preferredHalfHeight;
-                                                        });
-        const std::size_t preferredCount = static_cast<std::size_t>(preferredEnd - result.stars.begin());
-        if (preferredCount >= 16u)
+        // A crowded cone is matched over the matching disc about the trial centre, the same circle the image keeps
+        // about its own centre, so both sides rank the same stars first whatever the field's rotation; the query
+        // answered brightest first, and that order is kept.
+        const double disc = matchingDiscRadius(plan.request());
+        const auto outsideDisc = [disc](const PlateSolveCatalogStar& star) {
+            return std::hypot(star.matchingX, star.matchingY) > disc;
+        };
+        const auto outside =
+            static_cast<std::size_t>(std::count_if(result.stars.begin(), result.stars.end(), outsideDisc));
+        if (result.stars.size() - outside >= kMatchingDiscMinimumStars)
         {
-            result.stars.erase(preferredEnd, result.stars.end());
+            std::erase_if(result.stars, outsideDisc);
+            if (result.stars.size() > plan.request().maximumCatalogStars)
+            {
+                result.stars.resize(plan.request().maximumCatalogStars);
+            }
         }
-
-        if (result.stars.size() > plan.request().maximumCatalogStars)
+        else
         {
-            const double fallbackHalfExtent = 0.55 * std::hypot(static_cast<double>(plan.request().imageWidth),
-                                                                static_cast<double>(plan.request().imageHeight));
-            result.stars = spatialSelection(
-                result.stars, plan.request().maximumCatalogStars, -fallbackHalfExtent, fallbackHalfExtent,
-                -fallbackHalfExtent, fallbackHalfExtent,
-                [](const PlateSolveCatalogStar& star) { return std::pair{star.matchingX, star.matchingY}; });
+            // A sparser cone prefers the sources that can be in the frame: a rectangle 1.1 times the image about
+            // the trial centre, aligned with east and north because the field's rotation is not known yet. With
+            // sixteen or more inside, the rest are dropped; with fewer, the ones outside stay, behind those inside.
+            const double preferredHalfWidth = 0.55 * static_cast<double>(plan.request().imageWidth);
+            const double preferredHalfHeight = 0.55 * static_cast<double>(plan.request().imageHeight);
+            const auto preferredEnd = std::stable_partition(
+                result.stars.begin(), result.stars.end(), [preferredHalfWidth, preferredHalfHeight](const auto& star) {
+                    return std::abs(star.matchingX) <= preferredHalfWidth &&
+                           std::abs(star.matchingY) <= preferredHalfHeight;
+                });
+            const std::size_t preferredCount = static_cast<std::size_t>(preferredEnd - result.stars.begin());
+            if (preferredCount >= 16u)
+            {
+                result.stars.erase(preferredEnd, result.stars.end());
+            }
+
+            if (result.stars.size() > plan.request().maximumCatalogStars)
+            {
+                const double fallbackHalfExtent = 0.55 * std::hypot(static_cast<double>(plan.request().imageWidth),
+                                                                    static_cast<double>(plan.request().imageHeight));
+                result.stars = spatialSelection(
+                    result.stars, plan.request().maximumCatalogStars, -fallbackHalfExtent, fallbackHalfExtent,
+                    -fallbackHalfExtent, fallbackHalfExtent,
+                    [](const PlateSolveCatalogStar& star) { return std::pair{star.matchingX, star.matchingY}; });
+            }
         }
 
         if (result.queryTruncated)

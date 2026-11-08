@@ -15,6 +15,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -201,12 +202,14 @@ TEST(PlateSolveInputTest, SelectionIsBoundedSpatialAndCancellationUsesTheExecuti
     const an::Result<an::PlateSolvePlan> plan = an::planPlateSolve(request);
     ASSERT_TRUE(plan.hasValue()) << plan.status().message();
 
+    // A lattice over the whole frame, which leaves 51 of its stars - fewer than sixty - inside the matching disc, so
+    // the selection is the round selection over the frame.
     std::vector<an::PlateSolveStar> stars;
     for (std::uint32_t row = 0u; row < 10u; ++row)
     {
         for (std::uint32_t column = 0u; column < 10u; ++column)
         {
-            stars.push_back({.position = {.x = 20.5 + 90.0 * column, .y = 20.5 + 70.0 * row}});
+            stars.push_back({.position = {.x = 20.5 + 108.0 * column, .y = 20.5 + 80.0 * row}});
         }
     }
     const an::Result<an::PlateSolveInput> selected = an::preparePlateSolveInput(execution, stars, *plan);
@@ -424,6 +427,195 @@ TEST(PlateSolverTest, TooFewOrUnrelatedStarsReturnEmptySelection)
             {.position = {.x = 30.5 + 41.0 * index, .y = 40.5 + static_cast<double>((index * 97u) % 600u)}});
     }
     EXPECT_EQ(an::solvePlate(execution, catalog, unrelated, solveRequest()).code(), an::ErrorCode::EmptySelection);
+}
+
+/// A crowded field as a long exposure of the Milky Way records it: a rotated and mirrored frame of 2048 by 1536 pixels
+/// at 1.1 arcseconds each, a catalog of thousands of stars down to magnitude 14 over the whole query cone, and a
+/// detection list that ranks the stars by its own brightness - the catalog's band and the camera's differ by up to a
+/// magnitude - misses some, finds a few that are not stars, and is cut at the brightest 512.
+struct CrowdedField
+{
+    an::WcsSolution truth;
+    std::vector<an::PlateSolveStar> detections;
+    std::vector<an::CatalogEntry> catalogEntries;
+};
+
+constexpr std::uint32_t kCrowdedWidth = 2048u;
+constexpr std::uint32_t kCrowdedHeight = 1536u;
+constexpr double kCrowdedScaleArcsec = 1.1;
+constexpr an::SkyCoordinate kCrowdedCenter{.rightAscensionDegrees = 161.1, .declinationDegrees = -59.9};
+
+/// Marsaglia's xorshift, so the field is the same on every platform and standard library.
+class FieldSampler
+{
+public:
+    explicit FieldSampler(std::uint64_t seed) noexcept : m_state(seed) {}
+
+    /// A value in (0, 1).
+    [[nodiscard]] double uniform() noexcept
+    {
+        m_state ^= m_state << 13u;
+        m_state ^= m_state >> 7u;
+        m_state ^= m_state << 17u;
+        return (static_cast<double>(m_state >> 11u) + 0.5) / 9007199254740992.0;
+    }
+
+    /// A standard normal value, by Box and Muller.
+    [[nodiscard]] double normal() noexcept
+    {
+        const double radius = std::sqrt(-2.0 * std::log(uniform()));
+        return radius * std::cos(2.0 * std::numbers::pi * uniform());
+    }
+
+private:
+    std::uint64_t m_state;
+};
+
+[[nodiscard]] CrowdedField makeCrowdedField()
+{
+    // The orientation of a refractor's frame on a German mount, mirrored as many cameras write their rows.
+    const double scaleDegrees = kCrowdedScaleArcsec / 3600.0;
+    an::WcsSolutionRequest request;
+    request.referencePixel = {.x = 0.5 * kCrowdedWidth, .y = 0.5 * kCrowdedHeight};
+    request.referencePoint = kCrowdedCenter;
+    request.linear = {.cd11 = -0.305 * scaleDegrees,
+                      .cd12 = 0.9524 * scaleDegrees,
+                      .cd21 = -0.9524 * scaleDegrees,
+                      .cd22 = -0.305 * scaleDegrees};
+    request.imageWidth = kCrowdedWidth;
+    request.imageHeight = kCrowdedHeight;
+    const an::Result<an::WcsSolution> truth = an::WcsSolution::create(request);
+    EXPECT_TRUE(truth.hasValue()) << truth.status().message();
+
+    CrowdedField field{.truth = truth.value()};
+    FieldSampler sampler(0x9e3779b97f4a7c15ull);
+    struct Ranked
+    {
+        double brightness = 0.0;
+        an::PixelCoordinate position{};
+    };
+    std::vector<Ranked> recorded;
+    // Uniform over a disc of 0.6 degrees, wider than the solver's query cone, with the counts of a field near the
+    // galactic plane: ten times as many stars for every two and a half magnitudes.
+    for (std::uint32_t ordinal = 0u; ordinal < 3200u; ++ordinal)
+    {
+        const double radius = 0.6 * std::sqrt(sampler.uniform());
+        const double angle = 2.0 * std::numbers::pi * sampler.uniform();
+        const an::Result<an::SkyCoordinate> direction = an::inverseGnomonic(
+            an::GnomonicCoordinate{.xDegrees = radius * std::cos(angle), .yDegrees = radius * std::sin(angle)},
+            kCrowdedCenter);
+        EXPECT_TRUE(direction.hasValue()) << direction.status().message();
+        const double magnitude = 14.0 + std::log10(sampler.uniform()) / 0.4;
+        an::CatalogEntry entry;
+        entry.identifier = "crowded-" + std::to_string(ordinal);
+        entry.coordinate = direction.value();
+        entry.magnitude = (std::max)(magnitude, 3.0);
+        field.catalogEntries.push_back(entry);
+
+        const double missed = sampler.uniform();
+        const double colour = sampler.normal();
+        const double jitterX = sampler.normal();
+        const double jitterY = sampler.normal();
+        const an::Result<an::PixelCoordinate> pixel = field.truth.worldToPixel(entry.coordinate);
+        if (!pixel.hasValue() || missed < 0.15)
+        {
+            continue;
+        }
+        const an::PixelCoordinate detected{.x = pixel->x + 0.3 * jitterX, .y = pixel->y + 0.3 * jitterY};
+        if (detected.x < 3.0 || detected.y < 3.0 || detected.x > kCrowdedWidth - 3.0 ||
+            detected.y > kCrowdedHeight - 3.0)
+        {
+            continue;
+        }
+        recorded.push_back(Ranked{.brightness = *entry.magnitude + 0.6 * colour, .position = detected});
+    }
+    // Knots of nebulosity the detector takes for stars, as bright as the stars it ranks among.
+    for (std::uint32_t ordinal = 0u; ordinal < 40u; ++ordinal)
+    {
+        recorded.push_back(Ranked{.brightness = 9.0 + 4.0 * sampler.uniform(),
+                                  .position = {.x = 3.0 + (kCrowdedWidth - 6.0) * sampler.uniform(),
+                                               .y = 3.0 + (kCrowdedHeight - 6.0) * sampler.uniform()}});
+    }
+    std::sort(recorded.begin(), recorded.end(),
+              [](const Ranked& left, const Ranked& right) { return left.brightness < right.brightness; });
+    for (std::size_t index = 0u; index < recorded.size() && index < 512u; ++index)
+    {
+        field.detections.push_back(an::PlateSolveStar{.position = recorded[index].position});
+    }
+    return field;
+}
+
+/// The request the product's internal solver makes: 256 image stars and 512 catalog stars, the catalog to magnitude
+/// 14, a scale hint from a focal length and pixel size a little off, and a hint of the target's catalogued position.
+[[nodiscard]] an::PlateSolveRequest crowdedRequest()
+{
+    an::PlateSolveRequest request;
+    request.imageWidth = kCrowdedWidth;
+    request.imageHeight = kCrowdedHeight;
+    const an::Result<an::SkyCoordinate> hint =
+        an::inverseGnomonic(an::GnomonicCoordinate{.xDegrees = -0.04, .yDegrees = 0.02}, kCrowdedCenter);
+    EXPECT_TRUE(hint.hasValue());
+    request.initialCenter = hint.value();
+    request.approximateScaleArcsecPerPixel = kCrowdedScaleArcsec * 1.004;
+    request.searchRadiusDegrees = 0.5;
+    request.maximumImageStars = 256u;
+    request.maximumCatalogStars = 512u;
+    request.magnitudeLimit = 14.0;
+    return request;
+}
+
+TEST(PlateSolverTest, ACrowdedFieldIsMatchedOverTheSameDiscOnBothSides)
+{
+    const CrowdedField field = makeCrowdedField();
+    ASSERT_EQ(field.detections.size(), 512u);
+    an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    const an::SkyCatalog catalog = buildOrFail(execution, field.catalogEntries,
+                                               an::SkyCatalogRequest{.photometricBand = "G", .buildNameIndex = false});
+    const an::PlateSolveRequest request = crowdedRequest();
+    const an::Result<an::PlateSolvePlan> plan = an::planPlateSolve(request);
+    ASSERT_TRUE(plan.hasValue()) << plan.status().message();
+
+    const an::Result<an::PlateSolveResult> solved = an::solvePlate(execution, catalog, field.detections, request);
+    ASSERT_TRUE(solved.hasValue()) << solved.status().message();
+    EXPECT_TRUE(solved->diagnostics.usedExactHint);
+    EXPECT_GE(solved->diagnostics.matchedStars, 60u);
+    const an::Result<an::SkyCoordinate> center = solved->solution.fieldCenter();
+    ASSERT_TRUE(center.hasValue()) << center.status().message();
+    EXPECT_LT(an::angularSeparationDegrees(*center, kCrowdedCenter) * 3600.0, 0.5);
+    EXPECT_NEAR(solved->solution.meanPixelScaleArcsecPerPixel(), kCrowdedScaleArcsec, 1.0e-3);
+    EXPECT_TRUE(solved->solution.mirrored());
+
+    // Both sides keep the brightest stars inside the largest circle about their centre inside the frame, in brightness
+    // order, so the two lists rank the same stars first whatever the field's rotation.
+    const double disc = 0.5 * (std::min)(kCrowdedWidth, kCrowdedHeight);
+    const an::Result<an::PlateSolveInput> input = an::preparePlateSolveInput(execution, field.detections, *plan);
+    ASSERT_TRUE(input.hasValue()) << input.status().message();
+    ASSERT_EQ(input->stars.size(), 256u);
+    std::size_t next = 0u;
+    for (const an::PlateSolveStar& star : input->stars)
+    {
+        EXPECT_LE(std::hypot(star.position.x - 0.5 * kCrowdedWidth, star.position.y - 0.5 * kCrowdedHeight), disc);
+        while (next < field.detections.size() && (field.detections[next].position.x != star.position.x ||
+                                                  field.detections[next].position.y != star.position.y))
+        {
+            ++next;
+        }
+        ASSERT_LT(next, field.detections.size()) << "the selection keeps the supplied order";
+    }
+    const an::Result<an::PlateSolveCatalogSearchResult> search =
+        an::searchPlateSolveCatalog(execution, catalog, *input, *plan, *request.initialCenter);
+    ASSERT_TRUE(search.hasValue()) << search.status().message();
+    EXPECT_GE(search->stars.size(), 60u);
+    EXPECT_LE(search->stars.size(), 512u);
+    double previous = -std::numeric_limits<double>::infinity();
+    for (const an::PlateSolveCatalogStar& star : search->stars)
+    {
+        EXPECT_LE(std::hypot(star.matchingX, star.matchingY), disc);
+        const double magnitude = catalog.entry(star.catalogIndex)->magnitude.value_or(99.0);
+        EXPECT_GE(magnitude, previous);
+        previous = magnitude;
+    }
 }
 
 } // namespace

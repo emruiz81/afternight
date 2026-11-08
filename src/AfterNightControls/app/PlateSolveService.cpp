@@ -77,7 +77,11 @@ enum class SolverKind
 };
 
 /// The stars the internal solver detects in one plane, brightest first, and how many it fits at most.
-constexpr std::uint32_t kInternalGaiaDetectionStars = 512u;
+///
+/// The detector fits candidates in the order of its smoothed peak and stops at this many, and a large saturated star -
+/// the bloated core a blue filter records of a bright star - has a low peak for its flux: at 512 a crowded field's
+/// blue plane missed half the catalog's sixty brightest stars in its frame, which the matcher ranks first.
+constexpr std::uint32_t kInternalGaiaDetectionStars = 1024u;
 
 /// How many image stars and catalog stars the internal solver matches.
 constexpr std::uint32_t kInternalGaiaMatchedImageStars = 256u;
@@ -440,7 +444,7 @@ void populateDerivedFocalLength(an::ui::PlateSolveResult& result, const an::Opti
 
 /// The stars of one plane of a decoded image, brightest first, as the internal solver detects them: a search radius of
 /// five pixels, a noise sigma of 2.5, a minimum roundness of 0.45, relaxed checks and one unit of fit iteration, at
-/// most 512 stars.
+/// most `kInternalGaiaDetectionStars` stars.
 [[nodiscard]] an::Result<std::vector<an::PlateSolveStar>> detectSolverStars(const an::consumer::OperationScope& scope,
                                                                             const an::consumer::AssetReadLease& lease,
                                                                             const std::uint32_t channel)
