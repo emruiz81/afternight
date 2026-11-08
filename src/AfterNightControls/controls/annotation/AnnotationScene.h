@@ -87,7 +87,8 @@ struct AnnotationMark
     /// Whether its outline covers the frame or reaches past it on both sides, so the frame is inside the object.
     bool coversFrame = false;
 
-    /// Its designation: `M 42`, `NGC 3372`, `α Ori`; empty for a star named by its proper name alone.
+    /// Its designation: `M 42`, `NGC 3372`, `α Ori`, or a star's catalogue number, `HIP 27989`, when the choices name
+    /// every star; empty for a star named by its proper name alone.
     QString designation;
 
     /// Its common name, or a star's proper name; empty when it has none.
@@ -98,6 +99,9 @@ struct AnnotationMark
 
     /// How prominent it is: a label of a higher priority is placed first.
     double priority = 0.0;
+
+    /// Whether it is marked without a label: a star the choices mark but do not name.
+    bool markOnly = false;
 };
 
 /// An edge of the frame.
@@ -214,7 +218,8 @@ struct AnnotationSceneSources
 ///
 /// A layer the choices leave out builds nothing. A deep-sky entry is kept when its catalogue and kind are chosen, it is
 /// bright and large enough or a Messier, Caldwell or named object, and some of it lies inside the frame; a star when it
-/// is bright enough, lies inside the frame and has a proper name, or a Bayer letter when those are chosen.
+/// is bright enough, lies inside the frame and the choices name it - by its proper name, its Bayer or Flamsteed
+/// designation or its catalogue number, as they say - or mark the stars they do not name.
 ///
 /// @param sources the solution, the catalogues' entries and the cards.
 /// @param content the choices of what is shown.

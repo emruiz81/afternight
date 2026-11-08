@@ -21,7 +21,7 @@ namespace
 {
 
 /// The version of the stored text, written for a later reader; every version is read field by field.
-constexpr int kStoredVersion = 1;
+constexpr int kStoredVersion = 2;
 
 /// A deep-sky selection's values for each level of detail.
 [[nodiscard]] AnnotationDeepSkySelection deepSkyOf(const AnnotationDetail detail)
@@ -61,16 +61,19 @@ constexpr int kStoredVersion = 1;
     {
     case AnnotationDetail::Essential:
         selection.magnitudeLimit = 2.5;
-        selection.bayerLetters = false;
+        selection.naming = AnnotationStarNaming::ProperNames;
         break;
     case AnnotationDetail::Standard:
     case AnnotationDetail::Custom:
+        selection.magnitudeLimit = 4.5;
         break;
     case AnnotationDetail::Detailed:
-        selection.magnitudeLimit = 5.5;
+        selection.magnitudeLimit = 6.0;
+        selection.markUnnamed = true;
         break;
     case AnnotationDetail::Complete:
         selection.magnitudeLimit = kAnnotationFaintestStar;
+        selection.naming = AnnotationStarNaming::CatalogueNumbers;
         break;
     }
     return selection;
@@ -164,7 +167,129 @@ constexpr int kStoredVersion = 1;
     return colors;
 }
 
-constexpr std::array kPalettes{AnnotationPalette::Aurora, AnnotationPalette::Moonlight, AnnotationPalette::Ember,
+[[nodiscard]] AnnotationColors glacierColors()
+{
+    AnnotationColors colors;
+    colors.grid = rgba(120, 170, 255);
+    colors.galaxy = rgba(150, 205, 255);
+    colors.nebula = rgba(108, 160, 255);
+    colors.planetaryNebula = rgba(96, 232, 255);
+    colors.openCluster = rgba(178, 228, 255);
+    colors.globularCluster = rgba(146, 150, 255);
+    colors.otherObject = rgba(176, 196, 222);
+    colors.star = rgba(226, 241, 255);
+    colors.text = rgba(230, 243, 255);
+    colors.halo = rgba(2, 8, 22, 200);
+    colors.decoration = rgba(210, 232, 255);
+    colors.panel = rgba(6, 14, 32, 178);
+    colors.panelText = rgba(228, 238, 252);
+    colors.accent = rgba(110, 200, 255);
+    return colors;
+}
+
+[[nodiscard]] AnnotationColors amethystColors()
+{
+    AnnotationColors colors;
+    colors.grid = rgba(170, 140, 255);
+    colors.galaxy = rgba(214, 172, 255);
+    colors.nebula = rgba(238, 140, 232);
+    colors.planetaryNebula = rgba(168, 152, 255);
+    colors.openCluster = rgba(204, 194, 255);
+    colors.globularCluster = rgba(190, 120, 255);
+    colors.otherObject = rgba(196, 186, 216);
+    colors.star = rgba(243, 236, 255);
+    colors.text = rgba(245, 239, 255);
+    colors.halo = rgba(12, 5, 24, 200);
+    colors.decoration = rgba(230, 216, 255);
+    colors.panel = rgba(18, 10, 34, 178);
+    colors.panelText = rgba(240, 234, 252);
+    colors.accent = rgba(200, 150, 255);
+    return colors;
+}
+
+[[nodiscard]] AnnotationColors amberColors()
+{
+    AnnotationColors colors;
+    colors.grid = rgba(255, 205, 110);
+    colors.galaxy = rgba(255, 214, 102);
+    colors.nebula = rgba(255, 168, 72);
+    colors.planetaryNebula = rgba(255, 236, 150);
+    colors.openCluster = rgba(240, 226, 122);
+    colors.globularCluster = rgba(255, 190, 92);
+    colors.otherObject = rgba(220, 206, 166);
+    colors.star = rgba(255, 248, 222);
+    colors.text = rgba(255, 246, 224);
+    colors.halo = rgba(18, 10, 0, 205);
+    colors.decoration = rgba(255, 232, 170);
+    colors.panel = rgba(24, 16, 4, 178);
+    colors.panelText = rgba(255, 244, 222);
+    colors.accent = rgba(255, 196, 64);
+    return colors;
+}
+
+[[nodiscard]] AnnotationColors verdantColors()
+{
+    AnnotationColors colors;
+    colors.grid = rgba(120, 220, 160);
+    colors.galaxy = rgba(172, 236, 132);
+    colors.nebula = rgba(88, 222, 172);
+    colors.planetaryNebula = rgba(100, 232, 214);
+    colors.openCluster = rgba(194, 242, 164);
+    colors.globularCluster = rgba(142, 212, 110);
+    colors.otherObject = rgba(176, 206, 186);
+    colors.star = rgba(234, 255, 238);
+    colors.text = rgba(236, 252, 240);
+    colors.halo = rgba(2, 14, 6, 200);
+    colors.decoration = rgba(206, 246, 216);
+    colors.panel = rgba(6, 20, 12, 178);
+    colors.panelText = rgba(230, 248, 234);
+    colors.accent = rgba(112, 230, 150);
+    return colors;
+}
+
+[[nodiscard]] AnnotationColors roseColors()
+{
+    AnnotationColors colors;
+    colors.grid = rgba(255, 150, 190);
+    colors.galaxy = rgba(255, 190, 216);
+    colors.nebula = rgba(255, 108, 160);
+    colors.planetaryNebula = rgba(255, 160, 232);
+    colors.openCluster = rgba(255, 206, 200);
+    colors.globularCluster = rgba(240, 140, 202);
+    colors.otherObject = rgba(222, 190, 206);
+    colors.star = rgba(255, 240, 246);
+    colors.text = rgba(255, 241, 247);
+    colors.halo = rgba(22, 4, 12, 200);
+    colors.decoration = rgba(255, 220, 236);
+    colors.panel = rgba(30, 8, 18, 178);
+    colors.panelText = rgba(252, 236, 244);
+    colors.accent = rgba(255, 120, 172);
+    return colors;
+}
+
+[[nodiscard]] AnnotationColors atlasColors()
+{
+    AnnotationColors colors;
+    colors.grid = rgba(150, 180, 220);
+    colors.galaxy = rgba(255, 92, 92);
+    colors.nebula = rgba(92, 220, 120);
+    colors.planetaryNebula = rgba(64, 200, 255);
+    colors.openCluster = rgba(255, 220, 64);
+    colors.globularCluster = rgba(255, 160, 48);
+    colors.otherObject = rgba(200, 200, 210);
+    colors.star = rgba(255, 255, 255);
+    colors.text = rgba(255, 255, 255);
+    colors.halo = rgba(0, 0, 0, 205);
+    colors.decoration = rgba(255, 255, 255);
+    colors.panel = rgba(8, 10, 16, 182);
+    colors.panelText = rgba(240, 242, 246);
+    colors.accent = rgba(255, 220, 64);
+    return colors;
+}
+
+constexpr std::array kPalettes{AnnotationPalette::Aurora,   AnnotationPalette::Moonlight, AnnotationPalette::Glacier,
+                               AnnotationPalette::Amethyst, AnnotationPalette::Amber,     AnnotationPalette::Verdant,
+                               AnnotationPalette::Rose,     AnnotationPalette::Atlas,     AnnotationPalette::Ember,
                                AnnotationPalette::Ink};
 
 constexpr std::array kDetails{AnnotationDetail::Essential, AnnotationDetail::Standard, AnnotationDetail::Detailed,
@@ -198,6 +323,24 @@ constexpr std::array<NamedValue<AnnotationLabelBacking>, 3> kBackings{{
 constexpr std::array<NamedValue<AnnotationMarker>, 2> kMarkers{{
     {AnnotationMarker::Outline, "outline"},
     {AnnotationMarker::Brackets, "brackets"},
+}};
+
+constexpr std::array<NamedValue<AnnotationFontWeight>, 4> kFontWeights{{
+    {AnnotationFontWeight::Light, "light"},
+    {AnnotationFontWeight::Regular, "regular"},
+    {AnnotationFontWeight::Medium, "medium"},
+    {AnnotationFontWeight::Bold, "bold"},
+}};
+
+constexpr std::array<NamedValue<AnnotationStarNaming>, 3> kStarNamings{{
+    {AnnotationStarNaming::ProperNames, "properNames"},
+    {AnnotationStarNaming::Designations, "designations"},
+    {AnnotationStarNaming::CatalogueNumbers, "catalogueNumbers"},
+}};
+
+constexpr std::array<NamedValue<AnnotationStarMarker>, 2> kStarMarkers{{
+    {AnnotationStarMarker::Ring, "ring"},
+    {AnnotationStarMarker::Reticle, "reticle"},
 }};
 
 constexpr std::array<NamedValue<AnnotationCorner>, 4> kCorners{{
@@ -346,6 +489,11 @@ AnnotationDetail annotationDetailOf(const AnnotationContent& content)
     return AnnotationDetail::Custom;
 }
 
+std::span<const AnnotationPalette> annotationPalettes() noexcept
+{
+    return kPalettes;
+}
+
 AnnotationColors annotationPaletteColors(const AnnotationPalette palette)
 {
     switch (palette)
@@ -356,6 +504,18 @@ AnnotationColors annotationPaletteColors(const AnnotationPalette palette)
         return emberColors();
     case AnnotationPalette::Ink:
         return inkColors();
+    case AnnotationPalette::Glacier:
+        return glacierColors();
+    case AnnotationPalette::Amethyst:
+        return amethystColors();
+    case AnnotationPalette::Amber:
+        return amberColors();
+    case AnnotationPalette::Verdant:
+        return verdantColors();
+    case AnnotationPalette::Rose:
+        return roseColors();
+    case AnnotationPalette::Atlas:
+        return atlasColors();
     case AnnotationPalette::Aurora:
     case AnnotationPalette::Custom:
         break;
@@ -432,7 +592,8 @@ QString storedAnnotationSettings(const AnnotationSettings& settings)
 
     QJsonObject stars;
     stars.insert(QStringLiteral("magnitudeLimit"), content.stars.magnitudeLimit);
-    stars.insert(QStringLiteral("bayerLetters"), content.stars.bayerLetters);
+    stars.insert(QStringLiteral("naming"), nameOf(kStarNamings, content.stars.naming));
+    stars.insert(QStringLiteral("markUnnamed"), content.stars.markUnnamed);
     root.insert(QStringLiteral("stars"), stars);
 
     root.insert(QStringLiteral("labelText"), nameOf(kLabelTexts, content.labelText));
@@ -457,13 +618,30 @@ QString storedAnnotationSettings(const AnnotationSettings& settings)
     }
     QJsonObject look;
     look.insert(QStringLiteral("colors"), colors);
-    look.insert(QStringLiteral("textSize"), style.textSize);
-    look.insert(QStringLiteral("lineWidth"), style.lineWidth);
-    look.insert(QStringLiteral("gridOpacity"), style.gridOpacity);
+    if (style.customColors.has_value())
+    {
+        QJsonObject custom;
+        for (const ColorField& field : kColorFields)
+        {
+            custom.insert(QLatin1String(field.key), colorText((*style.customColors).*field.member));
+        }
+        look.insert(QStringLiteral("customColors"), custom);
+    }
     look.insert(QStringLiteral("fontFamily"), style.fontFamily);
+    look.insert(QStringLiteral("fontWeight"), nameOf(kFontWeights, style.fontWeight));
+    look.insert(QStringLiteral("italicLabels"), style.italicLabels);
+    look.insert(QStringLiteral("textSize"), style.textSize);
+    look.insert(QStringLiteral("panelSize"), style.panelSize);
     look.insert(QStringLiteral("labelBacking"), nameOf(kBackings, style.labelBacking));
-    look.insert(QStringLiteral("marker"), nameOf(kMarkers, style.marker));
     look.insert(QStringLiteral("labelsInObjectColor"), style.labelsInObjectColor);
+    look.insert(QStringLiteral("lineWidth"), style.lineWidth);
+    look.insert(QStringLiteral("lineOpacity"), style.lineOpacity);
+    look.insert(QStringLiteral("lineHalo"), style.lineHalo);
+    look.insert(QStringLiteral("marker"), nameOf(kMarkers, style.marker));
+    look.insert(QStringLiteral("fillObjects"), style.fillObjects);
+    look.insert(QStringLiteral("fillOpacity"), style.fillOpacity);
+    look.insert(QStringLiteral("starMarker"), nameOf(kStarMarkers, style.starMarker));
+    look.insert(QStringLiteral("gridOpacity"), style.gridOpacity);
     look.insert(QStringLiteral("leaderLines"), style.leaderLines);
     look.insert(QStringLiteral("unlabelledMarks"), style.unlabelledMarks);
     look.insert(QStringLiteral("panelCorner"), nameOf(kCorners, style.panelCorner));
@@ -522,7 +700,14 @@ AnnotationSettings annotationSettingsFromStored(const QString& stored)
     const QJsonObject stars = root.value(QStringLiteral("stars")).toObject();
     content.stars.magnitudeLimit =
         readNumber(stars, "magnitudeLimit", -30.0, kAnnotationFaintestStar, content.stars.magnitudeLimit);
-    content.stars.bayerLetters = readBool(stars, "bayerLetters", content.stars.bayerLetters);
+    // The first version named a star by its Bayer letter or not; the naming that says the same is read from it.
+    if (const QJsonValue bayerLetters = stars.value(QStringLiteral("bayerLetters")); bayerLetters.isBool())
+    {
+        content.stars.naming =
+            bayerLetters.toBool() ? AnnotationStarNaming::Designations : AnnotationStarNaming::ProperNames;
+    }
+    content.stars.naming = readEnum(stars, "naming", kStarNamings, content.stars.naming);
+    content.stars.markUnnamed = readBool(stars, "markUnnamed", content.stars.markUnnamed);
 
     content.labelText = readEnum(root, "labelText", kLabelTexts, content.labelText);
     content.gridDensity = readEnum(root, "gridDensity", kGridDensities, content.gridDensity);
@@ -544,15 +729,38 @@ AnnotationSettings annotationSettingsFromStored(const QString& stored)
     {
         style.colors.*field.member = readColor(colors, field.key, style.colors.*field.member);
     }
+    if (const QJsonValue custom = look.value(QStringLiteral("customColors")); custom.isObject())
+    {
+        AnnotationColors own = style.colors;
+        for (const ColorField& field : kColorFields)
+        {
+            own.*field.member = readColor(custom.toObject(), field.key, own.*field.member);
+        }
+        style.customColors = own;
+    }
+    else if (annotationPaletteOf(style.colors) == AnnotationPalette::Custom)
+    {
+        // Text written before the person's own colours were kept apart: colours no palette has are theirs.
+        style.customColors = style.colors;
+    }
+    style.fontFamily = readText(look, "fontFamily", style.fontFamily);
+    style.fontWeight = readEnum(look, "fontWeight", kFontWeights, style.fontWeight);
+    style.italicLabels = readBool(look, "italicLabels", style.italicLabels);
     style.textSize =
         readNumber(look, "textSize", kAnnotationMinimumTextSize, kAnnotationMaximumTextSize, style.textSize);
+    style.panelSize =
+        readNumber(look, "panelSize", kAnnotationMinimumPanelSize, kAnnotationMaximumPanelSize, style.panelSize);
+    style.labelBacking = readEnum(look, "labelBacking", kBackings, style.labelBacking);
+    style.labelsInObjectColor = readBool(look, "labelsInObjectColor", style.labelsInObjectColor);
     style.lineWidth =
         readNumber(look, "lineWidth", kAnnotationMinimumLineWidth, kAnnotationMaximumLineWidth, style.lineWidth);
-    style.gridOpacity = readNumber(look, "gridOpacity", 0.0, 1.0, style.gridOpacity);
-    style.fontFamily = readText(look, "fontFamily", style.fontFamily);
-    style.labelBacking = readEnum(look, "labelBacking", kBackings, style.labelBacking);
+    style.lineOpacity = readNumber(look, "lineOpacity", kAnnotationMinimumLineOpacity, 1.0, style.lineOpacity);
+    style.lineHalo = readBool(look, "lineHalo", style.lineHalo);
     style.marker = readEnum(look, "marker", kMarkers, style.marker);
-    style.labelsInObjectColor = readBool(look, "labelsInObjectColor", style.labelsInObjectColor);
+    style.fillObjects = readBool(look, "fillObjects", style.fillObjects);
+    style.fillOpacity = readNumber(look, "fillOpacity", 0.0, 1.0, style.fillOpacity);
+    style.starMarker = readEnum(look, "starMarker", kStarMarkers, style.starMarker);
+    style.gridOpacity = readNumber(look, "gridOpacity", 0.0, 1.0, style.gridOpacity);
     style.leaderLines = readBool(look, "leaderLines", style.leaderLines);
     style.unlabelledMarks = readBool(look, "unlabelledMarks", style.unlabelledMarks);
     style.panelCorner = readEnum(look, "panelCorner", kCorners, style.panelCorner);

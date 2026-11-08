@@ -193,7 +193,8 @@ struct FieldQueryOutcome
     if (!loaded || loadedGeneration != generation)
     {
         loaded.reset();
-        an::Result<an::SkyCatalog> read = loadBundledCatalog(session, catalog, {}, source);
+        // The overlay asks only what lies in a field, so the catalog is built without a name index.
+        an::Result<an::SkyCatalog> read = loadBundledCatalog(session, catalog, {}, source, false);
         if (!read.hasValue())
         {
             outcome.failure = QString::fromUtf8(read.status().message());

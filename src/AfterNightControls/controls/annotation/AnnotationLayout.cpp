@@ -49,25 +49,51 @@ constexpr double kLargeObjectFraction = 0.35;
 /// A mark whose box spans less than this many labels' sizes is one a label must not cover.
 constexpr double kSmallMarkSizes = 4.0;
 
-/// Shapes text into the outlines of its letters at a size, from one typeface.
+/// What a place costs for each small mark its label covers, and for each larger object's outline it crosses: enough
+/// that a label sits on a leader line rather than over another object, unless no line reaches a free place.
+constexpr double kCoveredMarkCost = 16.0;
+constexpr double kCrossedOutlineCost = 12.0;
+
+/// The weight of a style's ordinary letters, and of its strong ones - a designation, a title - a step heavier.
+[[nodiscard]] std::pair<QFont::Weight, QFont::Weight> weightsOf(const AnnotationFontWeight weight) noexcept
+{
+    switch (weight)
+    {
+    case AnnotationFontWeight::Light:
+        return {QFont::Light, QFont::Medium};
+    case AnnotationFontWeight::Medium:
+        return {QFont::Medium, QFont::Bold};
+    case AnnotationFontWeight::Bold:
+        return {QFont::Bold, QFont::Black};
+    case AnnotationFontWeight::Regular:
+        break;
+    }
+    return {QFont::Normal, QFont::DemiBold};
+}
+
+/// Shapes text into the outlines of its letters at a size, from one typeface: ordinary or strong, upright or slanted.
 class TextShaper
 {
 public:
-    explicit TextShaper(const QString& family)
+    explicit TextShaper(const AnnotationStyle& style)
     {
-        for (const bool strong : {false, true})
+        const auto [ordinary, strong] = weightsOf(style.fontWeight);
+        for (std::size_t index = 0u; index < m_fonts.size(); ++index)
         {
+            const bool heavy = (index & 1u) != 0u;
+            const bool slanted = (index & 2u) != 0u;
             QFont font;
-            if (!family.trimmed().isEmpty())
+            if (!style.fontFamily.trimmed().isEmpty())
             {
-                font.setFamily(family);
+                font.setFamily(style.fontFamily);
             }
             font.setPixelSize(kShapeSize);
-            font.setWeight(strong ? QFont::DemiBold : QFont::Normal);
+            font.setWeight(heavy ? strong : ordinary);
+            font.setItalic(slanted);
             font.setHintingPreference(QFont::PreferNoHinting);
             font.setStyleStrategy(QFont::PreferOutline);
             font.setKerning(true);
-            m_fonts[strong ? 1 : 0] = font;
+            m_fonts[index] = font;
         }
     }
 
@@ -85,14 +111,15 @@ public:
         }
     };
 
-    [[nodiscard]] Line shape(const QString& text, const double size, const bool strong) const
+    [[nodiscard]] Line shape(const QString& text, const double size, const bool strong,
+                             const bool slanted = false) const
     {
         Line line;
         if (text.isEmpty() || !(size > 0.0))
         {
             return line;
         }
-        const QFont& font = m_fonts[strong ? 1 : 0];
+        const QFont& font = m_fonts[(strong ? 1u : 0u) | (slanted ? 2u : 0u)];
         const QFontMetricsF metrics(font);
         const double scale = size / kShapeSize;
         QPainterPath path;
@@ -105,7 +132,8 @@ public:
     }
 
 private:
-    std::array<QFont, 2u> m_fonts;
+    /// Indexed by strong in the first bit and slanted in the second.
+    std::array<QFont, 4u> m_fonts;
 };
 
 /// The boxes placed so far, kept in cells so a test reads only the boxes near the box it tests.
@@ -251,11 +279,12 @@ struct ShapedLabel
 };
 
 [[nodiscard]] ShapedLabel shapeLabel(const TextShaper& shaper, const QString& first, const QString& second,
-                                     const double size, const bool strongFirst, const Padding padding)
+                                     const double size, const bool strongFirst, const Padding padding,
+                                     const bool slanted = false)
 {
     ShapedLabel label;
-    const TextShaper::Line top = shaper.shape(first, size, strongFirst);
-    const TextShaper::Line bottom = shaper.shape(second, size * kSecondLineScale, false);
+    const TextShaper::Line top = shaper.shape(first, size, strongFirst, slanted);
+    const TextShaper::Line bottom = shaper.shape(second, size * kSecondLineScale, false, slanted);
     const double horizontal = padding.horizontal * size;
     const double vertical = padding.vertical * size;
     const double inner = (std::max)(top.width, bottom.width);
@@ -298,13 +327,17 @@ struct ShapedLabel
 }
 
 /// The box a mark's label is set about.
-[[nodiscard]] QRectF anchorOf(const AnnotationMark& mark)
+[[nodiscard]] QRectF anchorOf(const AnnotationMark& mark, const AnnotationStyle& style)
 {
     if (mark.outline.size() >= 3)
     {
         return mark.outline.boundingRect();
     }
-    return QRectF(mark.center.x() - mark.radius, mark.center.y() - mark.radius, 2.0 * mark.radius, 2.0 * mark.radius);
+    // A reticle's ticks reach past its star's radius, and a label keeps clear of them.
+    const double reach = mark.kind == AnnotationMarkKind::Star && style.starMarker == AnnotationStarMarker::Reticle
+                             ? kAnnotationReticleReach * mark.radius
+                             : mark.radius;
+    return QRectF(mark.center.x() - reach, mark.center.y() - reach, 2.0 * reach, 2.0 * reach);
 }
 
 /// The point on a box's edge nearest a point, or the point when the box holds it.
@@ -415,15 +448,18 @@ private:
     std::array<double, 4u> m_used{};
 };
 
-[[nodiscard]] std::optional<AnnotationPanelLayout>
-layoutPanel(const AnnotationScene& scene, const AnnotationMetrics& metrics, const TextShaper& shaper)
+[[nodiscard]] std::optional<AnnotationPanelLayout> layoutPanel(const AnnotationScene& scene,
+                                                               const AnnotationMetrics& metrics,
+                                                               const AnnotationStyle& style, const TextShaper& shaper)
 {
     const AnnotationPanelText& text = scene.panel;
     if (text.title.isEmpty() && text.credit.isEmpty() && text.facts.empty())
     {
         return std::nullopt;
     }
-    const double font = metrics.fontSize;
+    const double panelSize = std::clamp(std::isfinite(style.panelSize) ? style.panelSize : 1.0,
+                                        kAnnotationMinimumPanelSize, kAnnotationMaximumPanelSize);
+    const double font = metrics.fontSize * panelSize;
     const double padding = 0.9 * font;
     AnnotationPanelLayout panel;
     panel.radius = 0.45 * font;
@@ -672,7 +708,7 @@ AnnotationMetrics annotationMetrics(const double referenceLength, const Annotati
     metrics.fontSize = kFontFraction * reference * textSize;
     metrics.lineWidth = kLineFraction * reference * lineWidth;
     metrics.gridWidth = 0.7 * metrics.lineWidth;
-    metrics.haloWidth = (std::max)(0.2 * metrics.fontSize, 2.4 * metrics.lineWidth);
+    metrics.haloWidth = 0.2 * metrics.fontSize;
     metrics.margin = kMarginFraction * reference;
     metrics.gap = 0.35 * metrics.fontSize;
     return metrics;
@@ -690,7 +726,7 @@ AnnotationLayout layoutAnnotations(const AnnotationScene& scene, const Annotatio
     layout.metrics = annotationMetrics(scene.referenceLength, style);
     const AnnotationMetrics& metrics = layout.metrics;
     const QRectF frame(0.0, 0.0, scene.imageSize.width(), scene.imageSize.height());
-    const TextShaper shaper(style.fontFamily);
+    const TextShaper shaper(style);
     Occupancy occupied(frame, 4.0 * metrics.fontSize);
 
     // The decorations first, stacked from their corners inward: they keep their places whatever the labels do.
@@ -705,7 +741,7 @@ AnnotationLayout layoutAnnotations(const AnnotationScene& scene, const Annotatio
         case Decoration::Panel:
             if (content.layers.infoPanel)
             {
-                if (std::optional<AnnotationPanelLayout> panel = layoutPanel(scene, metrics, shaper))
+                if (std::optional<AnnotationPanelLayout> panel = layoutPanel(scene, metrics, style, shaper))
                 {
                     const QRectF box = stacks.take(corner, panel->box.size());
                     movePanel(*panel, box.topLeft());
@@ -750,18 +786,45 @@ AnnotationLayout layoutAnnotations(const AnnotationScene& scene, const Annotatio
     }
 
     // The small marks a label must not cover.
+    // The small marks a label must not cover, and the larger outlines it should not cross; a region that spans much of
+    // the frame is crossed freely, since every label inside it would.
     Occupancy marks(frame, 4.0 * metrics.fontSize);
     std::vector<QRectF> anchors;
     anchors.reserve(scene.marks.size());
+    std::vector<std::size_t> outlined;
     for (std::size_t index = 0u; index < scene.marks.size(); ++index)
     {
-        anchors.push_back(anchorOf(scene.marks[index]));
+        anchors.push_back(anchorOf(scene.marks[index], style));
         const QRectF& anchor = anchors.back();
         if ((std::max)(anchor.width(), anchor.height()) < kSmallMarkSizes * metrics.fontSize)
         {
             marks.add(anchor, index);
         }
+        else if (scene.marks[index].outline.size() >= 3 && !scene.marks[index].coversFrame &&
+                 anchor.width() <= kLargeObjectFraction * frame.width() &&
+                 anchor.height() <= kLargeObjectFraction * frame.height())
+        {
+            outlined.push_back(index);
+        }
     }
+    // The outlines a box crosses, but its own mark's: an outline is sampled densely enough that a box it crosses holds
+    // one of its points.
+    const auto crossedOutlines = [&scene, &anchors, &outlined](const QRectF& box, const std::size_t owner) {
+        int crossed = 0;
+        for (const std::size_t other : outlined)
+        {
+            if (other == owner || !anchors[other].intersects(box))
+            {
+                continue;
+            }
+            const QPolygonF& outline = scene.marks[other].outline;
+            crossed += std::any_of(outline.begin(), outline.end(),
+                                   [&box](const QPointF& point) { return box.contains(point); })
+                           ? 1
+                           : 0;
+        }
+        return crossed;
+    };
 
     const Padding padding = paddingOf(style.labelBacking);
     const QRectF inside =
@@ -775,7 +838,8 @@ AnnotationLayout layoutAnnotations(const AnnotationScene& scene, const Annotatio
         {
             continue;
         }
-        const ShapedLabel shaped = shapeLabel(shaper, first, second, metrics.fontSize, true, padding);
+        const ShapedLabel shaped =
+            shapeLabel(shaper, first, second, metrics.fontSize, true, padding, style.italicLabels);
         const QRectF anchor = anchors[index];
         const bool point = mark.outline.size() < 3;
 
@@ -792,7 +856,8 @@ AnnotationLayout layoutAnnotations(const AnnotationScene& scene, const Annotatio
             {
                 return;
             }
-            const double cost = baseCost + 6.0 * marks.count(box, index);
+            const double cost = baseCost + kCoveredMarkCost * marks.count(box, index) +
+                                kCrossedOutlineCost * crossedOutlines(box, index);
             if (cost < best.cost)
             {
                 best = Choice{.corner = corner, .cost = cost, .leader = leader};

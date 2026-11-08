@@ -58,11 +58,24 @@ namespace
     return pen;
 }
 
-/// A mark's shape as the style draws it: its outline or its circle, or four brackets about where it lies.
+/// A mark's shape as the style draws it: its outline or its circle, four brackets about where it lies, or a star's
+/// ring or reticle.
 [[nodiscard]] QPainterPath markShape(const AnnotationMark& mark, const AnnotationStyle& style,
                                      const AnnotationMetrics& metrics)
 {
     QPainterPath path;
+    if (mark.kind == AnnotationMarkKind::Star && style.starMarker == AnnotationStarMarker::Reticle)
+    {
+        // Four ticks from the star's radius outward, toward the frame's edges: the star itself is left clear.
+        const double inner = mark.radius;
+        const double outer = kAnnotationReticleReach * mark.radius;
+        for (const QPointF direction : {QPointF(1.0, 0.0), QPointF(-1.0, 0.0), QPointF(0.0, 1.0), QPointF(0.0, -1.0)})
+        {
+            path.moveTo(mark.center + direction * inner);
+            path.lineTo(mark.center + direction * outer);
+        }
+        return path;
+    }
     const bool outlined = mark.outline.size() >= 3;
     const bool brackets =
         style.marker == AnnotationMarker::Brackets && mark.kind != AnnotationMarkKind::Star && !mark.coversFrame;
@@ -156,8 +169,12 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
     }
     const AnnotationMetrics& metrics = layout.metrics;
     const AnnotationColors& colors = style.colors;
-    const bool halo = style.labelBacking == AnnotationLabelBacking::Halo;
+    // The text's halo and the lines' dark edge are chosen apart.
+    const bool lineHalo = style.lineHalo;
+    const double lineOpacity =
+        std::clamp(std::isfinite(style.lineOpacity) ? style.lineOpacity : 1.0, kAnnotationMinimumLineOpacity, 1.0);
     const QColor softHalo = withOpacity(colors.halo, 0.55);
+    const QColor markHalo = withOpacity(softHalo, lineOpacity);
 
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing, true);
@@ -178,29 +195,44 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
         }
     }
 
-    // The marks: every halo first, so no halo covers another mark's line, then the lines.
+    // The marks: every fill first, then every halo, so no halo covers another mark's line, then the lines.
     std::vector<QPainterPath> shapes(scene.marks.size());
     std::vector<bool> drawn(scene.marks.size(), false);
     for (std::size_t index = 0u; index < scene.marks.size(); ++index)
     {
+        // A mark drawn without a label by choice is always drawn; another only when its label was placed or the
+        // style marks the objects whose labels found no room.
         const bool labelled = index < layout.labelled.size() && layout.labelled[index];
-        if (!labelled && !style.unlabelledMarks)
+        if (!labelled && !style.unlabelledMarks && !scene.marks[index].markOnly)
         {
             continue;
         }
         shapes[index] = markShape(scene.marks[index], style, metrics);
         drawn[index] = true;
     }
+    const double fillOpacity = std::clamp(std::isfinite(style.fillOpacity) ? style.fillOpacity : 0.0, 0.0, 1.0);
+    if (style.fillObjects && style.marker == AnnotationMarker::Outline && fillOpacity > 0.0)
+    {
+        // An object's area in its colour; a region that spans the frame is left unfilled, or it would tint the image.
+        for (std::size_t index = 0u; index < scene.marks.size(); ++index)
+        {
+            const AnnotationMark& mark = scene.marks[index];
+            if (drawn[index] && mark.kind != AnnotationMarkKind::Star && !spansFrame(mark, scene.imageSize))
+            {
+                painter.fillPath(shapes[index], withOpacity(annotationMarkColor(colors, mark.kind), fillOpacity));
+            }
+        }
+    }
     const auto markWidth = [&metrics](const AnnotationMark& mark) {
         return mark.kind == AnnotationMarkKind::Star ? 0.8 * metrics.lineWidth : metrics.lineWidth;
     };
-    if (halo)
+    if (lineHalo)
     {
         for (std::size_t index = 0u; index < scene.marks.size(); ++index)
         {
             if (drawn[index])
             {
-                painter.strokePath(shapes[index], roundPen(softHalo, markWidth(scene.marks[index]) * 2.6));
+                painter.strokePath(shapes[index], roundPen(markHalo, markWidth(scene.marks[index]) * 2.6));
             }
         }
     }
@@ -211,7 +243,7 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
             continue;
         }
         const AnnotationMark& mark = scene.marks[index];
-        QPen pen = roundPen(annotationMarkColor(colors, mark.kind), markWidth(mark));
+        QPen pen = roundPen(withOpacity(annotationMarkColor(colors, mark.kind), lineOpacity), markWidth(mark));
         if (spansFrame(mark, scene.imageSize))
         {
             // A region rather than an object: its extent in long, soft dashes.
@@ -244,11 +276,11 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
             QPainterPath leader;
             leader.moveTo(label.leader->p1());
             leader.lineTo(label.leader->p2());
-            if (halo)
+            if (lineHalo)
             {
-                painter.strokePath(leader, roundPen(softHalo, metrics.lineWidth * 2.4));
+                painter.strokePath(leader, roundPen(markHalo, metrics.lineWidth * 2.4));
             }
-            painter.strokePath(leader, roundPen(withOpacity(color, 0.8), 0.75 * metrics.lineWidth));
+            painter.strokePath(leader, roundPen(withOpacity(color, 0.8 * lineOpacity), 0.75 * metrics.lineWidth));
         }
         if (style.labelBacking == AnnotationLabelBacking::Badge)
         {
@@ -284,9 +316,9 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
                 arrows.closeSubpath();
             }
         }
-        if (halo)
+        if (lineHalo)
         {
-            painter.strokePath(arrows, roundPen(softHalo, shaft + 0.6 * metrics.haloWidth));
+            painter.strokePath(arrows, roundPen(softHalo, 2.6 * shaft));
         }
         painter.strokePath(arrows, roundPen(colors.decoration, shaft));
         for (const QPointF tip : {compass.northTip, compass.eastTip})
@@ -320,9 +352,9 @@ void paintAnnotations(QPainter& painter, const AnnotationScene& scene, const Ann
         path.moveTo(bar.bar.p2() + QPointF(0.0, -half));
         path.lineTo(bar.bar.p2() + QPointF(0.0, half));
         const double width = 1.5 * metrics.lineWidth;
-        if (halo)
+        if (lineHalo)
         {
-            painter.strokePath(path, roundPen(softHalo, width + 0.6 * metrics.haloWidth));
+            painter.strokePath(path, roundPen(softHalo, 2.4 * width));
         }
         QPen pen(colors.decoration, width, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin);
         painter.strokePath(path, pen);

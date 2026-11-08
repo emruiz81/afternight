@@ -1008,6 +1008,7 @@ sources Test_ControlsAstrometry
     header   src/AfterNightControls/app/SolverProcessRunner.h
     header   src/AfterNightControls/app/SpccCatalogSettings.h
     header   src/AfterNightControls/app/SpccResponseSettings.h
+    header   src/AfterNightControls/components/AnCollapsibleSection.h
     header   src/AfterNightControls/components/AnInfoBanner.h
     header   src/AfterNightControls/controls/AstrometryOverlayUtils.h
     header   src/AfterNightControls/controls/AstrometryStarDisplayModule.h

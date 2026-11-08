@@ -51,7 +51,7 @@ struct AnnotationMetrics
     /// The grid's line width.
     double gridWidth = 0.0;
 
-    /// The width of the halo stroked around a letter.
+    /// The width of the halo stroked around a letter; it follows the text's size alone, never the lines' width.
     double haloWidth = 0.0;
 
     /// How far the decorations and the grid's labels keep from the frame's edge.
@@ -60,6 +60,9 @@ struct AnnotationMetrics
     /// How far a label keeps from its object.
     double gap = 0.0;
 };
+
+/// How far a reticle's ticks reach from a star, as a multiple of its marker's radius; they start at the radius.
+inline constexpr double kAnnotationReticleReach = 1.7;
 
 /// The lengths a style gives a scene of a reference length.
 ///

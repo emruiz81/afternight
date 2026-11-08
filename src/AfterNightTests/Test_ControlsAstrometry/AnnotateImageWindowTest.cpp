@@ -10,6 +10,7 @@
 #include "Test_ControlsAstrometry/AstrometryTestSupport.h"
 
 #include "app/FilePolicies.h"
+#include "components/AnCollapsibleSection.h"
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewFiles.h"
@@ -18,10 +19,16 @@
 #include "controls/annotation/AnnotationScene.h"
 #include "controls/annotation/AnnotationSettings.h"
 
+#include <QCheckBox>
+#include <QColorDialog>
+#include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFileInfo>
+#include <QFontComboBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QTemporaryDir>
+#include <QToolButton>
 
 #include <gtest/gtest.h>
 
@@ -58,7 +65,7 @@ using an::tests::astrometry::ViewHandle;
 }
 
 /// A deep-sky catalogue of a galaxy and an open cluster in the field and a star-like entry only the complete level
-/// marks, and a bright-star catalogue of one named star.
+/// marks, and a bright-star catalogue of a named star and a fainter one of no name or designation.
 [[nodiscard]] QByteArray deepSkyText()
 {
     return QByteArray(
@@ -71,7 +78,8 @@ using an::tests::astrometry::ViewHandle;
 [[nodiscard]] QByteArray brightStarText()
 {
     return QByteArray("id,common_name,bayer_designation,ra_deg,dec_deg,magnitude,spectral_type\n"
-                      "HIP 1,Alpha Field,alf Fld,119.4,10.3,1.5,A0V\n");
+                      "HIP 1,Alpha Field,alf Fld,119.4,10.3,1.5,A0V\n"
+                      "HIP 2,,,120.1,10.1,5.8,G2V\n");
 }
 
 /// The application context of the cases, whose view factory opens the pictures it is handed in views it keeps.
@@ -214,8 +222,123 @@ TEST_F(AnnotateImageWindowTest, AnotherLevelOfDetailLaysThePreviewOutAgain)
     ASSERT_TRUE(pumpUntil([&]() { return !window.isWorking() && window.scene() != before; }));
 
     EXPECT_EQ(an::ui::annotationDetailOf(window.settings().content), an::ui::AnnotationDetail::Complete);
-    EXPECT_EQ(designations(), (std::vector<QString>{QStringLiteral("NGC 1001"), QStringLiteral("NGC 1002"),
-                                                    QStringLiteral("NGC 1005"), QStringLiteral("alf Fld")}));
+    EXPECT_EQ(designations(),
+              (std::vector<QString>{QStringLiteral("HIP 2"), QStringLiteral("NGC 1001"), QStringLiteral("NGC 1002"),
+                                    QStringLiteral("NGC 1005"), QStringLiteral("alf Fld")}))
+        << "the complete level names every star, by its catalogue number when it has no name";
+}
+
+// The custom palette is the person's own colours: chosen before any is set it starts from the palette shown and opens
+// the colours; a colour set makes the palette custom; another palette and then the custom one bring them back.
+TEST_F(AnnotateImageWindowTest, TheCustomPaletteKeepsThePersonsOwnColours)
+{
+    show(fieldCards());
+    an::ui::AnnotateImageControl& window = open();
+    ASSERT_TRUE(settled());
+    auto* palette = window.findChild<QComboBox*>(QStringLiteral("annotatePalette"));
+    ASSERT_NE(palette, nullptr);
+    const auto choose = [palette](const an::ui::AnnotationPalette chosen) {
+        palette->setCurrentIndex(palette->findData(static_cast<int>(chosen)));
+    };
+    const auto shown = [palette]() { return static_cast<an::ui::AnnotationPalette>(palette->currentData().toInt()); };
+    auto* colours = dynamic_cast<an::ui::AnCollapsibleSection*>(
+        window.findChild<QWidget*>(QStringLiteral("annotateColorsSection")));
+    ASSERT_NE(colours, nullptr);
+    EXPECT_FALSE(colours->isExpanded());
+
+    choose(an::ui::AnnotationPalette::Glacier);
+    choose(an::ui::AnnotationPalette::Custom);
+    EXPECT_EQ(shown(), an::ui::AnnotationPalette::Custom) << "the custom palette stays chosen";
+    EXPECT_EQ(window.settings().style.colors, an::ui::annotationPaletteColors(an::ui::AnnotationPalette::Glacier))
+        << "the first time, it starts from the palette shown";
+    EXPECT_TRUE(colours->isExpanded()) << "and opens the colours to be set";
+
+    // A colour set through its button, as a person sets it.
+    auto* galaxies = window.findChild<QToolButton*>(QStringLiteral("annotateColor1"));
+    ASSERT_NE(galaxies, nullptr);
+    galaxies->click();
+    auto* dialog = window.findChild<QColorDialog*>();
+    ASSERT_NE(dialog, nullptr);
+    dialog->setCurrentColor(QColor(10, 200, 30));
+    dialog->accept();
+    EXPECT_EQ(window.settings().style.colors.galaxy, QColor(10, 200, 30));
+    EXPECT_EQ(shown(), an::ui::AnnotationPalette::Custom);
+
+    choose(an::ui::AnnotationPalette::Amber);
+    EXPECT_EQ(window.settings().style.colors, an::ui::annotationPaletteColors(an::ui::AnnotationPalette::Amber));
+    choose(an::ui::AnnotationPalette::Custom);
+    EXPECT_EQ(window.settings().style.colors.galaxy, QColor(10, 200, 30)) << "the person's own colours come back";
+    EXPECT_EQ(window.settings().style.colors.nebula,
+              an::ui::annotationPaletteColors(an::ui::AnnotationPalette::Glacier).nebula);
+}
+
+// The style's controls set the text and the lines apart, each choice its own: a palette, the fill and its opacity, the
+// letters' weight and slant, the dark edge behind the lines whatever the labels' backing, and the stars' naming.
+TEST_F(AnnotateImageWindowTest, TheStyleControlsSetTheTextAndTheLinesApart)
+{
+    show(fieldCards());
+    an::ui::AnnotateImageControl& window = open();
+    ASSERT_TRUE(settled());
+    const auto choose = [&window](const char* name, const int value) {
+        auto* combo = window.findChild<QComboBox*>(QString::fromLatin1(name));
+        ASSERT_NE(combo, nullptr) << name;
+        const int index = combo->findData(value);
+        ASSERT_GE(index, 0) << name;
+        combo->setCurrentIndex(index);
+    };
+    const auto box = [&window](const char* name) { return window.findChild<QCheckBox*>(QString::fromLatin1(name)); };
+
+    auto* palette = window.findChild<QComboBox*>(QStringLiteral("annotatePalette"));
+    ASSERT_NE(palette, nullptr);
+    EXPECT_EQ(palette->count(), static_cast<int>(an::ui::annotationPalettes().size()) + 1) << "and Custom";
+    choose("annotatePalette", static_cast<int>(an::ui::AnnotationPalette::Glacier));
+    EXPECT_EQ(window.settings().style.colors, an::ui::annotationPaletteColors(an::ui::AnnotationPalette::Glacier));
+    EXPECT_NE(window.findChild<QFontComboBox*>(QStringLiteral("annotateFont")), nullptr);
+
+    QCheckBox* fill = box("annotateFill");
+    auto* fillOpacity = window.findChild<QWidget*>(QStringLiteral("annotateFillOpacity"));
+    ASSERT_TRUE(fill != nullptr && fillOpacity != nullptr);
+    EXPECT_FALSE(fillOpacity->isEnabled()) << "no fill, no opacity to set";
+    fill->click();
+    EXPECT_TRUE(window.settings().style.fillObjects);
+    EXPECT_TRUE(fillOpacity->isEnabled());
+    choose("annotateMarker", static_cast<int>(an::ui::AnnotationMarker::Brackets));
+    EXPECT_FALSE(fill->isEnabled()) << "brackets have no area to fill";
+    choose("annotateMarker", static_cast<int>(an::ui::AnnotationMarker::Outline));
+    EXPECT_TRUE(fill->isEnabled());
+
+    choose("annotateFontWeight", static_cast<int>(an::ui::AnnotationFontWeight::Bold));
+    QCheckBox* italic = box("annotateItalic");
+    ASSERT_NE(italic, nullptr);
+    italic->click();
+    QCheckBox* lineHalo = box("annotateLineHalo");
+    ASSERT_NE(lineHalo, nullptr);
+    EXPECT_FALSE(lineHalo->isChecked()) << "the lines have no dark edge until it is asked for";
+    lineHalo->click();
+    choose("annotateBacking", static_cast<int>(an::ui::AnnotationLabelBacking::Plain));
+    choose("annotateLabelColors", 0);
+    const an::ui::AnnotationStyle& style = window.settings().style;
+    EXPECT_EQ(style.fontWeight, an::ui::AnnotationFontWeight::Bold);
+    EXPECT_TRUE(style.italicLabels);
+    EXPECT_TRUE(style.lineHalo) << "plain labels leave the lines the edge asked for";
+    EXPECT_EQ(style.labelBacking, an::ui::AnnotationLabelBacking::Plain);
+    EXPECT_FALSE(style.labelsInObjectColor);
+    lineHalo->click();
+    choose("annotateBacking", static_cast<int>(an::ui::AnnotationLabelBacking::Halo));
+    EXPECT_FALSE(window.settings().style.lineHalo) << "the labels' halo leaves the lines' edge as it was";
+
+    // The stars: every one to magnitude six, the unnamed one by its catalogue number.
+    auto* starMagnitude = window.findChild<QDoubleSpinBox*>(QStringLiteral("annotateStarMagnitude"));
+    ASSERT_NE(starMagnitude, nullptr);
+    starMagnitude->setValue(6.0);
+    choose("annotateStarNaming", static_cast<int>(an::ui::AnnotationStarNaming::CatalogueNumbers));
+    ASSERT_TRUE(pumpUntil([&]() {
+        return !window.isWorking() && window.scene() != nullptr &&
+               std::any_of(window.scene()->marks.begin(), window.scene()->marks.end(),
+                           [](const an::ui::AnnotationMark& mark) { return mark.designation == "HIP 2"; });
+    }));
+    EXPECT_EQ(window.settings().content.stars.naming, an::ui::AnnotationStarNaming::CatalogueNumbers);
+    EXPECT_EQ(an::ui::annotationDetailOf(window.settings().content), an::ui::AnnotationDetail::Custom);
 }
 
 TEST_F(AnnotateImageWindowTest, ThePictureIsExportedAtTheSizeChosenAndATransparentOneIsNotWrittenAsJpeg)

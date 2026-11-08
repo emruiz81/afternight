@@ -37,7 +37,7 @@ an::Result<QByteArray> bundledCatalogText(const BundledCatalog catalog)
 }
 
 an::Result<an::SkyCatalog> buildBundledCatalog(const an::ExecutionContext& execution, const BundledCatalog catalog,
-                                               const std::string_view text)
+                                               const std::string_view text, const bool nameIndex)
 {
     an::CatalogTextRequest request;
     request.schema =
@@ -49,12 +49,13 @@ an::Result<an::SkyCatalog> buildBundledCatalog(const an::ExecutionContext& execu
     }
     an::SkyCatalogRequest built;
     built.photometricBand = catalog == BundledCatalog::BrightStars ? "V" : "";
-    built.buildNameIndex = true;
+    built.buildNameIndex = nameIndex;
     return an::buildSkyCatalog(execution, std::move(parsed->entries), built);
 }
 
 an::Result<an::SkyCatalog> loadBundledCatalog(const an::consumer::EngineSession& session, const BundledCatalog catalog,
-                                              std::stop_token stop, const BundledCatalogSource& source)
+                                              std::stop_token stop, const BundledCatalogSource& source,
+                                              const bool nameIndex)
 {
     const an::Result<QByteArray> text = source ? source(catalog) : bundledCatalogText(catalog);
     if (!text.hasValue())
@@ -68,7 +69,7 @@ an::Result<an::SkyCatalog> loadBundledCatalog(const an::consumer::EngineSession&
         return scope.status();
     }
     return buildBundledCatalog(scope->execution(), catalog,
-                               std::string_view(text->constData(), static_cast<std::size_t>(text->size())));
+                               std::string_view(text->constData(), static_cast<std::size_t>(text->size())), nameIndex);
 }
 
 an::CatalogRegionQuery bundledCatalogRegionQuery(const BundledCatalog catalog, const an::SkyCoordinate& center,
