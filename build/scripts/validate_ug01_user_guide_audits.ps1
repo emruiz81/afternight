@@ -135,7 +135,7 @@ try
         '| Registered built-in actions | 122 |',
         '| Registered actions with no menu | 0 |',
         '| Direct-wired Process menu actions outside the registry | 3 |',
-        '| Direct-wired Image menu actions outside the registry | 33 |',
+        '| Direct-wired Image menu actions outside the registry | 34 |',
         '| Parity findings | 0 |',
         '| Pages missing one or more required headings | 3 |',
         '| Required-heading findings | 36 |',
