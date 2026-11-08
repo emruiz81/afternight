@@ -61,8 +61,9 @@ later selected components before composition.
 3. Choose **Color Space**. Confirm that the three labels change to the expected
    assignment, such as **Red / Green / Blue**, **L / a / b**, or **Y / Cb / Cr**.
 4. Select the first source and then the second and third sources. Reusing one
-   view is allowed, but its exposure is counted once per assignment when output
-   metadata is built.
+   view is allowed; when output metadata is built, its exposure counts once
+   when the view states an exposure start, and once per assignment when it
+   states none.
 5. Leave **Linear Match** off for already normalized channels and for hue/chroma
    component maps. Enable it only when comparable RGB intensity masters need
    scalar level/spread matching.
@@ -191,17 +192,38 @@ These are source-derived starting points, not executed visual prescriptions.
 - History records the selected mode's three source names, using `-` for an
   omitted source. It does not record Linear Match coefficients, accepted sample
   counts, sample type conversions, clipping counts, or alignment evidence.
-- The result's metadata is built from the assigned sources. Its exposure is the
-  sum of the exposures they state, recorded once; assigning the same source
-  repeatedly counts it repeatedly. The object, instrument, telescope, observer,
-  filter, sensor temperature, gain, binning, and exposure start are kept when
-  every assigned source states the same value and dropped otherwise.
+- The result's metadata is built from the assigned sources. With more than one,
+  its exposure is the light they hold together, recorded once: the sum, over
+  the distinct acquisitions, of each source's whole integration - its `TOTEXP`
+  card, else its `LIVETIME` card, else its exposure times its frame count
+  (`STACKCNT`, else `NCOMBINE`, else one). Three mono masters of 120 s
+  sub-exposures stating `TOTEXP` 25920, 18840 and 13800 give 58560 s, not
+  360 s. Sources that state the same exposure start are one acquisition - an
+  image and copies made of it, such as its starless image, its stars or a
+  channel taken out of it - and count once, with the largest integration and
+  the largest frame count any of them states, since a copy such as a StarNet
+  output may have lost its `TOTEXP` and `STACKCNT` cards. A source that states
+  no exposure start always counts on its own, so a view assigned twice counts
+  once only when it states an exposure start. One assigned source keeps its
+  own exposure. The observation start is the earliest any source states. The
+  object, instrument, telescope, observer, filter, sensor temperature, gain,
+  and binning are kept when every assigned source states the same value and
+  dropped otherwise.
 - The result keeps the header cards every assigned component states
   identically, but no exposure, processing-state or identity card of a
   component; a card the components state differently, or only some state, is
-  dropped. It keeps the first component's plate solution with its world
-  coordinate (WCS/SIP) cards, so the viewer, the astrometry window and a new
-  plate solve find that solution on the composed image.
+  dropped. Two kinds of card are kept although the components differ: the first
+  component's pointing cards (`RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`,
+  `OBJDEC`, `TELRA`, `TELDEC`), because the result is on its pixel grid, and
+  the observation-start cards (`DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`,
+  `MJD-BEG`, `TIME-OBS`), taken together from the component that began
+  earliest. With more than one component the result states its own `EXPTIME`
+  and `TOTEXP` as the exposure above, `LIVETIME` the same when a component
+  states one, and `STACKCNT` and `NCOMBINE` as the frame counts of the distinct
+  acquisitions summed, each when a component states it. It keeps the first
+  component's plate solution with its world coordinate (WCS/SIP) cards, so the
+  viewer, the astrometry window and a new plate solve find that solution on the
+  composed image.
 - The inherited processing state is cleared. RGB is marked linear only when
   every valid selected input is explicitly declared linear; it is marked
   nonlinear if any input is declared nonlinear, otherwise it stays unknown.
@@ -268,10 +290,13 @@ but use the full registered geometry for the final composition.
 - A sequence output takes the first component's container and frame count; an
   AVI or video container holds 8 bits, so a 16-bit composition written into one
   loses precision. Sequence sources need equal dimensions.
-- The result keeps only the header cards every component states identically
-  and the first component's WCS cards; it does not check that the other
-  components share the first one's geometry. The exposure is summed by
-  assignment.
+- The result keeps only the header cards every component states identically,
+  the first component's WCS and pointing cards and the earliest component's
+  observation-start cards, beside the exposure and frame counts it states
+  itself; it does not check that the other components share the first one's
+  geometry. The exposure is summed over distinct acquisitions: a view assigned
+  twice counts once when it states an exposure start, and at each assignment
+  when it states none.
 
 ## Troubleshooting
 

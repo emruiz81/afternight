@@ -614,11 +614,18 @@ nothing, its split overlay the second image presented by `presentForView` on a w
 first. A second image is snapshotted on the GUI thread and read under a lease of the run's own, cropped to a preview
 area as the framework crops the target (`LeasedImage`); `BoundImage` reads a frame decoded in its sensor's codes as
 fractions of full scale; a combination's record is built whole over its sources (`combinedResultMetadata`: the cards
-every source states identically, no exposure card of a combination) and a recombination's from the starless image's
-(`recombinedResultMetadata`), each with its processing-state cards. A second image is the asset the GUI thread chose
-because its view can close or change under the run; a combination's record is built over every source because one
-source's cards - its exposure, object and frame type - describe that source alone, and a recombination keeps the
-starless image's because a starless image and its stars are one frame in two parts. `Test_ProcessesCombinations`
+every source states identically and none of a source's exposure cards, the first source's pointing cards, the
+earliest source's observation start with its start cards, and an exposure that is the integration summed over the
+distinct acquisitions - each source's `TOTEXP`, else `LIVETIME`, else its exposure times its `STACKCNT` or `NCOMBINE`
+frames - stated in the combination's own `EXPTIME` and `TOTEXP` cards) and a recombination's from the starless
+image's (`recombinedResultMetadata`), each with its processing-state cards. A second image is the asset the GUI thread
+chose because its view can close or change under the run; a combination's record is built over every source because
+one source's cards - its exposure, object and frame type - describe that source alone; it points where the first
+source pointed because the result is on that source's grid, begins when the earliest source began, and counts the
+sources of one exposure start once, with the largest integration and frame count any of them states, because an image
+and the copies made of it - its starless image, its stars, a channel taken out of it - hold one acquisition's light,
+which a copy may have lost the cards to state; and a recombination keeps the starless image's because a starless
+image and its stars are one frame in two parts. `Test_ProcessesCombinations`
 holds the behavior records through the windows, every process's behavior dimensions, and what only one does - the
 comparison's modes, lens and histograms among them.
 

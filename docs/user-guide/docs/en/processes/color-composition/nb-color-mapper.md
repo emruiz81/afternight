@@ -269,18 +269,34 @@ The active-view mask is blended after all six stages. Mask weight `a` produces
   optional modification/colorization, before screen blend, background
   neutralization, combined-output STF, and active mask.
 - The primary output's metadata is built from every row - including excluded
-  and modifier-only rows - the first row leading. Its exposure is the sum of the
-  exposures the rows state, recorded once. The object, instrument, telescope,
-  observer, filter, sensor temperature, gain, binning, and exposure start are
-  kept when every row states the same value and dropped otherwise, so a filter
-  is kept only when every row shares it.
+  and modifier-only rows - the first row leading. With more than one row, its
+  exposure is the light the rows hold together, recorded once: the sum, over
+  the distinct acquisitions, of each row's whole integration - its `TOTEXP`
+  card, else its `LIVETIME` card, else its exposure times its frame count
+  (`STACKCNT`, else `NCOMBINE`, else one). Rows that state the same exposure
+  start are one acquisition - an image and copies made of it, such as its
+  starless image, its stars or a channel taken out of it - and count once,
+  with the largest integration and the largest frame count any of them states,
+  since a copy such as a StarNet output may have lost its `TOTEXP` and
+  `STACKCNT` cards; a row that states no exposure start always counts on its
+  own. One row keeps its own exposure. The observation start is the earliest
+  any row states. The object, instrument, telescope, observer, filter, sensor
+  temperature, gain, and binning are kept when every row states the same value
+  and dropped otherwise, so a filter is kept only when every row shares it.
 - The primary output keeps the header cards every row's image states
   identically, but no exposure, processing-state or identity card of a row; a
-  card the rows state differently, or only some state, is dropped. It keeps the
-  first row's plate solution with its world coordinate (WCS) cards, so the
-  viewer, the astrometry window and a new plate solve find it on the result. A
-  colorized layer image keeps its own
-  row's record whole, with the colorization appended to its lineage.
+  card the rows state differently, or only some state, is dropped, except the
+  first row's pointing cards (`RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`,
+  `OBJDEC`, `TELRA`, `TELDEC`), kept because the result is on its grid, and the
+  observation-start cards (`DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`,
+  `MJD-BEG`, `TIME-OBS`), taken together from the row that began earliest.
+  With more than one row the output states its own `EXPTIME` and `TOTEXP` as
+  the exposure above, `LIVETIME` the same when a row states one, and
+  `STACKCNT` and `NCOMBINE` as the frame counts of the distinct acquisitions
+  summed, each when a row states it. It keeps the first row's plate solution
+  with its world coordinate (WCS) cards, so the viewer, the astrometry window
+  and a new plate solve find it on the result. A colorized layer image keeps
+  its own row's record whole, with the colorization appended to its lineage.
 - The primary output is always marked nonlinear with operation provenance
   `nb-color-mapper`, whether or not final STF is checked. Auxiliary colorized
   layers are marked nonlinear with `nb-color-mapper-layer`.

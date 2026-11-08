@@ -209,9 +209,11 @@ the image - its samples and every metadata object, the header cards and EXIF
 fields among them - into a new image that has never been a file; focused tests
 verify that the WCS, solver and projection survive two such duplicate
 generations. An image a combination makes - a blend, LRGB or channel
-combination - carries the exposure once, as the sum, with the sources'
-`EXPOSURE`/`EXPTIME` cards dropped, and keeps the observation start, the
-airmass, a shared filter and every other card only when every source states it.
+combination - carries the exposure once, as the integration of the distinct
+acquisitions it combines summed, with the sources' `EXPOSURE`/`EXPTIME` cards
+replaced by its own `EXPTIME` and `TOTEXP`; it keeps the first source's
+pointing cards and the earliest source's observation start, and the airmass, a
+shared filter and every other card only when every source states it.
 
 That in-memory rule is not a universal file-format guarantee. A FITS save writes
 the image's cards with the structural cards generated from the output and the

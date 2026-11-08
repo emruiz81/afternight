@@ -207,15 +207,28 @@ A pixel either image's validity rejects keeps the target's samples.
   report, preset, or direct disk file.
 - Output dimensions are the common input dimensions, and the output is in the
   RGB target's representation whatever the luminance's.
-- The result's metadata is built from both images. Its exposure is the sum of
-  the exposures the target and the luminance state, recorded once; their
-  `EXPOSURE` and `EXPTIME` cards are dropped. The object, instrument, telescope,
-  observer, filter, sensor temperature, gain, binning, and exposure start are
-  kept when both images state the same value; every other header card of the
-  target is kept only when the luminance states it identically.
-- The RGB target's world coordinate (WCS) cards and plate solution are kept,
-  because the pixel grid is the target's. The process does not verify that the
-  luminance shares that geometry.
+- The result's metadata is built from both images. Its exposure is the light
+  they hold together, recorded once: each image's whole integration - its
+  `TOTEXP` card, else its `LIVETIME` card, else its exposure times its frame
+  count (`STACKCNT`, else `NCOMBINE`, else one) - summed. Two images that state
+  the same exposure start are one acquisition - an image and a copy made of
+  it, such as a lightness channel taken out of it - and count once, with the
+  larger integration and the larger frame count either states, since a copy
+  may have lost its `TOTEXP` and `STACKCNT` cards. Their `EXPOSURE` and
+  `EXPTIME` cards are dropped; the result states its own `EXPTIME` and
+  `TOTEXP` as that total, `LIVETIME` the same when either image states one,
+  and `STACKCNT` and `NCOMBINE` as their frame counts, summed the same way,
+  each when either image states it.
+- The observation start is the earliest either image states, and its
+  `DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` cards
+  are taken together from that image. The object, instrument, telescope,
+  observer, filter, sensor temperature, gain, and binning are kept when both
+  images state the same value; every other header card of the target is kept
+  only when the luminance states it identically.
+- The RGB target's world coordinate (WCS) cards, plate solution and pointing
+  cards (`RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA`,
+  `TELDEC`) are kept, because the pixel grid is the target's. The process does
+  not verify that the luminance shares that geometry.
 - Output processing state is always marked nonlinear/display RGB with operation
   provenance `lrgb-combination`, or `lrgb-mtf-combination` when either MTF is
   not `0.5`. This happens even if the inputs carried linear declarations.

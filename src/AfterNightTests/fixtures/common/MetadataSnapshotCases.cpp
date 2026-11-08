@@ -192,7 +192,7 @@ std::vector<FixtureImage> makeInputs()
 constexpr const char* kKindSource = "src/AfterNightProcesses/processes/ImageIntegration/core/FrameDetection.cpp:59";
 constexpr const char* kKindText =
     "the workflow reads a frame's kind from IMAGETYP, bias and zero before dark, flat, then light and science";
-constexpr const char* kCombineSource = "src/AfterNightEngine/include/AfterNightEngine/IO/CombinedMetadata.h:75";
+constexpr const char* kCombineSource = "src/AfterNightEngine/include/AfterNightEngine/IO/CombinedMetadata.h:91";
 constexpr const char* kCombineText =
     "a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes "
     "the filter and clears the processing state";
@@ -237,7 +237,6 @@ constexpr std::uint32_t number(std::uint32_t keyword) noexcept
 }
 
 constexpr std::uint32_t kFilter = 3u;
-constexpr std::uint32_t kDateObs = 10u;
 constexpr std::uint32_t kAirmass = 11u;
 constexpr std::uint32_t kExposureTime = 12u;
 
@@ -265,35 +264,38 @@ std::vector<MetadataSnapshotCase> makeCases()
 
     constexpr MetadataSnapshotCaseKind kCombine = MetadataSnapshotCaseKind::Combination;
     const std::string perFileReason =
-        "a card is kept only when every source states it the same way, the exposure cards go because the "
-        "combination's exposure is none of its sources', and the filter stays when every source shares it; the "
-        "record keeps its first source's observation time, airmass and EXPTIME - which then contradict the "
-        "EXPOSURE it states - and always removes the filter";
-    cases.push_back(
-        accepted(exact("combine.metadata", "combine-luminance-1", kCombine, kCombineText, kCombineSource,
-                       {"combine-luminance-2"}),
-                 perFileReason, 1.0,
-                 {stated(kFilter), stated(kDateObs), stated(kAirmass), number(kAirmass), stated(kExposureTime),
-                  number(kExposureTime)},
-                 "presence flags differ by one; the first source's airmass and exposure time against no number"));
+        "a card is kept only when every source states it the same way, the filter stays when every source shares "
+        "it, and the combination states the integration it holds - its sources' summed - as EXPTIME; the record "
+        "keeps its first source's airmass and EXPTIME, which then contradict the EXPOSURE it states, and always "
+        "removes the filter";
+    // The observation time is the earliest source's, which in every case here is the first source's, as the record's.
+    cases.push_back(accepted(exact("combine.metadata", "combine-luminance-1", kCombine, kCombineText, kCombineSource,
+                                   {"combine-luminance-2"}),
+                             perFileReason, 300.0,
+                             {stated(kFilter), stated(kAirmass), number(kAirmass), number(kExposureTime)},
+                             "presence flags differ by one; the first source's airmass against no number; the two "
+                             "sources' 600 seconds against the first's 300"));
     cases.push_back(accepted(
         exact("combine.metadata", "combine-luminance-1", kCombine, kCombineText, kCombineSource, {"combine-colour"}),
-        perFileReason, 1.0,
-        {stated(kDateObs), stated(kAirmass), number(kAirmass), stated(kExposureTime), number(kExposureTime)},
-        "presence flags differ by one; the first source's airmass and exposure time against no number"));
+        perFileReason, 120.0, {stated(kAirmass), number(kAirmass), number(kExposureTime)},
+        "a presence flag differs by one; the first source's airmass against no number; the two sources' 420 seconds "
+        "against the first's 300"));
     cases.back().operation = "combine.lrgb";
     cases.push_back(
         accepted(exact("combine.metadata", "combine-ha-1", kCombine, kCombineText, kCombineSource, {"combine-ha-2"}),
-                 perFileReason, 1.0, {stated(kFilter), stated(kExposureTime), number(kExposureTime)},
-                 "presence flags differ by one; the first source's exposure time against no number"));
-    cases.push_back(accepted(
-        exact("combine.metadata", "combine-ha-2", kCombine, kCombineText, kCombineSource, {"combine-unexposed-1"}),
-        perFileReason, 1.0, {stated(kExposureTime), number(kExposureTime)},
-        "a presence flag differs by one; the first source's exposure time against no number"));
+                 perFileReason, 600.0, {stated(kFilter), number(kExposureTime)},
+                 "a presence flag differs by one; the two sources' 1200 seconds against the first's 600"));
+    // The integration of the one source that states an exposure is the first source's EXPTIME, as the record keeps.
+    cases.push_back(
+        exact("combine.metadata", "combine-ha-2", kCombine, kCombineText, kCombineSource, {"combine-unexposed-1"}));
     cases.push_back(exact("combine.metadata", "combine-unexposed-1", kCombine, kCombineText, kCombineSource,
                           {"combine-unexposed-2"}));
-    cases.push_back(exact("combine.metadata", "combine-exposure-card", kCombine, kCombineText, kCombineSource,
-                          {"combine-exposure-card"}));
+    cases.push_back(accepted(exact("combine.metadata", "combine-exposure-card", kCombine, kCombineText, kCombineSource,
+                                   {"combine-exposure-card"}),
+                             "the combination states the integration it holds - both copies' summed, since neither "
+                             "states when it began - as EXPTIME; the record states no EXPTIME",
+                             1.0, {stated(kExposureTime), number(kExposureTime)},
+                             "a presence flag differs by one; the integration against no number"));
 
     for (const char* input : {"history-u8", "history-i8", "history-u16", "history-i16", "history-u32", "history-i32",
                               "history-f32", "history-f64", "history-rgb-f32", "history-rgb-u16", "history-mosaic-u16"})

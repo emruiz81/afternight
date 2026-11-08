@@ -211,19 +211,36 @@ intensity is zero, output remains black because `M=0` skips division.
   simply `<palette> Narrowband Palette`. The final name is captured with the
   pixel parameters before the background worker starts.
 - The result's metadata is built from every selected source in role order Ha,
-  OIII, SII, OSC1, OSC2. Its exposure is the sum of the exposures they state,
-  recorded once. The object, instrument, telescope, observer, filter, sensor
-  temperature, gain, binning, and exposure start are kept when every selected
-  source states the same value and dropped otherwise, so a filter is kept only
-  when every source shares it.
+  OIII, SII, OSC1, OSC2. With more than one, its exposure is the light they
+  hold together, recorded once: the sum, over the distinct acquisitions, of
+  each source's whole integration - its `TOTEXP` card, else its `LIVETIME`
+  card, else its exposure times its frame count (`STACKCNT`, else `NCOMBINE`,
+  else one). Sources that state the same exposure start are one acquisition -
+  an image and copies made of it, such as its starless image, its stars or a
+  channel taken out of it - and count once, with the largest integration and
+  the largest frame count any of them states, since a copy such as a StarNet
+  output may have lost its `TOTEXP` and `STACKCNT` cards; a source that states
+  no exposure start always counts on its own. One selected source keeps its own
+  exposure. The observation start is the earliest any source states. The
+  object, instrument, telescope, observer, filter, sensor temperature, gain,
+  and binning are kept when every selected source states the same value and
+  dropped otherwise, so a filter is kept only when every source shares it.
 - The result keeps the header cards every selected source states identically,
   but no exposure, processing-state or identity card of a source; a card the
-  sources state differently, or only some state, is dropped. It keeps the first
-  selected source's plate solution with its world coordinate (WCS) cards only
-  when the result keeps that source's size. When it does not - the first source
-  was resized to the reference's size, or the reference was synthesized from a
-  one-shot-colour source of another size - the result carries no solution,
-  because that solution would label another pixel grid.
+  sources state differently, or only some state, is dropped, except the first
+  selected source's pointing cards (`RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`,
+  `OBJRA`, `OBJDEC`, `TELRA`, `TELDEC`) and the observation-start cards
+  (`DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG`, `TIME-OBS`), taken
+  together from the source that began earliest. With more than one source the
+  result states its own `EXPTIME` and `TOTEXP` as the exposure above,
+  `LIVETIME` the same when a source states one, and `STACKCNT` and `NCOMBINE`
+  as the frame counts of the distinct acquisitions summed, each when a source
+  states it. It keeps the first selected source's plate solution with its
+  world coordinate (WCS) cards only when the result keeps that source's size.
+  When it does not - the first source was resized to the reference's size, or
+  the reference was synthesized from a one-shot-colour source of another size -
+  the result carries no solution, because that solution would label another
+  pixel grid.
 - The output is always marked nonlinear with operation provenance
   `narrowband-palette-composer`, including when Input autostretch is off.
 - Apply records “Created `<palette>` Narrowband Palette Composer image,” then
