@@ -11,17 +11,14 @@
 #include "controls/annotation/AnnotationRenderer.h"
 #include "controls/annotation/AnnotationScene.h"
 #include "controls/annotation/AnnotationSettings.h"
-#include "theme/AnDesignTokens.h"
 #include "widgets/ImageViewWidget.h"
 
 #include <QCoreApplication>
-#include <QFont>
 #include <QMetaObject>
 #include <QPainter>
 #include <QPointer>
 #include <QThreadPool>
 
-#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -37,19 +34,6 @@ namespace
 /// into it.
 constexpr double kDeepSkyMarginDegrees = 2.0;
 constexpr double kStarMarginDegrees = 1.0;
-
-/// A label's size on the screen: the theme's caption, in the widget's pixels. A caption stated in points is set at the
-/// widget's logical resolution, which needs no font of the platform's: one with none resolves no pixel size.
-[[nodiscard]] double labelPixels(const QWidget& widget)
-{
-    const QFont caption = an::ui::tokens().typography.caption;
-    if (caption.pixelSize() > 0)
-    {
-        return caption.pixelSize();
-    }
-    const double points = caption.pointSizeF() > 0.0 ? caption.pointSizeF() : 9.0;
-    return points * (std::max)(1, widget.logicalDpiY()) / 72.0;
-}
 
 /// What a layout is made of: the layers' scenes, the view's scale and a label's size on the screen.
 struct LayoutKey
@@ -178,7 +162,7 @@ void CatalogAnnotationDisplayModule::onDraw(QPainter& painter)
     // draws nothing, and the layout waits for a query still on its way.
     LayoutKey key;
     key.scale = scale;
-    key.fontPixels = labelPixels(*view_widget);
+    key.fontPixels = detail::overlayLabelPixels(*view_widget);
     bool waiting = false;
     const auto sceneOf = [&](detail::FieldCatalogQueries& queries) -> std::shared_ptr<const AnnotationScene> {
         const std::shared_ptr<const detail::FieldCatalogEntries> answer =

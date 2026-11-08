@@ -1788,13 +1788,13 @@ sources Test_ImageViewControl
     unit     src/AfterNightTests/Test_ImageViewControl/test_close_lifecycle.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_coalesced_gui_update.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_comparison_image_generator.cpp
-    unit     src/AfterNightTests/Test_ImageViewControl/test_coordinate_grid_display_module.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_distortion_map_display_module.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_image_history_lineage.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_image_history_safety.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_image_loading.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_listener_notification.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_mask_operations.cpp
+    unit     src/AfterNightTests/Test_ImageViewControl/test_sexagesimal_formatter.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_split_comparison_display_module.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_static_preview_behavior.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_status_bar_coordinates.cpp
@@ -1826,7 +1826,6 @@ sources Test_ImageViewControl
     header   src/AfterNightControls/controls/CalibrationPreviewUtils.h
     header   src/AfterNightControls/controls/CatalogAnnotationDisplayModule.h
     header   src/AfterNightControls/controls/ComparisonImageGenerator.h
-    header   src/AfterNightControls/controls/CoordinateGridDisplayModule.h
     header   src/AfterNightControls/controls/DistortionMapDisplayModule.h
     header   src/AfterNightControls/controls/DockableControl.h
     header   src/AfterNightControls/controls/GlobalViewControlActions.h

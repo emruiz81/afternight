@@ -861,6 +861,90 @@ TEST(AnnotationDrawing, AFillTintsAnOutlinedObjectAndLeavesBracketsAndRegionsCle
     EXPECT_EQ(alphaAt(drawn(region, style), centre + QPointF(300.0, 0.0)), 0);
 }
 
+// The grid of a part of the image - what a view shows of it - is spaced for that part, as a picture's grid is for its
+// whole frame: a corner a tenth of the field across takes lines spaced for a tenth of the field.
+TEST(AnnotationScene, TheGridOfAPartOfTheImageIsSpacedForThatPart)
+{
+    const std::optional<an::WcsSolution> solution = solutionOf(fieldCards(), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    const QRectF corner(0.0, 0.0, kWidth / 10.0, kHeight / 10.0);
+    const std::vector<an::ui::AnnotationGridLine> lines =
+        an::ui::buildAnnotationGrid(*solution, corner, an::ui::AnnotationGridDensity::Normal);
+
+    int declinations = 0;
+    int rightAscensions = 0;
+    for (const an::ui::AnnotationGridLine& line : lines)
+    {
+        for (const QPolygonF& segment : line.segments)
+        {
+            for (const QPointF& point : segment)
+            {
+                EXPECT_TRUE(corner.adjusted(-1.0e-6, -1.0e-6, 1.0e-6, 1.0e-6).contains(point));
+            }
+        }
+        (line.rightAscension ? rightAscensions : declinations) += 1;
+    }
+    EXPECT_GE(declinations, 3);
+    EXPECT_GE(rightAscensions, 3);
+}
+
+// A field across right ascension zero is gridded on both sides of it, its lines labelled in the hours that end and
+// begin the day, every point a finite place in the frame.
+TEST(AnnotationScene, AGridAcrossRightAscensionZeroIsDrawnOnBothSides)
+{
+    const std::optional<an::WcsSolution> solution =
+        solutionOf(tangentPlaneCards(northUpPlane(200.5, 150.5, 0.25, 10.0, 0.01)), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    const QRectF frame(0.0, 0.0, kWidth, kHeight);
+    const std::vector<an::ui::AnnotationGridLine> lines =
+        an::ui::buildAnnotationGrid(*solution, frame, an::ui::AnnotationGridDensity::Normal);
+
+    bool endsTheDay = false;
+    bool beginsTheDay = false;
+    for (const an::ui::AnnotationGridLine& line : lines)
+    {
+        for (const QPolygonF& segment : line.segments)
+        {
+            for (const QPointF& point : segment)
+            {
+                EXPECT_TRUE(std::isfinite(point.x()) && std::isfinite(point.y()));
+            }
+        }
+        if (line.rightAscension)
+        {
+            endsTheDay = endsTheDay || line.label.startsWith(QStringLiteral("23h"));
+            beginsTheDay = beginsTheDay || line.label.startsWith(QStringLiteral("00h"));
+        }
+    }
+    EXPECT_TRUE(endsTheDay);
+    EXPECT_TRUE(beginsTheDay);
+}
+
+// A field holding the pole, where every hour of right ascension meets, is gridded around it, inside its frame.
+TEST(AnnotationScene, AGridAboutThePoleStaysInsideItsFrame)
+{
+    const std::optional<an::WcsSolution> solution =
+        solutionOf(tangentPlaneCards(northUpPlane(200.5, 150.5, 0.0, 89.5, 0.01)), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    const QRectF frame(0.0, 0.0, kWidth, kHeight);
+    const std::vector<an::ui::AnnotationGridLine> lines =
+        an::ui::buildAnnotationGrid(*solution, frame, an::ui::AnnotationGridDensity::Normal);
+
+    int rightAscensions = 0;
+    for (const an::ui::AnnotationGridLine& line : lines)
+    {
+        for (const QPolygonF& segment : line.segments)
+        {
+            for (const QPointF& point : segment)
+            {
+                EXPECT_TRUE(frame.adjusted(-1.0e-6, -1.0e-6, 1.0e-6, 1.0e-6).contains(point));
+            }
+        }
+        rightAscensions += line.rightAscension ? 1 : 0;
+    }
+    EXPECT_GE(rightAscensions, 6) << "the hours meet at the pole";
+}
+
 // The cells a layout keeps its placed boxes in are four labels' sizes, but text set a fraction of a pixel tall against
 // a large frame - a view zoomed far into a large image - never makes more of them than a bound.
 TEST(AnnotationLayout, ALayoutsCellsStayBoundedHoweverSmallItsTextIsSet)

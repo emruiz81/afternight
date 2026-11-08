@@ -11,6 +11,7 @@
 #include "controls/annotation/AnnotationScene.h"
 #include "controls/annotation/AnnotationSettings.h"
 #include "session/IEngineSessionProvider.h"
+#include "theme/AnDesignTokens.h"
 #include "widgets/ImageViewWidget.h"
 
 #include <AfterNightPlatform/Logging.h>
@@ -19,6 +20,7 @@
 #include <AfterNightEngine/Runtime/ExecutionContext.h>
 
 #include <QCoreApplication>
+#include <QFont>
 #include <QMetaObject>
 #include <QScrollBar>
 #include <QThreadPool>
@@ -239,6 +241,63 @@ OverlayAnnotationLayout layoutOverlayAnnotations(const AnnotationScene* deepSky,
     result.scene = std::move(shown);
     result.layout = std::move(layout);
     return result;
+}
+
+OverlayGridLayout layoutOverlayGrid(const an::WcsSolution& solution, const QRectF& part, const double scale,
+                                    const double fontPixels, const AnnotationStyle& style)
+{
+    OverlayGridLayout result;
+    if (!part.isValid() || part.isEmpty() || !std::isfinite(scale) || !(scale > 0.0) || !std::isfinite(fontPixels) ||
+        !(fontPixels > 0.0))
+    {
+        return result;
+    }
+    const double unitFont = annotationMetrics(1.0, style).fontSize;
+    if (!(unitFont > 0.0))
+    {
+        return result;
+    }
+
+    // The part as a frame of its own, its origin at the part's corner: the picture's layout sets the grid's labels
+    // where the lines meet the frame's edges, the edges of what the view shows.
+    std::vector<AnnotationGridLine> lines = buildAnnotationGrid(solution, part, AnnotationGridDensity::Normal);
+    const QPointF origin = part.topLeft();
+    for (AnnotationGridLine& line : lines)
+    {
+        for (QPolygonF& segment : line.segments)
+        {
+            segment.translate(-origin);
+        }
+        for (AnnotationGridLine::Crossing& crossing : line.crossings)
+        {
+            crossing.point -= origin;
+        }
+    }
+    auto scene = std::make_shared<AnnotationScene>();
+    scene->imageSize = QSize(static_cast<int>(std::ceil(part.width())), static_cast<int>(std::ceil(part.height())));
+    scene->referenceLength = fontPixels / (scale * unitFont);
+    scene->grid = std::move(lines);
+
+    AnnotationContent content;
+    content.layers = AnnotationLayers{
+        .grid = true, .deepSky = false, .stars = false, .compass = false, .scaleBar = false, .infoPanel = false};
+    content.gridLabels = true;
+    auto layout = std::make_shared<AnnotationLayout>(layoutAnnotations(*scene, content, style));
+    result.scene = std::move(scene);
+    result.layout = std::move(layout);
+    result.origin = origin;
+    return result;
+}
+
+double overlayLabelPixels(const QWidget& widget)
+{
+    const QFont caption = an::ui::tokens().typography.caption;
+    if (caption.pixelSize() > 0)
+    {
+        return caption.pixelSize();
+    }
+    const double points = caption.pointSizeF() > 0.0 ? caption.pointSizeF() : 9.0;
+    return points * (std::max)(1, widget.logicalDpiY()) / 72.0;
 }
 
 struct FieldCatalogQueries::State

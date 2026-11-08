@@ -29,6 +29,7 @@
 
 #include <QPointF>
 #include <QPolygonF>
+#include <QRectF>
 #include <QSize>
 #include <QString>
 
@@ -226,6 +227,18 @@ struct AnnotationSceneSources
 /// @return the scene; an empty one without a solution.
 [[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationScene buildAnnotationScene(const AnnotationSceneSources& sources,
                                                                           const AnnotationContent& content);
+
+/// The equatorial grid of a part of an image - the whole frame a picture draws, or the part a view shows: the lines of
+/// constant declination and right ascension at the round steps the part's own sky calls for at a density, clipped to
+/// the part, with where they meet its edges and their labels. A scene's grid is the grid of its whole frame.
+///
+/// @param solution the image's solution.
+/// @param frame the part, in the image's own pixels.
+/// @param density the density.
+/// @return the lines, of declination first, each set in increasing coordinate; none for an empty part or one the
+///         solution places no sky in.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::vector<AnnotationGridLine>
+buildAnnotationGrid(const an::WcsSolution& solution, const QRectF& frame, AnnotationGridDensity density);
 
 /// The grid's spacing for a span of declination or right ascension and a density: the round step that draws about the
 /// density's number of lines across the span.

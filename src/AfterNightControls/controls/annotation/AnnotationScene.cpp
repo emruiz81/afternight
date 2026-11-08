@@ -6,7 +6,6 @@
 
 #include "SexagesimalFormatter.h"
 #include "controls/CatalogAnnotationDisplayModule.h"
-#include "controls/CoordinateGridDisplayModule.h"
 #include "controls/ImageAstrometryInfoFormatter.h"
 
 #include <QCoreApplication>
@@ -350,8 +349,24 @@ void clipIntoFrame(const std::vector<std::optional<QPointF>>& points, const QRec
     return QPointF(pixel->x, pixel->y);
 }
 
-/// The sky the frame covers: the right ascension span about the centre's and the declination span, each pole the
-/// frame holds opening the right ascension to the whole circle.
+/// The shortest turn from one right ascension to another, in degrees: negative westward, never past half a circle.
+[[nodiscard]] double shortestAngularDistanceDegrees(const double fromDegrees, const double toDegrees)
+{
+    double delta = an::normalizeRightAscensionDegrees(toDegrees) - an::normalizeRightAscensionDegrees(fromDegrees);
+    if (delta > 180.0)
+    {
+        delta -= 360.0;
+    }
+    else if (delta < -180.0)
+    {
+        delta += 360.0;
+    }
+    return delta;
+}
+
+/// The sky the frame covers: the right ascension span about its centre's and the declination span, each pole the
+/// frame holds opening the right ascension to the whole circle. Measured from the frame's own centre, so a part of the
+/// image - what a view shows - spans only its own sky.
 struct FieldExtent
 {
     double rightAscensionStart = 0.0;
@@ -362,7 +377,12 @@ struct FieldExtent
 
 [[nodiscard]] std::optional<FieldExtent> fieldExtentOf(const an::WcsSolution& solution, const QRectF& frame)
 {
-    const an::Result<an::SkyCoordinate> centre = solution.fieldCenter();
+    an::Result<an::SkyCoordinate> centre =
+        solution.pixelToWorld(an::PixelCoordinate{.x = frame.center().x(), .y = frame.center().y()});
+    if (!centre.hasValue())
+    {
+        centre = solution.fieldCenter();
+    }
     if (!centre.hasValue())
     {
         return std::nullopt;
@@ -377,8 +397,7 @@ struct FieldExtent
         {
             return;
         }
-        const double offset =
-            detail::shortestAngularDistanceDegrees(centre->rightAscensionDegrees, sky->rightAscensionDegrees);
+        const double offset = shortestAngularDistanceDegrees(centre->rightAscensionDegrees, sky->rightAscensionDegrees);
         raLow = (std::min)(raLow, offset);
         raHigh = (std::max)(raHigh, offset);
         decLow = (std::min)(decLow, sky->declinationDegrees);
@@ -424,7 +443,7 @@ struct FieldExtent
 }
 
 [[nodiscard]] std::vector<AnnotationGridLine> buildGrid(const an::WcsSolution& solution, const QRectF& frame,
-                                                        const AnnotationContent& content)
+                                                        const AnnotationGridDensity density)
 {
     std::vector<AnnotationGridLine> lines;
     const std::optional<FieldExtent> extent = fieldExtentOf(solution, frame);
@@ -438,8 +457,8 @@ struct FieldExtent
     {
         return lines;
     }
-    const double decStep = annotationGridSpacingDegrees(decSpan, false, content.gridDensity);
-    const double raStep = annotationGridSpacingDegrees(raSpan, true, content.gridDensity);
+    const double decStep = annotationGridSpacingDegrees(decSpan, false, density);
+    const double raStep = annotationGridSpacingDegrees(raSpan, true, density);
 
     // Lines of constant declination, sampled along the right ascension the frame spans and a step past it each way.
     const double raFrom = extent->rightAscensionStart - raStep;
@@ -1067,6 +1086,16 @@ AnnotationMarkKind annotationKindOfType(const std::string_view objectType) noexc
     return AnnotationMarkKind::OtherObject;
 }
 
+std::vector<AnnotationGridLine> buildAnnotationGrid(const an::WcsSolution& solution, const QRectF& frame,
+                                                    const AnnotationGridDensity density)
+{
+    if (!frame.isValid() || frame.isEmpty())
+    {
+        return {};
+    }
+    return buildGrid(solution, frame, density);
+}
+
 AnnotationScene buildAnnotationScene(const AnnotationSceneSources& sources, const AnnotationContent& content)
 {
     AnnotationScene scene;
@@ -1085,7 +1114,7 @@ AnnotationScene buildAnnotationScene(const AnnotationSceneSources& sources, cons
 
     if (content.layers.grid)
     {
-        scene.grid = buildGrid(solution, frame, content);
+        scene.grid = buildGrid(solution, frame, content.gridDensity);
     }
     if (content.layers.deepSky)
     {

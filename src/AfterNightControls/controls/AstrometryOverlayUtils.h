@@ -78,7 +78,7 @@ struct OverlayViewState
 
 // Returns the visible widget rectangle, accounting for scroll position,
 // or the full widget rect if scrollbars are not visible.
-[[nodiscard]] QRectF visibleOverlayWidgetRect(ImageViewControl* control);
+[[nodiscard]] AFTERNIGHTCONTROLS_API QRectF visibleOverlayWidgetRect(ImageViewControl* control);
 
 /// The sky the visible part of an image covers: the direction at its centre, and the radius of the cone that holds the
 /// directions sampled along its edges.
@@ -133,6 +133,43 @@ struct OverlayAnnotationLayout
                                                                                       const AnnotationScene* stars,
                                                                                       double scale, double fontPixels,
                                                                                       const AnnotationStyle& style);
+
+/// What a view's grid draws: an annotated picture's grid of the part of the image the view shows, as a scene whose
+/// frame is that part, and where the grid's labels go at its edges.
+struct OverlayGridLayout
+{
+    /// The grid, its frame the part shown with its origin at the part's top-left corner.
+    std::shared_ptr<const AnnotationScene> scene;
+
+    /// Where the grid's labels go.
+    std::shared_ptr<const AnnotationLayout> layout;
+
+    /// Where the scene's origin lies in the image, in its own pixels.
+    QPointF origin;
+};
+
+/// Lays out the equatorial grid of the part of an image a view shows, as an annotated picture lays out its grid: the
+/// picture's lines of that part (`buildAnnotationGrid`), spaced for the part's own sky, labelled where they meet its
+/// edges, every length set so a label is `fontPixels` tall on the screen at `scale`.
+///
+/// @param solution the image's solution.
+/// @param part the part shown, in the image's own pixels.
+/// @param scale the view's scale: its widget's pixels to the image's.
+/// @param fontPixels a label's size on the screen, in the widget's pixels.
+/// @param style the style the grid is drawn in.
+/// @return the layout; an empty one for an empty part or a scale or size that is not positive.
+[[nodiscard]] AFTERNIGHTCONTROLS_API OverlayGridLayout layoutOverlayGrid(const an::WcsSolution& solution,
+                                                                         const QRectF& part, double scale,
+                                                                         double fontPixels,
+                                                                         const AnnotationStyle& style);
+
+/// The size an overlay's label is set at on the screen: the theme's caption, in a widget's pixels. A caption stated in
+/// points is set at the widget's logical resolution, which needs no font of the platform's: a platform with none
+/// resolves no pixel size.
+///
+/// @param widget the widget the label is drawn on.
+/// @return the size, in the widget's pixels.
+[[nodiscard]] AFTERNIGHTCONTROLS_API double overlayLabelPixels(const QWidget& widget);
 
 /// The entries a bundled catalog holds inside an image's field, at a magnitude limit, as a worker found them.
 struct FieldCatalogEntries

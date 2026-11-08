@@ -24,6 +24,9 @@
 #include <AfterNightEngine/Algorithms/Catalog/CatalogRecord.h>
 #include <AfterNightEngine/Algorithms/Stars/StarDetectionChannels.h>
 
+#include <QPoint>
+#include <QRectF>
+#include <QStringList>
 #include <QThreadPool>
 
 #include <gtest/gtest.h>
@@ -318,6 +321,64 @@ TEST_F(AstrometryOverlaysTest, TheGridDrawsLinesOverASolvedImageAndNoneOverAnUns
     EXPECT_FALSE(m_view->imageSolution().has_value());
     paint();
     EXPECT_EQ(grid->projectedLineCount(), 0);
+}
+
+// The view's grid is an annotated picture's grid of the part the view shows: its lines are the picture's, spaced for
+// that part, and its labels are written as the picture writes them.
+TEST_F(AstrometryOverlaysTest, TheViewsGridIsThePicturesGridOfThePartShown)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CoordinateGrid);
+    auto* grid = dynamic_cast<an::ui::CoordinateGridDisplayModule*>(overlay.get());
+    ASSERT_NE(grid, nullptr);
+    m_view->getViewWidget()->scaleImageView(3.0, true);
+    m_view->setViewportOffset(QPoint(240, 180));
+    paint();
+
+    const double scale = m_view->getViewWidget()->getCurrentScaleFactor();
+    const QRectF visible = an::ui::detail::visibleOverlayWidgetRect(m_view.get());
+    const QRectF part(visible.left() / scale, visible.top() / scale, visible.width() / scale, visible.height() / scale);
+    const std::vector<an::ui::AnnotationGridLine> pictures =
+        an::ui::buildAnnotationGrid(*m_view->imageSolution(), part, an::ui::AnnotationGridDensity::Normal);
+    QStringList expected;
+    for (const an::ui::AnnotationGridLine& line : pictures)
+    {
+        expected.push_back(line.label);
+    }
+    ASSERT_FALSE(expected.isEmpty());
+    EXPECT_EQ(grid->projectedLineCount(), static_cast<int>(pictures.size()));
+
+    const QVector<QString> labels = grid->projectedLabels();
+    ASSERT_FALSE(labels.isEmpty());
+    for (const QString& label : labels)
+    {
+        EXPECT_TRUE(expected.contains(label)) << label.toStdString();
+    }
+}
+
+// The grid's labels keep their size on the screen at every zoom and lie inside the part of the image the view shows.
+TEST_F(AstrometryOverlaysTest, TheGridsLabelsKeepTheirSizeOnTheScreenAndLieInsideThePartShown)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CoordinateGrid);
+    auto* grid = dynamic_cast<an::ui::CoordinateGridDisplayModule*>(overlay.get());
+    ASSERT_NE(grid, nullptr);
+
+    QVector<double> heights;
+    for (const double zoom : {1.0, 3.0})
+    {
+        m_view->getViewWidget()->scaleImageView(zoom, true);
+        paint();
+        const QVector<QRectF> boxes = grid->projectedLabelBoxes();
+        ASSERT_FALSE(boxes.isEmpty()) << "zoom " << zoom;
+        const QRectF visible = an::ui::detail::visibleOverlayWidgetRect(m_view.get());
+        for (const QRectF& box : boxes)
+        {
+            EXPECT_TRUE(visible.adjusted(-1.0, -1.0, 1.0, 1.0).contains(box)) << "zoom " << zoom;
+        }
+        heights.push_back(boxes.front().height());
+    }
+    EXPECT_NEAR(heights[1], heights[0], 0.5);
 }
 
 TEST_F(AstrometryOverlaysTest, TheDistortionMapSamplesAForwardPolynomialAndNothingElse)
