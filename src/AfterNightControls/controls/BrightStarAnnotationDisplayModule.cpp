@@ -8,6 +8,9 @@
 #include "app/BundledCatalogs.h"
 #include "controls/AstrometryOverlayUtils.h"
 #include "controls/ImageViewControl.h"
+#include "controls/annotation/AnnotationLayout.h"
+#include "controls/annotation/AnnotationScene.h"
+#include "controls/annotation/AnnotationSettings.h"
 #include "theme/AnDesignTokens.h"
 
 #include <AfterNightPlatform/Logging.h>
@@ -20,6 +23,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -29,8 +33,8 @@ namespace an::ui
 namespace
 {
 
-/// How far past the visible sky a star may lie and still be considered: its label may reach into the view.
-constexpr double kVisibleMarginDegrees = 1.0;
+/// How far past the image's field the catalog is asked.
+constexpr double kFieldMarginDegrees = 1.0;
 
 /// The most stars labelled at once. Labels never cover one another, so a view rarely holds this many; the bound
 /// keeps a wide field zoomed out to a fixed cost however many stars the catalog has in it.
@@ -160,7 +164,8 @@ struct CacheKey
 
 struct BrightStarAnnotation
 {
-    const an::CatalogEntry* star = nullptr;
+    /// The scene's mark, held by the field's answer the cache keeps.
+    const AnnotationMark* mark = nullptr;
     BrightStarAnnotationProjectedPoint projected;
     QString label;
 
@@ -180,7 +185,7 @@ struct BrightStarAnnotationDisplayModule::Impl
     QVector<BrightStarAnnotation> annotations;
 
     /// The bright stars inside the image's field, queried on a worker.
-    detail::FieldCatalogQueries queries{BundledCatalog::BrightStars, kVisibleMarginDegrees};
+    detail::FieldCatalogQueries queries{BundledCatalog::BrightStars, kFieldMarginDegrees};
 };
 
 BrightStarAnnotationDisplayModule::BrightStarAnnotationDisplayModule(ImageViewControl* control)
@@ -234,42 +239,42 @@ void BrightStarAnnotationDisplayModule::onDraw(QPainter& painter)
         }
 
         const QRectF visible_widget_rect = detail::visibleOverlayWidgetRect(control);
-        const QRectF visible_image_rect(visible_widget_rect.left() / scale, visible_widget_rect.top() / scale,
-                                        visible_widget_rect.width() / scale, visible_widget_rect.height() / scale);
-        const std::optional<detail::VisibleSky> sky = detail::visibleSky(*solution, visible_image_rect);
-        if (!sky.has_value())
+        const std::shared_ptr<const AnnotationScene>& scene = key.entries->scene;
+        if (scene == nullptr || visible_widget_rect.isEmpty())
         {
             return;
         }
+        const AnnotationLabelText text =
+            detail::overlayAnnotationContent(BundledCatalog::BrightStars, m_impl->magnitudeLimit).labelText;
 
-        // The entries come brightest first. Each star's label is measured once here rather than in every paint, and a
-        // star whose label or marker would cover a brighter one's is left out, so a rich field shows its brightest
-        // stars legibly and the work a paint does is bounded by the view's area, not by the catalog's depth.
+        // The scene's stars come in the order an annotated picture labels them: a star of a proper name before one of a
+        // designation alone, each brighter before fainter. Each star's label is measured once here rather than in every
+        // paint, and a star whose label or marker would cover one placed before it is left out, so a rich field shows
+        // its most prominent stars legibly and the work a paint does is bounded by the view's area, not by the
+        // catalog's depth.
         const LabelGeometry& geometry = key.geometry;
         const QFontMetrics metrics(geometry.font);
         const QRect visible_rect = visible_widget_rect.toAlignedRect();
         PlacedBoxes placed(visible_widget_rect.adjusted(-16.0, -16.0, 16.0, 16.0));
-        for (const an::CatalogEntry& star : key.entries->entries)
+        for (const AnnotationMark& mark : scene->marks)
         {
             if (m_impl->annotations.size() >= kMostLabels)
             {
                 break;
             }
-            if (an::angularSeparationDegrees(sky->center, star.coordinate) > sky->radiusDegrees + kVisibleMarginDegrees)
-            {
-                continue;
-            }
 
-            const auto projected = detail::projectBrightStarAnnotation(*solution, star, scale);
-            if (!projected.isValid() || !visible_widget_rect.adjusted(-8.0, -8.0, 8.0, 8.0).contains(projected.center))
+            BrightStarAnnotationProjectedPoint projected;
+            projected.center = mark.center * scale;
+            projected.valid = true;
+            if (!visible_widget_rect.adjusted(-8.0, -8.0, 8.0, 8.0).contains(projected.center))
             {
                 continue;
             }
 
             BrightStarAnnotation annotation;
-            annotation.star = &star;
+            annotation.mark = &mark;
             annotation.projected = projected;
-            annotation.label = detail::formatBrightStarAnnotationLabel(star);
+            annotation.label = annotationLabelLines(mark, text).first;
             if (annotation.label.isEmpty())
             {
                 continue;
@@ -330,7 +335,7 @@ void BrightStarAnnotationDisplayModule::onDraw(QPainter& painter)
 
     for (const BrightStarAnnotation& annotation : m_impl->annotations)
     {
-        if (!annotation.star || !annotation.projected.isValid())
+        if (annotation.mark == nullptr || !annotation.projected.isValid())
         {
             continue;
         }

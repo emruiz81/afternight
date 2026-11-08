@@ -222,24 +222,6 @@ TEST(CatalogAnnotationDisplayModule, ABundledObjectWhoseCatalogStatesOnlyADiamet
     EXPECT_NEAR(outlineRoundness(shape), 6.9 / 11.2, 0.02);
 }
 
-TEST(CatalogAnnotationDisplayModule, FormatCatalogLabelShowsOnlyId)
-{
-    an::CatalogEntry object;
-    object.identifier = "NGC 7000";
-    object.commonName = "North America Nebula";
-
-    // Annotations stay compact: only the catalog ID is shown
-    EXPECT_EQ(an::ui::detail::formatCatalogAnnotationLabel(object), QStringLiteral("NGC 7000"));
-}
-
-TEST(CatalogAnnotationDisplayModule, FormatCatalogLabelIdOnlyWhenNoCommonName)
-{
-    an::CatalogEntry object;
-    object.identifier = "NGC 1234";
-
-    EXPECT_EQ(an::ui::detail::formatCatalogAnnotationLabel(object), QStringLiteral("NGC 1234"));
-}
-
 TEST(CatalogAnnotationDisplayModule, ConeSearchExcludesDistantObjects)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();

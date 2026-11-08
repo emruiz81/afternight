@@ -7,6 +7,8 @@
 
 #include "app/AppContextHelpers.h"
 #include "controls/ImageViewControl.h"
+#include "controls/annotation/AnnotationScene.h"
+#include "controls/annotation/AnnotationSettings.h"
 #include "session/IEngineSessionProvider.h"
 #include "widgets/ImageViewWidget.h"
 
@@ -21,6 +23,7 @@
 #include <QThreadPool>
 
 #include <algorithm>
+#include <span>
 #include <utility>
 
 namespace an::ui::detail
@@ -119,6 +122,27 @@ std::optional<VisibleSky> visibleSky(const an::WcsSolution& solution, const QRec
         return std::nullopt;
     }
     return sky;
+}
+
+AnnotationContent overlayAnnotationContent(const BundledCatalog catalog, const double magnitudeLimit)
+{
+    const bool deepSky = catalog == BundledCatalog::DeepSky;
+    AnnotationContent content;
+    content.layers = AnnotationLayers{
+        .grid = false, .deepSky = deepSky, .stars = !deepSky, .compass = false, .scaleBar = false, .infoPanel = false};
+    content.deepSky = AnnotationDeepSkySelection{};
+    content.deepSky.namedOnly = false;
+    content.deepSky.magnitudeLimit = magnitudeLimit;
+    content.deepSky.unmeasured = magnitudeLimit >= kAnnotationNoMagnitudeLimit;
+    content.deepSky.minimumSize = 0.0;
+    content.deepSky.otherObjects = true;
+    content.stars = AnnotationStarSelection{};
+    content.stars.magnitudeLimit = magnitudeLimit;
+    content.stars.naming = AnnotationStarNaming::CatalogueNumbers;
+    content.stars.markUnnamed = false;
+    content.labelText = deepSky ? AnnotationLabelText::Designation : AnnotationLabelText::Name;
+    content.gridLabels = false;
+    return content;
 }
 
 struct FieldCatalogQueries::State
@@ -228,6 +252,16 @@ struct FieldQueryOutcome
             entries->entries.push_back(*entry);
         }
     }
+    scope->end();
+    // The entries are kept, merged and named as an annotated picture keeps them, here on the worker.
+    const bool deepSky = catalog == BundledCatalog::DeepSky;
+    const std::span<const an::CatalogEntry> found_entries(entries->entries);
+    entries->scene = std::make_shared<const AnnotationScene>(buildAnnotationScene(
+        AnnotationSceneSources{.solution = &entries->solution,
+                               .deepSky = deepSky ? found_entries : std::span<const an::CatalogEntry>(),
+                               .stars = deepSky ? std::span<const an::CatalogEntry>() : found_entries,
+                               .cards = {}},
+        overlayAnnotationContent(catalog, magnitudeLimit)));
     outcome.entries = std::move(entries);
     return outcome;
 }

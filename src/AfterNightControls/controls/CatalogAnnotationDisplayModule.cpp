@@ -7,6 +7,9 @@
 #include "app/BundledCatalogs.h"
 #include "controls/AstrometryOverlayUtils.h"
 #include "controls/ImageViewControl.h"
+#include "controls/annotation/AnnotationLayout.h"
+#include "controls/annotation/AnnotationScene.h"
+#include "controls/annotation/AnnotationSettings.h"
 #include "theme/AnDesignTokens.h"
 
 #include <AfterNightPlatform/Logging.h>
@@ -20,6 +23,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <numbers>
 #include <optional>
 #include <utility>
@@ -29,9 +33,12 @@ namespace an::ui
 namespace
 {
 
-// Minimum pixel distance between two annotation centers before they are
-// considered duplicates (same object under different catalog designations).
-constexpr double kDeduplicationRadiusPx = 12.0;
+/// How close two objects' centres may be drawn, in widget pixels, before the less prominent is left out. The entries of
+/// one object are one mark already (`buildAnnotationScene`); this keeps distinct objects drawn over one another apart.
+constexpr double kDeclutterRadiusPx = 12.0;
+
+/// The size from which an object's outline is drawn heavier, in arcminutes.
+constexpr double kWideObjectArcminutes = 20.0;
 
 struct CatalogAnnotationLabel
 {
@@ -39,15 +46,18 @@ struct CatalogAnnotationLabel
     QPointF anchor;
 };
 
-/// How far past the visible sky an object's centre may lie and still be outlined: a large object centred outside the
-/// view still reaches into it.
-constexpr double kVisibleMarginDegrees = 2.0;
+/// How far past the image's field the catalog is asked: a large object centred outside the image still reaches into it.
+constexpr double kFieldMarginDegrees = 2.0;
 
 struct CachedAnnotation
 {
-    const an::CatalogEntry* object = nullptr;
+    /// The scene's mark, held by the field's answer the cache keeps.
+    const AnnotationMark* mark = nullptr;
     CatalogAnnotationProjectedShape shape;
     CatalogAnnotationLabel label;
+
+    /// Whether the object spans `kWideObjectArcminutes` or more.
+    bool wide = false;
 };
 
 /// What a projection depends on: the entries the field query answered and the view state.
@@ -111,11 +121,13 @@ struct CacheKey
     return false;
 }
 
-[[nodiscard]] CatalogAnnotationLabel buildCatalogAnnotationLabel(const an::CatalogEntry& object,
+/// A mark's label: the first line of the text the overlay's choices give it, its designation, above its outline.
+[[nodiscard]] CatalogAnnotationLabel buildCatalogAnnotationLabel(const AnnotationMark& mark,
+                                                                 const AnnotationLabelText text,
                                                                  const CatalogAnnotationProjectedShape& shape)
 {
     CatalogAnnotationLabel label;
-    label.text = detail::formatCatalogAnnotationLabel(object);
+    label.text = annotationLabelLines(mark, text).first;
     if (!shape.outline.isEmpty())
     {
         const QRectF bounds = buildClosedPath(shape.outline).boundingRect();
@@ -128,26 +140,35 @@ struct CacheKey
     return label;
 }
 
-[[nodiscard]] QColor typeStrokeColor(const QString& type, const DesignTokens& token_set)
+/// The colour an object of a kind is outlined in.
+[[nodiscard]] QColor kindStrokeColor(const AnnotationMarkKind kind, const DesignTokens& token_set)
 {
-    const QString normalized = type.trimmed().toLower();
-    if (normalized.contains(QStringLiteral("galaxy")))
+    switch (kind)
     {
+    case AnnotationMarkKind::Galaxy:
         return token_set.colors.accentPrimary;
-    }
-    if (normalized.contains(QStringLiteral("cluster")))
-    {
+    case AnnotationMarkKind::OpenCluster:
+    case AnnotationMarkKind::GlobularCluster:
         return token_set.colors.statusSuccess;
-    }
-    if (normalized.contains(QStringLiteral("planetary")))
-    {
+    case AnnotationMarkKind::PlanetaryNebula:
         return token_set.colors.statusWarning;
-    }
-    if (normalized.contains(QStringLiteral("supernova")))
-    {
-        return token_set.colors.statusError;
+    case AnnotationMarkKind::Nebula:
+    case AnnotationMarkKind::OtherObject:
+    case AnnotationMarkKind::Star:
+        break;
     }
     return token_set.colors.statusInfo;
+}
+
+/// How much sky an outline spans across, in arcminutes: twice its farthest point's distance from its centre.
+[[nodiscard]] double outlineSpanArcminutes(const AnnotationMark& mark, const double arcsecondsPerPixel)
+{
+    double farthest = 0.0;
+    for (const QPointF& point : mark.outline)
+    {
+        farthest = (std::max)(farthest, std::hypot(point.x() - mark.center.x(), point.y() - mark.center.y()));
+    }
+    return 2.0 * farthest * arcsecondsPerPixel / 60.0;
 }
 
 } // namespace
@@ -162,7 +183,7 @@ struct CatalogAnnotationDisplayModule::Impl
     QRectF cachedVisibleWidgetRect;
 
     /// The deep-sky objects inside the image's field, queried on a worker.
-    detail::FieldCatalogQueries queries{BundledCatalog::DeepSky, kVisibleMarginDegrees};
+    detail::FieldCatalogQueries queries{BundledCatalog::DeepSky, kFieldMarginDegrees};
 };
 
 CatalogAnnotationDisplayModule::CatalogAnnotationDisplayModule(ImageViewControl* control)
@@ -215,50 +236,52 @@ void CatalogAnnotationDisplayModule::onDraw(QPainter& painter)
         }
 
         const QRectF visible_widget_rect = detail::visibleOverlayWidgetRect(control);
-        const QRectF visible_image_rect(visible_widget_rect.left() / scale, visible_widget_rect.top() / scale,
-                                        visible_widget_rect.width() / scale, visible_widget_rect.height() / scale);
-        const std::optional<detail::VisibleSky> sky = detail::visibleSky(*solution, visible_image_rect);
-        if (!sky.has_value())
+        const std::shared_ptr<const AnnotationScene>& scene = key.entries->scene;
+        if (scene == nullptr || visible_widget_rect.isEmpty())
         {
             return;
         }
-
-        if (key.entries->entries.empty())
+        if (scene->marks.empty())
         {
             LOG_DEBUG("Catalog annotation overlay: 0 objects in the field at magnitude <= {:.1f}",
                       m_impl->magnitudeLimit);
         }
-        for (const an::CatalogEntry& object : key.entries->entries)
-        {
-            if (an::angularSeparationDegrees(sky->center, object.coordinate) >
-                sky->radiusDegrees + kVisibleMarginDegrees)
-            {
-                continue;
-            }
+        const AnnotationLabelText text =
+            detail::overlayAnnotationContent(BundledCatalog::DeepSky, m_impl->magnitudeLimit).labelText;
+        const double arcseconds_per_pixel = solution->meanPixelScaleArcsecPerPixel();
 
-            CatalogAnnotationProjectedShape shape = detail::projectCatalogObjectAnnotation(*solution, object, scale);
+        // The scene holds the objects an annotated picture keeps, the entries of one object merged under one
+        // designation, most prominent first; each is drawn at the view's scale.
+        for (const AnnotationMark& mark : scene->marks)
+        {
+            CatalogAnnotationProjectedShape shape;
+            shape.center = mark.center * scale;
+            shape.outline.reserve(mark.outline.size());
+            for (const QPointF& point : mark.outline)
+            {
+                shape.outline.append(point * scale);
+            }
             if (!annotationTouchesVisibleRect(shape, visible_widget_rect))
             {
                 continue;
             }
 
-            // Skip duplicate catalog entries (e.g. M 83 and NGC 5236 at the
-            // same position) - keep the first one encountered: the field query answers the brightest first, and
-            // among equals the larger, then by designation.
-            const bool is_duplicate = std::any_of(
-                m_impl->annotations.cbegin(), m_impl->annotations.cend(), [&shape](const CachedAnnotation& existing) {
-                    const double dx = existing.shape.center.x() - shape.center.x();
-                    const double dy = existing.shape.center.y() - shape.center.y();
-                    return (dx * dx + dy * dy) < (kDeduplicationRadiusPx * kDeduplicationRadiusPx);
-                });
-            if (is_duplicate)
+            // Distinct objects drawn over one another: the more prominent, drawn first, is kept.
+            const bool crowded = std::any_of(m_impl->annotations.cbegin(), m_impl->annotations.cend(),
+                                             [&shape](const CachedAnnotation& existing) {
+                                                 const double dx = existing.shape.center.x() - shape.center.x();
+                                                 const double dy = existing.shape.center.y() - shape.center.y();
+                                                 return (dx * dx + dy * dy) < (kDeclutterRadiusPx * kDeclutterRadiusPx);
+                                             });
+            if (crowded)
             {
                 continue;
             }
 
             CachedAnnotation annotation;
-            annotation.object = &object;
-            annotation.label = buildCatalogAnnotationLabel(object, shape);
+            annotation.mark = &mark;
+            annotation.label = buildCatalogAnnotationLabel(mark, text, shape);
+            annotation.wide = outlineSpanArcminutes(mark, arcseconds_per_pixel) >= kWideObjectArcminutes;
             annotation.shape = std::move(shape);
             m_impl->annotations.append(std::move(annotation));
         }
@@ -291,21 +314,19 @@ void CatalogAnnotationDisplayModule::onDraw(QPainter& painter)
 
     for (const CachedAnnotation& annotation : m_impl->annotations)
     {
-        if (!annotation.object)
+        if (annotation.mark == nullptr)
         {
             continue;
         }
 
-        QColor stroke_color = typeStrokeColor(QString::fromStdString(annotation.object->objectType), token_set);
+        QColor stroke_color = kindStrokeColor(annotation.mark->kind, token_set);
         QColor fill_color = stroke_color;
         fill_color.setAlpha(32);
         stroke_color.setAlpha(220);
 
         QPen pen(stroke_color);
         pen.setCosmetic(true);
-        pen.setWidthF(annotation.object->extent.has_value() && annotation.object->extent->majorAxisArcminutes >= 20.0
-                          ? 1.4
-                          : 1.0);
+        pen.setWidthF(annotation.wide ? 1.4 : 1.0);
         painter.setPen(pen);
         painter.setBrush(fill_color);
 

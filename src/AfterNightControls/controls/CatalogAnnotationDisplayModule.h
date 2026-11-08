@@ -5,8 +5,9 @@
 /// The deep-sky annotations a view draws over a solved image: the bundled catalog's objects inside the visible field,
 /// each outlined by its size and position angle and labelled with its designation.
 ///
-/// The catalog is read and queried for the whole image's field on a worker (`detail::FieldCatalogQueries`), and a paint
-/// projects the objects near what the view shows through the image's solution.
+/// The catalog is read and queried for the whole image's field on a worker (`detail::FieldCatalogQueries`), which
+/// keeps, merges and names its objects as an annotated picture does (`detail::overlayAnnotationContent`), so the view
+/// and a picture of it name the same objects alike; a paint draws those near what the view shows at its scale.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -110,18 +111,6 @@ namespace detail
     }
 
     return shape;
-}
-
-/// An object's label: its designation, or its common name when it has none.
-[[nodiscard]] inline QString formatCatalogAnnotationLabel(const an::CatalogEntry& object)
-{
-    const QString id = QString::fromStdString(object.identifier).trimmed();
-    if (!id.isEmpty())
-    {
-        return id;
-    }
-
-    return QString::fromStdString(object.commonName).trimmed();
 }
 
 } // namespace detail

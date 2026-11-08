@@ -27,10 +27,12 @@
 #include <QPainterPath>
 #include <QPointF>
 #include <QRectF>
+#include <QString>
 
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace an::ui
@@ -180,6 +182,15 @@ struct AnnotationLayout
     std::optional<AnnotationCompassLayout> compass;
     std::optional<AnnotationScaleBarLayout> scaleBar;
 };
+
+/// A mark's label text as the choices say: its first line and its second - the name under the designation - which is
+/// empty for a label of one line. A view's overlay that labels a mark on one line draws the first.
+///
+/// @param mark the mark.
+/// @param text the choice of text.
+/// @return the two lines.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::pair<QString, QString> annotationLabelLines(const AnnotationMark& mark,
+                                                                                      AnnotationLabelText text);
 
 /// Lays a scene out: the decorations in their corners, the grid's labels at the frame's edges and every mark's label
 /// where it fits, as the choices and the style say.

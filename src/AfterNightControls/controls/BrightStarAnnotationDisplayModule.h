@@ -5,8 +5,9 @@
 /// The bright-star labels a view draws over a solved image: the bundled catalog's stars inside the visible field, each
 /// marked and labelled with its proper name, its Bayer letter or its designation.
 ///
-/// The catalog is read and queried for the whole image's field on a worker (`detail::FieldCatalogQueries`), and a paint
-/// projects the stars near what the view shows through the image's solution.
+/// The catalog is read and queried for the whole image's field on a worker (`detail::FieldCatalogQueries`), which
+/// keeps, orders and names its stars as an annotated picture does (`detail::overlayAnnotationContent`); a paint draws
+/// those near what the view shows at its scale.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -14,14 +15,10 @@
 #include "controls/ImageViewControlListener.h"
 #include "widgets/ImageViewWidgetDisplayModule.h"
 
-#include <AfterNightEngine/Algorithms/Astrometry/WcsSolution.h>
-#include <AfterNightEngine/Algorithms/Catalog/CatalogRecord.h>
-
 #include <QPointF>
 #include <QString>
 #include <QVector>
 
-#include <cmath>
 #include <cstdint>
 #include <memory>
 
@@ -41,50 +38,6 @@ struct BrightStarAnnotationProjectedPoint
         return valid;
     }
 };
-
-namespace detail
-{
-
-/// Where a star is drawn, through the solution.
-[[nodiscard]] inline BrightStarAnnotationProjectedPoint
-projectBrightStarAnnotation(const an::WcsSolution& solution, const an::CatalogEntry& star, const double scale_factor)
-{
-    BrightStarAnnotationProjectedPoint projected;
-    if (!std::isfinite(scale_factor) || scale_factor <= 0.0)
-    {
-        return projected;
-    }
-
-    const an::Result<an::PixelCoordinate> pixel = solution.worldToPixel(star.coordinate);
-    if (!pixel.hasValue() || !std::isfinite(pixel->x) || !std::isfinite(pixel->y))
-    {
-        return projected;
-    }
-
-    projected.center = QPointF(pixel->x * scale_factor, pixel->y * scale_factor);
-    projected.valid = true;
-    return projected;
-}
-
-/// A star's label: its proper name, else its Bayer letter, else its designation.
-[[nodiscard]] inline QString formatBrightStarAnnotationLabel(const an::CatalogEntry& star)
-{
-    const QString common_name = QString::fromStdString(star.commonName).trimmed();
-    if (!common_name.isEmpty())
-    {
-        return common_name;
-    }
-
-    const QString bayer = QString::fromStdString(star.designation).trimmed();
-    if (!bayer.isEmpty())
-    {
-        return bayer;
-    }
-
-    return QString::fromStdString(star.identifier).trimmed();
-}
-
-} // namespace detail
 
 class AFTERNIGHTCONTROLS_API BrightStarAnnotationDisplayModule final : public ImageViewControlListener,
                                                                        public ImageViewWidgetDisplayModule

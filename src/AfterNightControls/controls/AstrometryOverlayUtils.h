@@ -34,6 +34,12 @@
 
 class ImageViewControl;
 
+namespace an::ui
+{
+struct AnnotationContent;
+struct AnnotationScene;
+} // namespace an::ui
+
 namespace an::ui::detail
 {
 
@@ -88,6 +94,17 @@ struct VisibleSky
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<VisibleSky> visibleSky(const an::WcsSolution& solution,
                                                                           const QRectF& visibleImageRect);
 
+/// The choices a live overlay's scene is built with, so the view keeps, merges and names the objects as an annotated
+/// picture does: the overlay's catalog's layer alone, every catalogue and kind, the overlay's magnitude limit - with
+/// named objects of no measured magnitude, and every object at the limit of all catalog objects - and no smallest size;
+/// a deep-sky object labelled by its designation, a star by its proper name, then its Bayer letter, then its number.
+///
+/// @param catalog the overlay's catalog.
+/// @param magnitudeLimit the overlay's magnitude limit.
+/// @return the choices.
+[[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationContent overlayAnnotationContent(BundledCatalog catalog,
+                                                                                double magnitudeLimit);
+
 /// The entries a bundled catalog holds inside an image's field, at a magnitude limit, as a worker found them.
 struct FieldCatalogEntries
 {
@@ -99,6 +116,11 @@ struct FieldCatalogEntries
 
     /// The entries, in the order the catalog's region query answers - brightest first.
     std::vector<an::CatalogEntry> entries;
+
+    /// The overlay's scene of the entries (`overlayAnnotationContent`): what an annotated picture keeps of them,
+    /// entries of one object merged under one designation, each object projected through the solution, most prominent
+    /// first.
+    std::shared_ptr<const AnnotationScene> scene;
 };
 
 /// One overlay's queries of a bundled catalog: the catalog, read by the first query on a worker and kept for the

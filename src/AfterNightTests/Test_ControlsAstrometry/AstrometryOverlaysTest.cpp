@@ -17,6 +17,9 @@
 #include "controls/DistortionMapDisplayModule.h"
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
+#include "controls/annotation/AnnotationLayout.h"
+#include "controls/annotation/AnnotationScene.h"
+#include "controls/annotation/AnnotationSettings.h"
 #include "widgets/ImageViewWidget.h"
 
 #include <AfterNightEngine/Algorithms/Catalog/CatalogRecord.h>
@@ -157,11 +160,17 @@ TEST(AstrometryOverlayGeometry, AnObjectAtTheReferenceIsDrawnOverTheReferencePix
     EXPECT_NEAR(shape.center.x(), 200.0 * 1.5, 1e-9);
     EXPECT_NEAR(shape.center.y(), 150.0 * 1.5, 1e-9);
 
-    const an::ui::BrightStarAnnotationProjectedPoint point =
-        an::ui::detail::projectBrightStarAnnotation(*solution, object, 1.5);
-    ASSERT_TRUE(point.isValid());
-    EXPECT_NEAR(point.center.x(), 300.0, 1e-9);
-    EXPECT_NEAR(point.center.y(), 225.0, 1e-9);
+    // A star is drawn at its scene mark's centre times the view's scale.
+    an::CatalogEntry star = object;
+    star.commonName = "Reference Star";
+    star.magnitude = 2.0;
+    const std::vector<an::CatalogEntry> stars{star};
+    const an::ui::AnnotationScene scene = an::ui::buildAnnotationScene(
+        an::ui::AnnotationSceneSources{.solution = &*solution, .deepSky = {}, .stars = stars, .cards = {}},
+        an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::BrightStars, 9.0));
+    ASSERT_EQ(scene.marks.size(), 1u);
+    EXPECT_NEAR(scene.marks.front().center.x() * 1.5, 300.0, 1e-9);
+    EXPECT_NEAR(scene.marks.front().center.y() * 1.5, 225.0, 1e-9);
 }
 
 TEST(AstrometryOverlayGeometry, TheVisibleSkyIsCentredWhereTheSolutionPutsTheRectanglesCentre)
@@ -285,6 +294,117 @@ TEST_F(AstrometryOverlaysTest, BrightStarLabelsLeaveOutAFainterStarThatWouldCove
     QVector<QString> drawn = labels->projectedLabels();
     std::sort(drawn.begin(), drawn.end());
     EXPECT_EQ(drawn, (QVector<QString>{QStringLiteral("Apart"), QStringLiteral("Brightest")}));
+}
+
+// The entries of one object in several catalogues are one label under the designation an annotated picture gives it,
+// whichever entry is the brighter: the Carina Nebula listed as NGC 3372 and, a third of a degree away, as C 92, and a
+// galaxy listed in NGC and in IC at one position.
+TEST_F(AstrometryOverlaysTest, EntriesOfOneObjectAreOneLabelUnderThePicturesDesignation)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
+    auto* annotations = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
+    ASSERT_NE(annotations, nullptr);
+    annotations->setCatalogSource(fixedCatalogs(
+        QByteArray("id,common_name,ra_deg,dec_deg,major_axis_arcmin,minor_axis_arcmin,position_angle_deg,object_type,"
+                   "magnitude\n"
+                   "NGC 3372,Carina Nebula,120.3,10.2,30.0,30.0,0,Bright Nebula,99.0\n"
+                   "C 92,Carina Nebula,120.6,10.2,30.0,30.0,0,Bright Nebula,3.0\n"
+                   "IC 2001,,119.0,9.2,5.0,5.0,0,Galaxy,9.0\n"
+                   "NGC 2001,,119.0,9.2,5.0,5.0,0,Galaxy,9.5\n"),
+        brightStarText()));
+
+    ASSERT_TRUE(pumpUntil([&]() {
+        paint();
+        return !annotations->projectedLabels().isEmpty();
+    }));
+    QVector<QString> labels = annotations->projectedLabels();
+    std::sort(labels.begin(), labels.end());
+    EXPECT_EQ(labels, (QVector<QString>{QStringLiteral("NGC 2001"), QStringLiteral("NGC 3372")}));
+}
+
+// Stars are labelled in the order an annotated picture labels them: a star of a proper name before a brighter one of a
+// Bayer letter alone, whose label it would cover.
+TEST_F(AstrometryOverlaysTest, ANamedStarIsLabelledBeforeABrighterStarOfADesignationAlone)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::BrightStarLabels);
+    auto* labels = dynamic_cast<an::ui::BrightStarAnnotationDisplayModule*>(overlay.get());
+    ASSERT_NE(labels, nullptr);
+    labels->setCatalogSource(fixedCatalogs(
+        deepSkyText(), QByteArray("id,common_name,bayer_designation,ra_deg,dec_deg,magnitude,spectral_type\n"
+                                  "HIP 21,,alf Tst,120.0,10.0,1.0,A0V\n"
+                                  "HIP 22,Named Star,,120.001,10.001,4.0,G0V\n")));
+
+    ASSERT_TRUE(pumpUntil([&]() {
+        paint();
+        return !labels->projectedLabels().isEmpty();
+    }));
+    EXPECT_EQ(labels->projectedLabels(), (QVector<QString>{QStringLiteral("Named Star")}));
+}
+
+// What a live overlay's scene holds until the view offers levels of detail: its own layer, every catalogue and kind,
+// its magnitude limit - every object, measured or not, at the limit of all catalog objects - and the text the overlay
+// labels with: a deep-sky object by its designation, a star by its proper name, then its Bayer letter, then its number.
+TEST(AstrometryOverlayContent, AnOverlaysSceneHoldsItsLayerAtItsLimitAndLabelsAsTheOverlayDoes)
+{
+    const an::ui::AnnotationContent deepSky =
+        an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::DeepSky, 12.0);
+    EXPECT_TRUE(deepSky.layers.deepSky);
+    EXPECT_FALSE(deepSky.layers.stars);
+    EXPECT_FALSE(deepSky.layers.grid);
+    EXPECT_FALSE(deepSky.layers.compass);
+    EXPECT_FALSE(deepSky.layers.scaleBar);
+    EXPECT_FALSE(deepSky.layers.infoPanel);
+    EXPECT_DOUBLE_EQ(deepSky.deepSky.magnitudeLimit, 12.0);
+    EXPECT_FALSE(deepSky.deepSky.namedOnly);
+    EXPECT_FALSE(deepSky.deepSky.unmeasured) << "a named object of no measured magnitude is kept by its name";
+    EXPECT_DOUBLE_EQ(deepSky.deepSky.minimumSize, 0.0);
+    EXPECT_TRUE(deepSky.deepSky.otherObjects);
+    EXPECT_EQ(deepSky.labelText, an::ui::AnnotationLabelText::Designation);
+    EXPECT_TRUE(an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::DeepSky, 99.0).deepSky.unmeasured);
+
+    const an::ui::AnnotationContent stars =
+        an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::BrightStars, 8.0);
+    EXPECT_TRUE(stars.layers.stars);
+    EXPECT_FALSE(stars.layers.deepSky);
+    EXPECT_DOUBLE_EQ(stars.stars.magnitudeLimit, 8.0);
+    EXPECT_EQ(stars.stars.naming, an::ui::AnnotationStarNaming::CatalogueNumbers);
+    EXPECT_FALSE(stars.stars.markUnnamed);
+    EXPECT_EQ(stars.labelText, an::ui::AnnotationLabelText::Name);
+}
+
+// A star is labelled as an annotated picture names it - its proper name, else its Bayer letter, else its catalogue
+// number - and a star of none of them, blank or all spaces, is not labelled at all.
+TEST(AstrometryOverlayContent, AStarIsLabelledByItsProperNameThenItsBayerLetterThenItsNumber)
+{
+    const std::optional<an::WcsSolution> solution = solutionOf(fieldCards(), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    const auto star = [](const char* identifier, const char* name, const char* bayer, const double rightAscension) {
+        an::CatalogEntry entry;
+        entry.identifier = identifier;
+        entry.commonName = name;
+        entry.designation = bayer;
+        entry.coordinate = {.rightAscensionDegrees = rightAscension, .declinationDegrees = 10.0};
+        entry.magnitude = 2.0;
+        return entry;
+    };
+    const std::vector<an::CatalogEntry> stars{star("HIP 32349", "Sirius", "alf CMa", 120.0),
+                                              star("HIP 27989", "", "alf Ori", 120.3), star("HIP 12345", "", "", 120.6),
+                                              star("   ", "  ", " ", 119.7)};
+    const an::ui::AnnotationContent content =
+        an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::BrightStars, 9.0);
+    const an::ui::AnnotationScene scene = an::ui::buildAnnotationScene(
+        an::ui::AnnotationSceneSources{.solution = &*solution, .deepSky = {}, .stars = stars, .cards = {}}, content);
+
+    std::vector<QString> labels;
+    for (const an::ui::AnnotationMark& mark : scene.marks)
+    {
+        labels.push_back(an::ui::annotationLabelLines(mark, content.labelText).first);
+    }
+    std::sort(labels.begin(), labels.end());
+    EXPECT_EQ(labels,
+              (std::vector<QString>{QStringLiteral("HIP 12345"), QStringLiteral("Sirius"), QStringLiteral("alf Ori")}));
 }
 
 TEST_F(AstrometryOverlaysTest, ACatalogThatCannotBeReadDrawsNothingAndIsNotAskedForAgain)
