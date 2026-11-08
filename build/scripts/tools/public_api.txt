@@ -1,4 +1,4 @@
-version 1.4.1 2
+version 1.4.2 2
 joining 2
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API OpticalHints readOpticalHints(std::span<const CodecCard> cards) noexcept
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API PointingKeywords pointingCardKeywords(PointingCards cards) noexcept
@@ -2229,7 +2229,7 @@ header engine Core/ImageLayout.h 19a9142333de7498
 header engine Core/LibraryInfo.h 1bfecceb973c07f1
 header engine Core/Result.h e0327ad962e10e4b
 header engine Core/Status.h a843439f21221219
-header engine Core/Version.h e446108564631ddb
+header engine Core/Version.h 1bfe6f01a43f045e
 header engine IO/ArtifactIdentity.h 66c96b929d36b24e
 header engine IO/AviSequence.h 595917f483188e5e
 header engine IO/CodecCapabilities.h daadf4c45a2db525
