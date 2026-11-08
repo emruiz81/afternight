@@ -158,8 +158,9 @@ TEST(ImageMetadataMerge, CombinedImagePreservesSharedMetadataAndSumsExposure)
     EXPECT_EQ(cardValue(codec, "SITELONG"), std::optional<std::string>("-118.2500"));
     EXPECT_EQ(cardValue(codec, "SOFTWARE"), std::optional<std::string>("NINA"));
     EXPECT_FALSE(cardValue(codec, "FILTER").has_value());
-    // The sum is the record's; no source's exposure card survives to contradict it.
-    EXPECT_FALSE(cardValue(codec, "EXPTIME").has_value());
+    // The exposure cards state the light the sources hold together - the record's sum - rather than either source's.
+    EXPECT_EQ(cardValue(codec, "EXPTIME"), std::optional<std::string>("75"));
+    EXPECT_EQ(cardValue(codec, "TOTEXP"), std::optional<std::string>("75"));
 }
 
 // A combination makes its own claim about what it means rather than inheriting its first source's: the sources'
@@ -187,7 +188,7 @@ TEST(ImageMetadataMerge, CombinedImageClearsInheritedProcessingState)
 }
 
 // Sources that disagree keep nothing they disagree on: no object, camera, ISO speed, offset, telescope, site or filter
-// survives, and the exposure is still the sum.
+// survives, and the exposure is still the sum, which the exposure cards state.
 TEST(ImageMetadataMerge, CombinedImageDropsMismatchedOrComponentSpecificMetadata)
 {
     const an::ImageMetadata metadata =
@@ -202,10 +203,12 @@ TEST(ImageMetadataMerge, CombinedImageDropsMismatchedOrComponentSpecificMetadata
     EXPECT_TRUE(acquisition.telescopeName().empty());
     EXPECT_TRUE(acquisition.filterName().empty());
     for (const char* keyword :
-         {"OBJECT", "INSTRUME", "ISOSPEED", "OFFSET", "TELESCOP", "SITELAT", "SITELONG", "FILTER", "EXPTIME"})
+         {"OBJECT", "INSTRUME", "ISOSPEED", "OFFSET", "TELESCOP", "SITELAT", "SITELONG", "FILTER"})
     {
         EXPECT_FALSE(cardValue(metadata.codec(), keyword).has_value()) << keyword;
     }
+    EXPECT_EQ(cardValue(metadata.codec(), "EXPTIME"), std::optional<std::string>("60"));
+    EXPECT_EQ(cardValue(metadata.codec(), "TOTEXP"), std::optional<std::string>("60"));
     EXPECT_EQ(cardValue(metadata.codec(), "SOFTWARE"), std::optional<std::string>("NINA"));
 }
 
