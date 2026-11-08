@@ -162,37 +162,6 @@ constexpr QSize kPaletteSwatchSize(44, 16);
     return QIcon(pixmap);
 }
 
-/// A palette's name, as the palettes' list offers it.
-[[nodiscard]] QString paletteName(const AnnotationPalette palette)
-{
-    switch (palette)
-    {
-    case AnnotationPalette::Aurora:
-        return translated("Aurora");
-    case AnnotationPalette::Moonlight:
-        return translated("Moonlight");
-    case AnnotationPalette::Ember:
-        return translated("Ember - for dark-adapted eyes");
-    case AnnotationPalette::Ink:
-        return translated("Ink - for bright images and print");
-    case AnnotationPalette::Glacier:
-        return translated("Glacier");
-    case AnnotationPalette::Amethyst:
-        return translated("Amethyst");
-    case AnnotationPalette::Amber:
-        return translated("Amber");
-    case AnnotationPalette::Verdant:
-        return translated("Verdant");
-    case AnnotationPalette::Rose:
-        return translated("Rose");
-    case AnnotationPalette::Atlas:
-        return translated("Atlas");
-    case AnnotationPalette::Custom:
-        break;
-    }
-    return translated("Custom");
-}
-
 /// What a change of the choices makes the window do again.
 enum class Change : std::uint8_t
 {
@@ -1379,27 +1348,14 @@ struct AnnotateImageControl::Impl
         auto* detailRow = new QHBoxLayout();
         detailRow->setSpacing(tokenSet.spacing.xs);
         detailGroup = new QButtonGroup(window);
-        const std::array<std::pair<QString, AnnotationDetail>, 4> details{
-            {{translated("Essential"), AnnotationDetail::Essential},
-             {translated("Standard"), AnnotationDetail::Standard},
-             {translated("Detailed"), AnnotationDetail::Detailed},
-             {translated("Complete"), AnnotationDetail::Complete}}};
-        const std::array<QString, 4> detailTips{
-            translated("The Messier and Caldwell objects and the named ones, and the brightest stars by name"),
-            translated("Every catalogue to magnitude 12, objects large enough to show, and stars to magnitude 4.5 by "
-                       "name and designation"),
-            translated(
-                "Every catalogue to magnitude 14 and smaller objects, and stars to magnitude 6, the unnamed ones "
-                "marked"),
-            translated("Every galaxy, nebula and cluster the catalogues hold in the field, and every bright star, by "
-                       "catalogue number when it has no name")};
-        for (std::size_t index = 0u; index < details.size(); ++index)
+        for (const AnnotationDetail level : annotationDetails())
         {
-            auto* button = new QPushButton(details[index].first, contentSection->contentWidget());
+            const QString name = annotationDetailName(level);
+            auto* button = new QPushButton(name, contentSection->contentWidget());
             button->setCheckable(true);
-            button->setToolTip(detailTips[index]);
-            button->setObjectName(QStringLiteral("annotateDetail%1").arg(details[index].first));
-            detailGroup->addButton(button, static_cast<int>(details[index].second));
+            button->setToolTip(annotationDetailDescription(level));
+            button->setObjectName(QStringLiteral("annotateDetail%1").arg(name));
+            detailGroup->addButton(button, static_cast<int>(level));
             detailRow->addWidget(button);
         }
         QObject::connect(detailGroup, &QButtonGroup::idClicked, window, [this](const int id) {
@@ -1473,7 +1429,7 @@ struct AnnotateImageControl::Impl
         palette->setIconSize(kPaletteSwatchSize);
         for (const AnnotationPalette value : annotationPalettes())
         {
-            palette->addItem(paletteSwatch(annotationPaletteColors(value)), paletteName(value),
+            palette->addItem(paletteSwatch(annotationPaletteColors(value)), annotationPaletteName(value),
                              static_cast<int>(value));
         }
         palette->addItem(translated("Custom"), static_cast<int>(AnnotationPalette::Custom));

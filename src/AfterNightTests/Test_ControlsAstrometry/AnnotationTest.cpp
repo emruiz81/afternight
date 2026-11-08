@@ -29,12 +29,14 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPainter>
+#include <QStringList>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include <optional>
 #include <random>
@@ -266,6 +268,98 @@ TEST(AnnotationSettings, EveryPaletteOfferedIsDistinctAndReadsBackAsItself)
             }
         }
     }
+}
+
+// The levels and the palettes a person chooses from are offered by names of their own, each level with what it names.
+TEST(AnnotationSettings, EveryLevelAndPaletteOfferedHasANameOfItsOwn)
+{
+    const std::span<const an::ui::AnnotationDetail> details = an::ui::annotationDetails();
+    EXPECT_TRUE(std::ranges::equal(details,
+                                   std::array{an::ui::AnnotationDetail::Essential, an::ui::AnnotationDetail::Standard,
+                                              an::ui::AnnotationDetail::Detailed, an::ui::AnnotationDetail::Complete}));
+    EXPECT_EQ(an::ui::annotationDetailName(an::ui::AnnotationDetail::Standard), QStringLiteral("Standard"));
+    QStringList detailNames;
+    for (const an::ui::AnnotationDetail detail : details)
+    {
+        EXPECT_FALSE(an::ui::annotationDetailDescription(detail).isEmpty());
+        detailNames.push_back(an::ui::annotationDetailName(detail));
+    }
+    EXPECT_EQ(detailNames.removeDuplicates(), 0);
+    EXPECT_FALSE(detailNames.contains(QString()));
+
+    EXPECT_EQ(an::ui::annotationPaletteName(an::ui::AnnotationPalette::Aurora), QStringLiteral("Aurora"));
+    QStringList paletteNames;
+    for (const an::ui::AnnotationPalette palette : an::ui::annotationPalettes())
+    {
+        paletteNames.push_back(an::ui::annotationPaletteName(palette));
+    }
+    EXPECT_EQ(paletteNames.removeDuplicates(), 0);
+    EXPECT_FALSE(paletteNames.contains(QString()));
+}
+
+// A view's live annotations keep the choices its menu offers - a level of detail, what a label says and a palette - as
+// a text of their own, apart from a picture's.
+TEST(AnnotationViewChoices, StoredChoicesReadBackAsThemselves)
+{
+    const an::ui::AnnotationViewChoices choices{.detail = an::ui::AnnotationDetail::Detailed,
+                                                .labelText = an::ui::AnnotationLabelText::DesignationAndName,
+                                                .palette = an::ui::AnnotationPalette::Ember};
+    EXPECT_EQ(an::ui::annotationViewChoicesFromStored(an::ui::storedAnnotationViewChoices(choices)), choices);
+    for (const an::ui::AnnotationDetail detail : an::ui::annotationDetails())
+    {
+        const an::ui::AnnotationViewChoices level{.detail = detail};
+        EXPECT_EQ(an::ui::annotationViewChoicesFromStored(an::ui::storedAnnotationViewChoices(level)), level);
+    }
+    for (const an::ui::AnnotationPalette palette : an::ui::annotationPalettes())
+    {
+        const an::ui::AnnotationViewChoices coloured{.palette = palette};
+        EXPECT_EQ(an::ui::annotationViewChoicesFromStored(an::ui::storedAnnotationViewChoices(coloured)), coloured);
+    }
+    for (const an::ui::AnnotationLabelText text :
+         {an::ui::AnnotationLabelText::Designation, an::ui::AnnotationLabelText::Name,
+          an::ui::AnnotationLabelText::DesignationAndName})
+    {
+        const an::ui::AnnotationViewChoices labelled{.labelText = text};
+        EXPECT_EQ(an::ui::annotationViewChoicesFromStored(an::ui::storedAnnotationViewChoices(labelled)), labelled);
+    }
+}
+
+// A view starts at the standard level, labelling by designation in the Aurora palette; a choice the text does not name
+// - missing, unknown, or a custom level or palette, which a view does not offer - reads as its default.
+TEST(AnnotationViewChoices, AChoiceTheTextDoesNotNameReadsAsItsDefault)
+{
+    const an::ui::AnnotationViewChoices defaults;
+    EXPECT_EQ(defaults.detail, an::ui::AnnotationDetail::Standard);
+    EXPECT_EQ(defaults.labelText, an::ui::AnnotationLabelText::Designation);
+    EXPECT_EQ(defaults.palette, an::ui::AnnotationPalette::Aurora);
+    EXPECT_EQ(an::ui::annotationViewChoicesFromStored(QString()), defaults);
+    EXPECT_EQ(an::ui::annotationViewChoicesFromStored(QStringLiteral("not json")), defaults);
+    EXPECT_EQ(an::ui::annotationViewChoicesFromStored(
+                  QStringLiteral(R"({"detail":"custom","labelText":"sideways","palette":"custom"})")),
+              defaults);
+
+    const an::ui::AnnotationViewChoices partial =
+        an::ui::annotationViewChoicesFromStored(QStringLiteral(R"({"version":9,"palette":"ink","future":true})"));
+    EXPECT_EQ(partial.palette, an::ui::AnnotationPalette::Ink);
+    EXPECT_EQ(partial.detail, defaults.detail);
+    EXPECT_EQ(partial.labelText, defaults.labelText);
+}
+
+// A view's former menu held its annotations to a magnitude limit; the level that names about as much replaces it: the
+// brightest limits the notable objects alone, the middle ones what the standard level names, the faintest every object.
+TEST(AnnotationViewChoices, ASavedMagnitudeLimitChoosesTheLevelThatNamesAboutAsMuch)
+{
+    EXPECT_EQ(an::ui::annotationDetailOfMagnitudeLimit(4.0), an::ui::AnnotationDetail::Essential);
+    EXPECT_EQ(an::ui::annotationDetailOfMagnitudeLimit(6.0), an::ui::AnnotationDetail::Essential);
+    EXPECT_EQ(an::ui::annotationDetailOfMagnitudeLimit(8.0), an::ui::AnnotationDetail::Standard);
+    EXPECT_EQ(an::ui::annotationDetailOfMagnitudeLimit(10.0), an::ui::AnnotationDetail::Standard);
+    EXPECT_EQ(an::ui::annotationDetailOfMagnitudeLimit(12.0), an::ui::AnnotationDetail::Standard);
+    EXPECT_EQ(an::ui::annotationDetailOfMagnitudeLimit(14.0), an::ui::AnnotationDetail::Detailed);
+    EXPECT_EQ(an::ui::annotationDetailOfMagnitudeLimit(16.0), an::ui::AnnotationDetail::Complete);
+    EXPECT_EQ(an::ui::annotationDetailOfMagnitudeLimit(an::ui::kAnnotationNoMagnitudeLimit),
+              an::ui::AnnotationDetail::Complete);
+    EXPECT_EQ(an::ui::annotationDetailOfMagnitudeLimit(std::numeric_limits<double>::quiet_NaN()),
+              an::ui::AnnotationDetail::Standard);
 }
 
 // The text and the lines are set apart: the halo around a letter follows the text's size alone, never the lines'.

@@ -47,7 +47,10 @@ struct CoordinateGridDisplayModule::Impl
     /// The grid of the part shown, laid out for the view state of the key.
     detail::OverlayGridLayout grid;
 
-    /// The annotated picture's style: its palette and its grid's lines and labels.
+    /// The palette the grid is drawn in.
+    AnnotationPalette palette = AnnotationPalette::Aurora;
+
+    /// The annotated picture's style in that palette: its grid's lines and labels.
     AnnotationStyle style = defaultAnnotationSettings().style;
 };
 
@@ -123,6 +126,28 @@ void CoordinateGridDisplayModule::onImageViewControlDestroyed(ImageViewControl* 
     ImageViewControlListener::onImageViewControlDestroyed(ctrl);
     detachFromViewWidget();
     invalidate();
+}
+
+void CoordinateGridDisplayModule::setPalette(const AnnotationPalette palette)
+{
+    Impl& impl = *m_impl;
+    const AnnotationPalette drawn = palette == AnnotationPalette::Custom ? AnnotationPalette::Aurora : palette;
+    if (drawn == impl.palette)
+    {
+        return;
+    }
+    // The colours alone change: the layout stays and the grid is drawn again.
+    impl.palette = drawn;
+    impl.style.colors = annotationPaletteColors(drawn);
+    if (m_ViewWidget)
+    {
+        m_ViewWidget->update();
+    }
+}
+
+AnnotationPalette CoordinateGridDisplayModule::palette() const
+{
+    return m_impl->palette;
 }
 
 int CoordinateGridDisplayModule::projectedLineCount() const

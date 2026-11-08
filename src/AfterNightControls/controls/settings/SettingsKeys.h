@@ -134,9 +134,15 @@ inline constexpr auto PLATESOLVE_DISTORTION_MAP_ENABLED = "platesolve/distortion
 inline constexpr auto PLATESOLVE_DETECTED_STARS_ENABLED = "platesolve/detectedStarsEnabled";
 inline constexpr auto PLATESOLVE_CATALOG_ANNOTATIONS_ENABLED = "platesolve/catalogAnnotationsEnabled";
 inline constexpr auto PLATESOLVE_STAR_LABELS_ENABLED = "platesolve/starLabelsEnabled";
+// The magnitude limit a view's annotations kept before they took a level of detail: read only to choose the level that
+// names about as much, while no view choices are stored
 inline constexpr auto PLATESOLVE_CATALOG_MAGNITUDE_LIMIT = "platesolve/catalogMagnitudeLimit";
 
 // Annotate Image: every choice of an annotated picture but its title, as storedAnnotationSettings writes them
 inline constexpr auto ANNOTATION_SETTINGS = "annotation/settings";
+
+// A view's live annotations: the level of detail, the labels and the palette its menu chose, as
+// storedAnnotationViewChoices writes them
+inline constexpr auto ANNOTATION_VIEW_CHOICES = "annotation/view";
 
 } // namespace SettingsKeys

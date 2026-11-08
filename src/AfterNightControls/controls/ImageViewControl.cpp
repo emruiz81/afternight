@@ -30,6 +30,7 @@
 
 #include "controls/AutostretchSettingsControl.h"
 #include "controls/StaticPreviewCacheLimits.h"
+#include "controls/annotation/AnnotationSettings.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
 
@@ -79,6 +80,7 @@
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -921,7 +923,12 @@ struct ImageViewControl::Impl
     QAction* m_AstrometryStarLabelsMenuAction = nullptr;
     QAction* m_AstrometrySipMenuAction = nullptr;
     QAction* m_AstrometryDetectedStarsMenuAction = nullptr;
-    QMenu* m_AstrometryMagnitudeSubMenu = nullptr;
+    QMenu* m_AstrometryDetailSubMenu = nullptr;
+    QMenu* m_AstrometryLabelsSubMenu = nullptr;
+    QMenu* m_AstrometryPaletteSubMenu = nullptr;
+
+    /// What the live annotations name and how they look, as the menu chose and the settings keep them.
+    an::ui::AnnotationViewChoices m_AnnotationChoices;
 
     QAction* m_RTPreviewTakeSnapshotActionSpacer = nullptr;
     QAction* m_RTPreviewTakeSnapshotAction = nullptr;
@@ -1039,6 +1046,20 @@ struct ImageViewControl::Impl
         {
             an::ui::setAstrometryOverlayLayers(*m_CatalogAnnotationDisplayModule, deepSky, stars);
             m_CatalogAnnotationDisplayModule->enableDisplayModule(shown && (deepSky || stars));
+        }
+    }
+
+    /// Hands what the live annotations name and how they look to the overlays that draw them: the catalogue
+    /// annotations, and the grid its palette.
+    void showAnnotationChoices() const
+    {
+        for (const std::unique_ptr<ImageViewWidgetDisplayModule>* overlay :
+             {&m_CoordinateGridDisplayModule, &m_CatalogAnnotationDisplayModule})
+        {
+            if (*overlay)
+            {
+                an::ui::setAstrometryOverlayChoices(**overlay, m_AnnotationChoices);
+            }
         }
     }
 
@@ -1334,7 +1355,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     bool detectedStarsEnabled = SettingsDefaults::PLATESOLVE_DETECTED_STARS_ENABLED;
     bool catalogAnnotationsEnabled = SettingsDefaults::PLATESOLVE_CATALOG_ANNOTATIONS_ENABLED;
     bool starLabelsEnabled = SettingsDefaults::PLATESOLVE_STAR_LABELS_ENABLED;
-    double catalogMagnitudeLimit = SettingsDefaults::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT;
+    an::ui::AnnotationViewChoices annotationChoices;
     auto* settings = context ? context->getGlobalSettings() : nullptr;
     if (settings)
     {
@@ -1352,11 +1373,23 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                              SettingsDefaults::PLATESOLVE_CATALOG_ANNOTATIONS_ENABLED ? "1" : "0") == "1";
         starLabelsEnabled = settings->select(SettingsKeys::PLATESOLVE_STAR_LABELS_ENABLED,
                                              SettingsDefaults::PLATESOLVE_STAR_LABELS_ENABLED ? "1" : "0") == "1";
-        catalogMagnitudeLimit = settings
-                                    ->select(SettingsKeys::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT,
-                                             QString::number(SettingsDefaults::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT))
-                                    .toDouble();
+        if (const std::optional<QString> stored = settings->selectOptional(SettingsKeys::ANNOTATION_VIEW_CHOICES))
+        {
+            annotationChoices = an::ui::annotationViewChoicesFromStored(*stored);
+        }
+        else if (const std::optional<QString> limit =
+                     settings->selectOptional(SettingsKeys::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT))
+        {
+            // A view that kept a magnitude limit before it offered levels starts at the level naming about as much.
+            bool ok = false;
+            const double magnitude = limit->toDouble(&ok);
+            if (ok)
+            {
+                annotationChoices.detail = an::ui::annotationDetailOfMagnitudeLimit(magnitude);
+            }
+        }
     }
+    m_impl->m_AnnotationChoices = annotationChoices;
     // Create the toolbar
     m_impl->m_ToolBar = new CustomToolBar(this);
     m_impl->m_ToolBar->setObjectName(QStringLiteral("anImageViewToolbar"));
@@ -1499,38 +1532,50 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
 
         m_impl->m_AstrometrySettingsMenu->addSeparator();
 
-        m_impl->m_AstrometryMagnitudeSubMenu = m_impl->m_AstrometrySettingsMenu->addMenu(tr("Magnitude Limit"));
-        {
-            auto* magnitudeGroup = new QActionGroup(m_impl->m_AstrometryMagnitudeSubMenu);
-            magnitudeGroup->setExclusive(true);
-            const std::array<std::pair<QString, double>, 7> magnitudeOptions = {{{tr("Mag <= 6"), 6.0},
-                                                                                 {tr("Mag <= 8"), 8.0},
-                                                                                 {tr("Mag <= 10"), 10.0},
-                                                                                 {tr("Mag <= 12"), 12.0},
-                                                                                 {tr("Mag <= 14"), 14.0},
-                                                                                 {tr("Mag <= 16"), 16.0},
-                                                                                 {tr("All Catalog Objects"), 99.0}}};
-            for (const auto& [label, value] : magnitudeOptions)
+        // What the annotations name and how they look: an annotated picture's choices, named as Annotate Image names
+        // them, each submenu a group of exclusive items.
+        const auto addChoices = [this](const QString& title, const QString& name,
+                                       const std::vector<std::tuple<QString, int, QString>>& items, const int chosen) {
+            QMenu* menu = m_impl->m_AstrometrySettingsMenu->addMenu(title);
+            menu->setObjectName(name);
+            menu->setToolTipsVisible(true);
+            auto* group = new QActionGroup(menu);
+            group->setExclusive(true);
+            for (const auto& [label, value, tip] : items)
             {
-                auto* action = m_impl->m_AstrometryMagnitudeSubMenu->addAction(label);
+                QAction* action = menu->addAction(label);
                 action->setCheckable(true);
                 action->setData(value);
-                magnitudeGroup->addAction(action);
-                if (qFuzzyCompare(value, catalogMagnitudeLimit))
-                {
-                    action->setChecked(true);
-                }
+                action->setToolTip(tip);
+                action->setChecked(value == chosen);
+                group->addAction(action);
             }
-            if (!magnitudeGroup->checkedAction())
-            {
-                // Default to Mag <= 12 if saved value doesn't match exactly
-                const auto actions = magnitudeGroup->actions();
-                if (actions.size() > 3)
-                {
-                    actions[3]->setChecked(true);
-                }
-            }
+            return menu;
+        };
+        std::vector<std::tuple<QString, int, QString>> details;
+        for (const an::ui::AnnotationDetail detail : an::ui::annotationDetails())
+        {
+            details.emplace_back(an::ui::annotationDetailName(detail), static_cast<int>(detail),
+                                 an::ui::annotationDetailDescription(detail));
         }
+        m_impl->m_AstrometryDetailSubMenu = addChoices(tr("Level of Detail"), QStringLiteral("astrometryDetailMenu"),
+                                                       details, static_cast<int>(annotationChoices.detail));
+        m_impl->m_AstrometryLabelsSubMenu =
+            addChoices(tr("Labels"), QStringLiteral("astrometryLabelsMenu"),
+                       {{tr("Designation"), static_cast<int>(an::ui::AnnotationLabelText::Designation),
+                         tr("An object's designation, or its name when it has none: M 42, α Lyr")},
+                        {tr("Name"), static_cast<int>(an::ui::AnnotationLabelText::Name),
+                         tr("An object's common name, or its designation when it has none: Orion Nebula, Vega")},
+                        {tr("Designation and Name"), static_cast<int>(an::ui::AnnotationLabelText::DesignationAndName),
+                         tr("An object's designation, with its common name on a second line")}},
+                       static_cast<int>(annotationChoices.labelText));
+        std::vector<std::tuple<QString, int, QString>> palettes;
+        for (const an::ui::AnnotationPalette palette : an::ui::annotationPalettes())
+        {
+            palettes.emplace_back(an::ui::annotationPaletteName(palette), static_cast<int>(palette), QString());
+        }
+        m_impl->m_AstrometryPaletteSubMenu = addChoices(tr("Palette"), QStringLiteral("astrometryPaletteMenu"),
+                                                        palettes, static_cast<int>(annotationChoices.palette));
 
         m_impl->m_AstrometrySettingsAction =
             m_impl->m_ToolBar->addAction(iconManager->getIcon("settings"), tr("Astrometry Settings"));
@@ -1709,11 +1754,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         attachOverlay(m_impl->m_DistortionMapDisplayModule, an::ui::AstrometryOverlay::DistortionMap,
                       astrometryOverlayEnabled && distortionMapEnabled);
         attachOverlay(m_impl->m_CatalogAnnotationDisplayModule, an::ui::AstrometryOverlay::CatalogAnnotations, false);
-        if (m_impl->m_CatalogAnnotationDisplayModule)
-        {
-            an::ui::setAstrometryOverlayMagnitudeLimit(*m_impl->m_CatalogAnnotationDisplayModule,
-                                                       catalogMagnitudeLimit);
-        }
+        m_impl->showAnnotationChoices();
         m_impl->showCatalogAnnotations(astrometryOverlayEnabled, catalogAnnotationsEnabled, starLabelsEnabled);
     }
     const auto persistBoolSetting = [this](const QString& key, const bool enabled) {
@@ -1880,30 +1921,39 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                          });
     }
 
-    // Magnitude limit submenu
-    if (m_impl->m_AstrometryMagnitudeSubMenu)
-    {
-        QObject::connect(m_impl->m_AstrometryMagnitudeSubMenu, &QMenu::triggered, this,
-                         [this, persistStringSetting](QAction* action) {
-                             if (!action)
-                             {
-                                 return;
-                             }
-                             bool ok = false;
-                             const double magnitude_limit = action->data().toDouble(&ok);
-                             if (!ok)
-                             {
-                                 return;
-                             }
-                             if (m_impl->m_CatalogAnnotationDisplayModule)
-                             {
-                                 an::ui::setAstrometryOverlayMagnitudeLimit(*m_impl->m_CatalogAnnotationDisplayModule,
-                                                                            magnitude_limit);
-                             }
-                             persistStringSetting(SettingsKeys::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT,
-                                                  QString::number(magnitude_limit, 'f', 1));
-                         });
-    }
+    // The level of detail, the labels and the palette: each choice is handed to the overlays and kept.
+    const auto connectChoices = [this, persistStringSetting](QMenu* menu,
+                                                             void (*choose)(an::ui::AnnotationViewChoices&, int)) {
+        if (menu == nullptr)
+        {
+            return;
+        }
+        QObject::connect(menu, &QMenu::triggered, this, [this, persistStringSetting, choose](QAction* action) {
+            bool ok = false;
+            const int value = action != nullptr ? action->data().toInt(&ok) : 0;
+            if (!ok)
+            {
+                return;
+            }
+            choose(m_impl->m_AnnotationChoices, value);
+            m_impl->showAnnotationChoices();
+            persistStringSetting(SettingsKeys::ANNOTATION_VIEW_CHOICES,
+                                 an::ui::storedAnnotationViewChoices(m_impl->m_AnnotationChoices));
+            if (m_impl->m_ImageViewWidget)
+            {
+                m_impl->m_ImageViewWidget->update();
+            }
+        });
+    };
+    connectChoices(m_impl->m_AstrometryDetailSubMenu, [](an::ui::AnnotationViewChoices& choices, const int value) {
+        choices.detail = static_cast<an::ui::AnnotationDetail>(value);
+    });
+    connectChoices(m_impl->m_AstrometryLabelsSubMenu, [](an::ui::AnnotationViewChoices& choices, const int value) {
+        choices.labelText = static_cast<an::ui::AnnotationLabelText>(value);
+    });
+    connectChoices(m_impl->m_AstrometryPaletteSubMenu, [](an::ui::AnnotationViewChoices& choices, const int value) {
+        choices.palette = static_cast<an::ui::AnnotationPalette>(value);
+    });
 
     // Astrometry info button
     if (m_impl->m_AstrometryInfoAction)

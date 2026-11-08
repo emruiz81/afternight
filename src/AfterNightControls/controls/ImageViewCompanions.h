@@ -41,6 +41,8 @@ class QWidget;
 namespace an::ui
 {
 
+struct AnnotationViewChoices;
+
 /// The undo history of one view. Made by `createViewHistory`, which the history defines.
 class IViewHistory
 {
@@ -282,12 +284,14 @@ struct ViewOverlayStars
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::unique_ptr<::ImageViewWidgetDisplayModule>
 createAstrometryOverlay(AstrometryOverlay overlay, ::ImageViewControl& view);
 
-/// Sets the faintest magnitude a catalogue overlay labels; an overlay that labels no catalogue ignores it. Defined
-/// beside the overlays.
+/// Sets what an overlay names and how it looks, as the view's menu chose: the catalogue overlay names the catalogues at
+/// the choices' level of detail, labels them as they say and draws in their palette; the grid draws in the palette; any
+/// other overlay ignores them. Defined beside the overlays.
 ///
 /// @param overlay an overlay `createAstrometryOverlay` made.
-/// @param limit the magnitude.
-AFTERNIGHTCONTROLS_API void setAstrometryOverlayMagnitudeLimit(::ImageViewWidgetDisplayModule& overlay, double limit);
+/// @param choices the choices (`controls/annotation/AnnotationSettings.h`).
+AFTERNIGHTCONTROLS_API void setAstrometryOverlayChoices(::ImageViewWidgetDisplayModule& overlay,
+                                                        const AnnotationViewChoices& choices);
 
 /// Sets which catalogues a catalogue overlay draws; an overlay that labels no catalogue ignores it. Defined beside the
 /// overlays.

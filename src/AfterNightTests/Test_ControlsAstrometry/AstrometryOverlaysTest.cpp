@@ -24,18 +24,23 @@
 #include <AfterNightEngine/Algorithms/Catalog/CatalogRecord.h>
 #include <AfterNightEngine/Algorithms/Stars/StarDetectionChannels.h>
 
+#include <QColor>
+#include <QImage>
 #include <QPoint>
 #include <QRectF>
 #include <QStringList>
 #include <QThreadPool>
+#include <QWidget>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -114,9 +119,11 @@ constexpr std::uint32_t kHeight = 300u;
     return entry;
 }
 
-/// A layer's scene, as an overlay's worker builds it at the overlay's first limit.
-[[nodiscard]] an::ui::AnnotationScene layerScene(const an::WcsSolution& solution, const an::ui::BundledCatalog catalog,
-                                                 const std::vector<an::CatalogEntry>& entries)
+/// A layer's scene, as an overlay's worker builds it at a level of detail - the standard one, a view's first.
+[[nodiscard]] an::ui::AnnotationScene
+layerScene(const an::WcsSolution& solution, const an::ui::BundledCatalog catalog,
+           const std::vector<an::CatalogEntry>& entries,
+           const an::ui::AnnotationDetail detail = an::ui::AnnotationDetail::Standard)
 {
     const bool deepSky = catalog == an::ui::BundledCatalog::DeepSky;
     const std::span<const an::CatalogEntry> all(entries);
@@ -125,7 +132,57 @@ constexpr std::uint32_t kHeight = 300u;
                                        .deepSky = deepSky ? all : std::span<const an::CatalogEntry>(),
                                        .stars = deepSky ? std::span<const an::CatalogEntry>() : all,
                                        .cards = {}},
-        an::ui::detail::overlayAnnotationContent(catalog, 12.0));
+        an::ui::detail::overlayAnnotationContent(catalog, detail));
+}
+
+/// The layout of a deep-sky layer alone at the view's first zoom, labelled as a choice says and holding the objects to
+/// a smallest size.
+[[nodiscard]] an::ui::detail::OverlayAnnotationLayout
+layoutOfDeepSky(const an::ui::AnnotationScene& deepSky,
+                const an::ui::AnnotationLabelText labelText = an::ui::AnnotationLabelText::Designation,
+                const double smallestMajorPixels = 0.0)
+{
+    return an::ui::detail::layoutOverlayAnnotations(
+        &deepSky, nullptr, 1.0, 11.0, an::ui::defaultAnnotationSettings().style, labelText, smallestMajorPixels);
+}
+
+/// The designations a layout keeps a mark of, sorted.
+[[nodiscard]] QStringList keptDesignations(const an::ui::detail::OverlayAnnotationLayout& laid)
+{
+    QStringList kept;
+    if (laid.scene != nullptr)
+    {
+        for (const an::ui::AnnotationMark& mark : laid.scene->marks)
+        {
+            kept.push_back(mark.designation.isEmpty() ? mark.name : mark.designation);
+        }
+    }
+    kept.sort();
+    return kept;
+}
+
+/// How many of a widget's pixels are clearly redder than they are blue, and how many clearly bluer.
+[[nodiscard]] std::pair<int, int> redAndBluePixels(QWidget& widget)
+{
+    const QImage image = widget.grab().toImage();
+    int red = 0;
+    int blue = 0;
+    for (int y = 0; y < image.height(); ++y)
+    {
+        for (int x = 0; x < image.width(); ++x)
+        {
+            const QColor colour = image.pixelColor(x, y);
+            if (colour.red() > colour.blue() + 40)
+            {
+                ++red;
+            }
+            else if (colour.blue() > colour.red() + 40)
+            {
+                ++blue;
+            }
+        }
+    }
+    return {red, blue};
 }
 
 /// Sixteen galaxies three pixels apart about the field's centre.
@@ -286,10 +343,28 @@ TEST(AstrometryOverlayGeometry, AnObjectAtTheReferenceIsDrawnOverTheReferencePix
     const std::vector<an::CatalogEntry> stars{star};
     const an::ui::AnnotationScene scene = an::ui::buildAnnotationScene(
         an::ui::AnnotationSceneSources{.solution = &*solution, .deepSky = {}, .stars = stars, .cards = {}},
-        an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::BrightStars, 9.0));
+        an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::BrightStars,
+                                                 an::ui::AnnotationDetail::Complete));
     ASSERT_EQ(scene.marks.size(), 1u);
     EXPECT_NEAR(scene.marks.front().center.x() * 1.5, 300.0, 1e-9);
     EXPECT_NEAR(scene.marks.front().center.y() * 1.5, 225.0, 1e-9);
+}
+
+// The part of an image a view shows is measured in the image's own pixels - the image's side where it fits the
+// viewport - and rounded to a quarter of a doubling: a scroll bar's few pixels change nothing, a zoom step does.
+TEST(AstrometryOverlayGeometry, ThePartShownIsMeasuredInTheImagesPixelsAndRoundedToAQuarterDoubling)
+{
+    const QSize image(400, 300);
+    const QSizeF viewport(638.0, 447.0);
+    // The whole image, the square root of 400 by 300 rounded to two to the eight and a half.
+    EXPECT_NEAR(an::ui::detail::overlayShownReferenceLength(image, viewport, 1.0), std::exp2(8.5), 1e-9);
+    // Four times larger, a part of 159.5 by 111.75 pixels: 133.5, rounded to two to the seventh.
+    EXPECT_NEAR(an::ui::detail::overlayShownReferenceLength(image, viewport, 4.0), 128.0, 1e-9);
+    EXPECT_DOUBLE_EQ(an::ui::detail::overlayShownReferenceLength(image, QSizeF(621.0, 430.0), 4.0),
+                     an::ui::detail::overlayShownReferenceLength(image, viewport, 4.0))
+        << "a scroll bar's pixels change nothing";
+    EXPECT_DOUBLE_EQ(an::ui::detail::overlayShownReferenceLength(image, viewport, 0.0), 0.0);
+    EXPECT_DOUBLE_EQ(an::ui::detail::overlayShownReferenceLength(QSize(), viewport, 1.0), 0.0);
 }
 
 TEST(AstrometryOverlayGeometry, TheVisibleSkyIsCentredWhereTheSolutionPutsTheRectanglesCentre)
@@ -323,6 +398,28 @@ TEST_F(AstrometryOverlaysTest, TheGridDrawsLinesOverASolvedImageAndNoneOverAnUns
     EXPECT_EQ(grid->projectedLineCount(), 0);
 }
 
+// The part of the image a view shows is what its viewport shows at the scroll offsets - the whole widget when it fits -
+// whether the scroll bars are drawn or not.
+TEST_F(AstrometryOverlaysTest, ThePartShownIsWhatTheViewportShowsAtTheScrollOffsets)
+{
+    show(fieldCards());
+    m_view->getViewWidget()->scaleImageView(1.0, true);
+    paint();
+    EXPECT_EQ(an::ui::detail::visibleOverlayWidgetRect(m_view.get()), QRectF(0.0, 0.0, kWidth, kHeight));
+
+    // The zoom's scroll range is set once the view has settled at its new size; the offsets follow it.
+    m_view->getViewWidget()->scaleImageView(4.0, true);
+    paint();
+    an::tests::astrometry::pumpQuietly();
+    m_view->setViewportOffset(QPoint(150, 120));
+    paint();
+    const QWidget* viewport = m_view->getScrollArea()->viewport();
+    ASSERT_LT(viewport->width(), 4 * static_cast<int>(kWidth) - 150);
+    ASSERT_LT(viewport->height(), 4 * static_cast<int>(kHeight) - 120);
+    EXPECT_EQ(an::ui::detail::visibleOverlayWidgetRect(m_view.get()),
+              QRectF(150.0, 120.0, viewport->width(), viewport->height()));
+}
+
 // The view's grid is an annotated picture's grid of the part the view shows: its lines are the picture's, spaced for
 // that part, and its labels are written as the picture writes them.
 TEST_F(AstrometryOverlaysTest, TheViewsGridIsThePicturesGridOfThePartShown)
@@ -332,11 +429,15 @@ TEST_F(AstrometryOverlaysTest, TheViewsGridIsThePicturesGridOfThePartShown)
     auto* grid = dynamic_cast<an::ui::CoordinateGridDisplayModule*>(overlay.get());
     ASSERT_NE(grid, nullptr);
     m_view->getViewWidget()->scaleImageView(3.0, true);
+    paint();
+    an::tests::astrometry::pumpQuietly();
     m_view->setViewportOffset(QPoint(240, 180));
     paint();
 
     const double scale = m_view->getViewWidget()->getCurrentScaleFactor();
     const QRectF visible = an::ui::detail::visibleOverlayWidgetRect(m_view.get());
+    ASSERT_EQ(visible.topLeft(), QPointF(240.0, 180.0)) << "a part of the image away from its corner";
+    ASSERT_LT(visible.width(), 3.0 * kWidth);
     const QRectF part(visible.left() / scale, visible.top() / scale, visible.width() / scale, visible.height() / scale);
     const std::vector<an::ui::AnnotationGridLine> pictures =
         an::ui::buildAnnotationGrid(*m_view->imageSolution(), part, an::ui::AnnotationGridDensity::Normal);
@@ -423,16 +524,96 @@ TEST_F(AstrometryOverlaysTest, DeepSkyLabelsArriveFromAWorkerAndAreDrawnOnTheNex
     paint();
     EXPECT_EQ(annotations->catalogQueriesAsked(), 1u);
 
-    // A fainter limit is another question.
-    annotations->setMagnitudeLimit(14.0);
+    // Another level of detail is another question: the detailed level names the fainter galaxy too, and the essential
+    // level the named object alone.
+    annotations->setChoices(an::ui::AnnotationViewChoices{.detail = an::ui::AnnotationDetail::Detailed});
     ASSERT_TRUE(pumpUntil([&]() {
         paint();
         return annotations->projectedLabels().size() == 3;
     }));
     EXPECT_EQ(annotations->catalogQueriesAsked(), 2u);
+    annotations->setChoices(an::ui::AnnotationViewChoices{.detail = an::ui::AnnotationDetail::Essential});
+    ASSERT_TRUE(pumpUntil([&]() {
+        paint();
+        return annotations->projectedLabels() == QVector<QString>{QStringLiteral("NGC 1001")};
+    }));
+    EXPECT_EQ(annotations->catalogQueriesAsked(), 3u);
 }
 
-TEST_F(AstrometryOverlaysTest, BrightStarLabelsPreferTheProperNameThenTheBayerLetter)
+// An object no catalogue measured a magnitude for is named at the levels that mark one - the detailed and the complete
+// - as an annotated picture names it: the field's query states no magnitude that would leave it out.
+TEST_F(AstrometryOverlaysTest, AnObjectOfNoMeasuredMagnitudeIsNamedAtTheLevelsThatMarkIt)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
+    auto* annotations = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
+    ASSERT_NE(annotations, nullptr);
+    annotations->setLayers(true, false);
+    annotations->setCatalogSource(fixedCatalogs(
+        QByteArray("id,common_name,ra_deg,dec_deg,major_axis_arcmin,minor_axis_arcmin,position_angle_deg,object_type,"
+                   "magnitude\n"
+                   "NGC 1001,Bright One,120.0,10.0,30.0,20.0,10,Galaxy,8.0\n"
+                   "NGC 1007,,120.2,9.9,5.0,5.0,0,Galaxy,\n"),
+        brightStarText()));
+
+    const auto labelsAt = [&](const an::ui::AnnotationDetail detail, const qsizetype count) {
+        annotations->setChoices(an::ui::AnnotationViewChoices{.detail = detail});
+        EXPECT_TRUE(pumpUntil([&]() {
+            paint();
+            return annotations->projectedLabels().size() == count;
+        })) << "level "
+            << static_cast<int>(detail);
+        QVector<QString> labels = annotations->projectedLabels();
+        std::sort(labels.begin(), labels.end());
+        return labels;
+    };
+    EXPECT_EQ(labelsAt(an::ui::AnnotationDetail::Standard, 1), QVector<QString>{QStringLiteral("NGC 1001")});
+    const QVector<QString> both{QStringLiteral("NGC 1001"), QStringLiteral("NGC 1007")};
+    EXPECT_EQ(labelsAt(an::ui::AnnotationDetail::Detailed, 2), both);
+    EXPECT_EQ(labelsAt(an::ui::AnnotationDetail::Complete, 2), both);
+}
+
+// An object too small to show is named once the view shows it large enough: the level's smallest size is a share of the
+// part of the image the view shows, so zooming in names the smaller objects, as a map does - a notable one whatever its
+// size.
+TEST_F(AstrometryOverlaysTest, ASmallObjectIsNamedOnceTheViewShowsItLargeEnough)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
+    auto* annotations = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
+    ASSERT_NE(annotations, nullptr);
+    annotations->setLayers(true, false);
+    // A galaxy of 24 arcseconds is two thirds of a pixel; the standard level's smallest size is 0.3 % of the part
+    // shown.
+    annotations->setCatalogSource(fixedCatalogs(
+        QByteArray("id,common_name,ra_deg,dec_deg,major_axis_arcmin,minor_axis_arcmin,position_angle_deg,object_type,"
+                   "magnitude\n"
+                   "NGC 1001,Bright One,120.0,10.0,30.0,20.0,10,Galaxy,8.0\n"
+                   "NGC 1006,,120.1,10.1,0.4,0.4,0,Galaxy,10.0\n"
+                   "M 98,,119.9,9.9,0.4,0.4,0,Galaxy,10.0\n"),
+        brightStarText()));
+
+    m_view->getViewWidget()->scaleImageView(1.0, true);
+    ASSERT_TRUE(pumpUntil([&]() {
+        paint();
+        return annotations->projectedLabels().size() == 2;
+    }));
+    QVector<QString> fitted = annotations->projectedLabels();
+    std::sort(fitted.begin(), fitted.end());
+    EXPECT_EQ(fitted, (QVector<QString>{QStringLiteral("M 98"), QStringLiteral("NGC 1001")}));
+
+    m_view->getViewWidget()->scaleImageView(4.0, true);
+    ASSERT_TRUE(pumpUntil([&]() {
+        paint();
+        return annotations->projectedLabels().size() == 3;
+    }));
+    EXPECT_TRUE(annotations->projectedLabels().contains(QStringLiteral("NGC 1006")));
+}
+
+// A star's label says what the view's choice of label says, as an annotated picture's does: its designation, else its
+// proper name; its proper name, else its designation; or its designation with its name on a second line. A choice of
+// label lays the labels out again and asks the catalogue nothing.
+TEST_F(AstrometryOverlaysTest, AStarsLabelSaysWhatTheViewsChoiceOfLabelSays)
 {
     show(fieldCards());
     std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
@@ -441,13 +622,29 @@ TEST_F(AstrometryOverlaysTest, BrightStarLabelsPreferTheProperNameThenTheBayerLe
     labels->setLayers(false, true);
     labels->setCatalogSource(fixedCatalogs(deepSkyText(), brightStarText()));
 
-    ASSERT_TRUE(pumpUntil([&]() {
-        paint();
-        return labels->projectedLabels().size() == 2;
-    }));
-    QVector<QString> drawn = labels->projectedLabels();
-    std::sort(drawn.begin(), drawn.end());
-    EXPECT_EQ(drawn, (QVector<QString>{QStringLiteral("Alpha Field"), QStringLiteral("bet Fld")}));
+    // The last labels are drawn until the new ones land: each choice waits for a layout made after it.
+    const auto drawsWith = [&](const an::ui::AnnotationLabelText text, const QVector<QString>& expected) {
+        const std::uint64_t before = labels->layoutsMade();
+        labels->setChoices(an::ui::AnnotationViewChoices{.labelText = text});
+        return pumpUntil([&]() {
+            paint();
+            QVector<QString> drawn = labels->projectedLabels();
+            std::sort(drawn.begin(), drawn.end());
+            return labels->layoutsMade() > before && drawn == expected;
+        });
+    };
+    const QVector<QString> designations{QStringLiteral("alf Fld"), QStringLiteral("bet Fld")};
+    EXPECT_TRUE(drawsWith(an::ui::AnnotationLabelText::Designation, designations));
+    const QVector<QRectF> oneLine = labels->projectedLabelBoxes();
+    EXPECT_TRUE(drawsWith(an::ui::AnnotationLabelText::Name,
+                          QVector<QString>{QStringLiteral("Alpha Field"), QStringLiteral("bet Fld")}));
+    EXPECT_TRUE(drawsWith(an::ui::AnnotationLabelText::DesignationAndName, designations));
+    const QVector<QRectF> twoLines = labels->projectedLabelBoxes();
+    ASSERT_EQ(oneLine.size(), 2);
+    ASSERT_EQ(twoLines.size(), 2);
+    // The named star's label is the taller by its second line; the star of a designation alone keeps one.
+    const auto tallest = [](const QVector<QRectF>& boxes) { return (std::max)(boxes[0].height(), boxes[1].height()); };
+    EXPECT_GT(tallest(twoLines), 1.5 * tallest(oneLine));
     EXPECT_EQ(labels->catalogQueriesAsked(), 1u);
 }
 
@@ -460,6 +657,8 @@ TEST_F(AstrometryOverlaysTest, CrowdedStarsAreLabelledBrightestFirstAndNoLabelCo
     auto* labels = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
     ASSERT_NE(labels, nullptr);
     labels->setLayers(false, true);
+    // The complete level names every star of the catalogue, the sixth magnitude's among them.
+    labels->setChoices(an::ui::AnnotationViewChoices{.detail = an::ui::AnnotationDetail::Complete});
     labels->setCatalogSource(fixedCatalogs(
         deepSkyText(), QByteArray("id,common_name,bayer_designation,ra_deg,dec_deg,magnitude,spectral_type\n"
                                   "HIP 11,Faint One,,120.001,10.001,5.0,G0V\n"
@@ -528,39 +727,58 @@ TEST_F(AstrometryOverlaysTest, ANamedStarIsLabelledBeforeABrighterStarOfADesigna
     EXPECT_FALSE(anyOverlap(labels->projectedLabelBoxes()));
 }
 
-// What a live overlay's scene holds until the view offers levels of detail: its own layer, every catalogue and kind,
-// its magnitude limit - every object, measured or not, at the limit of all catalog objects - and the text the overlay
-// labels with: a deep-sky object by its designation, a star by its proper name, then its Bayer letter, then its number.
-TEST(AstrometryOverlayContent, AnOverlaysSceneHoldsItsLayerAtItsLimitAndLabelsAsTheOverlayDoes)
+// What a live overlay's scene holds at a level of detail: its own layer and the level's catalogues, kinds, magnitudes
+// and stars - an annotated picture's - but every size: the view holds an object to the level's smallest size for the
+// part of the image it shows when it lays the labels out.
+TEST(AstrometryOverlayContent, AnOverlaysSceneHoldsItsLayerAtTheLevelAndEverySize)
 {
-    const an::ui::AnnotationContent deepSky =
-        an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::DeepSky, 12.0);
-    EXPECT_TRUE(deepSky.layers.deepSky);
-    EXPECT_FALSE(deepSky.layers.stars);
-    EXPECT_FALSE(deepSky.layers.grid);
-    EXPECT_FALSE(deepSky.layers.compass);
-    EXPECT_FALSE(deepSky.layers.scaleBar);
-    EXPECT_FALSE(deepSky.layers.infoPanel);
-    EXPECT_DOUBLE_EQ(deepSky.deepSky.magnitudeLimit, 12.0);
-    EXPECT_FALSE(deepSky.deepSky.namedOnly);
-    EXPECT_FALSE(deepSky.deepSky.unmeasured) << "a named object of no measured magnitude is kept by its name";
-    EXPECT_DOUBLE_EQ(deepSky.deepSky.minimumSize, 0.0);
-    EXPECT_TRUE(deepSky.deepSky.otherObjects);
-    EXPECT_EQ(deepSky.labelText, an::ui::AnnotationLabelText::Designation);
-    EXPECT_TRUE(an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::DeepSky, 99.0).deepSky.unmeasured);
+    for (const an::ui::AnnotationDetail detail : an::ui::annotationDetails())
+    {
+        an::ui::AnnotationContent level = an::ui::defaultAnnotationSettings().content;
+        an::ui::applyAnnotationDetail(level, detail);
 
-    const an::ui::AnnotationContent stars =
-        an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::BrightStars, 8.0);
-    EXPECT_TRUE(stars.layers.stars);
-    EXPECT_FALSE(stars.layers.deepSky);
-    EXPECT_DOUBLE_EQ(stars.stars.magnitudeLimit, 8.0);
-    EXPECT_EQ(stars.stars.naming, an::ui::AnnotationStarNaming::CatalogueNumbers);
-    EXPECT_FALSE(stars.stars.markUnnamed);
-    EXPECT_EQ(stars.labelText, an::ui::AnnotationLabelText::Name);
+        const an::ui::AnnotationContent deepSky =
+            an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::DeepSky, detail);
+        EXPECT_EQ(deepSky.layers, (an::ui::AnnotationLayers{.grid = false,
+                                                            .deepSky = true,
+                                                            .stars = false,
+                                                            .compass = false,
+                                                            .scaleBar = false,
+                                                            .infoPanel = false}));
+        an::ui::AnnotationDeepSkySelection everySize = level.deepSky;
+        everySize.minimumSize = 0.0;
+        EXPECT_EQ(deepSky.deepSky, everySize) << "level " << static_cast<int>(detail);
+        EXPECT_DOUBLE_EQ(an::ui::detail::overlaySmallestObject(detail), level.deepSky.minimumSize);
+
+        const an::ui::AnnotationContent stars =
+            an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::BrightStars, detail);
+        EXPECT_TRUE(stars.layers.stars);
+        EXPECT_FALSE(stars.layers.deepSky);
+        EXPECT_EQ(stars.stars, level.stars) << "level " << static_cast<int>(detail);
+    }
 }
 
-// A star is labelled as an annotated picture names it - its proper name, else its Bayer letter, else its catalogue
-// number - and a star of none of them, blank or all spaces, is not labelled at all.
+// A field's query states a magnitude only where it leaves out nothing the level names: no limit for a level that marks
+// objects of no measured magnitude or every magnitude, the deep-sky level's limit otherwise, and the stars' limit.
+TEST(AstrometryOverlayContent, AFieldsQueryStatesNoLimitThatLeavesOutWhatTheLevelNames)
+{
+    const auto limitAt = [](const an::ui::BundledCatalog catalog, const an::ui::AnnotationDetail detail) {
+        return an::ui::detail::overlayQueryMagnitudeLimit(catalog,
+                                                          an::ui::detail::overlayAnnotationContent(catalog, detail));
+    };
+    EXPECT_EQ(limitAt(an::ui::BundledCatalog::DeepSky, an::ui::AnnotationDetail::Standard),
+              std::optional<double>(12.0));
+    EXPECT_EQ(limitAt(an::ui::BundledCatalog::DeepSky, an::ui::AnnotationDetail::Essential), std::nullopt);
+    EXPECT_EQ(limitAt(an::ui::BundledCatalog::DeepSky, an::ui::AnnotationDetail::Detailed), std::nullopt);
+    EXPECT_EQ(limitAt(an::ui::BundledCatalog::DeepSky, an::ui::AnnotationDetail::Complete), std::nullopt);
+    EXPECT_EQ(limitAt(an::ui::BundledCatalog::BrightStars, an::ui::AnnotationDetail::Essential),
+              std::optional<double>(2.5));
+    EXPECT_EQ(limitAt(an::ui::BundledCatalog::BrightStars, an::ui::AnnotationDetail::Complete),
+              std::optional<double>(an::ui::kAnnotationFaintestStar));
+}
+
+// At the complete level a star is labelled as an annotated picture names it - its proper name, else its Bayer letter,
+// else its catalogue number - and a star of none of them, blank or all spaces, is not labelled at all.
 TEST(AstrometryOverlayContent, AStarIsLabelledByItsProperNameThenItsBayerLetterThenItsNumber)
 {
     const std::optional<an::WcsSolution> solution = solutionOf(fieldCards(), kWidth, kHeight);
@@ -577,15 +795,15 @@ TEST(AstrometryOverlayContent, AStarIsLabelledByItsProperNameThenItsBayerLetterT
     const std::vector<an::CatalogEntry> stars{star("HIP 32349", "Sirius", "alf CMa", 120.0),
                                               star("HIP 27989", "", "alf Ori", 120.3), star("HIP 12345", "", "", 120.6),
                                               star("   ", "  ", " ", 119.7)};
-    const an::ui::AnnotationContent content =
-        an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::BrightStars, 9.0);
+    const an::ui::AnnotationContent content = an::ui::detail::overlayAnnotationContent(
+        an::ui::BundledCatalog::BrightStars, an::ui::AnnotationDetail::Complete);
     const an::ui::AnnotationScene scene = an::ui::buildAnnotationScene(
         an::ui::AnnotationSceneSources{.solution = &*solution, .deepSky = {}, .stars = stars, .cards = {}}, content);
 
     std::vector<QString> labels;
     for (const an::ui::AnnotationMark& mark : scene.marks)
     {
-        labels.push_back(an::ui::annotationLabelLines(mark, content.labelText).first);
+        labels.push_back(an::ui::annotationLabelLines(mark, an::ui::AnnotationLabelText::Name).first);
     }
     std::sort(labels.begin(), labels.end());
     EXPECT_EQ(labels,
@@ -607,8 +825,8 @@ TEST(AstrometryOverlayLayout, NoTwoLabelsOverlapAndALabelKeepsItsSizeOnTheScreen
 
     for (const double scale : {0.5, 1.0, 4.0})
     {
-        const an::ui::detail::OverlayAnnotationLayout laid =
-            an::ui::detail::layoutOverlayAnnotations(&deepSky, &stars, scale, 11.0, style);
+        const an::ui::detail::OverlayAnnotationLayout laid = an::ui::detail::layoutOverlayAnnotations(
+            &deepSky, &stars, scale, 11.0, style, an::ui::AnnotationLabelText::Designation, 0.0);
         ASSERT_NE(laid.scene, nullptr);
         ASSERT_NE(laid.layout, nullptr);
         EXPECT_NEAR(laid.layout->metrics.fontSize * scale, 11.0, 1e-9) << "zoom " << scale;
@@ -642,8 +860,9 @@ TEST(AstrometryOverlayLayout, EveryObjectKeepsItsOutlineAndAStarWithoutALabelIsL
     const an::ui::AnnotationScene stars = layerScene(*solution, an::ui::BundledCatalog::BrightStars, crowdedStars(120));
     ASSERT_EQ(stars.marks.size(), 120u);
 
-    const an::ui::detail::OverlayAnnotationLayout laid = an::ui::detail::layoutOverlayAnnotations(
-        &deepSky, &stars, 1.0, 11.0, an::ui::defaultAnnotationSettings().style);
+    const an::ui::detail::OverlayAnnotationLayout laid =
+        an::ui::detail::layoutOverlayAnnotations(&deepSky, &stars, 1.0, 11.0, an::ui::defaultAnnotationSettings().style,
+                                                 an::ui::AnnotationLabelText::Designation, 0.0);
     ASSERT_NE(laid.scene, nullptr);
     ASSERT_NE(laid.layout, nullptr);
     ASSERT_EQ(laid.layout->labelled.size(), laid.scene->marks.size());
@@ -664,6 +883,75 @@ TEST(AstrometryOverlayLayout, EveryObjectKeepsItsOutlineAndAStarWithoutALabelIsL
     EXPECT_EQ(galaxies, 16u);
     EXPECT_GT(starsDrawn, 0u);
     EXPECT_LT(starsDrawn, 120u) << "a crowd of stars cannot all be labelled";
+}
+
+// An object smaller than the smallest size is left out, as an annotated picture leaves it out; a Messier, Caldwell or
+// named object is kept whatever its size, and an object of no stated size is judged by its magnitude alone.
+TEST(AstrometryOverlayLayout, AnObjectSmallerThanTheSmallestSizeIsLeftOutUnlessItIsNotable)
+{
+    const std::optional<an::WcsSolution> solution = solutionOf(fieldCards(), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    // At 36 arcseconds a pixel: 1.2 arcminutes are two pixels, 6 arcminutes ten.
+    an::CatalogEntry point = galaxyAt("NGC 4002", 120.1, 10.0, 0.0, 9.0);
+    point.extent.reset();
+    an::CatalogEntry named = galaxyAt("NGC 4004", 119.9, 10.1, 1.2, 9.0);
+    named.commonName = "Small Named";
+    const an::ui::AnnotationScene deepSky =
+        layerScene(*solution, an::ui::BundledCatalog::DeepSky,
+                   {galaxyAt("NGC 4001", 120.0, 10.1, 1.2, 9.0), galaxyAt("M 98", 120.1, 9.9, 1.2, 9.0), point,
+                    galaxyAt("NGC 4003", 119.9, 9.9, 6.0, 9.0), named});
+    ASSERT_EQ(deepSky.marks.size(), 5u) << "the scene keeps every size";
+
+    EXPECT_EQ(keptDesignations(layoutOfDeepSky(deepSky, an::ui::AnnotationLabelText::Designation, 5.0)),
+              (QStringList{QStringLiteral("M 98"), QStringLiteral("NGC 4002"), QStringLiteral("NGC 4003"),
+                           QStringLiteral("NGC 4004")}));
+    EXPECT_EQ(keptDesignations(layoutOfDeepSky(deepSky)).size(), 5) << "no smallest size keeps every object";
+}
+
+// A star the level marks without naming it - the detailed level marks the unnamed stars - is drawn without a label;
+// only a star whose label found no room is left out.
+TEST(AstrometryOverlayLayout, AStarTheLevelMarksWithoutANameIsDrawnUnlabelled)
+{
+    const std::optional<an::WcsSolution> solution = solutionOf(fieldCards(), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    an::CatalogEntry unnamed = starAt("HIP 7001", "", 120.5, 10.5, 5.0);
+    const an::ui::AnnotationScene stars =
+        layerScene(*solution, an::ui::BundledCatalog::BrightStars,
+                   {starAt("HIP 7002", "Named Star", 119.5, 9.5, 3.0), unnamed}, an::ui::AnnotationDetail::Detailed);
+    ASSERT_EQ(stars.marks.size(), 2u);
+
+    const an::ui::detail::OverlayAnnotationLayout laid =
+        an::ui::detail::layoutOverlayAnnotations(nullptr, &stars, 1.0, 11.0, an::ui::defaultAnnotationSettings().style,
+                                                 an::ui::AnnotationLabelText::Designation, 0.0);
+    ASSERT_NE(laid.scene, nullptr);
+    ASSERT_EQ(laid.scene->marks.size(), 2u) << "the unnamed star is drawn";
+    const auto unlabelled = std::find_if(laid.scene->marks.begin(), laid.scene->marks.end(),
+                                         [](const an::ui::AnnotationMark& mark) { return mark.markOnly; });
+    ASSERT_NE(unlabelled, laid.scene->marks.end());
+    EXPECT_FALSE(laid.layout->labelled[static_cast<std::size_t>(unlabelled - laid.scene->marks.begin())]);
+}
+
+// A label says what the choice of label says: a named object's designation alone on one line, or with its name on a
+// second line under it.
+TEST(AstrometryOverlayLayout, ALabelHoldsTheLinesTheChoiceOfLabelGivesIt)
+{
+    const std::optional<an::WcsSolution> solution = solutionOf(fieldCards(), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    an::CatalogEntry galaxy = galaxyAt("NGC 4005", 120.0, 10.0, 6.0, 9.0);
+    galaxy.commonName = "Test Galaxy";
+    const an::ui::AnnotationScene deepSky = layerScene(*solution, an::ui::BundledCatalog::DeepSky, {galaxy});
+
+    const auto secondLines = [&](const an::ui::AnnotationLabelText text) {
+        const an::ui::detail::OverlayAnnotationLayout laid = layoutOfDeepSky(deepSky, text);
+        int lines = 0;
+        for (const an::ui::AnnotationLabel& label : laid.layout->labels)
+        {
+            lines += label.role == an::ui::AnnotationLabelRole::Object && !label.secondary.isEmpty() ? 1 : 0;
+        }
+        return lines;
+    };
+    EXPECT_EQ(secondLines(an::ui::AnnotationLabelText::Designation), 0);
+    EXPECT_EQ(secondLines(an::ui::AnnotationLabelText::DesignationAndName), 1);
 }
 
 // One overlay draws the deep-sky objects and the bright stars, each a layer it is told to draw, and lays their labels
@@ -849,15 +1137,43 @@ TEST_F(AstrometryOverlaysTest, TheDetectedStarsOverlayDrawsTheStarsItIsHandedAnd
     EXPECT_EQ(stars->starCount(), 0u);
 }
 
-TEST_F(AstrometryOverlaysTest, TheMagnitudeLimitReachesTheLabelledOverlaysOnly)
+// The view's choices reach the overlays that draw them through the companion seam: the catalogue overlay takes them
+// all, the grid its palette, and an overlay that draws neither ignores them.
+TEST_F(AstrometryOverlaysTest, TheViewsChoicesReachTheOverlaysThatDrawThem)
 {
     show(fieldCards());
     std::unique_ptr<::ImageViewWidgetDisplayModule> annotations =
         attached(an::ui::AstrometryOverlay::CatalogAnnotations);
     std::unique_ptr<::ImageViewWidgetDisplayModule> grid = attached(an::ui::AstrometryOverlay::CoordinateGrid);
-    an::ui::setAstrometryOverlayMagnitudeLimit(*annotations, 10.5);
-    an::ui::setAstrometryOverlayMagnitudeLimit(*grid, 10.5);
-    EXPECT_DOUBLE_EQ(dynamic_cast<an::ui::CatalogAnnotationDisplayModule&>(*annotations).magnitudeLimit(), 10.5);
+    std::unique_ptr<::ImageViewWidgetDisplayModule> map = attached(an::ui::AstrometryOverlay::DistortionMap);
+    const an::ui::AnnotationViewChoices choices{.detail = an::ui::AnnotationDetail::Complete,
+                                                .labelText = an::ui::AnnotationLabelText::Name,
+                                                .palette = an::ui::AnnotationPalette::Atlas};
+    an::ui::setAstrometryOverlayChoices(*annotations, choices);
+    an::ui::setAstrometryOverlayChoices(*grid, choices);
+    an::ui::setAstrometryOverlayChoices(*map, choices);
+    EXPECT_EQ(dynamic_cast<an::ui::CatalogAnnotationDisplayModule&>(*annotations).choices(), choices);
+    EXPECT_EQ(dynamic_cast<an::ui::CoordinateGridDisplayModule&>(*grid).palette(), an::ui::AnnotationPalette::Atlas);
+}
+
+// The grid is drawn in the palette the view's choices name: Aurora's soft blue, or Ember's red for a dark-adapted eye.
+TEST_F(AstrometryOverlaysTest, TheGridIsDrawnInThePaletteTheViewsChoicesName)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CoordinateGrid);
+    auto* grid = dynamic_cast<an::ui::CoordinateGridDisplayModule*>(overlay.get());
+    ASSERT_NE(grid, nullptr);
+    EXPECT_EQ(grid->palette(), an::ui::AnnotationPalette::Aurora);
+
+    const auto [auroraRed, auroraBlue] = redAndBluePixels(*m_view->getViewWidget());
+    EXPECT_GT(auroraBlue, 100);
+    EXPECT_GT(auroraBlue, 4 * auroraRed);
+
+    an::ui::setAstrometryOverlayChoices(*overlay,
+                                        an::ui::AnnotationViewChoices{.palette = an::ui::AnnotationPalette::Ember});
+    const auto [emberRed, emberBlue] = redAndBluePixels(*m_view->getViewWidget());
+    EXPECT_GT(emberRed, 100);
+    EXPECT_GT(emberRed, 4 * emberBlue);
 }
 
 TEST_F(AstrometryOverlaysTest, AnImageTheProductSolvedBeforeItStatedTheFrameShowsItsSolution)

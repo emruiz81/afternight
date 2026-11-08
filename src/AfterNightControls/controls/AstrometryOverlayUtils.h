@@ -16,6 +16,7 @@
 
 #include "AfterNightControlsExport.h"
 #include "app/BundledCatalogs.h"
+#include "controls/annotation/AnnotationSettings.h"
 
 #include <AfterNightEngine/Algorithms/Astrometry/WcsSolution.h>
 #include <AfterNightEngine/Algorithms/Catalog/CatalogRecord.h>
@@ -24,6 +25,7 @@
 #include <QPointF>
 #include <QRectF>
 #include <QSize>
+#include <QSizeF>
 #include <QWidget>
 
 #include <cmath>
@@ -36,10 +38,8 @@ class ImageViewControl;
 
 namespace an::ui
 {
-struct AnnotationContent;
 struct AnnotationLayout;
 struct AnnotationScene;
-struct AnnotationStyle;
 } // namespace an::ui
 
 namespace an::ui::detail
@@ -76,8 +76,10 @@ struct OverlayViewState
 /// The view state an overlay of this view projects for now.
 [[nodiscard]] OverlayViewState overlayViewState(ImageViewControl* control);
 
-// Returns the visible widget rectangle, accounting for scroll position,
-// or the full widget rect if scrollbars are not visible.
+/// The part of a view's widget its viewport shows at the scroll offsets: the whole widget when it fits.
+///
+/// @param control the view.
+/// @return the part, in the widget's pixels; empty without a widget or a scroll area.
 [[nodiscard]] AFTERNIGHTCONTROLS_API QRectF visibleOverlayWidgetRect(ImageViewControl* control);
 
 /// The sky the visible part of an image covers: the direction at its centre, and the radius of the cone that holds the
@@ -96,16 +98,45 @@ struct VisibleSky
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<VisibleSky> visibleSky(const an::WcsSolution& solution,
                                                                           const QRectF& visibleImageRect);
 
-/// The choices a live overlay's scene is built with, so the view keeps, merges and names the objects as an annotated
-/// picture does: the overlay's catalog's layer alone, every catalogue and kind, the overlay's magnitude limit - with
-/// named objects of no measured magnitude, and every object at the limit of all catalog objects - and no smallest size;
-/// a deep-sky object labelled by its designation, a star by its proper name, then its Bayer letter, then its number.
+/// The choices a live overlay's scene is built with at a level of detail, so the view keeps, merges and names the
+/// objects as an annotated picture does: the overlay's catalog's layer alone and the level's catalogues, kinds,
+/// magnitudes and stars - but every size, since the view holds an object to the level's smallest size for the part of
+/// the image it shows when it lays the labels out (`overlaySmallestObject`).
 ///
 /// @param catalog the overlay's catalog.
-/// @param magnitudeLimit the overlay's magnitude limit.
+/// @param detail the level; `AnnotationDetail::Custom` is taken as the standard one.
 /// @return the choices.
 [[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationContent overlayAnnotationContent(BundledCatalog catalog,
-                                                                                double magnitudeLimit);
+                                                                                AnnotationDetail detail);
+
+/// The smallest deep-sky object a level of detail names that is not notable: its major axis as a fraction of the
+/// reference length of what is shown - a picture's frame, or the part of the image a view shows
+/// (`overlayShownReferenceLength`).
+///
+/// @param detail the level.
+/// @return the fraction; zero names every size.
+[[nodiscard]] AFTERNIGHTCONTROLS_API double overlaySmallestObject(AnnotationDetail detail);
+
+/// The reference length of the part of an image a view shows at a scale: the geometric mean of the part's sides in the
+/// image's pixels - each the image's own side where it fits the viewport - rounded to a quarter of a doubling, so a
+/// change of a few pixels, as a scroll bar's appearing makes, lays nothing out again while a zoom step does.
+///
+/// @param imageSize the image's size, in its own pixels.
+/// @param viewportSize the size of the viewport the view shows the image in, in the widget's pixels.
+/// @param scale the view's scale: its widget's pixels to the image's.
+/// @return the length in the image's pixels; zero for an empty size or a scale that is not positive.
+[[nodiscard]] AFTERNIGHTCONTROLS_API double overlayShownReferenceLength(QSize imageSize, QSizeF viewportSize,
+                                                                        double scale) noexcept;
+
+/// The magnitude limit a catalogue's query of a field states for a scene's choices: the stars' limit, and the deep-sky
+/// objects' unless the choices name objects of no measured magnitude, or every magnitude - a limit would leave those
+/// out.
+///
+/// @param catalog the catalogue queried.
+/// @param content the choices.
+/// @return the limit, or nothing for none.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<double> overlayQueryMagnitudeLimit(BundledCatalog catalog,
+                                                                                      const AnnotationContent& content);
 
 /// What a view's catalog overlay draws at a zoom: its layers' marks in one scene and where their labels go.
 struct OverlayAnnotationLayout
@@ -118,21 +149,24 @@ struct OverlayAnnotationLayout
 };
 
 /// Lays out what a view's catalog overlay draws at a zoom, as an annotated picture lays out its labels: the deep-sky
-/// objects' and the stars' marks in one scene, ordered as a scene of both is, each labelled on one line as its overlay
-/// labels it, and every length set so a label is `fontPixels` tall on the screen at `scale` - at every zoom alike. No
-/// label covers another; every deep-sky object keeps its outline, and a star whose label found no room is left out,
-/// as the view's star labels leave it out. Lays out on any thread a `QGuiApplication` lets read fonts on.
+/// objects' and the stars' marks in one scene, ordered as a scene of both is, each labelled as the choice of label
+/// says, and every length set so a label is `fontPixels` tall on the screen at `scale` - at every zoom alike. A
+/// deep-sky object smaller than `smallestMajorPixels` that is not notable is left out, as a picture leaves it out. No
+/// label covers another; every deep-sky object kept keeps its outline, a star the level marks without naming it is
+/// drawn without a label, and a star whose label found no room is left out, as the view's star labels leave it out.
+/// Lays out on any thread a `QGuiApplication` lets read fonts on.
 ///
 /// @param deepSky the deep-sky layer's scene, or null when it is not drawn.
 /// @param stars the star layer's scene, or null when it is not drawn.
 /// @param scale the view's scale: its widget's pixels to the image's.
 /// @param fontPixels a label's size on the screen, in the widget's pixels.
 /// @param style the style the marks and labels are drawn in.
+/// @param labelText what a label says.
+/// @param smallestMajorPixels the smallest major axis of an object that is not notable, in the image's pixels.
 /// @return the layout; an empty one for no layer, no frame or a scale or size that is not positive.
-[[nodiscard]] AFTERNIGHTCONTROLS_API OverlayAnnotationLayout layoutOverlayAnnotations(const AnnotationScene* deepSky,
-                                                                                      const AnnotationScene* stars,
-                                                                                      double scale, double fontPixels,
-                                                                                      const AnnotationStyle& style);
+[[nodiscard]] AFTERNIGHTCONTROLS_API OverlayAnnotationLayout
+layoutOverlayAnnotations(const AnnotationScene* deepSky, const AnnotationScene* stars, double scale, double fontPixels,
+                         const AnnotationStyle& style, AnnotationLabelText labelText, double smallestMajorPixels);
 
 /// What a view's grid draws: an annotated picture's grid of the part of the image the view shows, as a scene whose
 /// frame is that part, and where the grid's labels go at its edges.
@@ -171,21 +205,21 @@ struct OverlayGridLayout
 /// @return the size, in the widget's pixels.
 [[nodiscard]] AFTERNIGHTCONTROLS_API double overlayLabelPixels(const QWidget& widget);
 
-/// The entries a bundled catalog holds inside an image's field, at a magnitude limit, as a worker found them.
+/// The entries a bundled catalog holds inside an image's field, for a scene's choices, as a worker found them.
 struct FieldCatalogEntries
 {
     /// The solution the field was the field of.
     an::WcsSolution solution;
 
-    /// The magnitude limit the entries were held to.
-    double magnitudeLimit = 0.0;
+    /// The choices the scene was built with (`overlayAnnotationContent`).
+    AnnotationContent content;
 
-    /// The entries, in the order the catalog's region query answers - brightest first.
+    /// The entries, in the order the catalog's region query answers - brightest first - at the limit the choices let
+    /// the query state (`overlayQueryMagnitudeLimit`).
     std::vector<an::CatalogEntry> entries;
 
-    /// The overlay's scene of the entries (`overlayAnnotationContent`): what an annotated picture keeps of them,
-    /// entries of one object merged under one designation, each object projected through the solution, most prominent
-    /// first.
+    /// The overlay's scene of the entries: what an annotated picture keeps of them under the choices, entries of one
+    /// object merged under one designation, each object projected through the solution, most prominent first.
     std::shared_ptr<const AnnotationScene> scene;
 };
 
@@ -200,15 +234,15 @@ public:
     /// Queries of one bundled catalog, whose answers repaint a widget.
     FieldCatalogQueries(BundledCatalog catalog, double marginDegrees);
 
-    /// The answer for a solution and a limit, when the last query that landed was for them; otherwise asks a worker
-    /// for one - unless it is already asking - and answers nothing.
+    /// The answer for a solution and a scene's choices, when the last query that landed was for them; otherwise asks a
+    /// worker for one - unless it is already asking - and answers nothing.
     ///
     /// @param solution the image's solution.
-    /// @param magnitudeLimit the faintest magnitude labelled.
+    /// @param content the choices the scene is built with (`overlayAnnotationContent`).
     /// @param repaint the widget the answer repaints when it lands.
     /// @return the entries, or null while the query runs or when it failed.
     [[nodiscard]] std::shared_ptr<const FieldCatalogEntries> answer(const an::WcsSolution& solution,
-                                                                    double magnitudeLimit, QWidget* repaint);
+                                                                    const AnnotationContent& content, QWidget* repaint);
 
     /// How many queries were asked of workers.
     [[nodiscard]] std::uint64_t queriesAsked() const noexcept;

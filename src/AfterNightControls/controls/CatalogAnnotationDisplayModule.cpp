@@ -35,15 +35,19 @@ namespace
 constexpr double kDeepSkyMarginDegrees = 2.0;
 constexpr double kStarMarginDegrees = 1.0;
 
-/// What a layout is made of: the layers' scenes, the view's scale and a label's size on the screen.
+/// What a layout is made of: the layers' scenes, the view's scale, a label's size on the screen, what it says, and the
+/// smallest object the part of the image shown names.
 struct LayoutKey
 {
     std::shared_ptr<const AnnotationScene> deepSky;
     std::shared_ptr<const AnnotationScene> stars;
     double scale = 0.0;
     double fontPixels = 0.0;
+    AnnotationLabelText labelText = AnnotationLabelText::Designation;
+    double smallestMajorPixels = 0.0;
 
-    /// Whether another layout is of the same scenes at whatever zoom: one the view draws until its own lands.
+    /// Whether another layout is of the same scenes at whatever zoom and labels: one the view draws until its own
+    /// lands.
     [[nodiscard]] bool sameScenes(const LayoutKey& other) const
     {
         return deepSky == other.deepSky && stars == other.stars;
@@ -51,7 +55,8 @@ struct LayoutKey
 
     [[nodiscard]] bool matches(const LayoutKey& other) const
     {
-        return sameScenes(other) && fontPixels == other.fontPixels && qFuzzyCompare(scale, other.scale);
+        return sameScenes(other) && fontPixels == other.fontPixels && qFuzzyCompare(scale, other.scale) &&
+               labelText == other.labelText && smallestMajorPixels == other.smallestMajorPixels;
     }
 };
 
@@ -71,11 +76,12 @@ struct LayoutState
 
 struct CatalogAnnotationDisplayModule::Impl
 {
-    double magnitudeLimit = 12.0;
+    /// The level of detail, what a label says and the palette.
+    AnnotationViewChoices choices;
     bool deepSky = true;
     bool stars = true;
 
-    /// The annotated picture's style: its palette, its marks and its labels' backing.
+    /// The annotated picture's style in the choices' palette: its marks and its labels' backing.
     AnnotationStyle style = defaultAnnotationSettings().style;
 
     /// Each catalogue's objects inside the image's field, queried on a worker, each with its layer's scene.
@@ -96,8 +102,9 @@ struct CatalogAnnotationDisplayModule::Impl
         const std::weak_ptr<LayoutState> weak = layouts;
         QPointer<QWidget> widget(repaint);
         QThreadPool::globalInstance()->start([key, drawnStyle = style, weak, widget, generation]() {
-            auto made = std::make_shared<detail::OverlayAnnotationLayout>(detail::layoutOverlayAnnotations(
-                key.deepSky.get(), key.stars.get(), key.scale, key.fontPixels, drawnStyle));
+            auto made = std::make_shared<detail::OverlayAnnotationLayout>(
+                detail::layoutOverlayAnnotations(key.deepSky.get(), key.stars.get(), key.scale, key.fontPixels,
+                                                 drawnStyle, key.labelText, key.smallestMajorPixels));
             QCoreApplication* application = QCoreApplication::instance();
             if (application == nullptr)
             {
@@ -158,25 +165,38 @@ void CatalogAnnotationDisplayModule::onDraw(QPainter& painter)
         return;
     }
 
-    // Each layer's scene, as its catalogue's query of the field answered: a layer whose catalogue could not be read
-    // draws nothing, and the layout waits for a query still on its way.
+    const QRectF visible = detail::visibleOverlayWidgetRect(control);
+
+    // Each layer's scene at the level, as its catalogue's query of the field answered: a layer whose catalogue could
+    // not be read draws nothing, and the layout waits for a query still on its way.
     LayoutKey key;
     key.scale = scale;
     key.fontPixels = detail::overlayLabelPixels(*view_widget);
+    key.labelText = impl.choices.labelText;
     bool waiting = false;
-    const auto sceneOf = [&](detail::FieldCatalogQueries& queries) -> std::shared_ptr<const AnnotationScene> {
+    const auto sceneOf = [&](detail::FieldCatalogQueries& queries,
+                             const BundledCatalog catalog) -> std::shared_ptr<const AnnotationScene> {
         const std::shared_ptr<const detail::FieldCatalogEntries> answer =
-            queries.answer(*solution, impl.magnitudeLimit, view_widget);
+            queries.answer(*solution, detail::overlayAnnotationContent(catalog, impl.choices.detail), view_widget);
         waiting = waiting || (answer == nullptr && queries.isAsking());
         return answer != nullptr ? answer->scene : nullptr;
     };
     if (impl.deepSky)
     {
-        key.deepSky = sceneOf(impl.deepSkyQueries);
+        key.deepSky = sceneOf(impl.deepSkyQueries, BundledCatalog::DeepSky);
     }
     if (impl.stars)
     {
-        key.stars = sceneOf(impl.starQueries);
+        key.stars = sceneOf(impl.starQueries, BundledCatalog::BrightStars);
+    }
+    // The level's smallest size is a share of the part of the image shown, as a picture's is of its frame.
+    if (const AnnotationScene* frame = key.deepSky != nullptr ? key.deepSky.get() : key.stars.get(); frame != nullptr)
+    {
+        const QSize viewport = detail::overlayViewState(control).viewportSize;
+        key.smallestMajorPixels =
+            detail::overlaySmallestObject(impl.choices.detail) *
+            detail::overlayShownReferenceLength(frame->imageSize,
+                                                QSizeF(viewport.isEmpty() ? view_widget->size() : viewport), scale);
     }
 
     LayoutState& state = *impl.layouts;
@@ -193,7 +213,6 @@ void CatalogAnnotationDisplayModule::onDraw(QPainter& painter)
     {
         return;
     }
-    const QRectF visible = detail::visibleOverlayWidgetRect(control);
     if (visible.isEmpty())
     {
         return;
@@ -229,19 +248,26 @@ void CatalogAnnotationDisplayModule::onImageViewControlDestroyed(ImageViewContro
     invalidate();
 }
 
-void CatalogAnnotationDisplayModule::setMagnitudeLimit(const double magnitude_limit)
+void CatalogAnnotationDisplayModule::setChoices(const AnnotationViewChoices& choices)
 {
-    if (!std::isfinite(magnitude_limit) || qFuzzyCompare(m_impl->magnitudeLimit + 1.0, magnitude_limit + 1.0))
+    Impl& impl = *m_impl;
+    if (choices == impl.choices)
     {
         return;
     }
-    m_impl->magnitudeLimit = magnitude_limit;
-    invalidate();
+    // A level is asked of the catalogues, a label laid out again on the next paint - the last layout drawn until then -
+    // and a palette is drawn at once.
+    impl.choices = choices;
+    impl.style.colors = annotationPaletteColors(choices.palette);
+    if (m_ViewWidget)
+    {
+        m_ViewWidget->update();
+    }
 }
 
-double CatalogAnnotationDisplayModule::magnitudeLimit() const
+AnnotationViewChoices CatalogAnnotationDisplayModule::choices() const
 {
-    return m_impl->magnitudeLimit;
+    return m_impl->choices;
 }
 
 void CatalogAnnotationDisplayModule::setLayers(const bool deepSky, const bool stars)
@@ -269,7 +295,7 @@ QVector<QString> CatalogAnnotationDisplayModule::projectedLabels() const
 {
     QVector<QString> labels;
     const LayoutState& state = *m_impl->layouts;
-    if (state.drawn.scene == nullptr || state.drawn.layout == nullptr)
+    if (!state.drawnKey.has_value() || state.drawn.scene == nullptr || state.drawn.layout == nullptr)
     {
         return labels;
     }
@@ -277,7 +303,8 @@ QVector<QString> CatalogAnnotationDisplayModule::projectedLabels() const
     {
         if (label.role == AnnotationLabelRole::Object && label.source < state.drawn.scene->marks.size())
         {
-            labels.push_back(state.drawn.scene->marks[label.source].designation);
+            labels.push_back(
+                annotationLabelLines(state.drawn.scene->marks[label.source], state.drawnKey->labelText).first);
         }
     }
     return labels;
@@ -325,7 +352,7 @@ void CatalogAnnotationDisplayModule::invalidate()
     ++state.generation;
     state.drawnKey.reset();
     state.drawn = {};
-    // The fields' entries are kept: they are asked for again only when the solution, the limit or the source changes.
+    // The fields' entries are kept: they are asked for again only when the solution, the level or the source changes.
     if (m_ViewWidget)
     {
         m_ViewWidget->update();

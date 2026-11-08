@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <stop_token>
 #include <string_view>
 
@@ -88,17 +89,16 @@ buildBundledCatalog(const an::ExecutionContext& execution, BundledCatalog catalo
 loadBundledCatalog(const an::consumer::EngineSession& session, BundledCatalog catalog, std::stop_token stop,
                    const BundledCatalogSource& source = {}, bool nameIndex = true);
 
-/// The region query a bundled catalog is asked for an overlay: the deep-sky objects admit a named object nobody
-/// measured a magnitude for, and the bright stars do not.
+/// The region query a bundled catalog is asked for an overlay: at a limit, the deep-sky objects admit a named object
+/// nobody measured a magnitude for, and the bright stars do not; with none, every entry of the region is admitted.
 ///
 /// @param catalog which catalog.
 /// @param center the cone's centre.
 /// @param radiusDegrees the cone's radius.
-/// @param magnitudeLimit the faintest magnitude admitted.
+/// @param magnitudeLimit the faintest magnitude admitted, or nothing for every magnitude, measured or not.
 /// @return the query.
-[[nodiscard]] AFTERNIGHTCONTROLS_API an::CatalogRegionQuery bundledCatalogRegionQuery(BundledCatalog catalog,
-                                                                                      const an::SkyCoordinate& center,
-                                                                                      double radiusDegrees,
-                                                                                      double magnitudeLimit);
+[[nodiscard]] AFTERNIGHTCONTROLS_API an::CatalogRegionQuery
+bundledCatalogRegionQuery(BundledCatalog catalog, const an::SkyCoordinate& center, double radiusDegrees,
+                          std::optional<double> magnitudeLimit);
 
 } // namespace an::ui

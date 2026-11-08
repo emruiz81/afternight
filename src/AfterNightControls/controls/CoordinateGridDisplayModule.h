@@ -4,9 +4,9 @@
 /// @file
 /// The equatorial grid a view draws over a solved image: an annotated picture's grid of the part the view shows - its
 /// lines of constant right ascension and declination at the round steps that part's own sky calls for, labelled where
-/// they meet the part's edges (`detail::layoutOverlayGrid`) - drawn through the picture's renderer in its palette,
-/// every label the same size on the screen at any zoom. The grid follows the view: a scroll or a zoom lays it out
-/// again.
+/// they meet the part's edges (`detail::layoutOverlayGrid`) - drawn through the picture's renderer in the palette the
+/// view's choices name, every label the same size on the screen at any zoom. The grid follows the view: a scroll or a
+/// zoom lays it out again.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -17,6 +17,7 @@
 #include <QString>
 #include <QVector>
 
+#include <cstdint>
 #include <memory>
 
 class ImageViewControl;
@@ -24,6 +25,8 @@ class QPainter;
 
 namespace an::ui
 {
+
+enum class AnnotationPalette : std::uint8_t;
 
 class AFTERNIGHTCONTROLS_API CoordinateGridDisplayModule final : public ImageViewControlListener,
                                                                  public ImageViewWidgetDisplayModule
@@ -38,6 +41,14 @@ public:
     void onImageUpdated(ImageViewControl* ctrl) override;
     void onImageRenamed(ImageViewControl* ctrl) override;
     void onImageViewControlDestroyed(ImageViewControl* ctrl) override;
+
+    /// Draws the grid in a palette's colours: its lines and their labels.
+    ///
+    /// @param palette the palette; `AnnotationPalette::Custom` draws in Aurora's.
+    void setPalette(AnnotationPalette palette);
+
+    /// The palette the grid is drawn in.
+    [[nodiscard]] AnnotationPalette palette() const;
 
     /// How many lines the last layout of the part shown kept.
     [[nodiscard]] int projectedLineCount() const;
