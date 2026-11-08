@@ -87,7 +87,7 @@ struct PlateSolveRequest
     /// Most refinement iterations before the final recentered fit, in `[1, 32]`.
     std::uint32_t maximumRefinementIterations = 5u;
 
-    /// Most image stars retained after deterministic spatial selection, in `[3, 4096]`.
+    /// Most image stars retained for matching, in `[3, 4096]`; `PlateSolveInput::stars` states which.
     std::uint32_t maximumImageStars = 80u;
 
     /// Most projected catalog stars retained for matching, in `[3, 4096]`.
@@ -239,13 +239,21 @@ private:
     friend AFTERNIGHTENGINE_API Result<PlateSolvePlan> planPlateSolve(const PlateSolveRequest&);
 };
 
-/// The spatially balanced image-star input used by every trial centre.
+/// The image-star input used by every trial centre.
+///
+/// The matcher forms its triangles from each side's brightest points, so the image and the catalog
+/// must rank the same stars first. Both sides therefore keep the matching disc - the largest circle
+/// about the image centre that lies inside the frame, half the shorter side in radius, the one
+/// region the field's unknown rotation cannot change - whenever at least sixty of their points lie
+/// inside it: the image about the image centre, the catalog about the trial centre at the plan's
+/// effective scale.
 struct PlateSolveInput
 {
-    /// Selected stars. Up to `maximumImageStars` they are every supplied star in supplied order;
-    /// above it they are chosen in rounds over a ten-by-eight grid of the frame - the brightest star
-    /// of every occupied cell, then the second brightest of each, and so on - each round in
-    /// brightness order.
+    /// Selected stars. When at least sixty supplied stars lie inside the matching disc, they are the
+    /// first `maximumImageStars` of those, in supplied order, and no star outside it. Otherwise, up
+    /// to `maximumImageStars` they are every supplied star in supplied order; above it they are
+    /// chosen in rounds over a ten-by-eight grid of the frame - the brightest star of every occupied
+    /// cell, then the second brightest of each, and so on - each round in brightness order.
     std::vector<PlateSolveStar> stars{};
 
     /// Stars supplied before selection.
@@ -508,11 +516,12 @@ estimatePlateSolveCatalogQueryRadius(std::uint32_t imageWidth, std::uint32_t ima
 ///         32-bit count.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<PlateSolvePlan> planPlateSolve(const PlateSolveRequest& request);
 
-/// Validates and spatially balances image-star input once for all trial centres.
+/// Validates and selects image-star input once for all trial centres.
 ///
 /// Runs on the calling thread, checks cancellation every 256 stars while validating them, and
-/// produces ordinary caller-owned result storage. The selection is the round selection
-/// `PlateSolveInput::stars` describes. A failure returns no partial input.
+/// produces ordinary caller-owned result storage. The selection is the one `PlateSolveInput::stars`
+/// describes: the matching disc's stars for a crowded frame, the round selection for a sparser
+/// one. A failure returns no partial input.
 ///
 /// @param execution operation policy and engine-context lease.
 /// @param stars detections in brightness order, brightest first. Each position must be finite and
@@ -534,13 +543,15 @@ estimatePlateSolveCatalogQueryRadius(std::uint32_t imageWidth, std::uint32_t ima
 /// The query is a cone of `plan.catalogQueryRadiusDegrees()` about the trial centre under the
 /// request's magnitude limit, answered brightest first. Extended entries are dropped, and every
 /// other entry is projected onto the trial centre's tangent plane and scaled by the plan's
-/// effective scale into pseudo pixels, east along +x and north along +y. When at least sixteen of
-/// them fall inside a rectangle 1.1 times the image's width and height about the centre - aligned
-/// with east and north, since the field's rotation is not yet known - the rest are dropped;
-/// otherwise the ones inside are moved ahead of the rest. When more than `maximumCatalogStars`
-/// remain, the round selection `PlateSolveInput::stars` describes picks them over a square 1.1
-/// times the image diagonal wide. A query that reached its result bound is reported as a warning
-/// diagnostic as well as in `queryTruncated`.
+/// effective scale into pseudo pixels, east along +x and north along +y. When at least sixty of
+/// them fall inside the matching disc `PlateSolveInput` describes, about the trial centre, the
+/// rest are dropped and the first `maximumCatalogStars` kept, brightest first. Otherwise, when at
+/// least sixteen fall inside a rectangle 1.1 times the image's width and height about the centre -
+/// aligned with east and north, since the field's rotation is not yet known - the rest are dropped,
+/// and with fewer the ones inside are moved ahead of the rest; when more than `maximumCatalogStars`
+/// then remain, the round selection `PlateSolveInput::stars` describes picks them over a square
+/// 1.1 times the image diagonal wide. A query that reached its result bound is reported as a
+/// warning diagnostic as well as in `queryTruncated`.
 ///
 /// The catalog must already carry positions for the observation epoch; provider-specific epoch
 /// correction belongs to catalog construction and is not silently repeated here.
