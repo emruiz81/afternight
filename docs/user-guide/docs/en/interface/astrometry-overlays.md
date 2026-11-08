@@ -64,8 +64,8 @@ the settings popup.
 4. Set **Magnitude Limit**. Smaller limiting magnitudes retain only brighter
    catalog entries; larger values can make wide fields crowded and slower to
    redraw. The limit does not affect the grid, detected stars, or SIP vectors.
-5. Pan or zoom to the region of interest. Grid spacing and visible catalog
-   queries are recomputed for the viewport. Check object outlines and names
+5. Pan or zoom to the region of interest. The grid is laid out again for what
+   the view shows, and the catalog labels for each zoom. Check object outlines and names
    against image structure, but treat them as WCS/catalog projections rather
    than proof that the plate solution is correct.
 6. Turn individual layers off to isolate a discrepancy. Turn **Show
@@ -78,7 +78,7 @@ the settings popup.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Show Astrometry (`Ctrl+Shift+W`) | Checkable toolbar action | Off | Off/On | Master-enables every checked overlay layer. Turning it off hides all astrometry painters without changing their selections. | Visible and enabled only for a solved still image. It does not create a solution. | Several active layers can obscure the image and add redraw work. | Current standard image view, display only | View lifetime only; every new view starts off. |
 | Astrometry Settings | Toolbar popup action | Disabled until the master is on | Click action | Opens the layer and magnitude menu. | Visible only for a solved still; enabled only while **Show Astrometry** is on. Focused-view shortcuts can toggle individual settings without opening the popup. | No image change. | Current view controls | Popup state is transient; sub-options persist as described below. |
-| Equatorial Grid (`Ctrl+1`) | Checkable layer | On | Off/On | Draws projected right-ascension and declination lines with sexagesimal labels. | Drawn only when WCS parses and the master plus this option are on. | Dense fine-field grids add projection and label work. | Current viewport | Global key `platesolve/coordinateGridEnabled`; immediate write. |
+| Equatorial Grid (`Ctrl+1`) | Checkable layer | On | Off/On | Draws Annotate Image's grid of the part shown: right-ascension and declination lines at round steps for that part, labelled where they meet the view's edges. | Drawn only when WCS parses and the master plus this option are on. | Dense fine-field grids add projection and label work. | Current viewport | Global key `platesolve/coordinateGridEnabled`; immediate write. |
 | Deep-Sky Annotations (`Ctrl+2`) | Checkable layer | Off | Off/On | Queries the bundled NGC/IC catalog plus Messier and Caldwell entries, projects object centers/outlines, and labels compact catalog IDs. | Requires WCS and the bundled object catalog; gated by the master. | Wide fields and faint limits increase markers; labels never overlap, so more of them are set on leader lines or left out. Catalog sizes/position angles include project-curated approximations, and the Caldwell rows have the provenance limitation recorded below. | Current viewport | Global key `platesolve/catalogAnnotationsEnabled`; immediate write. |
 | Star Labels (`Ctrl+3`) | Checkable layer | Off | Off/On | Projects entries from the bundled bright-star catalog and labels common name, then Bayer/Flamsteed-style designation, then catalog ID as available. | Requires WCS and the bundled HYG-derived catalog; gated by the master. This is not a label switch for detected-star ellipses. | Stars are labelled in the order Annotate Image labels them - a proper name before a designation alone, each brighter before fainter - and a star whose label finds no room beside it or on a leader line is not drawn, so a rich field shows its most prominent stars legibly. Bundled coordinates are J2000 ICRS and this display path does not apply proper-motion correction. | Current viewport | Global key `platesolve/starLabelsEnabled`; immediate write. |
 | Detected Stars (`Ctrl+4`) | Checkable layer | Off | Off/On | Draws fitted ellipses around the stars the view detected; saturated detections use the error color. | Requires the view's detected stars as well as the master. The normal population path runs asynchronously after Plate Solve writes WCS; simply opening an already-solved file does not start this detection pass. | Up to 5,000 markers may be painted. These are image detections, not the bundled bright-star labels. | Current image/detected stars | Global key `platesolve/detectedStarsEnabled`; immediate write. The detected stars themselves are in-memory view state, not this preference. |
@@ -105,25 +105,25 @@ the image as modified.
 
 ### Equatorial coordinate grid
 
-AfterNight samples the visible viewport in pixel coordinates, converts the edge
-samples through the WCS, and chooses a grid interval from the larger visible RA
-or Dec span:
+The grid is [Annotate Image](annotate-image.md)'s grid of the part of the image
+the view shows. AfterNight measures the sky that part covers - from the part's
+own centre, sampling its edges and interior through the WCS - and draws lines of
+constant right ascension and declination at the round step that puts about six
+of each across it: hours, minutes and seconds of time for right ascension, and
+degrees, arcminutes and arcseconds for declination. Every zoom and every scroll
+lays the grid out again for what is shown, so a view zoomed into a corner of a
+wide field takes a grid spaced for that corner. Right ascension is continuous
+across 0h, and a part that holds a pole opens right ascension to the whole
+circle. A line's projected samples that the WCS cannot place are skipped
+rather than joined across the view.
 
-| Visible span | Grid interval |
-| --- | --- |
-| More than 10 degrees | 2 degrees |
-| More than 2 degrees | 30 arcminutes |
-| More than 30 arcminutes | 5 arcminutes |
-| More than 5 arcminutes | 1 arcminute |
-| 5 arcminutes or less | 10 arcseconds |
-
-Each RA or Dec line is sampled into a projected polyline. RA is normalized
-across 0/360 degrees; Dec is constrained to -90 through +90 degrees. Labels use
-hours/minutes for RA and signed degrees/arcminutes for Dec, adding seconds at
-the finer intervals. A label is rounded once and the rounding carries into every
-field: a right ascension of 10h 29m 59.996s is labelled `10:30:00.00` or
-`10h 30m 00.00s`, never with sixty seconds under the same minute. Invalid
-projected segments are skipped rather than joined across the view.
+Each line is labelled where it meets the edge of the view, as Annotate Image
+labels a picture's grid: `08h 00m` or `+10° 00′`, with a true minus sign, primes
+and double primes, and seconds at the finer steps. A label is rounded once and
+the rounding carries into every field: a right ascension of 10h 29m 59.7s is
+labelled `10h 30m 00s`, never with sixty seconds under the same minute. The
+lines and labels are drawn in Annotate Image's palette, and a label keeps its
+size on the screen at every zoom.
 
 ### Bundled catalog annotations and labels
 
@@ -239,10 +239,10 @@ legend—not the raw on-screen arrow length.
 
 ## Performance and responsiveness
 
-- Grid, catalog, and label geometry is cached by metadata identity, zoom,
-  scroll offsets, viewport/widget size, and magnitude where applicable.
-  Panning, zooming, resizing, renaming, changing magnitude, or updating the
-  image invalidates some or all cached display work.
+- The grid is laid out again for every zoom, scroll and resize of the view;
+  the catalogue labels' layout is made again on a worker for every zoom, and
+  the catalogue answers for every solution and magnitude limit. Renaming or
+  updating the image sets the cached display work aside.
 - Each catalog layer reads its bundled catalog on a worker the first time it
   is drawn, and keeps it while the view lives; drawing never waits for it. The
   catalog is queried on a worker once per solution and magnitude limit, and
@@ -267,7 +267,8 @@ legend—not the raw on-screen arrow length.
   projects to pixel `(499.5, 399.5)`: the header's one-based reference pixel
   `CRPIX = (500, 400)` restated with the first pixel's center at `(0.5, 0.5)`. Separate synthetic SIP metadata is sampled on a 5 by 4 grid; all
   20 sampled displacements match direct forward-polynomial evaluation. Grid
-  tests cover adaptive spacing, RA wrap, high declination, and label formats.
+  tests cover spacing for the part shown, RA wrap, a field about the pole, and
+  label formats.
   This verifies projection/filter mechanics only. It does not claim that a GUI
   rendering was inspected, that a real sky image was solved, that annotations
   align visually with project-owned data, or that a particular frame rate was
