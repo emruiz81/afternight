@@ -196,9 +196,7 @@ void WorkflowReportBuilder::appendStackedMasters(QString& md) const
 
         if (def)
         {
-            md += QStringLiteral("- **Stacking**: %1\n")
-                      .arg(stage_utils::describeStackingSettings(def->stacking,
-                                                                 def->drizzle.has_value() && def->drizzle->enabled));
+            md += QStringLiteral("- **Stacking**: %1\n").arg(stage_utils::describeStackingSettings(def->stacking));
             if (def->drizzle.has_value() && def->drizzle->enabled)
             {
                 md += QStringLiteral("- **Drizzle**: %1\n")
@@ -1289,13 +1287,6 @@ void WorkflowReportBuilder::appendFullProcessingParameters(QString& md) const
         if (localNormalizationEnabled)
         {
             md += QStringLiteral("### Local Normalization Settings\n\n");
-            if (integrationGroup.drizzle.has_value() && integrationGroup.drizzle->enabled)
-            {
-                // A drizzled group has no normalization stage: its stack fits the surfaces on the drizzled lights.
-                md += QStringLiteral("_The drizzled stack fits these surfaces against the group's reference: the "
-                                     "reference strategy, the evaluation, the PSF flux scale and the hot-pixel and "
-                                     "noise filters do not apply._\n\n");
-            }
             const auto& localNorm = integrationGroup.stacking.localNormalization;
             md += QStringLiteral("| Parameter | Value |\n");
             md += QStringLiteral("|---|---|\n");

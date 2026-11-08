@@ -157,8 +157,11 @@ The fitted document records the rule its grids were fitted under (`LocalNormaliz
 written as `validity=`), and the stack's source path refuses a frame whose rule is not the document's.
 A drizzled group's coefficients are measured on its canvas's analysis plane
 (`NormalizationMeasurementPlane::DrizzleAnalysisPlane`, a warped plane where an exact zero is where no
-light reaches), and its stack applies the document's global matches and fits its local normalization
-in the stack itself.
+light reaches), while its drizzled lights mark where no drop reached with a quiet NaN under the
+finite-only rule. A Local group's document is applied to them through a plane mapping
+(`StackPlaneMapping`, `Algorithms/Stacking/StackSource.h`): the document keeps the zero rule of the
+plane it was measured on, the mapping states the frames' finite-only rule, and each band is checked
+against the mapping's.
 
 ### Changing the rule invalidates coefficients
 

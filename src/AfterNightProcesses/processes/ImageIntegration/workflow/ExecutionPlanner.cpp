@@ -2072,42 +2072,33 @@ std::vector<ExecutionPlanDecision> buildExecutionPlanDecisions(const WorkflowMan
             const bool normalizationEnabled = group.stacking.normalizationMode != NormalizationMode::None ||
                                               !group.normalizationReferenceFrames.empty() ||
                                               group.normalizationCoefficientsArtifactPath.has_value();
-            const bool handledDuringDrizzle = ImageIntegration::localNormalizationFittedByDrizzledStack(group);
             const bool selected = containsIntegrationGroup(plan.integrationGroupsToProcess, group.groupKey);
             const AlignmentPlanStatus alignment_status = alignmentStatusForGroup(group);
             const bool alignmentRecomputes = alignment_status.action == PlanAction::Recompute;
             const bool dependencyRecomputes = alignmentRecomputes || integrationDependencyRecomputes(group, true);
             const QString dirtyReason = integrationChangeReason(group, LightStage::Normalization);
-            const bool canReuseExistingArtifact = normalizationEnabled && !handledDuringDrizzle && selected &&
-                                                  !dependencyRecomputes &&
+            const bool canReuseExistingArtifact = normalizationEnabled && selected && !dependencyRecomputes &&
                                                   normalizationArtifactMetadataLooksReusable(manifest, group, snapshot);
             const PlanAction action =
                 !normalizationEnabled
                     ? PlanAction::Skip
-                    : (handledDuringDrizzle
-                           ? PlanAction::Skip
-                           : (dependencyRecomputes
-                                  ? PlanAction::Recompute
-                                  : (canReuseExistingArtifact ? PlanAction::Reuse : integrationAction(group, true))));
+                    : (dependencyRecomputes
+                           ? PlanAction::Recompute
+                           : (canReuseExistingArtifact ? PlanAction::Reuse : integrationAction(group, true)));
             const QString outputs = group.normalizationCoefficientsArtifactPath.value_or(
                 QDir(manifest.outputDirectory)
                     .filePath(QStringLiteral(".afternight/image_integration/artifacts/normalization")));
             const QString reason =
                 normalizationEnabled
-                    ? (handledDuringDrizzle
-                           ? QStringLiteral("The drizzled stack fits local normalization against the group's "
-                                            "reference as it reads each light; the reference strategy, the "
-                                            "evaluation, the PSF flux scale and the hot-pixel and noise filters do "
-                                            "not apply")
-                           : (canReuseExistingArtifact
-                                  ? QStringLiteral("Existing normalization coefficients will be reused")
-                                  : (alignmentRecomputes && dirtyReason.trimmed().isEmpty()
-                                         ? QStringLiteral("Alignment outputs will be recomputed")
-                                         : (dependencyRecomputes && dirtyReason.trimmed().isEmpty()
-                                                ? integrationDependencyReason(group, true)
-                                                : integrationReason(
-                                                      group, LightStage::Normalization, action, true,
-                                                      QStringLiteral("Normalization coefficients are current"))))))
+                    ? (canReuseExistingArtifact
+                           ? QStringLiteral("Existing normalization coefficients will be reused")
+                           : (alignmentRecomputes && dirtyReason.trimmed().isEmpty()
+                                  ? QStringLiteral("Alignment outputs will be recomputed")
+                                  : (dependencyRecomputes && dirtyReason.trimmed().isEmpty()
+                                         ? integrationDependencyReason(group, true)
+                                         : integrationReason(
+                                               group, LightStage::Normalization, action, true,
+                                               QStringLiteral("Normalization coefficients are current")))))
                     : QStringLiteral("Normalization disabled for this group");
             decisions.push_back(
                 makeDecision(QStringLiteral("Lights Normalization"), group.groupKey.toCompactString(), action, reason,

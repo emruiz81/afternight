@@ -217,29 +217,6 @@ TEST(StageUtilities, DescribeNormalizationSettingsNamesTheGlobalMatchLocalNormal
     EXPECT_FALSE(described.contains(QStringLiteral("Multiplicative"))) << described.toStdString();
 }
 
-// A drizzled Local group's stack fits its own surfaces against the group's reference, so the run log names no
-// reference strategy for it, which does not apply; a drizzled Global group is described as any Global group. The log
-// named the strategy of every Local group.
-TEST(StageUtilities, DescribeNormalizationSettingsSaysADrizzledLocalGroupsStackFitsItsSurfaces)
-{
-    StackingSettings settings;
-    settings.normalizationMode = NormalizationMode::Local;
-    settings.localNormalization.enabled = true;
-    settings.localNormalization.referenceStrategy = QStringLiteral("Single Best Frame");
-
-    const QString drizzled = stage_utils::describeNormalizationSettings(settings, true);
-    EXPECT_TRUE(drizzled.contains(QStringLiteral("fitted by the drizzled stack"))) << drizzled.toStdString();
-    EXPECT_TRUE(drizzled.contains(QStringLiteral("Additive With Scaling"))) << drizzled.toStdString();
-    EXPECT_FALSE(drizzled.contains(QStringLiteral("Single Best Frame"))) << drizzled.toStdString();
-    EXPECT_TRUE(
-        stage_utils::describeNormalizationSettings(settings, false).contains(QStringLiteral("Single Best Frame")));
-
-    settings.normalizationMode = NormalizationMode::Global;
-    settings.localNormalization.enabled = false;
-    EXPECT_EQ(stage_utils::describeNormalizationSettings(settings, true),
-              stage_utils::describeNormalizationSettings(settings, false));
-}
-
 TEST(WorkflowLogging, ReconfigurePreservesStableSinkSlots)
 {
     if (!an::platform::isLoggingInitialized())

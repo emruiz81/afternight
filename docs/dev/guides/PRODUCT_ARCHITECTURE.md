@@ -999,10 +999,14 @@ The normalization stage measures a group's lights where its stack reads them - a
 (`NormalizationMeasurementPlane::Frames`), on the current registered lights or the registration inputs warped onto the
 registration's plane in memory (`RegisteredCanvas`), or warped onto a drizzled group's analysis plane
 (`DrizzleAnalysisPlane`, the canvas `resolveDrizzleGroupGeometry` plans) - in one admitted operation, with the engine's
-global matches, overlap solve and local fit. The engine applies an analysis-plane document only to frames on that
-plane, so a drizzled Local group is not measured and its stack fits the normalization itself - one rule,
-`localNormalizationFittedByDrizzledStack`, that the planner, the stage and the stack share - and a drizzled Global
-group's matches are measured on the analysis plane, the canvas before its scale, so they hold at any drizzle scale.
+global matches, overlap solve and local fit. A drizzled group is measured on the analysis plane, the canvas before its
+scale, so its coefficients hold at any drizzle scale: a Global group's matches apply as they are, and a Local group's
+document is applied through the plane mapping `drizzleLocalNormalizationPlane` states
+(`Algorithms/Normalization/DrizzleLocalNormalization.h`), which the stack hands the engine beside the document, so every
+surface is read where a drizzled pixel lies on the plane, exactly at each pixel's centre, and the stack measures no
+normalization of its own. A grid's nodes span the frame it was fitted on, so restating the grids onto the drizzled
+extent would move them by up to `(1 - 1/scale) / 2` pixel; measuring on the drizzled lights would cost the scale squared
+in pixels and put the drop's holes under the detection and the filters.
 `localNormalizationRequestFor` (`core/NormalizationUtils.h`) states every
 value of the engine's local request and the settings fingerprint hashes it; `core/NormalizationAnalysis.h` is the rest
 of the local settings - the analysis filters, the ranking figures of the single-best and integrated reference

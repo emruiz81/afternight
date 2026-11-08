@@ -3670,10 +3670,10 @@ TEST(WorkflowReportBuilder, FullProcessingParametersOmitsNormalizationBlocksWhen
     EXPECT_FALSE(report.contains(QStringLiteral("### Local Normalization Settings")));
 }
 
-// A drizzled Local group's stack fits its own surfaces against the group's reference: the report says which of its
-// local-normalization settings do not apply, and its stacking summary names no reference strategy. It listed every
-// setting as if the normalization stage had measured the group.
-TEST(WorkflowReportBuilder, ADrizzledLocalGroupsReportSaysWhatItsStackDoesNotRead)
+// A drizzled Local group's local normalization is measured by the normalization stage as any group's is: the report
+// lists its settings with no note, and its stacking summary names the reference strategy. It said the drizzled stack
+// fitted the surfaces without the strategy, the evaluation, the PSF flux scale and the filters, and named no strategy.
+TEST(WorkflowReportBuilder, ADrizzledLocalGroupsReportListsItsLocalNormalizationAsAnyGroupsDoes)
 {
     WorkflowManifest manifest;
     manifest.outputDirectory = QStringLiteral("/tmp/test");
@@ -3700,11 +3700,9 @@ TEST(WorkflowReportBuilder, ADrizzledLocalGroupsReportSaysWhatItsStackDoesNotRea
     const QString report = builder.build();
 
     ASSERT_TRUE(report.contains(QStringLiteral("### Local Normalization Settings")));
-    EXPECT_TRUE(report.contains(QStringLiteral("_The drizzled stack fits these surfaces against the group's "
-                                               "reference: the reference strategy, the evaluation, the PSF flux "
-                                               "scale and the hot-pixel and noise filters do not apply._")));
-    EXPECT_TRUE(report.contains(QStringLiteral("fitted by the drizzled stack"))) << "the stacking summary";
-    EXPECT_FALSE(report.contains(QStringLiteral("ref: Single Best Frame")));
+    EXPECT_TRUE(report.contains(QStringLiteral("| Reference Strategy | Single Best Frame |")));
+    EXPECT_FALSE(report.contains(QStringLiteral("drizzled stack")));
+    EXPECT_TRUE(report.contains(QStringLiteral("ref: Single Best Frame"))) << "the stacking summary";
 }
 
 TEST(WorkflowReportBuilder, FullProcessingParametersIncludeHdrExposureMergeSummary)

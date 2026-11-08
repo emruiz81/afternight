@@ -2005,6 +2005,108 @@ TEST(StackExecutorTest, FitsALocalDocumentOrTakesAPreparedOne)
     }
 }
 
+// A document measured on a plane of its own is applied through the frames' mapping onto that plane: the stack measures
+// no normalization of its own and holds the document as prepared state, and it combines what a stack of the same frames
+// combines when each is normalized beforehand where its pixels lie on the plane - read with `evaluateLocalGrid` there -
+// in tiles whose rows begin anywhere on the plane.
+TEST(StackExecutorTest, AppliesAMappedDocumentAndMeasuresNoNormalizationOfItsOwn)
+{
+    const an::EngineContext engine = makeEngine();
+    constexpr std::uint32_t kPlaneWide = 13u;
+    constexpr std::uint32_t kPlaneTall = 9u;
+    constexpr double kScale = 2.0;
+    constexpr std::uint32_t kWide = 26u;
+    constexpr std::uint32_t kTall = 18u;
+    const an::ImageDescriptor descriptor = makeDescriptor(an::SampleType::Float32, an::ChannelSchema::Mono,
+                                                          an::NumericDomain::NormalizedLinear, kWide, kTall);
+    std::vector<OwnedFrame> frames(kFrames);
+    for (std::uint32_t index = 0u; index < kFrames; ++index)
+    {
+        frames[index].create(an::SampleType::Float32, kWide, kTall, 1u, an::ValidityRule::FiniteOnly);
+        frames[index].frameIndex = index;
+        frames[index].fill(201u + index);
+    }
+    // Where no drop reached one frame.
+    frames[2].at<float>(0u, 25u, 17u) = std::numeric_limits<float>::quiet_NaN();
+
+    const an::LocalNormalizationGridShape shape{
+        .gridSize = 3u, .width = kPlaneWide, .height = kPlaneTall, .channelCount = 1u};
+    an::LocalNormalizationDocument document;
+    document.request.gridSize = shape.gridSize;
+    document.request.interpolation = an::LocalGridInterpolation::Bicubic;
+    document.shape = shape;
+    document.validity = an::ValidityRule::ZeroIsNoData;
+    document.referenceIndex = 1u;
+    const auto grid = [&shape](double base, std::uint32_t salt) {
+        std::vector<double> values(static_cast<std::size_t>(shape.valueCount()), 0.0);
+        for (std::size_t node = 0u; node < values.size(); ++node)
+        {
+            values[node] = base + 0.04 * (patterned(node, salt) - 0.5);
+        }
+        return values;
+    };
+    document.referenceBackground = grid(0.20, 211u);
+    for (std::uint32_t index = 0u; index < kFrames; ++index)
+    {
+        an::LocalNormalizationFrameCoefficients record;
+        record.frameIndex = index;
+        record.background = index == 1u ? document.referenceBackground : grid(0.25 + 0.02 * index, 221u + index);
+        record.scale[0] = index == 1u ? 1.0 : 0.9 + 0.1 * index;
+        document.frames.push_back(std::move(record));
+    }
+    an::StackRequest stack = baseRequest(descriptor);
+    stack.normalization.scope = an::StackNormalizationScope::Local;
+    stack.normalization.referenceFrame = 1u;
+    const an::StackModel model = makeModel(stack);
+    const an::StackPlaneMapping mapping{.scale = kScale, .frameValidity = an::ValidityRule::FiniteOnly};
+    an::StackExecutionRequest request;
+    request.maximumTileRows = 5u;
+
+    const an::Result<an::StackResult> mapped =
+        run(engine, model, frames, {.localNormalization = &document, .localNormalizationPlane = mapping}, request);
+    ASSERT_TRUE(mapped.hasValue()) << mapped.status().message();
+    EXPECT_FALSE(mapped->report.normalizationMeasured);
+    EXPECT_FALSE(mapped->report.localNormalizationFitted);
+    EXPECT_TRUE(mapped->report.stages.normalizeLocally && mapped->report.stages.normalizationPrepared);
+    EXPECT_EQ(mapped->report.plan.memory.preparedStateBytes, an::preparedStateBytesOf(document));
+    EXPECT_GT(mapped->report.plan.tile.tileCount, 1u);
+
+    // The oracle: every frame normalized beforehand where its pixels lie on the plane, and stacked as it is.
+    std::vector<OwnedFrame> normalized(kFrames);
+    for (std::uint32_t index = 0u; index < kFrames; ++index)
+    {
+        normalized[index].create(an::SampleType::Float32, kWide, kTall, 1u, an::ValidityRule::FiniteOnly);
+        normalized[index].frameIndex = index;
+        const an::LocalNormalizationFrameCoefficients& record = document.frames[index];
+        for (std::uint32_t y = 0u; y < kTall; ++y)
+        {
+            for (std::uint32_t x = 0u; x < kWide; ++x)
+            {
+                const float sample = frames[index].at<float>(0u, x, y);
+                if (index == 1u || std::isnan(sample))
+                {
+                    normalized[index].at<float>(0u, x, y) = sample;
+                    continue;
+                }
+                const double column = (static_cast<double>(x) + 0.5 + 0.0) / kScale - 0.5;
+                const double row = (static_cast<double>(y) + 0.5 + 0.0) / kScale - 0.5;
+                const an::Result<double> target =
+                    an::evaluateLocalGrid(shape, record.background, document.request.interpolation, 0u, column, row);
+                const an::Result<double> reference = an::evaluateLocalGrid(
+                    shape, document.referenceBackground, document.request.interpolation, 0u, column, row);
+                ASSERT_TRUE(target.hasValue() && reference.hasValue());
+                normalized[index].at<float>(0u, x, y) =
+                    static_cast<float>(record.scale[0] * (static_cast<double>(sample) - *target) + *reference);
+            }
+        }
+    }
+    an::StackRequest plainStack = baseRequest(descriptor);
+    plainStack.normalization.referenceFrame = 1u;
+    const an::Result<an::StackResult> expected = run(engine, makeModel(plainStack), normalized, {}, request);
+    ASSERT_TRUE(expected.hasValue()) << expected.status().message();
+    EXPECT_EQ(bitsOf(*mapped), bitsOf(*expected));
+}
+
 TEST(StackExecutorTest, MeasuresLocalWeightsAndComposesThemLikeTheOperations)
 {
     const an::EngineContext engine = makeEngine();

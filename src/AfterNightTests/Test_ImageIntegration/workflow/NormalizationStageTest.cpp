@@ -963,10 +963,10 @@ TEST_F(LightsDrizzleTest, ADrizzledGroupIsNormalizedOnItsCanvasesAnalysisPlane)
     EXPECT_DOUBLE_EQ(set->drizzlePlane->scale, 2.0);
 }
 
-// A drizzled Local group's stack fits the surfaces on the drizzled lights itself - the engine applies a document
-// measured on the canvas's analysis plane only to frames on that plane - so the stage measures nothing for it, as the
-// planner plans. It measured a whole local document, warping every light onto the plane, that the stack then dropped.
-TEST_F(LightsDrizzleTest, ADrizzledLocalGroupIsNotMeasuredForAStackThatFitsItsOwnSurfaces)
+// A drizzled Local group is measured as any Local group is, on its canvas's analysis plane: its local document is
+// published with the plane's extent and the zero rule of a warped plane, for the drizzled stack to read where each
+// drizzled pixel lies on that plane. The stage measured nothing for it, and the drizzled stack fitted its own surfaces.
+TEST_F(LightsDrizzleTest, ADrizzledLocalGroupIsMeasuredOnItsCanvasesAnalysisPlane)
 {
     registerTranslatedPair(4.0, -3.0);
     enableDrizzle();
@@ -976,16 +976,25 @@ TEST_F(LightsDrizzleTest, ADrizzledLocalGroupIsNotMeasuredForAStackThatFitsItsOw
     });
 
     LightsNormalizationStage stage;
-    EXPECT_TRUE(stage.shouldSkip(m_manifest));
+    EXPECT_FALSE(stage.shouldSkip(m_manifest));
     const StageResult result = normalize();
-    EXPECT_EQ(result.status, StageResult::Status::Skipped) << result.error.toLogString().toStdString();
-    EXPECT_FALSE(QFileInfo::exists(artifactPath()));
-    EXPECT_FALSE(QFileInfo::exists(sidecarPath()));
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    EXPECT_TRUE(QFileInfo::exists(artifactPath()));
+    EXPECT_TRUE(QFileInfo::exists(sidecarPath()));
+    const auto set = coefficients();
+    ASSERT_TRUE(set.has_value());
+    EXPECT_EQ(set->plane, NormalizationMeasurementPlane::DrizzleAnalysisPlane);
+    ASSERT_TRUE(set->drizzlePlane.has_value());
+    ASSERT_TRUE(set->local.has_value());
+    EXPECT_EQ(set->local->shape.width, set->drizzlePlane->width);
+    EXPECT_EQ(set->local->shape.height, set->drizzlePlane->height);
+    EXPECT_EQ(set->local->validity, an::ValidityRule::ZeroIsNoData);
+    EXPECT_DOUBLE_EQ(set->drizzlePlane->scale, 2.0);
 }
 
-// Beside a group the stage measures, a drizzled Local group is passed over with the reason, and only the other group's
-// coefficients are published.
-TEST_F(LightsDrizzleTest, ADrizzledLocalGroupBesideAMeasuredOneIsPassedOverAndSaid)
+// Beside another group the stage measures, a drizzled Local group is measured too, and both groups' coefficients are
+// published. It was passed over, said to be fitted by its drizzled stack, and only the other group's were published.
+TEST_F(LightsDrizzleTest, ADrizzledLocalGroupBesideAnotherIsMeasuredWithIt)
 {
     registerTranslatedPair(4.0, -3.0);
     enableDrizzle();
@@ -1004,11 +1013,10 @@ TEST_F(LightsDrizzleTest, ADrizzledLocalGroupBesideAMeasuredOneIsPassedOverAndSa
     EXPECT_FALSE(stage.shouldSkip(m_manifest));
     const StageResult result = normalize();
     ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
-    EXPECT_FALSE(
-        QFileInfo::exists(stage_utils::normalizationArtifactPath(m_manifest, m_manifest.integrationGroups[0])));
+    EXPECT_TRUE(QFileInfo::exists(stage_utils::normalizationArtifactPath(m_manifest, m_manifest.integrationGroups[0])));
     EXPECT_TRUE(QFileInfo::exists(stage_utils::normalizationArtifactPath(m_manifest, m_manifest.integrationGroups[1])));
     const QStringList& details = m_run.loggedDetails();
-    EXPECT_TRUE(std::any_of(details.begin(), details.end(), [](const QString& detail) {
+    EXPECT_FALSE(std::any_of(details.begin(), details.end(), [](const QString& detail) {
         return detail.contains(QStringLiteral("drizzled stack"));
     })) << details.join(QStringLiteral("\n")).toStdString();
 }

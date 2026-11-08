@@ -88,6 +88,11 @@ AFTERNIGHTPROCESSES_API QString computeCalibrationGroupHash(const WorkflowManife
 AFTERNIGHTPROCESSES_API QString computeIntegrationGroupHash(const WorkflowManifest& manifest,
                                                             const WorkflowManifest::IntegrationGroup& group,
                                                             const ExecutionPreparationSnapshot* snapshot = nullptr);
+/// What `computeIntegrationGroupHash` digests: the group's inputs, its settings and the revisions of what its master
+/// is, so a caller can read which of them a group's fingerprint states.
+[[nodiscard]] AFTERNIGHTPROCESSES_API QJsonObject
+integrationGroupFingerprintInput(const WorkflowManifest& manifest, const WorkflowManifest::IntegrationGroup& group,
+                                 const ExecutionPreparationSnapshot* snapshot = nullptr);
 AFTERNIGHTPROCESSES_API QString computeStackedLightArtifactHash(
     const WorkflowManifest& manifest, const WorkflowManifest::IntegrationGroup& group, const QString& inputsFingerprint,
     const QString& transformsFingerprint = {}, const QString& sourceDistortionFingerprint = {},

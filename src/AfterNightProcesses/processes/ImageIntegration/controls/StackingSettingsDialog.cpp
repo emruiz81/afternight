@@ -314,8 +314,6 @@ void StackingSettingsDialog::initialize()
                      &StackingSettingsDialog::updateWeightingControlsState);
     QObject::connect(m_ui.chkEnableDrizzle, &QCheckBox::toggled, this,
                      &StackingSettingsDialog::updateRejectionControlsState);
-    QObject::connect(m_ui.chkEnableDrizzle, &QCheckBox::toggled, this,
-                     &StackingSettingsDialog::updateLocalNormalizationControlsState);
     QObject::connect(m_ui.drizzleScaleSelector, &QComboBox::currentTextChanged, this,
                      &StackingSettingsDialog::updateDrizzleInfoLabel);
 
@@ -1069,11 +1067,8 @@ void StackingSettingsDialog::updateLocalNormalizationControlsState()
         static_cast<int>(LocalNormalizationSettingsDialog::presetForSettings(currentLocalNormalizationSettings()));
     if (m_localNormSettings.preset >= 0 && m_localNormSettings.preset < presetNames.size())
     {
-        // A drizzled group's surfaces are fitted by its stack, not measured by the normalization stage.
-        const QString& preset = presetNames[m_localNormSettings.preset];
-        m_ui.localNormalizationPresetLabel->setText(m_ui.chkEnableDrizzle->isChecked()
-                                                        ? tr("(%1 preset, fitted by the drizzled stack)").arg(preset)
-                                                        : QStringLiteral("(%1 preset)").arg(preset));
+        m_ui.localNormalizationPresetLabel->setText(
+            QStringLiteral("(%1 preset)").arg(presetNames[m_localNormSettings.preset]));
     }
 
     updateNormalizationReferenceControlsState();
@@ -1224,13 +1219,6 @@ void StackingSettingsDialog::openLocalNormalizationDialog()
     auto* dialog = new LocalNormalizationSettingsDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowModality(Qt::WindowModal);
-    // A drizzled group has no normalization stage: its stack fits the surfaces on the drizzled lights itself and reads
-    // none of the stage's analysis.
-    dialog->setReferenceAnalysisOffered(
-        !getDrizzleEnabled(),
-        tr("With drizzle on, the drizzled stack fits each light's local surfaces and scale against the group's "
-           "reference as it reads the light: the reference strategy, the evaluation, the PSF flux scale and the "
-           "hot-pixel and noise filters do not apply, so they are not offered."));
 
     // Populate dialog with current settings
     dialog->setSettings(currentLocalNormalizationSettings());

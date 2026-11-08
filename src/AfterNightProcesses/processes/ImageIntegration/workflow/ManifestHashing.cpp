@@ -840,6 +840,13 @@ QString computeCalibrationGroupHash(const WorkflowManifest& manifest,
 QString computeIntegrationGroupHash(const WorkflowManifest& manifest, const WorkflowManifest::IntegrationGroup& group,
                                     const ExecutionPreparationSnapshot* snapshot)
 {
+    return jsonHash(integrationGroupFingerprintInput(manifest, group, snapshot));
+}
+
+QJsonObject integrationGroupFingerprintInput(const WorkflowManifest& manifest,
+                                             const WorkflowManifest::IntegrationGroup& group,
+                                             const ExecutionPreparationSnapshot* snapshot)
+{
     QJsonObject obj;
     obj.insert(QStringLiteral("schemaVersion"), 3);
     ImageIntegration::schema::insertArtifactFamilyIdentity(obj, ImageIntegration::schema::ArtifactFamily::Stack);
@@ -886,6 +893,13 @@ QString computeIntegrationGroupHash(const WorkflowManifest& manifest, const Work
             drizzle.insert(QStringLiteral("levelRevision"), ImageIntegration::schema::kDrizzledMasterLevelRevision);
             drizzle.insert(QStringLiteral("solutionRevision"),
                            ImageIntegration::schema::kDrizzledMasterSolutionRevision);
+            // How a drizzled Local master's surfaces are applied: one whose stack fitted them itself is stacked again.
+            if (group.stacking.normalizationMode == NormalizationMode::Local &&
+                group.stacking.localNormalization.enabled)
+            {
+                drizzle.insert(QStringLiteral("localNormalizationRevision"),
+                               ImageIntegration::schema::kDrizzledLocalNormalizationRevision);
+            }
         }
         drizzle.insert(QStringLiteral("scale"), group.drizzle->scale);
         drizzle.insert(QStringLiteral("pixelFraction"), group.drizzle->pixelFraction);
@@ -919,7 +933,7 @@ QString computeIntegrationGroupHash(const WorkflowManifest& manifest, const Work
         obj.insert(QStringLiteral("outputDirectory"), QString());
     }
 
-    return jsonHash(obj);
+    return obj;
 }
 
 QString computeStackedLightArtifactHash(const WorkflowManifest& manifest,
