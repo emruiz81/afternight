@@ -226,20 +226,19 @@ TEST(StackWeightingInputsTest, ALightsNoiseIsStatedWithTheScaleThatRestatesIt)
 
 // The group's weighting is the request its stack makes: the floor held to the unit interval and stated as the
 // photometric model's raw floor too, the scaling and its steepness - the engine's default for one that is not positive
-// - and per-channel widths only beside the width weighting.
+// - and every channel weighed by its light's one star width, under the width weighting too.
 TEST(StackWeightingInputsTest, TheGroupsWeightingIsTheRequestItsStackMakes)
 {
     StackingSettings settings;
     settings.minWeightFloor = 1.5;
     settings.exponentialAlpha = -1.0;
-    settings.perChannelFwhmWeighting = true;
     const an::StackWeightingRequest width =
         ImageIntegration::stackWeightingRequestFor(settings, an::StackWeighting::Fwhm, an::StarCountScaling::Linear);
     EXPECT_EQ(width.method, an::StackWeighting::Fwhm);
     EXPECT_DOUBLE_EQ(width.minimumWeight, 1.0);
     EXPECT_DOUBLE_EQ(width.photometric.minimumRawWeight, 1.0);
     EXPECT_DOUBLE_EQ(width.starCount.exponentialAlpha, an::kDefaultStarCountExponentialAlpha);
-    EXPECT_TRUE(width.perChannelFwhm);
+    EXPECT_FALSE(width.perChannelFwhm);
 
     settings.minWeightFloor = 0.05;
     settings.exponentialAlpha = 3.5;

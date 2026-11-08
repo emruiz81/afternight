@@ -549,7 +549,6 @@ QJsonObject stackingSettingsToJson(const StackingSettings& settings)
     obj.insert(QStringLiteral("starCountScaling"), settings.starCountScaling);
     obj.insert(QStringLiteral("exponentialAlpha"), settings.exponentialAlpha);
     obj.insert(QStringLiteral("minWeightFloor"), settings.minWeightFloor);
-    obj.insert(QStringLiteral("perChannelFwhmWeighting"), settings.perChannelFwhmWeighting);
     obj.insert(QStringLiteral("localWeighting"), localWeightingToJson(settings.localWeighting));
     obj.insert(QStringLiteral("normalizationMode"), static_cast<int>(settings.normalizationMode));
     obj.insert(QStringLiteral("globalNormalizationMethod"), static_cast<int>(settings.globalNormalizationMethod));
@@ -589,8 +588,8 @@ StackingSettings stackingSettingsFromJson(const QJsonObject& obj)
     settings.starCountScaling = obj.value(QStringLiteral("starCountScaling")).toString(settings.starCountScaling);
     settings.exponentialAlpha = obj.value(QStringLiteral("exponentialAlpha")).toDouble(settings.exponentialAlpha);
     settings.minWeightFloor = obj.value(QStringLiteral("minWeightFloor")).toDouble(settings.minWeightFloor);
-    settings.perChannelFwhmWeighting =
-        obj.value(QStringLiteral("perChannelFwhmWeighting")).toBool(settings.perChannelFwhmWeighting);
+    // A per-channel width weighting an earlier version stored ("perChannelFwhmWeighting") is not read: every channel is
+    // weighed by its light's one star width, as every stack weighed it.
     settings.localWeighting = localWeightingFromJson(obj.value(QStringLiteral("localWeighting")).toObject());
     settings.normalizationMode = persistedEnumerator(
         obj.value(QStringLiteral("normalizationMode")).toInt(static_cast<int>(settings.normalizationMode)),

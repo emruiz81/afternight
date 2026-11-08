@@ -36,6 +36,33 @@ noise,
 multiplied by the reference frame's dispersion over the frame's own where both are measured, and by
 one otherwise.
 
+## Why every channel is weighed by one width
+
+The registration measures a colour light's stars in its green channel, and a colour stack weighs every channel by
+that one width. The engine can weigh a channel by widths of its own (`StackWeightingRequest::perChannelFwhm`, the
+`fullWidth` of `StackFrameMeasurement::channels`), and the integration once offered that as a weighting option,
+always disabled, since nothing measured the widths. Before measuring them was built, it was measured whether they
+would change a stack: on two real colour sessions, each light read and demosaiced as the registration reads it, its
+stars detected in red, green and blue in turn - and, apart, green's stars fitted again in red and blue in their own
+boxes - and the Weighted FWHM weights of each channel's widths compared with those of the light's one width:
+
+| Session | Lights | Correlation of a channel's weights with the light's | Weight change, median light | Largest change | Change of the channel's stacked width |
+| --- | --- | --- | --- | --- | --- |
+| One-shot-colour camera on an apochromatic refractor (QHY183C, RGGB, 5544 x 3684, uncalibrated) | 110 | 0.997 to 0.999 | 3 to 4 % | 14 to 28 %, on lights weighted 0.3 or less | 0.24 to 0.33 % narrower |
+| DSLR (Nikon D5500, RGGB, 6016 x 4016, calibrated) | 50 | 0.997 to 0.998 | 2 % | 10 to 12 %, on lights weighted 0.13 or less | 0.04 % wider to 0.01 % narrower |
+
+A channel's stacked width is the weighted mean of its widths over the lights, under the light's weights and under its
+own: what the channel's stack would gain. The red-to-green ratio did drift over the refractor's night, from 0.94 to
+0.90 as green widened, and the channels' weights follow it; but what the width weighting ranks is the change of the
+seeing from light to light, which the three channels share and which is many times larger - the widths spread by
+34 % that night - and a demosaiced channel borrows from green, which damps the ratio further. Measuring red and blue
+would have cost two more fits a light, a new registration database format, and a detection and registration of
+every group once more, for a stack a third of a percent sharper at most; so the option was removed. The stacking
+settings hold no per-channel choice, a stored one is not read, and its key stays in the settings' hash, off as every
+stack ran it, so no master's identity moves (`ManifestHashing.TheStackingSettingsKeepTheIdentityTheirMastersWereStackedUnder`).
+The extension runtime's stack call says that `enable_per_channel_fwhm_weighting` is not offered and leaves it out
+(`ExtensionRuntimeBackendModuleTest.APerChannelFwhmWeightingIsSaidToBeNotOfferedAndLeftOut`).
+
 ## Where the values live
 
 `FrameNoiseStatistics` (`model/FrameQuality.h`) carries the three values. It is a **separate struct

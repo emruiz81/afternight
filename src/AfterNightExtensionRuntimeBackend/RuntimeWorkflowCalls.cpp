@@ -778,7 +778,8 @@ struct StackSettings
     an::StackWeighting weighting = an::StackWeighting::Uniform;
     an::StarCountWeightingParameters starCount{};
     std::optional<double> minimumWeight{};
-    bool perChannelFwhm = false;
+    /// Whether the call asked for the per-channel width weighting, which is not offered: it is said and left out.
+    bool perChannelFwhmAsked = false;
     an::LocalWeightingRequest localWeighting{};
     bool output64 = false;
     std::uint32_t referenceIndex = 0u;
@@ -1021,7 +1022,7 @@ struct StackSettings
     {
         settings.minimumWeight = floor.cast<double>();
     }
-    assignIfPresent(values, "enable_per_channel_fwhm_weighting", settings.perChannelFwhm);
+    assignIfPresent(values, "enable_per_channel_fwhm_weighting", settings.perChannelFwhmAsked);
     assignIfPresent(values, "create_rejection_maps", settings.rejectionMaps);
     assignIfPresent(values, "merge_rejection_maps", settings.mergeRejectionMaps);
 
@@ -1611,18 +1612,11 @@ private:
              "local weighting is left out");
         local.enabled = false;
     }
-    bool perChannelFwhm = settings.perChannelFwhm;
-    if (perChannelFwhm && weighting != an::StackWeighting::Fwhm)
+    if (settings.perChannelFwhmAsked)
     {
-        warn(std::string(function) + ": per-channel FWHM weighting needs the FWHM weighting; it is left out");
-        perChannelFwhm = false;
-    }
-    else if (perChannelFwhm)
-    {
-        // The frames are measured in one channel each, so the stack would weigh every channel by its frame's width.
-        warn(std::string(function) + ": per-channel FWHM weighting needs a star width per channel, but the call " +
-             "measures one star width per frame, so each channel is weighed by its frame's width; it is left out");
-        perChannelFwhm = false;
+        // Each frame's stars are measured in one channel, and its one width weighs every channel under any weighting.
+        warn(std::string(function) + ": enable_per_channel_fwhm_weighting is not offered: every channel is weighed " +
+             "by its frame's star width; it is left out");
     }
 
     an::StackRejectionRequest rejection{.method = settings.rejection};
@@ -1644,7 +1638,6 @@ private:
 
     an::StackWeightingRequest weightingRequest{.method = weighting, .starCount = settings.starCount};
     weightingRequest.minimumWeight = settings.minimumWeight.value_or(weightingRequest.minimumWeight);
-    weightingRequest.perChannelFwhm = perChannelFwhm;
 
     const bool usesRejection = settings.rejection != an::StackRejection::None;
     an::StackOutputRequest output{.sampleType = settings.output64 ? an::SampleType::Float64 : an::SampleType::Float32};

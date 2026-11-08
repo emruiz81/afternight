@@ -1249,35 +1249,6 @@ TEST_F(LightsStackingTest, ALightWhoseStarsHaveNoMeasuredRoundnessIsWeighedWithT
     EXPECT_LT(quality.weightMin, quality.weightMax);
 }
 
-// A stored per-channel width weighting is passed to the stack, which weighs a channel by its own width only where the
-// registration measured one per channel; it measures one width per frame, so the group says every channel was weighed
-// by the frame's width. The stack weighed them so and said nothing.
-TEST_F(LightsStackingTest, APerChannelFwhmWeightingTheRegistrationCannotMeasureIsSaid)
-{
-    useMeasuredLights(QStringLiteral("Weighted FWHM"), [](const std::size_t index, auto& metric) {
-        metric.metrics.stars = 200;
-        metric.metrics.fwhm = 2.0 + 0.5 * static_cast<double>(index);
-        metric.metrics.eccentricity = 0.2;
-    });
-    updateGroup([](auto& group) { group.stacking.perChannelFwhmWeighting = true; });
-
-    const StageResult result = stack();
-    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
-    ASSERT_TRUE(result.groupResults.front().qualityReport.hasWeightingStats);
-    const auto said = std::count_if(result.warnings.begin(), result.warnings.end(), [](const QString& warning) {
-        return warning.contains(QStringLiteral("per-channel FWHM weighting")) &&
-               warning.contains(QStringLiteral("one star width per frame"));
-    });
-    EXPECT_EQ(said, 1) << result.warnings.join(QStringLiteral("\n")).toStdString();
-
-    // Without the stored choice nothing is said.
-    updateGroup([](auto& group) { group.stacking.perChannelFwhmWeighting = false; });
-    const StageResult plain = stack();
-    ASSERT_TRUE(plain.isSuccess()) << plain.error.toLogString().toStdString();
-    EXPECT_FALSE(anyContains(plain.warnings, QStringLiteral("per-channel FWHM weighting")))
-        << plain.warnings.join(QStringLiteral("\n")).toStdString();
-}
-
 // What the engine says of a group's stack is said among the stage's warnings: a sum of lights no sample of which is
 // positive is written as it is, and the engine says so. The group's stack was admitted with no one to tell, so the
 // engine said nothing and the warning was lost.

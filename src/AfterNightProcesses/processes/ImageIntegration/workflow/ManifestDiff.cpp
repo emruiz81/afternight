@@ -136,7 +136,6 @@ constexpr std::array kStackingSettingReaders = {
     field<&StackingSettings::starCountScaling>("starCountScaling", kStack, kStackingChange),
     field<&StackingSettings::exponentialAlpha>("exponentialAlpha", kStack, kStackingChange),
     field<&StackingSettings::minWeightFloor>("minWeightFloor", kStack, kStackingChange),
-    field<&StackingSettings::perChannelFwhmWeighting>("perChannelFwhmWeighting", kStack, kStackingChange),
     recordField<&StackingSettings::localWeighting, &LocalWeightingSettings::enabled>("localWeighting.enabled", kStack,
                                                                                      kStackingChange),
     recordField<&StackingSettings::localWeighting, &LocalWeightingSettings::windowSize>("localWeighting.windowSize",
@@ -225,13 +224,13 @@ constexpr std::array kStackingSettingReaders = {
 
 // A field added to StackingSettings, or to a settings record it holds, stops the build here until it has its entry
 // above, naming the stages that read it, and the counts below are the new ones.
-static_assert(fieldCount<StackingSettings>() == 30u && fieldCount<LocalWeightingSettings>() == 4u &&
+static_assert(fieldCount<StackingSettings>() == 29u && fieldCount<LocalWeightingSettings>() == 4u &&
                   fieldCount<OverlapNormalizationSettings>() == 3u && fieldCount<LocalNormalizationSettings>() == 24u &&
                   fieldCount<DrizzleSettings>() == 6u && fieldCount<HdrExposureMergeSettings>() == 1u,
               "A stacking setting was added or removed: give it its entry in kStackingSettingReaders, with the light "
               "stages that read it, and update the field counts here.");
 static_assert(
-    kStackingSettingReaders.size() == 30u - 5u + 4u + 3u + 24u + 6u + 1u,
+    kStackingSettingReaders.size() == 29u - 5u + 4u + 3u + 24u + 6u + 1u,
     "kStackingSettingReaders holds one entry for each field of StackingSettings and of its settings records.");
 
 /// Whether two stacking settings agree on everything a stage reads; for a calibration master, whose stage reads them

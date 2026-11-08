@@ -205,7 +205,10 @@ void addStackingSettings(QJsonObject& obj, const StackingSettings& s)
     obj.insert(QStringLiteral("starCountScaling"), s.starCountScaling);
     obj.insert(QStringLiteral("exponentialAlpha"), s.exponentialAlpha);
     obj.insert(QStringLiteral("minWeightFloor"), s.minWeightFloor);
-    obj.insert(QStringLiteral("perChannelFwhmWeighting"), s.perChannelFwhmWeighting);
+    // The settings no longer hold a per-channel width weighting; its key stays in the payload, off as every stack ran
+    // it, so the settings hash to the identity every master - a calibration master as well as a light master - was
+    // stacked under and none is stacked again for it.
+    obj.insert(QStringLiteral("perChannelFwhmWeighting"), false);
     QJsonObject local_weighting;
     addLocalWeightingSettings(local_weighting, s.localWeighting);
     obj.insert(QStringLiteral("localWeighting"), local_weighting);

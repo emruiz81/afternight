@@ -221,6 +221,33 @@ TEST_F(StackingTabTest, SettingsColumnsDisplayValues)
     // Expected: "Off", "2x", "2.5x", etc.
 }
 
+// A group weighed by its stars' width shows its weighting and floor, in the cell and its tooltip, and nothing of
+// per-channel widths: every channel is weighed by its light's one width. Both said a per-channel choice was off.
+TEST_F(StackingTabTest, TheWeightingColumnSaysNothingOfPerChannelWidths)
+{
+    model->addFrames(FrameType::Light, {createLightFrame("C:/light1.fit", "2025-01-10")});
+    ASSERT_FALSE(model->integrationGroups().empty());
+    StackingSettings settings;
+    settings.weighting = QStringLiteral("Weighted FWHM");
+    settings.minWeightFloor = 0.05;
+    model->setStackingSettings(FrameType::Light, model->integrationGroups().front(), settings);
+
+    tab->refreshAll();
+    QCoreApplication::processEvents();
+
+    QTableWidget* table = tab->findChild<QTableWidget*>("tblIntegrationGroups");
+    ASSERT_TRUE(table != nullptr);
+    QTRY_VERIFY(table->rowCount() > 0 && table->item(0, 7) != nullptr);
+    const QTableWidgetItem* weighting = table->item(0, 7);
+    EXPECT_TRUE(weighting->text().contains(QStringLiteral("Weighted FWHM"))) << weighting->text().toStdString();
+    EXPECT_TRUE(weighting->text().contains(QStringLiteral("Floor=0.050"))) << weighting->text().toStdString();
+    EXPECT_FALSE(weighting->text().contains(QStringLiteral("Per-Ch"))) << weighting->text().toStdString();
+    EXPECT_TRUE(weighting->toolTip().contains(QStringLiteral("Min weight floor: 0.050")))
+        << weighting->toolTip().toStdString();
+    EXPECT_FALSE(weighting->toolTip().contains(QStringLiteral("Per-channel"), Qt::CaseInsensitive))
+        << weighting->toolTip().toStdString();
+}
+
 TEST_F(StackingTabTest, TotalTimeColumnUsesHumanFriendlyFormat)
 {
     model->addFrames(FrameType::Light, {

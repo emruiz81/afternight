@@ -440,6 +440,9 @@ TEST_F(FullIntegrationUiTest, ExportReportGeneratesHumanReadableMarkdown)
     EXPECT_TRUE(content.contains(QStringLiteral("Pipeline Stages")));
     EXPECT_TRUE(content.contains(QStringLiteral("Input Files")));
     EXPECT_FALSE(content.contains(QStringLiteral("```json")));
+    // The archived run stored the per-channel width weighting an earlier version offered; it is read as these
+    // settings, which hold none, and the report says nothing of it.
+    EXPECT_FALSE(content.contains(QStringLiteral("Per-channel"), Qt::CaseInsensitive));
 }
 
 // Re-run from the Summary tab checks the output directory as every other run does: registration records a newer version

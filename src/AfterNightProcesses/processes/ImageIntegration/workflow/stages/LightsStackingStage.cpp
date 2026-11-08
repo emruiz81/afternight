@@ -2652,15 +2652,6 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                                   QString::fromLatin1(
                                       an::stackFrameWeightingDispositionName(engineReport.weighting.disposition))));
                 }
-                // The engine weighs a channel by its own width only where every light carries one; the registration
-                // measures one width per light, so a stored per-channel choice weighs each channel by the light's.
-                if (shape.weighting == an::StackWeighting::Fwhm && sanitized.perChannelFwhmWeighting &&
-                    !engineReport.weighting.perChannel)
-                {
-                    warn(QStringLiteral("Group '%1' asks for per-channel FWHM weighting, but the registration measures "
-                                        "one star width per frame, so each channel was weighed by its frame's width.")
-                             .arg(groupLabel));
-                }
                 quality = qualityRecordOf(engineReport, static_cast<std::uint32_t>(stackedLights.size()),
                                           stacked->rates, scans);
                 quality.normalization = stacked->normalization;

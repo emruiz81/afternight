@@ -2282,6 +2282,56 @@ TEST(ManifestHashing, IntegrationGroupHashChangesWhenCombineRgbImagesChanges)
               QStringList{QStringLiteral("Combine RGB images changed")});
 }
 
+// A master is reused while its group's settings hash to the identity it was stacked under, and the stacking settings
+// hash into the identity of every master - each calibration master and each light master - so a setting retired from
+// them leaves the identity they hash to as it was: no master is stacked again for it. The values are the identities
+// these settings have hashed to since the hash took the per-channel width weighting they no longer hold.
+TEST(ManifestHashing, TheStackingSettingsKeepTheIdentityTheirMastersWereStackedUnder)
+{
+    const std::string defaults = computeStackingSettingsHash(StackingSettings{}).toStdString();
+    EXPECT_EQ(defaults, "45dc42eee7692ba1642fda9b201af0df9f5d3006dce47bdb1f0c318a0d709d15");
+
+    StackingSettings width;
+    width.weighting = QStringLiteral("Weighted FWHM");
+    width.minWeightFloor = 0.05;
+    const std::string weighed = computeStackingSettingsHash(width).toStdString();
+    EXPECT_EQ(weighed, "ae98326b8e1a59b5fea5b24fcf0298ff6aeb0c7809eef101bc293087fa3a4e82");
+}
+
+// A manifest states no per-channel width weighting: a group's stacking settings are written without one, and a
+// manifest an earlier version wrote with the choice on reads as these settings and is written again without it. The
+// choice was written, read back and kept, though no stack could honour it.
+TEST(WorkflowManifest, AStoredPerChannelWidthWeightingIsLetGo)
+{
+    const QString retired = QStringLiteral("perChannelFwhmWeighting");
+    const auto groupStackingOf = [](const QJsonObject& json) {
+        const QJsonArray groups = json.value(QStringLiteral("integrationGroups")).toArray();
+        return groups.isEmpty() ? QJsonObject{} : groups.at(0).toObject().value(QStringLiteral("stacking")).toObject();
+    };
+
+    WorkflowManifest manifest =
+        makeManifestWithFrames({FrameId(QDir::tempPath() + QDir::separator() + QStringLiteral("retired_choice.fit"))});
+    ASSERT_FALSE(manifest.integrationGroups.empty());
+    manifest.integrationGroups.front().stacking.weighting = QStringLiteral("Weighted FWHM");
+
+    QJsonObject json = manifest.toJson();
+    QJsonObject stacking = groupStackingOf(json);
+    ASSERT_FALSE(stacking.isEmpty());
+    EXPECT_FALSE(stacking.contains(retired));
+
+    stacking.insert(retired, true);
+    QJsonArray groups = json.value(QStringLiteral("integrationGroups")).toArray();
+    QJsonObject group = groups.at(0).toObject();
+    group.insert(QStringLiteral("stacking"), stacking);
+    groups[0] = group;
+    json.insert(QStringLiteral("integrationGroups"), groups);
+
+    const WorkflowManifest read = WorkflowManifest::fromJson(json);
+    ASSERT_FALSE(read.integrationGroups.empty());
+    EXPECT_EQ(read.integrationGroups.front().stacking.weighting, QStringLiteral("Weighted FWHM"));
+    EXPECT_FALSE(groupStackingOf(read.toJson()).contains(retired));
+}
+
 TEST(ManifestDiff, DetectsAddedFrames)
 {
     FrameId frame_a(QDir::tempPath() + QDir::separator() + QStringLiteral("a.fit"));
@@ -3154,8 +3204,6 @@ TEST(ManifestDiff, EveryStackingSettingConcernsTheStagesThatReadIt)
         {"starCountScaling", [](StackingSettings& s) { s.starCountScaling = QStringLiteral("Linear"); }, stack},
         {"exponentialAlpha", [](StackingSettings& s) { s.exponentialAlpha += 0.5; }, stack},
         {"minWeightFloor", [](StackingSettings& s) { s.minWeightFloor += 0.5; }, stack},
-        {"perChannelFwhmWeighting", [](StackingSettings& s) { s.perChannelFwhmWeighting = !s.perChannelFwhmWeighting; },
-         stack},
         {"localWeighting.enabled", [](StackingSettings& s) { s.localWeighting.enabled = !s.localWeighting.enabled; },
          stack},
         {"localWeighting.windowSize", [](StackingSettings& s) { s.localWeighting.windowSize += 2; }, stack},

@@ -147,7 +147,6 @@ an::StackWeightingRequest stackWeightingRequestFor(const StackingSettings& setti
     {
         request.starCount.exponentialAlpha = settings.exponentialAlpha;
     }
-    request.perChannelFwhm = weighting == an::StackWeighting::Fwhm && settings.perChannelFwhmWeighting;
     return request;
 }
 

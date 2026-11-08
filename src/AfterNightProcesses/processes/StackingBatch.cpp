@@ -572,7 +572,6 @@ StackingSettings sanitizeStandaloneStackingSettings(StackingSettings settings)
     if (!weighted || isText(settings.weighting, "None"))
     {
         settings.weighting = QStringLiteral("None");
-        settings.perChannelFwhmWeighting = false;
         settings.localWeighting.enabled = false;
     }
     if (!rejects)
@@ -590,7 +589,6 @@ StackingSettings sanitizeStandaloneStackingSettings(StackingSettings settings)
     if (!isText(settings.cometStackingMode, "Stars"))
     {
         settings.weighting = QStringLiteral("None");
-        settings.perChannelFwhmWeighting = false;
         settings.localWeighting.enabled = false;
     }
     if (settings.normalizationMode != NormalizationMode::Local)

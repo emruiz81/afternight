@@ -197,8 +197,6 @@ QString formatWeightingSummary(const StackingSettings& settings)
                                                                           : settings.starCountScaling.trimmed();
     const bool isStarCount = mode.compare(QStringLiteral("Number of stars"), Qt::CaseInsensitive) == 0 ||
                              mode.compare(QStringLiteral("Stars"), Qt::CaseInsensitive) == 0;
-    const bool isWeightedFwhm = mode.compare(QStringLiteral("Weighted FWHM"), Qt::CaseInsensitive) == 0 ||
-                                mode.compare(QStringLiteral("Weighted_FWHM"), Qt::CaseInsensitive) == 0;
     const bool isPhotometric = mode.compare(QStringLiteral("Photometric"), Qt::CaseInsensitive) == 0;
     const bool isExponential = scaling.compare(QStringLiteral("Exponential"), Qt::CaseInsensitive) == 0;
 
@@ -210,11 +208,6 @@ QString formatWeightingSummary(const StackingSettings& settings)
         {
             params << StackingTab::tr("Alpha=%1").arg(settings.exponentialAlpha, 0, 'f', 2);
         }
-    }
-    if (isWeightedFwhm)
-    {
-        params << StackingTab::tr("Per-Ch=%1")
-                      .arg(settings.perChannelFwhmWeighting ? StackingTab::tr("On") : StackingTab::tr("Off"));
     }
     params << StackingTab::tr("Floor=%1").arg(settings.minWeightFloor, 0, 'f', 3);
     if (isPhotometric)
@@ -239,8 +232,6 @@ QString formatWeightingTooltip(const StackingSettings& settings)
                                                                           : settings.starCountScaling.trimmed();
     const bool isStarCount = mode.compare(QStringLiteral("Number of stars"), Qt::CaseInsensitive) == 0 ||
                              mode.compare(QStringLiteral("Stars"), Qt::CaseInsensitive) == 0;
-    const bool isWeightedFwhm = mode.compare(QStringLiteral("Weighted FWHM"), Qt::CaseInsensitive) == 0 ||
-                                mode.compare(QStringLiteral("Weighted_FWHM"), Qt::CaseInsensitive) == 0;
     const bool isPhotometric = mode.compare(QStringLiteral("Photometric"), Qt::CaseInsensitive) == 0;
     const bool isExponential = scaling.compare(QStringLiteral("Exponential"), Qt::CaseInsensitive) == 0;
 
@@ -258,11 +249,6 @@ QString formatWeightingTooltip(const StackingSettings& settings)
         }
     }
 
-    if (isWeightedFwhm)
-    {
-        lines << StackingTab::tr("Per-channel FWHM weighting: %1")
-                     .arg(settings.perChannelFwhmWeighting ? StackingTab::tr("On") : StackingTab::tr("Off"));
-    }
     if (isPhotometric)
     {
         lines << StackingTab::tr("Photometric weights are mean-normalized; 1.0 represents an average frame.");
