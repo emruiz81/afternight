@@ -1173,7 +1173,7 @@ TEST_F(AstrometryOverlaysTest, TheDetectedStarsOverlayDrawsTheStarsItIsHandedAnd
 }
 
 // The view's choices reach the overlays that draw them through the companion seam: the catalogue overlay takes them
-// all, the grid its palette, and an overlay that draws neither ignores them.
+// all, the grid its palette and text size, and an overlay that draws neither ignores them.
 TEST_F(AstrometryOverlaysTest, TheViewsChoicesReachTheOverlaysThatDrawThem)
 {
     show(fieldCards());
@@ -1183,12 +1183,64 @@ TEST_F(AstrometryOverlaysTest, TheViewsChoicesReachTheOverlaysThatDrawThem)
     std::unique_ptr<::ImageViewWidgetDisplayModule> map = attached(an::ui::AstrometryOverlay::DistortionMap);
     const an::ui::AnnotationViewChoices choices{.detail = an::ui::AnnotationDetail::Complete,
                                                 .labelText = an::ui::AnnotationLabelText::Name,
-                                                .palette = an::ui::AnnotationPalette::Atlas};
+                                                .palette = an::ui::AnnotationPalette::Atlas,
+                                                .textSize = an::ui::AnnotationViewTextSize::Large};
     an::ui::setAstrometryOverlayChoices(*annotations, choices);
     an::ui::setAstrometryOverlayChoices(*grid, choices);
     an::ui::setAstrometryOverlayChoices(*map, choices);
     EXPECT_EQ(dynamic_cast<an::ui::CatalogAnnotationDisplayModule&>(*annotations).choices(), choices);
     EXPECT_EQ(dynamic_cast<an::ui::CoordinateGridDisplayModule&>(*grid).palette(), an::ui::AnnotationPalette::Atlas);
+    EXPECT_EQ(dynamic_cast<an::ui::CoordinateGridDisplayModule&>(*grid).textSize(),
+              an::ui::AnnotationViewTextSize::Large);
+}
+
+// The catalogue overlay draws its labels at the view's text size: the interface's captions at the small size, and each
+// larger size larger in step. Every label of one line is as tall as another at a size.
+TEST_F(AstrometryOverlaysTest, TheLabelsAreDrawnAtTheTextSizeTheViewsChoicesName)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CatalogAnnotations);
+    auto* labels = dynamic_cast<an::ui::CatalogAnnotationDisplayModule*>(overlay.get());
+    ASSERT_NE(labels, nullptr);
+    labels->setLayers(false, true);
+    labels->setCatalogSource(fixedCatalogs(deepSkyText(), brightStarText()));
+
+    // The last labels are drawn until the new ones land: each size waits for a layout made after it.
+    const auto heightAt = [&](const an::ui::AnnotationViewTextSize size) {
+        const std::uint64_t before = labels->layoutsMade();
+        labels->setChoices(an::ui::AnnotationViewChoices{.textSize = size});
+        const bool drawn = pumpUntil([&]() {
+            paint();
+            return labels->layoutsMade() > before && !labels->projectedLabelBoxes().isEmpty();
+        });
+        return drawn ? labels->projectedLabelBoxes().front().height() : 0.0;
+    };
+    const double small = heightAt(an::ui::AnnotationViewTextSize::Small);
+    ASSERT_GT(small, 0.0);
+    EXPECT_NEAR(heightAt(an::ui::AnnotationViewTextSize::Large) / small, 1.5, 1e-6);
+    EXPECT_NEAR(heightAt(an::ui::AnnotationViewTextSize::Medium) / small, 1.25, 1e-6);
+}
+
+// The grid's labels are drawn at the view's text size too, each larger size larger in step.
+TEST_F(AstrometryOverlaysTest, TheGridsLabelsAreDrawnAtTheTextSizeTheViewsChoicesName)
+{
+    show(fieldCards());
+    std::unique_ptr<::ImageViewWidgetDisplayModule> overlay = attached(an::ui::AstrometryOverlay::CoordinateGrid);
+    auto* grid = dynamic_cast<an::ui::CoordinateGridDisplayModule*>(overlay.get());
+    ASSERT_NE(grid, nullptr);
+    EXPECT_EQ(grid->textSize(), an::ui::AnnotationViewTextSize::Medium);
+
+    const auto heightAt = [&](const an::ui::AnnotationViewTextSize size) {
+        an::ui::setAstrometryOverlayChoices(*overlay, an::ui::AnnotationViewChoices{.textSize = size});
+        paint();
+        const QVector<QRectF> boxes = grid->projectedLabelBoxes();
+        return boxes.isEmpty() ? 0.0 : boxes.front().height();
+    };
+    const double small = heightAt(an::ui::AnnotationViewTextSize::Small);
+    ASSERT_GT(small, 0.0);
+    EXPECT_NEAR(heightAt(an::ui::AnnotationViewTextSize::Large) / small, 1.5, 1e-6);
+    EXPECT_NEAR(heightAt(an::ui::AnnotationViewTextSize::Medium) / small, 1.25, 1e-6);
+    EXPECT_EQ(grid->textSize(), an::ui::AnnotationViewTextSize::Medium);
 }
 
 // The grid is drawn in the palette the view's choices name: Aurora's soft blue, or Ember's red for a dark-adapted eye.

@@ -138,8 +138,8 @@ public:
     void onImageViewControlDestroyed(ImageViewControl* ctrl) override;
 
     /// Sets what the overlay names and how it looks, as the view's menu chose: the level of detail it names the
-    /// catalogues at, what a label says and the palette it draws in. Until the new labels land, the last ones are
-    /// drawn.
+    /// catalogues at, what a label says, the palette it draws in and the size its labels are drawn at. Until the new
+    /// labels land, the last ones are drawn.
     ///
     /// @param choices the choices.
     void setChoices(const AnnotationViewChoices& choices);

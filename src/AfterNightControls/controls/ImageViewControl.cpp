@@ -926,6 +926,7 @@ struct ImageViewControl::Impl
     QMenu* m_AstrometryDetailSubMenu = nullptr;
     QMenu* m_AstrometryLabelsSubMenu = nullptr;
     QMenu* m_AstrometryPaletteSubMenu = nullptr;
+    QMenu* m_AstrometryTextSizeSubMenu = nullptr;
 
     /// What the live annotations name and how they look, as the menu chose and the settings keep them.
     an::ui::AnnotationViewChoices m_AnnotationChoices;
@@ -1576,6 +1577,25 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         }
         m_impl->m_AstrometryPaletteSubMenu = addChoices(tr("Palette"), QStringLiteral("astrometryPaletteMenu"),
                                                         palettes, static_cast<int>(annotationChoices.palette));
+        const auto textSizeTip = [](const an::ui::AnnotationViewTextSize size) {
+            switch (size)
+            {
+            case an::ui::AnnotationViewTextSize::Small:
+                return tr("Labels as large as the interface's captions");
+            case an::ui::AnnotationViewTextSize::Medium:
+                break;
+            case an::ui::AnnotationViewTextSize::Large:
+                return tr("Labels half as large again as the interface's captions");
+            }
+            return tr("Labels a quarter larger than the interface's captions");
+        };
+        std::vector<std::tuple<QString, int, QString>> textSizes;
+        for (const an::ui::AnnotationViewTextSize size : an::ui::annotationViewTextSizes())
+        {
+            textSizes.emplace_back(an::ui::annotationViewTextSizeName(size), static_cast<int>(size), textSizeTip(size));
+        }
+        m_impl->m_AstrometryTextSizeSubMenu = addChoices(tr("Text Size"), QStringLiteral("astrometryTextSizeMenu"),
+                                                         textSizes, static_cast<int>(annotationChoices.textSize));
 
         m_impl->m_AstrometrySettingsAction =
             m_impl->m_ToolBar->addAction(iconManager->getIcon("settings"), tr("Astrometry Settings"));
@@ -1921,7 +1941,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                          });
     }
 
-    // The level of detail, the labels and the palette: each choice is handed to the overlays and kept.
+    // The level of detail, the labels, the palette and the text size: each choice is handed to the overlays and kept.
     const auto connectChoices = [this, persistStringSetting](QMenu* menu,
                                                              void (*choose)(an::ui::AnnotationViewChoices&, int)) {
         if (menu == nullptr)
@@ -1953,6 +1973,9 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     });
     connectChoices(m_impl->m_AstrometryPaletteSubMenu, [](an::ui::AnnotationViewChoices& choices, const int value) {
         choices.palette = static_cast<an::ui::AnnotationPalette>(value);
+    });
+    connectChoices(m_impl->m_AstrometryTextSizeSubMenu, [](an::ui::AnnotationViewChoices& choices, const int value) {
+        choices.textSize = static_cast<an::ui::AnnotationViewTextSize>(value);
     });
 
     // Astrometry info button

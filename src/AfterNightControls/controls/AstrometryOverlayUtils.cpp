@@ -339,15 +339,16 @@ OverlayGridLayout layoutOverlayGrid(const an::WcsSolution& solution, const QRect
     return result;
 }
 
-double overlayLabelPixels(const QWidget& widget)
+double overlayLabelPixels(const QWidget& widget, const AnnotationViewTextSize size)
 {
     const QFont caption = an::ui::tokens().typography.caption;
+    const double scale = annotationViewTextScale(size);
     if (caption.pixelSize() > 0)
     {
-        return caption.pixelSize();
+        return scale * caption.pixelSize();
     }
     const double points = caption.pointSizeF() > 0.0 ? caption.pointSizeF() : 9.0;
-    return points * (std::max)(1, widget.logicalDpiY()) / 72.0;
+    return scale * points * (std::max)(1, widget.logicalDpiY()) / 72.0;
 }
 
 struct FieldCatalogQueries::State

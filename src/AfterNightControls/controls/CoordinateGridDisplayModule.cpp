@@ -50,6 +50,9 @@ struct CoordinateGridDisplayModule::Impl
     /// The palette the grid is drawn in.
     AnnotationPalette palette = AnnotationPalette::Aurora;
 
+    /// The text size its labels are drawn at.
+    AnnotationViewTextSize textSize = AnnotationViewTextSize::Medium;
+
     /// The annotated picture's style in that palette: its grid's lines and labels.
     AnnotationStyle style = defaultAnnotationSettings().style;
 };
@@ -77,7 +80,7 @@ void CoordinateGridDisplayModule::onDraw(QPainter& painter)
     CacheKey key;
     key.solution = control->imageSolution();
     key.view = detail::overlayViewState(control);
-    key.fontPixels = detail::overlayLabelPixels(*view_widget);
+    key.fontPixels = detail::overlayLabelPixels(*view_widget, impl.textSize);
     if (!impl.cacheValid || !impl.cacheKey.matches(key))
     {
         // The grid follows the view: the part it shows, at its scale, is laid out again for every scroll and zoom.
@@ -148,6 +151,26 @@ void CoordinateGridDisplayModule::setPalette(const AnnotationPalette palette)
 AnnotationPalette CoordinateGridDisplayModule::palette() const
 {
     return m_impl->palette;
+}
+
+void CoordinateGridDisplayModule::setTextSize(const AnnotationViewTextSize size)
+{
+    Impl& impl = *m_impl;
+    if (size == impl.textSize)
+    {
+        return;
+    }
+    // The label's size is part of what the grid was laid out for: the next paint lays it out again.
+    impl.textSize = size;
+    if (m_ViewWidget)
+    {
+        m_ViewWidget->update();
+    }
+}
+
+AnnotationViewTextSize CoordinateGridDisplayModule::textSize() const
+{
+    return m_impl->textSize;
 }
 
 int CoordinateGridDisplayModule::projectedLineCount() const

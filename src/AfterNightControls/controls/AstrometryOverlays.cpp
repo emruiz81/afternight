@@ -47,6 +47,7 @@ void setAstrometryOverlayChoices(::ImageViewWidgetDisplayModule& overlay, const 
     else if (auto* grid = dynamic_cast<CoordinateGridDisplayModule*>(&overlay); grid != nullptr)
     {
         grid->setPalette(choices.palette);
+        grid->setTextSize(choices.textSize);
     }
 }
 

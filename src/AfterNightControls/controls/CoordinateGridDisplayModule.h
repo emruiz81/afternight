@@ -27,6 +27,7 @@ namespace an::ui
 {
 
 enum class AnnotationPalette : std::uint8_t;
+enum class AnnotationViewTextSize : std::uint8_t;
 
 class AFTERNIGHTCONTROLS_API CoordinateGridDisplayModule final : public ImageViewControlListener,
                                                                  public ImageViewWidgetDisplayModule
@@ -49,6 +50,14 @@ public:
 
     /// The palette the grid is drawn in.
     [[nodiscard]] AnnotationPalette palette() const;
+
+    /// Draws the grid's labels at a view's text size: the lines' widths follow them.
+    ///
+    /// @param size the size.
+    void setTextSize(AnnotationViewTextSize size);
+
+    /// The text size the grid's labels are drawn at.
+    [[nodiscard]] AnnotationViewTextSize textSize() const;
 
     /// How many lines the last layout of the part shown kept.
     [[nodiscard]] int projectedLineCount() const;

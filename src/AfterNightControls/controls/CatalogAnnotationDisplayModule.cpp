@@ -171,7 +171,7 @@ void CatalogAnnotationDisplayModule::onDraw(QPainter& painter)
     // not be read draws nothing, and the layout waits for a query still on its way.
     LayoutKey key;
     key.scale = scale;
-    key.fontPixels = detail::overlayLabelPixels(*view_widget);
+    key.fontPixels = detail::overlayLabelPixels(*view_widget, impl.choices.textSize);
     key.labelText = impl.choices.labelText;
     bool waiting = false;
     const auto sceneOf = [&](detail::FieldCatalogQueries& queries,

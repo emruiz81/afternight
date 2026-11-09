@@ -297,13 +297,35 @@ TEST(AnnotationSettings, EveryLevelAndPaletteOfferedHasANameOfItsOwn)
     EXPECT_FALSE(paletteNames.contains(QString()));
 }
 
-// A view's live annotations keep the choices its menu offers - a level of detail, what a label says and a palette - as
-// a text of their own, apart from a picture's.
+// A view offers three text sizes by names of their own: the interface's captions, then each a step larger.
+TEST(AnnotationViewChoices, AViewsTextSizesAreTheCaptionsAndTwoLargerSteps)
+{
+    const std::span<const an::ui::AnnotationViewTextSize> sizes = an::ui::annotationViewTextSizes();
+    EXPECT_TRUE(std::ranges::equal(sizes, std::array{an::ui::AnnotationViewTextSize::Small,
+                                                     an::ui::AnnotationViewTextSize::Medium,
+                                                     an::ui::AnnotationViewTextSize::Large}));
+    EXPECT_EQ(an::ui::annotationViewTextSizeName(an::ui::AnnotationViewTextSize::Medium), QStringLiteral("Medium"));
+    QStringList names;
+    for (const an::ui::AnnotationViewTextSize size : sizes)
+    {
+        names.push_back(an::ui::annotationViewTextSizeName(size));
+    }
+    EXPECT_EQ(names.removeDuplicates(), 0);
+    EXPECT_FALSE(names.contains(QString()));
+    EXPECT_DOUBLE_EQ(an::ui::annotationViewTextScale(an::ui::AnnotationViewTextSize::Small), 1.0)
+        << "the small size is the captions'";
+    EXPECT_DOUBLE_EQ(an::ui::annotationViewTextScale(an::ui::AnnotationViewTextSize::Medium), 1.25);
+    EXPECT_DOUBLE_EQ(an::ui::annotationViewTextScale(an::ui::AnnotationViewTextSize::Large), 1.5);
+}
+
+// A view's live annotations keep the choices its menu offers - a level of detail, what a label says, a palette and a
+// text size - as a text of their own, apart from a picture's.
 TEST(AnnotationViewChoices, StoredChoicesReadBackAsThemselves)
 {
     const an::ui::AnnotationViewChoices choices{.detail = an::ui::AnnotationDetail::Detailed,
                                                 .labelText = an::ui::AnnotationLabelText::DesignationAndName,
-                                                .palette = an::ui::AnnotationPalette::Ember};
+                                                .palette = an::ui::AnnotationPalette::Ember,
+                                                .textSize = an::ui::AnnotationViewTextSize::Large};
     EXPECT_EQ(an::ui::annotationViewChoicesFromStored(an::ui::storedAnnotationViewChoices(choices)), choices);
     for (const an::ui::AnnotationDetail detail : an::ui::annotationDetails())
     {
@@ -322,20 +344,27 @@ TEST(AnnotationViewChoices, StoredChoicesReadBackAsThemselves)
         const an::ui::AnnotationViewChoices labelled{.labelText = text};
         EXPECT_EQ(an::ui::annotationViewChoicesFromStored(an::ui::storedAnnotationViewChoices(labelled)), labelled);
     }
+    for (const an::ui::AnnotationViewTextSize size : an::ui::annotationViewTextSizes())
+    {
+        const an::ui::AnnotationViewChoices sized{.textSize = size};
+        EXPECT_EQ(an::ui::annotationViewChoicesFromStored(an::ui::storedAnnotationViewChoices(sized)), sized);
+    }
 }
 
-// A view starts at the standard level, labelling by designation in the Aurora palette; a choice the text does not name
-// - missing, unknown, or a custom level or palette, which a view does not offer - reads as its default.
+// A view starts at the standard level, labelling by designation in the Aurora palette at the medium text size; a choice
+// the text does not name - missing, unknown, or a custom level or palette, which a view does not offer - reads as its
+// default.
 TEST(AnnotationViewChoices, AChoiceTheTextDoesNotNameReadsAsItsDefault)
 {
     const an::ui::AnnotationViewChoices defaults;
     EXPECT_EQ(defaults.detail, an::ui::AnnotationDetail::Standard);
     EXPECT_EQ(defaults.labelText, an::ui::AnnotationLabelText::Designation);
     EXPECT_EQ(defaults.palette, an::ui::AnnotationPalette::Aurora);
+    EXPECT_EQ(defaults.textSize, an::ui::AnnotationViewTextSize::Medium);
     EXPECT_EQ(an::ui::annotationViewChoicesFromStored(QString()), defaults);
     EXPECT_EQ(an::ui::annotationViewChoicesFromStored(QStringLiteral("not json")), defaults);
     EXPECT_EQ(an::ui::annotationViewChoicesFromStored(
-                  QStringLiteral(R"({"detail":"custom","labelText":"sideways","palette":"custom"})")),
+                  QStringLiteral(R"({"detail":"custom","labelText":"sideways","palette":"custom","textSize":"huge"})")),
               defaults);
 
     const an::ui::AnnotationViewChoices partial =
@@ -343,6 +372,7 @@ TEST(AnnotationViewChoices, AChoiceTheTextDoesNotNameReadsAsItsDefault)
     EXPECT_EQ(partial.palette, an::ui::AnnotationPalette::Ink);
     EXPECT_EQ(partial.detail, defaults.detail);
     EXPECT_EQ(partial.labelText, defaults.labelText);
+    EXPECT_EQ(partial.textSize, defaults.textSize) << "choices kept before the view offered sizes read as the default";
 }
 
 // A view's former menu held its annotations to a magnitude limit; the level that names about as much replaces it: the
