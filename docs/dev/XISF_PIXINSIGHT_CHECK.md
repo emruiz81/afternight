@@ -49,7 +49,7 @@ solution over a grid that reaches past the image.
 
 ## The last check
 
-Run on 2026-11-09 with **PixInsight 1.9.6 (build 1713)** on Windows 11, over units written by AfterNightEngine 1.6.0
+Run on 2026-11-09 with **PixInsight 1.9.6 (build 1713)** on Windows 11, over units written by AfterNightEngine 1.6.1
 through OpenXISF 1.1.0: PixInsight opens all 44 units, and reads every sample, keyword, property, filter array and
 structural fact as written. The script was also run over a copy with a sample, a keyword, a property, a filter array,
 a display function and a solution changed, and reported each one.
@@ -66,7 +66,8 @@ What PixInsight reads differently, none of it a defect of the writer:
   text it read from a data block as an IsoString, and the text is the same.
 - **The writer states some things the original did not.** An acquisition fact read from a source is also written in
   the writer's own spelling - `EXPOSURE` beside the source's `EXPTIME` - as the FITS writer does; an image that states
-  no type is written as a light frame; and every unit carries `Instrument:Software:Name`, the engine's version. PixInsight
-  reads each as written.
+  no type is written as a light frame. PixInsight reads each as written. The unit names its writer, name and version,
+  in `XISF:CreatorApplication` alone; the `Instrument:Software:Name` property, which the specification does not
+  define and in which engines before 1.6.1 stated their version, is no longer written or carried from a source.
 
 Distributed units (`.xish`) are not checked: the writer does not produce them, and PixInsight does not read them.
