@@ -24,17 +24,18 @@ verified, what a complete page contains, how it is written and how its media is 
 1. [Layout](#layout)
 2. [Building](#building)
 3. [Page metadata](#page-metadata)
-4. [Offline site, packaging and publication](#offline-site-packaging-and-publication)
-5. [Sources of truth](#sources-of-truth)
-6. [Verifying in the application](#verifying-in-the-application)
-7. [Page kinds and templates](#page-kinds-and-templates)
-8. [What a complete page contains](#what-a-complete-page-contains)
-9. [Writing style](#writing-style)
-10. [Media](#media)
-11. [Naming other programs](#naming-other-programs)
-12. [Scope of a change](#scope-of-a-change)
-13. [Definition of done](#definition-of-done)
-14. [Checks](#checks)
+4. [The guide's own theme](#the-guides-own-theme)
+5. [Offline site, packaging and publication](#offline-site-packaging-and-publication)
+6. [Sources of truth](#sources-of-truth)
+7. [Verifying in the application](#verifying-in-the-application)
+8. [Page kinds and templates](#page-kinds-and-templates)
+9. [What a complete page contains](#what-a-complete-page-contains)
+10. [Writing style](#writing-style)
+11. [Media](#media)
+12. [Naming other programs](#naming-other-programs)
+13. [Scope of a change](#scope-of-a-change)
+14. [Definition of done](#definition-of-done)
+15. [Checks](#checks)
 
 ## Layout
 
@@ -45,7 +46,9 @@ verified, what a complete page contains, how it is written and how its media is 
 | `docs/user-guide/requirements.txt` | The resolved lock, with hashes, generated from `requirements.in`. |
 | `docs/user-guide/docs/en/` | The English pages; `mkdocs.yml` names this directory `docs_dir`. |
 | `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)). |
-| `docs/user-guide/hooks/` | `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the guide's hooks and `check_user_guide.py` share; its tests beside it. |
+| `docs/user-guide/mkdocs.theme.yml` | The guide in its own theme: `mkdocs.yml` inherited, with the theme, its hooks and their plugins; it builds into `site-theme/` ([The guide's own theme](#the-guides-own-theme)). |
+| `docs/user-guide/hooks/` | The theme's MkDocs hooks - `guide_hooks.py` (the events), `guide_html.py` (the passes over each page's HTML) and `guide_search.py` (the search index) - and `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the hooks and `check_user_guide.py` share; their tests beside them. |
+| `docs/user-guide/theme/` | The theme: `main.html`, `base.html`, `404.html`, a layout per page kind in `layouts/`, the shared parts in `partials/`, and under `assets/guide/` its CSS (`tokens.css` a copy of the website's), JavaScript, fonts and the vendored lunr. |
 | `docs/user-guide/docs/en/assets/images/` | Committed screenshots and example images. |
 | `docs/user-guide/docs/en/assets/javascripts/` | The vendored MathJax runtime with its fonts and configuration, the Mermaid runtime, and the polyfills the site loads locally. |
 | `docs/user-guide/docs/en/stylesheets/extra.css` | The site's style overrides. |
@@ -56,6 +59,7 @@ verified, what a complete page contains, how it is written and how its media is 
 | `docs/user-guide/CONTENT_VERIFICATION_PREREQUISITES.md` | The evidence modes, and the data, tools, catalogs and platforms a verification needs. |
 | `docs/user-guide/audits/` | The audit's configuration and baseline, the media contract and retained validation evidence; its `README.md` explains the audit. |
 | `docs/user-guide/site/` | The built site. Git ignores it, as it ignores the helpers' environment in `docs/user-guide/.venv/`. |
+| `docs/user-guide/site-theme/` | The site built in the guide's own theme, which Git ignores too. |
 
 ## Building
 
@@ -70,12 +74,16 @@ build\scripts\msvc\build_user_guide_docs.bat
 build/scripts/linux/build_user_guide_docs.sh
 ```
 
+With the argument `theme` the helpers build the guide in its own theme instead, from `mkdocs.theme.yml` into
+`docs/user-guide/site-theme/`.
+
 The direct commands work in any environment that has the lock installed:
 
 ```bash
 pip install --require-hashes -r docs/user-guide/requirements.txt
 mkdocs build -f docs/user-guide/mkdocs.yml --strict
-mkdocs serve -f docs/user-guide/mkdocs.yml
+mkdocs build -f docs/user-guide/mkdocs.theme.yml --strict
+mkdocs serve -f docs/user-guide/mkdocs.theme.yml
 ```
 
 - The strict build is the gate every change passes. It turns each warning, such as a link to a missing page or
@@ -135,6 +143,47 @@ data_out: nonlinear
   which covers every action under it, as the Non-Interactive Processes page names the submenus of immediate actions.
   Every registered action, and every other action of the Process menu, must sit on some page's `menu`, so a process
   cannot ship without a page.
+
+## The guide's own theme
+
+The guide is moving off MkDocs Material to a theme of its own that wears the website's look. Until it switches, the
+theme is built beside the Material site: `mkdocs.theme.yml` inherits `mkdocs.yml` and builds into `site-theme/`, so
+the site the installers bundle does not change. `docs.yml` builds both strictly.
+
+- **MkDocs 1.6.1, a custom theme.** `theme.name: null` with `custom_dir: theme`; the Markdown, the strict build, the
+  lock, the workflows, the installers' paths and Help's entry point all stay as they are. Material for MkDocs is in
+  maintenance mode, and its layout fights the design. MkDocs 2.x loads neither a 1.x theme nor hooks, so MkDocs is
+  pinned exactly; the hooks stay small, plain Python, so a later move costs little.
+- **A layout per kind.** `main.html` extends `layouts/<kind>.html` (workflows share the tutorial layout); the page's
+  front matter picks it. Every layout renders the same anatomy for now - left navigation, breadcrumbs, the page head
+  (the H1, lifted out of the content, with the summary and the chips for the menu path and the stage), the lead, the
+  body, the table of contents - and the components of each kind join it.
+- **The stage stepper is on every page**, all eight stages, linked to their lanes of the catalog: it marks a process
+  page's stage, the stages a tutorial or workflow spans, and leads the catalog and the home page.
+- **The hooks** (`guide_hooks.py`) read `data/stages.yml` and `AFTERNIGHT_GUIDE_VERSION` (the footer's version, or
+  "development build"), lift each page's H1, wrap tables and make code blocks and display equations reachable by the
+  keyboard, collect the search index, and hand the layouts `guide` (the data every page shares) and `gp` (the page's).
+  Every page whose front matter does not fit the schema is a warning, which the strict build counts; only a data file
+  that cannot be read stops the build.
+- **The website's skin.** `theme/assets/guide/css/tokens.css` is a verbatim copy of the website's
+  `assets/css/tokens.css`, and `guide-tokens.css` holds what only the guide needs. Two files do not justify a shared
+  package; rule R16 of `check_user_guide.py` holds the copy to the website's file where both are at hand. The stage
+  hues come from `data/stages.yml`, written into each page by `base.html`, so they have one source.
+- **Fonts are self-hosted:** Inter, Sora and JetBrains Mono, Fontsource's Latin subsets, the same files as the
+  website's, under the SIL Open Font License. No font, script or stylesheet comes from the network.
+- **Search without MkDocs' search plugin.** A page opened from disk can neither `fetch()` a file nor start a worker,
+  which the plugin's client needs. The hooks write `search/search_index.js`, one entry per section of every page, as
+  a script that sets `window.__guideSearchIndex`; `search.js` loads it and the vendored lunr 2.3.9 on the first focus
+  of the box or `/`, and indexes it then. lunr's separator is `[\s\-,:!=\[\]()"/]+`, so "image-integration" and "1.5"
+  split as a reader expects. Results are grouped by the guide's section; a process shows its menu path; the keys are
+  `/`, Up, Down, Enter and Esc.
+- **The theme follows the reader.** An inline script in the head sets `data-theme` before the first paint, from the
+  choice the toggle stored (read inside `try`, since a browser may keep no storage for a local file) or else from the
+  system's colour scheme; without a stored choice the page follows the system as it changes. The toggle dispatches
+  `an-themechange` for whatever draws in theme colours.
+- **Breakpoints.** Three columns from 1100 px, two from 820 px, one below; the header's section links move behind
+  the menu button below 1024 px, which opens the left navigation as a drawer. Anything wider than the column - a
+  table, a code block, an equation, a diagram - scrolls in its own box, and the page is never wider than the window.
 
 ## Offline site, packaging and publication
 
@@ -429,9 +478,10 @@ Run from the repository root:
 
 | Command | Checks |
 | --- | --- |
-| `build\scripts\msvc\build_user_guide_docs.bat`, `build/scripts/linux/build_user_guide_docs.sh` | The strict build from the lock. |
-| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the model's `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths and images, and what the built site references; `docs.yml` runs all three after the strict build. |
-| `node build/scripts/render_user_guide.cjs --offline` | What a reader sees in the copy the installers bundle; the script's header gives its setup, which keeps its Node packages and browsers outside the repository. |
+| `build\scripts\msvc\build_user_guide_docs.bat`, `build/scripts/linux/build_user_guide_docs.sh` | The strict build from the lock; with `theme`, the guide in its own theme. |
+| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the hooks' `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths and images, and what the built site references; `docs.yml` runs all three after the strict build, and the check again on `site-theme/`. |
+| `python build/scripts/tools/check_user_guide.py --tokens <the website's assets/css/tokens.css>` | That the theme's tokens are still the website's (R16), where the website's sources are at hand; not in CI. |
+| `node build/scripts/render_user_guide.cjs --offline`, and `--site docs/user-guide/site-theme` for the theme | What a reader sees in the copy the installers bundle; the script's header gives its setup, which keeps its Node packages and browsers outside the repository. |
 
 `check_user_guide.py` reads the guide through `guide_model.py`, which needs PyYAML, so it runs with the documentation
 toolchain's Python: `docs\user-guide\.venv\Scripts\python` on Windows and `docs/user-guide/.venv/bin/python` on

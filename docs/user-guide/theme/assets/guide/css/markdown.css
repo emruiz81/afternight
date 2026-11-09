@@ -1,0 +1,200 @@
+/* The page's content as Markdown renders it: prose, lists, tables, code, admonitions, details, definition lists,
+   footnotes, keys, equations and diagrams. Anything wider than the column - a table, a code block, an equation, a
+   diagram - scrolls inside its own box, so the page itself is never wider than the window. */
+
+.prose { color: var(--text-2); overflow-wrap: break-word; }
+.prose > .lead > p:first-child { color: var(--text); font-size: 17px; }
+.prose p { margin: 0 0 16px; max-width: var(--measure); }
+.prose h2 {
+    font-size: 24px;
+    margin: 48px 0 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    overflow-wrap: anywhere;
+}
+.prose h3 { font-size: 18px; margin: 32px 0 10px; overflow-wrap: anywhere; }
+.prose h4 { font-size: 15.5px; margin: 24px 0 8px; }
+.prose h5, .prose h6 { font-size: 14.5px; margin: 20px 0 8px; }
+.prose .headerlink {
+    margin-left: 8px;
+    color: var(--text-3);
+    font-weight: 400;
+    opacity: 0;
+    text-decoration: none;
+}
+.prose :is(h2, h3, h4, h5, h6):hover .headerlink, .prose .headerlink:focus { opacity: 1; }
+.prose strong, .prose b { color: var(--text); font-weight: 600; }
+.prose ul, .prose ol { padding-left: 24px; margin: 0 0 16px; max-width: var(--measure); }
+.prose li { margin: 0 0 6px; }
+.prose li > ul, .prose li > ol { margin: 6px 0 0; }
+.prose hr { border: 0; border-top: 1px solid var(--border); margin: 32px 0; }
+.prose blockquote {
+    margin: 0 0 16px;
+    padding: 4px 16px;
+    border-left: 3px solid var(--border-strong);
+    color: var(--text-2);
+}
+
+/* Links inside text are underlined, so they do not rely on color alone. */
+.prose a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.prose a:hover { text-decoration-thickness: 2px; }
+.prose a.headerlink, .prose a.md-button, .prose a.glightbox, .prose .footnote-ref a, .prose a.footnote-backref { text-decoration: none; }
+
+/* Figures and images */
+.prose img { border-radius: var(--radius); border: 1px solid var(--border-strong); }
+.prose figure { margin: 0 0 20px; }
+.prose figcaption, .prose p > img + em, .prose p > a.glightbox + em { font-size: 13px; color: var(--text-3); }
+
+/* Inline code, keys and marks */
+.prose code {
+    font-size: .88em;
+    padding: .1em .35em;
+    border-radius: 5px;
+    background: var(--card-2);
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+.prose kbd, .prose .keys kbd {
+    display: inline-block;
+    padding: 0 6px;
+    border: 1px solid var(--border-strong);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--card);
+    color: var(--text);
+    font-size: .85em;
+    line-height: 1.6;
+}
+.prose .keys span { padding: 0 2px; color: var(--text-3); }
+.prose mark { background: color-mix(in srgb, var(--warning) 30%, transparent); color: var(--text); padding: 0 2px; border-radius: 3px; }
+.prose ins { color: var(--success); }
+.prose del { color: var(--error); }
+
+/* Code blocks: dark in both themes, like the application's console */
+.prose pre {
+    max-width: 100%;
+    margin: 0 0 16px;
+    padding: 14px 16px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--code-bg);
+    color: var(--code-text);
+    font: 13.5px/1.6 var(--font-mono);
+}
+.prose pre code { padding: 0; background: none; color: inherit; font-size: inherit; overflow-wrap: normal; }
+.prose .highlight { position: relative; }
+.copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 2px 8px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 6px;
+    background: #18181B;
+    color: #D4D4D8;
+    font: 12px var(--font-body);
+    cursor: pointer;
+    opacity: .85;
+}
+.copy-btn:hover, .copy-btn:focus-visible { opacity: 1; color: #FFFFFF; }
+
+/* Tables */
+.prose .table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 0 0 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.prose table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.prose th, .prose td {
+    text-align: left;
+    vertical-align: top;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-2);
+}
+.prose tr:last-child td { border-bottom: 0; }
+.prose th {
+    font: 600 11px var(--font-mono);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    background: var(--bg-2);
+}
+.prose td code { overflow-wrap: anywhere; }
+
+/* Admonitions and details */
+.prose .admonition, .prose details {
+    --a: var(--accent);
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border: 1px solid color-mix(in srgb, var(--a) 35%, transparent);
+    border-left-width: 4px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--a) 6%, var(--card));
+}
+.prose .admonition > :last-child, .prose details > :last-child { margin-bottom: 0; }
+.prose .admonition-title, .prose details > summary { font-weight: 600; color: var(--text); margin: 0 0 6px; }
+.prose details > summary { cursor: pointer; margin: 0; }
+.prose details[open] > summary { margin-bottom: 8px; }
+.prose :is(.admonition, details):is(.tip, .hint, .success, .check, .done) { --a: var(--success); }
+.prose :is(.admonition, details):is(.warning, .caution, .attention, .question, .help, .faq) { --a: var(--warning); }
+.prose :is(.admonition, details):is(.danger, .error, .failure, .fail, .missing, .bug) { --a: var(--error); }
+.prose :is(.admonition, details):is(.example, .quote, .cite, .abstract, .summary, .tldr) { --a: var(--text-3); }
+
+/* Definition lists, footnotes, task lists */
+.prose dl { margin: 0 0 16px; }
+.prose dt { color: var(--text); font-weight: 600; margin-top: 12px; }
+.prose dd { margin: 4px 0 0 20px; }
+.prose .footnote { font-size: 13.5px; color: var(--text-3); }
+.prose .footnote ol { padding-left: 20px; }
+.prose .task-list-item { list-style: none; }
+.prose .task-list-item input { margin: 0 8px 0 -20px; }
+.prose .task-list-control .task-list-indicator::before { content: "\2610"; margin: 0 8px 0 -22px; color: var(--text-3); }
+.prose .task-list-control input:checked + .task-list-indicator::before { content: "\2611"; color: var(--success); }
+.prose .task-list-control input { position: absolute; opacity: 0; }
+
+/* Tabs (pymdownx.tabbed, alternate style): only the checked tab's panel shows. */
+.prose .tabbed-set { display: flex; flex-wrap: wrap; margin: 0 0 16px; border: 1px solid var(--border); border-radius: var(--radius); }
+.prose .tabbed-set > input { position: absolute; opacity: 0; }
+.prose .tabbed-labels { display: flex; flex-wrap: wrap; width: 100%; border-bottom: 1px solid var(--border); }
+.prose .tabbed-labels > label { padding: 8px 14px; cursor: pointer; font-size: 14px; color: var(--text-2); }
+.prose .tabbed-content { width: 100%; padding: 12px 16px; }
+.prose .tabbed-block { display: none; }
+.prose .tabbed-set > input:nth-child(1):checked ~ .tabbed-content > .tabbed-block:nth-child(1),
+.prose .tabbed-set > input:nth-child(2):checked ~ .tabbed-content > .tabbed-block:nth-child(2),
+.prose .tabbed-set > input:nth-child(3):checked ~ .tabbed-content > .tabbed-block:nth-child(3),
+.prose .tabbed-set > input:nth-child(4):checked ~ .tabbed-content > .tabbed-block:nth-child(4) { display: block; }
+
+/* Equations and diagrams scroll inside their own box */
+.prose .arithmatex { max-width: 100%; }
+.prose div.arithmatex { overflow-x: auto; overflow-y: hidden; margin: 0 0 16px; padding: 4px 0; }
+.prose mjx-container[display="true"] { margin: 8px 0 !important; }
+.prose pre.an-mermaid {
+    background: var(--card);
+    color: var(--text);
+    border-color: var(--border);
+    text-align: center;
+}
+.prose pre.an-mermaid svg { max-width: none; height: auto; }
+
+/* The home page's body, until it renders from data: its call to action links and its hero sections. */
+.prose .md-button {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 8px 8px 0;
+    padding: 9px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border-strong);
+    background: var(--card);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 14.5px;
+}
+.prose .md-button--primary { background: var(--accent); border-color: transparent; color: var(--on-accent); }
+.prose .md-button:hover { border-color: var(--accent); }
+.prose .md-button--primary:hover { background: var(--accent-hover); color: var(--on-accent); }
+.prose [class^="an-"], .prose [class*=" an-"] { min-width: 0; }
+.prose .an-kicker { font: 600 12px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }

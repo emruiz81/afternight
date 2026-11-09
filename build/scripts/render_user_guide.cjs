@@ -77,6 +77,16 @@ const CONTENT_TYPES = {
 // The search boxes the runner knows, by the markup of the theme that built the site.
 const SEARCH_UIS = [
   {
+    theme: "guide",
+    open: null,
+    input: "#guide-search",
+    result: '#guide-search-results [role="option"]',
+    resultLink: '#guide-search-results [role="option"]',
+    resultTitle: '#guide-search-results [role="option"] b',
+    group: '#guide-search-results [role="group"]',
+    groupTitle: ".group"
+  },
+  {
     theme: "material",
     open: 'label[for="__search"]',
     input: "input.md-search__input",
@@ -558,6 +568,15 @@ async function runSearch(browser, browserName, options, query) {
       }
       result.first = { title: seen.title, href: seen.href };
       result.count = seen.count;
+      if (ui.group) {
+        // The first result of each group of results, for a theme that groups them (by the guide's section).
+        result.groups = await tab.evaluate((selectors) => Array.from(document.querySelectorAll(selectors.group))
+          .map((group) => {
+            const heading = group.querySelector(selectors.groupTitle);
+            const title = group.querySelector("b");
+            return { group: heading ? heading.textContent.trim() : "", first: title ? title.textContent.trim() : "" };
+          }), ui);
+      }
     } catch (error) {
       result.failures.push(`no results within ${options.timeout} s`);
     }
@@ -665,6 +684,9 @@ async function main() {
           const first = result.first ? `first "${result.first.title}" (${result.first.href})` : "no result";
           console.log(`${result.failures.length ? "FAIL" : "SEARCH"} ${browserName} "${query}": `
             + `${result.count || 0} results in ${result.ms === undefined ? "-" : result.ms} ms, ${first}`);
+          for (const group of result.groups || []) {
+            console.log(`  first under ${group.group}: "${group.first}"`);
+          }
           for (const failure of result.failures) {
             console.log(`  - ${failure}`);
           }

@@ -1,0 +1,7 @@
+{#- A process page: breadcrumbs, the head with its menu path and stage, the lead, then its sections. The position block and the glance card join it with the components. -#}
+{% extends "base.html" %}
+{% block layout %}
+{%- set crumbs = true %}
+{%- set wide = false %}
+{% include "partials/document.html" %}
+{% endblock %}

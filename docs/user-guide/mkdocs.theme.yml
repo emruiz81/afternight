@@ -1,0 +1,81 @@
+# The user guide in its own theme, built beside the Material site until the guide switches to it. It inherits
+# mkdocs.yml and changes only what the theme needs; the pages and the nav are the same, and this build goes to
+# site-theme/, so the Material site the installers bundle does not change.
+#
+#   build\scripts\msvc\build_user_guide_docs.bat theme
+#   build/scripts/linux/build_user_guide_docs.sh theme
+#
+# INHERIT merges mappings and replaces lists, so every list below is written out in full. The theme mapping merges
+# with Material's keys, which the guide's theme ignores.
+INHERIT: mkdocs.yml
+site_dir: site-theme
+repo_url: https://github.com/emruiz81/afternight
+edit_uri: edit/main/docs/user-guide/docs/en/
+
+theme:
+  name: null
+  custom_dir: theme
+  static_templates: [404.html]
+  locale: en
+  logo: assets/images/interface/logo.png
+  favicon: assets/images/interface/favicon.png
+
+# The hook registers the guide's fences itself and writes the search index; no MkDocs search plugin, whose worker
+# cannot run from file://.
+hooks:
+  - hooks/guide_hooks.py
+
+plugins:
+  - glightbox
+
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    anchors: warn
+    unrecognized_links: warn
+
+extra_css: []
+extra_javascript:
+  - assets/javascripts/mermaid/mermaid.min.js
+  - assets/javascripts/mermaid/mermaid-init.js
+  # The configuration loads first: it points MathJax at its vendored fonts.
+  - assets/javascripts/mathjax/mathjax-config.js
+  - assets/javascripts/mathjax/tex-mml-chtml.js
+
+# The list of mkdocs.yml without pymdownx.emoji, whose index comes from Material.
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: an-mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde

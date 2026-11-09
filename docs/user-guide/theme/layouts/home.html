@@ -1,0 +1,7 @@
+{#- The home page: the stages with their first processes above, then the page. It renders from data once the components exist. -#}
+{% extends "base.html" %}
+{% block layout %}
+{%- set crumbs = false %}
+{%- set wide = true %}
+{% include "partials/document.html" %}
+{% endblock %}

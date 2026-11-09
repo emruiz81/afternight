@@ -6,7 +6,15 @@ repo_root="$(cd -- "$script_dir/../.." && pwd -P)"
 docs_dir="$repo_root/docs/user-guide"
 venv_dir="$docs_dir/.venv"
 requirements_file="$docs_dir/requirements.txt"
-mkdocs_config="$docs_dir/mkdocs.yml"
+# With the argument "theme" the guide is built in its own theme, from mkdocs.theme.yml into site-theme/.
+config_name="mkdocs.yml"
+case "${1:-}" in
+    "") ;;
+    theme) config_name="mkdocs.theme.yml" ;;
+    *) echo "Error: Unknown argument '$1'. Pass nothing for the guide, or 'theme' for the guide in its own theme." >&2
+       exit 1 ;;
+esac
+mkdocs_config="$docs_dir/$config_name"
 
 fail() {
     echo "Error: $*" >&2
@@ -78,7 +86,7 @@ if ! "$venv_python" -m pip install --require-hashes -r "docs/user-guide/requirem
 fi
 
 echo "Building user guide with strict MkDocs validation"
-if ! "$venv_python" -m mkdocs build -f "docs/user-guide/mkdocs.yml" --strict; then
+if ! "$venv_python" -m mkdocs build -f "docs/user-guide/$config_name" --strict; then
     fail "MkDocs strict build failed. Fix the documentation warnings or errors above and retry."
 fi
 
