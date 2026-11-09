@@ -59,11 +59,6 @@ void setVersionTextFromBanner(DependencyVersionText& text, const char* banner, c
 void setVersionTextFromParts(DependencyVersionText& text, std::uint32_t majorVersion, std::uint32_t minorVersion,
                              std::uint32_t patchVersion) noexcept;
 
-/// Reports CFITSIO, which the FITS codec links.
-///
-/// @param entry the report entry to fill.
-void reportCfitsio(DependencyVersion& entry) noexcept;
-
 /// Reports Exiv2, which the metadata adapter links.
 ///
 /// @param entry the report entry to fill.
@@ -114,7 +109,12 @@ void reportLibTiff(DependencyVersion& entry) noexcept;
 /// @param entry the report entry to fill.
 void reportNlohmannJson(DependencyVersion& entry) noexcept;
 
-/// Reports OpenXISF, the packaged library the XISF codec links.
+/// Reports OpenFITS, the library the FITS codec links.
+///
+/// @param entry the report entry to fill.
+void reportOpenFits(DependencyVersion& entry) noexcept;
+
+/// Reports OpenXISF, the library the XISF codec links.
 ///
 /// @param entry the report entry to fill.
 void reportOpenXisf(DependencyVersion& entry) noexcept;

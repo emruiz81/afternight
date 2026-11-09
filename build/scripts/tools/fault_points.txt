@@ -19,9 +19,9 @@
 #
 # A point count is a fact about this engine rather than about this campaign. Several are small, and
 # that is the engine's memory discipline rather than a thin sweep: a FITS decode asks the engine's
-# resource for exactly one block because the container's own reading is CFITSIO's allocation, and a
+# resource for exactly one block because the container's own reading is OpenFITS's allocation, and a
 # published write asks for two. What the campaign cannot reach through this seam is an external
-# library's own allocator: CFITSIO, libtiff, FFmpeg and the rest take their memory from the platform,
+# library's own allocator: OpenFITS, libtiff, FFmpeg and the rest take their memory from the platform,
 # so no scenario can refuse one of their allocations.
 #
 # build/scripts/tools/run_fault_campaign.py reads this file; nothing else does. Its `--check` reads

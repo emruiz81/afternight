@@ -3,98 +3,57 @@
 
 // AfterNightEngine - decoding a FITS image's pixels, whole or by region.
 //
-// The frame is allocated once and every strip is read straight into it: a full-width region in
-// strips of up to 4 MiB, any other region a row at a time, one plane after another. A BITPIX=64
-// image is read as raw 64-bit codes into the same memory, and each code is checked against the
-// policy before it is converted to Float64 and scaled in place, so no raw code is ever scaled first.
-// The strips of a large uncompressed payload are independent, so an operation granted more than one
-// worker reads them on its workers, each worker through a handle of its own: a handle opened for
-// synchronous reads serves one request at a time, whatever offsets they name.
+// The frame is allocated once and every strip is read straight into it: a strip is a box of the region's rows, at
+// most 4 MiB of decoded samples, read by OpenFITS into the frame at the frame's own row stride, one plane after
+// another. The library reads the stored values of an uncompressed payload into the place they land and converts them
+// there, and decodes the tiles a strip of a compressed image meets. Values are converted as the codec has always
+// decoded them: the canonical unsigned and signed offsets exactly, any other scaling once into Float64, and no stored
+// value treated as undefined - a BLANK value scales as any other, and a NaN of floating-point data stays one. A
+// BITPIX=64 image is read as raw 64-bit codes into the same memory, and each code is checked against the policy
+// before it is converted to Float64 and scaled in place, so no raw code is ever scaled first. The strips of a large
+// uncompressed payload are independent, so an operation granted more than one worker reads them on its workers: the
+// library reads one file from any number of threads at once.
 
 #include "io/fits/FitsFile.h"
-#include "io/fits/FitsPayloadFile.h"
+#include "io/fits/FitsMetadata.h"
 
 #include <AfterNightEngine/IO/CodecError.h>
 #include <AfterNightEngine/Runtime/EngineContext.h>
 #include <AfterNightEngine/Runtime/ExecutionContext.h>
 #include <AfterNightEngine/Runtime/TaskScheduler.h>
 
+#include <openfits/reader.h>
+
 #include <algorithm>
-#include <array>
 #include <cstring>
 #include <mutex>
 #include <vector>
 
 namespace an
 {
-namespace
-{
-void readCompressedPixels(fitsfile* file, int datatype, LONGLONG* first, LONGLONG count, void* destination,
-                          int* anyNull, int* status)
-{
-    // CFITSIO dereferences nulval as the requested C type even when substitution is disabled.
-    const auto read = [&](auto nullValue) {
-        fits_read_pixll(file, datatype, first, count, &nullValue, destination, anyNull, status);
-    };
-    switch (datatype)
-    {
-    case TBYTE:
-        read(static_cast<unsigned char>(0));
-        break;
-    case TSBYTE:
-        read(static_cast<signed char>(0));
-        break;
-    case TUSHORT:
-        read(static_cast<unsigned short>(0));
-        break;
-    case TSHORT:
-        read(static_cast<short>(0));
-        break;
-    case TUINT:
-        read(0u);
-        break;
-    case TINT:
-        read(0);
-        break;
-    case TULONGLONG:
-        read(static_cast<ULONGLONG>(0));
-        break;
-    case TLONGLONG:
-        read(static_cast<LONGLONG>(0));
-        break;
-    case TFLOAT:
-        read(0.0f);
-        break;
-    case TDOUBLE:
-        read(0.0);
-        break;
-    default:
-        *status = BAD_DATATYPE;
-        break;
-    }
-}
-} // namespace
-
 Result<CodecDecodeResult> readFits(const EngineContext& engine, const ExecutionContext& execution,
                                    const CodecReadRequest& request, const CodecRegion* region,
                                    FitsInteger64Policy integer64)
 {
-    auto file = openFits(request.path);
+    auto file = openFits(request.path, engine.limits());
     if (!file.hasValue())
         return file.status();
     auto headerRequest = request;
     headerRequest.validatePayload = false;
-    auto header = readFitsHeader(file->get(), engine, execution, headerRequest, integer64, false);
+    auto header = readFitsHeader(*file->reader, engine, execution, headerRequest, integer64, false);
     if (!header.hasValue())
         return header.status();
-    return readPreparedFits(engine, execution, request, region, integer64, file->get(), std::move(*header));
+    return readPreparedFits(engine, execution, request, region, integer64, *file->reader, std::move(*header));
 }
 
 namespace
 {
 
+/// The most decoded bytes one strip holds.
+constexpr std::uint64_t kStripBytes = std::uint64_t{4u} << 20u;
+
 /// The fewest payload bytes a read shares between workers: below it one worker reads the payload sooner than several
-/// open their handles.
+/// share it.
 constexpr std::uint64_t kSharedPayloadBytes = std::uint64_t{32u} << 20u;
 
 /// The fewest workers an operation is granted before its read shares them. A read granted fewer is one of several
@@ -102,63 +61,161 @@ constexpr std::uint64_t kSharedPayloadBytes = std::uint64_t{32u} << 20u;
 /// readers would take is what the operation beside it is waiting on.
 constexpr std::uint32_t kSharedPayloadWorkers = 8u;
 
-/// One whole-row strip of a payload: its plane, its first row inside the region and how many rows it holds.
-struct PayloadStrip
+/// The largest code a BITPIX=64 image may hold under `FitsInteger64Policy::CheckedFloat64`: Float64 holds every
+/// integer up to it exactly.
+constexpr std::int64_t kExactInteger64 = std::int64_t{1} << 53;
+
+/// One strip of a region: its plane, its first row inside the region and how many rows it holds.
+struct Strip
 {
     std::uint32_t plane = 0u; ///< The plane.
     std::uint32_t y = 0u; ///< The strip's first row, counted from the region's top.
     std::uint32_t rows = 0u; ///< How many rows the strip holds.
 };
 
-/// Reads every whole-row strip of an uncompressed payload into place and converts it, on the operation's workers.
+/// What every strip of one region read shares.
+struct RegionRead
+{
+    const openfits::reader& file; ///< The open file.
+    const FitsHeader& header; ///< The selected image.
+    const CodecReadRequest& request; ///< The source selection, for failures.
+    const CodecRegion& area; ///< The region.
+    FitsInteger64Policy integer64; ///< How 64-bit codes are admitted.
+    openfits::numeric_type type; ///< What the library reads each sample as.
+    openfits::scaling_policy scaling; ///< Whether the library applies the file's scaling.
+    std::uint32_t valueBytes; ///< The bytes of one read sample.
+    std::byte* samples; ///< Where the region's first sample goes.
+    const ImageLayout& layout; ///< The region's layout in that memory.
+};
+
+/// The rows one strip of the region holds: as many as 4 MiB of its samples, and at least one.
+std::uint32_t stripRows(const CodecRegion& area, std::uint32_t valueBytes) noexcept
+{
+    const std::uint64_t rowBytes = static_cast<std::uint64_t>(area.width) * valueBytes;
+    return static_cast<std::uint32_t>(
+        (std::clamp)(kStripBytes / rowBytes, std::uint64_t{1u}, std::uint64_t{area.height}));
+}
+
+/// The library's region of one strip, with an entry for each of the image's axes.
+openfits::region stripRegion(const RegionRead& read, const Strip& strip)
+{
+    openfits::region box;
+    box.start.assign(read.header.axes, 0u);
+    box.size.assign(read.header.axes, 1u);
+    box.start[0] = read.area.x;
+    box.size[0] = read.area.width;
+    if (read.header.axes >= 2u)
+    {
+        box.start[1] = static_cast<std::uint64_t>(read.area.y) + strip.y;
+        box.size[1] = strip.rows;
+    }
+    if (read.header.axes >= 3u)
+        box.start[2] = strip.plane;
+    return box;
+}
+
+/// Converts 64-bit codes in place into Float64, refusing a code beyond Float64's exact range under the checked policy
+/// before any code is scaled.
+Status convertInteger64(const RegionRead& read, std::byte* row, std::uint64_t count)
+{
+    for (std::uint64_t index = 0u; index < count; ++index)
+    {
+        std::int64_t raw = 0;
+        std::memcpy(&raw, row + index * 8u, 8u);
+        if (read.integer64 == FitsInteger64Policy::CheckedFloat64 && (raw < -kExactInteger64 || raw > kExactInteger64))
+            return Status::failure(ErrorCode::OutOfRange,
+                                   {.message = "FITS integer exceeds Float64's guaranteed exact range; "
+                                               "preserve raw codes or acknowledge lossy decoding",
+                                    .operation = "decode FITS integer",
+                                    .domain = ErrorDomain::Io,
+                                    .context = {StatusContextField::ofNumber(ContextKey::Requested, raw)}});
+        const double value = static_cast<double>(raw) * read.header.scale + read.header.zero;
+        std::memcpy(row + index * 8u, &value, 8u);
+    }
+    return Status::success();
+}
+
+/// Reads one strip into its place in the region's memory, and finishes its 64-bit codes.
 ///
-/// Each worker reads through a handle of its own, opened when it takes its first strip. Progress counts rows in the
-/// order strips finish, under one lock, so it never moves back; a failure is the first in strip order.
+/// The library takes memory aligned for the samples it writes, at a row stride of whole samples; a destination that is
+/// not so is read a row at a time through `bounce`, one row of aligned memory the caller owns.
+Status readStrip(const RegionRead& read, const Strip& strip, std::span<std::byte> bounce)
+{
+    std::byte* const first =
+        read.samples + strip.plane * read.layout.planeStrideBytes() + strip.y * read.layout.rowStrideBytes();
+    const std::uint64_t rowBytes = static_cast<std::uint64_t>(read.area.width) * read.valueBytes;
+    const bool direct = reinterpret_cast<std::uintptr_t>(first) % read.valueBytes == 0u &&
+                        read.layout.rowStrideBytes() % read.valueBytes == 0u;
+    Status outcome = Status::success();
+    const Status thrown = callAcrossBoundary(kFitsBoundary, [&] {
+        try
+        {
+            openfits::pixel_read_options options;
+            options.scaling = read.scaling;
+            // No stored value is undefined, as the codec has always read them: BLANK converts as any other value,
+            // and a NaN of floating-point data stays one.
+            options.blank = openfits::blank_policy::ignore;
+            // A decode reads what the file holds; a checksum is verified by a probe that asks for it.
+            options.verify_checksum = false;
+            if (direct)
+            {
+                options.region = stripRegion(read, strip);
+                options.pitch = read.layout.rowStrideBytes() / read.valueBytes;
+                const std::uint64_t span = (strip.rows - 1u) * read.layout.rowStrideBytes() + rowBytes;
+                (void)read.file.read_pixels(read.header.unit, read.type,
+                                            std::span<std::byte>(first, static_cast<std::size_t>(span)), options);
+                return;
+            }
+            for (std::uint32_t row = 0u; row < strip.rows; ++row)
+            {
+                options.region = stripRegion(read, Strip{strip.plane, strip.y + row, 1u});
+                const auto aligned = bounce.first(static_cast<std::size_t>(rowBytes));
+                (void)read.file.read_pixels(read.header.unit, read.type, aligned, options);
+                std::memcpy(first + row * read.layout.rowStrideBytes(), aligned.data(), aligned.size());
+            }
+        }
+        catch (const openfits::error& error)
+        {
+            outcome = fitsLibraryFailure(error, FitsStage::Read, "decode FITS pixels", read.request.path);
+        }
+    });
+    if (thrown.failed())
+        return codecFailure(thrown.code(), CodecFailure::PayloadUnreadable, CodecFormat::Fits, "decode FITS pixels",
+                            read.request.path, thrown);
+    if (outcome.failed())
+        return outcome;
+    if (read.header.bitpix == 64 && read.integer64 != FitsInteger64Policy::PreserveRaw)
+        for (std::uint32_t row = 0u; row < strip.rows; ++row)
+            if (const Status converted =
+                    convertInteger64(read, first + row * read.layout.rowStrideBytes(), read.area.width);
+                converted.failed())
+                return converted;
+    return Status::success();
+}
+
+/// Reads every strip of the region on the operation's workers, into memory the library writes into directly.
+///
+/// Progress counts rows in the order strips finish, under one lock, so it never moves back; a failure is the first in
+/// strip order.
 ///
 /// @return success, the operation's stop, or the first strip's failure.
-[[nodiscard]] Status readPayloadStripsShared(const ExecutionContext& execution, const CodecReadRequest& request,
-                                             const CodecRegion& area, const ImageExtent& sourceExtent,
-                                             const FitsPayloadTransform& transform, std::uint64_t dataStart,
-                                             std::uint32_t stripRows, std::byte* samples, const ImageLayout& layout)
+[[nodiscard]] Status readStripsShared(const ExecutionContext& execution, const RegionRead& read,
+                                      const std::vector<Strip>& strips, std::uint32_t rowsPerStrip)
 {
-    std::vector<PayloadStrip> strips;
-    for (std::uint32_t plane = 0u; plane < sourceExtent.channelCount(); ++plane)
-    {
-        for (std::uint32_t y = 0u; y < area.height; y += stripRows)
-        {
-            strips.push_back(PayloadStrip{plane, y, (std::min)(area.height - y, stripRows)});
-        }
-    }
-    const std::uint64_t totalRows = static_cast<std::uint64_t>(area.height) * sourceExtent.channelCount();
+    const std::uint64_t totalRows =
+        static_cast<std::uint64_t>(read.area.height) * read.header.info.descriptor.extent().channelCount();
     std::mutex progressMutex;
     std::uint64_t completed = 0u;
-    const TaskCost cost{.bytesPerItem = static_cast<std::uint64_t>(stripRows) * area.width * transform.sampleBytes,
-                        .operationsPerItem = static_cast<std::uint64_t>(stripRows) * area.width};
-    std::vector<FitsPayloadFile> handles(plannedWorkerCount(execution, strips.size(), cost));
+    const TaskCost cost{.bytesPerItem = static_cast<std::uint64_t>(rowsPerStrip) * read.area.width * read.valueBytes,
+                        .operationsPerItem = static_cast<std::uint64_t>(rowsPerStrip) * read.area.width};
     return parallelForWorkers(execution, strips.size(), cost, [&](WorkerTask task) -> Status {
-        FitsPayloadFile& handle = handles[task.workerSlot];
-        if (!handle.isOpen())
-        {
-            if (const Status opened = handle.open(request.path); opened.failed())
-                return codecFailure(ErrorCode::InvalidData, CodecFailure::PayloadUnreadable, CodecFormat::Fits,
-                                    "decode FITS pixels", request.path, opened);
-        }
         for (std::uint64_t index = task.range.begin; index < task.range.end; ++index)
         {
             if (const auto stopped = execution.checkCancellation(); stopped.failed())
                 return stopped;
-            const PayloadStrip& strip = strips[static_cast<std::size_t>(index)];
-            const std::uint64_t firstSample =
-                (static_cast<std::uint64_t>(strip.plane) * sourceExtent.height() + area.y + strip.y) *
-                sourceExtent.width();
-            const std::uint64_t count = static_cast<std::uint64_t>(area.width) * strip.rows;
-            std::byte* const destination =
-                samples + strip.plane * layout.planeStrideBytes() + strip.y * layout.rowStrideBytes();
-            const std::span<std::byte> bytes(destination, static_cast<std::size_t>(count) * transform.sampleBytes);
-            if (const auto read = handle.readAt(bytes, dataStart + firstSample * transform.sampleBytes); read.failed())
-                return codecFailure(ErrorCode::InvalidData, CodecFailure::PayloadUnreadable, CodecFormat::Fits,
-                                    "decode FITS pixels", request.path, read);
-            convertFitsPayload(destination, count, transform);
+            const Strip& strip = strips[static_cast<std::size_t>(index)];
+            if (const Status stripRead = readStrip(read, strip, {}); stripRead.failed())
+                return stripRead;
             const std::lock_guard lock(progressMutex);
             completed += strip.rows;
             execution.reportProgress(completed, totalRows, "decode FITS");
@@ -169,124 +226,78 @@ struct PayloadStrip
 
 } // namespace
 
-Status readFitsPixels(const ExecutionContext& execution, const CodecReadRequest& request, const CodecRegion& area,
-                      FitsInteger64Policy integer64, fitsfile* file, const FitsHeader& header, std::byte* samples,
-                      const ImageLayout& layout, FitsPayloadFile& payloadFile)
+Status readFitsPixels(const EngineContext& engine, const ExecutionContext& execution, const CodecReadRequest& request,
+                      const CodecRegion& area, FitsInteger64Policy integer64, const openfits::reader& file,
+                      const FitsHeader& header, std::byte* samples, const ImageLayout& layout)
 {
     const ImageExtent& sourceExtent = header.info.descriptor.extent();
-    const std::uint32_t sampleBytes = header.info.descriptor.sampleFormat().sizeBytes;
-    int status = 0;
-    const bool integerImage = header.bitpix == LONGLONG_IMG;
-    // Whole rows of an image the library would only copy or flip are read from the payload itself,
-    // one strip per read, and converted in place.
-    const bool wholeRows = area.x == 0u && area.width == sourceExtent.width();
-    const std::optional<FitsPayloadTransform> payload = wholeRows ? fitsPayloadTransform(header) : std::nullopt;
-    std::uint64_t dataStart = 0u;
-    if (payload.has_value())
+    const RawSampleFormat format = header.info.descriptor.sampleFormat();
+    const bool integerImage = header.bitpix == 64;
+    // A 64-bit image is read as its raw codes and finished here; every other one as its decoded representation, with
+    // the file's scaling applied wherever it is not the identity of the representation's own stored type.
+    const auto type = integerImage ? std::optional(openfits::numeric_type::int64) : fitsNumericType(format);
+    if (!type.has_value())
+        return Status::failure(ErrorCode::Internal);
+    const bool identity = header.scale == 1.0 && header.zero == 0.0;
+    const RegionRead read{.file = file,
+                          .header = header,
+                          .request = request,
+                          .area = area,
+                          .integer64 = integer64,
+                          .type = *type,
+                          .scaling = integerImage || identity ? openfits::scaling_policy::raw
+                                                              : openfits::scaling_policy::apply,
+                          .valueBytes = static_cast<std::uint32_t>(openfits::size_of(*type)),
+                          .samples = samples,
+                          .layout = layout};
+    const std::uint32_t rowsPerStrip = stripRows(area, read.valueBytes);
+    std::vector<Strip> strips;
+    for (std::uint32_t plane = 0u; plane < sourceExtent.channelCount(); ++plane)
+        for (std::uint32_t y = 0u; y < area.height; y += rowsPerStrip)
+            strips.push_back(Strip{plane, y, (std::min)(area.height - y, rowsPerStrip)});
+
+    // A destination the library cannot write into - not aligned for the samples, or a row stride of no whole number
+    // of them - is read a row at a time through one row of memory this context owns.
+    SampleBuffer bounce;
+    if (reinterpret_cast<std::uintptr_t>(samples) % read.valueBytes != 0u ||
+        layout.rowStrideBytes() % read.valueBytes != 0u || layout.planeStrideBytes() % read.valueBytes != 0u)
     {
-        LONGLONG headerStart = 0;
-        LONGLONG dataOffset = 0;
-        LONGLONG dataEnd = 0;
-        fits_get_hduaddrll(file, &headerStart, &dataOffset, &dataEnd, &status);
-        if (status != 0)
-            return codecFailure(ErrorCode::InvalidData, CodecFailure::PayloadUnreadable, CodecFormat::Fits,
-                                "decode FITS pixels", request.path,
-                                fitsFailure(status, "locate FITS pixels", request.path));
-        dataStart = static_cast<std::uint64_t>(dataOffset);
-        const std::uint64_t payloadBytes =
-            static_cast<std::uint64_t>(area.width) * area.height * sourceExtent.channelCount() * sampleBytes;
-        if (execution.admittedConcurrency() >= kSharedPayloadWorkers && payloadBytes >= kSharedPayloadBytes)
-        {
-            return readPayloadStripsShared(execution, request, area, sourceExtent, *payload, dataStart,
-                                           (std::max)(1u, 4194304u / sampleBytes / area.width), samples, layout);
-        }
-        if (!payloadFile.isOpen())
-        {
-            if (const auto opened = payloadFile.open(request.path); opened.failed())
-                return codecFailure(ErrorCode::InvalidData, CodecFailure::PayloadUnreadable, CodecFormat::Fits,
-                                    "decode FITS pixels", request.path, opened);
-        }
+        const auto rowExtent = ImageExtent::create(area.width, 1u, 1u, engine.limits());
+        const auto rowLayout =
+            rowExtent ? ImageLayout::create({*rowExtent, read.valueBytes, 1u, 1u, 1u}, engine.limits()) : std::nullopt;
+        if (!rowLayout)
+            return Status::failure(ErrorCode::LimitExceeded);
+        auto allocated = SampleBuffer::createOwned(engine, *rowLayout, StorageInitialization::Uninitialized);
+        if (!allocated.hasValue())
+            return allocated.status();
+        bounce = std::move(*allocated);
     }
-    if (integerImage)
-        fits_set_bscale(file, 1.0, 0.0, &status);
-    // CFITSIO's tile decoder evaluates its integer null sentinel even when null checking is off.
-    // Initialize the otherwise absent sentinel in this private handle; no header card or validity
-    // claim is added, and a zero null argument below explicitly disables tile substitution.
-    if (header.compressed && file->Fptr->cn_zblank == 0)
-    {
-        file->Fptr->zblank = 0;
-        file->Fptr->cn_zblank = -1;
-    }
-    // Read strips directly into the destination. The 64-bit path uses that same memory for raw codes
-    // and converts in place only after checking the integer, before any scaling.
+    const std::span<std::byte> bounceBytes = bounce.valid() ? *bounce.mutableBytes() : std::span<std::byte>{};
+
+    const std::uint64_t payloadBytes =
+        static_cast<std::uint64_t>(area.width) * area.height * sourceExtent.channelCount() * read.valueBytes;
+    if (!header.compressed && !bounce.valid() && execution.admittedConcurrency() >= kSharedPayloadWorkers &&
+        payloadBytes >= kSharedPayloadBytes)
+        return readStripsShared(execution, read, strips, rowsPerStrip);
+
     const auto totalRows = static_cast<std::uint64_t>(area.height) * sourceExtent.channelCount();
     std::uint64_t completed = 0u;
-    for (std::uint32_t plane = 0u; plane < sourceExtent.channelCount(); ++plane)
+    for (const Strip& strip : strips)
     {
-        std::uint32_t y = 0u;
-        while (y < area.height)
-        {
-            if (const auto stopped = execution.checkCancellation(); stopped.failed())
-                return stopped;
-            const auto rows =
-                wholeRows ? (std::min)(area.height - y, (std::max)(1u, 4194304u / sampleBytes / area.width)) : 1u;
-            std::array<LONGLONG, 9> first{};
-            first.fill(1);
-            first[0] = static_cast<LONGLONG>(area.x) + 1;
-            first[1] = static_cast<LONGLONG>(area.y) + y + 1;
-            first[2] = static_cast<LONGLONG>(plane) + 1;
-            auto* destination = samples + plane * layout.planeStrideBytes() + y * layout.rowStrideBytes();
-            const auto count = static_cast<LONGLONG>(area.width) * rows;
-            int anyNull = 0;
-            const auto datatype = integerImage ? TLONGLONG : header.datatype;
-            if (payload.has_value())
-            {
-                const std::uint64_t firstSample =
-                    (static_cast<std::uint64_t>(plane) * sourceExtent.height() + area.y + y) * sourceExtent.width();
-                const std::span<std::byte> strip(destination, static_cast<std::size_t>(count) * payload->sampleBytes);
-                if (const auto read = payloadFile.readAt(strip, dataStart + firstSample * payload->sampleBytes);
-                    read.failed())
-                    return codecFailure(ErrorCode::InvalidData, CodecFailure::PayloadUnreadable, CodecFormat::Fits,
-                                        "decode FITS pixels", request.path, read);
-                convertFitsPayload(destination, static_cast<std::uint64_t>(count), *payload);
-            }
-            else if (header.compressed)
-                readCompressedPixels(file, datatype, first.data(), count, destination, &anyNull, &status);
-            else
-                fits_read_pixll(file, datatype, first.data(), count, nullptr, destination, &anyNull, &status);
-            if (status != 0)
-                return codecFailure(ErrorCode::InvalidData, CodecFailure::PayloadUnreadable, CodecFormat::Fits,
-                                    "decode FITS pixels", request.path,
-                                    fitsFailure(status, "read FITS pixels", request.path));
-            if (integerImage && integer64 != FitsInteger64Policy::PreserveRaw)
-            {
-                for (LONGLONG i = 0; i < count; ++i)
-                {
-                    std::int64_t raw = 0;
-                    std::memcpy(&raw, destination + i * 8, 8u);
-                    constexpr std::int64_t kExact = std::int64_t{1} << 53;
-                    if (integer64 == FitsInteger64Policy::CheckedFloat64 && (raw < -kExact || raw > kExact))
-                        return Status::failure(ErrorCode::OutOfRange,
-                                               {.message = "FITS integer exceeds Float64's guaranteed exact range; "
-                                                           "preserve raw codes or acknowledge lossy decoding",
-                                                .operation = "decode FITS integer",
-                                                .domain = ErrorDomain::Io,
-                                                .context = {StatusContextField::ofNumber(ContextKey::Requested, raw)}});
-                    const double value = static_cast<double>(raw) * header.scale + header.zero;
-                    std::memcpy(destination + i * 8, &value, 8u);
-                }
-            }
-            y += rows;
-            completed += rows;
-            execution.reportProgress(completed, totalRows, "decode FITS");
-        }
+        if (const auto stopped = execution.checkCancellation(); stopped.failed())
+            return stopped;
+        if (const Status stripRead = readStrip(read, strip, bounceBytes); stripRead.failed())
+            return stripRead;
+        completed += strip.rows;
+        execution.reportProgress(completed, totalRows, "decode FITS");
     }
     return Status::success();
 }
 
 Result<CodecDecodeResult> readPreparedFits(const EngineContext& engine, const ExecutionContext& execution,
                                            const CodecReadRequest& request, const CodecRegion* region,
-                                           FitsInteger64Policy integer64, fitsfile* file, FitsHeader header)
+                                           FitsInteger64Policy integer64, const openfits::reader& file,
+                                           FitsHeader header)
 {
     auto description = header.info.descriptor.toRequest();
     const auto sourceExtent = description.extent;
@@ -314,12 +325,11 @@ Result<CodecDecodeResult> readPreparedFits(const EngineContext& engine, const Ex
     auto output = RawFrame::create(descriptor, layout, std::move(*buffer));
     if (!output.hasValue())
         return output.status();
-    FitsPayloadFile payloadFile;
-    if (const auto read = readFitsPixels(execution, request, area, integer64, file, header,
-                                         output->mutableBytes()->data(), layout, payloadFile);
+    if (const auto read = readFitsPixels(engine, execution, request, area, integer64, file, header,
+                                         output->mutableBytes()->data(), layout);
         read.failed())
         return read;
-    const bool integerImage = header.bitpix == LONGLONG_IMG;
+    const bool integerImage = header.bitpix == 64;
     if (region != nullptr && request.readMetadata)
     {
         auto metadata =

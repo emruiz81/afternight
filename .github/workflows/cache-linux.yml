@@ -18,6 +18,9 @@ on:
       openxisf_key:
         description: 'The key the OpenXISF build is cached under'
         value: ${{ jobs.cache.outputs.openxisf_key }}
+      openfits_key:
+        description: 'The key the OpenFITS build is cached under'
+        value: ${{ jobs.cache.outputs.openfits_key }}
   workflow_dispatch:
     inputs:
       variant:
@@ -68,6 +71,7 @@ jobs:
       vcpkg_key: ${{ steps.keys.outputs.vcpkg }}
       kddockwidgets_key: ${{ steps.keys.outputs.kddockwidgets }}
       openxisf_key: ${{ steps.keys.outputs.openxisf }}
+      openfits_key: ${{ steps.keys.outputs.openfits }}
 
     steps:
       - name: Checkout repository
@@ -79,15 +83,18 @@ jobs:
       # scripts and the overlay ports and triplets, so the key is made of exactly those: a change to any of them
       # installs afresh instead of restoring a tree that no longer matches the scripts. KDDockWidgets is built by
       # the image's compiler from the submodule's commit, by the script and the run-path editor named in its key.
-      # OpenXISF is built by its script, which pins the release, against the archives the vcpkg key names, so its key
-      # is the script's and the vcpkg key's.
+      # OpenXISF and OpenFITS are each built by a script, which pins the release, against the archives the vcpkg key
+      # names, so each key is its script's and the vcpkg key's.
       - name: Compute the cache keys
         id: keys
         run: |
           vcpkg_key="vcpkg-${ImageOS}-x64-linux-$(git rev-parse HEAD:vcpkg)-${{ hashFiles('build/scripts/linux/02-install_linux_deps.sh', 'build/scripts/linux/install_raw_deps.sh', 'build/scripts/linux/vcpkg/**', 'build/vcpkg/**') }}"
-          echo "vcpkg=$vcpkg_key" >> "$GITHUB_OUTPUT"
-          echo "openxisf=openxisf-release-${{ hashFiles('build/scripts/linux/_build_openxisf.sh') }}-$vcpkg_key" >> "$GITHUB_OUTPUT"
-          echo "kddockwidgets=kddockwidgets-${ImageOS}-release-${QT_VERSION}-$(git rev-parse HEAD:kddockwidgets)-${{ hashFiles('build/scripts/linux/_build_kddockwidgets.sh', 'build/scripts/linux/set_run_path.cmake') }}" >> "$GITHUB_OUTPUT"
+          {
+            echo "vcpkg=$vcpkg_key"
+            echo "openxisf=openxisf-release-${{ hashFiles('build/scripts/linux/_build_openxisf.sh') }}-$vcpkg_key"
+            echo "openfits=openfits-release-${{ hashFiles('build/scripts/linux/_build_openfits.sh') }}-$vcpkg_key"
+            echo "kddockwidgets=kddockwidgets-${ImageOS}-release-${QT_VERSION}-$(git rev-parse HEAD:kddockwidgets)-${{ hashFiles('build/scripts/linux/_build_kddockwidgets.sh', 'build/scripts/linux/set_run_path.cmake') }}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Restore Qt cache
         id: cache-qt
@@ -124,9 +131,16 @@ jobs:
           path: openxisf/build-clang-install
           key: ${{ steps.keys.outputs.openxisf }}
 
+      - name: Restore OpenFITS cache
+        id: cache-openfits
+        uses: actions/cache/restore@v5
+        with:
+          path: openfits/build-clang-install
+          key: ${{ steps.keys.outputs.openfits }}
+
       # The distribution packages, exactly as a development machine installs them; anything rebuilt below needs them.
       - name: Install system dependencies
-        if: steps.cache-qt.outputs.cache-hit != 'true' || steps.cache-python.outputs.cache-hit != 'true' || steps.cache-vcpkg.outputs.cache-hit != 'true' || steps.cache-kddockwidgets.outputs.cache-hit != 'true' || steps.cache-openxisf.outputs.cache-hit != 'true'
+        if: steps.cache-qt.outputs.cache-hit != 'true' || steps.cache-python.outputs.cache-hit != 'true' || steps.cache-vcpkg.outputs.cache-hit != 'true' || steps.cache-kddockwidgets.outputs.cache-hit != 'true' || steps.cache-openxisf.outputs.cache-hit != 'true' || steps.cache-openfits.outputs.cache-hit != 'true'
         run: build/scripts/linux/02-install_linux_deps.sh system
 
       - name: Install Qt
@@ -179,6 +193,18 @@ jobs:
         with:
           path: openxisf/build-clang-install
           key: ${{ steps.keys.outputs.openxisf }}
+
+      # OpenFITS from its published release, against the vcpkg archives restored or installed above.
+      - name: Build OpenFITS (release-only)
+        if: steps.cache-openfits.outputs.cache-hit != 'true'
+        run: build/scripts/linux/_build_openfits.sh release
+
+      - name: Save OpenFITS cache
+        if: steps.cache-openfits.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: openfits/build-clang-install
+          key: ${{ steps.keys.outputs.openfits }}
 
       # The build a development machine makes, release only: KDAB's CMake installs each library with the runner's Qt
       # directory in its run path, which the script sets to $ORIGIN/../lib alone, so the AppImage names no directory of

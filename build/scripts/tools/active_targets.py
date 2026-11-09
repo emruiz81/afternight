@@ -274,13 +274,16 @@ WINDOWS_STAGED_SUFFIXES = ('.exe', '.dll', '.pdb', '.lib', '.exp', '.ilk')
 # executes every suite binary it finds beside it, so a retired suite's binary left in place would run as if it were
 # current; its outputs are removed. LibXISF was built by the 3rdparty workspace from a vendored tree until OpenXISF took
 # its place behind the XISF codec; the deploy scripts copy every library that workspace staged, so its binaries are
-# removed there as well as where they were deployed. When the engine became the only one, the fixture suite named after
-# the development engine was renamed Test_FixtureEngine and the runner comparing the two engines went; a clone generated
-# before keeps their projects, which the build refuses, and their binaries, which the runners would execute.
-RETIRED_TARGETS = ('AfterNightEngineBenchCompare', 'Test_FixtureNext', 'libxisf')
+# removed there as well as where they were deployed. CFITSIO, and the threads library only it loaded, were deployed
+# from vcpkg beside the binaries until OpenFITS took CFITSIO's place behind the FITS codec; their copies are removed
+# where they were deployed, so that a packager sweeping the directory ships neither. When the engine became the only
+# one, the fixture suite named after the development engine was renamed Test_FixtureEngine and the runner comparing the
+# two engines went; a clone generated before keeps their projects, which the build refuses, and their binaries, which
+# the runners would execute.
+RETIRED_TARGETS = ('AfterNightEngineBenchCompare', 'Test_FixtureNext', 'cfitsio', 'libxisf', 'pthreads')
 
 # The names a retired target's binaries took when they were not its own, as `output` and `debug` gave them.
-RETIRED_OUTPUT_NAMES = {'libxisf': ('xisf', 'xisfd')}
+RETIRED_OUTPUT_NAMES = {'cfitsio': ('cfitsio',), 'libxisf': ('xisf', 'xisfd'), 'pthreads': ('pthreadVC3', 'pthreadVC3d')}
 
 
 def retired_targets(registry) -> list[str]:

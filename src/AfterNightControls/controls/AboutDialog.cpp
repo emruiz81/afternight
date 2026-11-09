@@ -566,6 +566,16 @@ QString AboutDialog::getLicenseText() const
          "Dawid, licensed under the MIT License, changed to draw with the theme's colours; its notice is reproduced "
          "under Third-Party Notices.\n\n";
     s << "## Third-Party Notices\n\n";
+    s << "AfterNight reads and writes FITS files through OpenFITS, distributed under the **Apache License 2.0**, "
+         "whose NOTICE states:\n\n";
+    s << "> OpenFITS\\\n";
+    s << "> Copyright 2026 Ezequiel Ruiz\n>\n";
+    s << "> This product includes software developed by Ezequiel Ruiz and the contributors to OpenFITS.\n>\n";
+    s << "> OpenFITS is an independent implementation of FITS, the Flexible Image Transport System, written from the "
+         "standard of the IAU FITS Working Group. Where the standard leaves a detail open, the behaviour of CFITSIO, "
+         "developed at the HEASARC of NASA's Goddard Space Flight Center, is the reference; no code of CFITSIO is "
+         "included. OpenFITS is not affiliated with or endorsed by the International Astronomical Union or by "
+         "NASA.\n\n";
     s << "AfterNight reads and writes XISF files through OpenXISF, distributed under the **Apache License 2.0**, "
          "whose NOTICE states:\n\n";
     s << "> OpenXISF\\\n";

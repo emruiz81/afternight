@@ -1096,9 +1096,10 @@ thread of its own (`BudgetedMemoryResource::kDeferredReleaseBytes`), never in an
 large block unmaps every page of it on the freeing thread, at a cost that grows with the processors that touched it,
 so another thread takes that wait, while a sanitized build returns at once so that a use after release is found where
 it happens. A run's
-report measures at the run's width (`core::parallelCoreWidth`), and the FITS codec reads a whole-row payload of 32 MiB
-or more on the operation's workers when it is granted eight or more, each worker through a handle of its own; a
-reader admitted beside a computing operation is granted fewer and reads on one. The engine-side lessons - compiled
+report measures at the run's width (`core::parallelCoreWidth`), and the FITS codec reads an uncompressed region of
+32 MiB or more on the operation's workers when it is granted eight or more, each worker reading its strips through the
+file's one reader, which OpenFITS lets any number of threads read at once; a reader admitted beside a computing
+operation is granted fewer and reads on one. The engine-side lessons - compiled
 runs where MSVC leaves a loop scalar, interval rules read as value windows, held selections - are in `AGENTS.md`
 ("Performance and parallelism").
 

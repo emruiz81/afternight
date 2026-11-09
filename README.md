@@ -221,7 +221,7 @@ boundary in full.
 
 ## Acknowledgments
 
-AfterNight builds on Qt, KDDockWidgets, oneTBB, Highway, FFTW, GSL, LibRaw, RawSpeed, G'MIC, CFITSIO, OpenXISF,
+AfterNight builds on Qt, KDDockWidgets, oneTBB, Highway, FFTW, GSL, LibRaw, RawSpeed, G'MIC, OpenFITS, OpenXISF,
 FFmpeg, Exiv2, Crashpad, Google Test and the wider open-source astronomy and imaging community.
 
 Code derived from other projects carries their credit and licence in the files that hold it, in a provenance note

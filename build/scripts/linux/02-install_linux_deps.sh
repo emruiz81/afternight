@@ -5,7 +5,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 #
 # With no argument every dependency is installed. "system" installs the distribution packages and stops, and
 # "vcpkg" installs the vcpkg ports and the private RAW packages and stops: continuous integration runs the two
-# on their own, beside the OpenXISF, Qt, Python and KDDockWidgets steps it caches separately.
+# on their own, beside the OpenFITS, OpenXISF, Qt, Python and KDDockWidgets steps it caches separately.
 stage="${1:-all}"
 case "$stage" in
     all|system|vcpkg) ;;
@@ -96,7 +96,6 @@ if [ ! -x "./vcpkg" ]; then
 fi
 ./vcpkg install crashpad --triplet x64-linux --overlay-ports=../build/scripts/linux/vcpkg/overlay-ports || exit 1
 ./vcpkg install cmark-gfm --triplet x64-linux || exit 1
-./vcpkg install 'cfitsio[pthreads]' --triplet x64-linux || exit 1
 # The portable vector abstraction the engine writes its CPU kernels against. It comes
 # from vcpkg on both platforms rather than from a distribution package, so both compile the same
 # port version; the contrib feature carries the vectorized transcendentals a later kernel family
@@ -115,8 +114,9 @@ fi
 ./vcpkg install 'libraw[dng-lossy,x3f]' --triplet x64-linux --overlay-ports=../build/vcpkg/overlay-ports --recurse || exit 1
 ./vcpkg install libsodium --triplet x64-linux || exit 1
 ./vcpkg install nlohmann-json --triplet x64-linux || exit 1
-# pugixml, zlib, LZ4 and Zstandard are what OpenXISF, the XISF codec's library, is built against: position-independent
-# static archives, which its shared library carries. _build_openxisf.sh builds it from its published release below.
+# pugixml, zlib, LZ4 and Zstandard are what OpenXISF, the XISF codec's library, is built against, and zlib is what
+# OpenFITS, the FITS codec's library, is: position-independent static archives, which each shared library carries.
+# _build_openxisf.sh and _build_openfits.sh build them from their published releases below.
 ./vcpkg install pugixml --triplet x64-linux || exit 1
 ./vcpkg install zlib --triplet x64-linux || exit 1
 ./vcpkg install lz4 --triplet x64-linux || exit 1
@@ -146,8 +146,9 @@ pushd ../python
 ./setup_python_linux.sh
 popd 
 
-# Build OpenXISF from its published release
+# Build OpenXISF and OpenFITS from their published releases
 ./_build_openxisf.sh || exit 1
+./_build_openfits.sh || exit 1
 
 # Build KDDockWidgets
 ./_build_kddockwidgets.sh

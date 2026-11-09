@@ -1,18 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// AfterNightEngine - reading a FITS header's cards from its bytes, and writing one back, without CFITSIO.
+// AfterNightEngine - reading a FITS header's cards from its records, and writing one back.
 //
-// The card reading restates what the FITS codec gets from CFITSIO, so a header read here and the same
-// header decoded from an image carry equal cards: a record is trimmed of its trailing blanks, its
-// keyword is read as `ffgknm` reads it and its value and comment as `ffpsvc` splits them, and a string
-// value is unquoted and requoted as the codec does after `fits_read_key_longstr`, which also joins a
-// long string's `CONTINUE` records. The codec skips a record whose keyword is blank and every
-// `CONTINUE` record right after a string, and so does this.
+// This is the one reading of a card: the FITS codec hands it the records of an image's header, which OpenFITS keeps as
+// the file holds them, and a header-only document hands it its own, so the two carry equal cards. The reading is the
+// one the codec has always given a header, which CFITSIO's readers defined while it read them: a record is trimmed of
+// its trailing blanks, its keyword is read as `ffgknm` reads it and its value and comment as `ffpsvc` splits them,
+// and a string value is unquoted and requoted as the codec did after `fits_read_key_longstr`, which also joins a long
+// string's `CONTINUE` records. A record whose keyword is blank is skipped, and so is every `CONTINUE` record right
+// after a string. So a card an earlier version of the engine stored - an artifact's stamp among them - reads back as
+// it was written.
 //
 // The two layouts differ only in how records are found. Records are eighty bytes each, laid end to
 // end; lines are split at line feeds, with a carriage return before one dropped and blank lines
-// skipped. Either way the first `END` record ends the header and nothing after it is looked at.
+// skipped. Either way the first `END` record ends the header and nothing after it is looked at. The codec's records
+// are always records, and a byte outside printable ASCII in them is kept, as the codec always kept it; a document read
+// on its own is refused for one.
 //
 // The way back, a card to its record, restates CFITSIO's writer the same way: `ffmkky` for a keyword,
 // `ffs2c` for a string's quoting and `ffpcom` and `ffphis` for commentary.
@@ -25,6 +29,7 @@
 #include <AfterNightEngine/Runtime/ExecutionContext.h>
 
 #include "core/Utf8.h"
+#include "io/fits/FitsCardRecords.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -349,16 +354,29 @@ struct ValueAndComment
     return std::make_pair(std::move(content), std::string(split.comment));
 }
 
+/// Whose header the records are, which decides how they are found and what a record may hold.
+enum class CardReading : std::uint8_t
+{
+    /// A header-only document: its layout decided by its first bytes, and a control byte refused.
+    Document,
+
+    /// An image's header, as the codec hands it over from the file: records always, every byte kept.
+    Codec
+};
+
 /// The records of a header, one at a time, in either layout.
 class RecordReader
 {
 public:
-    /// Reads records from the header's bytes, whose layout the first bytes decide.
+    /// Reads records from the header's bytes, whose layout the first bytes decide for a document; the codec's are
+    /// always records.
     ///
     /// @param header the bytes, which must outlive this object.
-    explicit RecordReader(const std::string_view header) noexcept
+    /// @param reading whose header it is.
+    RecordReader(const std::string_view header, const CardReading reading) noexcept
         : m_header(header),
-          m_lines(header.substr(0u, (std::min)(header.size(), kLayoutProbeBytes)).find('\n') != std::string_view::npos)
+          m_lines(reading == CardReading::Document &&
+                  header.substr(0u, (std::min)(header.size(), kLayoutProbeBytes)).find('\n') != std::string_view::npos)
     {
     }
 
@@ -431,12 +449,18 @@ private:
 ///
 /// @param header the bytes.
 /// @param fault set to why the read failed, or `HeaderFault::None`.
+/// @param reading whose header it is.
 /// @return the cards, or the failure `parseFitsHeaderCards` documents.
-[[nodiscard]] Result<std::vector<CodecCard>> readCards(const std::string_view header, HeaderFault& fault)
+[[nodiscard]] Result<std::vector<CodecCard>> readCards(const std::string_view header, HeaderFault& fault,
+                                                       const CardReading reading)
 {
     fault = HeaderFault::Other;
     std::vector<CodecCard> cards;
-    RecordReader reader(header);
+    RecordReader reader(header, reading);
+    // A record a document may not hold, which also ends a long string's continuation.
+    const auto refused = [reading](const std::string_view record) noexcept {
+        return reading == CardReading::Document && holdsControlByte(record);
+    };
     while (true)
     {
         bool malformed = false;
@@ -451,7 +475,7 @@ private:
             return headerFailure("the header ends without an END record", cards.size());
         }
         const std::string_view card = *record;
-        if (holdsControlByte(card))
+        if (refused(card))
         {
             return headerFailure("a header record holds a control character", cards.size());
         }
@@ -479,7 +503,7 @@ private:
             while (!content.empty() && content.back() == '&')
             {
                 const std::optional<std::string_view> following = reader.peek();
-                if (!following.has_value() || holdsControlByte(*following))
+                if (!following.has_value() || refused(*following))
                 {
                     break;
                 }
@@ -518,7 +542,7 @@ private:
             while (true)
             {
                 const std::optional<std::string_view> following = reader.peek();
-                if (!following.has_value() || holdsControlByte(*following) || isEndRecord(*following))
+                if (!following.has_value() || refused(*following) || isEndRecord(*following))
                 {
                     break;
                 }
@@ -752,7 +776,26 @@ Result<std::vector<CodecCard>> parseFitsHeaderCards(const std::string_view heade
     try
     {
         HeaderFault fault = HeaderFault::None;
-        return readCards(header, fault);
+        return readCards(header, fault, CardReading::Document);
+    }
+    catch (const std::exception& error)
+    {
+        return translateException(kBoundary, error);
+    }
+    catch (...)
+    {
+        return translateUnknownException(kBoundary);
+    }
+}
+
+Result<std::vector<CodecCard>> readFitsRecordCards(const std::string_view records)
+{
+    constexpr ExternalBoundary kBoundary{
+        .library = "standard-library", .operation = "an::readFitsRecordCards", .domain = ErrorDomain::Io};
+    try
+    {
+        HeaderFault fault = HeaderFault::None;
+        return readCards(records, fault, CardReading::Codec);
     }
     catch (const std::exception& error)
     {
@@ -811,7 +854,7 @@ Result<std::vector<CodecCard>> readFitsHeaderCards(const ExecutionContext& execu
             return fileFailure("the header file could not be read", path);
         }
         HeaderFault fault = HeaderFault::None;
-        Result<std::vector<CodecCard>> cards = readCards(bytes, fault);
+        Result<std::vector<CodecCard>> cards = readCards(bytes, fault, CardReading::Document);
         if (!cards.hasValue())
         {
             if (fault == HeaderFault::MissingEnd && size > maximumBytes)

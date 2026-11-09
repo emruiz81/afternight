@@ -97,8 +97,10 @@ python/python/**
 python/python*.zip
 *.autosave
 Qt6/**
-# OpenXISF, fetched from its published release and built by build/scripts/*/_build_openxisf.*
+# OpenXISF and OpenFITS, fetched from their published releases and built by build/scripts/*/_build_openxisf.* and
+# build/scripts/*/_build_openfits.*
 /openxisf/
+/openfits/
 AfterNight.code-workspace
 *.pyc
 __pycache__/

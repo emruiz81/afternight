@@ -13,7 +13,7 @@ xcopy /Y /E ..\..\..\3rdparty\bin\msvc\debug\*.pdb ..\..\..\bin\msvc\debug\
 echo ****************Deploying MSVC vcpkg deps****************
 REM Every library the binaries import is required: a copy that finds no file - a port the triplet does not
 REM hold - fails the step here rather than the first program that loads it.
-xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\cfitsio.dll ..\..\..\bin\msvc\debug\ || exit /b 1
+xcopy /Y ..\..\..\openfits\build-msvc-install\bin\openfits-1.0d.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\pugixml.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\openxisf\build-msvc-install\bin\openxisf-1.1d.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\zstd.dll ..\..\..\bin\msvc\debug\ || exit /b 1
@@ -56,7 +56,6 @@ xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\libx264-164.dll ..\..\..
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\aom.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\libwebpmux.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\swresample-6.dll ..\..\..\bin\msvc\debug\ || exit /b 1
-xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\pthreadVC3d.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\cmark-gfm.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\cmark-gfm-extensions.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\libvpld.dll ..\..\..\bin\msvc\debug\ || exit /b 1

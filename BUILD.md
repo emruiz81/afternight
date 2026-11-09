@@ -25,10 +25,10 @@ cd afternight
 git submodule update --init --recursive
 ```
 
-The submodules are `vcpkg` and `kddockwidgets`. OpenXISF, the XISF library, is not a submodule: the dependency step
-clones its published release, verifies the commit and builds it as a shared library into `openxisf/`
-(`build/scripts/msvc/_build_openxisf.bat`, `build/scripts/linux/_build_openxisf.sh`), until the vcpkg registry
-carries it.
+The submodules are `vcpkg` and `kddockwidgets`. OpenFITS and OpenXISF, the FITS and XISF libraries, are not
+submodules: the dependency step clones each one's published release, verifies the commit and builds it as a shared
+library into `openfits/` and `openxisf/` (`build/scripts/msvc/_build_openfits.bat`, `_build_openxisf.bat`,
+`build/scripts/linux/_build_openfits.sh`, `_build_openxisf.sh`), until the vcpkg registry carries them.
 
 ## The build order
 
@@ -228,7 +228,7 @@ engine uses, with versions, sources and licences.
 | --- | --- |
 | Qt 6.10.3 | The interface, SVG, SQL, networking, and the PySide6 version extensions see |
 | KDDockWidgets | Docking |
-| CFITSIO, OpenXISF, LibRaw with a RawSpeed build of AfterNight's own, libtiff, libpng, libjpeg-turbo, Exiv2 | FITS, XISF, camera RAW, TIFF, PNG and JPEG files and their metadata |
+| OpenFITS, OpenXISF, LibRaw with a RawSpeed build of AfterNight's own, libtiff, libpng, libjpeg-turbo, Exiv2 | FITS, XISF, camera RAW, TIFF, PNG and JPEG files and their metadata |
 | FFmpeg | Video sequences |
 | oneTBB, Highway | Parallelism and vectorized kernels |
 | FFTW (single precision), GSL | Phase correlation, and one distribution function |

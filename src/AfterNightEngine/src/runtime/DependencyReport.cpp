@@ -66,12 +66,19 @@ using Contributor = void (*)(DependencyVersion&) noexcept;
 ///
 /// Ascending by the name each contributor writes, which `DependencyReportTest` pins so a new entry
 /// inserted in the wrong place is a failing test rather than a report a reader has to sort.
-constexpr std::array<Contributor, 13u> kContributors{
-    dependency_detail::reportCfitsio, dependency_detail::reportExiv2,        dependency_detail::reportFfmpeg,
-    dependency_detail::reportFftw,    dependency_detail::reportGsl,          dependency_detail::reportHighway,
-    dependency_detail::reportLibJpeg, dependency_detail::reportLibPng,       dependency_detail::reportLibRaw,
-    dependency_detail::reportLibTiff, dependency_detail::reportNlohmannJson, reportOneTbb,
-    dependency_detail::reportOpenXisf};
+constexpr std::array<Contributor, 13u> kContributors{dependency_detail::reportExiv2,
+                                                     dependency_detail::reportFfmpeg,
+                                                     dependency_detail::reportFftw,
+                                                     dependency_detail::reportGsl,
+                                                     dependency_detail::reportHighway,
+                                                     dependency_detail::reportLibJpeg,
+                                                     dependency_detail::reportLibPng,
+                                                     dependency_detail::reportLibRaw,
+                                                     dependency_detail::reportLibTiff,
+                                                     dependency_detail::reportNlohmannJson,
+                                                     reportOneTbb,
+                                                     dependency_detail::reportOpenFits,
+                                                     dependency_detail::reportOpenXisf};
 
 } // namespace
 

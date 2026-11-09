@@ -304,12 +304,12 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
   assumed one: ask for zeroed storage when a buffer is accumulated into or only partly covered. Uninitialised pixels
   once produced a comet stack wrong in ~50% of runs with a bit-identical wrong value, reproducible only with the heap
   deliberately poisoned.
-- **FITS header space is reserved before the pixels are written.** The engine's FITS writer
-  (`src/AfterNightEngine/src/io/fits/FitsWrite.cpp`) writes every card before the payload and reserves the scaling
-  cards with `fits_set_hdrsize()`, because a keyword added after the data makes cfitsio insert a header block and
-  relocate the entire payload — 258 ms per 178 MB frame, measured. A card written late must be covered by the
-  reservation, and a test that truncates a FITS file to its header must locate the `END` card instead of assuming one
-  2880-byte block.
+- **A FITS header is complete before its payload.** The engine's FITS writer
+  (`src/AfterNightEngine/src/io/fits/FitsWrite.cpp`) hands OpenFITS the whole header - the scaling cards among the
+  structural ones the library writes from the image's description - before the first sample, so the payload is
+  written once, in order, and never moved; a card added after the data would move the entire payload (258 ms per
+  178 MB frame, measured when CFITSIO wrote the files). No card is ever written late, and a test that truncates a
+  FITS file to its header must locate the `END` card instead of assuming one 2880-byte block.
 - **Work runs on the thread pool and lands on the GUI thread.** The GUI thread never waits for a worker, an admission
   or the history; a result is shown only when its `CommitTicket` still commits; a run's other images are leased before
   it is admitted. See AGENTS.md, "Threads, requests and publication".

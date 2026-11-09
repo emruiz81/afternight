@@ -15,6 +15,9 @@ on:
       openxisf_key:
         description: 'The key the OpenXISF build is cached under'
         value: ${{ jobs.cache.outputs.openxisf_key }}
+      openfits_key:
+        description: 'The key the OpenFITS build is cached under'
+        value: ${{ jobs.cache.outputs.openfits_key }}
   workflow_dispatch:
     inputs:
       variant:
@@ -59,6 +62,7 @@ jobs:
     outputs:
       vcpkg_key: ${{ steps.vcpkg-key.outputs.key }}
       openxisf_key: ${{ steps.vcpkg-key.outputs.openxisf }}
+      openfits_key: ${{ steps.vcpkg-key.outputs.openfits }}
 
     steps:
       - name: Checkout repository
@@ -72,15 +76,19 @@ jobs:
 
       # What is installed is decided by the runner image, the triplet, the vcpkg checkout the repository pins, the
       # install scripts and the overlay ports and triplets, so the key is made of exactly those: a change to any of
-      # them installs afresh instead of restoring a tree that no longer matches the scripts. OpenXISF is built by its
-      # script, which pins the release, against the ports the vcpkg key names, so its key is the script's and that one.
+      # them installs afresh instead of restoring a tree that no longer matches the scripts. OpenXISF and OpenFITS are
+      # each built by a script, which pins the release, against the ports the vcpkg key names, so each key is its
+      # script's and that one.
       - name: Compute the vcpkg cache key
         id: vcpkg-key
         shell: bash
         run: |
           key="vcpkg-${ImageOS}-${AFTERNIGHT_VCPKG_TRIPLET}-$(git rev-parse HEAD:vcpkg)-${{ hashFiles('build/scripts/msvc/02-install_msvc_deps.bat', 'build/scripts/msvc/install_raw_deps.bat', 'build/vcpkg/**') }}"
-          echo "key=$key" >> "$GITHUB_OUTPUT"
-          echo "openxisf=openxisf-release-${{ hashFiles('build/scripts/msvc/_build_openxisf.bat') }}-$key" >> "$GITHUB_OUTPUT"
+          {
+            echo "key=$key"
+            echo "openxisf=openxisf-release-${{ hashFiles('build/scripts/msvc/_build_openxisf.bat') }}-$key"
+            echo "openfits=openfits-release-${{ hashFiles('build/scripts/msvc/_build_openfits.bat') }}-$key"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Restore vcpkg installed packages cache
         id: cache-vcpkg
@@ -178,6 +186,26 @@ jobs:
         with:
           path: openxisf/build-msvc-install
           key: ${{ steps.vcpkg-key.outputs.openxisf }}
+
+      # OpenFITS from its published release, against the vcpkg ports restored or installed above.
+      - name: Restore OpenFITS cache
+        id: cache-openfits
+        uses: actions/cache/restore@v5
+        with:
+          path: openfits/build-msvc-install
+          key: ${{ steps.vcpkg-key.outputs.openfits }}
+
+      - name: Build OpenFITS (release-only)
+        if: steps.cache-openfits.outputs.cache-hit != 'true'
+        shell: cmd
+        run: build\scripts\msvc\_build_openfits.bat release
+
+      - name: Save OpenFITS cache
+        if: steps.cache-openfits.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: openfits/build-msvc-install
+          key: ${{ steps.vcpkg-key.outputs.openfits }}
 
       - name: Restore Qt cache
         id: cache-qt

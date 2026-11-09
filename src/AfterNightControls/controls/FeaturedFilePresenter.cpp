@@ -291,8 +291,7 @@ QString FeaturedFilePresenter::metadataTextForFile(const QString& filePath, cons
 
     // Guard: skip metadata extraction for files too small to be valid images.
     // A single FITS header block is 2880 bytes; XISF and RAW files are even
-    // larger.  Attempting to parse tiny stub files (e.g. in unit tests) can
-    // cause undefined behaviour inside cfitsio.
+    // larger, so a tiny stub file (e.g. in unit tests) holds no image to describe.
     constexpr qint64 kMinAstroFileSize = 2880;
 
     if (isAstroFormat && fileInfo.size() >= kMinAstroFileSize)

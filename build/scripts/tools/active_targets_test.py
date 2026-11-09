@@ -215,7 +215,8 @@ class InvalidationTest(ActiveCase):
         self.plant_files(staged + kept)
         registry = planted.targets.read_registry(self.root)
         self.assertEqual(active.retired_targets(registry),
-                         ['AfterNightEngineBenchCompare', 'Test_FixtureNext', 'Test_Gone', 'libxisf'])
+                         ['AfterNightEngineBenchCompare', 'Test_FixtureNext', 'Test_Gone', 'cfitsio', 'libxisf',
+                          'pthreads'])
         removed = active.invalidate(self.root)
         self.assertEqual(sorted(path.relative_to(self.root).as_posix() for path in removed), sorted(staged))
         for relative in kept:
@@ -246,6 +247,25 @@ class InvalidationTest(ActiveCase):
             self.assertTrue((self.root / relative).exists(), relative)
         projects = active.remove_retired_projects(self.root)
         self.assertEqual(sorted(path.relative_to(self.root).as_posix() for path in projects), sorted(left))
+
+    # CFITSIO, and the threads library only CFITSIO loaded, were deployed from vcpkg beside the binaries until OpenFITS
+    # took CFITSIO's place behind the FITS codec. A host that deployed them keeps the copies in every configuration
+    # they went to; every copy goes, and OpenFITS's own library stays.
+    def test_invalidation_removes_the_retired_fits_library_and_its_threads_library_where_they_were_deployed(
+            self) -> None:
+        self.plant()
+        staged = ['bin/msvc/release/cfitsio.dll', 'bin/msvc/debug/cfitsio.dll', 'bin/msvc/release/pthreadVC3.dll',
+                  'bin/msvc/debug/pthreadVC3d.dll']
+        kept = ['bin/msvc/release/openfits-1.0.dll', 'bin/msvc/debug/openfits-1.0d.dll',
+                'bin/clang/release/libopenfits.so.1.0', 'bin/msvc/release/z.dll']
+        self.plant_files(staged + kept)
+        registry = planted.targets.read_registry(self.root)
+        self.assertIn('cfitsio', active.retired_targets(registry))
+        self.assertIn('pthreads', active.retired_targets(registry))
+        removed = active.invalidate(self.root)
+        self.assertEqual(sorted(path.relative_to(self.root).as_posix() for path in removed), sorted(staged))
+        for relative in kept:
+            self.assertTrue((self.root / relative).exists(), relative)
 
     # When the engine became the only one, the fixture suite named after the development engine took the engine's
     # name and the runner that compared the two engines went. A clone generated and built before keeps their projects,

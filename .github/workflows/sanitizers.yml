@@ -87,6 +87,13 @@ jobs:
           key: ${{ needs.prepare-cache.outputs.openxisf_key }}
           fail-on-cache-miss: true
 
+      - name: Restore OpenFITS cache
+        uses: actions/cache/restore@v5
+        with:
+          path: openfits/build-clang-install
+          key: ${{ needs.prepare-cache.outputs.openfits_key }}
+          fail-on-cache-miss: true
+
       - name: Generate the instrumented projects
         run: AFTERNIGHT_SANITIZE=address build/scripts/linux/01-create_project_files.sh
 

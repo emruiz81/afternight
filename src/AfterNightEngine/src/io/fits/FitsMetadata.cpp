@@ -7,7 +7,7 @@
 // engine's own WCS bridge, so the codec keeps no second parser whose crop or distortion rules could
 // drift from it. A region's solution, and the WCS cards beside it, are cropped to the region.
 
-#include "io/fits/FitsFile.h"
+#include "io/fits/FitsMetadata.h"
 
 #include <AfterNightEngine/Algorithms/Astrometry/WcsCards.h>
 #include <AfterNightEngine/IO/CodecMetadataProjection.h>
