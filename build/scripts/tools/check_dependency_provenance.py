@@ -22,8 +22,8 @@ change with it:
   is a dependency nobody recorded; a group registered and reached by nothing is a record nobody
   removed;
 * the **link lines** of the generated projects, for the libraries a build acquires without any
-  source including them - zlib behind CFITSIO, Little-CMS behind LibRaw, the compressors behind the
-  vendored XISF library. A licence question applies to those exactly as much;
+  source including them - zlib behind libtiff, Little-CMS behind LibRaw, the compressors behind
+  OpenXISF. A licence question applies to those exactly as much;
 * the **install and deploy scripts**, so "build owner" and "deploy owner" name something that
   exists and actually mentions the package and the runtime file they claim;
 * the engine's **own dependency report** and the **suite that pins it**, so the register, the

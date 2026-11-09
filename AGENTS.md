@@ -22,7 +22,7 @@ It is intended for any agentic workflow (GitHub Copilot, Codex, Cursor, Claude C
 - Build system: Premake5 generates native projects (Makefiles, VS2026)
 - UI: Qt 6 + KDDockWidgets. The authoritative Qt version is `QT_VERSION` in `build/premake/afternight-common.lua` (currently 6.10.3).
 - Tests: Google Test
-- Deps of the product: oneTBB, Highway, CFITSIO, libtiff, libpng, libjpeg-turbo, LibRaw and a private RawSpeed build, OpenXISF, FFmpeg, Exiv2, FFTW (single precision), GSL (one function), nlohmann-json, G'MIC (through its adapter), Crashpad (MSVC/Linux), Qt's SQLite driver, and Python 3.14.7 for the extension hosts and runtime backend; `build/scripts/tools/dependencies.txt` is the register. OpenCV, the public LibRaw and, on Windows, Eigen serve only the library parity suite as reference libraries.
+- Deps of the product: oneTBB, Highway, OpenFITS, libtiff, libpng, libjpeg-turbo, LibRaw and a private RawSpeed build, OpenXISF, FFmpeg, Exiv2, FFTW (single precision), GSL (one function), nlohmann-json, G'MIC (through its adapter), Crashpad (MSVC/Linux), Qt's SQLite driver, and Python 3.14.7 for the extension hosts and runtime backend; `build/scripts/tools/dependencies.txt` is the register. OpenCV, the public LibRaw and, on Windows, Eigen serve only the library parity suite as reference libraries.
 - Platforms: Linux (Clang), Windows MSVC
 
 Key build scripts and configs live under `build/`:

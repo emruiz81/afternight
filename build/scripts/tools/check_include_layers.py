@@ -152,8 +152,8 @@ SHARED_IO_HEADERS = frozenset({
 # External libraries the engine may adapt, and the include spellings that identify each one. The
 # name on the left is also the directory name an interop adapter for that library must use.
 EXTERNAL_LIBRARIES = {
-    'codecs': ('fitsio.h', 'longnam.h', 'tiff', 'png.h', 'jpeglib.h', 'jerror.h', 'libraw/', 'afternight-libraw/',
-               'jxl/', 'openxisf/', 'zlib.h', 'librtprocess'),
+    'codecs': ('openfits/', 'tiff', 'png.h', 'jpeglib.h', 'jerror.h', 'libraw/', 'afternight-libraw/', 'jxl/',
+               'openxisf/', 'zlib.h', 'librtprocess'),
     'eigen': ('Eigen/', 'unsupported/Eigen/'),
     # The metadata library the raster codecs read and write Exif through. It is an interop adapter
     # rather than a codec library on purpose: its types describe another library's metadata model

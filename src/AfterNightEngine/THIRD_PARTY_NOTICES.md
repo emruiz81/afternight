@@ -106,6 +106,23 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 
+The FITS codec links OpenFITS, distributed under the Apache License 2.0
+(https://github.com/astroformats/openfits). The attribution its NOTICE file states, which a
+redistribution carries and the About dialog's licence page shows:
+
+OpenFITS
+Copyright 2026 Ezequiel Ruiz
+
+This product includes software developed by Ezequiel Ruiz and the
+contributors to OpenFITS.
+
+OpenFITS is an independent implementation of FITS, the Flexible Image
+Transport System, written from the standard of the IAU FITS Working Group.
+Where the standard leaves a detail open, the behaviour of CFITSIO, developed
+at the HEASARC of NASA's Goddard Space Flight Center, is the reference; no
+code of CFITSIO is included. OpenFITS is not affiliated with or endorsed by
+the International Astronomical Union or by NASA.
+
 The XISF codec links OpenXISF, distributed under the Apache License 2.0
 (https://github.com/astroformats/openxisf). The attribution its NOTICE file states, which a
 redistribution carries and the About dialog's licence page shows:

@@ -159,6 +159,13 @@ jobs:
           key: ${{ needs.prepare-cache.outputs.openxisf_key }}
           fail-on-cache-miss: true
 
+      - name: Restore OpenFITS cache
+        uses: actions/cache/restore@v5
+        with:
+          path: openfits/build-msvc-install
+          key: ${{ needs.prepare-cache.outputs.openfits_key }}
+          fail-on-cache-miss: true
+
       # ===== The numbered build scripts, in their mandatory order =====
       - name: Generate project files
         shell: cmd

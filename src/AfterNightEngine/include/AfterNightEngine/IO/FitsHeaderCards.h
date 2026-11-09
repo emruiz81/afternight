@@ -18,10 +18,12 @@
 /// line longer than eighty bytes once its trailing blanks are removed - and none means records, eighty
 /// bytes each.
 ///
-/// **One reading of a card, the codec's.** A card's keyword, value and comment are read as the FITS
-/// codec reads them through CFITSIO, so a header read here and the same header decoded from an image
-/// carry equal cards: the keyword runs to the first blank or `=`, or after `HIERARCH ` to the `=`; a
-/// value follows `= ` in columns nine and ten, or the first `=` of a card that has one elsewhere;
+/// **One reading of a card, the codec's.** A card's keyword, value and comment are read by the same
+/// reading the FITS codec reads an image's header with - the reading CFITSIO's readers gave it, so a
+/// card stored by any earlier release reads back unchanged - and a header read here and the same
+/// header decoded from an image carry equal cards: the keyword runs to the first blank or `=`, or after
+/// `HIERARCH ` to the `=`; a value follows `= ` in columns nine and ten, or the first `=` of a card
+/// that has one elsewhere;
 /// `COMMENT`, `HISTORY`, `CONTINUE` and blank-keyword records carry their text as a comment and no
 /// value. A string value keeps its quotes, its doubled quotes and its leading blanks and loses its
 /// trailing ones; a long string continued on `CONTINUE` records is joined into its first card. A record

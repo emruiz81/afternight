@@ -76,7 +76,13 @@ EXTERNAL_INCLUDE_ROOTS = (
     'vcpkg/installed/x64-windows/include',
     'vcpkg/installed/x64-linux/include',
     'vcpkg/installed/x64-linux-release/include',
-    # The vendored tree, for the one library no package manager carries. The build gives the
+    # The codec libraries the dependency steps fetch and build themselves, OpenFITS and OpenXISF,
+    # each installed where its build script puts it on Windows and on Linux.
+    'openfits/build-msvc-install/include',
+    'openfits/build-clang-install/include',
+    'openxisf/build-msvc-install/include',
+    'openxisf/build-clang-install/include',
+    # The vendored tree, for the one library kept in the repository itself. The build gives the
     # engine the same root for the same reason.
     '3rdparty/src',
 )

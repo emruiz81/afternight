@@ -69,7 +69,6 @@ struct Expectation
 /// is a decision somebody made rather than a number that drifted, and `dependencies.txt` records
 /// the same two facts for a reader.
 constexpr std::array<Expectation, 13u> kExpected{{
-    {"cfitsio", true, true},
     {"exiv2", true, true},
     {"ffmpeg", true, true},
     // FFTW publishes no version macro at all: its headers declare the transforms and nothing about
@@ -83,7 +82,8 @@ constexpr std::array<Expectation, 13u> kExpected{{
     {"libtiff", true, true},
     {"nlohmann-json", true, false},
     {"onetbb", true, true},
-    // The XISF library publishes both: its version header and the loaded copy's own numbers.
+    // The FITS and XISF libraries publish both: their version headers and the loaded copy's own numbers.
+    {"openfits", true, true},
     {"openxisf", true, true},
 }};
 

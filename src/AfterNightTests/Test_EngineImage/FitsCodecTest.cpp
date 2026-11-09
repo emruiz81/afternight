@@ -313,8 +313,12 @@ TEST_F(FitsCodecTest, ADirectEncodeUnderNarrowerLimitsIsRefusedRatherThanWorkedA
     EXPECT_EQ(written.status().code(), an::ErrorCode::LimitExceeded);
 }
 
-TEST_F(FitsCodecTest, MisalignedRowsUseBudgetedWorkspaceAndPreserveCodes)
+TEST_F(FitsCodecTest, MisalignedRowsAreCopiedOutWithoutContextMemoryAndPreserveCodes)
 {
+    // Rows that sit at no multiple of their samples' size, in memory the codec only borrows, are copied out run by run
+    // into the FITS library's own staging as it asks for them: the codes come back exactly, the source is untouched,
+    // and the write takes nothing from the context, so a context whose budget holds not even one row still writes
+    // the frame and leaves nothing but its destination behind.
     const std::vector<std::uint32_t> input{0u, 1u, 16777217u, 4294967295u, 2u, 2147483648u};
     auto aligned = frame(input, 3u, 2u);
     const auto descriptor = *aligned.descriptor();
@@ -340,12 +344,14 @@ TEST_F(FitsCodecTest, MisalignedRowsUseBudgetedWorkspaceAndPreserveCodes)
     auto execution = an::ExecutionContext::create(*limited, {});
     ASSERT_TRUE(execution.hasValue());
     const auto destination = path("budget.fits");
-    const auto refused = an::writeImage(*limited, *execution, {.destinationPath = destination}, *source, {});
-    ASSERT_FALSE(refused.hasValue());
-    EXPECT_EQ(refused.status().rootCause().code(), an::ErrorCode::MemoryBudgetExceeded);
+    const auto written = an::writeImage(*limited, *execution, {.destinationPath = destination}, *source, {});
+    ASSERT_TRUE(written.hasValue()) << written.status().message();
+    EXPECT_EQ(bytes, originalBytes);
     EXPECT_EQ(limited->memoryResource()->counters().liveBytes, 0u);
-    EXPECT_FALSE(std::filesystem::exists(std::filesystem::path(
-        std::u8string_view(reinterpret_cast<const char8_t*>(destination.data()), destination.size()))));
+    EXPECT_EQ(limited->memoryResource()->counters().peakBytes, 0u);
+    const auto reread = decode("budget.fits");
+    ASSERT_TRUE(reread.hasValue());
+    EXPECT_EQ(values<std::uint32_t>(reread->frame), input);
     for (const auto& entry : std::filesystem::directory_iterator(directory))
         EXPECT_EQ(entry.path().extension(), ".fits");
 }

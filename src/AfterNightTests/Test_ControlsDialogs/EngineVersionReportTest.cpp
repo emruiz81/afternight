@@ -306,8 +306,9 @@ TEST_F(VersionDialogsTest, TheLicenceReproducesTheNoticeOfEveryPermissiveWorkThe
 }
 
 // The Apache License asks a redistribution to carry a readable copy of the attribution a library's NOTICE file
-// states, where the product shows its third-party notices. OpenXISF, behind the XISF codec, has one; the part of it
-// that speaks of the library's test data does not pertain to what the product ships.
+// states, where the product shows its third-party notices. OpenFITS and OpenXISF, behind the FITS and XISF codecs,
+// have one each; the part of OpenXISF's that speaks of the library's test data does not pertain to what the product
+// ships.
 TEST_F(VersionDialogsTest, TheLicenceCarriesTheNoticeOfEveryLibraryThatStatesOne)
 {
     AboutDialog dialog;
@@ -318,7 +319,14 @@ TEST_F(VersionDialogsTest, TheLicenceCarriesTheNoticeOfEveryLibraryThatStatesOne
     const qsizetype notices = licence.indexOf(QStringLiteral("Third-Party Notices"));
     ASSERT_GE(notices, 0) << licence.toStdString();
     const QString section = licence.mid(notices);
-    for (const char* line : {"OpenXISF", "Copyright 2026 Ezequiel Ruiz",
+    for (const char* line : {"OpenFITS",
+                             "This product includes software developed by Ezequiel Ruiz and the "
+                             "contributors to OpenFITS.",
+                             "OpenFITS is an independent implementation of FITS, the Flexible Image Transport System, "
+                             "written from the standard of the IAU FITS Working Group.",
+                             "no code of CFITSIO is included. OpenFITS is not affiliated with or endorsed by the "
+                             "International Astronomical Union or by NASA.",
+                             "OpenXISF", "Copyright 2026 Ezequiel Ruiz",
                              "This product includes software developed by Ezequiel Ruiz and the contributors to "
                              "OpenXISF.",
                              "OpenXISF is an independent implementation of the XISF format. It is not affiliated with "

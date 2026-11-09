@@ -44,7 +44,7 @@ behavior.
 | Supported inputs/state | Still images and the current decoded frame of a sequence. FITS-style metadata can also originate from XISF or processing; availability does not prove the current file extension. Masks, selections, display channel, zoom, autostretch, overlays, and pixel statistics do not affect the metadata shown. |
 | Outputs/side effects | Modeless read-only dialogs. FITS/EXIF allow one selected row; Astrometry labels allow mouse text selection. There is no report file, table export, table copy action, metadata edit, or history entry. |
 | Persistence | None. Window geometry, column widths, selection, and scroll position are dialog-local and are not stored. |
-| External dependencies | None at inspection time: the engine's FITS (CFITSIO), XISF and EXIF (Exiv2) readers stored the cards when the file was opened, and the solution is read by the engine's own WCS card reader. Opening these panels uses no network, catalog, solver, or external executable. |
+| External dependencies | None at inspection time: the engine's FITS (OpenFITS), XISF (OpenXISF) and EXIF (Exiv2) readers stored the cards when the file was opened, and the solution is read by the engine's own WCS card reader. Opening these panels uses no network, catalog, solver, or external executable. |
 
 The menu and toolbar gates are independent. In particular, the main-menu
 Astrometry action deliberately remains enabled for an unsolved active image so

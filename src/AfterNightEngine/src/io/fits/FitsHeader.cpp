@@ -3,216 +3,201 @@
 
 // AfterNightEngine - reading a FITS image's header into a description and metadata.
 //
-// Images are counted in file order, skipping tables and empty primary units, and selected by
-// zero-based index. The decoded representation follows BITPIX and the canonical unsigned and signed
-// offsets; any other scaling decodes to Float64. Cards are read with CONTINUE long strings
-// reassembled and re-quoted, so a string that looks numeric stays a string. An extension inherits
-// the primary header's cards it does not state itself, less the structural ones, and every HISTORY
-// and COMMENT record. Validating the payload checks the stored checksums and that the unit ends
-// inside the file, which proves a tile-compressed image's structure but not its tiles.
+// Images are counted in file order as the library finds them - the primary array, IMAGE extensions and tile-compressed
+// images, each with at least one axis and no axis of length zero, so tables and empty primary units are skipped - and
+// selected by zero-based index. The decoded representation follows BITPIX and the canonical unsigned and signed
+// offsets; any other scaling decodes to Float64. A tile-compressed image is described by the header its decompression
+// restores, as the image it holds. Cards are read from the header's records by the one reading
+// `io/fits/FitsCardRecords.h` holds, with CONTINUE long strings joined and re-quoted, so a string that looks numeric
+// stays a string. An extension inherits the primary header's cards it does not state itself, less the structural ones,
+// and every HISTORY and COMMENT record. Validating the payload checks that the unit ends inside the file and, where
+// its header states them, its checksums, which proves a tile-compressed image's structure but not its tiles.
 
+#include "io/fits/FitsCardRecords.h"
 #include "io/fits/FitsFile.h"
+#include "io/fits/FitsMetadata.h"
 
 #include <AfterNightEngine/IO/CodecError.h>
 #include <AfterNightEngine/IO/CodecMetadataPolicy.h>
 #include <AfterNightEngine/Runtime/EngineContext.h>
 #include <AfterNightEngine/Runtime/ExecutionContext.h>
 
+#include <openfits/checksum.h>
+#include <openfits/hdu.h>
+#include <openfits/header.h>
+#include <openfits/image.h>
+
 #include <algorithm>
-#include <array>
 #include <cmath>
-#include <cstring>
-#include <filesystem>
+#include <cstdint>
 #include <limits>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace an
 {
 namespace
 {
-Result<double> number(fitsfile* file, const char* key, double fallback, std::string_view path)
-{
-    double value = fallback;
-    int status = 0;
-    fits_read_key(file, TDOUBLE, key, &value, nullptr, &status);
-    if (status != 0 && status != KEY_NO_EXIST)
-        return fitsFailure(status, "read FITS scaling", path);
-    if (!std::isfinite(value))
-        return Status::failure(ErrorCode::InvalidData);
-    return status == KEY_NO_EXIST ? fallback : value;
-}
+/// The bytes of a FITS block, which every unit's data fill to a whole number of.
+constexpr std::uint64_t kFitsBlockBytes = 2880u;
 
-std::string stringKey(fitsfile* file, const char* key)
-{
-    char value[FLEN_VALUE]{};
-    int status = 0;
-    fits_read_key(file, TSTRING, key, value, nullptr, &status);
-    return status == 0 ? value : std::string{};
-}
+/// The most axes an image may name; those after the third must each have one element.
+constexpr std::size_t kMaxFitsAxes = 9u;
 
-Result<std::vector<CodecCard>> readCards(fitsfile* file, const ExecutionContext& execution, std::string_view path)
+/// The text of a keyword's value, or empty when the header states none or none that reads as text.
+std::string stringKey(const openfits::header& cards, std::string_view keyword)
 {
-    int status = 0, count = 0, more = 0;
-    fits_get_hdrspace(file, &count, &more, &status);
-    if (status != 0)
-        return fitsFailure(status, "read FITS header", path);
-    if (count < 0 || static_cast<std::size_t>(count) > kMaxCodecCards)
-        return Status::failure(ErrorCode::LimitExceeded);
-    std::vector<CodecCard> cards;
-    cards.reserve(static_cast<std::size_t>(count));
-    bool continuedString = false;
-    for (int i = 1; i <= count; ++i)
+    try
     {
-        if (const auto stopped = execution.checkCancellation(); stopped.failed())
-            return stopped;
-        char key[FLEN_KEYWORD]{}, value[FLEN_VALUE]{}, comment[FLEN_COMMENT]{};
-        fits_read_keyn(file, i, key, value, comment, &status);
-        if (status != 0)
-            return fitsFailure(status, "read FITS card", path);
-        if (*key == '\0')
-            continue;
-        if (continuedString && std::string_view(key) == "CONTINUE")
-            continue;
-        continuedString = false;
-        std::string text(value);
-        if (!text.empty() && text.front() == '\'')
-        {
-            // CFITSIO may use CONTINUE even for a short identity when its comment is long.
-            // The header card bound above limits its allocation; the engine text bound below
-            // still applies to the assembled value. Preserve lexical quoting for numeric strings.
-            char* expanded = nullptr;
-            fits_movabs_key(file, i, &status);
-            fits_read_key_longstr(file, key, &expanded, nullptr, &status);
-            struct Release
-            {
-                char* value;
-                ~Release()
-                {
-                    int ignored = 0;
-                    fits_free_memory(value, &ignored);
-                }
-            } release{expanded};
-            if (status != 0)
-                return fitsFailure(status, "read FITS continued string", path);
-            if (std::strlen(expanded) > kMaxCodecCardTextBytes - 2u)
-                return Status::failure(ErrorCode::LimitExceeded);
-            text = "'";
-            for (const char* p = expanded; *p != '\0'; ++p)
-            {
-                text += *p;
-                if (*p == '\'')
-                    text += '\'';
-            }
-            text += '\'';
-            continuedString = true;
-        }
-        auto card = CodecCard::create(CodecNamespace::Fits, key, std::move(text), comment);
-        if (!card.hasValue())
-            return card.status();
-        cards.push_back(std::move(*card));
+        return cards.find<std::string>(keyword).value_or(std::string{});
     }
-    return cards;
+    catch (const openfits::error&)
+    {
+        return {};
+    }
 }
 
+/// The cards of a header, as the codec reads them from its records.
+Result<std::vector<CodecCard>> cardsOf(const openfits::header& header, const ExecutionContext& execution)
+{
+    if (const auto stopped = execution.checkCancellation(); stopped.failed())
+        return stopped;
+    // Every record before the blank ones that end a header counts, continuations and commentary included, as a
+    // header's records always have against this bound.
+    if (header.size() - header.free_cards() > kMaxCodecCards)
+        return Status::failure(ErrorCode::LimitExceeded);
+    // The records the file holds, each card read from one kept as it was read; a card the library restored for a
+    // compressed image is formatted as its writer would write it.
+    return readFitsRecordCards(header.to_string());
+}
+
+/// The decoded representation of a stored type under its scaling.
 RawSampleFormat representation(int bitpix, double scale, double zero, FitsInteger64Policy integer64)
 {
-    if (bitpix == LONGLONG_IMG)
+    if (bitpix == 64)
         return {8u, integer64 == FitsInteger64Policy::PreserveRaw ? RawSampleClass::SignedInteger
                                                                   : RawSampleClass::FloatingPoint};
     if (scale == 1.0)
     {
-        if (bitpix == BYTE_IMG && zero == -128.0)
+        if (bitpix == 8 && zero == -128.0)
             return {1u, RawSampleClass::SignedInteger};
-        if (bitpix == SHORT_IMG && zero == 32768.0)
+        if (bitpix == 16 && zero == 32768.0)
             return {2u, RawSampleClass::UnsignedInteger};
-        if (bitpix == LONG_IMG && zero == 2147483648.0)
+        if (bitpix == 32 && zero == 2147483648.0)
             return {4u, RawSampleClass::UnsignedInteger};
         if (zero == 0.0)
         {
-            if (bitpix == BYTE_IMG)
+            if (bitpix == 8)
                 return {1u, RawSampleClass::UnsignedInteger};
-            if (bitpix == SHORT_IMG)
+            if (bitpix == 16)
                 return {2u, RawSampleClass::SignedInteger};
-            if (bitpix == LONG_IMG)
+            if (bitpix == 32)
                 return {4u, RawSampleClass::SignedInteger};
-            if (bitpix == FLOAT_IMG)
+            if (bitpix == -32)
                 return {4u, RawSampleClass::FloatingPoint};
         }
     }
     return {8u, RawSampleClass::FloatingPoint};
 }
-} // namespace
 
-Result<FitsHeader> readFitsHeader(fitsfile* file, const EngineContext& engine, const ExecutionContext& execution,
-                                  const CodecReadRequest& request, FitsInteger64Policy integer64, bool enumerateImages)
+/// The unit of the image at `imageIndex`, counting images from the first, and how many images the file holds - all of
+/// them when `enumerateImages`, or those up to the selected one otherwise.
+struct Selection
 {
-    int status = 0, hduCount = static_cast<int>(kMaxCodecCards);
-    // Only a public probe needs the total count. Decode's facade already performed that probe;
-    // locate its requested image without walking to EOF and back a second time.
-    if (enumerateImages)
-        fits_get_num_hdus(file, &hduCount, &status);
-    if (status != 0)
-        return fitsFailure(status, "count FITS images", request.path);
-    if (hduCount > static_cast<int>(kMaxCodecCards))
-        return Status::failure(ErrorCode::LimitExceeded);
-    int selected = 0;
+    std::optional<std::size_t> unit;
     std::uint64_t imageCount = 0u;
-    for (int hdu = 1; hdu <= hduCount; ++hdu)
+};
+
+/// Walks the file's images as far as the request needs.
+Result<Selection> selectImage(const openfits::reader& file, const ExecutionContext& execution, std::uint64_t imageIndex,
+                              bool enumerateImages)
+{
+    Selection selection;
+    // Only a public probe needs the total count. A decode's facade already performed that probe, so its requested
+    // image is located without walking to the end of the file.
+    if (enumerateImages && file.hdu_count() > kMaxCodecCards)
+        return Status::failure(ErrorCode::LimitExceeded);
+    std::optional<std::size_t> next = file.first_image(0u);
+    while (next.has_value())
     {
         if (const auto stopped = execution.checkCancellation(); stopped.failed())
             return stopped;
-        int type = 0, axes = 0;
-        fits_movabs_hdu(file, hdu, &type, &status);
-        if (!enumerateImages && status == END_OF_FILE)
-        {
-            status = 0;
+        if (selection.imageCount == imageIndex)
+            selection.unit = *next;
+        ++selection.imageCount;
+        if (!enumerateImages && selection.unit.has_value())
             break;
-        }
-        const bool compressed = fits_is_compressed_image(file, &status) != 0;
-        if (type == IMAGE_HDU || compressed)
-        {
-            fits_get_img_dim(file, &axes, &status);
-            if (axes > 0)
-            {
-                if (imageCount == request.imageIndex)
-                    selected = hdu;
-                ++imageCount;
-            }
-        }
-        if (status != 0)
-            return fitsFailure(status, "select FITS image", request.path);
-        if (!enumerateImages && selected != 0)
-            break;
+        next = file.first_image(*next + 1u);
     }
-    if (selected == 0)
+    return selection;
+}
+
+/// Whether the selected unit's data end inside the file and match the checksums its header states.
+///
+/// The fill of the data's last block counts as the data's: a unit cut inside it was cut short. A unit whose header
+/// states neither `DATASUM` nor `CHECKSUM` asserts no sum and is not read; one that states either is read whole, as
+/// verifying it takes, with the operation's stop checked as it is read. A unit the library cannot read is not whole;
+/// a stop passes through as the library's cancellation.
+bool payloadIsWhole(const openfits::reader& file, std::size_t unit, const ExecutionContext& execution)
+{
+    try
+    {
+        const openfits::hdu_info& info = file.hdu(unit);
+        const std::optional<std::uint64_t> dataBytes = info.data_size();
+        if (!dataBytes.has_value())
+            return false;
+        const std::uint64_t filled = (*dataBytes + kFitsBlockBytes - 1u) / kFitsBlockBytes * kFitsBlockBytes;
+        if (info.data_offset() > file.size() || filled > file.size() - info.data_offset())
+            return false;
+        if (!info.header().contains("DATASUM") && !info.header().contains("CHECKSUM"))
+            return true;
+        const openfits::checksum_report sums =
+            file.verify(unit, {.progress = [&execution](std::uint64_t, std::uint64_t) {
+                            return !execution.checkCancellation().failed();
+                        }});
+        return sums.datasum != openfits::checksum_state::invalid && sums.checksum != openfits::checksum_state::invalid;
+    }
+    catch (const openfits::cancelled_error&)
+    {
+        throw;
+    }
+    catch (const openfits::error&)
+    {
+        return false;
+    }
+}
+
+/// Reads the selected image's header, inside the library's boundary.
+Result<FitsHeader> describe(const openfits::reader& file, const EngineContext& engine,
+                            const ExecutionContext& execution, const CodecReadRequest& request,
+                            FitsInteger64Policy integer64, bool enumerateImages)
+{
+    const auto selection = selectImage(file, execution, request.imageIndex, enumerateImages);
+    if (!selection.hasValue())
+        return selection.status();
+    if (!selection->unit.has_value())
         return Status::failure(ErrorCode::OutOfRange);
-    int type = 0, axisCount = 0, bitpix = 0;
-    std::array<LONGLONG, 9> axes{};
-    fits_movabs_hdu(file, selected, &type, &status);
-    fits_get_img_paramll(file, static_cast<int>(axes.size()), &bitpix, &axisCount, axes.data(), &status);
-    const bool compressed = fits_is_compressed_image(file, &status) != 0;
-    if (status != 0)
-        return fitsFailure(status, "describe FITS image", request.path);
-    if (axisCount < 1 || axisCount > static_cast<int>(axes.size()))
+    const std::size_t selected = *selection->unit;
+    const openfits::image_info image = file.image(selected);
+    const std::vector<std::uint64_t>& axes = image.geometry.axes;
+    if (axes.empty() || axes.size() > kMaxFitsAxes || !image.bitpix.has_value())
         return Status::failure(ErrorCode::Unsupported);
-    for (int axis = 3; axis < axisCount; ++axis)
-        if (axes[axis] != 1)
+    for (std::size_t axis = 3u; axis < axes.size(); ++axis)
+        if (axes[axis] != 1u)
             return Status::failure(ErrorCode::Unsupported);
-    const auto width = axes[0], height = axisCount >= 2 ? axes[1] : 1, channels = axisCount >= 3 ? axes[2] : 1;
-    if (width <= 0 || height <= 0 || channels <= 0 || width > engine.limits().maxImageWidth ||
+    const std::uint64_t width = axes[0];
+    const std::uint64_t height = axes.size() >= 2u ? axes[1] : 1u;
+    const std::uint64_t channels = axes.size() >= 3u ? axes[2] : 1u;
+    if (width == 0u || height == 0u || channels == 0u || width > engine.limits().maxImageWidth ||
         height > engine.limits().maxImageHeight || channels > engine.limits().maxChannelCount)
         return Status::failure(ErrorCode::LimitExceeded);
-    if (bitpix != BYTE_IMG && bitpix != SHORT_IMG && bitpix != LONG_IMG && bitpix != LONGLONG_IMG &&
-        bitpix != FLOAT_IMG && bitpix != DOUBLE_IMG)
-        return Status::failure(ErrorCode::Unsupported);
-    auto scale = number(file, "BSCALE", 1.0, request.path), zero = number(file, "BZERO", 0.0, request.path);
-    if (!scale.hasValue())
-        return scale.status();
-    if (!zero.hasValue())
-        return zero.status();
-    if (*scale == 0.0)
+    const int bitpix = static_cast<int>(*image.bitpix);
+    const double scale = image.scaling.scale;
+    const double zero = image.scaling.zero;
+    if (!std::isfinite(scale) || !std::isfinite(zero) || scale == 0.0)
         return Status::failure(ErrorCode::InvalidData);
-    const auto format = representation(bitpix, *scale, *zero, integer64);
+    const auto format = representation(bitpix, scale, zero, integer64);
     const auto checkedExtent =
         ImageExtent::create(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height),
                             static_cast<std::uint32_t>(channels), engine.limits());
@@ -223,9 +208,9 @@ Result<FitsHeader> readFitsHeader(fitsfile* file, const EngineContext& engine, c
     if (!layout)
         return Status::failure(ErrorCode::LimitExceeded);
     CfaDescriptor cfa{};
-    const auto bayer = stringKey(file, "BAYERPAT");
-    if (channels == 1)
+    if (channels == 1u)
     {
+        const auto bayer = stringKey(image.header, "BAYERPAT");
         for (const auto pattern : {CfaPattern::Rggb, CfaPattern::Bggr, CfaPattern::Gbrg, CfaPattern::Grbg})
             if (bayer == (pattern == CfaPattern::Rggb   ? "RGGB"
                           : pattern == CfaPattern::Bggr ? "BGGR"
@@ -237,31 +222,32 @@ Result<FitsHeader> readFitsHeader(fitsfile* file, const EngineContext& engine, c
         {.extent = extent,
          .sampleFormat = format,
          .byteOrder = ByteOrder::Native,
-         .channelSchema = channels == 1   ? ChannelSchema::Mono
-                          : channels == 3 ? ChannelSchema::Rgb
-                                          : ChannelSchema::Named,
+         .channelSchema = channels == 1u   ? ChannelSchema::Mono
+                          : channels == 3u ? ChannelSchema::Rgb
+                                           : ChannelSchema::Named,
          .colorSpace = ColorSpace::Unspecified,
          .numericDomain = format.sampleClass == RawSampleClass::FloatingPoint ? NumericDomain::PhysicalScaled
                                                                               : NumericDomain::RawSensorCode,
          .cfa = cfa,
-         .coordinateOrigin =
-             stringKey(file, "ROWORDER") == "BOTTOM-UP" ? CoordinateOrigin::BottomLeft : CoordinateOrigin::TopLeft,
+         .coordinateOrigin = stringKey(image.header, "ROWORDER") == "BOTTOM-UP" ? CoordinateOrigin::BottomLeft
+                                                                                : CoordinateOrigin::TopLeft,
          .pixelAspectRatio = 1.0});
     if (!descriptor)
         return Status::failure(ErrorCode::InvalidData);
+    const RawSampleFormat stored{static_cast<std::uint8_t>(std::abs(bitpix) / 8),
+                                 bitpix < 0    ? RawSampleClass::FloatingPoint
+                                 : bitpix == 8 ? RawSampleClass::UnsignedInteger
+                                               : RawSampleClass::SignedInteger};
+    const SourceEncoding encoding{stored, bitpix == 8 ? ByteOrder::Native : ByteOrder::Big, scale, zero};
     ImageMetadata metadata;
     if (request.readMetadata)
     {
-        auto cards = readCards(file, execution, request.path);
+        auto cards = cardsOf(image.header, execution);
         if (!cards.hasValue())
             return cards.status();
-        if (selected != 1)
+        if (selected != 0u)
         {
-            fits_movabs_hdu(file, 1, nullptr, &status);
-            auto primary = readCards(file, execution, request.path);
-            fits_movabs_hdu(file, selected, nullptr, &status);
-            if (status != 0)
-                return fitsFailure(status, "read primary FITS metadata", request.path);
+            auto primary = cardsOf(file.hdu(0u).header(), execution);
             if (!primary.hasValue())
                 return primary.status();
             for (auto& card : *primary)
@@ -276,56 +262,65 @@ Result<FitsHeader> readFitsHeader(fitsfile* file, const EngineContext& engine, c
                     cards->push_back(std::move(card));
             }
         }
-        const RawSampleFormat stored{static_cast<std::uint8_t>(std::abs(bitpix) / 8),
-                                     bitpix < 0    ? RawSampleClass::FloatingPoint
-                                     : bitpix == 8 ? RawSampleClass::UnsignedInteger
-                                                   : RawSampleClass::SignedInteger};
-        auto codec = CodecMetadata::create({stored, bitpix == 8 ? ByteOrder::Native : ByteOrder::Big, *scale, *zero},
-                                           std::move(*cards));
+        auto codec = CodecMetadata::create(encoding, std::move(*cards));
         if (!codec.hasValue())
             return codec.status();
-        auto projected = fitsMetadata(std::move(*codec), extent, request.path, integer64, bitpix == LONGLONG_IMG);
+        auto projected = fitsMetadata(std::move(*codec), extent, request.path, integer64, bitpix == 64);
         if (!projected.hasValue())
             return projected.status();
         metadata = std::move(*projected);
     }
     else
     {
-        const RawSampleFormat stored{static_cast<std::uint8_t>(std::abs(bitpix) / 8),
-                                     bitpix < 0    ? RawSampleClass::FloatingPoint
-                                     : bitpix == 8 ? RawSampleClass::UnsignedInteger
-                                                   : RawSampleClass::SignedInteger};
-        auto codec =
-            CodecMetadata::create({stored, bitpix == 8 ? ByteOrder::Native : ByteOrder::Big, *scale, *zero}, {});
+        auto codec = CodecMetadata::create(encoding, {});
         if (!codec.hasValue())
             return codec.status();
         metadata = ImageMetadata::create({}, {}, {}, {}, std::move(*codec), std::nullopt);
     }
+    const bool compressed = file.hdu(selected).kind() == openfits::hdu_kind::compressed_image;
     auto disposition = CodecProbeDisposition::DecodeRequired;
     if (request.validatePayload)
     {
-        LONGLONG end = 0;
-        fits_get_hduaddrll(file, nullptr, nullptr, &end, &status);
-        std::error_code error;
-        const auto size =
-            std::filesystem::file_size(std::filesystem::path(std::u8string_view(
-                                           reinterpret_cast<const char8_t*>(request.path.data()), request.path.size())),
-                                       error);
-        int dataChecksum = 0, headerChecksum = 0;
-        fits_verify_chksum(file, &dataChecksum, &headerChecksum, &status);
-        if (status != 0 || error || end < 0 || static_cast<std::uint64_t>(end) > size || dataChecksum < 0 ||
-            headerChecksum < 0)
+        if (!payloadIsWhole(file, selected, execution))
             return codecFailure(ErrorCode::InvalidData, CodecFailure::PayloadUnreadable, CodecFormat::Fits,
                                 "validate FITS payload", request.path);
         if (!compressed)
             disposition = CodecProbeDisposition::PayloadValidatedWithoutDecode;
     }
-    return FitsHeader{{*descriptor, *layout, imageCount, std::move(metadata), disposition},
-                      selected,
-                      bitpix,
-                      fitsDatatype(format),
-                      *scale,
-                      *zero,
-                      compressed};
+    return FitsHeader{.info = {*descriptor, *layout, selection->imageCount, std::move(metadata), disposition},
+                      .unit = selected,
+                      .axes = static_cast<std::uint32_t>(axes.size()),
+                      .bitpix = bitpix,
+                      .scale = scale,
+                      .zero = zero,
+                      .compressed = compressed};
+}
+} // namespace
+
+Result<FitsHeader> readFitsHeader(const openfits::reader& file, const EngineContext& engine,
+                                  const ExecutionContext& execution, const CodecReadRequest& request,
+                                  FitsInteger64Policy integer64, bool enumerateImages)
+{
+    auto described = evaluateAcrossBoundary(kFitsBoundary, [&]() -> Result<FitsHeader> {
+        try
+        {
+            return describe(file, engine, execution, request, integer64, enumerateImages);
+        }
+        catch (const openfits::cancelled_error&)
+        {
+            auto stopped = execution.checkCancellation();
+            return stopped.failed() ? stopped : Status::failure(ErrorCode::Cancelled);
+        }
+        catch (const openfits::error& error)
+        {
+            return fitsLibraryFailure(error, FitsStage::Open, "read FITS header", request.path);
+        }
+    });
+    if (!described.hasValue())
+        return codecFailure(described.status().code(), CodecFailure::MetadataUnreadable, CodecFormat::Fits,
+                            "read FITS header", request.path, described.status());
+    if (!described->hasValue())
+        return described->status();
+    return std::move(**described);
 }
 } // namespace an

@@ -126,6 +126,23 @@ class ValidTreeTests(EngineTreeCase):
         self.private_file('algorithms/stacking/StackPlan.cpp', '#include <openxisf/reader.h>\n')
         self.assertRejected('may not include codecs')
 
+    def test_fits_reaches_openfits_as_a_codec_library(self):
+        self.private_file('io/fits/FitsFile.cpp',
+                          '#include <openfits/reader.h>\n#include <openfits/version.h>\n')
+        self.assertClean()
+
+    # OpenFITS is the library behind the FITS codec; the headers of the library it replaced are no library the
+    # engine declares any more.
+    def test_cfitsio_spellings_are_no_library_the_engine_declares(self):
+        self.private_file('io/fits/FitsFile.cpp', '#include <fitsio.h>\n')
+        self.assertRejected('neither a standard header nor a library this engine declares')
+        self.private_file('io/fits/FitsFile.cpp', '#include <longnam.h>\n')
+        self.assertRejected('neither a standard header nor a library this engine declares')
+
+    def test_openfits_is_a_codec_library_no_other_layer_may_include(self):
+        self.private_file('algorithms/stacking/StackPlan.cpp', '#include <openfits/reader.h>\n')
+        self.assertRejected('may not include codecs')
+
     def test_card_metadata_reuses_only_the_card_bridge(self):
         self.public_header('Algorithms/Astrometry/WcsCards.h')
         self.private_file('io/metadata/CombinedMetadata.cpp',

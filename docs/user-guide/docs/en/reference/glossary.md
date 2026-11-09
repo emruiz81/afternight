@@ -225,11 +225,11 @@ the term identically.
 | Term | Meaning |
 | --- | --- |
 | `.anseq` | AfterNight's image-list sequence file: an XML manifest naming, in order, the separate image files that make up a sequence. |
-| CFITSIO | Library used by AfterNight for FITS image I/O. |
 | EXIF | Camera-oriented tags embedded in supported image formats. AfterNight's EXIF window lists every field the file states, in the file's order, with its tag name, the whole value, and the full key; it hides binary or internal blocks such as the maker note, the embedded thumbnail, the colour profile, and embedded XMP/IPTC. |
 | FITS | Astronomy image format that can store pixel data, header keywords, WCS, and SIP metadata. |
 | FFmpeg | Library used for video-backed sequence support. |
 | LibRaw | Library used for camera RAW decoding. In release builds AfterNight's private RawSpeed build decodes the camera formats it is qualified for, and LibRaw handles the rest. |
+| OpenFITS | Library used for FITS read/write support. |
 | OpenXISF | Library used for XISF read/write support. |
 | RAW | Camera vendor raw file decoded through LibRaw. |
 | SER | Sequence format commonly used for planetary/lucky imaging. |
