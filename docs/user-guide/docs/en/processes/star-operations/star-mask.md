@@ -1,3 +1,13 @@
+---
+kind: process
+stage: noise
+menu: Process > Mask Generation > Star Mask
+summary: >-
+  Detects the stars of an image and paints them into a new grayscale mask, as smooth profiles or solid shapes.
+data_in: linear
+data_out: nonlinear
+derived: true
+---
 # Star Mask
 
 <!-- MEDIA_SLOT: UG-MEDIA-079 -->

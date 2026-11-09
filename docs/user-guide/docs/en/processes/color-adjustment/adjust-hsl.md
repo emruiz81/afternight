@@ -1,3 +1,12 @@
+---
+kind: process
+stage: finish
+menu: Process > Adjustments > Hue/Saturation/Lightness
+summary: >-
+  Rotates the hue, scales the saturation and offsets the lightness of every pixel of an RGB image, in the HSL model.
+data_in: nonlinear
+data_out: nonlinear
+---
 # Adjust HSL
 
 ## Purpose and expected result

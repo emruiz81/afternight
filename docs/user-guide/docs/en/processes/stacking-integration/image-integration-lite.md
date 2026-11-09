@@ -1,3 +1,14 @@
+---
+kind: process
+stage: stack
+menu: Process > Preprocess > Image Integration Lite
+summary: >-
+  Runs the shared calibration, registration and stacking workflow from a simpler window, for a first linear master
+  with fewer decisions.
+data_in: linear
+data_out: linear
+derived: true
+---
 # Image Integration Lite
 
 ![Image Integration Lite ready to run with a single M16 Ha dataset, calibrated-frame assignments, and the Run Integration action](../../assets/images/interface/quick-start-step1.png)

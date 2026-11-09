@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Process > Geometry > Integer Resample
+summary: >-
+  Changes the dimensions of an image by a whole-number factor, combining or repeating blocks of samples.
+data_in: either
+---
 # Integer Resample
 
 ## Purpose and expected result

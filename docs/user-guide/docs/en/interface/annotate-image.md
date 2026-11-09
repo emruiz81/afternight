@@ -1,3 +1,9 @@
+---
+kind: interface
+summary: >-
+  Makes a picture of a plate-solved image with its deep-sky objects, bright stars and coordinates named on it, ready
+  to share or print.
+---
 # Annotate Image
 
 <!--

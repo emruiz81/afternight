@@ -1,3 +1,9 @@
+---
+kind: workflow
+stages: [register, stack, color, noise, finish]
+summary: >-
+  Load a planetary video or sequence, keep the sharpest frames, stack them and sharpen the result.
+---
 # Planetary Imaging
 
 

@@ -1,3 +1,12 @@
+---
+kind: process
+stage: noise
+menu: Process > Filters > Median Filter
+summary: >-
+  Replaces each sample with the median of its square neighborhood, blended with the source by Modulation, to remove
+  impulse noise.
+derived: true
+---
 # Median Filter
 
 ## Purpose and expected result

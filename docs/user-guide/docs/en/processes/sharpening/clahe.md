@@ -1,3 +1,12 @@
+---
+kind: process
+stage: finish
+menu: Process > Intensity Transformations > CLA Histogram Equalization
+summary: >-
+  Raises local contrast with contrast-limited adaptive histogram equalization over a grid of tiles.
+data_in: nonlinear
+data_out: nonlinear
+---
 # CLAHE
 
 ## Purpose and expected result

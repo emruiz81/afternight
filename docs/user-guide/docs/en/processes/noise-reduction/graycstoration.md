@@ -1,3 +1,13 @@
+---
+kind: process
+stage: noise
+menu: Process > Noise Reduction > GRAYCstoration Filter
+summary: >-
+  Smooths along the image's own structure with G'MIC's anisotropic diffusion, reducing noise while keeping edges and
+  filaments.
+data_in: linear
+derived: true
+---
 # GRAYCstoration
 
 ## Purpose and expected result

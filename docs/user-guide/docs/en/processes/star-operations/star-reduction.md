@@ -1,3 +1,14 @@
+---
+kind: process
+stage: finish
+menu: Process > Star Processing > Star Reduction
+summary: >-
+  Shrinks the stars of an image by comparing it with a matching starless version and transferring through a protection
+  mask.
+data_in: nonlinear
+data_out: nonlinear
+derived: true
+---
 # Star Reduction
 
 ## Purpose and expected result

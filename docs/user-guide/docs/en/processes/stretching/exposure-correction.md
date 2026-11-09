@@ -1,3 +1,13 @@
+---
+kind: process
+stage: stretch
+menu: Process > Adjustments > Exposure
+summary: >-
+  Multiplies the image, or one of its color components, by a factor and clamps the result, like a brighter or darker
+  exposure.
+data_in: linear
+data_out: nonlinear
+---
 # Exposure Correction
 
 ## Purpose and expected result

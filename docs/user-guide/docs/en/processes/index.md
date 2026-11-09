@@ -1,3 +1,8 @@
+---
+kind: catalog
+summary: >-
+  Every process AfterNight offers, with its menu path and the stage of the processing where it belongs.
+---
 # Process Catalog
 
 ## Purpose, scope, audience, prerequisites, expected result, and authority

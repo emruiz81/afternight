@@ -1,3 +1,10 @@
+---
+kind: process
+stage: color
+menu: Process > Color Spaces > Channel Composition
+summary: >-
+  Builds a new RGB image from up to three open monochrome images, one per channel or color-space component.
+---
 # Channel Composition
 
 <!-- MEDIA_SLOT: UG-MEDIA-086 -->

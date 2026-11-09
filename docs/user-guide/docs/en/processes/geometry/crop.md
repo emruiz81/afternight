@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Process > Geometry > Crop
+summary: >-
+  Cuts an image, or every frame of a sequence, to a rectangle, to remove stacking borders or isolate a region.
+data_in: either
+---
 # Crop
 
 <!-- MEDIA_SLOT: UG-MEDIA-092 -->

@@ -1,3 +1,13 @@
+---
+kind: process
+stage: stack
+menu: Process > Preprocess > Image Stacking
+summary: >-
+  Normalizes, rejects outliers from and combines two or more calibrated, aligned frames into one floating-point
+  master.
+data_in: linear
+derived: true
+---
 # Image Stacking
 
 ## Purpose and expected result

@@ -1,3 +1,9 @@
+---
+kind: interface
+summary: >-
+  Overlays that draw a coordinate grid, catalog objects and lens distortion over a plate-solved image without changing
+  its pixels.
+---
 # Astrometry Overlays
 
 ![Solved M83 field with an equatorial grid, catalog annotation, detected-star markers, and SIP distortion vectors](../assets/images/interface/astrometry-overlays.png)

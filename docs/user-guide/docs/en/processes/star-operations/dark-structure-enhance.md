@@ -1,3 +1,12 @@
+---
+kind: process
+stage: finish
+menu: Process > Details > Dark Structure Enhance
+summary: >-
+  Darkens the structures that are darker than their surroundings, such as dust lanes, through a mask it builds from
+  the image.
+data_out: nonlinear
+---
 # Dark Structure Enhance
 
 ## Purpose and expected result

@@ -1,3 +1,13 @@
+---
+kind: process
+stage: stack
+menu: Process > Utilities > Image List Analyzer
+summary: >-
+  Measures, ranks and plays back a list of frames, and exports a selection, so that you can decide which frames to
+  keep.
+data_in: either
+derived: true
+---
 # Image List Analyzer
 
 Source and focused tests establish the behaviors claimed below. Actual rendered layout, representative playback/export performance, output compatibility in external players, and capture evidence remain unclaimed.

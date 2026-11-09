@@ -1,3 +1,10 @@
+---
+kind: workflow
+stages: [calibrate, register, stack, color, noise, stretch, finish]
+summary: >-
+  Turn mono narrowband or dual-band color captures into a mapped-color image, from calibration to the finished
+  picture.
+---
 # Narrowband Imaging
 
 ## Purpose, audience, prerequisites, and expected result

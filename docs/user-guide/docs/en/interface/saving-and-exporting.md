@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  Save images and export images and sequences for delivery, with their format, codec and stretch options.
+---
 # Saving And Exporting
 
 ![Export Sequence dialog configured for MP4 and H.264 with CFA debayering, autostretch, resize, dimensions, and fit mode](../assets/images/interface/saving-and-exporting.png)

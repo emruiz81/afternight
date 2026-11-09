@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  How AfterNight opens a sequence of frames, and how to play it, step through it and process it.
+---
 # Sequences
 
 ![AfterNight SER sequence workspace with playback, previous and next navigation, a position slider, and current frame count](../assets/images/interface/sequences.png)

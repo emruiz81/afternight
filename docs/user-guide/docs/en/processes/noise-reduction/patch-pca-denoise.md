@@ -1,3 +1,12 @@
+---
+kind: process
+stage: noise
+menu: Process > Noise Reduction > Patch PCA Denoise Filter
+summary: >-
+  Reduces noise by projecting groups of similar patches onto their principal components and dropping the weakest ones.
+data_in: linear
+derived: true
+---
 # Patch PCA Denoise
 
 ## Purpose and expected result

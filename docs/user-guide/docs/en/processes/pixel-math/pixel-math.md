@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Process > Pixel Math > Pixel Math
+summary: >-
+  Computes images from expressions over open images, coordinates and constants, evaluated for every sample.
+data_out: nonlinear
+---
 # Pixel Math
 
 <!-- MEDIA_SLOT: UG-MEDIA-096 -->

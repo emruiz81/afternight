@@ -28,12 +28,15 @@ on:
       - 'src/AfterNightControls/app/DesktopUtils.h'
       - 'src/AfterNightControls/app/MenuActionManager.*'
       - 'src/AfterNightControls/controls/DashboardIdentityBar.*'
+      - 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp'
 
   push:
     branches: [main]
     paths:
       - 'docs/user-guide/**'
       - 'build/scripts/tools/check_user_guide.py'
+      - 'src/AfterNightControls/app/AfterNightAppUiBuilder.h'
+      - 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp'
       - '.github/workflows/docs.yml'
 
   workflow_call:
@@ -109,12 +112,16 @@ jobs:
       - name: Build documentation
         run: mkdocs build -f docs/user-guide/mkdocs.yml --strict
 
-      # The strict build holds the pages' links; the check holds what the built site references, which is what the
-      # installers bundle and Help opens from disk.
+      # The strict build holds the pages' links; the check holds each page's front matter against the guide's data and
+      # the application's menus, and what the built site references, which is what the installers bundle and Help
+      # opens from disk. The registry and the UI builder are read for the menus, so a change to either runs this.
+      - name: Test the guide model
+        run: python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"
+
       - name: Test the guide check
         run: python build/scripts/tools/check_user_guide_test.py
 
-      - name: Check the built guide
+      - name: Check the guide and the built site
         run: python build/scripts/tools/check_user_guide.py --site docs/user-guide/site
 
       - name: Upload docs site artifact

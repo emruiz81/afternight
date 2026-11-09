@@ -1,3 +1,12 @@
+---
+kind: process
+stage: any
+menu: Process > Intensity Transformations > Binarize
+summary: >-
+  Sets every sample to the highest or the lowest value of its type, depending on whether it reaches a threshold.
+data_in: either
+data_out: nonlinear
+---
 # Binarize
 
 ## Purpose and expected result

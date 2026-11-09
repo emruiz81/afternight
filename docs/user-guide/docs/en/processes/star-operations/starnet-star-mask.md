@@ -1,3 +1,12 @@
+---
+kind: process
+stage: noise
+menu: Process > Mask Generation > Starnet++ Star Mask
+summary: >-
+  Opens a star mask made by the separately installed StarNet2 tool beside the target, which stays unchanged.
+data_in: linear
+derived: true
+---
 # StarNet++ Star Mask
 
 <!-- MEDIA_SLOT: UG-MEDIA-080 -->

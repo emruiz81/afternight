@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Image > Sequence > Extract Sequence
+summary: >-
+  Creates a new sequence from a contiguous range of frames of the active sequence.
+data_in: either
+---
 # Extract Sequence
 
 ## Purpose and expected result

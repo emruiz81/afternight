@@ -1,3 +1,12 @@
+---
+kind: process
+stage: calibrate
+menu: Process > Color Spaces > Split CFA
+summary: >-
+  Opens the positional planes of a Bayer mosaic as separate grayscale images or sequences, including red, averaged
+  green and Ha-oriented extractions.
+data_in: cfa
+---
 # Split CFA
 
 ## Purpose and expected result

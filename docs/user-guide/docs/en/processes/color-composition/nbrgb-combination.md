@@ -1,3 +1,13 @@
+---
+kind: process
+stage: color
+menu: Process > Color Spaces > NBRGB Combination
+summary: >-
+  Adds the line signal of up to three narrowband masters to the red, green and blue channels of a broadband RGB image,
+  after removing their continuum.
+data_in: linear
+data_out: nonlinear
+---
 # NBRGB Combination
 
 ## Purpose and expected result
