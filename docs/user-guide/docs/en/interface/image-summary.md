@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  A readable report of the active image's or sequence's metadata, dimensions and format, ready to copy.
+---
 # Image And Sequence Summary
 
 ## Purpose, audience, prerequisites, and expected result

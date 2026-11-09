@@ -1,3 +1,6 @@
+---
+kind: home
+---
 # AfterNight Documentation
 
 ## Purpose, audience, prerequisites, and expected result

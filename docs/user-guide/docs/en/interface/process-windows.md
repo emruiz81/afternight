@@ -1,3 +1,9 @@
+---
+kind: interface
+summary: >-
+  How a process window works: its target, its parameters, the real-time preview and its Reset, Close and Apply
+  buttons.
+---
 # Process Windows
 
 ![Non-Local Bayes process window with target parameters, a live preview area, and standard actions](../assets/images/interface/process-windows.png)

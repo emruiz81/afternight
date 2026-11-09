@@ -1,3 +1,13 @@
+---
+kind: process
+stage: stretch
+menu: Process > Intensity Transformations > ArcSinh Stretch
+summary: >-
+  Lifts faint linear signal with an inverse hyperbolic sine transfer that compresses the highlights and keeps the
+  color ratios of an RGB image.
+data_in: linear
+data_out: nonlinear
+---
 # ArcSinh Stretch
 
 ## Purpose and expected result

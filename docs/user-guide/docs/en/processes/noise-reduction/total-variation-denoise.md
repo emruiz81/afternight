@@ -1,3 +1,11 @@
+---
+kind: process
+stage: noise
+menu: Process > Noise Reduction > Total Variation Denoise Filter
+summary: >-
+  Reduces noise while keeping strong edges, by finding a piecewise-smooth image close to the source.
+data_in: either
+---
 # Total Variation Denoise
 
 ## Purpose and expected result

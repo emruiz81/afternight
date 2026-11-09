@@ -1,3 +1,12 @@
+---
+kind: process
+stage: calibrate
+menu: Process > Preprocess > Image Calibration
+summary: >-
+  Subtracts bias and dark signal from light frames and divides them by a flat, so that each frame records the sky
+  rather than the sensor.
+data_in: linear
+---
 # Image Calibration
 
 ## Purpose and expected result

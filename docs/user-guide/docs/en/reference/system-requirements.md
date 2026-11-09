@@ -1,3 +1,9 @@
+---
+kind: reference
+summary: >-
+  What a computer needs to run AfterNight, which optional software a workflow uses, and how much memory and disk a
+  project takes.
+---
 # System Requirements
 
 ## Purpose, scope, audience, prerequisites, expected result, and authority

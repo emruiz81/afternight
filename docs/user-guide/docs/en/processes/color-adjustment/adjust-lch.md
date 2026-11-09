@@ -1,3 +1,12 @@
+---
+kind: process
+stage: finish
+menu: Process > Adjustments > Lightness/Chroma/Hue
+summary: >-
+  Adjusts the perceptual lightness, chroma and hue of an RGB image in the CIE LCh model.
+data_in: nonlinear
+data_out: nonlinear
+---
 # Adjust LCh
 
 ## Purpose and expected result

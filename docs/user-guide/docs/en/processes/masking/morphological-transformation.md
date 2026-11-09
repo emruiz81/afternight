@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Process > Morphology > Morphological Transformation
+summary: >-
+  Grows or shrinks bright and dark structures by replacing each sample with a local minimum, maximum or other rank.
+data_in: either
+---
 # Morphological Transformation
 
 <!-- MEDIA_SLOT: UG-MEDIA-102 -->

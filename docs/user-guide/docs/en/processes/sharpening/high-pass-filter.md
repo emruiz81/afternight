@@ -1,3 +1,10 @@
+---
+kind: process
+stage: finish
+menu: Process > Details > High Pass
+summary: >-
+  Replaces the image with a neutral detail layer: the source minus its Gaussian blur, centered on half of full scale.
+---
 # High Pass Filter
 
 ## Purpose and expected result

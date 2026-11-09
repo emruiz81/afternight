@@ -1,3 +1,8 @@
+---
+kind: reference
+summary: >-
+  Every keyboard shortcut AfterNight defines, by window and context.
+---
 # Keyboard Shortcuts
 
 ## Purpose, scope, audience, prerequisites, expected result, and authority

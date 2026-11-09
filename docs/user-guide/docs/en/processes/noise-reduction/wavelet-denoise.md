@@ -1,3 +1,13 @@
+---
+kind: process
+stage: noise
+menu: Process > Noise Reduction > Wavelet Denoise Filter
+summary: >-
+  Reduces noise by thresholding Haar-wavelet coefficients against a robust noise estimate and averaging several
+  shifted reconstructions.
+data_in: either
+derived: true
+---
 # Wavelet Denoise
 
 <!-- MEDIA_SLOT: UG-MEDIA-061 -->

@@ -1,3 +1,12 @@
+---
+kind: process
+stage: finish
+menu: Process > Details > Multiscale Alpha Sharpen
+summary: >-
+  Sharpens at several scales by raising the opacity of detail layers and compositing them back over the base image,
+  with G'MIC.
+derived: true
+---
 # Sharpen Alpha
 
 ## Purpose and expected result

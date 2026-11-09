@@ -1,3 +1,14 @@
+---
+kind: process
+stage: color
+menu: Process > Background Modelization > Auto Gradient Removal
+summary: >-
+  Estimates the large-scale background without a sample grid, then subtracts it from a linear master or divides the
+  master by it, to remove gradients.
+data_in: linear
+data_out: linear
+derived: true
+---
 # Auto Gradient Removal
 
 <!-- MEDIA_SLOT: UG-MEDIA-078 -->

@@ -1,3 +1,8 @@
+---
+kind: tutorial
+summary: >-
+  What AfterNight shows the first time it starts, and how to take your first steps from the Dashboard.
+---
 # First Launch
 
 ![Fresh-profile Dashboard with onboarding, start cards, quick actions, and the image drop zone](../assets/images/interface/hero-screenshot.png)

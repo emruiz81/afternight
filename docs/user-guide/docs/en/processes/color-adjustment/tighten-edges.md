@@ -1,3 +1,12 @@
+---
+kind: process
+stage: finish
+menu: Process > Morphology > Tighten Edges
+summary: >-
+  Darkens samples in proportion to their local edge strength, hardening the edges of bright structures.
+data_in: either
+data_out: either
+---
 # Tighten Edges
 
 ## Purpose and expected result

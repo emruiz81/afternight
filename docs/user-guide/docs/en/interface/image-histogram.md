@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  Shows the distribution of an image's values, channel by channel, with clipping and resolution controls.
+---
 # Histogram Analysis
 
 ![Histogram Analysis with RGB distributions, clipping readouts, plot tools, and an 8-bit resolution selector](../assets/images/interface/image-histogram.png)

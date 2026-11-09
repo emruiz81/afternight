@@ -1,3 +1,14 @@
+---
+kind: process
+stage: stack
+menu: Process > Preprocess > Image Integration
+summary: >-
+  Runs the whole preprocessing workflow, from calibration masters through registration, normalization and rejection,
+  to stacked linear masters and a report.
+data_in: linear
+data_out: linear
+derived: true
+---
 # Image Integration
 
 <!-- MEDIA_SLOT: UG-MEDIA-114 -->

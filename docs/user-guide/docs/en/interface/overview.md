@@ -1,3 +1,9 @@
+---
+kind: interface
+summary: >-
+  A map of AfterNight's main surfaces, the Dashboard and the image workspace, and of why an action is available or
+  not.
+---
 # Interface Overview
 
 ## Purpose, audience, prerequisites, and expected result

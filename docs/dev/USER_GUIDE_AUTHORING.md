@@ -23,17 +23,18 @@ verified, what a complete page contains, how it is written and how its media is 
 
 1. [Layout](#layout)
 2. [Building](#building)
-3. [Offline site, packaging and publication](#offline-site-packaging-and-publication)
-4. [Sources of truth](#sources-of-truth)
-5. [Verifying in the application](#verifying-in-the-application)
-6. [Page kinds and templates](#page-kinds-and-templates)
-7. [What a complete page contains](#what-a-complete-page-contains)
-8. [Writing style](#writing-style)
-9. [Media](#media)
-10. [Naming other programs](#naming-other-programs)
-11. [Scope of a change](#scope-of-a-change)
-12. [Definition of done](#definition-of-done)
-13. [Checks](#checks)
+3. [Page metadata](#page-metadata)
+4. [Offline site, packaging and publication](#offline-site-packaging-and-publication)
+5. [Sources of truth](#sources-of-truth)
+6. [Verifying in the application](#verifying-in-the-application)
+7. [Page kinds and templates](#page-kinds-and-templates)
+8. [What a complete page contains](#what-a-complete-page-contains)
+9. [Writing style](#writing-style)
+10. [Media](#media)
+11. [Naming other programs](#naming-other-programs)
+12. [Scope of a change](#scope-of-a-change)
+13. [Definition of done](#definition-of-done)
+14. [Checks](#checks)
 
 ## Layout
 
@@ -43,6 +44,8 @@ verified, what a complete page contains, how it is written and how its media is 
 | `docs/user-guide/requirements.in` | The direct pins of the documentation toolchain. |
 | `docs/user-guide/requirements.txt` | The resolved lock, with hashes, generated from `requirements.in`. |
 | `docs/user-guide/docs/en/` | The English pages; `mkdocs.yml` names this directory `docs_dir`. |
+| `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)). |
+| `docs/user-guide/hooks/` | `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the guide's hooks and `check_user_guide.py` share; its tests beside it. |
 | `docs/user-guide/docs/en/assets/images/` | Committed screenshots and example images. |
 | `docs/user-guide/docs/en/assets/javascripts/` | The vendored MathJax runtime with its fonts and configuration, the Mermaid runtime, and the polyfills the site loads locally. |
 | `docs/user-guide/docs/en/stylesheets/extra.css` | The site's style overrides. |
@@ -77,13 +80,61 @@ mkdocs serve -f docs/user-guide/mkdocs.yml
 
 - The strict build is the gate every change passes. It turns each warning, such as a link to a missing page or
   anchor, into a failure. It proves the site's structure, not what a page says.
-- A new page is listed under `nav:` in `mkdocs.yml`. The audit reads the navigation to decide which pages it checks.
+- A new page is listed under `nav:` in `mkdocs.yml` and opens with front matter ([Page metadata](#page-metadata));
+  `check_user_guide.py` holds both.
 - The toolchain changes in `requirements.in`. Regenerate the lock with pip-tools, run the strict build, and commit
   both files together; the lock is never edited by hand:
 
   ```bash
   python -m piptools compile --generate-hashes --output-file docs/user-guide/requirements.txt docs/user-guide/requirements.in
   ```
+
+## Page metadata
+
+Every page opens with YAML front matter that states what the guide's theme and checks need to know about it. MkDocs
+reads it and keeps it out of the rendered page. `docs/user-guide/hooks/guide_model.py` holds its schema, which the
+guide's hooks and `check_user_guide.py` share, so the build and the check read one definition.
+
+```yaml
+---
+kind: process
+stage: stretch
+menu: Process > Intensity Transformations > Histogram Transformation
+summary: >-
+  Maps the image through a shadows, midtones and highlights transfer, the controlled step from a linear master to a
+  visible picture.
+data_in: linear
+data_out: nonlinear
+---
+```
+
+| Key | Pages | Value |
+| --- | --- | --- |
+| `kind` | Every page | `home`, `catalog`, `process`, `interface`, `tutorial`, `workflow` or `reference`. It picks the page's layout and the rules it is held to. |
+| `summary` | Every page but the home page | One sentence of at most 40 words saying what the page is for. |
+| `stage` | Process | The stage of `data/stages.yml` where the process belongs. |
+| `stages` | Workflow; a tutorial that walks through part of the pipeline | The stages it spans, in pipeline order. |
+| `menu` | Process; any other page may state it | The menu path as the application shows it, with ` > ` between the levels, or a list of paths. |
+| `data_in`, `data_out` | Process | `linear`, `nonlinear`, `either` or `cfa`: the state the process expects, and the state its result is recorded in. Stated only where the page establishes it. |
+| `derived` | Process | `true` when the process's result is computed, in whole or in part, by another project's code, by a bundled upstream library such as G'MIC, or by an external tool or service, or needs licensed data. The page credits that work ([Naming other programs](#naming-other-programs)). |
+| `needs` | Tutorial, workflow | What it needs from outside AfterNight; an empty list when nothing. |
+| `destructive`, `preview`, `sequences`, `masks`, `external`, `glance`, `controls_ignore` | Process | What the page's "At a glance" shows, and the window's controls the page leaves out on purpose. Stated when the page is rewritten on the new templates. |
+| `hero`, `notice`, `paths`, `popular`; `reach` | Home; catalog | The data those pages are drawn from. |
+| `rewritten` | Every page | `true` once the page is rewritten on the new templates. |
+
+- **One source per fact.** An unknown key is an error. A fact that has a source of its own is not repeated in front
+  matter: the title is the page's H1 and its nav label, the category is its nav group, related pages are links in its
+  text, and its length budgets belong to the guide's limits. Duplicated facts drift.
+- **Stages.** `docs/user-guide/data/stages.yml` lists the stages of the pipeline in order - Calibrate, Register, Stack,
+  Gradients & color, Noise & stars, Stretch, Finish - and Any time last, for the tools no one stage owns. Each has a
+  short description and a hue for each theme, readable at 4.5:1 or better on the backgrounds it is drawn on. A process
+  page's stage is its own, not its menu category's: most noise reduction, StarNet and Star Mask work on linear data
+  before the stretch, and their pages say so, so a stage per category would teach the wrong order.
+- **Menus.** `check_user_guide.py` reads the application's menus from `AfterNightAppUiBuilder.h` and its registered
+  actions from `ProcessRegistryBuiltins.cpp`. Every `menu` path a page states must exist. A path may name a submenu,
+  which covers every action under it, as the Non-Interactive Processes page names the submenus of immediate actions.
+  Every registered action, and every other action of the Process menu, must sit on some page's `menu`, so a process
+  cannot ship without a page.
 
 ## Offline site, packaging and publication
 
@@ -379,11 +430,23 @@ Run from the repository root:
 | Command | Checks |
 | --- | --- |
 | `build\scripts\msvc\build_user_guide_docs.bat`, `build/scripts/linux/build_user_guide_docs.sh` | The strict build from the lock. |
-| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` | What the built site references; `docs.yml` runs both after the strict build. |
+| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the model's `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths and images, and what the built site references; `docs.yml` runs all three after the strict build. |
 | `node build/scripts/render_user_guide.cjs --offline` | What a reader sees in the copy the installers bundle; the script's header gives its setup, which keeps its Node packages and browsers outside the repository. |
 
-`check_user_guide.py` prints each finding as `path:line: Rnn message`, then a count per rule, and exits 1 on any
-error. Rule R1 holds the built site: every relative reference in its pages and stylesheets names a file inside the
+`check_user_guide.py` reads the guide through `guide_model.py`, which needs PyYAML, so it runs with the documentation
+toolchain's Python: `docs\user-guide\.venv\Scripts\python` on Windows and `docs/user-guide/.venv/bin/python` on
+Linux, the environment the build helper makes. It prints each finding as `path:line: Rnn message`, then a count per
+rule and what it read, and exits 1 on any error. `--page <page>` holds only the pages named; the parts that need the
+whole guide - nav entries, menu coverage and unused images - then do not run.
+
+- R2 holds each page's front matter to its schema and the stage ids to `data/stages.yml`.
+- R3 holds every page to the nav and to exactly one H1, and every nav entry to a page.
+- R4 holds the `menu` paths to the application's menus, and every registered action, and every other action of the
+  Process menu, to some page's `menu` ([Page metadata](#page-metadata)).
+- R5 holds every image a page shows to a file spelled in its own case, and warns about an image under
+  `assets/images` that no page, `README.md`, logo or favicon shows.
+
+Rule R1 holds the built site: every relative reference in its pages and stylesheets names a file inside the
 site, spelled in the file's own case, and nothing the site loads comes from the network; a link a reader follows may
 lead anywhere. A folder does not count as a file, because a browser opened from disk lists a folder instead of
 opening its `index.html`, and a root-relative reference is refused, because it breaks from disk. The exception is

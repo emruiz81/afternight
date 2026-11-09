@@ -1,3 +1,8 @@
+---
+kind: reference
+summary: >-
+  The terms the guide uses for acquisition, calibration, processing, geometry, file formats and extensions.
+---
 # Glossary
 
 ## Purpose, scope, audience, prerequisites, expected result, and authority

@@ -1,3 +1,9 @@
+---
+kind: reference
+summary: >-
+  Where to start when AfterNight does not start, an action is unavailable or a result looks wrong: find the symptom,
+  then its fix.
+---
 # Troubleshooting And Diagnostics
 
 ## Purpose, scope, audience, prerequisites, expected result, and authority

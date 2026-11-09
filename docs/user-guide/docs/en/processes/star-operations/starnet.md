@@ -1,3 +1,14 @@
+---
+kind: process
+stage: noise
+menu: Process > Star Processing > Starnet++
+summary: >-
+  Removes the stars from an image with the separately installed StarNet2 tool, and opens the starless result and, if
+  you ask, the stars.
+data_in: linear
+data_out: nonlinear
+derived: true
+---
 # Starnet++
 
 <!-- MEDIA_SLOT: UG-MEDIA-080 -->

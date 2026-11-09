@@ -1,3 +1,12 @@
+---
+kind: process
+stage: any
+menu: Process > Geometry > Rotate
+summary: >-
+  Rotates an image, or every frame of a sequence, about its center by up to 180 degrees, optionally growing or
+  cropping the canvas.
+data_in: either
+---
 # Rotate
 
 ## Purpose and expected result

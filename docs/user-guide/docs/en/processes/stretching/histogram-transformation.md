@@ -1,3 +1,13 @@
+---
+kind: process
+stage: stretch
+menu: Process > Intensity Transformations > Histogram Transformation
+summary: >-
+  Maps the image through a shadows, midtones and highlights transfer, the controlled step from a linear master to a
+  visible picture.
+data_in: linear
+data_out: nonlinear
+---
 # Histogram Transformation
 
 <!-- MEDIA_SLOT: UG-MEDIA-054 -->

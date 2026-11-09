@@ -1,3 +1,17 @@
+---
+kind: process
+stage: any
+menu:
+  - Image > Actions
+  - Image > Extract Channel
+  - Image > Convert Format
+  - Image > Fast Geometry
+  - Image > Mask
+  - Image > Sequence
+  - Process > Adjustments
+summary: >-
+  The actions of the Image and Process menus that run at once, without a parameter window, and what each one does.
+---
 # Non-Interactive Processes
 
 ## Purpose and expected result
