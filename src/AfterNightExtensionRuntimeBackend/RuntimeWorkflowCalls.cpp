@@ -647,8 +647,10 @@ struct AlignedFrame
     request.width = canvas.width;
     request.height = canvas.height;
     request.canvasOrigin = canvas.origin;
+    // The warp writes only where the frame reaches, so the zeroed frame holds zero wherever it does not; the clamp
+    // border continues the frame's edge sample past its edge, where a step to zero would ring.
     request.sampling = an::SamplingKernelParameters{.interpolation = interpolation,
-                                                    .border = an::KernelBorderMode::Constant,
+                                                    .border = an::KernelBorderMode::Clamp,
                                                     .invalid = an::SamplingInvalidPolicy::RequireAll};
     an::Result<an::RegistrationWarpPlan> plan =
         an::planRegistrationWarp(*descriptor, transform, an::SipDistortion{}, request);

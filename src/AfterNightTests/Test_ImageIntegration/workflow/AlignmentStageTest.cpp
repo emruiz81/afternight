@@ -30,6 +30,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -187,6 +189,79 @@ TEST_F(LightsAlignmentTest, EachRegisteredLightIsWarpedOntoTheReferenceAndPublis
         }
     }
     EXPECT_TRUE(recorded);
+}
+
+// A light registered a fractional shift from its reference - 4.3 pixels across and 2.6 up - is written as zero where it
+// does not reach: the three rows whose position on the light lies before its first row and the four columns whose
+// position lies past its last column. Where it reaches, its edge holds the sky the reference holds there, which carries
+// the same stars' light and falls toward the frame's edge with it: the warp reads the light's own edge sample past it
+// rather than a step to zero, which the Lanczos-4 kernel the alignment samples with would ring on - the first row it
+// reaches an eighth too bright, the last column a quarter too dark.
+TEST_F(LightsAlignmentTest, ARegisteredLightHoldsNothingWhereItDoesNotReachAndItsSkyToItsEdge)
+{
+    registerTranslatedPair(4.3, -2.6);
+    const StageResult result = align();
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    const auto written = readWrittenImage(registeredPath(m_lightPath));
+    ASSERT_TRUE(written.has_value());
+    const an::tests::fixtures::FixtureSamples& samples = written->samples;
+    const std::uint32_t width = samples.width();
+    const std::uint32_t height = samples.height();
+    ASSERT_EQ(width, an::tests::integration::kStarFieldWidth);
+    ASSERT_EQ(height, an::tests::integration::kStarFieldHeight);
+
+    // The reference's pixel (x, y) is the light's (x + 4.3, y - 2.6).
+    const auto reached = [width](std::uint32_t x, std::uint32_t y) { return y >= 3u && x + 4u < width; };
+    std::uint32_t wrong = 0u;
+    std::string first;
+    for (std::uint32_t y = 0u; y < height; ++y)
+    {
+        for (std::uint32_t x = 0u; x < width; ++x)
+        {
+            const double value = samples.value(x, y, 0u);
+            if (reached(x, y) ? !(std::isfinite(value) && value != 0.0) : value != 0.0)
+            {
+                if (wrong++ == 0u)
+                {
+                    first = "(" + std::to_string(x) + ", " + std::to_string(y) + ") holds " + std::to_string(value);
+                }
+            }
+        }
+    }
+    EXPECT_EQ(wrong, 0u) << first;
+
+    const auto median = [](std::vector<double> values) {
+        std::nth_element(values.begin(), values.begin() + static_cast<std::ptrdiff_t>(values.size() / 2u),
+                         values.end());
+        return values[values.size() / 2u];
+    };
+    const auto reference = readWrittenImage(m_referencePath);
+    ASSERT_TRUE(reference.has_value());
+    const an::tests::fixtures::FixtureSamples& sky = reference->samples;
+    ASSERT_EQ(sky.width(), width);
+    ASSERT_EQ(sky.height(), height);
+    for (const std::uint32_t y : {3u, 4u})
+    {
+        std::vector<double> registered;
+        std::vector<double> held;
+        for (std::uint32_t x = 10u; x < width - 10u; ++x)
+        {
+            registered.push_back(samples.value(x, y, 0u));
+            held.push_back(sky.value(x, y, 0u));
+        }
+        EXPECT_NEAR(median(registered) / median(held), 1.0, 0.02) << "row " << y;
+    }
+    for (const std::uint32_t x : {width - 6u, width - 5u})
+    {
+        std::vector<double> registered;
+        std::vector<double> held;
+        for (std::uint32_t y = 10u; y < height - 10u; ++y)
+        {
+            registered.push_back(samples.value(x, y, 0u));
+            held.push_back(sky.value(x, y, 0u));
+        }
+        EXPECT_NEAR(median(registered) / median(held), 1.0, 0.02) << "column " << x;
+    }
 }
 
 TEST_F(LightsAlignmentTest, AWideRunPublishesWhatOneLightAtATimePublishes)

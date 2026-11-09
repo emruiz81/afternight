@@ -111,8 +111,10 @@ readRegistrationImage(const an::consumer::OperationScope& scope, const an::Codec
                       const an::ui::processes::RegistrationDemosaic& demosaic);
 
 /// A registered frame warped onto a plane: sampled through its transform with its source distortion undone first, zero
-/// where the frame does not reach, its description restated onto the plane, and its cards the source's but its world
-/// coordinates - the plane's take their place when the plane is solved, and the frame carries none otherwise.
+/// wherever its position on the frame lies off the frame's pixels, its edge read from the frame's own edge sample past
+/// it rather than from a step to zero an interpolation would ring on, its description restated onto the plane, and its
+/// cards the source's but its world coordinates - the plane's take their place when the plane is solved, and the frame
+/// carries none otherwise.
 ///
 /// @param scope the caller's admitted operation.
 /// @param source the frame, as `readRegistrationImage` read it.

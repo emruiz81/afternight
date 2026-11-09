@@ -3120,11 +3120,15 @@ template <KernelInterpolation InterpolationT> struct SamplingRule
 /// warp that does not renormalize runs through the compiled row the execution's CPU table offers,
 /// which sums each window one source row at a time - and resolves a Lanczos-4 window's weights from
 /// four quarter-angle sines - and is held to the kernel conformance bound instead.
+///
+/// With `withinSource`, a destination sample whose position lies off the source's pixels is left
+/// unwritten and its bit clear, and no window is read for it: the compiled rows stop at it as they
+/// stop at any window they cannot reach, and the walk below takes it.
 [[nodiscard]] Status runDirectFloatWarp(const ExecutionContext& execution, const void* source,
                                         const ImageLayout& sourceLayout, void* destination,
                                         const ImageLayout& destinationLayout, const GeometryPlan& plan,
                                         const ValidityMaskView<std::uint8_t>& destinationValidity,
-                                        GeometryResult& result)
+                                        GeometryResult& result, const bool withinSource)
 {
     const std::uint32_t sourceWidth = sourceLayout.extent().width();
     const std::uint32_t sourceHeight = sourceLayout.extent().height();
@@ -3167,15 +3171,17 @@ template <KernelInterpolation InterpolationT> struct SamplingRule
             return geometryFailure(ErrorCode::InvalidArgument, kTransformOperation,
                                    "the output mask does not cover the destination");
         }
-        // The compiled rows serve the cubic and Lanczos-4 interiors and wholly exterior constant-zero
-        // windows; partially overlapping windows, a whole-sample Lanczos-4 coordinate and other border
-        // rules use the reader below.
+        // The compiled rows serve the cubic and Lanczos-4 interiors and, when every destination sample
+        // is written, wholly exterior constant-zero windows; partially overlapping windows, a
+        // whole-sample Lanczos-4 coordinate, other border rules and a position off the source's pixels
+        // use the reader below.
         const WarpRowParameters rowParameters{.source = sourcePlane,
                                               .destinationToSource = matrix.data(),
                                               .sourceRowStride = sourceLayout.rowStrideBytes() / sizeof(float),
                                               .sourceWidth = static_cast<std::int64_t>(sourceWidth),
                                               .sourceHeight = static_cast<std::int64_t>(sourceHeight),
-                                              .constantZeroBorder = sampling.border == KernelBorderMode::Constant &&
+                                              .constantZeroBorder = !withinSource &&
+                                                                    sampling.border == KernelBorderMode::Constant &&
                                                                     sampling.constantBorder == 0.0f};
         WarpCubicRowRunFn compiledRow = nullptr;
         if (sampling.invalid != SamplingInvalidPolicy::Renormalize)
@@ -3224,6 +3230,8 @@ template <KernelInterpolation InterpolationT> struct SamplingRule
                     const double m6 = matrix[6];
                     const double m7 = matrix[7];
                     const double m8 = matrix[8];
+                    const std::uint32_t frameWidth = sourceWidth;
+                    const std::uint32_t frameHeight = sourceHeight;
                     const float* const sourceSamples = sourcePlane;
                     const std::uint64_t sourceStride = sourceRowStride;
                     const std::uint32_t width = destinationWidth;
@@ -3291,50 +3299,56 @@ template <KernelInterpolation InterpolationT> struct SamplingRule
                             const double denominator = m6 * column + rowDenominator + m8;
                             const double sourceX = (m0 * column + rowNumeratorX + m2) / denominator;
                             const double sourceY = (m3 * column + rowNumeratorY + m5) / denominator;
-                            const std::int64_t firstColumn =
-                                reference_detail::samplingTaps<InterpolationT>(sourceX, xWeights.data());
-                            const std::int64_t firstRow =
-                                reference_detail::samplingTaps<InterpolationT>(sourceY, yWeights.data());
                             float value = 0.0f;
                             bool valid = false;
-                            if (firstColumn >= 0 && firstRow >= 0 && firstColumn <= lastColumn && firstRow <= lastRow)
+                            // A position off the source's pixels is no sample of the source when only its
+                            // pixels are written, whatever the border rule would read there.
+                            if (!withinSource || liesOnPlanePixels(sourceX, sourceY, frameWidth, frameHeight))
                             {
-                                // Every tap of this window is inside the source and the source admits
-                                // every value, so the two questions the general reader asks per tap -
-                                // which index a border rule resolves it to, and whether the validity
-                                // rule accepts it - have one answer for the whole window.
-                                double weighted = 0.0;
-                                double acceptedWeight = 0.0;
-                                const float* line = sourceSamples +
-                                                    static_cast<std::uint64_t>(firstRow) * sourceStride +
-                                                    static_cast<std::uint64_t>(firstColumn);
-                                for (std::uint32_t yTap = 0u; yTap < kTaps; ++yTap)
+                                const std::int64_t firstColumn =
+                                    reference_detail::samplingTaps<InterpolationT>(sourceX, xWeights.data());
+                                const std::int64_t firstRow =
+                                    reference_detail::samplingTaps<InterpolationT>(sourceY, yWeights.data());
+                                if (firstColumn >= 0 && firstRow >= 0 && firstColumn <= lastColumn &&
+                                    firstRow <= lastRow)
                                 {
-                                    for (std::uint32_t xTap = 0u; xTap < kTaps; ++xTap)
+                                    // Every tap of this window is inside the source and the source admits
+                                    // every value, so the two questions the general reader asks per tap -
+                                    // which index a border rule resolves it to, and whether the validity
+                                    // rule accepts it - have one answer for the whole window.
+                                    double weighted = 0.0;
+                                    double acceptedWeight = 0.0;
+                                    const float* line = sourceSamples +
+                                                        static_cast<std::uint64_t>(firstRow) * sourceStride +
+                                                        static_cast<std::uint64_t>(firstColumn);
+                                    for (std::uint32_t yTap = 0u; yTap < kTaps; ++yTap)
                                     {
-                                        const double weight = xWeights[xTap] * yWeights[yTap];
-                                        if (weight == 0.0)
+                                        for (std::uint32_t xTap = 0u; xTap < kTaps; ++xTap)
                                         {
-                                            // Skipped rather than added, for the reason the general
-                                            // reader gives: a zero weight against a non-finite sample
-                                            // is a not-a-number.
-                                            continue;
+                                            const double weight = xWeights[xTap] * yWeights[yTap];
+                                            if (weight == 0.0)
+                                            {
+                                                // Skipped rather than added, for the reason the general
+                                                // reader gives: a zero weight against a non-finite sample
+                                                // is a not-a-number.
+                                                continue;
+                                            }
+                                            weighted += weight * static_cast<double>(line[xTap]);
+                                            acceptedWeight += weight;
                                         }
-                                        weighted += weight * static_cast<double>(line[xTap]);
-                                        acceptedWeight += weight;
+                                        line += sourceStride;
                                     }
-                                    line += sourceStride;
+                                    if (std::abs(acceptedWeight) > std::numeric_limits<double>::epsilon())
+                                    {
+                                        value = static_cast<float>(renormalizes ? weighted / acceptedWeight : weighted);
+                                        valid = true;
+                                    }
                                 }
-                                if (std::abs(acceptedWeight) > std::numeric_limits<double>::epsilon())
+                                else
                                 {
-                                    value = static_cast<float>(renormalizes ? weighted / acceptedWeight : weighted);
-                                    valid = true;
+                                    valid = reference_detail::sampleInterpolated(
+                                        borderPlan, KernelCoordinate{.x = sourceX, .y = sourceY}, value);
                                 }
-                            }
-                            else
-                            {
-                                valid = reference_detail::sampleInterpolated(
-                                    borderPlan, KernelCoordinate{.x = sourceX, .y = sourceY}, value);
                             }
                             if (valid)
                             {
@@ -4105,8 +4119,15 @@ Result<GeometryResult> transformImageGeometry(const ExecutionContext& execution,
                                               const void* source, const ImageLayout& sourceLayout, void* destination,
                                               const ImageLayout& destinationLayout, const GeometryPlan& plan,
                                               const GeometrySelection& selection,
-                                              const ValidityMaskView<std::uint8_t>& destinationValidity)
+                                              const ValidityMaskView<std::uint8_t>& destinationValidity,
+                                              const WarpCoverage coverage)
 {
+    if (!isWarpCoverage(coverage))
+    {
+        return geometryFailure(ErrorCode::InvalidArgument, kTransformOperation,
+                               "a warp's coverage is the whole destination or the source's pixels");
+    }
+    const bool withinSource = coverage == WarpCoverage::SourcePixels;
     const Status ready = checkExecution(execution, sampleType, source, sourceLayout, destination, destinationLayout,
                                         plan, selection, destinationValidity);
     if (ready.failed())
@@ -4309,7 +4330,7 @@ Result<GeometryResult> transformImageGeometry(const ExecutionContext& execution,
                                  destinationLayout.extent().height()))
     {
         const Status warped = runDirectFloatWarp(execution, source, sourceLayout, destination, destinationLayout, plan,
-                                                 destinationValidity, answer);
+                                                 destinationValidity, answer, withinSource);
         if (warped.failed())
         {
             return warped;
@@ -4463,8 +4484,11 @@ Result<GeometryResult> transformImageGeometry(const ExecutionContext& execution,
                                         ? sampleAreaTabulated(sampling, tables.areaXAxes[x], tables.areaYAxes[y], value)
                                         : sampleTabulated(sampling, tables.xAxes[x], tables.yAxes[y], value);
                         }
-                        else
+                        else if (!withinSource || liesOnPlanePixels(coordinates[index].x, coordinates[index].y,
+                                                                    sourceWidth, sourceHeight))
                         {
+                            // Read only where the coverage takes the position: a rotation or a warp written
+                            // over the source's pixels alone leaves a position off them unwritten and invalid.
                             valid = areaResize
                                         ? reference_detail::sampleArea(sampling, static_cast<double>(x) * areaScaleX,
                                                                        static_cast<double>(y) * areaScaleY,
@@ -4549,6 +4573,16 @@ Result<GeometryResult> transformImageGeometry(const ExecutionContext& execution,
         answer.run.outputsWritten += valid;
     }
     return answer;
+}
+
+Result<GeometryResult> transformImageGeometry(const ExecutionContext& execution, SampleType sampleType,
+                                              const void* source, const ImageLayout& sourceLayout, void* destination,
+                                              const ImageLayout& destinationLayout, const GeometryPlan& plan,
+                                              const GeometrySelection& selection,
+                                              const ValidityMaskView<std::uint8_t>& destinationValidity)
+{
+    return transformImageGeometry(execution, sampleType, source, sourceLayout, destination, destinationLayout, plan,
+                                  selection, destinationValidity, WarpCoverage::WholeDestination);
 }
 
 } // namespace an

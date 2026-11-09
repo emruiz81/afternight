@@ -462,6 +462,12 @@ struct RegistrationWarpRequest
     PixelCoordinate canvasOrigin{};
 
     /// Interpolation, border and invalid-neighbour behavior.
+    ///
+    /// The warp writes only where the frame reaches (`warpRegisteredImage`), so the border rule
+    /// resolves only the taps of a position on the frame that fall outside it, near its edge.
+    /// `KernelBorderMode::Clamp` continues the frame's edge sample there; under
+    /// `KernelBorderMode::Constant` the interpolation reads a step from the frame to the constant,
+    /// which a cubic or Lanczos-4 kernel rings on for as many pixels as it reaches.
     SamplingKernelParameters sampling{.interpolation = KernelInterpolation::Linear,
                                       .border = KernelBorderMode::Constant,
                                       .invalid = SamplingInvalidPolicy::RequireAll};
@@ -596,7 +602,8 @@ struct RegistrationWarpResult
     /// What the coordinate map did, for a warp that needed one. Zero for the other routes.
     RegistrationMapReport mapping{};
 
-    /// Destination samples left unwritten because no source position mapped to them.
+    /// Destination samples left unwritten: those no source position mapped to and those whose
+    /// position lies off the frame, summed over channels.
     std::uint64_t unmappedSamples = 0u;
 };
 
@@ -609,6 +616,14 @@ struct RegistrationWarpResult
 /// through a per-tile coordinate map, which needs Float32 samples because that is what this
 /// engine's interpolating gather reads; another representation is refused by name so the caller
 /// converts through `Image/ImageConversion.h` and the copy shows up in a profile.
+///
+/// Every route writes a destination sample only where the frame reaches it: where the sample's
+/// position on the frame lies on the frame's pixels, from half a pixel before its first pixel
+/// centre up to, and not including, half a pixel past its last, on both axes. Every other sample
+/// keeps what the destination held, whatever the border rule - a position the interpolation could
+/// still reach from the frame's edge is no sample of the frame - so a canvas the caller zeroed holds
+/// zero exactly where the frame does not reach. The border rule resolves only the taps of a position
+/// on the frame that fall outside it.
 ///
 /// `destinationValidity` is required and is rewritten completely: a set bit means the warp wrote
 /// that sample, and every padding bit stays clear. Validation of layouts, policies and the plan

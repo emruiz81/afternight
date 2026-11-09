@@ -979,7 +979,10 @@ plan per light description. `Test_ImageIntegration` runs the stages through `Tes
 `stages/RegistrationFrames` is how both stages and the comet registration reach a light: `probeRegistrationFrame`
 reads its header (extent, filter, exposure start, its own `WcsSolution` and distortion), `readRegistrationImage` reads
 it as Float32 fractions calibrated by the master set and demosaiced, and `warpRegistrationFrame` resamples it onto a
-plane. The registration detects each frame in its own admitted operation with typed progress and fits star matching,
+plane: the engine's warp writes only where the light's pixels reach, so the plane holds exact zero wherever they do not,
+and reads the light's own edge sample past its edge (`KernelBorderMode::Clamp`) rather than a step to zero, which a
+cubic or Lanczos-4 kernel would ring on. The chromatic-aberration correction warps each channel the same way, and a
+channel keeps its own samples where, moved, it does not reach. The registration detects each frame in its own admitted operation with typed progress and fits star matching,
 phase correlation, control points and the comet track in engine pixel coordinates over the frames as they are,
 recording each transform at schema 5 as `ExplicitNone`; an unmatched frame is registered by sampling its solution - its
 cards or `PlateSolveService`'s answer - against the reference's. The stars are matched as the frames hold them, so a

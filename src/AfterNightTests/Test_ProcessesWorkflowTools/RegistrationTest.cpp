@@ -867,6 +867,117 @@ TEST_F(RegistrationTest, ACorrectionMovesTheRedAndBlueOntoTheGreenInMemory)
     EXPECT_LT(distanceToGreen(*frame, 2u), 0.2 * blueBefore);
 }
 
+// A channel the correction moves keeps its own samples where, moved, it does not reach, and its sky stays flat to the
+// frame's edge where it does. The red channel lies a pixel and a half to one side of the green and a pixel down, so
+// moved onto the green it does not reach the last column or the last row; the blue lies the other way and does not
+// reach the first. Near the edge the warp reads a channel's own edge sample past it, not a step to zero that Lanczos-4
+// rings on.
+TEST_F(RegistrationTest, ACorrectedChannelKeepsItsOwnSamplesWhereItDoesNotReachAndItsSkyToTheEdge)
+{
+    const StarField field = makeStarField(320u, 240u, 1u);
+    const auto shift = [](std::uint32_t channel) {
+        return channel == 0u ? std::pair{1.5, 1.0} : (channel == 2u ? std::pair{-1.5, -1.0} : std::pair{0.0, 0.0});
+    };
+    const auto sample = [&field, &shift](std::uint32_t x, std::uint32_t y, std::uint32_t c) {
+        const auto [dx, dy] = shift(c);
+        double value = field.background;
+        for (const PlantedStar& star : field.stars)
+        {
+            const double ddx = (static_cast<double>(x) + 0.5) - (star.x + dx);
+            const double ddy = (static_cast<double>(y) + 0.5) - (star.y + dy);
+            const double reach = star.sigma * 5.0;
+            if (std::abs(ddx) > reach || std::abs(ddy) > reach)
+            {
+                continue;
+            }
+            value += star.amplitude * std::exp(-(ddx * ddx + ddy * ddy) / (2.0 * star.sigma * star.sigma));
+        }
+        return value;
+    };
+    const QString path = temporaryPath(QStringLiteral("fringed.fits"));
+    ASSERT_TRUE(writeFrame(session(), path, field.width, field.height, 3u, an::SampleType::Float32, sample));
+    an::Result<an::Image<float>> frame = an::ui::processes::readRegistrationFrame(session(), path, {}, {});
+    ASSERT_TRUE(frame.hasValue()) << frame.status().message();
+    an::Result<an::Image<float>> original = frame->clone();
+    ASSERT_TRUE(original.hasValue()) << original.status().message();
+
+    an::Result<an::consumer::OperationScope> scope =
+        session().admit(an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch});
+    ASSERT_TRUE(scope.hasValue());
+    RegistrationSettings::ChromaticAberrationSettings correction;
+    correction.enabled = true;
+    correction.edgeFraction = 0.0;
+    correction.minMatchedStars = 3;
+    const an::Result<an::ui::processes::ChromaticCorrection> done = an::ui::processes::correctChromaticAberration(
+        scope->engine(), scope->execution(), *frame, correction,
+        an::ui::processes::registrationStarDetection(RegistrationSettings{}));
+    ASSERT_TRUE(done.hasValue()) << done.status().message();
+    ASSERT_TRUE(done->redApplied);
+    ASSERT_TRUE(done->blueApplied);
+
+    const auto corrected = std::as_const(*frame).view();
+    const auto before = std::as_const(*original).view();
+    ASSERT_TRUE(corrected.has_value() && before.has_value());
+    const std::uint32_t width = field.width;
+    const std::uint32_t height = field.height;
+    const auto at = [](const auto& view, std::uint32_t channel, std::uint32_t x, std::uint32_t y) {
+        return static_cast<double>((*view->row(channel, y))[x]);
+    };
+    // Where a moved channel does not reach: the red past the last column and row, the blue before the first.
+    std::uint32_t replaced = 0u;
+    for (std::uint32_t y = 0u; y < height; ++y)
+    {
+        replaced += at(corrected, 0u, width - 1u, y) != at(before, 0u, width - 1u, y) ? 1u : 0u;
+        replaced += at(corrected, 2u, 0u, y) != at(before, 2u, 0u, y) ? 1u : 0u;
+    }
+    for (std::uint32_t x = 0u; x < width; ++x)
+    {
+        replaced += at(corrected, 0u, x, height - 1u) != at(before, 0u, x, height - 1u) ? 1u : 0u;
+        replaced += at(corrected, 2u, x, 0u) != at(before, 2u, x, 0u) ? 1u : 0u;
+    }
+    EXPECT_EQ(replaced, 0u) << "samples a moved channel does not reach were replaced";
+
+    // Where a moved channel reaches near the edge, on sky no star's light reaches within the warp's window: the sky.
+    const auto skyAround = [&](std::uint32_t x, std::uint32_t y) {
+        for (std::uint32_t v = y < 5u ? 0u : y - 5u; v <= (std::min)(height - 1u, y + 5u); ++v)
+        {
+            for (std::uint32_t u = x < 5u ? 0u : x - 5u; u <= (std::min)(width - 1u, x + 5u); ++u)
+            {
+                if (sample(u, v, 1u) != field.background)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+    std::uint32_t judged = 0u;
+    double worst = 0.0;
+    for (std::uint32_t y = 0u; y < height; ++y)
+    {
+        for (std::uint32_t x = 0u; x < width; ++x)
+        {
+            const bool redEdge = x + 2u < width && y + 1u < height && (x + 6u >= width || y + 5u >= height);
+            const bool blueEdge = x >= 2u && y >= 1u && (x < 6u || y < 5u);
+            if ((!redEdge && !blueEdge) || !skyAround(x, y))
+            {
+                continue;
+            }
+            ++judged;
+            if (redEdge)
+            {
+                worst = (std::max)(worst, std::abs(at(corrected, 0u, x, y) - field.background));
+            }
+            if (blueEdge)
+            {
+                worst = (std::max)(worst, std::abs(at(corrected, 2u, x, y) - field.background));
+            }
+        }
+    }
+    EXPECT_GT(judged, 100u);
+    EXPECT_LT(worst, 1.0e-6 * field.background) << "the moved channels ring at the frame's edge";
+}
+
 // The red channel holds a dozen of the green channel's stars, moved a pixel and a half by the aberration, and half as
 // many again of its own, which the green does not see; the green holds as many of its own. Every red star pairs with a
 // green one, so the dozen are two fifths of the candidate pairs - twice the six the settings ask. A match of ten
@@ -1045,6 +1156,51 @@ TEST_F(RegistrationTest, AnAlignedFrameLandsOnTheReferenceAsFloat32)
     EXPECT_LT(worst, 1e-4);
     // The warp moves the pixels away from the solution the cards stated.
     EXPECT_FALSE(written->card("CRVAL1").has_value());
+}
+
+// A frame aligned a fractional shift from the reference - 4.3 pixels across and 2.6 up - is zero where it does not
+// reach: the three rows whose position on the frame lies before its first row and the four columns whose position lies
+// past its last column. Where it reaches, a flat sky stays flat to the frame's edge: the warp reads the frame's own
+// edge sample past it rather than a step to zero, which Lanczos-4 rings on.
+TEST_F(RegistrationTest, AnAlignedFrameHoldsNothingWhereItDoesNotReachAndItsSkyToItsEdge)
+{
+    constexpr std::uint32_t kWidth = 64u;
+    constexpr std::uint32_t kHeight = 48u;
+    const QString path = temporaryPath(QStringLiteral("flat.fits"));
+    ASSERT_TRUE(writeFlatFrame(session(), path, kWidth, kHeight, 1u, 0.07, an::SampleType::Float32));
+    an::Result<an::RegistrationTransform> transform = an::RegistrationTransform::create(
+        an::RegistrationTransformRequest{.linearKind = an::RegistrationTransformKind::Similarity,
+                                         .sourceToReference = {1.0, 0.0, -4.3, 0.0, 1.0, 2.6, 0.0, 0.0, 1.0}});
+    ASSERT_TRUE(transform.hasValue());
+    const QString aligned = an::ui::processes::alignedOutputPath(path, output());
+    ASSERT_TRUE(QDir().mkpath(output()));
+    const an::Status status = an::ui::processes::alignRegisteredFrame(
+        session(), path, *transform, an::SipDistortion{}, an::RegistrationCanvas{.width = kWidth, .height = kHeight},
+        an::KernelInterpolation::Lanczos4, {}, aligned, {});
+    ASSERT_TRUE(status.ok()) << status.message();
+    const std::optional<ReadBack> written = readBack(session(), aligned);
+    ASSERT_TRUE(written.has_value());
+    ASSERT_EQ(written->width, kWidth);
+    ASSERT_EQ(written->height, kHeight);
+    std::uint32_t wrong = 0u;
+    std::string first;
+    for (std::uint32_t y = 0u; y < kHeight; ++y)
+    {
+        for (std::uint32_t x = 0u; x < kWidth; ++x)
+        {
+            // The reference's pixel (x, y) is the frame's (x + 4.3, y - 2.6).
+            const bool reached = y >= 3u && x + 4u < kWidth;
+            const double value = written->at(x, y);
+            if (reached ? std::abs(value - 0.07) > 1.0e-6 : value != 0.0)
+            {
+                if (wrong++ == 0u)
+                {
+                    first = "(" + std::to_string(x) + ", " + std::to_string(y) + ") holds " + std::to_string(value);
+                }
+            }
+        }
+    }
+    EXPECT_EQ(wrong, 0u) << first;
 }
 
 TEST_F(RegistrationTest, AStoppedAlignmentLeavesNoFile)

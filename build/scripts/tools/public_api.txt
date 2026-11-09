@@ -1,4 +1,4 @@
-version 1.5.0 3
+version 1.6.0 3
 joining 2
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API OpticalHints readOpticalHints(std::span<const CodecCard> cards) noexcept
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API PointingKeywords pointingCardKeywords(PointingCards cards) noexcept
@@ -404,6 +404,7 @@ api engine Algorithms/Geometry/Geometry.h an [[nodiscard]] AFTERNIGHTENGINE_API 
 api engine Algorithms/Geometry/Geometry.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<GeometryPlan> planResize(const ImageDescriptor& source, const ResizeRequest& request)
 api engine Algorithms/Geometry/Geometry.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<GeometryPlan> planRotation(const ImageDescriptor& source, const RotationRequest& request)
 api engine Algorithms/Geometry/Geometry.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<GeometryResult> transformImageGeometry(const ExecutionContext& execution, SampleType sampleType, const void* source, const ImageLayout& sourceLayout, void* destination, const ImageLayout& destinationLayout, const GeometryPlan& plan, const GeometrySelection& selection, const ValidityMaskView<std::uint8_t>& destinationValidity)
+api engine Algorithms/Geometry/Geometry.h an [[nodiscard]] AFTERNIGHTENGINE_API Result<GeometryResult> transformImageGeometry(const ExecutionContext& execution, SampleType sampleType, const void* source, const ImageLayout& sourceLayout, void* destination, const ImageLayout& destinationLayout, const GeometryPlan& plan, const GeometrySelection& selection, const ValidityMaskView<std::uint8_t>& destinationValidity, WarpCoverage coverage)
 api engine Algorithms/Geometry/Geometry.h an::GeometryPlan [[nodiscard]] AFTERNIGHTENGINE_API GeometryOperation operation() const noexcept
 api engine Algorithms/Geometry/Geometry.h an::GeometryPlan [[nodiscard]] AFTERNIGHTENGINE_API ResizeRingingPolicy resizeRinging() const noexcept
 api engine Algorithms/Geometry/Geometry.h an::GeometryPlan [[nodiscard]] AFTERNIGHTENGINE_API const ImageDescriptor& destinationDescriptor() const noexcept
@@ -1750,6 +1751,7 @@ enum engine Algorithms/Geometry/Geometry.h an::IntegerRemainderPolicy RequireCom
 enum engine Algorithms/Geometry/Geometry.h an::IntegerResampleDirection Enlarge=0u Reduce=1u
 enum engine Algorithms/Geometry/Geometry.h an::ResizeRingingPolicy Keep=0u SuppressDarkRinging=1u
 enum engine Algorithms/Geometry/Geometry.h an::RotationCanvas Preserve=0u ExpandToFit=1u
+enum engine Algorithms/Geometry/Geometry.h an::WarpCoverage WholeDestination=0u SourcePixels=1u
 enum engine Algorithms/Kernel/Device.h an::DeviceDispatch Device Host
 enum engine Algorithms/Kernel/Device.h an::DeviceDispatchReason KernelSupported ExecutionConstrainedToHost KernelNotSupported
 enum engine Algorithms/Kernel/DeviceBackend.h an::KernelDeterminism Reproducible WithinAccuracy
@@ -2097,7 +2099,7 @@ header engine Algorithms/Drizzle/DrizzlePlanner.h e370a5245872bc5e
 header engine Algorithms/Drizzle/DrizzleSource.h afa9d59cbc2d4caa
 header engine Algorithms/Drizzle/DrizzleStackSource.h 98f94d98759e84f3
 header engine Algorithms/Drizzle/DrizzleStackWorkflow.h 3062a7b5ae5763d4
-header engine Algorithms/Geometry/Geometry.h 3e396e347e16e364
+header engine Algorithms/Geometry/Geometry.h 4065ad02d99c4adc
 header engine Algorithms/Kernel/Device.h 020d98cf317a24d4
 header engine Algorithms/Kernel/DeviceBackend.h 7feadacd3eedbc12
 header engine Algorithms/Kernel/DeviceChain.h 015697419f67882a
@@ -2230,7 +2232,7 @@ header engine Core/ImageLayout.h 19a9142333de7498
 header engine Core/LibraryInfo.h 1bfecceb973c07f1
 header engine Core/Result.h e0327ad962e10e4b
 header engine Core/Status.h a843439f21221219
-header engine Core/Version.h 09d4809167d1fa8c
+header engine Core/Version.h fc0f94351d6b7eb9
 header engine IO/ArtifactIdentity.h 66c96b929d36b24e
 header engine IO/AviSequence.h 595917f483188e5e
 header engine IO/CodecCapabilities.h daadf4c45a2db525

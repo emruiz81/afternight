@@ -122,10 +122,18 @@ than clamping it to the unit interval.
 
 A registered light and a light warped as the stack reads it come out of one function,
 `stage_utils::warpRegistrationFrame` (`RegistrationFrames.cpp`): the destination starts zeroed and
-a tap outside the source reads zero (`KernelBorderMode::Constant`, `constantBorder` 0), so what the
-frame does not reach is exact zero on both routes. The alignment stage publishes the warped image as
-a Float32 file (`publishWorkflowImage`) and the stack reads it back under `ZeroIsNoData`; the
-transform-on-read route hands the same image to the stack in memory under the same rule.
+the engine's warp writes only where the frame reaches - a destination sample whose position lies off
+the frame's pixels is left unwritten, whatever the border rule (`warpRegisteredImage`) - so what the
+frame does not reach is exact zero on both routes. Near its edge the warp reads the frame's own edge
+sample past it (`KernelBorderMode::Clamp`). Under a zero border a Lanczos-4 or bicubic kernel read a
+step from the frame to zero: it wrote a partial sum of the edge samples into the pixels just off the
+frame, which this rule took for data, and rang for up to four pixels inside the edge
+(`RegistrationPlanTest.AWarpWritesOnlyTheSamplesWhosePositionLiesOnTheFrame`,
+`LightsAlignmentTest.ARegisteredLightHoldsNothingWhereItDoesNotReachAndItsSkyToItsEdge`,
+`LightsStackingTest.WhereOneLightAloneReachesTheMasterIsThatLightsSample`). The alignment stage
+publishes the warped image as a Float32 file (`publishWorkflowImage`) and the stack reads it back
+under `ZeroIsNoData`; the transform-on-read route hands the same image to the stack in memory under
+the same rule.
 
 Neither route clamps the result - nothing in `RegistrationFrames.cpp`, `LightsAlignmentStage.cpp` or
 `StackFrameSources.cpp` does, and the Float32 file keeps what it was given - so the two cannot
