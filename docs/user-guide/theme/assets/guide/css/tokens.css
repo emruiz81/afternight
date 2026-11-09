@@ -1,0 +1,74 @@
+/* Design tokens. The site wears the application's own clothes: the neutrals and the action colour come
+   from AfterNightControls' AnDesignTokens (dark zinc, accent #60A5FA; light #FAFAFA, accent #2563EB),
+   the navy and the cream from the logo (#0A1429 / #101E3D, stars #FBF4EB). Dark is the default; the
+   toggle in the header stores "light" in localStorage (assets/js/site.js).
+   Every text colour is at least 4.5:1 on the backgrounds it sits on, in both themes. */
+
+:root {
+    --font-body: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-display: "Sora Variable", var(--font-body);
+    --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Consolas, monospace;
+
+    --radius: 12px;
+    --radius-lg: 18px;
+    --nav-h: 64px;
+    --wrap: 1180px;
+    --narrow: 760px;
+
+    /* Over screenshots, which are dark in both themes: the backdrop of a caption chip, the dimming around a
+       ringed region, and the text on them (16:1 on --scrim). The same in both themes. */
+    --scrim: rgba(11, 15, 26, .82);
+    --scrim-soft: rgba(5, 8, 15, .5);
+    --on-scrim: #F4F4F5;
+
+    /* Dark: between the app's #0E0E11 and the logo's navy, so screenshots and the logo tile both sit well */
+    --bg: #0B0F1A;
+    --bg-2: #0E1322;
+    --surface: #121826;
+    --card: #161D2E;
+    --card-2: #1B2335;
+    --border: rgba(255, 255, 255, .08);
+    --border-strong: rgba(255, 255, 255, .14);
+    --text: #F4F4F5;
+    --text-2: #A1A1AA;
+    --text-3: #8B8B95;          /* 4.6:1 on --bg */
+    --accent: #60A5FA;
+    --accent-hover: #93C5FD;
+    --accent-press: #3B82F6;
+    --accent-deep: #2059A7;
+    --on-accent: #0B0F1A;
+    --cream: #FBF4EB;
+    --success: #34D399;
+    --warning: #FBBF24;
+    --error: #F87171;
+    --glow: rgba(96, 165, 250, .35);
+    --code-bg: #0A0A0C;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 24px 60px -24px rgba(0, 0, 0, .8);
+    color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+    --bg: #FAFAFA;
+    --bg-2: #F4F4F5;
+    --surface: #FFFFFF;
+    --card: #FFFFFF;
+    --card-2: #F4F4F5;
+    --border: #E4E4E7;
+    --border-strong: #D4D4D8;
+    --text: #18181B;
+    --text-2: #52525B;
+    --text-3: #6B6B75;          /* 5.2:1 on --bg */
+    --accent: #2563EB;
+    --accent-hover: #1D4ED8;
+    --accent-press: #1E40AF;
+    --accent-deep: #101E3D;
+    --on-accent: #FFFFFF;
+    --cream: #101E3D;
+    --success: #16A34A;
+    --warning: #D97706;
+    --error: #DC2626;
+    --glow: rgba(37, 99, 235, .18);
+    --code-bg: #18181B;
+    --shadow: 0 1px 2px rgba(24, 24, 27, .06), 0 24px 60px -30px rgba(24, 24, 27, .25);
+    color-scheme: light;
+}

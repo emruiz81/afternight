@@ -1,0 +1,57 @@
+{#- The left navigation, which is also the drawer the menu button opens below 1024 px. A process page lists its nav
+    group, then the other processes of its stage; any other page lists its section. The guide's other sections follow
+    as folded groups. The drawer starts with the section links the header hides at that width. -#}
+<aside class="side side-left" id="guide-drawer" aria-label="Guide navigation">
+  <nav class="drawer-sections" aria-label="Sections, in the drawer">
+    <ul>
+      {%- for section in guide.header %}
+      <li><a href="{{ section.url|url }}"{% if gp and gp.section == section.title %} aria-current="true"{% endif %}>{{ section.label }}</a></li>
+      {%- endfor %}
+    </ul>
+  </nav>
+  {%- if gp and gp.kind == 'process' %}
+  <h2 class="side-title">{{ gp.group or gp.section }}</h2>
+  <ul>
+    {%- for ref in gp.siblings %}
+    <li><a href="{{ ref.url|url }}"{% if ref.url == page.url %} aria-current="page"{% endif %}>{{ ref.title }}</a></li>
+    {%- endfor %}
+  </ul>
+  {%- if gp.stage and gp.same_stage %}
+  <h2 class="side-title"><span class="dot" style="--s:var(--s{{ gp.stage.index }})" aria-hidden="true"></span>Also in {{ gp.stage.name }}</h2>
+  <ul>
+    {%- for ref in gp.same_stage if ref.group != gp.group %}
+    <li><a href="{{ ref.url|url }}">{{ ref.title }}</a></li>
+    {%- endfor %}
+    <li><a class="more" href="{{ ('processes/index.html#stage-' ~ gp.stage.id)|url }}">The {{ gp.stage.name }} stage in the catalog</a></li>
+  </ul>
+  {%- endif %}
+  {%- endif %}
+  <h2 class="side-title">The guide</h2>
+  {%- for item in nav.items %}
+  {%- if item.is_section %}
+  <details{% if gp and gp.section == item.title %} open{% endif %}>
+    <summary>{{ item.title }}</summary>
+    <ul>
+      {%- for child in item.children %}
+      {%- if child.is_section %}
+      <li class="group">
+        <details{% if gp and gp.group == child.title %} open{% endif %}>
+          <summary>{{ child.title }}</summary>
+          <ul>
+            {%- for leaf in child.children if leaf.is_page %}
+            <li><a href="{{ leaf.url|url }}"{% if page and leaf.url == page.url %} aria-current="page"{% endif %}>{{ leaf.title }}</a></li>
+            {%- endfor %}
+          </ul>
+        </details>
+      </li>
+      {%- elif child.is_page %}
+      <li><a href="{{ child.url|url }}"{% if page and child.url == page.url %} aria-current="page"{% endif %}>{{ child.title }}</a></li>
+      {%- endif %}
+      {%- endfor %}
+    </ul>
+  </details>
+  {%- elif item.is_page %}
+  <ul class="top-pages"><li><a href="{{ item.url|url }}"{% if page and item.url == page.url %} aria-current="page"{% endif %}>{{ item.title }}</a></li></ul>
+  {%- endif %}
+  {%- endfor %}
+</aside>

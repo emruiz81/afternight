@@ -28,14 +28,18 @@ Rules, each reported with its id:
       (`<a>`, and `<link>` relations such as `canonical`) may lead anywhere. The one exception is the site's
       404.html: a web server shows it at whatever address was missing, so MkDocs writes its references
       root-relative, and they must name files from the site's root.
+  R16 Token parity (--tokens, run where the website's sources are at hand). The theme's tokens.css is a verbatim copy
+      of the website's, so the guide and the site wear one skin: the two files are equal once their line endings are.
 
 Usage, with the documentation toolchain's Python, which has PyYAML (docs/user-guide/.venv, made by the build helper):
     python build/scripts/tools/check_user_guide.py [--guide docs/user-guide] [--page <page> ...] [--site <site>]
+                                                   [--tokens <the website's assets/css/tokens.css>]
 
 R2-R5 hold every page, or with --page only the pages named (relative to the docs folder or to the working
 directory); the guide-wide parts - nav entries, menu coverage and unused images - run only over every page. R1 runs
-when --site names a built site. Each finding prints as `path:line: Rnn message`, then a count per rule and what was
-read. Exits 1 on any error, 0 otherwise, and 2 when the guide's own data cannot be read.
+when --site names a built site, R16 when --tokens names the website's file. Each finding prints as
+`path:line: Rnn message`, then a count per rule and what was read. Exits 1 on any error, 0 otherwise, and 2 when the
+guide's own data cannot be read.
 
 Tests: build/scripts/tools/check_user_guide_test.py
 """
@@ -62,7 +66,29 @@ RULES = {
     'R3': 'nav and H1',
     'R4': 'menu parity',
     'R5': 'images',
+    'R16': 'token parity',
 }
+THEME_TOKENS = 'theme/assets/guide/css/tokens.css'
+
+
+def check_tokens(guide, website_tokens, display):
+    """R16: the theme's tokens.css against the website's, line endings aside."""
+    ours = os.path.join(guide, THEME_TOKENS)
+    try:
+        theirs_text = _read(website_tokens)
+    except OSError as error:
+        return [Finding(display(website_tokens), 1, 'R16', 'the website\'s tokens cannot be read: %s' % error)]
+    try:
+        ours_text = _read(ours)
+    except OSError as error:
+        return [Finding(display(ours), 1, 'R16', 'the theme\'s tokens cannot be read: %s' % error)]
+    if ours_text == theirs_text:
+        return []
+    ours_lines, theirs_lines = ours_text.split('\n'), theirs_text.split('\n')
+    line = next((number for number, (a, b) in enumerate(zip(ours_lines, theirs_lines), start=1) if a != b),
+                min(len(ours_lines), len(theirs_lines)) + 1)
+    return [Finding(display(ours), line, 'R16', 'differs from %s from this line; copy the website\'s file again' %
+                    display(website_tokens))]
 
 # <link> relations whose target the browser loads with the page. Every other relation names a document a reader may
 # follow, so it may lead off the site.
@@ -606,6 +632,7 @@ def main(argv=None, stream=None):
     parser.add_argument('--guide', help='the guide folder that holds mkdocs.yml; default <repo>/docs/user-guide')
     parser.add_argument('--page', action='append', help='hold only this page to R2-R5; may be repeated')
     parser.add_argument('--site', help='a built site to hold to R1, such as docs/user-guide/site')
+    parser.add_argument('--tokens', help='the website\'s assets/css/tokens.css, to hold the theme\'s copy to (R16)')
     arguments = parser.parse_args(argv)
     stream = stream or sys.stdout
     guide = arguments.guide or os.path.join(arguments.repo, 'docs', 'user-guide')
@@ -645,15 +672,20 @@ def main(argv=None, stream=None):
                        (references, documents, stylesheets, _display(arguments.site)))
     else:
         summary.append('R1 not run: no --site')
+    if arguments.tokens:
+        findings.extend(check_tokens(guide, arguments.tokens, _display))
+    else:
+        summary.append('R16 not run: no --tokens')
 
     for finding in findings:
         print(finding, file=stream)
     errors = 0
+    ran = {'R1': bool(arguments.site), 'R16': bool(arguments.tokens)}
     for rule, name in RULES.items():
         ruled = [finding for finding in findings if finding.rule == rule]
         rule_errors = sum(1 for finding in ruled if finding.severity == 'error')
         errors += rule_errors
-        if arguments.site or rule != 'R1':
+        if ran.get(rule, True):
             print('%s %s: %d error(s), %d warning(s)' % (rule, name, rule_errors, len(ruled) - rule_errors),
                   file=stream)
     for line in summary:

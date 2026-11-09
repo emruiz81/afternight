@@ -1,0 +1,20 @@
+{#- The anatomy the layouts share: the left navigation, the article - breadcrumbs, the page head, the lead and the
+    body - and the table of contents. A layout sets `crumbs` (show the breadcrumbs) and `wide` (no table of contents
+    and the left navigation only as the drawer) before it includes this. -#}
+<div class="wrap layout{% if wide %} layout-wide{% endif %}">
+  {% include "partials/nav-left.html" %}
+  <main id="content" class="content" tabindex="-1">
+    {%- if crumbs %}
+    {% include "partials/breadcrumbs.html" %}
+    {%- endif %}
+    <article class="prose">
+      {% include "partials/page-head.html" %}
+      <div class="lead">{{ gp.lead }}</div>
+      {{ gp.body }}
+    </article>
+    {% include "partials/pager.html" %}
+  </main>
+  {%- if not wide %}
+  {% include "partials/toc.html" %}
+  {%- endif %}
+</div>

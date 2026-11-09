@@ -1,0 +1,12 @@
+{#- Previous and next in the nav; on a process page the left slot leads to its stage's lane of the catalog. -#}
+<nav class="pager" aria-label="Previous and next pages">
+  {%- if gp.kind == 'process' and gp.stage %}
+  <a class="prev" href="{{ ('processes/index.html#stage-' ~ gp.stage.id)|url }}"><span>{% if gp.stage.number %}Stage {{ gp.stage.number }} &middot; {% endif %}{{ gp.stage.name }}</span><b>Every process of this stage</b></a>
+  {%- elif page.previous_page %}
+  <a class="prev" href="{{ page.previous_page.url|url }}"><span>Previous</span><b>{{ page.previous_page.title }}</b></a>
+  {%- else %}<span></span>
+  {%- endif %}
+  {%- if page.next_page %}
+  <a class="next" href="{{ page.next_page.url|url }}"><span>Next</span><b>{{ page.next_page.title }}</b></a>
+  {%- endif %}
+</nav>

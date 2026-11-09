@@ -1,0 +1,7 @@
+{#- The process catalog: the stepper leads to the lanes by stage. It renders from data once the components exist. -#}
+{% extends "base.html" %}
+{% block layout %}
+{%- set crumbs = true %}
+{%- set wide = false %}
+{% include "partials/document.html" %}
+{% endblock %}
