@@ -1,0 +1,18 @@
+/* The guide's additions to the website's tokens (tokens.css, a verbatim copy). The stage hues --s1 to --s8 and
+   --stage-count come from data/stages.yml, inlined by base.html, so they have one source. */
+
+:root {
+    --wrap-guide: 1320px;
+    --side-w: 260px;
+    --toc-w: 220px;
+    --measure: 74ch;
+    --ok: #34D399;
+    --ok-bg: rgba(52, 211, 153, .12);
+    --code-text: #E4E4E7;
+    --focus: var(--accent);
+}
+
+:root[data-theme="light"] {
+    --ok: #15803D;
+    --ok-bg: rgba(21, 128, 61, .09);
+}

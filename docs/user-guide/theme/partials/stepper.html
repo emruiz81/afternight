@@ -1,0 +1,36 @@
+{#- The pipeline's stages, all of them on every page. Modes: "here" marks a process page's stage, "span" the stages a
+    tutorial or workflow walks through, "filter" leads the catalog, "big" opens the home page with each stage's first
+    processes, and "plain" marks none. Each stage links to its lane of the catalog. -#}
+{%- set mode = gp.stepper if gp else 'plain' -%}
+{%- set current = gp.current_stages if gp else [] -%}
+{%- set catalog = 'processes/index.html' -%}
+<nav class="stepper stepper-{{ mode }}" aria-label="Processing stages">
+  <div class="wrap stepper-row">
+    <div class="stepper-label">
+      {%- if mode == 'here' %}Stage<b>You are here</b>
+      {%- elif mode == 'span' %}This page<b>{{ current|length }} stage{% if current|length != 1 %}s{% endif %}</b>
+      {%- elif mode == 'filter' %}Catalog<b>By stage</b>
+      {%- elif mode == 'big' %}The guide<b>By stage</b>
+      {%- else %}Processing<b>Stages</b>{% endif -%}
+    </div>
+    <ol class="stp">
+      {%- for stage in guide.stages %}
+      {%- set on = stage.id in current %}
+      <li class="{% if on %}cur{% elif current %}off{% endif %}" style="--s:var(--s{{ stage.index }})">
+        <a href="{{ (catalog ~ '#stage-' ~ stage.id)|url }}"{% if on and mode == 'here' %} aria-current="step"{% endif %}>
+          <i aria-hidden="true">{{ stage.number if stage.number else '+' }}</i>
+          <b>{{ stage.name }}</b>
+          <small>{{ stage.description }}</small>
+        </a>
+        {%- if mode == 'big' and stage.pages %}
+        <ul>
+          {%- for ref in stage.pages[:4] %}
+          <li><a href="{{ ref.url|url }}">{{ ref.title }}</a></li>
+          {%- endfor %}
+        </ul>
+        {%- endif %}
+      </li>
+      {%- endfor %}
+    </ol>
+  </div>
+</nav>
