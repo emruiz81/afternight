@@ -954,6 +954,41 @@ TEST(AstrometryOverlayLayout, ALabelHoldsTheLinesTheChoiceOfLabelGivesIt)
     EXPECT_EQ(secondLines(an::ui::AnnotationLabelText::DesignationAndName), 1);
 }
 
+// The view sets its labels at the caption's size on the screen, the smallest its text is read at, and the name under a
+// designation at that size too, where a picture sets it a step smaller.
+TEST(AstrometryOverlayLayout, ANameUnderADesignationIsDrawnAsLargeAsTheDesignation)
+{
+    const std::optional<an::WcsSolution> solution = solutionOf(fieldCards(), kWidth, kHeight);
+    ASSERT_TRUE(solution.has_value());
+    an::CatalogEntry galaxy = galaxyAt("NGC 4005", 120.0, 10.0, 6.0, 9.0);
+    galaxy.commonName = "Test Galaxy";
+    const an::ui::AnnotationScene deepSky = layerScene(*solution, an::ui::BundledCatalog::DeepSky, {galaxy});
+    // The height of the one object label's second line.
+    const auto nameHeight = [](const an::ui::AnnotationLayout& layout) {
+        const auto named =
+            std::find_if(layout.labels.begin(), layout.labels.end(), [](const an::ui::AnnotationLabel& label) {
+                return label.role == an::ui::AnnotationLabelRole::Object && !label.secondary.isEmpty();
+            });
+        return named == layout.labels.end() ? 0.0 : named->secondary.boundingRect().height();
+    };
+
+    const an::ui::detail::OverlayAnnotationLayout laid =
+        layoutOfDeepSky(deepSky, an::ui::AnnotationLabelText::DesignationAndName);
+    ASSERT_NE(laid.layout, nullptr);
+    const double shown = nameHeight(*laid.layout);
+    ASSERT_GT(shown, 0.0);
+
+    // A picture's layout of the scene the view drew, at the view's reference length.
+    an::ui::AnnotationContent content =
+        an::ui::detail::overlayAnnotationContent(an::ui::BundledCatalog::DeepSky, an::ui::AnnotationDetail::Standard);
+    content.labelText = an::ui::AnnotationLabelText::DesignationAndName;
+    const double pictured =
+        nameHeight(an::ui::layoutAnnotations(*laid.scene, content, an::ui::defaultAnnotationSettings().style));
+    ASSERT_GT(pictured, 0.0);
+    EXPECT_NEAR(shown, pictured / an::ui::kAnnotationSecondLineScale, 1e-9 * shown)
+        << "the name is drawn at the designation's size";
+}
+
 // One overlay draws the deep-sky objects and the bright stars, each a layer it is told to draw, and lays their labels
 // out together: no label covers another.
 TEST_F(AstrometryOverlaysTest, OneOverlayDrawsBothCataloguesAndNoLabelCoversAnother)

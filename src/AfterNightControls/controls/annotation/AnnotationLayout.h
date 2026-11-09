@@ -67,6 +67,9 @@ struct AnnotationMetrics
 /// How far a reticle's ticks reach from a star, as a multiple of its marker's radius; they start at the radius.
 inline constexpr double kAnnotationReticleReach = 1.7;
 
+/// A label's second line - the name under the designation - as a fraction of its first's size.
+inline constexpr double kAnnotationSecondLineScale = 0.82;
+
 /// The lengths a style gives a scene of a reference length.
 ///
 /// @param referenceLength the scene's reference length.
@@ -212,9 +215,13 @@ inline constexpr double kAnnotationLayoutMostCells = 262144.0;
 /// @param scene the scene.
 /// @param content the choices of what is shown: the labels' text and which decorations are drawn.
 /// @param style the style: the sizes, the typeface, the backing, the leader lines and the corners.
+/// @param smallestText the smallest size a line of an object's or a star's label is set at, in the frame's pixels. A
+///        view, whose labels stand at the smallest size its text is read at on the screen, keeps the name under a
+///        designation from being set smaller; zero, a picture's, sets every line at the size the style gives it.
 /// @return the layout; an empty one for a scene of no frame.
 [[nodiscard]] AFTERNIGHTCONTROLS_API AnnotationLayout layoutAnnotations(const AnnotationScene& scene,
                                                                         const AnnotationContent& content,
-                                                                        const AnnotationStyle& style);
+                                                                        const AnnotationStyle& style,
+                                                                        double smallestText = 0.0);
 
 } // namespace an::ui
