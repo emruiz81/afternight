@@ -1,0 +1,26 @@
+{#- The page a web server shows at any address it cannot find. MkDocs builds it with root-relative URLs, so it works
+    served, not opened from disk. It offers the search and the guide's sections. -#}
+{% extends "base.html" %}
+{% block title %}
+  <title>Page not found - AfterNight Guide</title>
+{% endblock %}
+{% block layout %}
+<div class="wrap layout layout-wide">
+  {% include "partials/nav-left.html" %}
+  <main id="content" class="content not-found" tabindex="-1">
+    <article class="prose">
+      <header class="page-head">
+        <h1>Page not found</h1>
+        <p class="summary">The guide has no page at this address. Search for it with the box above, or start from one of
+          the guide's sections.</p>
+      </header>
+      <ul class="section-list">
+        <li><a href="{{ (nav.homepage.url if nav.homepage else 'index.html')|url }}">Home</a></li>
+        {%- for section in guide.header %}
+        <li><a href="{{ section.url|url }}">{{ section.label }}</a></li>
+        {%- endfor %}
+      </ul>
+    </article>
+  </main>
+</div>
+{% endblock %}

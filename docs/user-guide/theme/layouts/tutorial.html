@@ -1,0 +1,7 @@
+{#- A tutorial or workflow: the head with its menu path, stages and needs, then the body; its table of contents lists the steps. -#}
+{% extends "base.html" %}
+{% block layout %}
+{%- set crumbs = false %}
+{%- set wide = false %}
+{% include "partials/document.html" %}
+{% endblock %}

@@ -1,0 +1,11 @@
+{#- The search box. search.js loads the index and lunr on the first focus or "/", and fills the listbox with the
+    results, grouped by the guide's section. -#}
+<div class="search" role="search">
+  <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  <label class="visually-hidden" for="guide-search">Search the guide</label>
+  <input id="guide-search" type="search" placeholder="Search the guide" autocomplete="off" spellcheck="false"
+         role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="guide-search-results">
+  <kbd aria-hidden="true">/</kbd>
+  <div id="guide-search-results" class="search-results" role="listbox" aria-label="Search results" hidden></div>
+  <p class="search-status visually-hidden" aria-live="polite"></p>
+</div>

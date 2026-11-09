@@ -115,7 +115,7 @@ jobs:
       # The strict build holds the pages' links; the check holds each page's front matter against the guide's data and
       # the application's menus, and what the built site references, which is what the installers bundle and Help
       # opens from disk. The registry and the UI builder are read for the menus, so a change to either runs this.
-      - name: Test the guide model
+      - name: Test the guide model and hooks
         run: python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"
 
       - name: Test the guide check
@@ -123,6 +123,13 @@ jobs:
 
       - name: Check the guide and the built site
         run: python build/scripts/tools/check_user_guide.py --site docs/user-guide/site
+
+      # The guide in its own theme, built beside the Material site until it replaces it; nothing ships from it yet.
+      - name: Build the guide in its own theme
+        run: mkdocs build -f docs/user-guide/mkdocs.theme.yml --strict
+
+      - name: Check the theme's built site
+        run: python build/scripts/tools/check_user_guide.py --site docs/user-guide/site-theme
 
       - name: Upload docs site artifact
         uses: actions/upload-artifact@v6

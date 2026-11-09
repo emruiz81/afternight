@@ -488,6 +488,34 @@ class MainTests(GuideCase):
         self.assertIn(': R1 <script src> loads https://cdn.example.org/lib.js from the network', ran.stdout)
 
 
+class TokenRuleTests(GuideCase):
+    def setUp(self):
+        super().setUp()
+        self.write('docs/user-guide/theme/assets/guide/css/tokens.css', ':root {\r\n    --bg: #0B0F1A;\r\n}\r\n')
+
+    def test_a_copy_equal_but_for_line_endings_passes(self):
+        website = self.write('website/tokens.css', ':root {\n    --bg: #0B0F1A;\n}\n')
+        code, output = self.run_main('--tokens', str(website))
+        self.assertEqual(code, 0, output)
+        self.assertIn('R16 token parity: 0 error(s), 0 warning(s)', output)
+
+    def test_a_copy_that_drifted_fails_on_the_first_line_that_differs(self):
+        website = self.write('website/tokens.css', ':root {\n    --bg: #0A0E19;\n}\n')
+        code, output = self.run_main('--tokens', str(website))
+        self.assertEqual(code, 1, output)
+        self.assertRegex(output.replace('\\', '/'), r'theme/assets/guide/css/tokens\.css:2: R16 differs from ')
+
+    def test_a_missing_website_file_is_an_error(self):
+        code, output = self.run_main('--tokens', str(self.root / 'website' / 'none.css'))
+        self.assertEqual(code, 1, output)
+        self.assertIn("the website's tokens cannot be read", output)
+
+    def test_without_the_website_file_the_rule_does_not_run(self):
+        code, output = self.run_main()
+        self.assertIn('R16 not run', output)
+        self.assertNotIn('R16 token parity', output)
+
+
 class RepositoryTests(unittest.TestCase):
     def test_the_guide_passes_its_page_rules(self):
         stream = io.StringIO()

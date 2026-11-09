@@ -1,6 +1,9 @@
 @echo off
 setlocal EnableExtensions
 
+rem Builds the user guide strictly into docs\user-guide\site. With the argument "theme" it builds the guide in its own
+rem theme instead, from mkdocs.theme.yml into docs\user-guide\site-theme.
+
 set "SCRIPT_DIR=%~dp0"
 for %%I in ("%SCRIPT_DIR%..\..\..") do set "REPO_ROOT=%%~fI"
 
@@ -8,7 +11,13 @@ set "DOCS_DIR=%REPO_ROOT%\docs\user-guide"
 set "VENV_DIR=%DOCS_DIR%\.venv"
 set "VENV_PYTHON=%VENV_DIR%\Scripts\python.exe"
 set "REQUIREMENTS_FILE=%DOCS_DIR%\requirements.txt"
-set "MKDOCS_CONFIG=%DOCS_DIR%\mkdocs.yml"
+set "MKDOCS_CONFIG_NAME=mkdocs.yml"
+if /I "%~1"=="theme" set "MKDOCS_CONFIG_NAME=mkdocs.theme.yml"
+if not "%~1"=="" if /I not "%~1"=="theme" (
+    echo Error: Unknown argument "%~1". Pass nothing for the guide, or "theme" for the guide in its own theme.
+    exit /b 1
+)
+set "MKDOCS_CONFIG=%DOCS_DIR%\%MKDOCS_CONFIG_NAME%"
 
 if not exist "%REQUIREMENTS_FILE%" (
     echo Error: Missing %REQUIREMENTS_FILE%.
@@ -69,7 +78,7 @@ if errorlevel 1 (
 )
 
 echo Building user guide with strict MkDocs validation
-"%VENV_PYTHON%" -m mkdocs build -f "docs\user-guide\mkdocs.yml" --strict
+"%VENV_PYTHON%" -m mkdocs build -f "docs\user-guide\%MKDOCS_CONFIG_NAME%" --strict
 if errorlevel 1 (
     echo Error: MkDocs strict build failed. Fix the documentation warnings or errors above and retry.
     popd >nul
