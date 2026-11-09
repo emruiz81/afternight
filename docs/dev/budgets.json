@@ -828,6 +828,10 @@
             "minMilliseconds": 444.2,
             "preprocessedLines": 61609
           },
+          "src/AfterNightEngine/src/image/CardContinuation.cpp": {
+            "minMilliseconds": 479.2,
+            "preprocessedLines": 70910
+          },
           "src/AfterNightEngine/src/image/CfaPattern.cpp": {
             "minMilliseconds": 69.6,
             "preprocessedLines": 10693
@@ -973,8 +977,8 @@
             "preprocessedLines": 105439
           },
           "src/AfterNightEngine/src/io/fits/FitsFile.cpp": {
-            "minMilliseconds": 623.0,
-            "preprocessedLines": 80161
+            "minMilliseconds": 1456.7,
+            "preprocessedLines": 127289
           },
           "src/AfterNightEngine/src/io/fits/FitsHeader.cpp": {
             "minMilliseconds": 1407.1,
@@ -1269,16 +1273,20 @@
             "preprocessedLines": 113537
           },
           "src/AfterNightEngine/src/io/xisf/XisfFile.cpp": {
-            "minMilliseconds": 875.0,
-            "preprocessedLines": 91951
+            "minMilliseconds": 1841.5,
+            "preprocessedLines": 127184
           },
           "src/AfterNightEngine/src/io/xisf/XisfHeader.cpp": {
             "minMilliseconds": 1407.4,
             "preprocessedLines": 113690
           },
           "src/AfterNightEngine/src/io/xisf/XisfMetadata.cpp": {
-            "minMilliseconds": 712.9,
-            "preprocessedLines": 82464
+            "minMilliseconds": 1886.8,
+            "preprocessedLines": 123723
+          },
+          "src/AfterNightEngine/src/io/xisf/XisfProperties.cpp": {
+            "minMilliseconds": 2452.0,
+            "preprocessedLines": 123556
           },
           "src/AfterNightEngine/src/io/xisf/XisfRead.cpp": {
             "minMilliseconds": 1343.5,
@@ -5582,7 +5590,7 @@
         },
         "AfterNightEngine/Algorithms/Normalization/DrizzleLocalNormalization.h": {
           "external": 0,
-          "sibling": 29,
+          "sibling": 34,
           "standard": 13
         },
         "AfterNightEngine/Algorithms/Normalization/GlobalNormalization.h": {

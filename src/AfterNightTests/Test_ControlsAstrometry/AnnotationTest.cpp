@@ -820,8 +820,14 @@ TEST(AnnotationLayout, ASmallestTextSizeRaisesANameUnderADesignationAndLowersNoL
 
 TEST(AnnotationLayout, ALabelThatCannotSitBesideItsObjectTakesALeaderOrIsLeftOutWithoutOne)
 {
-    // Twelve objects at one place: a few labels fit beside it, more farther away on leaders.
-    const an::ui::AnnotationScene scene = pointScene(QSize(1600, 1200), std::vector<QPointF>(12u, QPointF(800, 600)));
+    // Twelve objects at one place: a few labels fit beside it, more farther away on leaders. Their marker is as wide as
+    // a line of text, so a label above it and one below clear the label set to its right whatever the typeface's line
+    // height: with a marker much smaller than a label is tall, how many fit beside it depends on the host's fonts.
+    an::ui::AnnotationScene scene = pointScene(QSize(1600, 1200), std::vector<QPointF>(12u, QPointF(800, 600)));
+    for (an::ui::AnnotationMark& mark : scene.marks)
+    {
+        mark.radius = 0.012 * scene.referenceLength;
+    }
     an::ui::AnnotationStyle style = an::ui::defaultAnnotationSettings().style;
     style.leaderLines = false;
     const an::ui::AnnotationLayout unled = an::ui::layoutAnnotations(scene, labelsOnly(), style);
@@ -1241,10 +1247,12 @@ TEST(AnnotationLayout, ThePanelsTextFollowsItsOwnSize)
 }
 
 // A label is set where it crosses no other object's outline: a small galaxy just under a large one is labelled below
-// itself, though above is the place it tries first.
+// itself, though above is the place it tries first. The large galaxy's lowest point lies a few pixels above where a
+// label above the small one would end, so that label crosses its outline however tall and wide the typeface sets it;
+// were the lowest point below that, a label narrow enough would sit wholly inside the large galaxy, crossing nothing.
 TEST(AnnotationLayout, ALabelIsSetWhereItCrossesNoOtherObjectsOutline)
 {
-    an::ui::AnnotationScene scene = sceneOfOne(an::ui::AnnotationMarkKind::Galaxy, QPointF(1000.0, 700.0), 150.0);
+    an::ui::AnnotationScene scene = sceneOfOne(an::ui::AnnotationMarkKind::Galaxy, QPointF(1000.0, 685.0), 150.0);
     scene.marks.front().designation = QStringLiteral("NGC 2");
     an::ui::AnnotationScene small = sceneOfOne(an::ui::AnnotationMarkKind::Galaxy, QPointF(1000.0, 872.0), 20.0);
     small.marks.front().priority = 50.0;
