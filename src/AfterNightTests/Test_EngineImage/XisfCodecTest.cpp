@@ -4,6 +4,7 @@
 #include <AfterNightEngine/IO/XisfCodec.h>
 
 #include <AfterNightEngine/Algorithms/Astrometry/WcsCards.h>
+#include <AfterNightEngine/Core/Version.h>
 #include <AfterNightEngine/IO/ArtifactIdentity.h>
 #include <AfterNightEngine/IO/CodecError.h>
 #include <AfterNightEngine/IO/CodecIO.h>
@@ -899,6 +900,55 @@ TEST_F(XisfCodecTest, TheFilesOwnStructuralDeclarationsSurviveEveryRoundTrip)
     const auto* const creator = again->metadata.codec().find(an::CodecNamespace::Xisf, "XISF:CreatorApplication");
     ASSERT_NE(creator, nullptr);
     EXPECT_TRUE(creator->value().starts_with("AfterNightEngine ")) << creator->value();
+}
+
+TEST_F(XisfCodecTest, AWrittenUnitNamesItsWriterOnlyAsTheUnitsCreator)
+{
+    // The unit's creator is the specification's way to name the application that wrote it, name and version alike;
+    // no property of the image restates it.
+    const auto header = [&](const char* name) {
+        const auto bytes = readBytes(path(name));
+        std::uint32_t length = 0u;
+        std::memcpy(&length, bytes.data() + 8u, sizeof(length));
+        return std::string(reinterpret_cast<const char*>(bytes.data()) + 16u, length);
+    };
+    auto source = frame<std::uint16_t>({1, 2, 3}, 3u, 1u);
+    auto intent = an::OutputIntent::create({.sampleType = an::SampleType::UInt16});
+    ASSERT_TRUE(intent.hasValue());
+    ASSERT_TRUE(save(source, &*intent).hasValue()) << lastError;
+    EXPECT_EQ(header("frame.xisf").find("Instrument:Software"), std::string::npos);
+    auto decoded = decode();
+    ASSERT_TRUE(decoded.hasValue()) << lastError;
+    const auto* const creator = decoded->metadata.codec().find(an::CodecNamespace::Xisf, "XISF:CreatorApplication");
+    ASSERT_NE(creator, nullptr);
+    EXPECT_EQ(creator->value(), std::string("AfterNightEngine ") + an::kEngineVersionString);
+    // A unit an earlier version wrote carries the engine's version as Instrument:Software:Name, which is not a
+    // property the specification defines: it is not carried into the unit written from it, nor written when an
+    // intent states it.
+    {
+        openxisf::image_info image;
+        image.geometry = {.dimensions = {3u, 1u}, .channels = 1u};
+        image.sample_format = openxisf::sample_format::uint16;
+        image.properties.set(
+            {.id = "Instrument:Software:Name", .value = openxisf::property_value(std::string("1.5.0"))});
+        const std::array<std::uint16_t, 3u> samples{1u, 2u, 3u};
+        openxisf::write_options options;
+        options.creator_application = "AfterNightEngine 1.5.0";
+        openxisf::writer writer(std::move(options));
+        (void)writer.add_image(std::move(image), std::as_bytes(std::span<const std::uint16_t>(samples)));
+        writer.save(path("earlier.xisf"));
+    }
+    auto earlier = decode("earlier.xisf");
+    ASSERT_TRUE(earlier.hasValue()) << lastError;
+    ASSERT_NE(earlier->metadata.codec().find(an::CodecNamespace::Xisf, "Instrument:Software:Name"), nullptr);
+    ASSERT_TRUE(save(earlier->frame, &*intent, earlier->metadata, nullptr, "again.xisf").hasValue()) << lastError;
+    EXPECT_EQ(header("again.xisf").find("Instrument:Software"), std::string::npos);
+    auto stating = an::OutputIntent::create(
+        {.sampleType = an::SampleType::UInt16,
+         .cards = {card(an::CodecNamespace::Xisf, "Instrument:Software:Name", "1.5.0", "String")}});
+    ASSERT_TRUE(stating.hasValue());
+    ASSERT_TRUE(save(source, &*stating, {}, nullptr, "stated.xisf").hasValue()) << lastError;
+    EXPECT_EQ(header("stated.xisf").find("Instrument:Software"), std::string::npos);
 }
 
 TEST_F(XisfCodecTest, CardsTheContainerCannotSpellAreRefusedBeforeAnythingIsWritten)
