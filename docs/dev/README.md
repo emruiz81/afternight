@@ -40,6 +40,8 @@ works; there are no decision records.
 - [INCREMENTAL_BUILD_DEPENDENCY_TRACKING.md](INCREMENTAL_BUILD_DEPENDENCY_TRACKING.md) - the MSVC stale-object
   hazard and its two guards.
 - [CRASH_SYMBOLICATION.md](CRASH_SYMBOLICATION.md) - where crash dumps go and how to symbolicate them.
+- [XISF_PIXINSIGHT_CHECK.md](XISF_PIXINSIGHT_CHECK.md) - one unit of each form the XISF writer produces, read in
+  PixInsight: how to run the check and what the last one found.
 
 ### Catalogs and spectrophotometric colour calibration
 
