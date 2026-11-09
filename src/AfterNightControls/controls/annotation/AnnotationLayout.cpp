@@ -29,9 +29,6 @@ constexpr double kMarginFraction = 0.018;
 /// The size text is shaped at, in pixels, before it is scaled to its place.
 constexpr int kShapeSize = 100;
 
-/// A label's second line, as a fraction of its first's size.
-constexpr double kSecondLineScale = 0.82;
-
 /// A grid label's size, as a fraction of a label's.
 constexpr double kGridLabelScale = 0.86;
 
@@ -278,13 +275,17 @@ struct ShapedLabel
     QSizeF size;
 };
 
+/// `smallest` is the smallest size either line is set at: the second line, a step smaller than the first, is raised
+/// to it, and so is the first should it be smaller still.
 [[nodiscard]] ShapedLabel shapeLabel(const TextShaper& shaper, const QString& first, const QString& second,
-                                     const double size, const bool strongFirst, const Padding padding,
-                                     const bool slanted = false)
+                                     const double labelSize, const bool strongFirst, const Padding padding,
+                                     const bool slanted = false, const double smallest = 0.0)
 {
     ShapedLabel label;
+    const double size = (std::max)(labelSize, smallest);
     const TextShaper::Line top = shaper.shape(first, size, strongFirst, slanted);
-    const TextShaper::Line bottom = shaper.shape(second, size * kSecondLineScale, false, slanted);
+    const TextShaper::Line bottom =
+        shaper.shape(second, (std::max)(labelSize * kAnnotationSecondLineScale, smallest), false, slanted);
     const double horizontal = padding.horizontal * size;
     const double vertical = padding.vertical * size;
     const double inner = (std::max)(top.width, bottom.width);
@@ -734,7 +735,7 @@ AnnotationMetrics annotationMetrics(const double referenceLength, const Annotati
 }
 
 AnnotationLayout layoutAnnotations(const AnnotationScene& scene, const AnnotationContent& content,
-                                   const AnnotationStyle& style)
+                                   const AnnotationStyle& style, const double smallestText)
 {
     AnnotationLayout layout;
     layout.labelled.assign(scene.marks.size(), false);
@@ -846,6 +847,7 @@ AnnotationLayout layoutAnnotations(const AnnotationScene& scene, const Annotatio
     };
 
     const Padding padding = paddingOf(style.labelBacking);
+    const double smallest = std::isfinite(smallestText) ? (std::max)(0.0, smallestText) : 0.0;
     const QRectF inside =
         frame.adjusted(metrics.margin * 0.25, metrics.margin * 0.25, -metrics.margin * 0.25, -metrics.margin * 0.25);
     const double spacing = 0.12 * metrics.fontSize;
@@ -858,7 +860,7 @@ AnnotationLayout layoutAnnotations(const AnnotationScene& scene, const Annotatio
             continue;
         }
         const ShapedLabel shaped =
-            shapeLabel(shaper, first, second, metrics.fontSize, true, padding, style.italicLabels);
+            shapeLabel(shaper, first, second, metrics.fontSize, true, padding, style.italicLabels, smallest);
         const QRectF anchor = anchors[index];
         const bool point = mark.outline.size() < 3;
 

@@ -150,11 +150,12 @@ struct OverlayAnnotationLayout
 
 /// Lays out what a view's catalog overlay draws at a zoom, as an annotated picture lays out its labels: the deep-sky
 /// objects' and the stars' marks in one scene, ordered as a scene of both is, each labelled as the choice of label
-/// says, and every length set so a label is `fontPixels` tall on the screen at `scale` - at every zoom alike. A
-/// deep-sky object smaller than `smallestMajorPixels` that is not notable is left out, as a picture leaves it out. No
-/// label covers another; every deep-sky object kept keeps its outline, a star the level marks without naming it is
-/// drawn without a label, and a star whose label found no room is left out, as the view's star labels leave it out.
-/// Lays out on any thread a `QGuiApplication` lets read fonts on.
+/// says, and every length set so a label is `fontPixels` tall on the screen at `scale` - at every zoom alike, the name
+/// under a designation as tall as the designation, where a picture sets it a step smaller. A deep-sky object smaller
+/// than `smallestMajorPixels` that is not notable is left out, as a picture leaves it out. No label covers another;
+/// every deep-sky object kept keeps its outline, a star the level marks without naming it is drawn without a label, and
+/// a star whose label found no room is left out, as the view's star labels leave it out. Lays out on any thread a
+/// `QGuiApplication` lets read fonts on.
 ///
 /// @param deepSky the deep-sky layer's scene, or null when it is not drawn.
 /// @param stars the star layer's scene, or null when it is not drawn.

@@ -251,7 +251,9 @@ OverlayAnnotationLayout layoutOverlayAnnotations(const AnnotationScene* deepSky,
 
     AnnotationContent content = overlayAnnotationContent(BundledCatalog::DeepSky, AnnotationDetail::Standard);
     content.labelText = labelText;
-    AnnotationLayout laid = layoutAnnotations(merged, content, style);
+    // No line of a label is set below the caption's size, the smallest the screen's text is read at: a picture sets the
+    // name under a designation a step smaller, too small to read here.
+    AnnotationLayout laid = layoutAnnotations(merged, content, style, fontPixels / scale);
 
     // A star whose label found no room is left out, and one the level marks without a name is drawn alone; every
     // deep-sky object kept keeps its outline.

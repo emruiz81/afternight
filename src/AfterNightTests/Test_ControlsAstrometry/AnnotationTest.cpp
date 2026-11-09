@@ -751,6 +751,43 @@ TEST(AnnotationLayout, NoTwoLabelsOverlapAndEveryLabelLiesInsideTheFrame)
     }
 }
 
+// A picture sets a label's second line - the name under the designation - a step smaller than its first. A smallest
+// size asked of the layout, a view's, raises a line set smaller to it and lowers none.
+TEST(AnnotationLayout, ASmallestTextSizeRaisesANameUnderADesignationAndLowersNoLine)
+{
+    an::ui::AnnotationScene scene = pointScene(QSize(1200, 800), {QPointF(600.0, 400.0)});
+    scene.marks.front().designation = QStringLiteral("M 31");
+    scene.marks.front().name = QStringLiteral("Andromeda Galaxy");
+    an::ui::AnnotationContent content = labelsOnly();
+    content.labelText = an::ui::AnnotationLabelText::DesignationAndName;
+    const an::ui::AnnotationStyle style = an::ui::defaultAnnotationSettings().style;
+    // The heights of the label's two lines: the designation's and the name's.
+    const auto heights = [&](const double smallest) {
+        const an::ui::AnnotationLayout layout = an::ui::layoutAnnotations(scene, content, style, smallest);
+        EXPECT_EQ(layout.labels.size(), 1u);
+        return layout.labels.empty() ? std::pair{0.0, 0.0}
+                                     : std::pair{layout.labels.front().primary.boundingRect().height(),
+                                                 layout.labels.front().secondary.boundingRect().height()};
+    };
+    const double fontSize = an::ui::annotationMetrics(scene.referenceLength, style).fontSize;
+    const auto [designation, name] = heights(0.0);
+    ASSERT_GT(designation, 0.0);
+    ASSERT_GT(name, 0.0);
+
+    const auto [raisedDesignation, raisedName] = heights(fontSize);
+    EXPECT_NEAR(raisedName, name / an::ui::kAnnotationSecondLineScale, 1e-9 * fontSize)
+        << "the name is set at the designation's size";
+    EXPECT_DOUBLE_EQ(raisedDesignation, designation);
+
+    const auto [lowDesignation, lowName] = heights(0.5 * an::ui::kAnnotationSecondLineScale * fontSize);
+    EXPECT_DOUBLE_EQ(lowDesignation, designation);
+    EXPECT_DOUBLE_EQ(lowName, name) << "a smallest size below both lines changes neither";
+
+    const auto [largeDesignation, largeName] = heights(2.0 * fontSize);
+    EXPECT_NEAR(largeDesignation, 2.0 * designation, 1e-9 * fontSize) << "a smallest size above both raises both";
+    EXPECT_NEAR(largeName, 2.0 * name / an::ui::kAnnotationSecondLineScale, 1e-9 * fontSize);
+}
+
 TEST(AnnotationLayout, ALabelThatCannotSitBesideItsObjectTakesALeaderOrIsLeftOutWithoutOne)
 {
     // Twelve objects at one place: a few labels fit beside it, more farther away on leaders.
