@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  AfterNight's settings, page by page, and what each one changes.
+---
 # Settings
 
 ![Settings dialog on the General page with navigation, search, reset, temporary-file location, and apply controls](../assets/images/interface/settings-dialog.png)

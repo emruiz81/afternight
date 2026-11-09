@@ -1,3 +1,11 @@
+---
+kind: process
+stage: color
+menu: Process > Color Calibration > Linear Match
+summary: >-
+  Scales and offsets each channel of a target image so that its level and spread match a reference image's.
+data_in: linear
+---
 # Linear Match
 
 ## Purpose and expected result

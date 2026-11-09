@@ -1,3 +1,13 @@
+---
+kind: process
+stage: color
+menu: Process > Color Calibration > Photometric Color Calibration
+summary: >-
+  Balances the colors of a plate-solved linear RGB image by matching its stars' measured color ratios to Gaia DR3
+  catalog photometry.
+data_in: linear
+derived: true
+---
 # Photometric Color Calibration
 
 ## Purpose and expected result

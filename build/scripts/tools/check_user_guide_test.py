@@ -187,11 +187,271 @@ class FailingSiteTests(SiteCase):
         self.assertFinding('guide/404.html', 1, 'root-relative')
 
 
-class MainTests(SiteCase):
+REAL_STAGES = pathlib.Path(guide.REPO_ROOT) / 'docs' / 'user-guide' / 'data' / 'stages.yml'
+
+UI_BUILDER = '''\
+        menuProcess->setTitle(QCoreApplication::translate("AfterNightAppClass", "&Process", nullptr));
+        menuStretch->setTitle(QCoreApplication::translate("AfterNightAppClass", "Intensity Transformations", nullptr));
+        menuAdjustments->setTitle(QCoreApplication::translate("AfterNightAppClass", "Adjustments", nullptr));
+        menuImage->setTitle(QCoreApplication::translate("AfterNightAppClass", "Image", nullptr));
+        actionHT->setText(QCoreApplication::translate("AfterNightAppClass", "Histogram Transformation", nullptr));
+        actionCurves->setText(QCoreApplication::translate("AfterNightAppClass", "Curves Transformation", nullptr));
+        actionNegative->setText(QCoreApplication::translate("AfterNightAppClass", "Negative Transformation", nullptr));
+        actionZoom->setText(QCoreApplication::translate("AfterNightAppClass", "Zoom &In", nullptr));
+        menuBar->addAction(menuProcess->menuAction());
+        menuBar->addAction(menuImage->menuAction());
+        menuProcess->addAction(menuStretch->menuAction());
+        menuProcess->addAction(menuAdjustments->menuAction());
+        menuStretch->addAction(actionHT);
+        menuStretch->addAction(actionCurves);
+        menuAdjustments->addAction(actionNegative);
+        menuImage->addAction(actionZoom);
+'''
+
+REGISTRY = '''\
+void registerBuiltins()
+{
+    AN_REGISTER_PROCESS_SINGLE(kCategoryToneBrightness, actionHT, histogramTransformation,
+                               facts);
+    AN_REGISTER_PROCESS_SINGLE(kCategoryToneBrightness, actionCurves, curvesTransformation, facts);
+}
+'''
+
+MKDOCS = '''\
+site_name: Test guide
+docs_dir: docs/en
+theme:
+  name: material
+  logo: assets/images/logo.png
+markdown_extensions:
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+nav:
+  - Home: index.md
+  - Processes:
+      - Histogram Transformation: processes/ht.md
+      - Curves Transformation: processes/curves.md
+      - Adjustments: processes/adjustments.md
+  - Glossary: reference/glossary.md
+'''
+
+PAGES = {
+    'index.md': '---\nkind: home\n---\n# The guide\n\nWelcome.\n',
+    'processes/ht.md': '---\nkind: process\nstage: stretch\nmenu: Process > Intensity Transformations > Histogram '
+                       'Transformation\nsummary: Stretches the image.\n---\n# Histogram Transformation\n\n'
+                       '![The window](../assets/images/ht.png)\n',
+    'processes/curves.md': '---\nkind: process\nstage: finish\nmenu: Process > Intensity Transformations > Curves '
+                           'Transformation\nsummary: Reshapes tone.\n---\n# Curves Transformation\n',
+    'processes/adjustments.md': '---\nkind: process\nstage: any\nmenu: Process > Adjustments\nsummary: Immediate '
+                                'actions.\n---\n# Adjustments\n\n```bash\n# not a heading\n![x](missing.png)\n```\n',
+    'reference/glossary.md': '---\nkind: reference\nsummary: The terms.\n---\n# Glossary\n',
+}
+
+
+class GuideCase(unittest.TestCase):
+    """A repository with the application sources R4 reads and a guide of five pages that passes every rule."""
+
+    def setUp(self):
+        self.root = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.write('src/AfterNightControls/app/AfterNightAppUiBuilder.h', UI_BUILDER)
+        self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp', REGISTRY)
+        self.write('README.md', '# Repository\n')
+        self.write('docs/user-guide/mkdocs.yml', MKDOCS)
+        self.write('docs/user-guide/data/stages.yml', REAL_STAGES.read_text(encoding='utf-8'))
+        for relative, text in PAGES.items():
+            self.page(relative, text)
+        self.write('docs/user-guide/docs/en/assets/images/logo.png', 'png')
+        self.write('docs/user-guide/docs/en/assets/images/ht.png', 'png')
+
+    def write(self, relative, text):
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding='utf-8', newline='')
+        return path
+
+    def page(self, relative, text):
+        return self.write('docs/user-guide/docs/en/' + relative, text)
+
     def run_main(self, *arguments):
         stream = io.StringIO()
-        code = guide.main(list(arguments), stream)
+        code = guide.main(['--repo', str(self.root)] + list(arguments), stream)
         return code, stream.getvalue()
+
+    def findings(self, rule, *arguments):
+        code, output = self.run_main(*arguments)
+        return code, [line for line in output.splitlines() if ': %s ' % rule in line]
+
+    def assertOneFinding(self, rule, path, line, *fragments):
+        code, found = self.findings(rule)
+        self.assertEqual(len(found), 1, found)
+        self.assertIn('%s:%d: %s ' % (path, line, rule), found[0].replace('\\', '/'))
+        for fragment in fragments:
+            self.assertIn(fragment, found[0])
+        return code
+
+
+class CleanGuideTests(GuideCase):
+    def test_a_complete_guide_passes_and_reports_what_it_read(self):
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        for rule in ('R2 front matter', 'R3 nav and H1', 'R4 menu parity', 'R5 images'):
+            self.assertIn('%s: 0 error(s), 0 warning(s)' % rule, output)
+        self.assertIn('5 pages: 1 home, 3 process, 1 reference', output)
+        self.assertIn('process pages by stage: stretch 1, finish 1, any 1; 0 derived', output)
+        self.assertIn("menus: 3 of 3 registered actions and other Process menu actions on a page's `menu`", output)
+        self.assertIn('R1 not run', output)
+
+
+class FrontMatterRuleTests(GuideCase):
+    def test_a_page_without_front_matter_fails(self):
+        self.page('reference/glossary.md', '# Glossary\n')
+        self.assertEqual(self.assertOneFinding('R2', 'reference/glossary.md', 1, 'no front matter'), 1)
+
+    def test_invalid_yaml_fails(self):
+        self.page('reference/glossary.md', '---\nkind: reference\nsummary: [open\n---\n# Glossary\n')
+        self.assertOneFinding('R2', 'reference/glossary.md', 1, 'not valid YAML')
+
+    def test_an_unknown_stage_is_reported_on_its_line(self):
+        self.page('processes/curves.md', PAGES['processes/curves.md'].replace('stage: finish', 'stage: polish'))
+        self.assertOneFinding('R2', 'processes/curves.md', 3, "`stage` is 'polish'")
+
+    def test_a_key_of_another_kind_fails(self):
+        self.page('reference/glossary.md', '---\nkind: reference\nsummary: The terms.\nstage: any\n---\n# Glossary\n')
+        self.assertOneFinding('R2', 'reference/glossary.md', 4, '`stage` does not apply to a reference page')
+
+    def test_a_missing_required_key_fails(self):
+        self.page('reference/glossary.md', '---\nkind: reference\n---\n# Glossary\n')
+        self.assertOneFinding('R2', 'reference/glossary.md', 1, 'a reference page needs `summary`')
+
+
+class NavRuleTests(GuideCase):
+    def test_a_page_outside_the_nav_fails(self):
+        self.page('reference/extra.md', '---\nkind: reference\nsummary: More.\n---\n# Extra\n')
+        self.assertOneFinding('R3', 'reference/extra.md', 1, 'not in the nav')
+
+    def test_a_nav_entry_without_a_page_fails_on_its_line(self):
+        (self.root / 'docs/user-guide/docs/en/reference/glossary.md').unlink()
+        self.assertOneFinding('R3', 'mkdocs.yml', 15, 'reference/glossary.md, which is not a page')
+
+    def test_two_h1_headings_fail_on_the_second(self):
+        self.page('reference/glossary.md', '---\nkind: reference\nsummary: The terms.\n---\n# Glossary\n\n# Again\n')
+        self.assertOneFinding('R3', 'reference/glossary.md', 7, '2 H1 headings, at lines 5, 7')
+
+    def test_a_page_without_an_h1_fails(self):
+        self.page('reference/glossary.md', '---\nkind: reference\nsummary: The terms.\n---\n## Terms\n')
+        self.assertOneFinding('R3', 'reference/glossary.md', 5, 'no H1')
+
+
+class MenuRuleTests(GuideCase):
+    def test_a_menu_path_the_application_lacks_fails_on_its_line(self):
+        self.page('processes/curves.md', PAGES['processes/curves.md'].replace('Curves Transformation\nsummary',
+                                                                              'Curves\nsummary'))
+        code, found = self.findings('R4')
+        messages = '\n'.join(found)
+        self.assertIn('processes/curves.md:4: R4 `menu` names Process > Intensity Transformations > Curves, which',
+                      messages.replace('\\', '/'))
+        self.assertIn('registered action actionCurves (Process > Intensity Transformations > Curves Transformation) '
+                      "is on no page's `menu`", messages)
+        self.assertEqual(code, 1)
+
+    def test_an_uncovered_registered_action_is_reported_at_its_registration(self):
+        self.page('processes/ht.md', PAGES['processes/ht.md'].replace(
+            'menu: Process > Intensity Transformations > Histogram Transformation', 'menu: Process > Adjustments'))
+        self.assertOneFinding('R4', 'ProcessRegistryBuiltins.cpp', 3, 'actionHT')
+
+    def test_an_uncovered_process_menu_action_is_reported_at_its_menu_line(self):
+        self.page('processes/adjustments.md', PAGES['processes/adjustments.md'].replace(
+            'menu: Process > Adjustments', 'menu: Process > Intensity Transformations > Curves Transformation'))
+        self.assertOneFinding('R4', 'AfterNightAppUiBuilder.h', 15, 'Process menu action actionNegative')
+
+    def test_a_submenu_covers_every_action_under_it(self):
+        self.page('processes/ht.md', PAGES['processes/ht.md'].replace(
+            'menu: Process > Intensity Transformations > Histogram Transformation',
+            'menu: Process > Intensity Transformations'))
+        self.page('processes/curves.md', PAGES['processes/curves.md'].replace(
+            'menu: Process > Intensity Transformations > Curves Transformation', 'menu: Process > Adjustments'))
+        code, found = self.findings('R4')
+        self.assertEqual((code, found), (0, []))
+
+    def test_a_registered_action_without_a_menu_fails(self):
+        self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp',
+                   REGISTRY.replace('}\n', '    AN_REGISTER_CHANNEL(actionExtract_Red, extractRed);\n}\n'))
+        code, found = self.findings('R4')
+        self.assertEqual(len(found), 2, found)
+        self.assertIn('actionExtract_Red has no label', found[0])
+        self.assertIn('actionExtract_Red is in no menu', found[1])
+
+
+class ImageRuleTests(GuideCase):
+    def test_a_missing_image_fails_on_its_line(self):
+        self.page('reference/glossary.md', '---\nkind: reference\nsummary: The terms.\n---\n# Glossary\n\n'
+                  '![Gone](../assets/images/gone.png)\n')
+        self.assertOneFinding('R5', 'reference/glossary.md', 7, 'gone.png does not exist')
+
+    def test_an_image_in_another_case_fails(self):
+        self.page('processes/ht.md', PAGES['processes/ht.md'].replace('ht.png', 'HT.png'))
+        code, found = self.findings('R5')
+        self.assertEqual(len(found), 2, found)
+        self.assertIn('another spelling of its case', found[0])
+        self.assertIn('no page, README.md, logo or favicon shows this image', found[1])
+
+    def test_a_root_relative_image_fails(self):
+        self.page('reference/glossary.md', '---\nkind: reference\nsummary: The terms.\n---\n# Glossary\n\n'
+                  '<img src="/assets/images/ht.png" alt="">\n')
+        self.assertOneFinding('R5', 'reference/glossary.md', 7, 'root-relative')
+
+    def test_an_unused_image_is_a_warning(self):
+        self.write('docs/user-guide/docs/en/assets/images/spare.webp', 'webp')
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('R5 images: 0 error(s), 1 warning(s)', output)
+        self.assertIn('spare.webp:1: R5 no page, README.md, logo or favicon shows this image',
+                      output.replace('\\', '/'))
+
+    def test_an_image_the_readme_shows_is_used(self):
+        self.write('docs/user-guide/docs/en/assets/images/spare.webp', 'webp')
+        self.write('README.md', '# Repository\n\n![Spare](docs/user-guide/docs/en/assets/images/spare.webp)\n')
+        code, output = self.run_main()
+        self.assertIn('R5 images: 0 error(s), 0 warning(s)', output)
+
+
+class SelectionTests(GuideCase):
+    def test_page_holds_only_the_pages_named_and_skips_the_guide_wide_parts(self):
+        self.page('reference/glossary.md', '# Glossary\n')
+        self.page('processes/ht.md', PAGES['processes/ht.md'].replace('menu: Process > Intensity Transformations > '
+                                                                      'Histogram Transformation\n', ''))
+        code, output = self.run_main('--page', 'processes/curves.md')
+        self.assertEqual(code, 0, output)
+        self.assertIn('1 pages: 1 process', output)
+        self.assertNotIn('menus:', output)
+
+    def test_page_names_a_page_relative_to_the_working_directory_too(self):
+        page = self.root / 'docs/user-guide/docs/en/reference/glossary.md'
+        self.page('reference/glossary.md', '# Glossary\n')
+        code, found = self.findings('R2', '--page', str(page))
+        self.assertEqual(code, 1)
+        self.assertEqual(len(found), 1, found)
+
+    def test_an_unknown_page_is_a_usage_error(self):
+        code, output = self.run_main('--page', 'processes/none.md')
+        self.assertEqual(code, 2)
+        self.assertIn('is not a page', output)
+
+    def test_broken_guide_data_is_reported_and_stops_the_check(self):
+        self.write('docs/user-guide/data/stages.yml', 'stages: []\n')
+        code, output = self.run_main()
+        self.assertEqual(code, 2)
+        self.assertIn("the guide's data cannot be read", output)
+
+
+class MainTests(GuideCase):
+    def setUp(self):
+        super().setUp()
+        self.site = self.root / 'site'
+        self.write('site/index.html', '<a href="page.html">Page</a>\n<link rel="stylesheet" href="site.css">\n')
+        self.write('site/page.html', '<a href="index.html">Home</a>\n')
+        self.write('site/site.css', 'body { margin: 0; }\n')
 
     def test_a_clean_site_exits_zero_and_counts_what_it_read(self):
         code, output = self.run_main('--site', str(self.site))
@@ -200,31 +460,39 @@ class MainTests(SiteCase):
         self.assertIn('2 HTML documents and 1 stylesheets', output)
 
     def test_a_finding_prints_as_path_line_rule_message_and_exits_one(self):
-        self.write('index.html', '<a href="gone.html">Gone</a>\n')
+        self.write('site/index.html', '<a href="gone.html">Gone</a>\n')
         code, output = self.run_main('--site', str(self.site))
         self.assertEqual(code, 1, output)
         self.assertRegex(output, r'(?m)^.*index\.html:1: R1 <a href> names gone\.html, which is not in the site$')
         self.assertIn('R1 built-site references: 1 error(s), 0 warning(s)', output)
 
-    def test_a_folder_without_a_built_site_is_an_error(self):
+    def test_a_folder_without_a_built_site_is_a_usage_error(self):
         empty = pathlib.Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, empty, True)
         code, output = self.run_main('--site', str(empty))
-        self.assertEqual(code, 1)
+        self.assertEqual(code, 2)
         self.assertIn('build the guide first', output)
 
     def test_without_a_site_the_site_rule_does_not_run(self):
         code, output = self.run_main()
         self.assertEqual(code, 0)
         self.assertIn('R1 not run', output)
+        self.assertNotIn('R1 built-site references', output)
 
-    def test_it_runs_as_a_script_with_only_the_standard_library(self):
-        self.write('index.html', '<script src="https://cdn.example.org/lib.js"></script>\n')
+    def test_it_runs_as_a_script(self):
+        self.write('site/index.html', '<script src="https://cdn.example.org/lib.js"></script>\n')
         script = pathlib.Path(guide.__file__).resolve()
-        ran = subprocess.run([sys.executable, '-I', str(script), '--site', str(self.site)], capture_output=True,
-                             text=True)
+        ran = subprocess.run([sys.executable, '-I', str(script), '--repo', str(self.root), '--site', str(self.site)],
+                             capture_output=True, text=True)
         self.assertEqual(ran.returncode, 1, ran.stderr + ran.stdout)
         self.assertIn(': R1 <script src> loads https://cdn.example.org/lib.js from the network', ran.stdout)
+
+
+class RepositoryTests(unittest.TestCase):
+    def test_the_guide_passes_its_page_rules(self):
+        stream = io.StringIO()
+        code = guide.main([], stream)
+        self.assertEqual(code, 0, stream.getvalue())
 
 
 if __name__ == '__main__':

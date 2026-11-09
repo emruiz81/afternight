@@ -1,3 +1,13 @@
+---
+kind: process
+stage: color
+menu: Process > Color Calibration > Spectrophotometric Color Calibration
+summary: >-
+  Calibrates the colors of a plate-solved linear RGB image against star colors computed from Gaia DR3 spectra through
+  your sensor's and filters' responses.
+data_in: linear
+derived: true
+---
 # Spectrophotometric Color Calibration
 
 <!-- MEDIA_SLOT: UG-MEDIA-050 -->

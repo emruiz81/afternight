@@ -1,3 +1,14 @@
+---
+kind: process
+stage: register
+menu:
+  - Process > Star Processing > Star Profiler v1
+  - Process > Star Processing > Star Profiler v2
+summary: >-
+  Detects and measures the stars of an image, showing their positions, profiles and widths, and saves the list for the
+  processes that work around stars.
+derived: true
+---
 # Star Profiler v1 and v2
 
 ## Purpose and expected result

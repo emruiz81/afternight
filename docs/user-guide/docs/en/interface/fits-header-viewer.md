@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  Read-only views of an image's FITS header records, its EXIF data and its astrometric solution.
+---
 # FITS Header, EXIF, And Astrometry Metadata
 
 ![FITS Header table with key, value, and comment columns showing representative celestial WCS records](../assets/images/interface/fits-header-viewer.png)

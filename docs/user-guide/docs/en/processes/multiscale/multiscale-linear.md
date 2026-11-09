@@ -1,3 +1,13 @@
+---
+kind: process
+stage: noise
+menu: Process > Multiscale > Multiscale Linear Transform
+summary: >-
+  Separates an image into detail layers and a coarse residual, changes the layers you choose and reconstructs the
+  image.
+data_in: linear
+data_out: linear
+---
 # Multiscale Linear Transform
 
 <!-- MEDIA_SLOT: UG-MEDIA-103 -->

@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  What the menu bar and the toolbars hold, and where each kind of command lives.
+---
 # Toolbar & Menus
 
 <!-- Frozen template, 2026-07-10. Keep every heading and field. -->

@@ -1,3 +1,11 @@
+---
+kind: tutorial
+stages: [calibrate, register, stack]
+menu: Process > Preprocess > Image Integration Lite
+summary: >-
+  Calibrate, register and stack your first set of frames with Image Integration Lite.
+needs: []
+---
 # Quick Start
 
 Source and focused tests establish the

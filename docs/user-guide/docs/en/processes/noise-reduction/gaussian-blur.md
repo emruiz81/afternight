@@ -1,3 +1,14 @@
+---
+kind: process
+stage: any
+menu:
+  - Process > Details > Gaussian Blur
+  - Process > Filters > Gaussian Blur
+summary: >-
+  Blurs an image with a Gaussian kernel of the standard deviation you choose, softening fine structure.
+data_in: either
+derived: true
+---
 # Gaussian Blur
 
 ## Purpose and expected result

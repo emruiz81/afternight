@@ -1,3 +1,9 @@
+---
+kind: interface
+summary: >-
+  The image viewer shows an image with display-only channel and stretch choices, and with zoom, history and analysis
+  tools.
+---
 # Image Viewer
 
 ![AfterNight image viewer showing the channel selector, display mode, and the standard toolbar](../assets/images/interface/image-viewer.png)

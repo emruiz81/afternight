@@ -1,3 +1,8 @@
+---
+kind: reference
+summary: >-
+  What AfterNight reads and writes in each file format: sample precision, compression and metadata.
+---
 # File Formats
 
 ## Purpose, scope, audience, prerequisites, expected result, and authority

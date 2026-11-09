@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Process > Mask Generation > Mask Drawing
+summary: >-
+  Draws a grayscale mask by hand over a preview of an image, with brushes, fills, gradients and shapes.
+data_in: either
+---
 # Mask Drawing
 
 <!-- MEDIA_SLOT: UG-MEDIA-100 -->

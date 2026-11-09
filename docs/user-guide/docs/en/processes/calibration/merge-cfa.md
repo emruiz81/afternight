@@ -1,3 +1,11 @@
+---
+kind: process
+stage: calibrate
+menu: Process > Color Spaces > Merge CFA
+summary: >-
+  Interleaves four same-size positional planes back into one single-channel Bayer mosaic, the inverse of Split CFA.
+data_in: linear
+---
 # Merge CFA
 
 ## Purpose and expected result

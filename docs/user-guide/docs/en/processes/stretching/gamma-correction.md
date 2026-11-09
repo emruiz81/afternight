@@ -1,3 +1,12 @@
+---
+kind: process
+stage: finish
+menu: Process > Adjustments > Gamma Correction
+summary: >-
+  Applies a power-law tone curve to the image or one of its color components, brightening or darkening the midtones.
+data_in: nonlinear
+data_out: nonlinear
+---
 # Gamma Correction
 
 ## Purpose and expected result

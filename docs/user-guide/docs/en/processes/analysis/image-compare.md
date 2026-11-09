@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Process > Utilities > Image Compare
+summary: >-
+  Shows two open images at the same pixel positions, side by side or overlaid, without changing either.
+data_in: either
+---
 # Image Compare
 
 <!-- MEDIA_SLOT: UG-MEDIA-097 -->

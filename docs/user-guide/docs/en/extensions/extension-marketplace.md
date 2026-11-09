@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  Browse, install, update and remove extensions from the official repository or a local archive.
+---
 # Extension Marketplace
 
 <!-- MEDIA_SLOT: UG-MEDIA-112 -->

@@ -1,3 +1,8 @@
+---
+kind: reference
+summary: >-
+  The file formats AfterNight opens and saves, and how each route handles images, sequences and their metadata.
+---
 # Supported Formats
 
 Source and focused tests establish the

@@ -1,3 +1,9 @@
+---
+kind: interface
+summary: >-
+  The Session Console shows the messages of the running session, so that you can match a failure or a warning with its
+  time and severity.
+---
 # Session Console
 
 ## Purpose, audience, prerequisites, and expected result

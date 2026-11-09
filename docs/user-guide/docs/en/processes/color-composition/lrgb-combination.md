@@ -1,3 +1,12 @@
+---
+kind: process
+stage: color
+menu: Process > Color Spaces > LRGB Combination
+summary: >-
+  Replaces or blends the lightness of an RGB image with a same-size luminance image, keeping the image's chroma and
+  hue.
+data_out: nonlinear
+---
 # LRGB Combination
 
 <!-- MEDIA_SLOT: UG-MEDIA-087 -->

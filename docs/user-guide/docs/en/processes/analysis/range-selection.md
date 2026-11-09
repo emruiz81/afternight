@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Process > Mask Generation > Range Selection
+summary: >-
+  Creates a mask from an intensity interval, with hard or soft edges and an optional blur.
+data_out: nonlinear
+---
 # Range Selection
 
 ## Purpose and expected result

@@ -1,3 +1,13 @@
+---
+kind: process
+stage: calibrate
+menu: Process > Color Spaces > Debayer
+summary: >-
+  Reconstructs full red, green and blue values from the Bayer mosaic of a one-shot-color camera, normally after
+  calibration and before registration.
+data_in: cfa
+derived: true
+---
 # Debayer
 
 ## Purpose and expected result

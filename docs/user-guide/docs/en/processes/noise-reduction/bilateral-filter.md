@@ -1,3 +1,12 @@
+---
+kind: process
+stage: noise
+menu: Process > Filters > Bilateral Filter
+summary: >-
+  Smooths an image in one pass that weights each neighbor by both its distance and its value difference, so that
+  strong edges mix less.
+data_in: linear
+---
 # Bilateral Filter
 
 ## Purpose and expected result

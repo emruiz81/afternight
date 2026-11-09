@@ -1,3 +1,9 @@
+---
+kind: interface
+summary: >-
+  Install, configure, launch and troubleshoot extensions, the optional processes that run outside the main
+  application.
+---
 # Using Extensions
 
 <!-- MEDIA_SLOT: UG-MEDIA-112 -->

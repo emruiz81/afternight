@@ -1,3 +1,11 @@
+---
+kind: process
+stage: color
+menu: Process > Color Calibration > SCNR Filter
+summary: >-
+  Suppresses a residual green cast in an RGB image with one of four per-pixel protection methods.
+data_out: nonlinear
+---
 # SCNR
 
 ## Purpose and expected result

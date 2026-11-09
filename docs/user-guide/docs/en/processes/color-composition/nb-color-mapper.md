@@ -1,3 +1,13 @@
+---
+kind: process
+stage: color
+menu: Process > Color Spaces > NB Color Mapper
+summary: >-
+  Colors narrowband or RGB layers with the hues you choose and screen-blends them into one color image.
+data_in: linear
+data_out: nonlinear
+derived: true
+---
 # NB Color Mapper
 
 ## Purpose and expected result

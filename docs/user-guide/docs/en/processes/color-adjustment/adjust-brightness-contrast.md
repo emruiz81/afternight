@@ -1,3 +1,13 @@
+---
+kind: process
+stage: finish
+menu: Process > Adjustments > Brightness/Contrast
+summary: >-
+  Offsets the brightness of an image and expands or compresses its contrast around mid-gray, for small corrections
+  after the stretch.
+data_in: nonlinear
+data_out: nonlinear
+---
 # Adjust Brightness/Contrast
 
 ## Purpose and expected result

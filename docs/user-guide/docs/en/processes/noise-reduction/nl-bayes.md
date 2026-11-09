@@ -1,3 +1,13 @@
+---
+kind: process
+stage: noise
+menu: Process > Noise Reduction > Non-Local Bayes Filter
+summary: >-
+  Reduces noise by grouping similar nearby patches, estimating a statistical model for each group and combining two
+  Bayesian estimates.
+data_in: linear
+derived: true
+---
 # NL-Bayes
 
 ## Purpose and expected result
