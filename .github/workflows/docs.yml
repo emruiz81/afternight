@@ -12,6 +12,8 @@ on:
     paths:
       - 'docs/user-guide/**'
       - 'docs/dev/USER_GUIDE_AUTHORING.md'
+      - 'build/scripts/tools/check_user_guide.py'
+      - 'build/scripts/tools/check_user_guide_test.py'
       - 'README.md'
       - 'AGENTS.md'
       - '.github/workflows/docs.yml'
@@ -31,6 +33,7 @@ on:
     branches: [main]
     paths:
       - 'docs/user-guide/**'
+      - 'build/scripts/tools/check_user_guide.py'
       - '.github/workflows/docs.yml'
 
   workflow_call:
@@ -105,6 +108,14 @@ jobs:
 
       - name: Build documentation
         run: mkdocs build -f docs/user-guide/mkdocs.yml --strict
+
+      # The strict build holds the pages' links; the check holds what the built site references, which is what the
+      # installers bundle and Help opens from disk.
+      - name: Test the guide check
+        run: python build/scripts/tools/check_user_guide_test.py
+
+      - name: Check the built guide
+        run: python build/scripts/tools/check_user_guide.py --site docs/user-guide/site
 
       - name: Upload docs site artifact
         uses: actions/upload-artifact@v6

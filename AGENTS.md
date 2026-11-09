@@ -657,8 +657,8 @@ mkdocs build -f docs/user-guide/mkdocs.yml --strict
 - Add new pages to the `nav:` section in `docs/user-guide/mkdocs.yml`
 - Place images in `docs/user-guide/docs/en/assets/images/`
 - Follow the page templates under `docs/user-guide/templates/` and the authoring rules in `docs/dev/USER_GUIDE_AUTHORING.md`
-- Update `docs/user-guide/DOCUMENTATION_COMPLETION_TRACKER.md` whenever page status, reviewed sources, screenshot state, diagrams, or strict-build validation changes
-- Track requested screenshots in `docs/user-guide/SCREENSHOT_REQUEST_MANIFEST.md`; commit real images only with matching entries in `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md`
+- Commit real images only with matching entries in `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md`
+- The completion tracker, the screenshot request manifest and the guide's audit scripts are frozen while the guide is rebuilt (#37): do not update or run them; `docs/dev/USER_GUIDE_AUTHORING.md` names the checks that hold the guide meanwhile
 
 ### CI
 - A workflow that calls one reusable workflow more than once must key their concurrency groups apart. A reusable workflow inherits its caller's context, so two calls in one run see the same `github.workflow` and the same ref; with `cancel-in-progress` they share a group and the second cancels the first, taking the job that waited on it. The run then reports `cancelled` rather than `failure`, with no failing step anywhere, so the missing half reads as somebody pressing stop. `cache-linux.yml` and `cache-windows.yml` take a `variant` input for this; pass whatever distinguishes the calls. When a workflow runs several modes of one job, check that every mode reported rather than that nothing failed

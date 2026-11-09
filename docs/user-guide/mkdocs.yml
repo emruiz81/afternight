@@ -59,6 +59,8 @@ extra_javascript:
   # Keep documentation fully offline-capable for installer bundles.
   - assets/javascripts/mermaid/mermaid.min.js
   - assets/javascripts/mermaid/mermaid-init.js
+  # The configuration loads first: it points MathJax at its vendored fonts.
+  - assets/javascripts/mathjax/mathjax-config.js
   - assets/javascripts/mathjax/tex-mml-chtml.js
 
 extra:
