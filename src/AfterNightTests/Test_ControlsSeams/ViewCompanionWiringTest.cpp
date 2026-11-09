@@ -122,45 +122,56 @@ TEST_F(ViewCompanionWiringTest, ToolsOverlaysAndTheHistoryAreTheCompanionsOwn)
     EXPECT_EQ(companionRecord().overlayStars.back(), nullptr);
 }
 
-// The menu offers an annotated picture's levels of detail, label texts and palettes, starting at the standard level by
-// designation in Aurora; a choice is handed to the grid and the catalogue overlay, and kept for the next view.
+// The menu offers an annotated picture's levels of detail, label texts and palettes, and the view's text sizes,
+// starting at the standard level by designation in Aurora at the medium size; a choice is handed to the grid and the
+// catalogue overlay, and kept for the next view.
 TEST_F(ViewCompanionWiringTest, TheMenusChoicesAreHandedToTheOverlaysAndKeptForTheNextView)
 {
     ViewHandle view = makeView("choices");
     QMenu* detail = choicesMenu(*view, "astrometryDetailMenu");
     QMenu* labels = choicesMenu(*view, "astrometryLabelsMenu");
     QMenu* palette = choicesMenu(*view, "astrometryPaletteMenu");
+    QMenu* textSize = choicesMenu(*view, "astrometryTextSizeMenu");
     ASSERT_NE(detail, nullptr);
     ASSERT_NE(labels, nullptr);
     ASSERT_NE(palette, nullptr);
+    ASSERT_NE(textSize, nullptr);
     EXPECT_EQ(detail->actions().size(), 4);
     EXPECT_EQ(labels->actions().size(), 3);
     EXPECT_EQ(palette->actions().size(), static_cast<qsizetype>(an::ui::annotationPalettes().size()));
+    EXPECT_EQ(textSize->actions().size(), 3);
     EXPECT_EQ(checkedValue(*detail), static_cast<int>(an::ui::AnnotationDetail::Standard));
     EXPECT_EQ(checkedValue(*labels), static_cast<int>(an::ui::AnnotationLabelText::Designation));
     EXPECT_EQ(checkedValue(*palette), static_cast<int>(an::ui::AnnotationPalette::Aurora));
+    EXPECT_EQ(checkedValue(*textSize), static_cast<int>(an::ui::AnnotationViewTextSize::Medium));
     ASSERT_EQ(companionRecord().overlayChoices.size(), 2u);
     EXPECT_EQ(companionRecord().overlayChoices.back().second, an::ui::AnnotationViewChoices{});
 
     ASSERT_TRUE(choose(*detail, static_cast<int>(an::ui::AnnotationDetail::Complete)));
     ASSERT_TRUE(choose(*palette, static_cast<int>(an::ui::AnnotationPalette::Ember)));
+    ASSERT_TRUE(choose(*textSize, static_cast<int>(an::ui::AnnotationViewTextSize::Large)));
     const an::ui::AnnotationViewChoices chosen{.detail = an::ui::AnnotationDetail::Complete,
-                                               .palette = an::ui::AnnotationPalette::Ember};
-    ASSERT_EQ(companionRecord().overlayChoices.size(), 6u) << "each choice is handed to both overlays";
-    const std::set<an::ui::AstrometryOverlay> told{companionRecord().overlayChoices[4].first,
-                                                   companionRecord().overlayChoices[5].first};
+                                               .palette = an::ui::AnnotationPalette::Ember,
+                                               .textSize = an::ui::AnnotationViewTextSize::Large};
+    ASSERT_EQ(companionRecord().overlayChoices.size(), 8u) << "each choice is handed to both overlays";
+    const std::set<an::ui::AstrometryOverlay> told{companionRecord().overlayChoices[6].first,
+                                                   companionRecord().overlayChoices[7].first};
     EXPECT_EQ(told, (std::set<an::ui::AstrometryOverlay>{an::ui::AstrometryOverlay::CoordinateGrid,
                                                          an::ui::AstrometryOverlay::CatalogAnnotations}));
-    EXPECT_EQ(companionRecord().overlayChoices[4].second, chosen);
-    EXPECT_EQ(companionRecord().overlayChoices[5].second, chosen);
+    EXPECT_EQ(companionRecord().overlayChoices[6].second, chosen);
+    EXPECT_EQ(companionRecord().overlayChoices[7].second, chosen);
     EXPECT_EQ(checkedValue(*detail), static_cast<int>(an::ui::AnnotationDetail::Complete));
+    EXPECT_EQ(checkedValue(*textSize), static_cast<int>(an::ui::AnnotationViewTextSize::Large));
     EXPECT_EQ(an::ui::annotationViewChoicesFromStored(m_context->select(SettingsKeys::ANNOTATION_VIEW_CHOICES)),
               chosen);
 
     ViewHandle next = makeView("next");
     QMenu* nextDetail = choicesMenu(*next, "astrometryDetailMenu");
+    QMenu* nextTextSize = choicesMenu(*next, "astrometryTextSizeMenu");
     ASSERT_NE(nextDetail, nullptr);
+    ASSERT_NE(nextTextSize, nullptr);
     EXPECT_EQ(checkedValue(*nextDetail), static_cast<int>(an::ui::AnnotationDetail::Complete));
+    EXPECT_EQ(checkedValue(*nextTextSize), static_cast<int>(an::ui::AnnotationViewTextSize::Large));
     EXPECT_EQ(companionRecord().overlayChoices.back().second, chosen);
 }
 

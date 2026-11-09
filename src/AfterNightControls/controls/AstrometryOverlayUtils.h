@@ -198,13 +198,14 @@ struct OverlayGridLayout
                                                                          double fontPixels,
                                                                          const AnnotationStyle& style);
 
-/// The size an overlay's label is set at on the screen: the theme's caption, in a widget's pixels. A caption stated in
-/// points is set at the widget's logical resolution, which needs no font of the platform's: a platform with none
-/// resolves no pixel size.
+/// The size an overlay's label is set at on the screen: the theme's caption at the view's text size, in a widget's
+/// pixels. A caption stated in points is set at the widget's logical resolution, which needs no font of the platform's:
+/// a platform with none resolves no pixel size.
 ///
 /// @param widget the widget the label is drawn on.
+/// @param size the view's text size.
 /// @return the size, in the widget's pixels.
-[[nodiscard]] AFTERNIGHTCONTROLS_API double overlayLabelPixels(const QWidget& widget);
+[[nodiscard]] AFTERNIGHTCONTROLS_API double overlayLabelPixels(const QWidget& widget, AnnotationViewTextSize size);
 
 /// The entries a bundled catalog holds inside an image's field, for a scene's choices, as a worker found them.
 struct FieldCatalogEntries

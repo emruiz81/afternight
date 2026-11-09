@@ -21,8 +21,10 @@
 /// (`annotationDetailOf`, `annotationPaletteOf`). A person's own colours are kept apart
 /// (`AnnotationStyle::customColors`), so choosing a palette and then the custom one again brings them back.
 ///
-/// **A view takes three of them.** The live annotations of an image view offer a level of detail, what a label says
-/// and a palette (`AnnotationViewChoices`), named as a picture names them and stored apart from a picture's choices.
+/// **A view takes three of them, and a text size of its own.** The live annotations of an image view offer a level of
+/// detail, what a label says and a palette, named as a picture names them, and a text size: a picture's text follows
+/// the picture, a view's the screen, as a multiple of the interface's captions (`AnnotationViewChoices`). They are
+/// stored apart from a picture's choices.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -108,6 +110,19 @@ enum class AnnotationLabelText : std::uint8_t
 
     /// Its designation, with its common name on a second line when it has one.
     DesignationAndName
+};
+
+/// How large a view draws its annotations' text on the screen: its labels and its grid's.
+enum class AnnotationViewTextSize : std::uint8_t
+{
+    /// As large as the interface's captions.
+    Small,
+
+    /// A quarter larger.
+    Medium,
+
+    /// Half as large again.
+    Large
 };
 
 /// How far apart the equatorial grid's lines are drawn.
@@ -524,7 +539,8 @@ struct AnnotationSettings
 };
 
 /// What a view's live annotations name and how they look: the choices of an annotated picture its menu offers - a level
-/// of detail, what a label says and a palette. A view offers no custom level or palette.
+/// of detail, what a label says and a palette - and the size its text is drawn at on the screen. A view offers no
+/// custom level or palette.
 struct AnnotationViewChoices
 {
     /// How much of the catalogues the view names; never `AnnotationDetail::Custom`.
@@ -535,6 +551,9 @@ struct AnnotationViewChoices
 
     /// The colours the annotations and the grid are drawn in; never `AnnotationPalette::Custom`.
     AnnotationPalette palette = AnnotationPalette::Aurora;
+
+    /// How large the labels and the grid's labels are drawn on the screen.
+    AnnotationViewTextSize textSize = AnnotationViewTextSize::Medium;
 
     /// Field-wise equality.
     [[nodiscard]] friend bool operator==(const AnnotationViewChoices& left,
@@ -628,6 +647,23 @@ AFTERNIGHTCONTROLS_API void applyAnnotationDetail(AnnotationContent& content, An
 /// @param palette the palette; `AnnotationPalette::Custom` is named `Custom`.
 /// @return the name.
 [[nodiscard]] AFTERNIGHTCONTROLS_API QString annotationPaletteName(AnnotationPalette palette);
+
+/// The text sizes a view offers, in the order they are offered: small, medium and large.
+///
+/// @return the sizes.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::span<const AnnotationViewTextSize> annotationViewTextSizes() noexcept;
+
+/// A view's text size's name, as a person chooses it: `Small`, `Medium`, `Large`.
+///
+/// @param size the size.
+/// @return the name.
+[[nodiscard]] AFTERNIGHTCONTROLS_API QString annotationViewTextSizeName(AnnotationViewTextSize size);
+
+/// How large a view draws its annotations' text at a size, as a multiple of the interface's captions.
+///
+/// @param size the size.
+/// @return the multiple: one for the small size, larger for each larger size.
+[[nodiscard]] AFTERNIGHTCONTROLS_API double annotationViewTextScale(AnnotationViewTextSize size) noexcept;
 
 /// The length every size of a picture is a fraction of: the geometric mean of the image's width and height.
 ///

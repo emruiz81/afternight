@@ -305,6 +305,9 @@ constexpr std::array kPalettes{AnnotationPalette::Aurora,   AnnotationPalette::M
 constexpr std::array kDetails{AnnotationDetail::Essential, AnnotationDetail::Standard, AnnotationDetail::Detailed,
                               AnnotationDetail::Complete};
 
+constexpr std::array kViewTextSizes{AnnotationViewTextSize::Small, AnnotationViewTextSize::Medium,
+                                    AnnotationViewTextSize::Large};
+
 /// One name of an enumeration's value in the stored text.
 template <typename EnumT> struct NamedValue
 {
@@ -376,6 +379,12 @@ constexpr std::array<NamedValue<AnnotationDetail>, 4> kDetailNames{{
     {AnnotationDetail::Standard, "standard"},
     {AnnotationDetail::Detailed, "detailed"},
     {AnnotationDetail::Complete, "complete"},
+}};
+
+constexpr std::array<NamedValue<AnnotationViewTextSize>, 3> kViewTextSizeNames{{
+    {AnnotationViewTextSize::Small, "small"},
+    {AnnotationViewTextSize::Medium, "medium"},
+    {AnnotationViewTextSize::Large, "large"},
 }};
 
 constexpr std::array<NamedValue<AnnotationPalette>, 10> kPaletteNames{{
@@ -587,6 +596,39 @@ AnnotationDetail annotationDetailOfMagnitudeLimit(const double limit) noexcept
 std::span<const AnnotationPalette> annotationPalettes() noexcept
 {
     return kPalettes;
+}
+
+std::span<const AnnotationViewTextSize> annotationViewTextSizes() noexcept
+{
+    return kViewTextSizes;
+}
+
+QString annotationViewTextSizeName(const AnnotationViewTextSize size)
+{
+    switch (size)
+    {
+    case AnnotationViewTextSize::Small:
+        return translated("Small");
+    case AnnotationViewTextSize::Medium:
+        break;
+    case AnnotationViewTextSize::Large:
+        return translated("Large");
+    }
+    return translated("Medium");
+}
+
+double annotationViewTextScale(const AnnotationViewTextSize size) noexcept
+{
+    switch (size)
+    {
+    case AnnotationViewTextSize::Small:
+        return 1.0;
+    case AnnotationViewTextSize::Medium:
+        break;
+    case AnnotationViewTextSize::Large:
+        return 1.5;
+    }
+    return 1.25;
 }
 
 QString annotationPaletteName(const AnnotationPalette palette)
@@ -911,6 +953,7 @@ QString storedAnnotationViewChoices(const AnnotationViewChoices& choices)
     root.insert(
         QStringLiteral("palette"),
         nameOf(kPaletteNames, choices.palette == AnnotationPalette::Custom ? defaults.palette : choices.palette));
+    root.insert(QStringLiteral("textSize"), nameOf(kViewTextSizeNames, choices.textSize));
     return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
 }
 
@@ -927,6 +970,7 @@ AnnotationViewChoices annotationViewChoicesFromStored(const QString& stored)
     choices.detail = readEnum(root, "detail", kDetailNames, choices.detail);
     choices.labelText = readEnum(root, "labelText", kLabelTexts, choices.labelText);
     choices.palette = readEnum(root, "palette", kPaletteNames, choices.palette);
+    choices.textSize = readEnum(root, "textSize", kViewTextSizeNames, choices.textSize);
     return choices;
 }
 
