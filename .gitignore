@@ -42,6 +42,8 @@
 !docs/user-guide/requirements.txt
 !docs/user-guide/docs/en/assets/javascripts/iframe-worker/LICENSE-MIT.txt
 !docs/user-guide/docs/en/assets/javascripts/mathjax/LICENSE-Apache-2.0.txt
+!docs/user-guide/docs/en/assets/javascripts/mathjax/fonts/mathjax-newcm-font/LICENSE-Apache-2.0.txt
+!docs/user-guide/docs/en/assets/javascripts/mathjax/fonts/mathjax-newcm-font/GUST-FONT-LICENSE.txt
 !build/scripts/tools/fuzz_targets.txt
 !build/scripts/tools/sanitizer_matrix.txt
 !build/scripts/tools/leak_suppressions.txt
