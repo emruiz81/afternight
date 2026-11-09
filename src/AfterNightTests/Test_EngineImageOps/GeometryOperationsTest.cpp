@@ -834,6 +834,200 @@ TEST(GeometryOperationsTest, ConstantBorderIsAValidContributor)
     EXPECT_EQ(an::countValidity(maskView.constView()).valid, 2u);
 }
 
+// A position lies on a plane's pixels from half a pixel before its first pixel centre up to, and not including, half a
+// pixel past its last, on both axes; one that is not a number lies on nothing.
+TEST(GeometryOperationsTest, APositionLiesOnAPlanesPixelsFromHalfAPixelBeforeItsFirstCentreToHalfAPixelPastItsLast)
+{
+    static_assert(an::liesOnPlanePixels(-0.5, -0.5, 4u, 3u));
+    static_assert(an::liesOnPlanePixels(3.4999, 2.4999, 4u, 3u));
+    static_assert(!an::liesOnPlanePixels(-0.5000001, 1.0, 4u, 3u));
+    static_assert(!an::liesOnPlanePixels(1.0, -0.5000001, 4u, 3u));
+    static_assert(!an::liesOnPlanePixels(3.5, 1.0, 4u, 3u));
+    static_assert(!an::liesOnPlanePixels(1.0, 2.5, 4u, 3u));
+    EXPECT_FALSE(an::liesOnPlanePixels(std::numeric_limits<double>::quiet_NaN(), 1.0, 4u, 3u));
+    EXPECT_FALSE(an::liesOnPlanePixels(1.0, std::numeric_limits<double>::quiet_NaN(), 4u, 3u));
+    static_assert(an::isWarpCoverage(an::WarpCoverage::WholeDestination));
+    static_assert(an::isWarpCoverage(an::WarpCoverage::SourcePixels));
+    static_assert(!an::isWarpCoverage(static_cast<an::WarpCoverage>(2u)));
+}
+
+// Under the source-pixel coverage a rotation or a warp writes only the destination samples whose position lies on the
+// source's pixels, and every other one keeps what it held and its bit is clear, whatever the border rule: on the
+// direct Float32 path - through the reference reader and through every compiled row this host runs - and on the general
+// path, which a source stated finite only takes. Under the whole-destination coverage the call is the one without a
+// coverage, sample for sample and bit for bit.
+TEST(GeometryOperationsTest, AWarpOverTheSourcesPixelsWritesOnlyWhereItsPositionLiesOnThem)
+{
+    constexpr std::uint32_t kWidth = 40u;
+    constexpr std::uint32_t kHeight = 30u;
+    constexpr float kUnwritten = -7.0f;
+    // A position this close to the source's edge is left unjudged: the paths evaluate it in different orders.
+    constexpr double kUnjudged = 1.0e-6;
+    const an::ImageDescriptor sourceDescriptor = descriptor(kWidth, kHeight);
+    const an::ImageLayout layout = planarLayout(an::SampleType::Float32, kWidth, kHeight);
+    const auto indexOf = [&layout](std::uint32_t x, std::uint32_t y) {
+        return static_cast<std::size_t>(*layout.sampleByteOffset(0u, y, x, 0u) / sizeof(float));
+    };
+    std::vector<float> source(static_cast<std::size_t>(layout.totalBytes() / sizeof(float)), 0.0f);
+    for (std::uint32_t y = 0u; y < kHeight; ++y)
+    {
+        for (std::uint32_t x = 0u; x < kWidth; ++x)
+        {
+            source[indexOf(x, y)] = 0.07f + 0.001f * static_cast<float>(x) + 0.0005f * static_cast<float>(y);
+        }
+    }
+    // Destination to source: a turn of seven degrees about the centre, a shift and a slight projective tilt.
+    const double cosine = std::cos(7.0 * std::numbers::pi / 180.0);
+    const double sine = std::sin(7.0 * std::numbers::pi / 180.0);
+    const double centreX = 19.5;
+    const double centreY = 14.5;
+    const std::array<double, 9> matrix{cosine, -sine,   centreX + 2.3 - cosine * centreX + sine * centreY,
+                                       sine,   cosine,  centreY - 1.7 - sine * centreX - cosine * centreY,
+                                       2.0e-4, -1.0e-4, 1.0};
+    const std::optional<an::ValidityDescriptor> finiteOnly =
+        an::ValidityDescriptor::create({.rule = an::ValidityRule::FiniteOnly});
+    ASSERT_TRUE(finiteOnly.has_value());
+
+    const an::EngineContext engine = makeEngine();
+    std::vector<std::pair<an::ComputeBackend, an::InstructionSet>> executions{
+        {an::ComputeBackend::Reference, an::InstructionSet::Scalar}};
+    for (const an::InstructionSet target : compiledWarpTargets())
+    {
+        executions.emplace_back(an::ComputeBackend::Cpu, target);
+    }
+    for (const auto& [backend, instructionSet] : executions)
+    {
+        an::ExecutionOptions options;
+        options.maxConcurrency = 2u;
+        options.backend = backend;
+        options.instructionSet = instructionSet;
+        options.backendFallback = an::BackendFallback::Forbidden;
+        const an::Result<an::ExecutionContext> execution = an::ExecutionContext::create(engine, options);
+        ASSERT_TRUE(execution.hasValue()) << execution.status().message();
+        for (const an::KernelInterpolation interpolation :
+             {an::KernelInterpolation::Nearest, an::KernelInterpolation::Linear, an::KernelInterpolation::Cubic,
+              an::KernelInterpolation::Lanczos4})
+        {
+            for (const an::KernelBorderMode border : {an::KernelBorderMode::Constant, an::KernelBorderMode::Clamp})
+            {
+                for (const bool general : {false, true})
+                {
+                    SCOPED_TRACE(::testing::Message()
+                                 << an::instructionSetName(instructionSet) << ", interpolation "
+                                 << static_cast<int>(interpolation) << ", "
+                                 << (border == an::KernelBorderMode::Clamp ? "clamp" : "constant") << " border, "
+                                 << (general ? "the general path" : "the Float32 path"));
+                    const an::Result<an::GeometryPlan> plan = an::planProjectiveWarp(
+                        sourceDescriptor, {.width = kWidth,
+                                           .height = kHeight,
+                                           .destinationToSource = matrix,
+                                           .sampling = {.interpolation = interpolation,
+                                                        .border = border,
+                                                        .invalid = an::SamplingInvalidPolicy::RequireAll}});
+                    ASSERT_TRUE(plan.hasValue()) << plan.status().message();
+                    const an::GeometrySelection selection =
+                        general ? an::GeometrySelection{.validity = *finiteOnly} : an::GeometrySelection{};
+                    const auto run = [&](const std::optional<an::WarpCoverage> coverage, std::vector<float>& canvas,
+                                         an::ValidityMask& mask) {
+                        const an::ValidityMaskView<std::uint8_t> written = outputMask(mask);
+                        return coverage.has_value()
+                                   ? an::transformImageGeometry(*execution, an::SampleType::Float32, source.data(),
+                                                                layout, canvas.data(), layout, *plan, selection,
+                                                                written, *coverage)
+                                   : an::transformImageGeometry(*execution, an::SampleType::Float32, source.data(),
+                                                                layout, canvas.data(), layout, *plan, selection,
+                                                                written);
+                    };
+                    const auto canvasAndMask = [&]() {
+                        an::Result<an::ValidityMask> mask = an::ValidityMask::createAllValid(engine, layout.extent());
+                        EXPECT_TRUE(mask.hasValue());
+                        return std::pair{std::vector<float>(source.size(), kUnwritten), std::move(*mask)};
+                    };
+
+                    auto [plain, plainMask] = canvasAndMask();
+                    auto [whole, wholeMask] = canvasAndMask();
+                    auto [covered, coveredMask] = canvasAndMask();
+                    const an::Result<an::GeometryResult> plainRun = run(std::nullopt, plain, plainMask);
+                    const an::Result<an::GeometryResult> wholeRun =
+                        run(an::WarpCoverage::WholeDestination, whole, wholeMask);
+                    const an::Result<an::GeometryResult> coveredRun =
+                        run(an::WarpCoverage::SourcePixels, covered, coveredMask);
+                    ASSERT_TRUE(plainRun.hasValue()) << plainRun.status().message();
+                    ASSERT_TRUE(wholeRun.hasValue()) << wholeRun.status().message();
+                    ASSERT_TRUE(coveredRun.hasValue()) << coveredRun.status().message();
+                    EXPECT_EQ(std::memcmp(plain.data(), whole.data(), plain.size() * sizeof(float)), 0);
+                    EXPECT_EQ(wholeRun->run.outputsWritten, plainRun->run.outputsWritten);
+
+                    const an::ValidityMaskView<std::uint8_t> plainBits = outputMask(plainMask);
+                    const an::ValidityMaskView<std::uint8_t> wholeBits = outputMask(wholeMask);
+                    const an::ValidityMaskView<std::uint8_t> coveredBits = outputMask(coveredMask);
+                    std::uint64_t onSource = 0u;
+                    std::uint64_t wrong = 0u;
+                    std::string first;
+                    for (std::uint32_t y = 0u; y < kHeight; ++y)
+                    {
+                        for (std::uint32_t x = 0u; x < kWidth; ++x)
+                        {
+                            EXPECT_EQ(wholeBits.test(0u, x, y), plainBits.test(0u, x, y));
+                            const double column = static_cast<double>(x);
+                            const double row = static_cast<double>(y);
+                            const double denominator = matrix[6] * column + matrix[7] * row + matrix[8];
+                            const double sourceX = (matrix[0] * column + matrix[1] * row + matrix[2]) / denominator;
+                            const double sourceY = (matrix[3] * column + matrix[4] * row + matrix[5]) / denominator;
+                            const double edge = (std::min)({std::abs(sourceX + 0.5),
+                                                            std::abs(sourceX - (static_cast<double>(kWidth) - 0.5)),
+                                                            std::abs(sourceY + 0.5),
+                                                            std::abs(sourceY - (static_cast<double>(kHeight) - 0.5))});
+                            if (edge < kUnjudged)
+                            {
+                                continue;
+                            }
+                            const bool on = an::liesOnPlanePixels(sourceX, sourceY, kWidth, kHeight);
+                            onSource += on ? 1u : 0u;
+                            const float value = covered[indexOf(x, y)];
+                            const bool stated = coveredBits.test(0u, x, y).value_or(!on);
+                            const bool held =
+                                on ? stated && value == whole[indexOf(x, y)] : !stated && value == kUnwritten;
+                            if (!held && wrong++ == 0u)
+                            {
+                                first = "(" + std::to_string(x) + ", " + std::to_string(y) + ") at (" +
+                                        std::to_string(sourceX) + ", " + std::to_string(sourceY) + ") holds " +
+                                        std::to_string(value) + ", its bit " + (stated ? "set" : "clear");
+                            }
+                        }
+                    }
+                    EXPECT_EQ(wrong, 0u) << first;
+                    EXPECT_GT(onSource, 0u);
+                    EXPECT_LT(onSource, static_cast<std::uint64_t>(kWidth) * kHeight);
+                }
+            }
+        }
+    }
+}
+
+// A coverage this build does not define is refused before anything is written: the destination and its bits are as
+// they were.
+TEST(GeometryOperationsTest, ACoverageOutsideItsEnumerationIsRefusedBeforeAnythingIsWritten)
+{
+    const an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    const an::Result<an::GeometryPlan> planned = an::planAffineWarp(
+        descriptor(4u, 3u), {.width = 4u, .height = 3u, .destinationToSource = {1, 0, 0.5, 0, 1, 0}});
+    ASSERT_TRUE(planned.hasValue()) << planned.status().message();
+    const an::ImageLayout layout = planarLayout(an::SampleType::Float32, 4u, 3u);
+    const std::vector<float> source(12u, 0.25f);
+    std::vector<float> destination(12u, -1.0f);
+    an::Result<an::ValidityMask> mask = an::ValidityMask::createAllValid(engine, layout.extent());
+    ASSERT_TRUE(mask.hasValue());
+    const an::ValidityMaskView<std::uint8_t> maskView = outputMask(*mask);
+    const an::Result<an::GeometryResult> refused =
+        an::transformImageGeometry(execution, an::SampleType::Float32, source.data(), layout, destination.data(),
+                                   layout, *planned, {}, maskView, static_cast<an::WarpCoverage>(2u));
+    EXPECT_EQ(refused.code(), an::ErrorCode::InvalidArgument);
+    EXPECT_EQ(destination, std::vector<float>(12u, -1.0f));
+    EXPECT_EQ(an::countValidity(maskView.constView()).valid, 12u);
+}
+
 TEST(GeometryOperationsTest, AReductionWithNoValidContributorLeavesItsOutputUnwritten)
 {
     const an::EngineContext engine = makeEngine();

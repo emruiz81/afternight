@@ -13,6 +13,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -22,6 +23,7 @@
 #include <optional>
 #include <span>
 #include <stop_token>
+#include <string>
 #include <vector>
 
 namespace
@@ -1061,6 +1063,187 @@ TEST(RegistrationPlanTest, WritableMasksMustNotOverlapInputValidity)
             EXPECT_EQ(refused.code(), an::ErrorCode::Aliasing);
             EXPECT_EQ(destination, std::vector<float>(32u, -1.0f));
             EXPECT_EQ(bits, (std::array<std::uint8_t, 5u>{255u, 255u, 255u, 255u, 255u}));
+        }
+    }
+}
+
+// The warp writes a destination sample only where the frame reaches it: where the sample's position on the frame lies
+// on the frame's pixels, from half a pixel before its first pixel centre up to half a pixel past its last. Every other
+// sample keeps what the destination held and its bit is clear, whatever the border rule - a sample the interpolation
+// could reach from the frame's edge is still no sample of the frame. Every route is held to it, at every interpolation,
+// under the constant and the clamp borders, for a whole-pixel shift, a fractional one and a turn: the matrix route's
+// Float32 path, with one channel and with three under one mask, its general path, which a frame stated finite only
+// takes, the coordinate map and the whole-pixel copy.
+TEST(RegistrationPlanTest, AWarpWritesOnlyTheSamplesWhosePositionLiesOnTheFrame)
+{
+    const an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    constexpr std::uint32_t kWidth = 64u;
+    constexpr std::uint32_t kHeight = 48u;
+    constexpr float kUnwritten = -7.0f;
+    // A position this close to the frame's edge is left unjudged: the routes compute it in double and in float.
+    constexpr double kUnjudged = 1.0e-3;
+
+    struct Motion
+    {
+        const char* name;
+        std::array<double, 9> sourceToReference;
+    };
+    // A turn of five degrees about the frame's centre, then a shift.
+    const double cosine = std::cos(5.0 * 3.14159265358979323846 / 180.0);
+    const double sine = std::sin(5.0 * 3.14159265358979323846 / 180.0);
+    const double centreX = 32.0;
+    const double centreY = 24.0;
+    const std::array<Motion, 3u> motions{
+        Motion{"a whole-pixel shift", {1.0, 0.0, 4.0, 0.0, 1.0, -3.0, 0.0, 0.0, 1.0}},
+        Motion{"a fractional shift", {1.0, 0.0, 4.3, 0.0, 1.0, -2.6, 0.0, 0.0, 1.0}},
+        Motion{"a turn",
+               {cosine, -sine, centreX + 1.7 - cosine * centreX + sine * centreY, sine, cosine,
+                centreY + 0.9 - sine * centreX - cosine * centreY, 0.0, 0.0, 1.0}}};
+
+    struct Route
+    {
+        const char* name;
+        bool coordinateMap;
+        bool finiteOnly;
+        std::uint32_t channels;
+    };
+    const std::array<Route, 4u> routes{Route{"the matrix route's Float32 path", false, false, 1u},
+                                       Route{"the matrix route's Float32 path, three channels", false, false, 3u},
+                                       Route{"the matrix route's general path", false, true, 1u},
+                                       Route{"the coordinate map", true, false, 1u}};
+    const std::optional<an::ValidityDescriptor> finiteOnly =
+        an::ValidityDescriptor::create({.rule = an::ValidityRule::FiniteOnly});
+    ASSERT_TRUE(finiteOnly.has_value());
+    const std::optional<an::ImageExtent> maskExtent =
+        an::ImageExtent::create(kWidth, kHeight, 1u, an::defaultEngineLimits());
+    ASSERT_TRUE(maskExtent.has_value());
+
+    for (const Route& route : routes)
+    {
+        const an::ImageDescriptor descriptor = descriptorOf(kWidth, kHeight, route.channels);
+        const an::ImageLayout layout = layoutOf(descriptor);
+        const std::size_t samples = static_cast<std::size_t>(layout.totalBytes() / sizeof(float));
+        const auto indexOf = [&layout](std::uint32_t channel, std::uint32_t x, std::uint32_t y) {
+            return static_cast<std::size_t>(*layout.sampleByteOffset(channel, y, x, 0u) / sizeof(float));
+        };
+        std::vector<float> frame(samples, 0.0f);
+        for (std::uint32_t channel = 0u; channel < route.channels; ++channel)
+        {
+            for (std::uint32_t y = 0u; y < kHeight; ++y)
+            {
+                for (std::uint32_t x = 0u; x < kWidth; ++x)
+                {
+                    frame[indexOf(channel, x, y)] = 0.07f + 0.001f * static_cast<float>(x) +
+                                                    0.0005f * static_cast<float>(y) +
+                                                    0.01f * static_cast<float>(channel);
+                }
+            }
+        }
+        for (const Motion& motion : motions)
+        {
+            an::RegistrationTransformRequest request{.linearKind = an::RegistrationTransformKind::Affine,
+                                                     .sourceToReference = motion.sourceToReference};
+            if (route.coordinateMap)
+            {
+                // A polynomial that moves nothing, so the motion is the matrix's and the warp maps it pixel by pixel.
+                request.polynomial.order = 2u;
+                request.polynomial.x[1] = 1.0;
+                request.polynomial.y[2] = 1.0;
+                request.polynomial.normalizationScale = {64.0, 64.0};
+            }
+            const an::Result<an::RegistrationTransform> transform = an::RegistrationTransform::create(request);
+            ASSERT_TRUE(transform.hasValue()) << transform.status().message();
+            const std::array<double, 9>& m = motion.sourceToReference;
+            const double determinant = m[0] * m[4] - m[1] * m[3];
+            for (const an::KernelInterpolation interpolation :
+                 {an::KernelInterpolation::Nearest, an::KernelInterpolation::Linear, an::KernelInterpolation::Cubic,
+                  an::KernelInterpolation::Lanczos4})
+            {
+                for (const an::KernelBorderMode border : {an::KernelBorderMode::Constant, an::KernelBorderMode::Clamp})
+                {
+                    SCOPED_TRACE(::testing::Message()
+                                 << route.name << ", " << motion.name << ", "
+                                 << (interpolation == an::KernelInterpolation::Nearest  ? "nearest"
+                                     : interpolation == an::KernelInterpolation::Linear ? "bilinear"
+                                     : interpolation == an::KernelInterpolation::Cubic  ? "bicubic"
+                                                                                        : "Lanczos-4")
+                                 << ", the " << (border == an::KernelBorderMode::Clamp ? "clamp" : "constant")
+                                 << " border");
+                    const an::Result<an::RegistrationWarpPlan> plan =
+                        an::planRegistrationWarp(descriptor, *transform, {},
+                                                 {.width = kWidth,
+                                                  .height = kHeight,
+                                                  .sampling = {.interpolation = interpolation,
+                                                               .border = border,
+                                                               .invalid = an::SamplingInvalidPolicy::RequireAll}});
+                    ASSERT_TRUE(plan.hasValue()) << plan.status().message();
+                    std::vector<float> canvas(samples, kUnwritten);
+                    // The mask starts claiming every sample, so a bit the warp leaves set is one it stated.
+                    an::Result<an::ValidityMask> mask = an::ValidityMask::createAllValid(engine, *maskExtent);
+                    ASSERT_TRUE(mask.hasValue()) << mask.status().message();
+                    const an::ValidityMaskView<std::uint8_t> written = outputMask(*mask);
+                    const an::KernelValidityView selection =
+                        route.finiteOnly ? an::KernelValidityView{.descriptor = *finiteOnly} : an::KernelValidityView{};
+                    const an::Result<an::RegistrationWarpResult> warped =
+                        an::warpRegisteredImage(execution, an::SampleType::Float32, frame.data(), layout, canvas.data(),
+                                                layout, *plan, selection, written);
+                    ASSERT_TRUE(warped.hasValue()) << warped.status().message();
+
+                    std::uint64_t onFrame = 0u;
+                    std::uint64_t unjudged = 0u;
+                    std::uint64_t wrong = 0u;
+                    std::string first;
+                    for (std::uint32_t y = 0u; y < kHeight; ++y)
+                    {
+                        for (std::uint32_t x = 0u; x < kWidth; ++x)
+                        {
+                            // The destination centre, back on the frame, both in the engine's convention: a pixel's
+                            // centre half a pixel past its index, so the frame's pixels span [0, width).
+                            const double rx = static_cast<double>(x) + 0.5 - m[2];
+                            const double ry = static_cast<double>(y) + 0.5 - m[5];
+                            const double sx = (m[4] * rx - m[1] * ry) / determinant;
+                            const double sy = (m[0] * ry - m[3] * rx) / determinant;
+                            const double edge = (std::min)({std::abs(sx), std::abs(sx - static_cast<double>(kWidth)),
+                                                            std::abs(sy), std::abs(sy - static_cast<double>(kHeight))});
+                            if (edge < kUnjudged)
+                            {
+                                ++unjudged;
+                                continue;
+                            }
+                            const bool reached = sx >= 0.0 && sx < static_cast<double>(kWidth) && sy >= 0.0 &&
+                                                 sy < static_cast<double>(kHeight);
+                            onFrame += reached ? 1u : 0u;
+                            const bool stated = written.test(0u, x, y).value_or(!reached);
+                            bool held = stated == reached;
+                            for (std::uint32_t channel = 0u; channel < route.channels; ++channel)
+                            {
+                                const float value = canvas[indexOf(channel, x, y)];
+                                held = held && (reached ? value != kUnwritten : value == kUnwritten);
+                            }
+                            if (!held)
+                            {
+                                if (wrong == 0u)
+                                {
+                                    first = "(" + std::to_string(x) + ", " + std::to_string(y) + ") at (" +
+                                            std::to_string(sx) + ", " + std::to_string(sy) + ") on the frame " +
+                                            (reached ? "was not written" : "was written") + ", its bit " +
+                                            (stated ? "set" : "clear") + ", holding " +
+                                            std::to_string(canvas[indexOf(0u, x, y)]);
+                                }
+                                ++wrong;
+                            }
+                        }
+                    }
+                    EXPECT_EQ(wrong, 0u) << first;
+                    const std::uint64_t total = static_cast<std::uint64_t>(kWidth) * kHeight * route.channels;
+                    EXPECT_EQ(warped->run.outputsWritten + warped->unmappedSamples, total);
+                    if (unjudged == 0u)
+                    {
+                        EXPECT_EQ(warped->run.outputsWritten, onFrame * route.channels);
+                    }
+                }
+            }
         }
     }
 }

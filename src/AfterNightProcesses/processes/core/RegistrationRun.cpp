@@ -343,7 +343,8 @@ struct Warped
     an::ValidityMask mask;
 };
 
-/// The warp of an image onto a canvas through its transform, its plate distortion undone after the transform's inverse.
+/// The warp of an image onto a canvas through its transform, its plate distortion undone after the transform's inverse:
+/// written only where the image reaches, which its mask states, the canvas zero elsewhere.
 [[nodiscard]] an::Result<Warped> warpOnto(const an::EngineContext& engine, const an::ExecutionContext& execution,
                                           const an::Image<float>& source, const an::RegistrationTransform& transform,
                                           const an::SipDistortion& distortion,
@@ -1131,7 +1132,7 @@ correctChromaticAberration(const an::EngineContext& engine, const an::ExecutionC
                 .height = height,
                 .sampling = an::SamplingKernelParameters{
                     .interpolation = interpolation.hasValue() ? *interpolation : an::KernelInterpolation::Lanczos4,
-                    .border = an::KernelBorderMode::Constant,
+                    .border = an::KernelBorderMode::Clamp,
                     .invalid = an::SamplingInvalidPolicy::RequireAll}});
         if (!warped.hasValue())
         {
@@ -1146,20 +1147,31 @@ correctChromaticAberration(const an::EngineContext& engine, const an::ExecutionC
             }
             corrected.emplace(std::move(*copy));
         }
-        // Only the channel moves: its plane of the warped frame replaces the corrected frame's.
+        // Only the channel moves: its plane of the warped frame replaces the corrected frame's where the moved channel
+        // reaches, and the channel keeps its own samples where it does not - the pixel or two at the frame's edge the
+        // aberration moved it off, which a channel left empty would carry into every later stage as a dark rim.
         const auto from = std::as_const(warped->image).view();
+        const auto reached = std::as_const(warped->mask).view();
         std::optional<an::ImageWriteAccess<float>> access = corrected->write();
-        if (!from.has_value() || !access.has_value())
+        if (!from.has_value() || !reached.has_value() || !access.has_value())
         {
             return refusal(an::ErrorCode::NotInitialized, "a corrected channel holds nothing");
         }
+        const std::uint32_t plane = reached->isShared() ? 0u : channel;
         for (std::uint32_t y = 0u; y < height; ++y)
         {
             const std::optional<std::span<const float>> in = from->row(channel, y);
             const std::optional<std::span<float>> out = access->view().row(channel, y);
-            if (in.has_value() && out.has_value())
+            if (!in.has_value() || !out.has_value())
             {
-                std::copy(in->begin(), in->end(), out->begin());
+                continue;
+            }
+            for (std::uint32_t x = 0u; x < width; ++x)
+            {
+                if (reached->test(plane, x, y).value_or(false))
+                {
+                    (*out)[x] = (*in)[x];
+                }
             }
         }
         applied = true;
@@ -1539,7 +1551,7 @@ an::Status alignRegisteredFrame(const an::consumer::EngineSession& session, cons
                          .height = canvas.height,
                          .canvasOrigin = canvas.origin,
                          .sampling = an::SamplingKernelParameters{.interpolation = interpolation,
-                                                                  .border = an::KernelBorderMode::Constant,
+                                                                  .border = an::KernelBorderMode::Clamp,
                                                                   .invalid = an::SamplingInvalidPolicy::RequireAll}});
         if (!warped.hasValue())
         {

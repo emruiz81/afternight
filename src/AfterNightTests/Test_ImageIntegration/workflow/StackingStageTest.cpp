@@ -991,6 +991,62 @@ TEST_F(LightsStackingTest, RegisteredImagesAreStackedAndOneChangedSinceIsRefused
         << refused.error.toLogString().toStdString();
 }
 
+// A light the registration places a fractional shift from its reference - 4.3 pixels across and 2.6 up - holds nothing
+// where it does not reach, so the stack leaves it out there: wherever the reference alone reaches, in the three rows
+// before the light's first and the four columns past its last, the master is the reference's own sample, whether the
+// stack warps the lights as it reads them or reads the registered images.
+TEST_F(LightsStackingTest, WhereOneLightAloneReachesTheMasterIsThatLightsSample)
+{
+    registerTranslatedPair(4.3, -2.6);
+    const auto reference = readWrittenImage(m_referencePath);
+    ASSERT_TRUE(reference.has_value());
+    const std::uint32_t width = reference->samples.width();
+    const std::uint32_t height = reference->samples.height();
+    for (const bool warpedAsRead : {true, false})
+    {
+        SCOPED_TRACE(warpedAsRead ? "the lights warped as the stack reads them" : "the registered images");
+        if (warpedAsRead)
+        {
+            updateGroup(
+                [](auto& group) { group.stacking.registeredOutputPolicy = RegisteredOutputPolicy::Discardable; });
+        }
+        else
+        {
+            updateGroup([](auto& group) { group.stacking.registeredOutputPolicy = RegisteredOutputPolicy::Retained; });
+            m_manifest.reprocessExisting = true;
+            LightsAlignmentStage alignment;
+            ASSERT_TRUE(m_run.run(alignment, m_manifest).isSuccess());
+        }
+        const StageResult result = stack();
+        ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+        EXPECT_TRUE(result.groupResults.front().registrationInputPolicy.startsWith(
+            warpedAsRead ? QStringLiteral("Transform-on-read") : QStringLiteral("Materialized")))
+            << result.groupResults.front().registrationInputPolicy.toStdString();
+        const auto master = readWrittenImage(masterPath());
+        ASSERT_TRUE(master.has_value());
+        ASSERT_EQ(master->samples.width(), width);
+        ASSERT_EQ(master->samples.height(), height);
+        std::uint32_t differing = 0u;
+        double worst = 0.0;
+        for (std::uint32_t y = 0u; y < height; ++y)
+        {
+            for (std::uint32_t x = 0u; x < width; ++x)
+            {
+                // The reference's pixel (x, y) is the light's (x + 4.3, y - 2.6).
+                if (y >= 3u && x + 4u < width)
+                {
+                    continue;
+                }
+                const double difference =
+                    std::abs(master->samples.value(x, y, 0u) - reference->samples.value(x, y, 0u));
+                differing += difference != 0.0 ? 1u : 0u;
+                worst = (std::max)(worst, difference);
+            }
+        }
+        EXPECT_EQ(differing, 0u) << "the master differs from the reference by up to " << worst;
+    }
+}
+
 // A stack bounded by memory reads the registered images a band at a time, as one that is not: the planner tiles it
 // rather than re-reading every image whole for every tile, and the master is the one the unbounded stack writes,
 // sample for sample.
