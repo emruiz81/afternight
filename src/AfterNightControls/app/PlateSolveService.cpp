@@ -90,6 +90,17 @@ constexpr std::uint32_t kInternalGaiaMatchedCatalogStars = 512u;
 /// The fewest stars a plane must yield before the internal solver tries to match it.
 constexpr std::size_t kInternalGaiaMinimumStars = 3u;
 
+/// How many background-noise deviations above the sky the internal solver searches for stars at, before the
+/// detector's own factor of five: twelve and a half in all, which keeps the stars it matches well measured.
+constexpr double kInternalGaiaNoiseSigma = 2.5;
+
+/// The highest the internal solver's detection threshold stands above the sky, as a fraction of the plane's range
+/// above it: half. On linear data twelve and a half noise deviations are a sliver of that range. A stretch spreads the
+/// sky's noise over a few hundredths of full scale whatever the image - an autostretch sets the sky at a quarter of
+/// full scale and its noise at a twentieth or more - and lifts that threshold close to full scale or past it, where few
+/// or none of the stretched plane's stars reach.
+constexpr double kInternalGaiaThresholdRangeFraction = 0.5;
+
 /// How far a hinted solve's catalog reaches past its search radius, in catalog query cones: the solve refines its
 /// centre toward the field it finds, and its last cone must still lie inside the catalog it was given.
 constexpr double kHintedCatalogMarginCones = 1.5;
@@ -443,8 +454,10 @@ void populateDerivedFocalLength(an::ui::PlateSolveResult& result, const an::Opti
 }
 
 /// The stars of one plane of a decoded image, brightest first, as the internal solver detects them: a search radius of
-/// five pixels, a noise sigma of 2.5, a minimum roundness of 0.45, relaxed checks and one unit of fit iteration, at
-/// most `kInternalGaiaDetectionStars` stars.
+/// five pixels, a noise sigma of `kInternalGaiaNoiseSigma`, a minimum roundness of 0.45, relaxed checks and one unit of
+/// fit iteration, at most `kInternalGaiaDetectionStars` stars. A plane whose threshold stood higher above its sky than
+/// `kInternalGaiaThresholdRangeFraction` of its range - a stretched plane - is searched again with the threshold at
+/// that height, over the sky the first search measured.
 [[nodiscard]] an::Result<std::vector<an::PlateSolveStar>> detectSolverStars(const an::consumer::OperationScope& scope,
                                                                             const an::consumer::AssetReadLease& lease,
                                                                             const std::uint32_t channel)
@@ -474,7 +487,7 @@ void populateDerivedFocalLength(an::ui::PlateSolveResult& result, const an::Opti
         }
         an::StarDetectionRequest request;
         request.searchRadius = 5u;
-        request.noiseSigma = 2.5;
+        request.noiseSigma = kInternalGaiaNoiseSigma;
         request.minimumRoundness = 0.45;
         request.relaxedChecks = true;
         request.convergence = 1u;
@@ -489,6 +502,29 @@ void populateDerivedFocalLength(an::ui::PlateSolveResult& result, const an::Opti
         if (an::Status ran = an::detectStars(scope.execution(), *frame, *plan, detected); ran.failed())
         {
             return ran;
+        }
+        const an::StarChannelStatistics sky = detected.summary.channel;
+        const double range = (std::min)(sky.maximum, request.fullScale) - sky.background;
+        const double height = an::kStarDetectionThresholdSigmas * request.noiseSigma * sky.backgroundNoise;
+        if (range > 0.0 && height > kInternalGaiaThresholdRangeFraction * range)
+        {
+            request.noiseSigma =
+                kInternalGaiaThresholdRangeFraction * range / (an::kStarDetectionThresholdSigmas * sky.backgroundNoise);
+            const an::Result<an::StarDetectionPlan> lowered =
+                an::planStarDetection(request, *descriptor, layout, channel);
+            if (!lowered.hasValue())
+            {
+                return lowered.status();
+            }
+            LOG_INFO(
+                "[Internal Gaia] Channel {}: the threshold stood {:.4f} above a sky of {:.4f} in a range of {:.4f}; "
+                "searching again at {:.2f} noise sigmas",
+                channel, height, sky.background, range, request.noiseSigma);
+            detected = an::StarDetectionResult{};
+            if (an::Status ran = an::detectStars(scope.execution(), *frame, *lowered, sky, detected); ran.failed())
+            {
+                return ran;
+            }
         }
         std::vector<an::PlateSolveStar> stars;
         stars.reserve(detected.stars.size());
