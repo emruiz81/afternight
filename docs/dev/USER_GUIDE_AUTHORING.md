@@ -10,6 +10,15 @@ from disk, ships inside the installers and is published to GitHub Pages with eac
 rules a change to the guide follows: where its parts live, how it is built and shipped, how a page's claims are
 verified, what a complete page contains, how it is written and how its media is handled.
 
+> **Frozen while the guide is rebuilt ([#37](https://github.com/emruiz81/afternight/issues/37)).** The audit
+> apparatus - `build/scripts/audit_user_guide.ps1`, `validate_user_guide_media.ps1`,
+> `validate_ug00_user_guide_foundation.ps1`, `validate_ug01_user_guide_audits.ps1` and
+> `validate_ug65_user_guide_diagrams.cjs`, the completion tracker, the screenshot request manifest, the
+> content-verification prerequisites, `docs/user-guide/audits/` and `docs/dev/USER_GUIDE_SCREENSHOT_TRIAGE.md` - is
+> frozen: nobody runs or updates it, no CI job runs it, and the rebuild removes it. What this document asks of a
+> tracker row, a manifest row, a `MEDIA_SLOT` comment or an audit run is suspended with it. The strict build,
+> `check_user_guide.py` and the render tool hold the guide meanwhile ([Checks](#checks)).
+
 ## Contents
 
 1. [Layout](#layout)
@@ -35,7 +44,7 @@ verified, what a complete page contains, how it is written and how its media is 
 | `docs/user-guide/requirements.txt` | The resolved lock, with hashes, generated from `requirements.in`. |
 | `docs/user-guide/docs/en/` | The English pages; `mkdocs.yml` names this directory `docs_dir`. |
 | `docs/user-guide/docs/en/assets/images/` | Committed screenshots and example images. |
-| `docs/user-guide/docs/en/assets/javascripts/` | The vendored MathJax and Mermaid runtimes and the polyfills the site loads locally. |
+| `docs/user-guide/docs/en/assets/javascripts/` | The vendored MathJax runtime with its fonts and configuration, the Mermaid runtime, and the polyfills the site loads locally. |
 | `docs/user-guide/docs/en/stylesheets/extra.css` | The site's style overrides. |
 | `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` | The provenance of every committed image and retained diagram, and the offline runtime policy. |
 | `docs/user-guide/templates/` | The four page templates. |
@@ -84,6 +93,12 @@ The installers bundle the built site, and it works opened from disk without a ne
   are vendored under `assets/javascripts/` and listed in `extra_javascript`, the `offline` plugin builds the site for
   file access, and `use_directory_urls: false` makes every link name its `.html` file. Do not add a CDN script, a
   remote font or a network fallback, and do not enable `navigation.instant`, which needs a server.
+- MathJax's fonts and font data are vendored with it, under `assets/javascripts/mathjax/fonts/`, and
+  `assets/javascripts/mathjax/mathjax-config.js`, listed before MathJax, points it at them. MathJax otherwise fetches
+  them from jsDelivr, and an equation opened offline renders with wrong glyphs. The configuration also turns semantic
+  enrichment off, because its speech worker is made from a `blob:` URL that a page opened from disk may not load;
+  assistive MathML gives screen readers each equation instead. The fonts are updated with MathJax, to the font
+  package version its release names, as their `MEDIA_PROVENANCE.md` row says.
 - A `mermaid` fence renders through the project's local initializer: `mkdocs.yml` gives the fence the `an-mermaid`
   class, so Material's network-loaded renderer is never used.
 - `.github/workflows/docs.yml` builds the site strictly from the lock and uploads it as the
@@ -359,11 +374,38 @@ A change to the guide is done when:
 
 ## Checks
 
-Run from the repository root; the PowerShell scripts take Windows PowerShell:
+Run from the repository root:
 
 | Command | Checks |
 | --- | --- |
 | `build\scripts\msvc\build_user_guide_docs.bat`, `build/scripts/linux/build_user_guide_docs.sh` | The strict build from the lock. |
+| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` | What the built site references; `docs.yml` runs both after the strict build. |
+| `node build/scripts/render_user_guide.cjs --offline` | What a reader sees in the copy the installers bundle; the script's header gives its setup, which keeps its Node packages and browsers outside the repository. |
+
+`check_user_guide.py` prints each finding as `path:line: Rnn message`, then a count per rule, and exits 1 on any
+error. Rule R1 holds the built site: every relative reference in its pages and stylesheets names a file inside the
+site, spelled in the file's own case, and nothing the site loads comes from the network; a link a reader follows may
+lead anywhere. A folder does not count as a file, because a browser opened from disk lists a folder instead of
+opening its `index.html`, and a root-relative reference is refused, because it breaks from disk. The exception is
+`404.html`: a web server shows it at whatever address was missing, so MkDocs writes its references root-relative, and
+they are resolved from the site's root.
+
+`render_user_guide.cjs` opens every page of the built site from disk, in Chrome and Firefox, at 1440, 1024 and 390 px,
+in both color schemes. It fails a load on a request that leaves the site, a console or page error, a local file that
+does not load, a page wider than the window, an image or a font face that did not load, an equation MathJax did not
+typeset, or a Mermaid diagram that did not render. `--offline` blocks the network: a connected machine hides what the
+offline copy lacks, as it hid MathJax's fonts. Firefox is rendered as well as Chromium because Linux users often open
+the installed copy in it, and its `file://` rules are stricter. `--a11y` adds axe-core's serious and critical
+violations, `--search` times queries from the first focus of the search box, `--shots <dir>` writes a full-page PNG
+per load and prints its width, so that overflow shows up as a wider image, and the JSON report records every load.
+`404.html` is left out unless `--pages` names it, and is then served from the site's root by a web server on the
+loopback address. `--help` lists the options.
+
+Frozen while the guide is rebuilt, with the rest of the audit apparatus (see the note at the top); the PowerShell
+scripts take Windows PowerShell:
+
+| Command | Checks |
+| --- | --- |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\validate_user_guide_media.ps1 -RunFixtures` | The media contract: manifest rows, slots and links, tracker media states and capture-phase rows, provenance hashes and the per-phase counts; the fixtures inject eight known failures and require each to be refused for its reason. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\validate_ug00_user_guide_foundation.ps1` | The tracker's page rows and phase ledger, the templates' rubric and their pointer to the tracker, that no template or page carries authoring evidence, the prerequisite inventory, and that these files and this document carry no trailing whitespace. |
 | `powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\validate_ug01_user_guide_audits.ps1` | The media validator with its fixtures, the audit against its structural baseline, and the audit's parity and source-drift fixtures. |
