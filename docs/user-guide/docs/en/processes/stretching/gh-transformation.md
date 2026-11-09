@@ -1,3 +1,13 @@
+---
+kind: process
+stage: stretch
+menu: Process > Intensity Transformations > Generalized Hyperbolic Transformation
+summary: >-
+  Stretches an image with a generalized hyperbolic transfer, or with the histogram, arcsinh, linear and
+  statistics-derived transfers the same window offers.
+data_in: linear
+data_out: nonlinear
+---
 # Generalized Hyperbolic Transformation
 
 <!-- MEDIA_SLOT: UG-MEDIA-056 -->

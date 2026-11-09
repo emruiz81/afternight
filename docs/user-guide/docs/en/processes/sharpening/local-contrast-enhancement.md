@@ -1,3 +1,13 @@
+---
+kind: process
+stage: finish
+menu: Process > Details > Local Contrast Enhancement
+summary: >-
+  Raises contrast at a large local scale by scaling the bright and dark detail around a Gaussian base, with G'MIC.
+data_in: nonlinear
+data_out: nonlinear
+derived: true
+---
 # Local Contrast Enhancement
 
 ## Purpose and expected result

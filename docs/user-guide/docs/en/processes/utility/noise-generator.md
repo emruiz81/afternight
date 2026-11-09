@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Process > Utilities > Noise Generator
+summary: >-
+  Adds synthetic random noise to an image, to test denoisers, masks and other noise-sensitive processing.
+data_in: either
+---
 # Noise Generator
 
 ## Purpose and expected result

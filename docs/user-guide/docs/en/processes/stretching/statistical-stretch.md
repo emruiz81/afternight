@@ -1,3 +1,13 @@
+---
+kind: process
+stage: stretch
+menu: Process > Intensity Transformations > Statistical Stretch
+summary: >-
+  Measures a black point and the median of the image, then stretches it with one transfer that places the median at
+  the level you choose.
+data_in: linear
+data_out: nonlinear
+---
 # Statistical Stretch
 
 ## Purpose and expected result

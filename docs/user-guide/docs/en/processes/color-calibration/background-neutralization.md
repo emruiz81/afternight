@@ -1,3 +1,11 @@
+---
+kind: process
+stage: color
+menu: Process > Color Calibration > Background Neutralization
+summary: >-
+  Brings the background of the three color channels of an RGB image to one shared level, measured in a reference.
+data_in: linear
+---
 # Background Neutralization
 
 ## Purpose and expected result

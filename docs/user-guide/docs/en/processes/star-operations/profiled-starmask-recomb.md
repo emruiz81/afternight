@@ -1,3 +1,12 @@
+---
+kind: process
+stage: finish
+menu: Process > Star Processing > Profiled Starmask Recombination
+summary: >-
+  Adds a stars-only image to a matching starless base where a saved Star Profiler detection list places the stars.
+data_out: nonlinear
+derived: true
+---
 # Profiled Starmask Recombination
 
 <!-- MEDIA_SLOT: UG-MEDIA-084 -->

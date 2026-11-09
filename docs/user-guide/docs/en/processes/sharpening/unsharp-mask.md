@@ -1,3 +1,11 @@
+---
+kind: process
+stage: finish
+menu: Process > Details > Unsharp Mask
+summary: >-
+  Sharpens an image by subtracting a Gaussian-blurred copy from it and adding the scaled difference back.
+data_in: nonlinear
+---
 # Unsharp Mask
 
 ## Purpose and expected result

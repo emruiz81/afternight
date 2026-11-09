@@ -1,3 +1,11 @@
+---
+kind: process
+stage: finish
+menu: Process > Star Processing > Starmask Recombination
+summary: >-
+  Adds a stars-only image back to a matching starless image, with an optional blend between the two.
+data_in: nonlinear
+---
 # Starmask Recombination
 
 ## Purpose and expected result

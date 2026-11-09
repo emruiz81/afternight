@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Process > Geometry > Resize
+summary: >-
+  Resamples an image, or every frame of a sequence, to new pixel dimensions.
+data_in: either
+---
 # Resize
 
 ## Purpose and expected result

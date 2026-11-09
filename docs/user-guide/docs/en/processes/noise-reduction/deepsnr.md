@@ -1,3 +1,13 @@
+---
+kind: process
+stage: noise
+menu: Process > Noise Reduction > DeepSNR
+summary: >-
+  Denoises an image with the separately installed DeepSNR tool, a learned model for astronomical images, and replaces
+  the image with its result.
+data_in: either
+derived: true
+---
 # DeepSNR
 
 <!-- MEDIA_SLOT: UG-MEDIA-070 -->

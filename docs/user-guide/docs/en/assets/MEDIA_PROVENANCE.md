@@ -1,3 +1,8 @@
+---
+kind: reference
+summary: >-
+  Where every image, diagram and script of the guide comes from, under which licence, and how to update it.
+---
 # Media Provenance
 
 Every committed documentation asset must be listed here before merge. Screenshot

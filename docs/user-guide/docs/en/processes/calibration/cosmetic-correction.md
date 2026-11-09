@@ -1,3 +1,12 @@
+---
+kind: process
+stage: calibrate
+menu: Process > Filters > Cosmetic Correction Filter
+summary: >-
+  Replaces isolated hot and cold pixels with a local median, blended with the source by Amount, to repair the small
+  sensor defects calibration leaves.
+data_in: linear
+---
 # Cosmetic Correction
 
 ## Purpose and expected result

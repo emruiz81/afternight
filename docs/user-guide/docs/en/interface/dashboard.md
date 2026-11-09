@@ -1,3 +1,9 @@
+---
+kind: interface
+summary: >-
+  The Dashboard is where AfterNight starts: open images and sequences, resume recent work and start common workflows
+  from it.
+---
 # Dashboard
 
 ## Purpose, audience, prerequisites, and expected result

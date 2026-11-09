@@ -1,3 +1,14 @@
+---
+kind: process
+stage: color
+menu: Process > Color Spaces > Narrowband Palette Composer
+summary: >-
+  Computes twelve fixed narrowband palettes from Ha, OIII, SII and optional one-shot-color data, and shows them side
+  by side for you to choose.
+data_in: linear
+data_out: nonlinear
+derived: true
+---
 # Narrowband Palette Composer
 
 ## Purpose and expected result

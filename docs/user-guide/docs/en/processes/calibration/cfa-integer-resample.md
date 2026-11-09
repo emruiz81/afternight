@@ -1,3 +1,12 @@
+---
+kind: process
+stage: calibrate
+menu: Process > Geometry > CFA Integer Resample
+summary: >-
+  Changes an undebayered Bayer mosaic by a whole-number factor without mixing samples taken under different color
+  filters.
+data_in: cfa
+---
 # CFA Integer Resample
 
 ## Purpose and expected result

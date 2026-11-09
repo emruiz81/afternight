@@ -1,3 +1,9 @@
+---
+kind: tutorial
+summary: >-
+  Install the packaged AfterNight application on Windows or Linux, or find the instructions for building it from
+  source.
+---
 # Installation
 
 ## Purpose, audience, prerequisites, and expected result

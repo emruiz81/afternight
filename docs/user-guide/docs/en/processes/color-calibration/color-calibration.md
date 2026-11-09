@@ -1,3 +1,12 @@
+---
+kind: process
+stage: color
+menu: Process > Color Calibration > Color Calibration
+summary: >-
+  Balances the three channels of an RGB image, with gains measured from a white and a background reference or entered
+  by hand.
+data_in: linear
+---
 # Color Calibration
 
 ## Purpose and expected result

@@ -1,3 +1,12 @@
+---
+kind: process
+stage: finish
+menu: Process > Intensity Transformations > Curves Transformation
+summary: >-
+  Reshapes tone and color through curves you draw with control points, usually after the main stretch.
+data_in: nonlinear
+data_out: nonlinear
+---
 # Curves Transformation
 
 <!-- MEDIA_SLOT: UG-MEDIA-055 -->

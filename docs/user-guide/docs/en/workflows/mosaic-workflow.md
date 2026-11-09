@@ -1,3 +1,9 @@
+---
+kind: workflow
+stages: [calibrate, register, stack, color, stretch, finish]
+summary: >-
+  Integrate each panel of a mosaic, align and match the panels, then combine and finish them without visible seams.
+---
 # Mosaic Workflow
 
 

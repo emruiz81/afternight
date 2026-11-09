@@ -1,3 +1,11 @@
+---
+kind: process
+stage: any
+menu: Process > Utilities > Image Blend
+summary: >-
+  Combines a base image with a blend image in one of 27 blend modes, with optional midtones transfers and filters.
+data_out: nonlinear
+---
 # Image Blend
 
 ## Purpose and expected result

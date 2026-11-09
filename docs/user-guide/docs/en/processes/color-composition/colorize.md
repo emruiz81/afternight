@@ -1,3 +1,11 @@
+---
+kind: process
+stage: finish
+menu: Process > Color Spaces > Colorize
+summary: >-
+  Turns a grayscale or RGB image into a color image of the hue and saturation you choose.
+data_out: nonlinear
+---
 # Colorize
 
 ## Purpose and expected result

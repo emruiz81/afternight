@@ -1,3 +1,9 @@
+---
+kind: workflow
+stages: [calibrate, register, stack, color, noise, stretch, finish]
+summary: >-
+  Turn one-shot-color, mono RGB or mono LRGB exposures into a calibrated, stacked, color-balanced and finished image.
+---
 # Broadband Imaging
 
 <!-- MEDIA_SLOT: UG-MEDIA-114 -->

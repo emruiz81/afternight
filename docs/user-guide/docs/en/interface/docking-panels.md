@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  Arrange image views and panels in tabs, splits and floating windows.
+---
 # Docking Panels
 
 ![AfterNight workspace with a tabbed image group beside a separately split image view](../assets/images/interface/docking-panels.png)

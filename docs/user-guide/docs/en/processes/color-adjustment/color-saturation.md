@@ -1,3 +1,12 @@
+---
+kind: process
+stage: finish
+menu: Process > Intensity Transformations > Color Saturation
+summary: >-
+  Changes the saturation of an image, everywhere or within one hue band, optionally leaving dark pixels alone.
+data_in: nonlinear
+data_out: nonlinear
+---
 # Color Saturation
 
 ## Purpose and expected result

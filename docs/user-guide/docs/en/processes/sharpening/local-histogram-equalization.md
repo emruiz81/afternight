@@ -1,3 +1,13 @@
+---
+kind: process
+stage: finish
+menu: Process > Intensity Transformations > Local Histogram Equalization
+summary: >-
+  Remaps each pixel through the histogram of its own neighborhood, raising local contrast, with G'MIC.
+data_in: nonlinear
+data_out: nonlinear
+derived: true
+---
 # Local Histogram Equalization
 
 ## Purpose and expected result

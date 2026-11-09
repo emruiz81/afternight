@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  Assign, show, invert and manage the mask that limits where a process changes an image.
+---
 # Masks
 
 ![AfterNight target with an assigned grayscale mask shown in red, the Image Mask menu open, and the Mask Selector visible](../assets/images/interface/masks.png)

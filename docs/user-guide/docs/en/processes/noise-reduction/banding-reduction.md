@@ -1,3 +1,11 @@
+---
+kind: process
+stage: noise
+menu: Process > Filters > Banding Reduction Filter
+summary: >-
+  Removes horizontal or vertical banding by correcting each row or column with one constant offset.
+data_in: linear
+---
 # Banding Reduction
 
 ## Purpose and expected result

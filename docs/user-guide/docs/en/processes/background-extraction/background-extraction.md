@@ -1,3 +1,14 @@
+---
+kind: process
+stage: color
+menu: Process > Background Modelization > Background Extraction
+summary: >-
+  Fits a smooth background surface through sample points you choose, then subtracts it from the image or divides the
+  image by it, to remove gradients.
+data_in: linear
+data_out: linear
+derived: true
+---
 # Background Extraction
 
 <!-- MEDIA_SLOT: UG-MEDIA-077 -->

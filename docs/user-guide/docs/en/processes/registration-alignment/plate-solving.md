@@ -1,3 +1,13 @@
+---
+kind: process
+stage: register
+menu: Image > Information > Plate Solve
+summary: >-
+  Finds where an image points on the sky and writes its celestial coordinate solution into the image's metadata, with
+  the internal solver or an external one.
+data_in: either
+derived: true
+---
 # Plate Solving
 
 ## Purpose and expected result

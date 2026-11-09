@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  Image History keeps the steps of each image or sequence, so that you can inspect, restore or clone an earlier state.
+---
 # Image History
 
 ## Purpose, audience, prerequisites, and expected result

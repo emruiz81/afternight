@@ -1,3 +1,13 @@
+---
+kind: process
+stage: register
+menu: Process > Preprocess > Image Registration
+summary: >-
+  Detects the stars of a set of frames, matches them with a reference frame and warps every frame onto the reference's
+  geometry, ready for stacking.
+data_in: linear
+derived: true
+---
 # Image Registration
 
 ## Purpose and expected result

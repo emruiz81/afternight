@@ -1,0 +1,49 @@
+# The stages of the processing pipeline, in the order an image passes through them, with "Any time" last for the
+# tools that belong to no one stage. A page names its stage in its front matter (`stage` on a process page, `stages`
+# on a tutorial or workflow), and the guide's theme draws the stepper, the catalog's lanes and each page's position
+# from this file.
+#
+# Each hue is the stage's color in the dark and the light theme. Every hue keeps a contrast of at least 4.5:1 against
+# the backgrounds it is drawn on: #0B0F1A and #161D2E in the dark theme, #FAFAFA and white in the light one.
+# guide_model_test.py holds them to it.
+
+stages:
+  - id: calibrate
+    number: 1
+    name: Calibrate
+    description: Bias, dark and flat masters applied to the lights; defects repaired.
+    hue: {dark: "#60A5FA", light: "#1D4ED8"}
+  - id: register
+    number: 2
+    name: Register
+    description: Frames detected, matched and warped onto a reference; the sky solved.
+    hue: {dark: "#2DD4BF", light: "#0F766E"}
+  - id: stack
+    number: 3
+    name: Stack
+    description: Normalized, rejected and combined into one linear master.
+    hue: {dark: "#4ADE80", light: "#15803D"}
+  - id: color
+    number: 4
+    name: Gradients & color
+    description: Background modelled and removed; channels balanced against catalogs.
+    hue: {dark: "#FBBF24", light: "#B45309"}
+  - id: noise
+    number: 5
+    name: Noise & stars
+    description: Noise reduced and stars separated while the data is still linear.
+    hue: {dark: "#FB923C", light: "#C2410C"}
+  - id: stretch
+    number: 6
+    name: Stretch
+    description: The linear master made visible with a controlled nonlinear transfer.
+    hue: {dark: "#FB7185", light: "#BE123C"}
+  - id: finish
+    number: 7
+    name: Finish
+    description: Contrast, detail, stars and color on the stretched image; export.
+    hue: {dark: "#A78BFA", light: "#6D28D9"}
+  - id: any
+    name: Any time
+    description: Geometry, masks, Pixel Math, analysis and utilities.
+    hue: {dark: "#9CA3AF", light: "#4B5563"}

@@ -1,3 +1,8 @@
+---
+kind: interface
+summary: >-
+  Measures the level, spread, clipping and noise of the active image, one channel at a time, from its stored values.
+---
 # Image Statistics
 
 ## Purpose, audience, prerequisites, and expected result
