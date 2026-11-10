@@ -401,6 +401,30 @@ class ImageRuleTests(GuideCase):
                   '<img src="/assets/images/ht.png" alt="">\n')
         self.assertOneFinding('R5', 'reference/glossary.md', 7, 'root-relative')
 
+    def test_a_figure_blocks_image_is_held_and_counts_as_shown(self):
+        self.write('docs/user-guide/docs/en/assets/images/spare.webp', 'webp')
+        page = ('---\nkind: reference\nsummary: The terms.\n---\n# Glossary\n\n```figure\n'
+                'image: ../assets/images/%s\nalt: A.\ncaption: C.\n```\n')
+        self.page('reference/glossary.md', page % 'spare.webp')
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('R5 images: 0 error(s), 0 warning(s)', output)
+        (self.root / 'docs/user-guide/docs/en/assets/images/spare.webp').unlink()
+        self.page('reference/glossary.md', page % 'gone.webp')
+        self.assertOneFinding('R5', 'reference/glossary.md', 8, 'gone.webp does not exist')
+
+    def test_the_home_pages_picture_is_held_and_counts_as_shown(self):
+        self.write('docs/user-guide/docs/en/assets/images/spare.webp', 'webp')
+        page = ('---\nkind: home\nhero:\n  lede: The guide.\n  actions:\n    - {label: Terms, page: '
+                'reference/glossary.md}\n  image: assets/images/%s\n  alt: A.\n  caption: C.\n---\n# Guide\n')
+        self.page('index.md', page % 'spare.webp')
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('R5 images: 0 error(s), 0 warning(s)', output)
+        (self.root / 'docs/user-guide/docs/en/assets/images/spare.webp').unlink()
+        self.page('index.md', page % 'gone.webp')
+        self.assertOneFinding('R5', 'index.md', 3, 'gone.webp does not exist')
+
     def test_an_unused_image_is_a_warning(self):
         self.write('docs/user-guide/docs/en/assets/images/spare.webp', 'webp')
         code, output = self.run_main()

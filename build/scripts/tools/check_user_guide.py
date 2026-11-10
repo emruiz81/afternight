@@ -17,8 +17,9 @@ Rules, each reported with its id:
       AfterNightAppUiBuilder.h (labels and menus): every `menu` path a page states is a menu or an action of the
       application, and every registered action, and every other action of the Process menu, sits on a page's `menu`,
       as the path itself or under a submenu the page names.
-  R5  Every image a page shows exists, spelled with the file's own case; an image under assets/images that no page,
-      README.md or the site's logo and favicon uses is a warning.
+  R5  Every image a page shows exists, spelled with the file's own case: its Markdown and HTML images, the images of
+      its `figure` blocks and the picture its front matter names (the home page's `hero.image`). An image under
+      assets/images that no page, README.md or the site's logo and favicon uses is a warning.
 
   R1  The built site (--site). Every relative reference in its HTML - `href`, `src`, `srcset`, `poster`, `data`,
       inline `style` and `<style>` - and every `url()` and `@import` in its stylesheets names a file inside the site,
@@ -479,7 +480,10 @@ class _GuideCheck:
                                 'action of the application' % menu)
         # R5: its images exist.
         referenced = set()
-        for line, url in model.image_references(front.body, front.body_line):
+        shown = model.image_references(front.body, front.body_line)
+        if front.meta:
+            shown += [(front.key_lines.get('hero', 1), url) for url in model.meta_images(front.meta)]
+        for line, url in shown:
             resolved = self.check_image(path, relative, line, url)
             if resolved:
                 referenced.add(resolved)

@@ -1,7 +1,83 @@
-{#- The process catalog: the stepper leads to the lanes by stage. It renders from data once the components exist. -#}
+{#- The process catalog, drawn from data: the page's summary and how to reach a process (`reach`), then one lane per
+    stage in pipeline order with "Any time" last. A lane lists its processes by nav group - the Process menu's
+    category, as a tag - in nav order: the page's nav label, its summary, its menu paths and the image it takes and
+    leaves. The stepper above leads to the lanes, and the right rail holds them with their counts and the legend. The
+    page's own body is not drawn. -#}
 {% extends "base.html" %}
 {% block layout %}
-{%- set crumbs = true %}
-{%- set wide = false %}
-{% include "partials/document.html" %}
+<div class="wrap layout">
+  {% include "partials/nav-left.html" %}
+  <main id="content" class="content catalog" tabindex="-1">
+    {% include "partials/breadcrumbs.html" %}
+    <article class="prose">
+      {% include "partials/page-head.html" %}
+      {%- if gp.reach %}
+      <ul class="reach">
+        {%- for sentence in gp.reach %}
+        <li>{{ sentence|e }}</li>
+        {%- endfor %}
+      </ul>
+      {%- endif %}
+    </article>
+    {%- for stage in guide.stages %}
+    <section class="lane" id="stage-{{ stage.id }}" style="--s:var(--s{{ stage.index }})" aria-labelledby="lane-{{ stage.id }}">
+      <header>
+        <i aria-hidden="true">{{ stage.number if stage.number else '+' }}</i>
+        <div>
+          <h2 id="lane-{{ stage.id }}">{{ stage.name|e }}</h2>
+          <p>{{ stage.description|e }}</p>
+        </div>
+        <span class="cnt">{{ stage.pages|length }} process{% if stage.pages|length != 1 %}es{% endif %}</span>
+      </header>
+      {%- for group in stage.groups %}
+      <h3 class="cath">{{ group.title|e }}</h3>
+      <ul class="prows">
+        {%- for ref in group.pages %}
+        <li class="prow">
+          <a href="{{ ref.url|url }}">{{ ref.title }}</a>
+          <span class="sum">{{ ref.summary|e }}</span>
+          <span class="meta">
+            {%- for path in ref.menu %}
+            <span class="path"><span class="visually-hidden">Menu: </span>{{ path|e }}</span>
+            {%- endfor %}
+            {%- if ref.data %}
+            <span class="dm dm-{{ ref.data.left or ref.data.given }}"><span class="visually-hidden">Image: </span>{{ ref.data.label }}</span>
+            {%- endif %}
+          </span>
+        </li>
+        {%- endfor %}
+      </ul>
+      {%- endfor %}
+      {%- if not stage.pages %}
+      <p class="lane-empty">No process of this stage has a page yet.</p>
+      {%- endif %}
+    </section>
+    {%- endfor %}
+    {% include "partials/pager.html" %}
+  </main>
+  <aside class="side side-toc" aria-label="Stages and legend">
+    <h2 class="side-title">Stages</h2>
+    <ul class="toc-list lane-list">
+      {%- for stage in guide.stages %}
+      <li><a href="#stage-{{ stage.id }}"><span class="dot" style="--s:var(--s{{ stage.index }})" aria-hidden="true"></span>{{ stage.name|e }}<span class="n">{{ stage.pages|length }}</span></a></li>
+      {%- endfor %}
+    </ul>
+    <h2 class="side-title">Legend</h2>
+    <ul class="legend">
+      <li><span class="dm dm-linear">linear</span> the image before the stretch</li>
+      <li><span class="dm dm-nonlinear">nonlinear</span> the image after it</li>
+      <li><span class="dm dm-cfa">cfa</span> raw sensor data, not yet demosaiced</li>
+      <li><span class="dm dm-either">either</span> any of them</li>
+      <li><span class="dm dm-nonlinear">linear &rarr; nonlinear</span> what the process takes, and what it leaves</li>
+    </ul>
+    <p class="legend-note">A process page says which stage it belongs to and what the image must be when it runs.</p>
+    <h2 class="side-title">This page</h2>
+    <ul class="toc-actions">
+      {%- if page.edit_url %}
+      <li><a href="{{ page.edit_url }}">Edit on GitHub</a></li>
+      {%- endif %}
+      <li><button type="button" class="link-btn print-btn">Print</button></li>
+    </ul>
+  </aside>
+</div>
 {% endblock %}

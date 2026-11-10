@@ -1,5 +1,5 @@
-{#- On this page: the page's sections, with a tutorial's steps under them, then the page's actions. nav.js marks the
-    section in view. -#}
+{#- On this page: the page's sections, with a tutorial's steps under them, a process page's controls, then the
+    page's actions. nav.js marks the section in view. -#}
 <aside class="side side-toc" aria-label="On this page">
   {%- if gp.toc %}
   <h2 class="side-title">On this page</h2>
@@ -14,6 +14,14 @@
       </ul>
       {%- endif %}
     </li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+  {%- if gp.controls %}
+  <h2 class="side-title">Controls</h2>
+  <ul class="toc-list toc-controls">
+    {%- for control in gp.controls %}
+    <li><a href="#{{ control.id }}">{{ control.name|e }}</a></li>
     {%- endfor %}
   </ul>
   {%- endif %}

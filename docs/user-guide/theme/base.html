@@ -37,6 +37,7 @@
   <link rel="stylesheet" href="{{ 'assets/guide/css/base.css'|url }}">
   <link rel="stylesheet" href="{{ 'assets/guide/css/layout.css'|url }}">
   <link rel="stylesheet" href="{{ 'assets/guide/css/markdown.css'|url }}">
+  <link rel="stylesheet" href="{{ 'assets/guide/css/components.css'|url }}">
   <link rel="stylesheet" href="{{ 'assets/guide/css/print.css'|url }}" media="print">
   {%- for path in config.extra_css %}
   <link rel="stylesheet" href="{{ path|url }}">
@@ -53,6 +54,7 @@
   <script src="{{ 'assets/guide/js/nav.js'|url }}"></script>
   <script src="{{ 'assets/guide/js/search.js'|url }}"></script>
   <script src="{{ 'assets/guide/js/copy.js'|url }}"></script>
+  <script src="{{ 'assets/guide/js/checklist.js'|url }}"></script>
   {%- for script in config.extra_javascript %}
   {{ script|script_tag }}
   {%- endfor %}
