@@ -61,6 +61,8 @@ A window is captured as it opens unless -Set says what to do in it first:
                              linear master after the stretch its own worked example names, so the guide's data stays
                              one file. Several, separated by `||`, are run in the order given, and an image a
                              preparation makes - the starless image of Starnet++ - is there for the captures.
+                             "@<button>|<control>=<value>" opens a window by a button of the main window instead -
+                             "@Autostretch Settings|linkedChannels=On" - whose changes act at once, and closes it.
 
 -View "<menu path>[;<menu path>...]" chooses menu items that act on the active image or the main window without a
 window of their own - "Image > View > Zoom 100%", "View > Session Console", or `@<button>` for a button of the
@@ -104,7 +106,11 @@ Usage (Windows PowerShell 5.1, which carries UI Automation):
         [-View "<menu path>[;...]"] [-Apply] [-List]
         [-Storage <new folder> | -Storage <kept folder> -ReuseStorage]
         [-Guide docs\user-guide] [-Left 80] [-Top 60] [-Width 1600] [-Height 1000] [-SettleSeconds 20]
-        [-OpenTimeoutSeconds 180] [-RunTimeoutSeconds 3600]
+        [-OpenTimeoutSeconds 180] [-RunTimeoutSeconds 3600] [-OpenAnswer No] [-HoldSeconds 0]
+
+-OpenAnswer answers the question an opened file asks - "Open CFA file", whether to debayer a raw color-filter
+frame on opening - with the button of that name. -HoldSeconds waits that long before a window's picture, for a
+preview that takes long and shows no change while it works.
 
 It exits 0 when every capture was saved, and 1, having stopped the application, when one was not.
 #>
@@ -132,7 +138,9 @@ param(
     [int]$Height = 1000,
     [int]$SettleSeconds = 20,
     [int]$OpenTimeoutSeconds = 180,
-    [int]$RunTimeoutSeconds = 3600
+    [int]$RunTimeoutSeconds = 3600,
+    [string]$OpenAnswer = '',
+    [int]$HoldSeconds = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -901,12 +909,39 @@ public sealed class AnScreenshots
     /// As WaitForRun, for a window that may close when its run ends: a window that is gone has ended its run.
     public void WaitForRunOrClose(IntPtr window, string name, int startMs, int timeoutMs)
     {
+        WaitForRunOrClose(window, name, startMs, timeoutMs, null);
+    }
+
+    /// The same, answering a message the run shows when it ends - "Calibration completed successfully" - which holds
+    /// the window disabled until it is answered: a window that was not among `known`, has no minimize button, and
+    /// has an OK button and no Cancel, which a progress window has.
+    public void WaitForRunOrClose(IntPtr window, string name, int startMs, int timeoutMs, ICollection<IntPtr> known)
+    {
         Stopwatch clock = Stopwatch.StartNew();
         bool started = false;
         while (clock.ElapsedMilliseconds < timeoutMs)
         {
             CheckAlive();
             if (!IsShown(window)) return;
+            if (known != null)
+            {
+                AnShownWindow message = NewWindow(known);
+                if (message != null && !HasMinimizeButton(message.Handle))
+                {
+                    Thread.Sleep(500);
+                    known.Add(message.Handle);
+                    bool answerable = false;
+                    try { answerable = Control(message.Handle, "OK") != null && Control(message.Handle, "Cancel") == null; }
+                    catch (Exception) { answerable = false; }
+                    if (answerable)
+                    {
+                        Note("answered '" + message.Title + "' with OK");
+                        try { Press(message.Handle, "OK"); } catch (Exception) { }
+                        Thread.Sleep(700);
+                        continue;
+                    }
+                }
+            }
             bool enabled = false;
             try
             {
@@ -1041,15 +1076,19 @@ function Get-PageMenu([string]$path) {
 $Page = @($Page | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $Open = @($Open | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $Capture = @($Capture | ForEach-Object { $_ -split ';' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-# What to do in a window, in order: (control, value) to set it, (control, x, y) to click in it, (control, answer) to
+# What to do in a window, in order: (control, reply) to press it and answer the message it asks with the button of
+# that name, (control, value) to set it, (control, x, y) to click in it, (control, answer) to
 # press it and answer the file dialog it opens, (control, wait) to press it and wait for the run it starts, and
-# (control) to press it. A value may hold an equals sign; a control's name holds none of `=`, `?`, `@` and `!`.
+# (control) to press it. A value may hold an equals sign; a control's name holds none of `=`, `?`, `@`, `!` and `^`.
 function Read-Changes([string[]]$given, [string]$option) {
     $read = New-Object System.Collections.Generic.List[object]
     foreach ($one in @($given | ForEach-Object { $_ -split ';' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
         $at = $one.IndexOf('=')
         if ($at -eq 0) { throw "$option takes ""<control>=<value>"", ""<control>@<x>,<y>"", ""<control>?<path>"", ""<control>!"" or ""<control>"", not ""$one""" }
-        if ($one -match '^([^=?@!]+)\?(.+)$') {
+        if ($one -match '^([^=?@!^]+)\^(.+)$') {
+            $read.Add(@{ control = $Matches[1].Trim(); value = $null; reply = $Matches[2].Trim() })
+        }
+        elseif ($one -match '^([^=?@!]+)\?(.+)$') {
             $read.Add(@{ control = $Matches[1].Trim(); value = $null; answer = $Matches[2].Trim() })
         }
         elseif ($one -match '^([^=?@!]+)!$') {
@@ -1082,8 +1121,17 @@ foreach ($given in @($Prepare | ForEach-Object { $_ -split '\|\|' } | Where-Obje
     $rest = ''
     if ($at -ge 0) { $menu = $given.Substring(0, $at); $rest = $given.Substring($at + 1) }
     if (-not $menu.Trim()) { throw "-Prepare takes ""<menu path>|<control>=<value>;..."", not ""$given""" }
-    $preparations.Add(@{ name = $null; menu = $menu.Trim(); process = $true; prepare = $true
-                         changes = (Read-Changes @($rest) '-Prepare') })
+    $preparation = @{ name = $null; menu = $menu.Trim(); process = $true; prepare = $true
+                      changes = (Read-Changes @($rest) '-Prepare') }
+    # `@<button>` with changes opens a window of the main window's own - a view's Autostretch Settings - whose changes
+    # act at once; without changes it chooses a view's tab or presses the button, as -View does, so the next
+    # preparation works on that view.
+    if ($preparation.menu.StartsWith('@')) {
+        $preparation.button = $preparation.menu.Substring(1).Trim()
+        $preparation.process = $false
+        if ($preparation.changes.Count -eq 0) { $preparation.prepare = $false; $preparation.view = $true }
+    }
+    $preparations.Add($preparation)
 }
 # What -View chooses on the image view once the preparations are done: menu paths, each acting at once.
 $viewActions = New-Object System.Collections.Generic.List[object]
@@ -1171,10 +1219,27 @@ try {
     $shots.Note("main window placed at $Left,$Top, $Width x $Height")
 
     foreach ($image in $images) {
+        $known = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
+        foreach ($shown in $shots.Windows()) { [void]$known.Add($shown.Handle) }
         $items = $shots.OpenMenuPath($main, [string[]]@('File', 'Open'))
         [void]$shots.Choose($items[$items.Count - 1])
         $shots.AnswerNativeDialog($image, 20000)
         $shots.Note("asked for $image")
+        # A raw color-filter frame is opened after a question - debayer it first? - that -OpenAnswer answers.
+        if ($OpenAnswer) {
+            $asked = [System.Diagnostics.Stopwatch]::StartNew()
+            $question = $null
+            while (-not $question -and $asked.ElapsedMilliseconds -lt 20000) {
+                $question = $shots.NewWindow($known)
+                if ($question -and $shots.HasMinimizeButton($question.Handle)) { [void]$known.Add($question.Handle); $question = $null }
+                if (-not $question) { Start-Sleep -Milliseconds 200 }
+            }
+            if ($question) {
+                Start-Sleep -Milliseconds 500
+                [void]$shots.Press($question.Handle, $OpenAnswer)
+                $shots.Note("answered '$($question.Title)' with $OpenAnswer")
+            }
+        }
         Start-Sleep -Milliseconds 1500
     }
 
@@ -1251,7 +1316,26 @@ try {
             $shots.SettledPicture($window.Handle, $SettleSeconds * 1000, [ref]$rested).Dispose()
             $focused = $shots.Focused()
             foreach ($change in $shot.changes) {
-                if ($change.ContainsKey('answer')) {
+                if ($change.ContainsKey('reply')) {
+                    # The button opens a message box that asks; it is answered with the button of that name.
+                    $known = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
+                    foreach ($shown in $shots.Windows()) { [void]$known.Add($shown.Handle) }
+                    [void]$shots.Press($window.Handle, $change.control)
+                    $box = $null
+                    $asked = [System.Diagnostics.Stopwatch]::StartNew()
+                    while (-not $box -and $asked.ElapsedMilliseconds -lt 20000) {
+                        $shots.CheckAlive()
+                        $box = $shots.NewWindow($known)
+                        if (-not $box) { Start-Sleep -Milliseconds 200 }
+                    }
+                    if (-not $box) { throw "$($change.control) opened no message to answer" }
+                    Start-Sleep -Milliseconds 500
+                    [void]$shots.Press($box.Handle, $change.reply)
+                    $asked.Restart()
+                    while ($shots.IsShown($box.Handle) -and $asked.ElapsedMilliseconds -lt 10000) { Start-Sleep -Milliseconds 100 }
+                    $shots.Note("pressed $($change.control) and answered '$($box.Title)' with $($change.reply)")
+                }
+                elseif ($change.ContainsKey('answer')) {
                     # The button opens the system's dialog; what it then loads disables it until it is loaded.
                     [void]$shots.Press($window.Handle, $change.control)
                     $shots.AnswerNativeDialog($change.answer, 20000)
@@ -1288,6 +1372,12 @@ try {
             Start-Sleep -Milliseconds 600
         }
 
+        # A preview that takes long - a G'MIC filter on one thread - is given -HoldSeconds before the picture.
+        if ($HoldSeconds -gt 0 -and -not $shot.prepare -and -not $shot.view) {
+            $shots.Note("holding $HoldSeconds s for the window to finish its work")
+            Start-Sleep -Seconds $HoldSeconds
+        }
+
         # A preparation applies what it set and is no picture: the captures find the image as it leaves it.
         # A preparation whose last change started its run (`OK!`) has applied what it set already.
         if ($shot.prepare) {
@@ -1300,8 +1390,11 @@ try {
                 if ($shots.Control($window.Handle, 'Apply')) { $applyButton = 'Apply' }
                 elseif ($shots.Control($window.Handle, 'OK')) { $applyButton = 'OK' }
                 if ($applyButton) {
+                    # A run disables Reset until it ends; a window without Reset (Pixel Math) disables its Apply.
+                    $watched = 'Reset'
+                    if (-not $shots.Control($window.Handle, 'Reset')) { $watched = $applyButton }
                     [void]$shots.Press($window.Handle, $applyButton)
-                    $shots.WaitForRunOrClose($window.Handle, 'Reset', 3000, $OpenTimeoutSeconds * 1000)
+                    $shots.WaitForRunOrClose($window.Handle, $watched, 3000, $OpenTimeoutSeconds * 1000)
                 }
             }
             $shots.SettledPicture($mainHandle, $SettleSeconds * 1000, [ref]$rested).Dispose()
@@ -1340,8 +1433,12 @@ try {
                 # leaves that image's view active: the view actions are done again on whatever view is active.
                 $applyButton = 'Apply'
                 if (-not $shots.Control($window.Handle, 'Apply')) { $applyButton = 'OK' }
+                $watched = 'Reset'
+                if (-not $shots.Control($window.Handle, 'Reset')) { $watched = $applyButton }
+                $known = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
+                foreach ($shown in $shots.Windows()) { [void]$known.Add($shown.Handle) }
                 [void]$shots.Press($window.Handle, $applyButton)
-                $shots.WaitForRunOrClose($window.Handle, 'Reset', 3000, $OpenTimeoutSeconds * 1000)
+                $shots.WaitForRunOrClose($window.Handle, $watched, 3000, $OpenTimeoutSeconds * 1000, $known)
                 $redo = $viewActions
                 if ($afterActions.Count -gt 0) { $redo = $afterActions }
                 foreach ($action in $redo) {

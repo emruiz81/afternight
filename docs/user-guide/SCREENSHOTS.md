@@ -55,7 +55,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
   **Image > View > Zoom 100%** for a pair at 100 %, **View > Session Console** to dock the console. `@<button>`
   presses a button of the main window there too, such as the console's **Clear Session**, so that the picture shows
   no line of the log, whose paths name the machine's folders.
-- `-Open` opens the images the pictures need, in order, through **File > Open**.
+- `-Open` opens the images the pictures need, in order, through **File > Open**. A raw color-filter frame asks
+  whether to debayer it on opening; `-OpenAnswer No` keeps the mosaic.
 - `-Display Autostretch` shows the opened image stretched. A linear master is nearly black without it, and the
   preview of most processes follows the view.
 - `-MainWindow <name>` adds a picture of the main window as it is at the end. An image the captures left open -
@@ -65,6 +66,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
   over the main window's picture, so the screen may be locked while it is taken.
 - `-Left`, `-Top`, `-Width` and `-Height` place the main window; a process window keeps the size it opens with.
 - `-List` prints the controls of each window it captures: their type, their object name and the name they show.
+- `-HoldSeconds <n>` waits before a window's picture: a preview that runs long on one thread - Patch PCA Denoise,
+  GRAYCstoration - can look settled while it still works.
 
 The script starts the application with a storage root of its own, which it removes afterwards, in the `en_US`
 locale and without display scaling. It waits for each window to stop changing before it saves it, and says when a
@@ -100,10 +103,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
   | `curvesEditorScrollArea@28,69>28,82` | Drags in such a control, from the first place to the second: what adds a point to a curve and moves it. |
   | `liteAddFolderButton?C:\frames\lights` | Presses a button that opens the system's file or folder dialog, answers it with the path and waits for what is loaded. Several files are written as the dialog takes them: `"C:\a.fits" "C:\b.fits"`. |
   | `liteRunIntegrationButton!` | Presses a button that starts a run and waits until the button is enabled again, up to `-RunTimeoutSeconds`. |
+  | `spccProcessAssignImageStateButton^Yes` | Presses a button that opens a message asking a question, and answers it with the button of that name. |
 
 - `-Apply` takes the pair. After the window's picture it saves the main window as `<name>-before.png`, presses the
-  window's **Apply**, waits for the run to end and saves the main window again as `<name>-after.png`. The image is
-  in the same place at the same zoom in both, under the display mode it was opened in. Open a linear master without
+  window's **Apply**, waits for the run to end and saves the main window again as `<name>-after.png`. A message the run
+  shows when it ends, with OK and no Cancel, is answered with OK. The image is in the same place at the same zoom in
+  both, under the display mode it was opened in. Open a linear master without
   `-Display` for a stretch: the pair then shows the image as it is, black before and visible after.
 - `-Prepare "<menu path>|<control>=<value>;..."` runs a process on the image before any capture: it opens the
   process, sets it as `-Set` does, applies it and closes it. A page of a process that works on a stretched image
@@ -121,6 +126,9 @@ image it opened stays for `-MainWindow`.
 - **Several preparations** go in one `-Prepare`, separated by `||`, and run in that order. A window with OK in place
   of Apply is applied with OK; a preparation whose last change runs it already (`OK!`) is not applied again, and one
   with neither Apply nor OK - a tool that saves a file - does only what its changes say.
+- **A window a button of the main window opens** is prepared as `"@<button>|<control>=<value>"`: its changes act at
+  once and it is closed. A color calibration's pair needs `"@Autostretch Settings|linkedChannels=On"`, since the
+  view's Autostretch stretches each channel on its own unless its channels are linked, and so hides a color change.
 - **A process that needs a tool's path** - Starnet++ and StarNet2 - is captured in a profile that knows it: a run
   with `-Storage <new folder>` keeps its storage root, its settings database (`afternight_data.db`, table
   `global_settings`) takes the path under the key the External Tools page writes (`tools/starnetPath`), and later

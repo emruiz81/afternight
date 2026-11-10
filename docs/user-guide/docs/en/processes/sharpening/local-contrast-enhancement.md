@@ -255,7 +255,7 @@ equation (3), and as 0.425 where a mask is half gray.
 images:
   - image: ../../assets/images/processes/sharpening/local-contrast-enhancement-before.webp
     alt: >-
-      A crop at 100 % of the middle of the stretched master, the bright red nebula beside Eta Carinae, dark dust lanes
+      A crop at 100 % of the middle of the stretched master, pink clouds of nebula beside a dark dust lane,
       and many stars on a grainy background.
     label: Before
   - image: ../../assets/images/processes/sharpening/local-contrast-enhancement-after.webp

@@ -178,7 +178,7 @@ nav:
       - Star Operations:
           - Star Mask: processes/star-operations/star-mask.md
           - Starnet++: processes/star-operations/starnet.md
-          - StarNet++ Star Mask: processes/star-operations/starnet-star-mask.md
+          - Starnet++ Star Mask: processes/star-operations/starnet-star-mask.md
           - Star Reduction: processes/star-operations/star-reduction.md
           - Starmask Recombination: processes/star-operations/starmask-recombination.md
           - Profiled Starmask Recombination: processes/star-operations/profiled-starmask-recomb.md

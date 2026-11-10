@@ -271,7 +271,7 @@ the nebula rank high and are brightened, and the pixels just around them rank lo
 images:
   - image: ../../assets/images/processes/sharpening/local-histogram-equalization-before.webp
     alt: >-
-      A crop at 100 % of the middle of the stretched master, the bright red nebula beside Eta Carinae, dark dust lanes
+      A crop at 100 % of the middle of the stretched master, pink clouds of nebula beside a dark dust lane,
       and many stars on a grainy background.
     label: Before
   - image: ../../assets/images/processes/sharpening/local-histogram-equalization-after.webp

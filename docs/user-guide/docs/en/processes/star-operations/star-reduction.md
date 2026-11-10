@@ -418,7 +418,7 @@ The reduced-stars image is missing
 
 - [Starnet++](starnet.md), to make the starless image this window needs.
 - [Starmask Recombination](starmask-recombination.md), to put a stars image back on a starless image.
-- [Star Mask](star-mask.md) and [StarNet++ Star Mask](starnet-star-mask.md), to make a star mask of your own.
+- [Star Mask](star-mask.md) and [Starnet++ Star Mask](starnet-star-mask.md), to make a star mask of your own.
 - [Masks](../../interface/masks.md), to see, invert or remove the protection mask.
 - [Image History](../../interface/image-history.md), to undo a reduction made on the target.
 - [Process Windows](../../interface/process-windows.md), for the preview and what every process window shares.

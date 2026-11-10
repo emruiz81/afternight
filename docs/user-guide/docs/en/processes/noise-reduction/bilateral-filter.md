@@ -3,344 +3,343 @@ kind: process
 stage: noise
 menu: Process > Filters > Bilateral Filter
 summary: >-
-  Smooths an image in one pass that weights each neighbor by both its distance and its value difference, so that
-  strong edges mix less.
+  Smooths the image with a weighted mean of a small disc of neighbours, each weighed by its distance and by its
+  difference in value, so that grain is averaged away while stars and strong edges stay.
 data_in: linear
+data_out: linear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Bilateral Filter window is open on it yet, and no window that needs the
+    image for itself is open on it.
+  inputs: >-
+    One grayscale or RGB image or sequence of any pixel type, with finite samples, and an optional mask of the image's
+    size on its view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, channels, pixel type, header and recorded processing
+    state are kept. No file is written.
+  state: >-
+    A calibrated and stacked linear master, after gradient removal and color calibration, with its hot pixels already
+    removed.
+derived: false
+rewritten: true
 ---
 # Bilateral Filter
 
-## Purpose and expected result
+Bilateral Filter replaces each pixel with a weighted mean of the pixels in a small disc around it. A neighbour's
+weight falls with its distance, as **Sigma Space** sets, and with how far its value lies from the centre's, as
+**Sigma Color** sets. Grain, which differs little from its neighbours, is averaged away. A star or the edge of a dust
+lane, which differs a lot, keeps its own value. AfterNight's engine computes the filter in one pass.
 
-Bilateral Filter performs one local, nonlinear smoothing pass whose weight for a
-neighbor depends on both pixel distance and sample-value difference. Nearby
-samples with similar values contribute most; a large value jump can contribute
-little even when it is spatially close. This can suppress fine noise while
-retaining stronger edges better than an ordinary Gaussian blur.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the filtered one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history).
 
-The expected result is a same-size, same-type still or replacement sequence with
-weaker local variation. It is not a detail-recovery process: strong settings can
-flatten faint stars and texture, produce piecewise-smooth or cartoon-like areas,
-or shift color. **Sigma Color** is a fraction of full scale for every sample
-type, while **Sigma Space** is in pixels, so the two scales are very
-different; the live Sigma Color default `30` is extremely broad for samples
-that span `[0,1]`.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Filters > Bilateral Filter** |
-| Enabled when | An image or sequence is active, the same process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One grayscale or RGB still or sequence; a still CFA mosaic is treated as one grayscale sample plane unless debayered first; an optional active mask must match target geometry |
-| Outputs | Destructively replaces a still or, after successful temporary processing, a sequence; **Take snapshot** creates an auxiliary still; dimensions, channels, and source pixel type are retained unless a selected component reconstructs RGB; no file is written directly |
-| Recommended image state | Usually a finite, normalized linear master after calibration, registration, stacking, gradient correction, and color calibration; use a deliberate luminance component if independent chromatic smoothing is undesirable |
-| Preview | Asynchronous full-image or movable-area preview, original/result switching, snapshot, display-channel selection, and display-only autostretch; with no area drawn, a slider held runs on the part the preview view shows at the image's own scale, its window's reach around it, exactly the pixels **Apply** writes there |
-| Sequence support | Yes; one captured parameter/channel/mask state is applied frame by frame to temporary storage before replacement |
-| Mask support | Yes; the active mask blends the filtered result with the original after Amount blending |
-| External dependency | None; the AfterNight engine's own bilateral filter, held to OpenCV's `cv::bilateralFilter` - its circular window, radius rule, and reflecting border; no separate user installation or network access |
+```figure
+image: ../../assets/images/processes/noise-reduction/bilateral-filter.webp
+alt: >-
+  The Bilateral Filter window. On the left, the Diameter, Sigma Space and Sigma Color boxes with their sliders, the
+  Link Sigma controls check box and the Amount box with its slider, and lower down Target Image, Channel at RGB and the
+  Preview check box. On the right, a toolbar of zoom buttons, a channel box and a display mode box reading Autostretch
+  over the preview of a red nebula, with the word PREVIEW in its corner and a small framed area in its middle. Reset,
+  Close and Apply run along the bottom.
+caption: >-
+  Bilateral Filter on the linear master with Sigma Color at 0.01 and the other values at their defaults. The framed
+  area shows what Apply writes there, over the original, in the Autostretch display mode.
+pins:
+  - {n: 2, x: 34.8, y: 85.4}
+  - {n: 3, x: 72.5, y: 54.6}
+  - {n: 4, x: 34.8, y: 24.7}
+  - {n: 5, x: 34.8, y: 15.7}
+  - {n: 6, x: 5.0, y: 39.2}
+  - {n: 8, x: 89.2, y: 96.0}
+```
 
 ## Before you start
 
-- Work from a calibrated, registered, and stacked master. Remove gross hot pixels
-  before broad smoothing; a bilateral filter is not a substitute for cosmetic
-  correction.
-- Use finite samples. The process does not sanitize NaN or infinity before
-  filtering.
-- Keep both sigmas positive when you want filtering. The process leaves the
-  image unchanged when either Sigma Space or Sigma Color is `0`.
-- Duplicate the target or verify Image History. Apply replaces the target only
-  after the complete still operation or temporary sequence succeeds.
-- Judge under one display stretch at **Zoom 100%**. Include smooth background,
-  faint stars, a high-contrast edge, and color detail in the Preview area.
-- Treat **Sigma Space** as pixels and **Sigma Color** as a fraction of full
-  scale. Their numeric scales are not comparable, so do not select **Link Sigma
-  controls** merely because the names both contain sigma.
+- Filter the linear [master](../../reference/glossary.md#master), after calibration, stacking, gradient removal and
+  color calibration. **Sigma Color** is set from the noise of the image, and a
+  [stretch](../../reference/glossary.md#stretch) changes that noise.
+- Remove [hot pixels](../../reference/glossary.md#hot-pixel) first, in calibration or with Cosmetic Correction. A hot
+  pixel differs from all its neighbours, so the filter keeps it as it keeps a star.
+- **Apply** replaces the image. Duplicate it first, or use its history, which keeps the step before.
+- Replace any sample that is not a finite number: the filter spreads it into its neighbours.
+- [Debayer](../../reference/glossary.md#debayer) a [CFA](../../reference/glossary.md#cfa) mosaic first. A raw mosaic
+  is filtered as one grayscale plane. The frames of a sequence are read with the automatic debayer setting of its view.
+- A [mask](../../reference/glossary.md#mask) on the view blends the result with the original after **Amount**. On a
+  sequence, every frame gets the same values, **Channel** and mask.
 
-## Procedure
+## Steps
 
-1. Select a finite, normalized target and open **Process > Filters > Bilateral
-   Filter**. Confirm **Target Image**, choose **RGB** or one deliberate component,
-   and leave **Preview** selected.
-2. Start with **Diameter 5** and **Amount 1**. For actual edge discrimination on
-   normalized data, reduce **Sigma Color** far below the live default and compare
-   the same edge and background under one display stretch.
-3. Set **Sigma Space** for the desired spatial falloff. Diameter is first
-   truncated to an integer; a result at or below `0` selects automatic support,
-   a circular window of radius `round(1.5 × Sigma Space)` held to at most `32`.
-   A positive integer selects a circular window of radius `floor(d/2)`, at least
-   `1`. Sigma Space changes weights inside that support.
-4. Toggle **Switch image** and inspect the result at **Zoom 100%**. Watch faint
-   stars, narrow dark lanes, color boundaries, and smooth background for
-   flattening or blotchy plateaus.
-5. Use **Amount** to blend back the original after finding useful kernel values.
-   If localized protection is needed, verify the active mask and inversion state.
-6. Check the full frame, target, Channel, and mask before selecting **Apply**.
-   For a sequence, monitor frame progress; Cancel stops the filter between rows,
-   preserves the original, and removes temporary output.
+1. **Open the window.** Make the master the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Filters > Bilateral Filter**. The preview shows the filtered image inside a framed
+   [preview area](../../reference/glossary.md#preview-area) in the middle of the image.
+2. **Choose what to smooth.** Leave **Channel** at **RGB** to filter the three channels, each on its own. Choose
+   **CIE L* (Lightness)** to smooth the brightness and leave the colors as they are.
+3. **Place the area.** Move the frame over smooth background, faint nebula, a few stars and the edge of a dust lane,
+   and zoom the preview to 100 %.
+4. **Lower Sigma Color.** Type a few times the grain of the background, or 0.01, the smallest value the box takes, on
+   a [linear image](../../reference/glossary.md#linear-image), whose grain is often below it. The grain fades while the
+   stars and the edges keep their values.
+5. **Set the reach.** Keep **Diameter** at 5 for grain of a pixel or two, and raise it to 7 or 9 for coarser blotches.
+   Leave **Sigma Space** high, so that every pixel of the disc counts alike.
+6. **Set the strength.** Lower **Amount** to bring back part of the original when the result looks flat or waxy.
+7. **Check at 100 %.** Hold ++space++ over the preview to compare with the original. Then untick **Preview area** and
+   look at the whole image, its stars and its edges.
+8. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the filtered image, and its history
+   lists **Bilateral Filter** with the values.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Diameter | Double value plus slider, displayed in pixels but truncated to an integer `d` | `5.00` | None | `0.00..20.00`; two decimals; spin step `0.50`; slider has 1000 positions; positive fractions are truncated | A truncated value at or below `0` derives the radius `round(1.5 × Sigma Space)`, held to at most `32`; otherwise the radius is `floor(d/2)`, at least `1`, and the window is the circle of that radius inside a `2r+1` square | Always enabled while idle | Displayed values below `1` enter automatic mode; `1`/`2` become an effective `3`, `3` stays `3`, `4` becomes `5`, and so on; automatic support with large Sigma Space can be much slower | Preview/Apply; selected channel/component; still/sequence; before Amount/mask | Captured per execution; Reset and successful Apply return `5.00` |
-| Sigma Space | Double value plus slider, pixels | `30.00` | None | `0.00..200.00`; two decimals; spin step `0.50`; slider resolution about `0.20` | Broadens spatial weighting; in automatic mode it also grows the selected neighborhood, up to radius `32`, which Sigma Space `21.00` already reaches; `0` leaves the source unchanged before any weighting | When **Link Sigma controls** is checked, changing it copies the value to Sigma Color; either sigma at `0` disables the complete bilateral effect | Larger values mix farther pixels and can be very expensive with automatic Diameter; effect saturates inside fixed support | Preview/Apply; selected channel/component; still/sequence; before Amount/mask | Captured per execution; Reset and successful Apply return `30.00` |
-| Sigma Color | Double value plus slider, fraction of full scale (an integer image's value is restated in its own codes) | `30.00` | None | `0.00..200.00`; two decimals; spin step `0.50`; slider resolution about `0.20`; manual entry can use two decimals | Broadens range weighting; larger values let dissimilar samples mix, while small positive values protect value edges more strongly; `0` leaves the source unchanged | When **Link Sigma controls** is checked, changing it copies the value to Sigma Space; either sigma at `0` disables the complete bilateral effect | On ordinary `[0,1]` data, `30` makes even a full-scale scalar difference retain about `99.94%` of its range weight; overly small positive values can preserve noise or produce piecewise-smooth regions | Preview/Apply; every channel or component uses its own absolute difference; before Amount/mask | Captured per execution; Reset and successful Apply return `30.00` |
-| Link Sigma controls | Checkbox | Off | None | Checked/unchecked | On selection, immediately copies Sigma Space to Sigma Color; afterward changing either sigma copies it to the other | Copy guard prevents a recursive update; controls remain editable | The two sigmas use different physical scales in AfterNight, so linking usually prevents useful independent tuning | Preview/Apply configuration; still/sequence | Captured but not written to history; Reset and successful Apply turn it off |
-| Amount | Double value plus slider, blend fraction | `1.00` | None | `0.00..1.00`; two decimals; spin step `0.05`; slider resolution `0.001` | Blends `original × (1-Amount) + filtered × Amount`; `0` returns original pixels after the filter has still run | Always enabled while idle | Lower values reduce smoothing without reducing filter cost; values near one expose all kernel artifacts | Preview/Apply; after Channel reconstruction, before mask; still/sequence | Captured per execution; Reset and successful Apply return `1.00` |
-| Target Image | Image selector | Attached/active target | None | Open eligible image or sequence | Changes source, Channel list, Preview, active mask, and Apply destination | Active image required; duplicate/exclusive gates apply | Wrong target is destructively replaced after success | Preview/Apply source and active mask | Target lifecycle; Reset does not change it |
-| Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | RGB filters each stored channel separately, each with range weights from its own differences; a component filters one plane and reconstructs/copies the others | Component choices require RGB; mono selector disabled | Separate RGB channels protect an edge only in the channels where it is strong, which can shift color at weak chromatic edges; component round trips add buffers and can alter color | Preview/Apply; active mask post-blend; still/sequence | Captured by current selection; Reset does not restore RGB |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables asynchronous full-image or selected-area execution | Process idle | Runs the complete filter; a large automatic neighborhood can make updates slow | Preview only; mask-aware; current still/current displayed sequence frame | Window lifetime; Reset does not change it |
-| Preview pane | Image viewer | Current result | None | Pan with scroll bars/dragging; toolbar actions below | Shows the mask-aware result without modifying the target | Exists only with Preview | Holds source/result and display buffers in addition to filter workspaces | Preview only | Window lifetime |
-| Fit To Window | Preview-toolbar action | Preview fitted when first displayed | None | Click or **Ctrl+Shift+F** | Fits the whole image uniformly in the viewport | Preview image required | Good overview; resampling can hide fine noise and edge halos | Preview display only | Viewer lifetime |
-| Zoom In | Preview-toolbar action | Current scale | None | Click; `1.25×` relative zoom within viewer limits | Enlarges around viewport center | Preview image required | Improves local inspection; more panning | Preview display only | Viewer lifetime |
-| Zoom Out | Preview-toolbar action | Current scale | None | Click; `0.8×` relative zoom within viewer limits | Reduces around viewport center | Preview image required | More context, less fine detail | Preview display only | Viewer lifetime |
-| Zoom 100% | Preview-toolbar action | Current scale | None | Click; absolute scale `1.0` | Shows the viewer's one-pixel scale | Preview image required | Preferred for judging residual noise, flattened stars, and piecewise-smooth artifacts | Preview display only | Viewer lifetime |
-| View Channel | Preview-toolbar combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE a*=R / b*=G (Chrominance)**, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **HSI Hue**, **HSI Saturation**, **HSI Intensity**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | Selects only the displayed stored/derived component | Separate from process Channel; RGB target required for components | Reveals channel artifacts without changing pixels | Preview display only | Viewer lifetime; not in process history |
-| Display Mode | Preview-toolbar combo box | Inherits target **Linear** or **Autostretch** when preview is created | None | **Linear**, **Autostretch** | Changes display only; Autostretch uses cached full-target source statistics | Autostretch enables settings action | Aggressive display stretch can exaggerate residual noise and plateaus | Preview display only | Preview-view state; not in process history |
-| Autostretch Settings | Preview-toolbar dialog action | Disabled in Linear mode; inherits target-view settings | Shared-view values load when opened | Opens Target Background, Shadows Clipping, linked channels, neutralization/color calibration, saturation/background, brightness, contrast, banner, Reset, and Close; **Apply Stretch** is hidden | Tunes preview display only | Autostretch mode only; disabled while dialog open | Can change visual judgment without changing filtering | Preview display only | Viewer-scoped; not in Bilateral Filter parameters |
-| Switch image | Preview-toolbar action | Filtered preview shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles result/original | Preview required | Comparison only; no recomputation | Preview display; still/current frame | Preview-window lifetime |
-| Preview area | Preview-toolbar checkbox | Checked with an initial `800×800` area when the preview is created | None | Checked/unchecked; move/resize overlay | When checked, processes the selected area and composites it over the original preview; uncheck for full-image preview | Preview required | Default area reduces tuning cost; full Apply remains full-frame | Preview and Take snapshot; mask cropped consistently | Preview-window lifetime; Reset unchanged |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes settings and opens `<target> - Bilateral Filter - SNAPSHOT` | Preview required | Adds a complete execution and auxiliary image; display stretch is not baked in | New still; target unchanged; area/mask honored | Each action creates a separate image view |
-| Apply | Button/action | Enabled | None | One action | Captures all filter values and selected Channel, then processes the full still or every sequence frame | Target must lock; controls disabled during commit | Neighborhood work dominates; component conversion, mask, sequence encode, and temporary storage add cost | Destructive still/sequence replacement after success | Records partial history, then calls Reset; Target, Channel, Preview, and preview toolbar remain |
-| Reset | Button/action | Enabled while idle | None | One action | Restores Diameter `5`, both sigmas `30`, Link off, and Amount `1` | Does not reset Target, Channel, Preview, mask, or preview toolbar | Checked Preview schedules another complete execution | Configuration only | Immediate; also invoked after successful Apply |
-| Close | Button/action | Enabled while idle | None | One action | Closes without applying current settings | Disabled during Apply | Active preview cancellation is requested and reaches the filter between rows | Window/execution | No process settings persist after destruction |
-| Sequence progress / Cancel | Shared per-process/frame progress and Cancel | Created for sequence Apply | None | Cooperative Cancel; frame/task text updates around temporary processing | Sequence target only | The filter checks for Cancel between rows, so a frame stops promptly | Sequence Apply; captured parameters, Channel, Amount, and mask apply to every frame | Cancel removes temporary output; success replaces sequence, records one history step, and resets parameters |
+**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
+[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
 
-## How the algorithm works
-
-For output position `p`, let `q` range over its neighborhood, let `I` be the
-selected scalar or RGB data, let `sigma_s` be Sigma Space, and let `sigma_r` be
-Sigma Color. Define the range distance as
-
-\[
-\Delta_I(p,q)=|I(p)-I(q)|
-\]
-
-for a scalar plane. Every channel is a scalar plane here: in **RGB** each
-stored channel is filtered on its own, with range weights from its own
-differences. The bilateral result is
-
-\[
-F(p)=\frac{1}{W_p}\sum_{q\in\Omega_p}
-\exp\left(-\frac{\lVert p-q\rVert^2}{2\sigma_s^2}\right)
-\exp\left(-\frac{\Delta_I(p,q)^2}{2\sigma_r^2}\right)I(q),
-\]
-
-where `W_p` is the sum of the same spatial and range weights. The spatial term
-falls with pixel distance. The range term falls across a sample or color
-difference, making the operation nonlinear and edge-aware.
-
-AfterNight runs its engine's bilateral filter once, into a separate result. The
-filter reproduces OpenCV's `cv::bilateralFilter`: the window is the circle of
-radius `r` (`dx² + dy² <= r²`), the displayed Diameter is truncated to an
-integer `d`, a `d <= 0` derives `r = round(1.5 × Sigma Space)`, and otherwise
-`r = floor(d/2)`, at least `1`. AfterNight holds a derived radius to at most
-`32` pixels, the widest window the engine filters; without that limit,
-Diameter `0` with the dialog's default Sigma Space of `30` would ask for `45`.
-Beyond each edge
-the image is reflected without repeating the edge sample, as OpenCV's
-`BORDER_REFLECT_101` does. The range weight is evaluated for each neighbour
-rather than read from a table, which agrees with OpenCV within its table's
-interpolation error.
-
-If either sigma is at or below `1e-6`, the process leaves the image unchanged,
-as OpenCV does. With the UI's two-decimal values, setting either sigma to `0`
-therefore makes the filter an identity operation even if the other sigma and
-Diameter are nonzero.
-
-### Precision and color path
-
-The filter reads every sample type in its stored units and computes in single
-precision. Sigma Color is a fraction of full scale: for a float image it is
-compared with the samples directly, and for an integer image it is restated in
-the image's own codes (multiplied by the type's full span), so the same Sigma
-Color means the same edge strength whether a picture is stored as 16-bit
-integers or as 32-bit floats. The result is written back in the source type,
-rounded for an integer image; a 64-bit float image is filtered at single
-precision.
-
-In **RGB**, each of the three stored channels is filtered separately with the
-same window and sigmas. Choosing Red, Green, Blue, or a derived component sends
-a single plane through the filter and then reconstructs or copies the remaining
-data through the shared Channel dispatcher. A derived component's
-reconstruction saturates an integer image at its type's range and keeps a
-floating image's values outside `[0, 1]`. Sigma Color is in fractions of full
-scale, not 8-bit `0..255` units, which is why linking its numeric value to a
-spatial sigma measured in pixels is usually inappropriate.
-
-After filtering, Amount computes
-
-\[
-B=(1-a)I+aF,
-\]
-
-where `a` is Amount. If a mask with effective weight `m` is enabled, the shared
-process path then computes `(1-m)I+mB` (with `m` inverted when requested).
-Amount `0` therefore restores the source pixels, but does not skip the expensive
-bilateral call.
-
-## Parameter interactions and starting points
-
-- **Diameter × Sigma Space** controls support. With Diameter `5`, increasing
-  Sigma Space cannot reach beyond that five-pixel neighborhood. A displayed
-  Diameter below `1` truncates to `0`; like exact `0`, it selects automatic
-  support, which grows with Sigma Space up to radius `32` and can sharply
-  increase runtime.
-- **Sigma Color × full scale** controls edge selectivity. For a scalar
-  full-scale difference of `1`, Sigma Color `30` gives a range weight of about
-  `exp(-1/1800)=0.99944`; the default is therefore almost range-insensitive at
-  every sample type.
-- **Zero sigma × any other setting** is an identity endpoint. If either sigma is
-  `0`, the process returns the source before Diameter, weights, or Amount can
-  create a bilateral effect.
-- **Link Sigma controls** equates two unlike quantities. A value useful in
-  pixels is normally too broad as a fraction of full scale; a subunit color
-  sigma makes the spatial falloff very narrow.
-- **Amount × mask** produces two consecutive blends. Amount reduces the global
-  effect; the mask then reduces or localizes that already blended effect.
-- **Channel × Sigma Color** changes what counts as an edge. RGB judges each
-  stored channel by its own differences, so an edge strong in one channel and
-  weak in another is protected in the first and smoothed in the second; a
-  luminance component judges one plane and can avoid direct smoothing of the
-  other components.
-- **Diameter fractions and even values** are misleading: the UI accepts half
-  steps and two decimal places, but the process truncates first and then takes
-  half the integer as the radius. For example, `0.50` becomes automatic; `4.99`
-  truncates to `4` and uses effective diameter `5`; and `5.99` truncates to `5`,
-  also using effective diameter `5`.
-
-## Inputs, outputs, and metadata
-
-- Output dimensions, channel count, and source pixel type are retained. Integer
-  output is rounded to whole codes; double input is processed at float32
-  precision.
-- The result keeps the source image's header cards and metadata.
-- The process does not update linear/nonlinear processing-state provenance. Do
-  not infer state only from the presence of the history step.
-- Still Image History records Diameter, Sigma Space, Sigma Color, Amount, and,
-  for a colour image, ` in channel: <channel>`. The description does not record
-  whether the sigma controls were linked.
-- A still CFA mosaic is treated as one stored sample plane unless debayered
-  first. Shared sequence preprocessing may auto-debayer configured CFA frames,
-  so the successful replacement sequence can be RGB.
-- Sequence frames use one captured parameter set, are processed to temporary
-  storage, and replace the original sequence only after success. Cancel/error
-  removes temporary output.
-- **Take snapshot** creates a still from the current preview scope. It does not
-  change the target or bake display autostretch into pixel values.
-
-## Performance
-
-For image width `W`, height `H`, channels `C`, and window radius `r`, direct
-bilateral filtering is roughly proportional to `W × H × C × πr²`, because the
-weights depend on the centre sample and cannot be split into two passes. A
-radius above `2` (Diameter above `5`) is noticeably slower. Automatic Diameter
-mode (every displayed value below `1` after truncation) hides the effective
-radius, which grows with Sigma Space up to `32` - about 3,200 neighbours per
-sample; combining it with a large spatial sigma is the highest-risk setting for
-long previews.
-
-The engine takes the window and, when it can, one bordered single-precision
-copy of a plane, reused for every channel, and filters on the threads the
-operation is granted. The destination and preview/component/mask buffers add
-memory as needed. Sequence mode adds decode/encode buffers and temporary disk
-roughly comparable to an output sequence. No production timing on
-astronomical data is claimed.
-
-## Worked example
-
-This source-and-calculator example was not executed on an approved astronomical
-dataset and makes no visual-quality claim.
-
-For two scalar samples separated by one pixel and differing by `0.20`, with
-Sigma Space `2` and Sigma Color `0.10`, their unnormalized weight is
-
-```text
-spatial weight = exp(-(1^2) / (2 × 2^2))       = 0.8825
-range weight   = exp(-(0.20^2) / (2 × 0.10^2)) = 0.1353
-combined       = 0.8825 × 0.1353                = 0.1194
+```controls
+window: Bilateral Filter
+controls:
+  - name: Diameter
+    kind: spinbox
+    default: "5.00"
+    widget: {min: 0, max: 20, step: 0.5, decimals: 2}
+    effect: Sets the disc of neighbours each pixel is averaged with. The value is cut to a whole number, and the disc's radius is half of it, rounded down, so 5 gives a radius of 2 and a disc of 13 pixels. Below 1, the radius follows **Sigma Space** instead.
+    range: The radius is at least 1, so 1, 2 and 3 all give a disc 3 pixels across, and 4, 5 and 5.50 one 5 pixels across. Below 1, the radius is 1.5 times **Sigma Space**, rounded, and at most 32. The slider moves the value in 1,000 equal steps of 0.02.
+    enabled: Disabled while Apply runs.
+    tradeoff: The work grows with the pixels of the disc, 13 at 5, 81 at 10 or 11 and 317 at 20, and up to 3,209 when the radius follows **Sigma Space**. The weights depend on the centre's value, so the filter cannot be split into two cheaper passes along the rows and the columns.
+    scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Sigma Space
+    kind: spinbox
+    default: "30.00"
+    widget: {min: 0, max: 200, step: 0.5, decimals: 2}
+    effect: Sets how fast a neighbour's weight falls with its distance, in pixels. Higher lets the far pixels of the disc count as much as the near ones. Lower favours the nearest. At 0 the image is left as it is.
+    range: A value much larger than the disc's radius gives every pixel of the disc almost the same weight. At the default, the farthest pixel of a disc of radius 2 keeps 0.998 of it. With **Diameter** below 1 it also sets the disc, whose radius reaches its limit of 32 at 21, so the default, which would ask for 45, gets 32. The slider moves the value in 1,000 equal steps of 0.2.
+    enabled: Disabled while Apply runs. With **Link Sigma controls** ticked, a change sets **Sigma Color** to the same number.
+    tradeoff: With **Diameter** below 1, a large value makes a wide disc and a slow preview. Above 21 it changes only the weights inside that disc.
+    scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Sigma Color
+    kind: spinbox
+    default: "30.00"
+    widget: {min: 0, max: 200, step: 0.5, decimals: 2}
+    effect: Sets how fast a neighbour's weight falls with its difference in value from the centre, as a fraction of full scale. Lower keeps more edges. A neighbour that differs by three times **Sigma Color** keeps about 1 % of its weight. Higher lets different values mix, and blurs stars and edges. At 0 the image is left as it is.
+    range: The box keeps two decimals, so its smallest value above 0 is 0.01. On an integer image the value is restated in the image's own codes, so 0.01 of a 16-bit image is 655.35 codes. The slider moves the value in 1,000 equal steps of 0.2.
+    enabled: Disabled while Apply runs. With **Link Sigma controls** ticked, a change sets **Sigma Space** to the same number.
+    tradeoff: The default is thirty times full scale. Even a jump from black to white then keeps 0.9994 of its weight, and the disc is averaged as a plain mean that blurs every edge. Too low a value leaves the grain, or smooths some of it and keeps the rest as flat patches with steps between them. The grain of a linear master is often well below 0.01, so even 0.01 also smooths faint texture. Lower **Amount** to keep some of it.
+    scope: The preview and Apply, before **Amount** and the mask. Each channel or component is judged by its own differences.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Link Sigma controls
+    kind: check
+    default: "Off"
+    effect: Ticking it sets **Sigma Color** to the value of **Sigma Space**. While it is ticked, changing either sigma changes the other to the same number.
+    enabled: Disabled while Apply runs.
+    tradeoff: The two sigmas are on different scales, pixels and fractions of full scale. A **Sigma Space** of a few pixels is a **Sigma Color** that blurs every edge. A **Sigma Color** of 0.01 to 0.05, useful on a linear image, leaves the neighbours one pixel away no weight, and the image stays as it was.
+    scope: The two sigmas of the preview and Apply.
+    persistence: Until the window closes. **Reset** and a finished Apply untick it. The history does not record it.
+  - name: Amount
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Mixes the filtered image with the original. At 1 the result is the filtered image, at 0.5 halfway, and at 0 the original.
+    range: The box keeps two decimals, also when you drag the slider.
+    enabled: Disabled while Apply runs. **Apply** stays enabled at 0.
+    tradeoff: It brings back grain and detail together. The filter runs in full at any value.
+    scope: The preview and Apply, on the whole image once **Channel** has been converted back, before the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses what is filtered. **RGB** filters each of the three channels on its own, each weighed by its own differences, not by a distance between colors. **Red**, **Green** or **Blue** filters that channel and keeps the other two. Every other choice filters one component of another color model and converts the image back.
+    enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
+    tradeoff: With **RGB**, an edge strong in one channel and weak in another is kept in the first and smoothed in the second, which can shift colors at faint colored edges. A component costs two conversions and a working copy, and the conversion back can change colors.
+    scope: The preview and Apply, before **Amount** and the mask. **Sigma Color** is read in the units of the component, which Process Windows gives.
+    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the filtered image beside the controls, with **Amount** and the mask applied.
+    range: >-
+      The pane opens with a **Preview area** of 800 by 800 pixels in the middle of the image, labelled "Preview:
+      Bilateral Filter", or the whole image when it is smaller. At the window's default size, **Preview area** and
+      **Take snapshot** are in the menu at the end of the pane's toolbar.
+    tradeoff: Every change filters the area, or the whole image, again, and a large disc makes each preview slow. The area is filtered as an image of its own, mirrored at its own edges. While you drag a slider with no area drawn, the preview filters the part of the image the pane shows, at full scale, exactly as Apply writes it there.
+    scope: The window only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Diameter**, **Sigma Space**, **Sigma Color** and **Amount** to their defaults and unticks **Link Sigma controls**, and one preview of them follows. It leaves **Channel** as it is.
+    enabled: Disabled while Apply runs.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Filters the whole image, or every frame of the sequence, with the values and **Channel** as they are when you press it, and then returns the values to their defaults.
+    enabled: From the moment the window opens, at any values, a sigma of 0 included.
+    tradeoff: A single image shows a progress window too, and its **Cancel** is noticed between two rows. The filter takes a single-precision copy of one channel, bordered by the disc's radius and used for each channel in turn, beside the second copy every run needs. It works on the threads the run is granted.
+    persistence: "The history step is **Bilateral Filter** and reads, for example, `Diameter: 5.00, Sigma Space: 30, Sigma Color: 0.01, Amount: 1.00 in channel: RGB`. For a grayscale image it ends after the amount. **Link Sigma controls** and the mask are not recorded. The header cards, the plate solution and the recorded processing state are kept."
 ```
 
-Keeping Sigma Space `2` but using the live Sigma Color `30` changes the range
-weight to about `0.99998`, so the combined weight is about `0.8825`: the value
-edge is barely protected. If the full filter result at a pixel is `0.30`, the
-source is `0.20`, Amount is `0.50`, and the mask weight is `0.25`, then
+## How it works
 
-```text
-amount blend = 0.20 × 0.50 + 0.30 × 0.50 = 0.25
-mask blend   = 0.20 × 0.75 + 0.25 × 0.25 = 0.2125
+1. Each channel that **Channel** selects is filtered on its own, in single precision with sums in double precision.
+   **Sigma Color** is a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale), restated in the
+   image's own codes for an integer image, so a 16-bit image is filtered as the same picture in floating point is.
+2. For each pixel, every neighbour inside the disc gets a weight: one factor falls with its distance, the other with
+   its difference in value from the centre. The pixel becomes the weighted mean of the disc, its own value included.
+3. Beyond the edge of the image, the filter reads the image mirrored without its edge sample.
+4. The result is written back in the image's own pixel type, rounded to the nearest code for an integer image.
+   **Amount** mixes it with the original, and a mask on the view then blends the two.
+5. The image replaces the target and its history gets one step. Its header, its
+   [plate solution](../../reference/glossary.md#plate-solution) and its recorded
+   [processing state](../../reference/glossary.md#processing-state) are kept.
+
+### Model
+
+With \(p\) a pixel, \(q\) a neighbour in the disc \(\Omega_p\) around it, \(I\) the samples of one channel,
+\(\sigma_s\) the value of **Sigma Space** and \(\sigma_c\) the value of **Sigma Color**, each neighbour weighs
+
+\[ w(p,q) = \exp\Bigl(-\frac{\lVert p - q \rVert^2}{2\sigma_s^2}\Bigr)\,\exp\Bigl(-\frac{\bigl(I(q) - I(p)\bigr)^2}{2\sigma_c^2}\Bigr) \tag{1} \]
+
+and the filtered sample is
+
+\[ F(p) = \frac{\sum_{q \in \Omega_p} w(p,q)\,I(q)}{\sum_{q \in \Omega_p} w(p,q)} \tag{2} \]
+
+With \(d\) the value of **Diameter** cut to a whole number, the disc holds every pixel no farther than \(r\) from the
+centre, where
+
+\[ r = \begin{cases} \max\bigl(1, \lfloor d/2 \rfloor\bigr) & d \ge 1 \\ \min\bigl(32, \max(1, \operatorname{round}(1.5\,\sigma_s))\bigr) & d = 0 \end{cases} \tag{3} \]
+
+With \(a\) the value of **Amount**, the result before the mask is
+
+\[ B = (1 - a)\,I + a\,F \tag{4} \]
+
+### Boundaries
+
+- At a **Sigma Space** or **Sigma Color** of 0 the image is left as it is, whatever the other values. At an
+  **Amount** of 0 the result is the original, and the filter still runs in full.
+- A sample that is not a finite number is not repaired. In an image that marks every sample valid, it spreads into
+  every pixel whose disc holds it. A pixel the image marks as invalid is left as it was, and enters its neighbours'
+  discs as 0.
+- Every pixel type is filtered in single precision. A 64-bit floating-point image is narrowed to it, and an integer
+  result is rounded to the nearest code.
+- **Cancel**, or closing the window, stops the run between two rows, and nothing is written.
+
+### Worked example
+
+The image is the linear master. Its channels have their median near 0.028, and their grain from one pixel to the next
+is about 0.0003 in red, 0.001 in green and 0.0007 in blue. **Sigma Color** is 0.01, the smallest value the box takes,
+and the other values keep their defaults. By equation (3), **Diameter** at 5 gives a disc of radius 2, which holds 13
+pixels, and at a **Sigma Space** of 30 the farthest of them keeps 0.998 of its weight.
+
+By equation (1), a green neighbour two grain deviations from the centre keeps 0.98 of its weight. The 13 pixels are
+averaged almost equally, so for grain that changes from one pixel to the next the deviation falls to about a quarter:
+0.0003 in green, 0.0002 in blue and 0.0001 in red. The faint texture of the nebula goes with it: a step of 0.01 keeps
+0.61 of its weight and softens. A step of 0.03 across the edge of a dust lane keeps 0.01 and stays sharp. A star whose
+core stands 0.27 above the background keeps its value, since the background around it gets a weight below
+\(10^{-150}\). At the default **Sigma Color** of 30, every weight of equation (1) is above 0.999, and the star would be
+spread over the disc. With **Amount** at 0.50, a sample of 0.0300 that the filter brings to 0.0280 is written as
+0.0290 by equation (4). For the pair, a crop of the middle of the master is filtered with these settings, and the crop
+and its result are then both stretched by Histogram Transformation with **Shadows** and **Midtones** at 0.02 and
+shown in the Linear display mode.
+
+```figure
+images:
+  - image: ../../assets/images/processes/noise-reduction/noise-crop-before.webp
+    alt: >-
+      A crop at 100 % of the middle of the master, stretched: pink clouds of nebula beside a dark dust lane, many small
+      stars, and a fine colored grain over the background.
+    label: Before
+  - image: ../../assets/images/processes/noise-reduction/bilateral-filter-after.webp
+    alt: >-
+      The same crop filtered before the same stretch, the grain of the background and of the faint nebula smoothed and
+      the faintest texture of the nebula flattened, the stars and the edges of the dust lanes as sharp as before.
+    label: After
+caption: >-
+  The middle of the Carina Nebula master at 100 %, without and with Bilateral Filter at Sigma Color 0.01 and the other
+  values at their defaults, both then stretched by Histogram Transformation with Shadows and Midtones at 0.02.
 ```
 
-Use the equations to predict direction, then verify real structure at 100%
-zoom. For RGB, apply the same calculation to each channel's own difference.
-For an unsigned 16-bit image, Sigma Color `0.10` is compared with differences
-in codes as `0.10 × 65535 = 6553.5`.
+## Starting points
 
-## Warnings and limitations
-
-- The live Sigma Color default `30` resembles an 8-bit-domain value, but it is a
-  fraction of full scale. At ordinary `[0,1]` amplitudes it provides almost no
-  edge discrimination.
-- Link Sigma controls ties pixel distance to a fraction of full scale. It is
-  syntactically valid but usually not a meaningful physical relationship.
-- Diameter is displayed as a double but truncated to integer. Every displayed
-  value below `1` becomes automatic, and positive integers are normalized to an
-  odd effective diameter with a minimum of `3`.
-- Automatic support is held to radius `32`. Sigma Space above about `21` no
-  longer widens the window, only the weights inside it.
-- Either sigma at `0` bypasses the bilateral calculation and returns the source.
-  This endpoint differs from merely choosing a very small positive sigma.
-- RGB channels are filtered separately, each judged by its own differences,
-  not by a joint color distance or the perceptual CIE Lab metric discussed as
-  an option in the original paper. Strong RGB smoothing can shift weak color or
-  create broad color plateaus.
-- Bilateral smoothing can produce piecewise-smooth/cartoon-like regions,
-  gradient flattening, and halos or blotches around structures whose contrast
-  is near the chosen range scale. It can also retain noise when Sigma Color is
-  too narrow.
-- NaN and infinite samples are not repaired; the filter spreads them into their
-  neighbours.
-- Apply automatically resets Diameter, both sigmas, Link, and Amount after
-  success. Target, Channel, Preview, mask, and preview-toolbar state remain.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Edges blur almost like Gaussian smoothing at defaults | Sigma Color `30` is extremely broad as a fraction of full scale | Reduce Sigma Color independently; leave Link off; compare one edge at 100% |
-| Link makes the result ineffective or overly broad | Spatial and range sigmas have different units | Uncheck Link and tune pixels separately from the fraction of full scale |
-| Changing Diameter from `5.0` to `5.5` does nothing | Positive double value is truncated, and the radius is half the integer | Use deliberate odd values; remember that `4` and `5` both use effective diameter `5` |
-| A positive Diameter below `1` becomes unexpectedly slow | Truncation produces integer `0`, which selects automatic support | Use Diameter `1` or greater for fixed support; prefer an odd displayed value |
-| Raising Sigma Space with Diameter `0` stops widening the effect | The derived radius is held to `32` | Expected; the weights inside the window still change |
-| Sigma at `0` produces no visible effect | The process returns the source when either sigma is at or below its epsilon | Set both sigmas to positive values, then tune them independently |
-| Preview becomes unexpectedly slow | Automatic Diameter lets a large Sigma Space choose a large neighborhood | Restore Diameter `5`, reduce Sigma Space, or use Preview area |
-| Faint stars become flat or blotchy | Range/spatial support is too broad or Amount too high | Reduce Diameter/Sigma Space/Amount or narrow Sigma Color; compare original |
-| Colors shift | Separate per-channel range smoothing or a derived-component round trip | Compare RGB with a deliberate luminance component on a duplicate; inspect View Channel |
-| Preview differs from Apply | Preview area, mask, target/channel, or display stretch changed | Match all controls and one Display Mode; Apply always processes the full target |
+| A linear master | **Sigma Color** at 0.01, the smallest value the box takes, the rest at their defaults | **Amount** down when faint texture turns flat, **Sigma Color** up by 0.01 while grain remains. |
+| A stretched image | **Sigma Color** at three to four times the grain of the background after the stretch | Check star halos and faint gradients at 100 %. |
+| Coarser blotches | **Diameter** at 7 or 9 | Check small stars, and expect each preview to take longer. |
+| Stars or edges that must not change | A mask over them, or a lower **Amount** | Check the mask's edges at 100 %. |
+
+## When it goes wrong
+
+!!! warning "The default Sigma Color blurs every edge"
+    At 30, **Sigma Color** is thirty times full scale, and every neighbour in the disc counts almost fully. The filter
+    then acts as a plain mean, and stars and edges blur. Type a few times the grain of the image, or 0.01 on a linear
+    one.
+
+!!! warning "Link Sigma controls ties two different scales"
+    Ticking it copies **Sigma Space**, in pixels, into **Sigma Color**, a fraction of full scale. The default 30 then
+    blurs every edge, and a value useful on a linear image leaves the neighbours no weight. Leave it off.
+
+Stars and edges blur almost as with a plain blur
+:   **Cause.** **Sigma Color** is far above the differences in the image, as it is at its default.
+:   **Fix.** Lower **Sigma Color** to 0.01 on a linear image, or to a few times the grain on a stretched one.
+
+The image does not change
+:   **Cause.** A sigma or **Amount** is 0, or **Link Sigma controls** copied a small **Sigma Color** into **Sigma Space**.
+:   **Fix.** Untick **Link Sigma controls**, set **Sigma Space** back to 30, and keep both sigmas and **Amount** above 0.
+
+Faint stars turn flat, or the background shows smooth patches with steps between them
+:   **Cause.** **Sigma Color** is close to the contrast of the grain and of faint stars, so some of them are smoothed
+    and some kept.
+:   **Fix.** Change **Sigma Color** by 0.01 and compare at 100 %, or lower **Amount** or **Diameter**.
+
+Changing **Diameter** from 5 to 5.50, or to 4, changes nothing
+:   **Cause.** **Diameter** is cut to a whole number and halved, so all three give a radius of 2.
+:   **Fix.** Use the odd whole values 3, 5, 7 and up.
+
+The preview is slow
+:   **Cause.** The disc is large: **Diameter** is high, or below 1, where the disc follows **Sigma Space** up to a
+    radius of 32.
+:   **Fix.** Set **Diameter** to an odd value from 3 to 9, and tune in the preview area.
+
+Colors shift at faint colored edges
+:   **Cause.** With **RGB**, each channel is judged by its own differences, so an edge can be kept in one channel and
+    smoothed in another.
+:   **Fix.** Choose **CIE L* (Lightness)** in **Channel**, and compare it with **RGB** on a duplicate.
+
+The preview area differs from the result of Apply
+:   **Cause.** The area is filtered alone, mirrored at its own edges.
+:   **Fix.** Untick **Preview area** for the last check before **Apply**, and compare under one display mode.
+
+## Related
+
+- [Median Filter](median-filter.md) and [Cosmetic Correction](../calibration/cosmetic-correction.md), which remove the
+  hot pixels and other impulses this filter keeps.
+- [Gaussian Blur](gaussian-blur.md), the same kind of mean without the weight on differences in value.
+- [Total Variation Denoise](total-variation-denoise.md) and [Wavelet Denoise](wavelet-denoise.md), other ways to
+  reduce noise while keeping edges.
+- [Image History](../../interface/image-history.md), to undo the step.
+- [Masks](../../interface/masks.md), to filter the background and protect the stars.
+- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
+  window shares.
 
 ## Credits
 
-- [OpenCV `bilateralFilter`
-  documentation](https://docs.opencv.org/master/d4/d86/group__imgproc__filter.html)
-  defines the filter AfterNight's engine reproduces: Diameter behavior, both
-  sigma effects, the circular window, and the default border argument.
-- [OpenCV border types](https://docs.opencv.org/master/d2/de8/group__core__array.html)
-  defines `BORDER_DEFAULT` as `BORDER_REFLECT_101` and illustrates the reflected
-  sample pattern.
-- [Tomasi and Manduchi, “Bilateral Filtering for Gray and Color Images,” ICCV
-  1998](https://www.cs.jhu.edu/~misha/ReadingSeminar/Papers/Tomasi98.pdf)
-  is the primary paper for the spatial-and-range weighting model. AfterNight
-  filters stored channels separately rather than claiming every color-space
-  option discussed in the paper.
-
-## Related workflow steps
-
-- [Gaussian Blur](gaussian-blur.md) is a linear spatial smoother without a
-  sample-difference weight; it blurs across edges more predictably.
-- [Median Filter](median-filter.md) uses local order statistics and is often a
-  better comparison for isolated impulse noise.
-- [Total Variation Denoise](total-variation-denoise.md) uses an iterative
-  gradient regularizer with different edge and staircasing trade-offs.
-- [Process Windows](../../interface/process-windows.md), [Image Viewer](../../interface/image-viewer.md),
-  [Masks](../../interface/masks.md), and [Image History](../../interface/image-history.md)
-  explain the shared controls and verification workflow.
+- Carlo Tomasi and Roberto Manduchi,
+  [Bilateral Filtering for Gray and Color Images](https://www.cs.jhu.edu/~misha/ReadingSeminar/Papers/Tomasi98.pdf),
+  ICCV 1998, for the spatial and range weights. AfterNight filters each channel on its own rather than with a distance
+  between colors.
+- The [OpenCV bilateralFilter documentation](https://docs.opencv.org/master/d4/d86/group__imgproc__filter.html), for
+  the circular window, the rule that derives its radius from the diameter or the spatial sigma, and the border, which
+  the filter reproduces. Its range weight is computed for each neighbour rather than read from a table.
+- The [OpenCV border types](https://docs.opencv.org/master/d2/de8/group__core__array.html), for the reflection that
+  leaves out the edge sample.
