@@ -476,6 +476,16 @@ private:
 
             an::ui::invalidateInstalledExtensionStatusCache(true);
         });
+
+        // The other way round: the Browse tab holds the installed version of each package it lists, so an uninstall
+        // from the Installed tab is told to it, whichever tab is shown when the uninstall finishes. A Browse tab that
+        // has not loaded yet reads the packages when it does.
+        connect(m_StatusPage, &ExtensionStatusPage::extensionUninstalled, this, [this](const QString& extensionId) {
+            if (m_ManagerPage && m_ManagerPage->isSettingsLoaded())
+            {
+                m_ManagerPage->noteExtensionUninstalled(extensionId.toStdString());
+            }
+        });
     }
 
     [[nodiscard]] SettingsPage* pageAt(const int index) const

@@ -1785,6 +1785,11 @@ void ExtensionStatusPage::completeUninstallOperation(const ExtensionLoadResult& 
         m_SummaryBanner->setTone(an::ui::AnInfoBanner::Tone::Success);
         m_SummaryBanner->setMessage(success_message);
     }
+    if (request.manifest.has_value())
+    {
+        // Whatever else lists the installed packages learns of the removal from here: only this page saw it happen.
+        emit extensionUninstalled(QString::fromStdString(request.manifest->id));
+    }
 }
 
 void ExtensionStatusPage::repairExtensionEnvironment(const ExtensionLoadResult& result, QPushButton* actionButton)
