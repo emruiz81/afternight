@@ -148,6 +148,7 @@ nav:
           - Histogram Transformation: processes/stretching/histogram-transformation.md
           - Curves Transformation: processes/stretching/curves-transformation.md
           - Generalized Hyperbolic Transformation: processes/stretching/gh-transformation.md
+          - Generalized Hyperbolic Transformation Reference: processes/stretching/gh-transformation-reference.md
           - ArcSinh Stretch: processes/stretching/arcsinh-stretch.md
           - Statistical Stretch: processes/stretching/statistical-stretch.md
           - Gamma Correction: processes/stretching/gamma-correction.md

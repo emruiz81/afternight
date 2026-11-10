@@ -7,384 +7,352 @@ summary: >-
   color ratios of an RGB image.
 data_in: linear
 data_out: nonlinear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no ArcSinh Stretch window is open on it yet, and no window that needs
+    the image for itself is open on it. The number of channels is not checked.
+  inputs: >-
+    One grayscale or three-channel RGB image or sequence with samples between 0 and 1, and an optional mask on its
+    view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size and pixel type are kept. No file, preset or report is
+    written.
+  state: A linear master, mono or RGB, after background correction and color calibration.
+derived: false
+rewritten: true
 ---
 # ArcSinh Stretch
+
+ArcSinh Stretch brightens a [linear image](../../reference/glossary.md) with an inverse hyperbolic sine curve. The
+curve lifts faint signal strongly and compresses the highlights, and it leaves black and white where they are. On
+an RGB image the curve is applied to a luminance, and the three channels are multiplied by one factor. The ratios
+between the colors are kept until a channel clips.
+
+**Black Point** first sends every sample at or below a level you choose to black. It estimates nothing from the
+image.
+
+**Apply** replaces the image or sequence with the stretched one, keeps its size and pixel type, and adds one step to
+its history. The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/stretching/arcsinh-stretch.webp
 alt: >-
-  The ArcSinhStretch window. On the left, the image's histogram, the Stretch Factor and Black
-  Point values with their sliders, Human-weighted luminance, Target Image and Preview. On the
-  right, the preview of the image.
+  The ArcSinhStretch window. On the left, a histogram with one peak near its left fifth and the lines Clipping Low
+  and Clipping High in its corner. Under it a toolbar, Stretch Factor at 200.00 and Black Point at 0.02000 with
+  their sliders, Human-weighted luminance checked, Target Image and Preview. On the right, the preview shows a red
+  nebula on a dark gray background. Reset, Close and Apply run along the bottom.
 caption: >-
-  ArcSinh Stretch as it opens on a linear master, with a stretch factor of zero that changes
-  nothing yet.
+  ArcSinh Stretch on a linear master with Stretch Factor at 200 and Black Point at 0.02. The histogram is counted
+  from the stretched preview, and the preview shows what Apply writes.
+pins:
+  - {n: 2, x: 2.0, y: 54.0}
+  - {n: 3, x: 2.0, y: 59.0}
+  - {n: 5, x: 2.0, y: 63.8}
+  - {n: 6, x: 73.0, y: 26.0}
+  - {n: 7, x: 90.9, y: 96.0}
 ```
-
-## Purpose and expected result
-
-ArcSinh Stretch is a display-stretch process for lifting faint linear signal while
-compressing the rate of change toward the highlights. On a monochrome image it
-applies one normalized inverse-hyperbolic-sine transfer. On RGB it calculates a
-luminance-like value and multiplies all three black-adjusted channels by one
-factor. That common factor preserves the post-black-point RGB ratios until an
-individual channel clips.
-
-The expected result is one nonlinear still image or replacement sequence with
-the same dimensions and pixel type. Channel count and pixel format normally
-remain unchanged, except that automatic CFA debayering can turn a one-channel
-mosaic sequence into RGB before the stretch runs. A larger **Stretch Factor**
-raises low and middle values more strongly while keeping the normalized black
-and white endpoints fixed. **Black Point** first clips samples at or below the
-chosen threshold and expands the remaining range; it is not an automatic
-background estimator.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Intensity Transformations > ArcSinh Stretch** |
-| Enabled when | An image or sequence is active, the same process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One intended normalized grayscale or three-channel RGB still image or sequence; a one-channel CFA still is technically sent through the mono path; an optional active mask must match the target geometry |
-| Outputs | Destructively replaces the target still or sequence after success; dimensions and pixel type are preserved, while automatic sequence CFA debayering can change one-channel CFA to RGB; Apply writes no auxiliary image or file |
-| Recommended image state | Linear, background-corrected, and color-calibrated data before the main display stretch |
-| Preview support | Asynchronous RT preview of the whole image or a selected Preview area, running Apply's own operation, plus a histogram of the preview result; disabling **Preview** returns the histogram to the source target |
-| Sequence support | Supported; one captured parameter set is applied to every decoded frame through a temporary replacement sequence. The sequence reader honors the view's automatic CFA debayer setting. |
-| Mask support | Supported by post-transform blending; white applies the result, black keeps the source, gray blends, and **Invert Mask** reverses the weights |
-| External dependencies | None; execution uses the bundled engine and does not access a tool, model, catalog, or network service |
 
 ## Before you start
 
-- Finish background correction and color calibration first. The process does
-  not estimate a background threshold, linearize encoded RGB, or calibrate
-  channel weights.
-- Use a normalized one-channel or three-channel image. Only an image of exactly
-  three channels is stretched through a luminance. The launch gate does not
-  check the channel count: a two- or four-channel image is stretched channel by
-  channel without a luminance (a fourth channel receives the black point but not
-  the curve), and an image of more than four channels is refused with a message.
-- Do not treat a one-channel CFA still as ordinary monochrome: ArcSinh does not
-  debayer still images and would stretch the mosaic samples directly. For a CFA
-  sequence, decide whether its automatic debayer option should convert decoded
-  frames to RGB; a successful replacement then remains RGB.
-- Prefer floating-point data while stretching. Integer samples are worked in a
-  floating copy (Float32, or Float64 for 32-bit integers) and rounded back to
-  the nearest code of the source pixel type.
-- Inspect the background before increasing **Black Point**. Every channel sample
-  at or below that value becomes zero before the stretch.
-- Duplicate the target or be prepared to use Image History. **Apply** replaces
-  the current still or sequence after processing succeeds.
+- Finish background correction and color calibration first. The process estimates no background, decodes no
+  encoded RGB and calibrates no channel weights, and after **Apply** the image is nonlinear.
+- **Apply** replaces the image or sequence. Duplicate it first, or use its history, which keeps the step before.
+- Use a grayscale or a three-channel RGB image with samples between 0 and 1.
+- A raw color-filter mosaic is stretched as a grayscale image, which breaks the relation between its sensor values:
+  debayer it first. For a mosaic sequence, decide whether its automatic debayer turns the frames into RGB.
+- Prefer a floating-point image. Integer samples are stretched in a floating-point copy and rounded back.
+- A [mask](../../reference/glossary.md) on the view blends the stretched image with the original after the
+  stretch: white takes the result, black keeps the original, gray mixes them, and **Invert Mask** swaps the two.
 
-## Procedure
+## Steps
 
-1. Select the target and open **Process > Intensity Transformations > ArcSinh
-   Stretch**. Confirm **Target Image** and leave **Preview** selected.
-2. Leave **Black Point** at `0` initially. Increase **Stretch Factor** from `0`
-   until faint structure is visible without excessive highlight clipping.
-3. On RGB, leave **Human-weighted luminance** selected for the
-   `0.2126 R + 0.7152 G + 0.0722 B` weighting. Clear it to use the plain mean of
-   the three channels. The choice has no effect on monochrome data.
-4. If a measured background pedestal should be removed, increase **Black Point**
-   cautiously. Revisit **Stretch Factor** because black-point normalization
-   changes the values supplied to the stretch.
-5. Use the histogram and preview together. Check low/high clipping, inspect
-   bright colored stars for single-channel clipping, and compare at 100% zoom.
-   On a large image, **Preview area** limits the preview to a representative region.
-6. If a mask is active, judge the mask-aware preview rather than assuming the
-   mathematical transfer applies at full strength everywhere.
-7. Select **Apply**. For a sequence, watch the progress window and use
-   **Cancel** if necessary; the source sequence is replaced only after successful
-   completion. After either a successful still or sequence commit, the process
-   returns Stretch Factor and Black Point to `0` and rechecks Human-weighted luminance.
+1. **Open the window.** Make the linear master the active image and choose **Process > Intensity Transformations >
+   ArcSinh Stretch**. The window opens under the title **ArcSinhStretch**, with a narrow peak at the left of the
+   histogram and a nearly black preview.
+2. **Raise the stretch factor.** Increase **Stretch Factor** until the faint signal shows in the preview. The
+   background turns gray and the peak of the histogram moves to the right.
+3. **Set the black point.** Raise **Black Point** until the background is dark again. Stop while **Clipping Low**
+   in the histogram still reads near zero: what it counts is lost.
+4. **Adjust the stretch factor again.** The black point changes what the curve receives, so the same factor now
+   lifts less. Raise it until the faint signal is back in the preview.
+5. **Choose the luminance.** On an RGB image, leave **Human-weighted luminance** on, or clear it to weigh the three
+   channels equally. The preview shows the difference in strongly colored regions.
+6. **Check the preview at 100 %.** Zoom the preview into the faint areas and the brightest colored stars, and press
+   ++space++ over it to compare with the original. **Clipping High** tells how many samples reached 1.
+7. **Apply.** Choose **Apply**. The image in its view is the stretched one, its history lists `ArcSinhStretch` with
+   the three values, and the controls return to their defaults.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Histogram plot | Graph, normalized intensity/count | Source or current preview; RGB channels overlaid | None | Binning comes from **Plot resolution** | Shows sample distribution and approximate endpoint-bin clipping; never changes samples | Uses mask-aware RT result with Preview on and source target with it off | Recalculation adds work; endpoint counts are resolution-dependent diagnostics | Preview/source display only; all shown channels | Recomputed after source, preview, or resolution changes |
-| Left-drag in histogram | Graph gesture | No readout | None | Hold left button and move in graph | Shows normalized coordinate readout | Histogram must be shown | Diagnostic only; does not pick Black Point | Display only | Ends on button release |
-| Middle-drag in histogram | Graph gesture | Fitted/unpanned | None | Hold middle button and drag | Pans through graph scroll area | Useful only when graph exceeds viewport | No output cost or effect | Display only | Until pan/zoom reset or window closes |
-| Ctrl+mouse wheel in histogram | Graph gesture | Fitted size | None | Up `1.20x`; down `0.8x`; wheel without Ctrl scrolls normally | Zooms around cursor | Interactive graph enabled | Larger graph uses more rendering area | Display only | Window lifetime; not changed by process Reset |
-| Zoom in | Toolbar action | Fitted size | None | Each selection multiplies size by `1.30` | Enlarges plot | Histogram shown | Plot rendering only | Display only | Window lifetime; not changed by process Reset |
-| Zoom out | Toolbar action | Fitted size | None | Each selection multiplies size by `0.70` | Shrinks plot | Histogram shown | Plot rendering only | Display only | Window lifetime; not changed by process Reset |
-| Zoom reset | Toolbar action | — | None | One action | Fits graph and resets scrolling | Histogram shown | Plot rendering only | Display only | Immediate |
-| Show grid | Toggle | Checked | None | Checked/unchecked | Shows or hides graph grid | Disabled while histogram is hidden | Display-only visual aid | Display only | Window lifetime; clearing Show histogram resets the widget grid internally |
-| Show clipping info | Toggle | Checked | None | Checked/unchecked | Shows or hides low/high endpoint-bin counts and percentages | Disabled while histogram is hidden | Higher resolution changes the estimate; not an exact floating endpoint total | Display only; follows shown source/preview channels | Window lifetime; not changed by process Reset |
-| Absolute scales | Toggle | Unchecked | None | Checked/unchecked | Checked normalizes each visible channel to its own peak; unchecked preserves relative/global height | Disabled while histogram is hidden | Can conceal relative channel strength; never normalizes image data | Display only | Window lifetime; not changed by process Reset |
-| Draw histogram areas | Toggle | Unchecked | None | Checked/unchecked | Selects filled-area or line rendering | Disabled while histogram is hidden | Area mode can obscure overlapping channel lines | Display only | Window lifetime; not changed by process Reset |
-| Show histogram | Toggle | Checked | None | Checked/unchecked | Unchecked clears graph, resets graph zoom, and disables graph controls; checked reloads preview or source | Always available while process is idle | Hiding saves histogram rendering but not image-preview processing | Display only | Window lifetime; not changed by process Reset |
-| Plot resolution | Combo box, bins | **8-bit (256)** | None | **6-bit (64)**, **7-bit (128)**, **8-bit (256)**, **9-bit (512)**, **10-bit (1024)**, **12-bit (4096)**, **14-bit (16K)**, **16-bit (64K)**, **100 levels**, **1000 levels**, **10000 levels** | More bins show finer distribution and change endpoint estimates | Disabled while histogram is hidden | Higher bin counts increase histogram memory/rendering; output precision is unchanged | Display only | Window lifetime; not changed by process Reset |
-| Stretch Factor | Double value plus slider, unitless | `0` | None | `0..1000`; spin step `1`; slider positions `0..1000` | Larger values raise shadows/midtones more strongly; `0` makes only the arcsinh part identity | Enabled while idle; together with Black Point controls Apply enablement | Strong values can amplify background/noise or clip saturated RGB channels | Preview/apply; mono or common RGB scale; mask post-blend; still/sequence | Captured per execution; Reset, successful Apply, or a new window returns `0` |
-| Black Point | Double value plus slider, normalized intensity | `0` | None | `0..0.2`; five decimals; spin step `0.001`; slider maps `0..1000` to effective `0.0002` steps | Larger values clip more samples to zero and expand the surviving range | Enabled while idle; nonzero value enables Apply even at zero Stretch Factor | Can erase faint signal and change channel ratios before RGB common scaling | Preview/apply; each channel; mask post-blend; still/sequence | Captured per execution; Reset, successful Apply, or a new window returns `0` |
-| Human-weighted luminance | Checkbox | Checked | None | Checked uses `0.2126`, `0.7152`, `0.0722`; unchecked uses the plain mean (`1/3` each) | Changes the luminance driving the common RGB scale | Enabled while idle; no effect on mono | Weights are applied to the stored samples and assume linear light | Preview/apply; RGB only; mask post-blend; still/sequence | Captured per execution; Reset, successful Apply, or a new window checks it |
-| Target Image | Image selector | Attached/active target | None | Open eligible image or sequence | Changes source for histogram, preview, and Apply | Active image required; duplicate/exclusive process gates apply; channel count is not validated here | Wrong target is destructively replaced; a two- or four-channel target is stretched channel by channel and more than four channels are refused | Preview/apply; still/sequence and its active mask | Follows attachment/selection lifecycle; Reset does not change it |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Starts or removes asynchronous preview and switches histogram between preview/source | Not locked while Apply runs | Each preview pass and its histogram consume time/memory over the whole image or the Preview area | Preview only; mask-aware; current still/frame display | Window lifetime; Reset does not change it |
-| Preview pane | Viewer | Current transform | None | Standard viewer zoom/pan; its toolbar offers **Switch image**, **Preview area**, and **Take snapshot** | Shows transform, mask blend, and waiting indicator | Exists only while Preview is checked | Holds a preview result of the whole image or of the Preview area composited over the original | Preview only; current target/frame | Rebuilt with Preview lifecycle; independent of histogram zoom |
-| Preview area | Preview checkbox | Unchecked | None | Checked/unchecked; move/resize overlay on the preview | Processes the selected area as Apply would process an image of that area and composites it over the original | Preview exists | Reduces preview work; does not limit Apply | Preview/snapshot; mask cropped consistently | Window lifetime |
-| Apply | Dialog action | Disabled at numeric identity | None | Enabled unless Stretch Factor and Black Point are both `0` | Captures parameters, locks controls, and replaces target after success | Requires process lock; disabled during execution | Destructive still/sequence operation; sequence writes temporary output | Apply; mono/RGB, mask, still/sequence | Adds `ArcSinhStretch` history with three values, then resets both numeric controls and rechecks Human-weighted luminance |
-| Reset | Dialog action | — | None | One action | Restores Stretch Factor `0`, Black Point `0`, and checked Human-weighted luminance | Available while idle | May schedule one preview pass | Parameter UI and preview; does not alter committed target | Does not reset target, Preview, toolbar, resolution, or graph zoom |
-| Close | Dialog action | — | None | One action | Closes without committing current preview | Disabled while Apply controls are locked; closing the window another way during a run hides it until the run has landed, and closing the image view stops the run | No output artifact; a stopped run publishes nothing | Window only | Current uncommitted parameters are discarded |
-| Sequence progress | Progress display | Hidden until sequence Apply | None | Preparation plus per-frame progress | Reports temporary sequence creation and current frame | Sequence target and active execution required | Temporary output uses disk space until success/cancel cleanup | Apply; every frame with captured params/mask | Ends when run succeeds, fails, or cancels |
-| Cancel | Progress action | Available during sequence run | None | Cancellation request | Stops the run; the engine operation observes the request | Sequence progress must be active | Unsuccessful temporary output is removed | Apply; sequence only | Original remains when cancellation prevents successful replacement |
+The toolbar under the histogram - zoom, grid, clipping lines, scales, areas, the histogram itself and **Plot
+resolution** - changes only how the histogram is drawn, and is the same in every window that has one: see
+[Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: The histogram
+controls:
+  - name: Histogram
+    kind: readout
+    default: ""
+    effect: Shows how the samples of the image are spread between 0 and 1. With **Preview** on it is counted from the stretched preview, mask included. With **Preview** off it is counted from the image as it is.
+    range: One line for a grayscale image, three for RGB, at the toolbar's **Plot resolution**.
+    enabled: Shown while the toolbar's histogram button is on. Its lines follow the channel the preview displays, and it shows the original while the preview does.
+    tradeoff: It is counted again after every preview, which adds to the time each change takes.
+    scope: The window only. It never changes a sample.
+    note: Holding the left button shows the coordinates under the pointer, and does not pick a black point. Dragging with the middle button pans, and ++ctrl++ with the wheel zooms about the pointer.
+  - name: Clipping Low
+    kind: readout
+    default: ""
+    effect: Gives the share of the samples the histogram counts that are at or below 0. In the stretched preview those are the samples at or below the black point.
+    range: A percentage with three decimals, over all the channels together. It is counted from the samples, not from the bins, so it does not change with **Plot resolution**.
+    enabled: Shown while the toolbar's clipping button is on.
+    scope: The window only.
+  - name: Clipping High
+    kind: readout
+    default: ""
+    effect: Gives the share of the samples the histogram counts that are at or above 1. In the stretched preview those are the samples that reached 1 in their channel.
+    range: Counted as **Clipping Low** is.
+    enabled: Shown while the toolbar's clipping button is on.
+    scope: The window only.
+```
 
-### Conceptual pipeline
+```controls
+window: ArcSinhStretch
+controls:
+  - name: Stretch Factor
+    kind: spinbox
+    default: "0.00"
+    widget: {min: 0, max: 1000, step: 1, decimals: 2}
+    effect: Sets the strength of the curve. Higher lifts the shadows and the midtones more and compresses the highlights more. Lower brings the curve toward a straight line, and at 0 only the black point acts.
+    range: The slider beside it moves in whole steps over the same range. Black stays black and white stays white at every value.
+    enabled: Disabled while Apply runs. With **Black Point** it decides whether **Apply** is enabled.
+    tradeoff: A strong factor lifts the background and its noise with the signal, and clips a channel of the bright colored stars. It does not change the time a run takes.
+    scope: The preview and Apply, on images and sequences. A grayscale image gets the curve itself, an RGB image one factor for its three channels. A mask is blended afterwards.
+    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
+  - name: Black Point
+    kind: spinbox
+    default: "0.00000"
+    widget: {min: 0, max: 0.2, step: 0.001, decimals: 5}
+    effect: Sets the level that becomes black before the curve. Higher sends more of the low samples to black and spreads the rest over the range. Lower keeps more of the shadows.
+    range: The slider beside it moves in steps of 0.0002. A sample of 1 stays 1.
+    enabled: Disabled while Apply runs. Any value above 0 enables **Apply**, even with **Stretch Factor** at 0.
+    tradeoff: Set above the background, it erases faint signal for good. It is taken from each channel alone, so it changes the ratios between the colors before the common factor is computed.
+    scope: The preview and Apply, on every channel of images and sequences, before the curve. A mask is blended afterwards.
+    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
+    note: It is a level you choose, and nothing is measured from the image. Used alone, with **Stretch Factor** at 0, it only cuts and rescales, and the result is still recorded as nonlinear.
+  - name: Human-weighted luminance
+    kind: check
+    default: "On"
+    effect: Chooses the luminance that sets the common factor of an RGB image. On weighs red, green and blue by 0.2126, 0.7152 and 0.0722. Off takes the plain mean of the three.
+    enabled: Disabled while Apply runs. It changes nothing on a grayscale image.
+    tradeoff: The weights are applied to the samples as they are stored and mean a luminance only for linear RGB. With it on, green structures drive the stretch more. The plain mean is not a perceptual luminance.
+    scope: The preview and Apply, on images and sequences of exactly three channels. A mask is blended afterwards.
+    persistence: Until the window closes. Each preview and each Apply takes the choice as it is when it starts. **Reset** and a finished Apply turn it on.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image Apply replaces, with the mask on its view. The histogram and the preview follow it.
+    range: The number of channels of the image is not checked here.
+    tradeoff: Apply replaces the image chosen here, so check it before you Apply.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the stretched image beside the controls, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
+    enabled: It stays enabled while Apply runs.
+    tradeoff: Each change stretches the whole image again, or the **Preview area** alone, and counts the histogram again. On a large image or sequence, turn it off or use a **Preview area** while you adjust, and check the whole image before Apply.
+    scope: The window only. A **Preview area** shows the result inside the area over the original, and does not limit Apply.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+    note: An image made with the preview's snapshot button is a separate image, and is not recorded as nonlinear.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Stretch Factor** and **Black Point** to 0 and turns **Human-weighted luminance** on.
+    range: It leaves the target, **Preview**, the toolbar's choices and the zoom of the histogram as they are.
+    enabled: Disabled while Apply runs.
+    scope: The window only. The image is not touched, the preview is computed once more, and Apply is disabled afterwards.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Stretches the image, or every frame of the sequence, with the three values as they are when you press it, and then returns the controls to their defaults.
+    enabled: When **Stretch Factor** or **Black Point** is above 0. It is disabled while the window opens and while a run works.
+    scope: The whole image or sequence, with the mask and its inversion as they are when you press it, blended afterwards.
+    persistence: The image and its history keep the result. The history step is `ArcSinhStretch` and reads, for example, `Stretch 50, Black Point 0.001, Human Weight true`. It does not record the toolbar's choices or the mask.
+    note: Closing the window instead discards the values. The window has no presets, and nothing of it is saved between sessions.
+```
 
-1. Read the source image or frame. A sequence reader first performs its
-   configured automatic CFA debayer, while a CFA still remains one-channel and
-   enters the mono path.
-2. Work in normalized units: an unsigned integer divided by its largest value, a
-   signed integer counted from its smallest value to its largest, a floating
-   sample as it is. Integer samples are converted into a floating working copy.
-3. Clip and rescale each sample with **Black Point**.
-4. Hold every sample to `[0,1]`. For mono, evaluate the normalized arcsinh curve
-   directly. For RGB, calculate a weighted or equal-channel luminance from the
-   black-adjusted samples and scale all three channels by one factor, clipping
-   each to `[0,1]`.
-5. Narrow integer results back to the original pixel type at the nearest code.
-6. Record the successful result nonlinear with `arcsinh-stretch` provenance,
-   blend with the source if a mask is active, and publish it as the replacement
-   still or sequence.
-7. After commit, reset the two numeric controls and Human-weighted luminance to
-   their defaults; the executed values remain only in Image History.
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: Shows the preparation and the frame being stretched, from 0 to 100 percent.
+    enabled: Shown only while Apply works on a sequence. A single image has no progress window.
+    tradeoff: The sequence is written again in a temporary place, which needs the disk space of a second copy until the run ends.
+    scope: Every frame, with the values and the mask taken when you pressed Apply. The frames are read with the automatic debayer setting of the view.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    note: The sequence is replaced only when every frame has been stretched. After a cancelled run, Apply again and let it finish.
+```
 
-### Black-point normalization
+## How it works
 
-For normalized input `x` and black point `B`, every mono or RGB channel first
-becomes
+1. Every sample is read as a fraction of full scale: an unsigned integer divided by its largest value, a signed
+   one counted from its smallest value, a floating-point sample as it is.
+2. A black point above 0 is taken from every channel, and the rest is rescaled so that 1 stays 1. Every sample is
+   then held between 0 and 1.
+3. A grayscale image goes through the curve. For an RGB image the curve is applied to a luminance of the three
+   channels, the channels are multiplied by the ratio of the stretched luminance to the original one, and a
+   channel that passes 1 is cut to 1.
+4. The result is written back in the image's own pixel type. A mask on the view then blends it with the original.
+5. The image replaces the target and its history gets one step. Its header, its acquisition data, its plate
+   solution and its color calibration record are kept. A saved file records the new state in its header: `ANLIN`
+   is `nonlinear`, `ANASRC` is `process`, `ANOP` is `arcsinh-stretch`, and `ANBASIS` is `monochrome` or
+   `display-rgb`. A linear encoding the image stated is no longer stated, and its lineage gains an entry with the
+   three values.
 
-\[
-x' = \min\left(1, \max\left(0, \frac{x-B}{1-B}\right)\right).
-\]
+### Model
 
-The UI constrains `B` to `[0,0.2]`, so the denominator remains positive. Values
-at or below `B` collapse to zero; `x=1` remains `1`. At `B=0` this step is
-skipped, and every sample is still held to `[0,1]` before the curve, so a
-floating value above `1` is treated as `1`. Black-point adjustment can change
-RGB ratios before the color-preserving common scale is calculated.
+A sample \(x\) is first moved off the black point \(B\) of **Black Point**:
 
-### Monochrome transfer
+\[ x' = \min\Bigl(1,\ \max\Bigl(0,\ \frac{x - B}{1 - B}\Bigr)\Bigr) \tag{1} \]
 
-For stretch factor `S`, the output is
+With \(S\) the value of **Stretch Factor**, the curve is
 
-\[
-f(x') =
-\begin{cases}
-x', & S=0,\\
-\dfrac{\operatorname{asinh}(Sx')}{\operatorname{asinh}(S)}, & S>0.
-\end{cases}
-\]
+\[ f(x') = \frac{\operatorname{asinh}(S\,x')}{\operatorname{asinh}(S)} \tag{2} \]
 
-For `S>0`, `f(0)=0` and `f(1)=1`. The curve is increasing and concave: it lifts
-low and middle values more than values near white. The engine evaluates a zero
-stretch factor as the identity, which leaves only the black-point remap active.
-The curve is the image engine's asinh stretch with no protection points, which
-is exactly this ratio.
+and \(f(x') = x'\) when \(S = 0\). Equation (2) keeps 0 at 0 and 1 at 1, rises everywhere and bends downward, so it
+lifts low and middle values more than values near white.
 
-### RGB common scaling
+For an RGB pixel, with \(r'\), \(g'\) and \(b'\) the channels after equation (1) and \(w_R\), \(w_G\) and \(w_B\)
+the weights **Human-weighted luminance** chooses, the luminance \(L\) and the common factor \(k\) are
 
-After applying the black point separately to `r`, `g`, and `b`, the process
-calculates
+\[ L = w_R\,r' + w_G\,g' + w_B\,b', \qquad k = \frac{f(L)}{L}, \qquad (r, g, b)_{\mathrm{out}} = \min\bigl(1,\ k\,(r', g', b')\bigr) \tag{3} \]
 
-\[
-L = w_R r' + w_G g' + w_B b'.
-\]
+One factor keeps the ratios between \(r'\), \(g'\) and \(b'\). It does not keep the ratios the pixel had before
+the black point, and it does not keep them in a pixel where a channel reaches 1. A pixel whose luminance is at
+most \(10^{-12}\) is written black.
 
-Checked **Human-weighted luminance** uses weights `(0.2126, 0.7152, 0.0722)`;
-unchecked uses the plain mean, `(1/3, 1/3, 1/3)`. It then applies
+### Boundaries
 
-\[
-k =
-\begin{cases}
-1, & S=0,\\
-\dfrac{\operatorname{asinh}(SL)}{L\operatorname{asinh}(S)}, & S>0,
-\end{cases}
-\qquad
-(r_{out},g_{out},b_{out}) = \operatorname{clamp}_{[0,1]}(k(r',g',b')).
-\]
+- A floating-point sample above 1 is treated as 1, and one below 0 as 0, before the curve. Nothing brings a color
+  that leaves the range back into it: each channel is cut alone.
+- A pixel that holds a value that is not a finite number is left as it was, and so is a pixel the image marks as
+  invalid.
+- Only an image of exactly three channels is stretched through a luminance. An image of two or four channels is
+  stretched channel by channel, a fourth channel gets the black point but not the curve, and an image of more than
+  four channels is refused with a message.
+- Floating-point samples are worked in their own precision, 8-bit and 16-bit integers in a single-precision copy
+  and 32-bit integers in a double-precision copy. The curve and the luminance are computed in double precision,
+  and an integer result is rounded to the nearest value, a tie to the even one.
+- A mosaic image is stretched as grayscale and recorded as nonlinear and `monochrome`. A mosaic sequence whose
+  automatic debayer is on is read as RGB and replaced as RGB.
 
-A pixel whose luminance is at most `1e-12` is written black (strictly, as a
-neutral gray at `f(L)` when every channel is that dark, which is black for any
-practical purpose).
+### Worked example
 
-One `k` preserves the ratios among `r'`, `g'`, and `b'`. It does not guarantee
-the original pre-black-point ratios, and an individual channel that reaches
-`1` loses ratio preservation through clipping. The standard coefficients
-describe relative luminance for linear-light RGB, but this implementation does
-not decode a nonlinear transfer function before applying them. Use this process
-on calibrated linear RGB for the intended interpretation.
+The master in the picture above is an RGB image whose three channels have their median near 0.028. With
+**Stretch Factor** at 200 and **Black Point** at 0.02, equation (1) places the median at \(x' = 0.0078\) and
+equation (2) lifts it to 0.21: the background becomes a dark gray and the nebula spreads over the range above it.
+Without the black point the same factor puts the median at 0.40, a washed-out gray.
 
-### Boundary, mask, and state behavior
+Equation (3) shows where colors are lost. A pixel of luminance 0.29 is multiplied by 2.7, so any of its channels
+above 0.37 becomes 1.
 
-- Every sample is held to `[0,1]` before the curve, and final samples below or
-  above the normalized range are clipped to `0` or `1`.
-- Under the default all-valid rule a pixel holding NaN or an infinity is left as
-  it was, and so is a pixel that the image's own validity marks as having no
-  data. Under any other validity rule, a NaN or infinity in a pixel that rule
-  calls valid makes the engine refuse the run: Apply publishes nothing and
-  reports the error.
-- The active mask is applied after the full transform. The histogram follows
-  that blended preview when **Preview** is enabled.
-- Floating samples are worked in their own precision; 8- and 16-bit integer
-  samples in a Float32 copy and 32-bit integers in a Float64 copy. The curve and
-  luminance are computed in double precision. The output retains the source
-  type, and integer results are rounded to the nearest code, ties to even.
-- Successful output is recorded nonlinear on the processing-state cards:
-  `ANBASIS` is `monochrome` for a grayscale result and `display-rgb` for an RGB
-  result, and the other recorded fields, including the color calibration
-  record, are kept from the source.
-- A black-point-only run (`S=0`, `B>0`) is marked nonlinear too, even though its
-  surviving-sample remap is affine.
-- A one-channel CFA still is processed by the mono branch without demosaicing
-  and is marked nonlinear/monochrome; this is not a valid raw-CFA workflow. A
-  CFA sequence with automatic debayer enabled is decoded and replaced as RGB.
+```figure
+images:
+  - image: ../../assets/images/processes/stretching/arcsinh-stretch-before.webp
+    alt: The whole frame before the stretch, black except for a few of the brightest stars.
+    label: Before
+  - image: ../../assets/images/processes/stretching/arcsinh-stretch-after.webp
+    alt: The whole frame after the stretch, the red clouds of the nebula around a blue and violet core, in strong colors, across a field of stars on a dark gray background.
+    label: After
+caption: >-
+  The Carina Nebula master before and after Apply with Stretch Factor at 200 and Black Point at 0.02. Both are the
+  whole frame as the view shows it in the Linear display mode, without a display stretch.
+```
 
-## Parameter interactions and starting points
+On a grayscale image, with **Stretch Factor** at 10 and no black point, a sample of 0.01 becomes 0.033, 0.10
+becomes 0.294, 0.50 becomes 0.771 and 0.90 becomes 0.965. The lowest one is multiplied by 3.3 while the highest
+hardly moves. With **Black Point** at 0.05, a sample of 0.10 first becomes
+0.0526 and then 0.168, and every sample at or below 0.05 becomes black. With **Stretch Factor** at 0 it stays at
+0.0526.
 
-| Goal | Starting point | What to watch |
+## Starting points
+
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| First controlled display stretch | `B=0`, human weights on, then increase `S` from `1` | Background lift, bright-star cores, and channel clipping |
-| Preserve measured background removal | Set `B` only after measuring the pedestal; readjust `S` afterward | Crushed faint signal and channel-dependent color shifts near black |
-| Compare luminance models | Hold `S` and `B` fixed and toggle the checkbox | Green-dominant structures receive more influence with human weights; equal weights are not perceptual luminance |
-| Black-point remap without arcsinh lift | `S=0`, choose `B>0` | This clips/rescales the background and is recorded nonlinear despite the zero stretch factor |
-| Masked regional stretch | Tune the unmasked transform, then inspect the active-mask blend | The common RGB scale is computed before mask blending; gray mask values reduce the total effect |
+| A linear RGB master | **Black Point** at 0, **Human-weighted luminance** on, and **Stretch Factor** up from 1 | **Black Point** up to the foot of the background, then the factor again. Watch the background, the star cores and the channels that clip. |
+| A background level you measured | **Black Point** at that level | **Stretch Factor** again. Check the faint signal and the colors near black. |
+| Choosing the luminance | Both numbers fixed, then **Human-weighted luminance** on and off | Compare strongly colored regions. Green structures weigh more with it on. |
+| A stretch through a mask | The values first, with the mask off | Enable the mask and check the preview. The common factor is computed before the blend, and gray mask values weaken the stretch. |
 
-## Inputs, outputs, and metadata
+## When it goes wrong
 
-- **Still input:** the active normalized mono or RGB image. The run starts from
-  a copy of the target with the same geometry, channels, pixel type, and
-  metadata, which replaces the target after success.
-- **Sequence input:** the active sequence. The shared runner processes each
-  frame as Apply processes a still image of it, writes the frames to a temporary
-  sequence, and replaces the source sequence only on success; cancellation
-  removes the temporary output. Automatic sequence CFA debayer can change the
-  replacement from one-channel mosaic data to RGB.
-- **Mask:** the active target mask is a post-transform blend. The mask and its
-  inversion are captured when **Apply** is selected.
-- **History:** the step is named `ArcSinhStretch`; its description stores the
-  three execution values, for example `Stretch 50, Black Point 0.001, Human
-  Weight true`. Histogram display state and mask identity are not in the step
-  description. Undo restores the previous image.
-- **Linearity:** successful output is recorded nonlinear on the processing-state
-  cards a saved file carries (`ANLIN` nonlinear, `ANASRC` process, `ANOP`
-  `arcsinh-stretch`, and the stretched `ANBASIS`), a linear encoding the source
-  claimed is no longer claimed, and the image lineage gains an entry naming
-  `an::stretchImage` with the three values. The FITS cards, astrometric
-  solution, and acquisition record are otherwise kept from the source. Do not
-  treat the output as linear input for later calibration. Preview and snapshot
-  results are not recorded.
-- **Auxiliary output:** Apply writes none. The process does not write a report,
-  curve file, or diagnostic image; the preview's **Take snapshot** action creates
-  a separate still from the preview only when you select it.
+!!! warning "Apply cannot be taken back from this window"
+    The stretch replaces the image and records it as nonlinear, and a later calibration treats it so. Finish color
+    calibration and every other linear step first, and use the image's history to return to the linear master.
 
-## Performance
+!!! warning "Samples above 1 are cut to 1"
+    The stretch works between 0 and 1. In a floating-point master, star cores above 1 are cut to 1 before the
+    curve, and those above 1 in every channel come out white.
 
-The black point and the stretch each run once over the image on the operation's
-threads. RGB requires the black-point adjustment, one luminance and scale
-calculation, and three writes per pixel. A larger stretch factor changes math
-values, not algorithmic complexity. An integer image is converted into a
-floating working copy and back, and Apply normally makes one further full-image
-copy to write the nonlinear record onto the result.
+Apply is disabled
+:   **Cause.** **Stretch Factor** and **Black Point** are both 0, which changes nothing.
+:   **Fix.** Raise either of them.
 
-RT preview processes the full image, or only the **Preview area** when one is
-selected, and maintains a destination image; changing a parameter can therefore
-consume a preview pass plus histogram regeneration. Higher **Plot resolution**
-increases histogram bins and rendering work but never output precision. For a
-large image or sequence, disable **Preview** or use a **Preview area** while
-making coarse numeric edits, then check the whole image before Apply. No
-production timing is claimed without an approved representative master.
+The background is a washed-out gray
+:   **Cause.** **Black Point** is below the background, so the curve lifts the background with the signal.
+:   **Fix.** Raise **Black Point** until the background is dark and **Clipping Low** still reads near zero.
 
-## Worked example
+Faint structure disappears into the background
+:   **Cause.** **Black Point** is above that signal.
+:   **Fix.** Lower it toward 0, and use a mask when only part of the image needs a darker background.
 
-This exact normalized mono example comes from the implemented equation, not a
-real-image quality run. With `S=10` and `B=0`:
+Bright colored stars turn white or change hue
+:   **Cause.** A channel reached 1 and was cut, or the black point changed the ratios between the channels.
+:   **Fix.** Lower **Stretch Factor** or **Black Point**, and check the stars at 100 %.
 
-| Input `x` | Output `asinh(10x) / asinh(10)` |
-| ---: | ---: |
-| `0.01` | `0.033298` |
-| `0.10` | `0.293965` |
-| `0.50` | `0.771270` |
-| `0.90` | `0.965053` |
-| `1.00` | `1.000000` |
+Human-weighted luminance changes nothing
+:   **Cause.** The image is grayscale, does not have exactly three channels, or has little color where you look.
+:   **Fix.** Confirm that the target is RGB, and compare strongly colored regions with the same two numbers.
 
-The smallest sample is multiplied by about `3.33`, while `0.90` moves only to
-about `0.965`; that is the intended shadow lift/highlight compression pattern.
+The result of Apply differs from the preview
+:   **Cause.** The target, its mask or the frame the sequence shows changed, or a **Preview area** showed the
+    result in one area only.
+:   **Fix.** Confirm the target and the mask, wait for the last preview, and compare with **Preview area** off.
 
-Now set `B=0.05` while retaining `S=10`. An input of `0.10` first becomes
+A few pixels are unchanged after Apply
+:   **Cause.** They hold a value that is not a finite number, or the image marks them as invalid.
+:   **Fix.** Repair or replace those pixels before the stretch if they must be stretched.
 
-\[
-x' = \frac{0.10-0.05}{1-0.05} = 0.0526316,
-\]
+A mosaic sequence is RGB after Apply
+:   **Cause.** The automatic debayer of the sequence was on, so its frames were read as RGB before the stretch.
+:   **Fix.** Turn the automatic debayer off only when the frames must stay one-channel.
 
-then becomes `0.168308` after the arcsinh curve. Inputs at or below `0.05` become
-zero. With `S=0`, the same input would remain at the black-adjusted `0.0526316`;
-the black-point control is not disabled by a zero stretch factor.
+## Related
 
-## Warnings and limitations
-
-- The launch gate does not check the channel count. A two- or four-channel image
-  is stretched channel by channel rather than through a luminance, and an image
-  of more than four channels is refused; use this process on grayscale or
-  three-channel RGB data.
-- **Black Point** is manual and channel-wise. It can erase faint signal and alter
-  color ratios before the common RGB scale is applied.
-- RGB ratio preservation is conditional: it applies after black subtraction and
-  before individual output clipping. It is not a gamut-mapping method.
-- **Human-weighted luminance** does not linearize encoded RGB. Its standard
-  coefficients are meaningful as relative luminance only when samples already
-  represent linear light.
-- Equal-channel mode is the exact mean of the three channels.
-- Every sample is held to `[0,1]` before the curve; unbounded floating data
-  above `1` is treated as `1`.
-- Integer output is rounded to the nearest code of the source type.
-- Histogram clipping values count endpoint bins at the selected plot resolution;
-  they are not exact floating-point endpoint counts and do not change output.
-- The process cannot save or reload parameter presets. A newly opened window
-  starts from the built-in defaults.
-- Successful Apply resets Stretch Factor, Black Point, and Human-weighted
-  luminance to their defaults. Image History retains the executed values, but
-  the controls do not.
-- A still Apply shows no progress window and has no Cancel button; closing the
-  process window hides it until the Apply lands, and closing the image view
-  stops it. A stopped or refused Apply publishes nothing.
-- A one-channel CFA still is stretched as mono rather than debayered. A CFA
-  sequence becomes RGB when its automatic debayer option is enabled.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| **Apply** is disabled | Both **Stretch Factor** and **Black Point** are `0`, so the transform is the identity. | Increase either numeric control. |
-| Faint background structure disappears | **Black Point** is above that signal. | Reduce it toward `0`; use a mask if only part of the image needs suppression. |
-| Bright colored stars change hue | One or more scaled RGB channels clipped at `1`, or channel-wise black subtraction changed the ratios. | Reduce **Stretch Factor** or **Black Point** and inspect channels/clipping at 100%. |
-| Human and equal weighting look unexpectedly similar | The target is mono, neutral RGB, or the chosen values produce little difference. | Confirm a three-channel target and compare on chromatic regions with identical numeric settings. |
-| Histogram shape changes but the image does not | A plot-only action such as **Absolute scales**, area mode, or resolution changed. | Adjust transform controls; histogram toolbar actions never alter image samples. |
-| Preview differs from Apply | Target, active mask/inversion, or source sequence frame changed, or a **Preview area** shows only the result for that area. | Reconfirm the target and mask, wait for the last preview, and compare with **Preview area** off. |
-| A few pixels are unchanged after Apply | They hold NaN or an infinity, or the image's validity marks them as having no data. | This is expected; repair or replace those samples upstream if they must be stretched. |
-| Sequence remains unchanged after Cancel | Replacement is transactional through a temporary sequence. | This is expected; rerun and allow every frame to finish. |
-| Later calibration treats the image as nonlinear | ArcSinh output is deliberately recorded nonlinear. | Perform calibration before ArcSinh Stretch or return to the pre-stretch history state. |
-| Controls return to defaults after Apply | Successful still and sequence commits call the process reset path after recording history. | This is expected; read the executed values from Image History and re-enter them for another run. |
-| A CFA sequence becomes RGB after Apply | Automatic sequence CFA debayer was enabled, so frames were decoded to RGB before ArcSinh ran. | Disable automatic sequence debayer when preserving a one-channel CFA representation is required; do not stretch CFA mosaics as mono. |
-
-## Related workflow steps
-
-- Use [Histogram Transformation](histogram-transformation.md) for a rational
-  midtones transfer with manual or statistics-derived linked/unlinked controls.
-- Use [Generalized Hyperbolic Transformation](gh-transformation.md) for more
-  transfer families, symmetry/protection points, channel/component modes, and
-  analytical inverse behavior.
-- Use [Curves Transformation](curves-transformation.md) for point-controlled
-  nonlinear finishing and selected color-space components.
-- Check [Histogram Analysis](../../interface/image-histogram.md) and
-  [Image Statistics](../../interface/image-statistics.md) before accepting black
-  or white clipping.
-- Perform [Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md)
-  before the main nonlinear stretch.
+- [Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md), which needs the image
+  linear and comes before.
+- [Histogram Transformation](histogram-transformation.md), a stretch through a black point, a white point and a
+  midtones balance, by hand or from the image's statistics.
+- [Generalized Hyperbolic Transformation](gh-transformation.md), a stretch with more curve families, channel and
+  color-component modes and an inverse.
+- [Curves Transformation](curves-transformation.md), to shape tone and color after the stretch.
+- [Histogram Analysis](../../interface/image-histogram.md) and
+  [Image Statistics](../../interface/image-statistics.md), to check black and white clipping before you accept it.
+- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
+  process window shares.
 
 ## Credits
 
-- [W3C WCAG 2.2: relative
-  luminance](https://www.w3.org/TR/WCAG22/#dfn-relative-luminance) records the
-  standard `0.2126`, `0.7152`, and `0.0722` linear-light RGB coefficients used
-  by the checked luminance mode.
+- [W3C WCAG 2.2: relative luminance](https://www.w3.org/TR/WCAG22/#dfn-relative-luminance) gives the coefficients
+  0.2126, 0.7152 and 0.0722 for linear RGB that **Human-weighted luminance** uses.

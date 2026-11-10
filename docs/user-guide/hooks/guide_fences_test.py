@@ -191,6 +191,16 @@ class ControlsRenderTests(unittest.TestCase):
         self.assertIn('id="ctl-options-channel"', second)
         self.assertIn('id="ctl-options-channel-2"', third)
 
+    def test_a_facet_takes_code_bold_and_key_caps_and_nothing_else(self):
+        self.assertEqual(fences.inline('Press ++ctrl+shift+k++ over **Preview** for `0.5`.'),
+                         'Press <span class="keys"><kbd>Ctrl</kbd><span>+</span><kbd>Shift</kbd><span>+</span>'
+                         '<kbd>K</kbd></span> over <strong>Preview</strong> for <code>0.5</code>.')
+        # A label that holds an asterisk is bold whole, and a message that holds asterisks is quoted as code.
+        self.assertEqual(fences.inline('**CIE L* (Lightness)** and **CIE a***'),
+                         '<strong>CIE L* (Lightness)</strong> and <strong>CIE a*</strong>')
+        self.assertEqual(fences.inline('`** PICK VALUE **` and 1 + 1 and [a link](b.md) and <b>'),
+                         '<code>** PICK VALUE **</code> and 1 + 1 and [a link](b.md) and &lt;b&gt;')
+
     def test_every_kind_draws(self):
         for kind in fences.CONTROL_KINDS:
             extra = {'options': None}
