@@ -107,11 +107,10 @@ Starting AfterNight shows no window
     start AfterNight again.
 
 A box titled "Error" reads "An error occurred:" and a reason, and AfterNight closes
-:   **Cause.** Something AfterNight needs at start failed. "Failed opening file" names the log file: the folder that
-    `logging.conf` names is on a disk that is gone, or cannot be written. "The engine session cannot be opened:" names
-    the engine.
-:   **Fix.** Reconnect the disk, or delete `logging.conf` from AfterNight's data folder, which returns the log to its
-    default folder and level. Report any other reason, as [Reporting a problem](#reporting-a-problem) says.
+:   **Cause.** Something AfterNight needs at start failed. "The engine session cannot be opened:" names the engine.
+:   **Fix.** Report the reason, as [Reporting a problem](#reporting-a-problem) says. A log folder that cannot be
+    written does not stop AfterNight: see
+    [The Session Console and the log file](#the-session-console-and-the-log-file).
 
 The Dashboard shows recent files instead of the welcome panel on a first start
 :   **Cause.** Your profile holds recent files from an earlier installation, which uninstalling leaves.
@@ -513,6 +512,16 @@ The log file is missing, or stays empty
 :   **Cause.** **Minimum Level:** is **Off (Disable Logging)**, **Directory:** was saved empty, so the log went to the
     folder AfterNight was started from, or `logging.conf` could not be written.
 :   **Fix.** See the [troubleshooting of Settings Reference](../interface/settings-dialog-reference.md#troubleshooting).
+
+The log file is in the default folder, not in the one you chose
+:   **Cause.** The folder of **Directory:** is on a disk that is gone, or cannot be written. AfterNight then starts
+    with the log in its default folder, and a warning in it reads "The log folder '...' cannot be written (...); the
+    log is written to '...' instead." When neither folder can be written, the warning reads "Neither the log folder
+    '...' nor '...' can be written", the session has no log file, and the
+    [Session Console](../interface/log-viewer.md) alone keeps its messages. A folder saved with **Apply** that cannot be
+    written leaves the log in its file until AfterNight closes.
+:   **Fix.** Reconnect the disk, or choose a folder you can write to in **Directory:** on the **Logging** page of
+    [Settings](../interface/settings-dialog.md#logging).
 
 The console still shows messages with the log file's level at **Off (Disable Logging)**
 :   **Cause.** The level sets the log file only.

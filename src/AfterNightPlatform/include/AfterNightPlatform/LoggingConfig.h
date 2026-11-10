@@ -72,13 +72,19 @@ AFTERNIGHTPLATFORM_API bool saveLoggingConfig(const LoggingConfig& config);
 
 /// Creates the process logger from a configuration: the directory is created when missing, the file is
 /// `AfterNight.log` inside it, and the ring buffer keeps 10000 records. Does nothing when the logger exists.
+///
+/// A directory that cannot hold the file - a disk no longer attached, a path typed by hand - does not stop the
+/// process: the file goes to LoggingConfig::defaultLogDirectory instead, and when that cannot hold it either,
+/// the logger runs without a file. Either way the first record is a warning that names the directory refused.
 /// @param config The configuration to apply.
-AFTERNIGHTPLATFORM_API void initializeLoggingFromConfig(const LoggingConfig& config);
+/// @return The file the log is written to; empty when no directory could hold it or the logger already existed.
+AFTERNIGHTPLATFORM_API std::filesystem::path initializeLoggingFromConfig(const LoggingConfig& config);
 
 /// Applies a configuration to the running logger through reconfigureFileSink, creating the directory when
 /// missing; does nothing before initialization.
 /// @param config The configuration to apply.
-AFTERNIGHTPLATFORM_API void applyLoggingConfig(const LoggingConfig& config);
+/// @return False when its directory cannot hold the file, which leaves the log in the file it was in.
+AFTERNIGHTPLATFORM_API bool applyLoggingConfig(const LoggingConfig& config);
 
 /// Reads a level name, without case: `trace`, `debug`, `info`, `warning` or `warn`, `error` or `err`,
 /// `critical` or `exception`, and `off`.

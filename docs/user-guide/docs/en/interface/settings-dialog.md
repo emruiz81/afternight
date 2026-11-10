@@ -882,7 +882,8 @@ controls:
       is not writable: ...".
     tradeoff: >-
       Moving the log splits it between two folders. A log names your folders and what AfterNight did, so mind it before
-      you share one.
+      you share one. A folder that cannot be written at the next start, such as one on a disk that is gone, sends the
+      log to the default folder, with a warning that names the folder refused.
     persistence: >-
       Stored as `log_directory` in `logging.conf`. An empty box passes **OK** and writes the log to `AfterNight.log` in
       the folder AfterNight was started from. The page then shows the default folder again, and the next save stores it

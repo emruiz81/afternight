@@ -11,9 +11,11 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <exception>
 #include <fstream>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #ifdef WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -291,23 +293,60 @@ bool saveLoggingConfig(const LoggingConfig& config)
     return saveLoggingConfig(LoggingConfig::defaultConfigPath(), config);
 }
 
-void initializeLoggingFromConfig(const LoggingConfig& config)
+std::filesystem::path initializeLoggingFromConfig(const LoggingConfig& config)
 {
-    std::error_code error;
-    std::filesystem::create_directories(config.logDirectory, error);
-
-    const std::filesystem::path logFile = std::filesystem::path(config.logDirectory) / kLogFileName;
-    initializeLogging(logFile.string(), config.maxFiles, config.maxFileSizeMb, kRingBufferLines,
-                      logLevelFromString(config.logLevel));
+    if (isLoggingInitialized())
+    {
+        return {};
+    }
+    const LogLevel level = logLevelFromString(config.logLevel);
+    const std::filesystem::path configured = std::filesystem::path(config.logDirectory) / kLogFileName;
+    const std::filesystem::path fallback = LoggingConfig::defaultLogDirectory() / kLogFileName;
+    // The first directory that holds the file wins; a refused one is named in the first record, since the logger
+    // that could say so does not exist before one of them is opened.
+    std::vector<std::filesystem::path> candidates{configured};
+    if (fallback != configured)
+    {
+        candidates.push_back(fallback);
+    }
+    std::string refusal;
+    for (const std::filesystem::path& candidate : candidates)
+    {
+        std::error_code error;
+        std::filesystem::create_directories(candidate.parent_path(), error);
+        try
+        {
+            initializeLogging(candidate.string(), config.maxFiles, config.maxFileSizeMb, kRingBufferLines, level);
+        }
+        catch (const std::exception& failure)
+        {
+            if (refusal.empty())
+            {
+                refusal = failure.what();
+            }
+            continue;
+        }
+        if (candidate != configured)
+        {
+            LOG_WARNING("The log folder '{}' cannot be written ({}); the log is written to '{}' instead.",
+                        config.logDirectory, refusal, candidate.parent_path().string());
+        }
+        return candidate;
+    }
+    initializeLogging(std::string(), config.maxFiles, config.maxFileSizeMb, kRingBufferLines, level);
+    LOG_WARNING("Neither the log folder '{}' nor '{}' can be written ({}); no log file is written in this session.",
+                config.logDirectory, fallback.parent_path().string(), refusal);
+    return {};
 }
 
-void applyLoggingConfig(const LoggingConfig& config)
+bool applyLoggingConfig(const LoggingConfig& config)
 {
     std::error_code error;
     std::filesystem::create_directories(config.logDirectory, error);
 
     const std::filesystem::path logFile = std::filesystem::path(config.logDirectory) / kLogFileName;
-    reconfigureFileSink(logFile.string(), config.maxFiles, config.maxFileSizeMb, logLevelFromString(config.logLevel));
+    return reconfigureFileSink(logFile.string(), config.maxFiles, config.maxFileSizeMb,
+                               logLevelFromString(config.logLevel));
 }
 
 } // namespace an::platform
