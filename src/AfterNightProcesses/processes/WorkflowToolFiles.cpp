@@ -282,9 +282,9 @@ an::Result<WorkflowFile> probeWorkflowFile(const an::consumer::EngineSession& se
     }
 
     const an::ImageExtent& extent = descriptor->extent();
-    FrameMetadata figures = ImageIntegration::frameMetadataFromProbe(probed->metadata, modelFrameType(reading.type),
-                                                                     static_cast<int>(extent.width()),
-                                                                     static_cast<int>(extent.height()), info);
+    FrameMetadata figures = ImageIntegration::frameMetadataFromProbe(
+        probed->metadata, modelFrameType(reading.type), static_cast<int>(extent.width()),
+        static_cast<int>(extent.height()), info, ImageIntegration::sampleLayoutOf(probed->descriptor));
     return WorkflowFile{.entry = ImageListProcessHelpers::ImageListEntry{.path = path,
                                                                          .descriptor = *descriptor,
                                                                          .metadata = std::move(probed->metadata)},

@@ -19,6 +19,8 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 
+#include <optional>
+
 #include "processes/ImageIntegration/model/FrameId.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/tabs/SummaryTab.h"
@@ -45,11 +47,26 @@ void waitForRefresh(SummaryTab* tab)
     QCoreApplication::processEvents();
 }
 
-FrameInfo createLight(const QString& path)
+FrameInfo createLight(const QString& path, const std::optional<FrameSampleLayout> layout = std::nullopt)
 {
     FrameMetadata meta(FrameType::Light, QSize(1000, 1000), 1.0, std::nullopt, std::nullopt, std::nullopt,
-                       QStringLiteral("L"), QStringLiteral("TestObject"), QDateTime::currentDateTimeUtc(), QString());
+                       QStringLiteral("L"), QStringLiteral("TestObject"), QDateTime::currentDateTimeUtc(), QString(),
+                       layout);
     return FrameInfo(FrameId(path), path, meta);
+}
+
+/// The disk estimate's tooltip for two 1000 x 1000 lights of one layout, their light calibration kept on disk.
+QString diskEstimateFor(IntegrationDataModel* model, SummaryTab* tab, const QString& directory,
+                        const std::optional<FrameSampleLayout> layout)
+{
+    model->setOutputDirectory(directory);
+    model->setLightCalibrationCacheMode(LightCalibrationCacheMode::Disk);
+    // The files need not exist: what the run writes is read from the frames' figures, not from the files' sizes.
+    model->addFrames(FrameType::Light, {createLight(QDir(directory).filePath(QStringLiteral("light1.cr2")), layout),
+                                        createLight(QDir(directory).filePath(QStringLiteral("light2.cr2")), layout)});
+    waitForRefresh(tab);
+    auto* resource = tab->findChild<QLabel*>(QStringLiteral("lblResourceStatus"));
+    return resource != nullptr ? resource->toolTip() : QString();
 }
 } // namespace
 
@@ -233,4 +250,41 @@ TEST_F(SummaryTabTest, ResourceStatusShowsDiskEstimateTooltipWhenOutputDirSet)
     ASSERT_TRUE(resource != nullptr);
     EXPECT_TRUE(resource->text().contains(QStringLiteral("Disk space:")));
     EXPECT_TRUE(resource->toolTip().contains(QStringLiteral("Available:")));
+}
+
+TEST_F(SummaryTabTest, TheDiskEstimateWeighsAColourMosaicAsTheFilesTheRunWrites)
+{
+    // A colour camera's light is one mosaic plane, however small its raw file: calibrated it is that plane in 32-bit
+    // floats (4 MB at 1000 x 1000), registered and stacked it is three demosaiced channels (12 MB).
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    const QString tooltip =
+        diskEstimateFor(model, tab, temp_dir.path(), FrameSampleLayout{.channels = 1, .mosaic = true});
+
+    EXPECT_TRUE(tooltip.contains(QStringLiteral("- Calibrated lights (2): ~7.6 MB"))) << tooltip.toStdString();
+    EXPECT_TRUE(tooltip.contains(QStringLiteral("- Registered lights (2): ~22.9 MB"))) << tooltip.toStdString();
+    EXPECT_TRUE(tooltip.contains(QStringLiteral("- Stacked outputs (1): ~11.4 MB"))) << tooltip.toStdString();
+}
+
+TEST_F(SummaryTabTest, TheDiskEstimateWeighsAMonochromeLightAsOnePlane)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    const QString tooltip =
+        diskEstimateFor(model, tab, temp_dir.path(), FrameSampleLayout{.channels = 1, .mosaic = false});
+
+    EXPECT_TRUE(tooltip.contains(QStringLiteral("- Calibrated lights (2): ~7.6 MB"))) << tooltip.toStdString();
+    EXPECT_TRUE(tooltip.contains(QStringLiteral("- Registered lights (2): ~7.6 MB"))) << tooltip.toStdString();
+    EXPECT_TRUE(tooltip.contains(QStringLiteral("- Stacked outputs (1): ~3.8 MB"))) << tooltip.toStdString();
+}
+
+TEST_F(SummaryTabTest, ALightWhoseLayoutIsNotRecordedCountsAsAColourMosaic)
+{
+    // A project saved before the import recorded the layout: the heavier reading, and the tooltip says so.
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    const QString tooltip = diskEstimateFor(model, tab, temp_dir.path(), std::nullopt);
+
+    EXPECT_TRUE(tooltip.contains(QStringLiteral("- Registered lights (2): ~22.9 MB"))) << tooltip.toStdString();
+    EXPECT_TRUE(tooltip.contains(QStringLiteral("count as color mosaics"))) << tooltip.toStdString();
 }
