@@ -97,7 +97,7 @@ page. The file's allow-list takes a label of the application that holds one of t
 
 ## Numbers
 
-A control's default, range, step and choices live in its row of the `controls` block, where a later check compares
+A control's default, range, step and choices live in its row of the `controls` block, where rule R14 compares
 them with the window. The prose quotes a number only when the reader must type it: "Set **Midtones** to 0.25."
 Prose that repeats a default goes stale when the default moves, and nothing notices.
 

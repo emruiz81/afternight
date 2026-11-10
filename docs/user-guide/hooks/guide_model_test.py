@@ -9,6 +9,7 @@ Run with the documentation toolchain's Python, which has PyYAML:
 
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import shutil
@@ -180,6 +181,11 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual(self.problems(controls_ignore=[{'label': 'Zoom', 'reason': 'Shared.'}], **valid), [])
         self.assertEqual([key for key, _ in self.problems(controls_ignore=[{'label': 'Zoom'}], **valid)],
                          ['controls_ignore'])
+        self.assertEqual(self.problems(controls_ignore=[{'label': 'Width', 'object': 'percentWidth',
+                                                         'reason': 'Follows the other.'}], **valid), [])
+        for entry in ({'label': 'Width', 'object': '', 'reason': 'R.'}, {'label': 'Width', 'group': 'Size',
+                                                                         'reason': 'R.'}):
+            self.assertEqual([key for key, _ in self.problems(controls_ignore=[entry], **valid)], ['controls_ignore'])
 
     def test_rewritten_is_true_or_absent(self):
         self.assertEqual([key for key, _ in self.problems(kind='home', rewritten=False)], ['rewritten'])
@@ -559,6 +565,109 @@ class BlockTests(unittest.TestCase):
         self.assertEqual(model.block_texts(source, ('effect', 'note')),
                          [(5, 'effect', 'Higher maps more to black.'), (8, 'note', 'A mono image shows Grayscale.')])
         self.assertEqual(model.block_texts('effect: [open\n', ('effect',)), [])
+
+    def test_a_controls_block_is_read_as_written_with_the_line_of_each_control(self):
+        block = model.read_controls('window: Levels\ncontrols:\n  - name: Black point\n    kind: spinbox\n    default: '
+                                    '"0.25"\n    widget: {min: 0, max: 1}\n    effect: Higher.\n  - name: Channel\n    '
+                                    'object: channelSelector\n    kind: combo\n    default: RGB\n    options: [RGB, '
+                                    'Off]\n')
+        self.assertEqual(block['window'], 'Levels')
+        self.assertEqual(block['controls'], [
+            {'line': 3, 'name': 'Black point', 'kind': 'spinbox', 'default': '0.25', 'object': None,
+             'widget': {'min': '0', 'max': '1'}, 'options': None},
+            {'line': 8, 'name': 'Channel', 'kind': 'combo', 'default': 'RGB', 'object': 'channelSelector',
+             'widget': {}, 'options': ['RGB', 'Off']}])
+
+    def test_a_plain_list_of_controls_has_no_window_and_what_a_control_lacks_is_none(self):
+        block = model.read_controls('- name: Apply\n  kind: button\n')
+        self.assertIsNone(block['window'])
+        self.assertEqual(block['controls'][0]['default'], None)
+        self.assertEqual(block['controls'][0]['line'], 1)
+
+    def test_a_block_that_is_no_list_of_controls_is_not_read(self):
+        for source in ('window: Levels\n', 'controls: none\n', '- Apply\n', 'name: [open\n'):
+            with self.subTest(source):
+                self.assertIsNone(model.read_controls(source))
+
+
+def ui_file(identifier='tone.actionLevels', title='Levels <{image}>', controls=None):
+    return json.dumps({'id': identifier, 'window': title, 'controls': controls if controls is not None else [
+        {'label': 'Black point', 'kind': 'spinbox', 'object': 'blackPoint', 'group': 'Levels > Input',
+         'visible': True, 'default': '0.25', 'min': 0, 'max': 1, 'step': 0.01, 'decimals': 2, 'slider': True},
+        {'label': 'Width', 'kind': 'spinbox', 'object': 'width', 'group': '', 'visible': True, 'min': 1, 'step': 1,
+         'suffix': 'px', 'varies': ['default', 'max']},
+        {'label': 'Channel', 'kind': 'combo', 'object': '', 'group': '', 'visible': False, 'default': 'RGB',
+         'options': ['RGB', 'Red']},
+        {'label': 'Apply', 'kind': 'button', 'object': '', 'group': '', 'visible': True, 'default': '',
+         'shared': 'process-window'},
+    ]})
+
+
+class UiInventoryTests(TempDir):
+    def test_a_guide_without_an_inventory_has_no_windows(self):
+        self.assertEqual(model.load_ui_inventory(str(self.root)), {})
+
+    def test_a_window_is_found_by_its_action_and_named_without_the_image(self):
+        self.write('data/ui/tone.actionLevels.json', ui_file())
+        self.write('data/ui/README.txt', 'not an inventory')
+        windows = model.load_ui_inventory(str(self.root))
+        self.assertEqual(list(windows), ['actionLevels'])
+        window = windows['actionLevels']
+        self.assertEqual((window.id, window.action, window.title, window.name),
+                         ('tone.actionLevels', 'actionLevels', 'Levels <{image}>', 'Levels'))
+        black, width, channel, apply = window.controls
+        self.assertEqual((black.index, black.label, black.kind, black.object, black.default, black.slider),
+                         (0, 'Black point', 'spinbox', 'blackPoint', '0.25', True))
+        self.assertEqual(black.numbers, {'min': 0, 'max': 1, 'step': 0.01, 'decimals': 2})
+        self.assertEqual(black.groups, ('Levels', 'Input'))
+        self.assertEqual((width.default, width.numbers, width.suffix, width.varies, width.groups),
+                         (None, {'min': 1, 'step': 1}, 'px', ('default', 'max'), ()))
+        self.assertEqual((channel.options, channel.visible, channel.shared), (('RGB', 'Red'), False, ''))
+        self.assertEqual((apply.shared, apply.options), ('process-window', None))
+
+    def test_a_title_without_an_image_is_the_name(self):
+        self.write('data/ui/stack.actionStack.json', ui_file('stack.actionStack', 'Image Stacking', []))
+        self.assertEqual(model.load_ui_inventory(str(self.root))['actionStack'].name, 'Image Stacking')
+
+    def test_the_inventory_of_the_guide_reads(self):
+        windows = model.load_ui_inventory(str(GUIDE_DIR))
+        self.assertTrue(windows)
+        for window in windows.values():
+            self.assertTrue(window.name, window.id)
+            for control in window.controls:
+                self.assertTrue(control.label, '%s: control %d' % (window.id, control.index + 1))
+
+    def test_what_is_not_an_inventory_is_refused(self):
+        control = {'label': 'A', 'kind': 'check', 'object': 'a', 'group': '', 'visible': True, 'default': 'On'}
+        for name, text, message in (
+                ('tone.actionLevels.json', '{"id": "tone.actionLevels"', 'cannot be read'),
+                ('tone.actionLevels.json', '[]', 'an inventory states `id`, `window` and `controls`'),
+                ('other.json', ui_file(), 'the file is named by its `id`'),
+                ('tone.actionLevels.json', ui_file(controls=[dict(control, kind='dial')]), 'the unknown kind \'dial\''),
+                ('tone.actionLevels.json', ui_file(controls=[dict(control, colour='red')]), 'the unknown key `colour`'),
+                ('tone.actionLevels.json', ui_file(controls=[dict(control, visible='yes')]), '`visible` is \'yes\''),
+                ('tone.actionLevels.json', ui_file(controls=[dict(control, min=True)]), '`min` is True'),
+                ('tone.actionLevels.json', ui_file(controls=[{'label': 'A', 'kind': 'check', 'object': 'a',
+                                                              'group': '', 'visible': True}]),
+                 'control 1 does not state `default`'),
+                ('tone.actionLevels.json', ui_file(controls=[dict(control, varies=['default'])]),
+                 '`varies` names what the record does not state'),
+                ('tone.actionLevels.json', ui_file(controls=[dict(control, varies=['label'])]),
+                 '`varies` names what the record does not state'),
+        ):
+            with self.subTest(message):
+                shutil.rmtree(self.root / 'data', True)
+                self.write('data/ui/' + name, text)
+                with self.assertRaises(model.GuideDataError) as raised:
+                    model.load_ui_inventory(str(self.root))
+                self.assertIn(message, str(raised.exception))
+
+    def test_two_files_of_one_action_are_refused(self):
+        self.write('data/ui/tone.actionLevels.json', ui_file())
+        self.write('data/ui/other.actionLevels.json', ui_file('other.actionLevels'))
+        with self.assertRaises(model.GuideDataError) as raised:
+            model.load_ui_inventory(str(self.root))
+        self.assertIn('are inventories of one action, actionLevels', str(raised.exception))
 
 
 LIMITS = (GUIDE_DIR / 'data' / 'limits.yml').read_text(encoding='utf-8')

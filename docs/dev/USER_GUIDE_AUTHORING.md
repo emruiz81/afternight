@@ -41,8 +41,10 @@ are read from, what a complete page contains and how its media is handled.
 | `docs/user-guide/mkdocs.yml` | The site: the theme's keys, the hook file, the one plugin, the Markdown extensions, the local runtimes and the `nav:` tree. |
 | `docs/user-guide/requirements.in` | The direct pins of the documentation toolchain. |
 | `docs/user-guide/requirements.txt` | The resolved lock, with hashes, generated from `requirements.in`. |
+| `docs/user-guide/requirements-capture.in`, `requirements-capture.txt` | Pillow, pinned and locked for the script that prepares a captured picture ([Media](#media)). Installed by hand by whoever captures, never in continuous integration. |
+| `docs/user-guide/SCREENSHOTS.md` | How a picture of a window is captured and prepared ([Media](#media)). |
 | `docs/user-guide/docs/en/` | The English pages; `mkdocs.yml` names this directory `docs_dir`. |
-| `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)); `limits.yml`, the budgets of a page, and `vocabulary.yml`, the words a page does not use ([What a complete page contains](#what-a-complete-page-contains)). |
+| `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)); `limits.yml`, the budgets of a page, and `vocabulary.yml`, the words a page does not use ([What a complete page contains](#what-a-complete-page-contains)); and `ui/`, the inventory of the controls every process window opens with, which a test of the application writes ([The windows' controls](#the-windows-controls)). |
 | `docs/user-guide/hooks/` | The theme's MkDocs hooks - `guide_hooks.py` (the events, and the only file `mkdocs.yml` names), `guide_fences.py` (the `controls` and `figure` blocks), `guide_html.py` (the passes over each page's HTML) and `guide_search.py` (the search index) - and `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the hooks and `check_user_guide.py` share; their tests beside them. |
 | `docs/user-guide/hooks/fixtures/components/` | A small made-up guide that shows every page kind and component of the theme. The hooks' tests build it strictly, and it is the site to look at while changing the theme ([Components and blocks](#components-and-blocks)). |
 | `docs/user-guide/theme/` | The theme: `main.html`, `base.html`, `404.html`, a layout per page kind in `layouts/`, the shared parts in `partials/`, and under `assets/guide/` its CSS (`tokens.css` a copy of the website's), JavaScript, fonts and the vendored lunr. |
@@ -120,7 +122,7 @@ data_out: nonlinear
 | `derived` | Process | `true` when the process's result is computed, in whole or in part, by another project's code, by a bundled upstream library such as G'MIC, or by an external tool or service, or needs licensed data. The page credits that work ([Naming other programs](#naming-other-programs)). |
 | `needs` | Tutorial, workflow | What it needs from outside AfterNight; an empty list when nothing. |
 | `destructive`, `preview`, `sequences`, `masks`, `external`, `glance` | Process | What the page's "At a glance" shows: whether Apply replaces the target (`true` or `false`), the preview (`real-time`, `static` or `none`), whether sequences are processed, what a mask does (`post-blend`, `modulates` or `none`), what the process needs from outside (`none` or a short phrase), and four texts - `enabled`, `inputs`, `outputs` and `state`. A rewritten page states them all, and `derived` (rule R12). |
-| `controls_ignore` | Process | The window's controls the page leaves out on purpose, each as `{label, reason}`. |
+| `controls_ignore` | Process | The window's controls the page leaves out on purpose, each as `{label, reason}`, with the `object` of the one control meant when the window has several of that label ([The windows' controls](#the-windows-controls)). |
 | `hero`, `notice`, `paths`, `popular` | Home | What the home page is drawn from ([Pages drawn from data](#pages-drawn-from-data)). |
 | `reach` | Catalog | The ways to reach a process, a list of sentences under the catalog's summary. |
 | `rewritten` | Every page | `true` once the page is rewritten on its template; left out until then. It makes the rules of a rewritten page errors on the page ([Checks](#checks)). |
@@ -235,11 +237,16 @@ controls:
   one window. A control states `name`, `kind`, `default` and `effect`, and may state `range`, `enabled`, `tradeoff`,
   `scope`, `persistence` and `note`. `kind` is `spinbox`, `slider`, `combo`, `check`, `radio`, `toolbutton`, `button`,
   `field` or `action`. A spin box or slider needs `widget.min` and `widget.max` (and may state `step` and
-  `decimals`), with a numeric default inside them; a combo or radio needs `options` that hold its default. Names are
-  unique in a block. Each control is drawn as the widget it is, at its default, with its facets beside it, and gets
-  the anchor `ctl-<name>`, which the page's table of contents lists. The facets take `code` and `**bold**` and no
-  other Markdown. A parameter table of ten columns cannot be read on a page; a row per control can, and it holds the
-  numbers a later check compares with the window.
+  `decimals`), with a numeric default inside them; one whose range follows the image - a crop cannot be wider than
+  the picture - states the end it has, or neither, and says what bounds it in `range`. A combo or radio needs
+  `options` that hold its default. Each control is drawn as the widget it is, at its default, with its facets beside
+  it, and gets the anchor `ctl-<name>`, which the page's table of contents lists. The facets take `code` and
+  `**bold**` and no other Markdown. A parameter table of ten columns cannot be read on a page; a row per control can,
+  and it holds the numbers rule R14 compares with the window.
+- **A control is called by its label,** the name the window gives it. `object` names it in the inventory of the
+  window's controls when the label cannot: the window has several controls of that label, or gives the control no
+  caption at all ([The windows' controls](#the-windows-controls)). It draws nothing. A name is listed once in a
+  block, unless `object` tells the window's several controls of one label apart.
 - **`figure`** is a picture with `image` (a path relative to the page), `alt` and `caption`, all required, and
   optional `pins`: `{n, x, y}`, numbered from 1 to match the page's steps and placed in percent of the picture's
   width and height. With `images:` - two entries of `image`, `alt` and `label` - it is a before-and-after pair,
@@ -395,12 +402,87 @@ screenshot manifest, the verification prerequisites and the audit's baselines.
 What a page owes to others is the exception, and it stays on the page: the credits of
 [Naming other programs](#naming-other-programs).
 
+### The windows' controls
+
+What a process window holds is not read from its UI builder by eye. `docs/user-guide/data/ui/` has one file per
+process window, named by the id the process is registered under (`tone_brightness.actionGamma_Correction.json`),
+and each file lists the controls the window opens with, in the order a person meets them:
+
+```json
+{"label": "Gamma", "kind": "spinbox", "object": "gammaValue", "group": "", "visible": true, "default": "1.00",
+ "min": 0.01, "max": 9.9, "step": 0.03, "decimals": 2, "slider": true}
+```
+
+- **A test of the application writes the files, and fails when a window no longer matches its file.**
+  `ProcessUiInventoryTest` in `Test_ProcessesShared` opens every process window the registry registers, under the
+  C locale, walks its widgets in layout order with tabs in tab order, and compares what it finds with the record. A
+  window that gains, loses or changes a control fails the suite, naming the window and the first difference, until
+  the record is written again - so the page and the picture of that window are looked at in the same change. To
+  write the records, run the suite with `AFTERNIGHT_WRITE_UI_INVENTORY` naming the folder:
+
+  ```cmd
+  set AFTERNIGHT_WRITE_UI_INVENTORY=<repository>\docs\user-guide\data\ui
+  bin\msvc\release\Test_ProcessesShared.exe --gtest_filter=ProcessUiInventoryTest.*
+  ```
+
+  The files are generated and never edited by hand. They record no geometry and no font, so Windows and Linux
+  write the same files.
+- **Why a test and not a reader of the sources.** Ten UI builders declare their labels without `translate()`, Image
+  Integration sets labels in its `.cpp` files, and no reader of sources sees a default, a range or a combo's choices
+  the way the window ends up showing them. The window is the fact; the test reads the window.
+- **A record** states the control's `label`, its `kind` (the kinds of a `controls` block), its `object` name, the
+  `group` it sits under (the titles of its tab, card, section and group box, outermost first, joined by ` > `),
+  whether it is `visible` when the window opens, and its `default`: the text it shows. A spin box adds `min`, `max`,
+  `step`, `decimals` and its `suffix`; a combo or a set of radio buttons adds `options`. `"slider": true` says a
+  slider moves the spin box: the two are one control. A check box, a checkable button and a checkable group open
+  `On` or `Off`.
+- **A label is what a person would call the control by:** the text it shows itself; else the caption the window
+  puts beside it - its buddy label, its form row's label, the nearest label to its left in its grid row or before it
+  in its row, the check box that switches it on, or the short label right above it; else the title of its group,
+  when it is the group's one control without a caption; else the first line of its tooltip; else its object name.
+  A button without a text is an icon, and its tooltip names it before a caption does. A window whose control has
+  none of these fails the test: give the control a tooltip.
+- **`varies`** names what the window does not fix, and the record then leaves that value out. The test opens every
+  window twice, on two images of different names, sizes and samples, and what the two openings disagree on follows
+  the image: the size a geometry tool starts from, the open images a combo lists. The number of threads a window
+  offers follows the machine and is recorded the same way.
+- **`shared`** marks what every window has, which a process page leaves out: `rt-preview` is the histogram toolbar
+  of a real-time preview, which the Process windows page describes once; `process-window` is a window's own Apply,
+  Reset and Close. The image view inside a window - the preview and its toolbar - is the image viewer and is not
+  recorded: it is the same in every window, and how much of its toolbar shows depends on the window's width.
+- **What the inventory does not have:** a dialog one of the window's buttons opens, and a window that is no
+  registered process, such as Plate Solve. A page describes those in `controls` blocks named for them, which rule
+  R14 does not hold.
+
+**Rule R14 holds a rewritten process page to its windows** ([Checks](#checks)). The page's windows are the ones
+its `menu` reaches that no other page names more exactly, so the Non-Interactive Processes page, which names whole
+submenus, is not held to the windows that have pages of their own.
+
+- Every control of the inventory is in a `controls` block, under its label and in the window's order; or the
+  page's `controls_ignore` names it with a reason; or it is `shared`.
+- Every control a block lists is in the window, and its `kind`, its `default`, the numbers of its `widget` and its
+  `options` are the window's. What `varies` names is the writer's to say, and so are the choices of a list the
+  window opens empty, which it fills from what is installed or open.
+- A block is of the page's window when it states no `window` or the window's title, and of one tab or group of it
+  when `window` is that tab's or group's title. A page of several windows names the window of each block.
+- Where the window has a label more than once - three boxes in a row under one caption - each entry states its
+  `object`. A control the window gives no caption appears in the inventory under its object name: the writer names
+  it, and `object` finds it.
+
+**A draft to start from.** `python build/scripts/tools/draft_guide_controls.py <page>` prints a page's `controls`
+blocks drafted from the inventory - names, kinds, defaults, numbers and choices, in the window's order - with every
+cell of the page's old parameter table placed on its control by the header of its column, and the rows that name
+no control listed after the blocks, so a rewrite starts from the window's facts and loses none of the page's. The
+names, kinds and numbers of a draft stay; its sentences are rewritten. The tool lasts as long as there are pages to
+rewrite.
+
 ## Verifying in the application
 
 Source and focused tests come first; the running application is for what they cannot show.
 
-1. Read the control and action inventory, labels, defaults, ranges, static dependencies, validation, persistence
-   and algorithm behavior from source and focused tests before launching AfterNight.
+1. Read the controls of a process window - their labels, kinds, defaults, ranges and choices - from its inventory
+   ([The windows' controls](#the-windows-controls)), and static dependencies, validation, persistence and algorithm
+   behavior from source and focused tests, before launching AfterNight.
 2. Write a short list of what source and tests leave open: visibility on a platform or build, dynamic enablement,
    state filled in at run time, layout, clipping and responsiveness, or an interaction the page must show.
 3. Launch the application only when that list is not empty, or to take a picture. Work through the list in one
@@ -478,7 +560,8 @@ A page carries what its reader needs and nothing about how it was written ([Sour
    range and choices as the window has them and its effect as a sentence. The other facets - `range`, `enabled`,
    `tradeoff`, `scope`, `persistence`, `note` - hold what a reader looks up: when the control is enabled, what it
    costs, whether it acts on the preview or on Apply, how long its value is kept. A control the page leaves out is
-   listed under `controls_ignore` with the reason.
+   listed under `controls_ignore` with the reason. Rule R14 holds the block to the window's inventory
+   ([The windows' controls](#the-windows-controls)).
 6. **How it works:** a few numbered statements of what the process does, in order; then, as the page needs them,
    the model with its equations, the boundaries (edges, invalid samples, cancellation) and a worked example with
    its settings and its result.
@@ -547,9 +630,14 @@ written, links, credits and length.
   quality 90 between 130 and 280 KB.
 - **Names.** A process page's window is `assets/images/processes/<group>/<page>.webp`; another page's is
   `assets/images/<section>/<page>.webp`; a second picture of a page is `<page>-<what>.webp`.
-- **The window.** The application runs in its dark theme at 100 % scale with an isolated profile
-  (`AFTERNIGHT_TEST_STORAGE_ROOT`). A process window is captured at its default size, with the real-time preview
-  on, its title visible and the mouse outside it, cropped to the window's frame.
+- **The window.** The application runs in its dark theme at 100 % scale, in the `en_US` locale, with an isolated
+  profile (`AFTERNIGHT_TEST_STORAGE_ROOT`). A process window is captured at its default size, with the real-time
+  preview on, its title visible and the mouse outside it, cropped to the window's frame.
+- **The tools.** `build/scripts/tools/capture_guide_screenshots.ps1` takes the picture that way from a deployed
+  build, and `build/scripts/tools/optimize_guide_image.py` makes the capture fit the limits and prints its
+  provenance row; [docs/user-guide/SCREENSHOTS.md](../user-guide/SCREENSHOTS.md) is the recipe. The capture script
+  is committed because the harness that took the README's pictures lived in a scratch folder and was lost. Pillow,
+  which the second script needs, is pinned in `docs/user-guide/requirements-capture.txt`.
 - **The data** is the maintainer's own, or data the project may publish: a linear color master for the color, noise,
   stretch and finishing pages; a stretched copy of it for the finishing pages; the frame sets the workflows name
   for calibration, registration and stacking; a synthetic frame for a tool that needs no sky.
@@ -559,7 +647,9 @@ written, links, credits and length.
   same region at 100 %, before and after Apply, under the same display stretch, which the caption names.
 - **Provenance.** `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` has a row for every committed picture, by
   its path under the docs folder: its creator or source, its licence or permission, its date, its SHA-256, how to
-  update it and the data it shows; the row of a new capture also names the application commit it was taken from.
+  update it and the data it shows. A captured window's row is the one the optimizing script prints - the picture,
+  what it shows, the data in it, the day and the application commit it was captured from, and its SHA-256 - under
+  the heading of its pages' group in "Captured windows", so that two groups of pages never edit the same lines.
   The file records the vendored runtimes and fonts too, with their licences, and a retained inline diagram by the
   SHA-256 of its source with LF line endings: the complete Mermaid fence and its trailing newline. A picture is
   committed with its row, in the same change.
@@ -611,7 +701,8 @@ A page is done when:
 3. **Structure.** The sections are exactly its template's; the page is within its budgets, says none of the
    forbidden vocabulary and has no table wider than five columns.
 4. **Controls.** Every control of the window is in a `controls` block in the window's order, with its label, kind,
-   default, range and choices as the window has them. Defaults and ranges are not repeated in the prose.
+   default, range and choices as the window's inventory has them (rule R14). Defaults and ranges are not repeated
+   in the prose.
 5. **Facts kept.** Every fact the page stated before is still stated: in its prose, in a control's facets or on its
    reference page. A process judged by its result shows a before-and-after pair.
 6. **Steps** end in something the reader can see, and a tutorial has a checkpoint wherever the page can name one.
@@ -639,6 +730,8 @@ Run from the repository root:
 | `build\scripts\msvc\build_user_guide_docs.bat`, `build/scripts/linux/build_user_guide_docs.sh` | The strict build from the lock. |
 | `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the hooks' `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths, images and credits; each rewritten page's sections, budgets, vocabulary, figures and glossary links; and what the built site references. `docs.yml` runs all three after the strict build. |
 | `python build/scripts/tools/check_user_guide.py --page <page>` | One page, with every warning it still has: the command to run while writing it. |
+| `bin\msvc\release\Test_ProcessesShared.exe --gtest_filter=ProcessUiInventoryTest.*`, with `AFTERNIGHT_TEST_STORAGE_ROOT` set | That every process window still opens with the controls `data/ui/` records ([The windows' controls](#the-windows-controls)). It runs with the application's suites, on both platforms. |
+| `python build/scripts/tools/draft_guide_controls_test.py`, `python build/scripts/tools/optimize_guide_image_test.py` | The tools that draft a page's controls and prepare a picture. The first runs in `docs.yml`; the second needs Pillow and skips without it. |
 | `python build/scripts/tools/check_user_guide.py --tokens <the website's assets/css/tokens.css>` | That the theme's tokens are still the website's (R16), where the website's sources are at hand; not in CI. |
 | `node build/scripts/render_user_guide.cjs --offline` | What a reader sees in the copy the installers bundle; the script's header gives its setup, which keeps its Node packages and browsers outside the repository. |
 
@@ -658,9 +751,9 @@ coverage and unused images - then do not run.
 - R6 holds every page that states `derived: true` to a `## Credits` section that says something
   ([Naming other programs](#naming-other-programs)).
 
-The rules of a rewritten page hold a page to its template, its budgets and the style guide. They are errors on a
-page that states `rewritten: true`. On a page that does not, R7, R8, R9 and R11 are warnings, and R10, R12 and R13
-do not run ([Page kinds and templates](#page-kinds-and-templates) says why):
+The rules of a rewritten page hold a page to its template, its budgets, the style guide and its windows. They are
+errors on a page that states `rewritten: true`. On a page that does not, R7, R8, R9 and R11 are warnings, and R10,
+R12, R13 and R14 do not run ([Page kinds and templates](#page-kinds-and-templates) says why):
 
 - R7 holds the page's sections to its template's, in order, with no others, and the parts the theme draws to their
   shape: a process page's steps an ordered list with bold leads, its controls in a `controls` block, a tutorial's
@@ -686,6 +779,10 @@ do not run ([Page kinds and templates](#page-kinds-and-templates) says why):
 - R13 warns when the first use on a page of a term the glossary defines - a `### <term>` of one of its letter
   sections - is not a link to the glossary. A term matches whole, with or without a plural ending; one written all
   in capitals matches only in capitals.
+- R14 holds the `controls` blocks of a rewritten process page to the inventory of its windows
+  ([The windows' controls](#the-windows-controls)): every control of a window listed, excused or shared; every
+  control listed in the window under its label, with the window's kind, default, numbers and choices. Controls in
+  another order than the window's are a warning, and so is an entry of `controls_ignore` that excuses nothing.
 
 A warning about a page not yet rewritten is counted and not listed, so that the errors can be read while most pages
 wait: the check ends with the count per rule. `--page <page>` lists the warnings of the pages it names, which is

@@ -9,6 +9,15 @@ data_out: nonlinear
 ---
 # Gamma Correction
 
+```figure
+image: ../../assets/images/processes/stretching/gamma-correction.webp
+alt: >-
+  The Gamma Correction window. On the left, the image's histogram, the Gamma value with its
+  slider, Target Image, Channel and Preview. On the right, the preview of the image.
+caption: >-
+  Gamma Correction as it opens, here on a linear master, with a gamma of 1 that changes nothing yet.
+```
+
 ## Purpose and expected result
 
 Gamma Correction applies a pure normalized power law to stored samples or one

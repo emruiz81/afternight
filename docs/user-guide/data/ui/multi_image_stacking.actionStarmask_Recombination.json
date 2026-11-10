@@ -1,0 +1,13 @@
+{
+  "id": "multi_image_stacking.actionStarmask_Recombination",
+  "window": "Starmask Recombination",
+  "controls": [
+    {"label": "Starless Image", "kind": "combo", "object": "starlessImage", "group": "", "visible": true, "default": "<--NO IMAGE-->", "varies": ["options"]},
+    {"label": "Stars Image", "kind": "combo", "object": "starmaskImage", "group": "", "visible": true, "default": "<--NO IMAGE-->", "varies": ["options"]},
+    {"label": "Mask (optional)", "kind": "combo", "object": "maskImage", "group": "", "visible": true, "default": "<--NO IMAGE-->", "varies": ["options"]},
+    {"label": "Invert", "kind": "check", "object": "invertMask", "group": "", "visible": true, "default": "Off"},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

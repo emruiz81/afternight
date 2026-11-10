@@ -1,0 +1,25 @@
+{
+  "id": "multi_image_stacking.actionProfiled_Starmask_Recombination",
+  "window": "Profiled Starmask Recombination",
+  "controls": [
+    {"label": "Starless Image", "kind": "combo", "object": "starlessImage", "group": "Image Composition", "visible": true, "default": "<--NO IMAGE-->", "varies": ["options"]},
+    {"label": "Stars Image", "kind": "combo", "object": "starmaskImage", "group": "Image Composition", "visible": true, "default": "<--NO IMAGE-->", "varies": ["options"]},
+    {"label": "Path", "kind": "field", "object": "starsProfile", "group": "Stars Profile", "visible": true, "default": ""},
+    {"label": "...", "kind": "button", "object": "openStarsProfileButton", "group": "Stars Profile", "visible": true, "default": ""},
+    {"label": "Reload stars profile file", "kind": "button", "object": "reloadStarsProfileButton", "group": "Stars Profile", "visible": true, "default": ""},
+    {"label": "Unload stars profile", "kind": "button", "object": "clearProfileButton", "group": "Stars Profile", "visible": true, "default": ""},
+    {"label": "Stars Filter", "kind": "button", "object": "starsFilterButton", "group": "Stars Profile", "visible": true, "default": ""},
+    {"label": "Show Star Profiles", "kind": "check", "object": "showStarProfiles", "group": "Stars Profile", "visible": true, "default": "On"},
+    {"label": "Invert Selection", "kind": "check", "object": "invertSelection", "group": "Stars Profile", "visible": true, "default": "Off"},
+    {"label": "Scale Factor", "kind": "spinbox", "object": "scaleFactorValue", "group": "Stars Profile", "visible": true, "default": "1.00", "min": 0, "max": 2, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Tighten Edges", "kind": "spinbox", "object": "tightenEdgesValue", "group": "Stars Profile", "visible": true, "default": "0.00", "min": 0, "max": 2, "step": 0.03, "decimals": 2, "slider": true},
+    {"label": "Shape", "kind": "combo", "object": "shapeSelector", "group": "Stars Profile > Mask Generation", "visible": true, "default": "Binary Areas", "options": ["Binary Areas", "Bell", "Truncated Bell", "Linear", "Truncated Linear", "Cubic", "Quadratic"]},
+    {"label": "Soften Edges", "kind": "spinbox", "object": "softenEdgesValue", "group": "Stars Profile > Mask Generation", "visible": true, "default": "2.00", "min": 0, "max": 10, "step": 0.03, "decimals": 2, "slider": true},
+    {"label": "% Pixel Increase", "kind": "spinbox", "object": "percentPixelIncreaseValue", "group": "Stars Profile > Mask Generation", "visible": true, "default": "0.50", "min": 0, "max": 1, "step": 0.03, "decimals": 2, "slider": true},
+    {"label": "Pixel Increase", "kind": "spinbox", "object": "pixelIncreaseValue", "group": "Stars Profile > Mask Generation", "visible": true, "default": "0", "min": 0, "max": 20, "step": 1, "slider": true},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "Off"},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

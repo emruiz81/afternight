@@ -71,6 +71,30 @@ the repository and installer bundles is explicitly permitted.
 | Not applicable | `processes/stacking-integration/image-integration.md#conceptual-pipeline` (inline Mermaid source) | AfterNight documentation maintainers; current manifest, executor, stage, report, and focused-test sources | Project content, distributed with AfterNight under the repository license | 2026-07-21 | `e11556c105b1383c046867223eda660c0f5ea55eb2706caf9435950805fab9b2` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Not applicable |
 | Not applicable | `workflows/broadband-imaging.md#workflow-map-and-decision-points` (inline Mermaid source) | AfterNight documentation maintainers; current workflow/process sources and retained execution evidence | Project content, distributed with AfterNight under the repository license | 2026-07-20 | `5465b05cc9d1ddc623b21bd89a95e12a4b3a39906a71d895c15001356ab1306d` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Approved broadband sets support the flow; no sample pixels are embedded in the diagram. |
 
+## Captured windows
+
+The pictures of the application's windows that
+`build/scripts/tools/capture_guide_screenshots.ps1` captures and
+`build/scripts/tools/optimize_guide_image.py` prepares are listed by the group
+of their pages, one row each: the picture, what it shows, the data in it, the
+day it was captured with the application's commit, and the SHA-256 of the file.
+They are project assets, captured by the maintainers from their own data and
+distributed with AfterNight under the repository license. To update one,
+capture the window again as `docs/user-guide/SCREENSHOTS.md` says and replace
+its row with the one the second script prints.
+
+### Stretching
+
+| Picture | Shows | Data | Captured | SHA-256 |
+| --- | --- | --- | --- | --- |
+| `assets/images/processes/stretching/histogram-transformation.webp` | The Histogram Transformation window as it opens on a linear master, the preview on | A linear RGB master of the Carina Nebula, the maintainer's own data, shown in Autostretch in its view | 2026-11-10, AfterNight 50da371 | `9e4431ea847ae952d82ab5fb65332c76f9cfbd0160885dc76acab29f82148944` |
+| `assets/images/processes/stretching/curves-transformation.webp` | The Curves Transformation window as it opens on a linear master, the preview on | A linear RGB master of the Carina Nebula, the maintainer's own data, shown in Autostretch in its view | 2026-11-10, AfterNight 50da371 | `ff36d006859721297ecc6a64cf9089d4431aa08f7c31826a802b1329d9f0a643` |
+| `assets/images/processes/stretching/gh-transformation.webp` | The Generalized Hyperbolic Transformation window as it opens on a linear master, the preview on | A linear RGB master of the Carina Nebula, the maintainer's own data, shown in Autostretch in its view | 2026-11-10, AfterNight 50da371 | `1a17189931f6f5d58f74086d01c6b958983a7b2dff625685266e1ebd3736c75e` |
+| `assets/images/processes/stretching/arcsinh-stretch.webp` | The ArcSinh Stretch window as it opens on a linear master, the preview on | A linear RGB master of the Carina Nebula, the maintainer's own data, shown in Autostretch in its view | 2026-11-10, AfterNight 50da371 | `0a5d6638cc44883cd3084b7e66816b25c8c6de444a4685cd4f6dec3fa0e576b0` |
+| `assets/images/processes/stretching/statistical-stretch.webp` | The Statistical Stretch window as it opens on a linear master, the preview on | A linear RGB master of the Carina Nebula, the maintainer's own data, shown in Autostretch in its view | 2026-11-10, AfterNight 50da371 | `a7f76eb1eca140af56b3bafa387fdbac979a9495f6998b4ad97879d87604022a` |
+| `assets/images/processes/stretching/gamma-correction.webp` | The Gamma Correction window as it opens on a linear master, the preview on | A linear RGB master of the Carina Nebula, the maintainer's own data, shown in Autostretch in its view | 2026-11-10, AfterNight 50da371 | `6d9246d0cda828790ab6f89201295577147b27ad0a1b2ff2abf960978e040bb4` |
+| `assets/images/processes/stretching/exposure-correction.webp` | The Exposure Correction window as it opens on a linear master, the preview on | A linear RGB master of the Carina Nebula, the maintainer's own data, shown in Autostretch in its view | 2026-11-10, AfterNight 50da371 | `a17eddba2d817de6ffe7d4959bb8b19f7f49ce3f38780502916e9339a8dfedf6` |
+
 ## Offline Runtime Policy
 
 `docs/user-guide/mkdocs.yml` references Mermaid and MathJax through local assets

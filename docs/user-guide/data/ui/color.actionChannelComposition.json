@@ -1,0 +1,13 @@
+{
+  "id": "color.actionChannelComposition",
+  "window": "Channel Composition",
+  "controls": [
+    {"label": "Color Space", "kind": "combo", "object": "colorSpace", "group": "", "visible": true, "default": "RGB", "options": ["RGB", "CIE XYZ", "CIE L*a*b*", "CIE L*c*h*", "HSL", "HSV", "HSI", "YCbCr"]},
+    {"label": "Red", "kind": "combo", "object": "redChannel", "group": "", "visible": true, "default": "<--NO IMAGE-->", "options": ["<--NO IMAGE-->"]},
+    {"label": "Green", "kind": "combo", "object": "greenChannel", "group": "", "visible": true, "default": "<--NO IMAGE-->", "options": ["<--NO IMAGE-->"]},
+    {"label": "Blue", "kind": "combo", "object": "blueChannel", "group": "", "visible": true, "default": "<--NO IMAGE-->", "options": ["<--NO IMAGE-->"]},
+    {"label": "Linear Match", "kind": "check", "object": "linearMatchCheckBox", "group": "", "visible": true, "default": "Off"},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}
