@@ -54,7 +54,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
 - `-View "<menu path>;..."` chooses menu items that act at once, after `-Prepare` and before the captures:
   **Image > View > Zoom 100%** for a pair at 100 %, **View > Session Console** to dock the console. `@<button>`
   presses a button of the main window there too, such as the console's **Clear Session**, so that the picture shows
-  no line of the log, whose paths name the machine's folders.
+  no line of the log, whose paths name the machine's folders. `%display=<mode>` chooses the active view's display mode,
+  such as `%display=Autostretch` for a new view a run opened. `@<button>|<control>=<value>`, several joined by `&`, opens a
+  window by a button of the main window, changes it and closes it: `@Autostretch Settings|linkedChannels=On`.
+  `-AfterView` takes all three.
 - `-Open` opens the images the pictures need, in order, through **File > Open**. A raw color-filter frame asks
   whether to debayer it on opening; `-OpenAnswer No` keeps the mosaic.
 - `-Display Autostretch` shows the opened image stretched. A linear master is nearly black without it, and the

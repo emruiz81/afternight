@@ -3,345 +3,329 @@ kind: process
 stage: color
 menu: Process > Color Spaces > Channel Composition
 summary: >-
-  Builds a new RGB image from up to three open monochrome images, one per channel or color-space component.
+  Composes up to three open grayscale images into a new color image, as its red, green and blue or as the components
+  of another color model.
+data_in: either
+data_out: either
+destructive: false
+preview: none
+sequences: true
+masks: none
+external: none
+glance:
+  enabled: >-
+    Always. The window chooses its images itself and opens without an active image. OK waits for an image in its
+    first box.
+  inputs: >-
+    Up to three open grayscale images of one width and height, or three grayscale sequences. The first is required.
+  outputs: >-
+    One new color image or sequence beside the first component, in the highest pixel type of the components. The
+    components stay as they are, and no file is written.
+  state: >-
+    Red, green and blue masters of one target, registered and cropped alike and still linear, or the three
+    components of another color model as Extract Channel stores them.
+derived: false
+rewritten: true
 ---
 # Channel Composition
 
-## Purpose and expected result
+Channel Composition makes one color image from up to three open grayscale images. In **RGB** they become its red,
+green and blue channels as they are. In the seven other choices of **Color Space** they are the three components of
+another [color model](../../reference/glossary.md#color-model), such as [CIE Lab](../../reference/glossary.md#cie-lab)
+or [YCbCr](../../reference/glossary.md#ycbcr), and are converted to red, green and blue. **Linear Match** can first
+bring the second and third to the first one's levels. The window chooses its images itself and needs no
+[active image](../../reference/glossary.md#active-image).
 
-Channel Composition creates a new three-channel RGB view from up to three open
-monochrome views. It is for users who already have registered component masters
-or normalized color-space component planes and need direct assignment rather
-than calibration, registration, or stacking.
+**OK** opens the result as a new image beside the first component, or as a new
+[sequence](../../reference/glossary.md#sequence) when the components are sequences, and closes the window. The
+components stay as they were.
 
-Choose **RGB** for ordinary red, green, and blue masters. The seven other modes
-interpret the three scalar planes as encoded XYZ, Lab, LCh, HSL, HSV, HSI, or
-YCbCr components and convert them to RGB. A successful run closes the process
-and opens a new pending-changes image or sequence; it does not replace or modify
-the chosen views. Optional **Linear Match** creates matched working copies of
-later selected components before composition.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Color Spaces > Channel Composition** |
-| Enabled when | The registered top-level action is available even with no open image. The dialog lists open monochrome views. **OK** is enabled only when the first selector is not `<--NO IMAGE-->`. |
-| Inputs | One required first component and up to two optional later components from open one-channel stills or sequences. Use all-still or all-sequence sources with equal width/height; for sequences, the first component's frame count decides the output's. |
-| Outputs | One new three-channel still in the highest of the components' representations, or a new sequence written in the session's temporary directory in the first component's container. Selected views remain unchanged, including when Linear Match is enabled. No component maps, coefficients, or report are produced. |
-| Recommended image state | **RGB:** registered, cropped, calibrated linear masters with comparable background/scale. Other modes: component planes produced with AfterNight's matching normalized encoding; their RGB result is treated as nonlinear. |
-| Preview support | None. There is no preview pane or preview action; **OK** runs the full composition. |
-| Sequence support | Implemented for compatible grayscale sequences, frame by frame on a worker, with a progress dialog whose Cancel stops the run; a frame missing from a shorter sequence is a zero plane; the sequence is published whole or not at all. |
-| Mask support | Unsupported. Active view masks are neither read nor blended. |
-| External dependencies | None. Conversion uses the engine's colour transforms; Linear Match is the engine's normalization scaling match. |
+```figure
+image: ../../assets/images/processes/color-composition/channel-composition.webp
+alt: >-
+  The Channel Composition window. Under its header, Color Space reads RGB, and the Red, Green and Blue boxes name the
+  red, green and blue masters of the Carina Nebula. Linear Match is ticked below them, and OK and Close run along the
+  bottom.
+caption: >-
+  Channel Composition with the Carina Nebula's red, green and blue masters assigned in RGB and Linear Match ticked.
+pins:
+  - {n: 3, x: 26.1, y: 35.3}
+  - {n: 4, x: 20.4, y: 46.4}
+  - {n: 5, x: 28.6, y: 75.7}
+  - {n: 6, x: 54.1, y: 91.9}
+```
 
 ## Before you start
 
-- Register and crop the component images first. Channel Composition compares
-  dimensions, but does not align, resample, rotate, or use WCS to reconcile
-  geometry.
-- Keep every selected view monochrome. RGB views do not appear in the source
-  selectors.
-- Select the first displayed component. **OK** remains disabled for a second-
-  or third-only assignment, and execution validates the first source again
-  before starting its worker.
-- Prefer all three components. A missing selector is replaced by numeric zero,
-  which is black only for direct RGB. In Lab, for example, zero in `a*` or `b*`
-  means the minimum encoded chroma coordinate rather than neutral `0.5`.
-- Use **Linear Match** only as a scalar intensity match, not registration or
-  color calibration. It matches temporary working images and leaves selected
-  source buffers unchanged.
-- For Lab/LCh/XYZ, use planes generated by the same AfterNight encoding. The
-  process assumes sRGB-like D65 conversions and does not inspect or apply ICC
-  profiles.
+- Register the components to one reference and crop them alike. The window compares their width and height only.
+  It neither compares stars or world coordinates nor aligns or resamples an image: each pixel is combined with the
+  pixels at the same place.
+- Every component is a grayscale image, or every one a grayscale sequence. A color image is not offered.
+- Put first the component whose grid the result should carry. Its world coordinates, its
+  [plate solution](../../reference/glossary.md#plate-solution) and its pointing become the result's, and a sequence's
+  container, frame count and frame rate come from it.
+- Fill all three boxes. A box left empty is a plane of zeros, which is black only in **RGB**.
+- For any color model but RGB, use the three components of one image as **Image > Extract Channel** stores them,
+  each a value from 0 to 1 by AfterNight's
+  [component encoding](../../reference/glossary.md#component-encoding). No color profile is read or applied.
+- **Linear Match** scales and shifts a component. It neither registers it nor calibrates its color: calibrate the
+  color of the result afterwards.
 
-## Procedure
+## Steps
 
-1. Open the registered monochrome channel masters. Verify equal pixel
-   dimensions. For sequences, put the sequence whose frame count and container
-   the output should have first: the output has its number of frames and its
-   container (SER, image list, AVI, MP4, or another video container).
-2. Open **Process > Color Spaces > Channel Composition**. The source selectors
-   contain `<--NO IMAGE-->` plus each currently open monochrome view.
-3. Choose **Color Space**. Confirm that the three labels change to the expected
-   assignment, such as **Red / Green / Blue**, **L / a / b**, or **Y / Cb / Cr**.
-4. Select the first source and then the second and third sources. Reusing one
-   view is allowed; when output metadata is built, its exposure counts once
-   when the view states an exposure start, and once per assignment when it
-   states none.
-5. Leave **Linear Match** off for already normalized channels and for hue/chroma
-   component maps. Enable it only when comparable RGB intensity masters need
-   scalar level/spread matching.
-6. Click **OK**. A sequence shows a progress dialog with **Cancel**; a still has
-   no progress dialog. The components, **Color Space**, and **Linear Match** are
-   read when **OK** is pressed, so a later change reaches the next run only.
-7. On success, inspect the new RGB view's channel balance, clipping, dimensions,
-   processing-state marker, and history description. Save it explicitly when
-   ready; the new view starts as pending changes.
+1. **Open the components.** Open the registered grayscale [masters](../../reference/glossary.md#master), or the
+   three sequences.
+2. **Open the window.** Choose **Process > Color Spaces > Channel Composition**. The three image boxes read
+   `<--NO IMAGE-->` and **OK** is dimmed.
+3. **Choose the color space.** Leave **Color Space** at **RGB** for red, green and blue masters. Another choice
+   renames the three boxes after its components, such as **L**, **a** and **b**.
+4. **Assign the components.** Choose the red master in **Red**, the green one in **Green** and the blue one in
+   **Blue**. **OK** enables as soon as the first box names an image.
+5. **Match the levels, or not.** Tick **Linear Match** to give the green and blue masters the red one's background
+   level and spread. Leave it off for matched masters and for every color model but RGB.
+6. **Choose OK.** The new image opens as a tab beside the first component, named after the color space, and the
+   window closes. Sequences show a progress window first.
+7. **Check the result.** Show it in the view's [Autostretch](../../reference/glossary.md#autostretch) with **Linked
+   channels** on in its Autostretch Settings, which shows the three channels alike. Its
+   [history](../../reference/glossary.md#history) starts with the names of the three components.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Color Space** | Selector | **RGB** | None | **RGB**, **CIE XYZ**, **CIE L\*a\*b\***, **CIE L\*c\*h\***, **HSL**, **HSV**, **HSI**, **YCbCr** | Selects direct assignment or an encoded-component-to-RGB conversion and relabels all three selectors. | Always enabled, including during execution. It is read when **OK** is pressed, so a change during a run reaches the next run only. | Non-RGB modes add conversion and clipping risk; hue/chroma modes are not interchangeable with intensity planes. | Full still or each sequence frame; no preview/mask | Window lifetime; every new dialog starts at RGB. |
-| **Red / X / L / H / Y** | First monochrome source selector | `<--NO IMAGE-->` | None | Open grayscale still/sequence view; label is **Red** (RGB), **X** (XYZ), **L** (Lab/LCh), **H** (HSL/HSV/HSI), or **Y** (YCbCr) | Supplies component 0 and determines the guide/reference. | List follows view creation, update, rename, and close. **OK** requires this selector, and execution validates it again before worker launch. | A wrong first plane changes the entire result; its geometry seeds missing planes and its metadata leads the metadata built for the result. | Component 0; full Apply; still/sequence | Window lifetime; returns to `<--NO IMAGE-->` if its view closes or ceases to be grayscale. |
-| **Green / Y / a / c / S / Cb** | Second monochrome source selector | `<--NO IMAGE-->` | None | Open grayscale still/sequence view; label follows the chosen mode | Supplies component 1: Green, Y, `a*`, `c*`, HSL/HSV/HSI saturation, or blue-difference chroma. Omission supplies zero. | Same dynamic list. It must match the first source's still/sequence class and final dimensions. | Zero is not neutral for Lab `a*` or YCbCr `Cb`; Linear Match uses a temporary fitted copy and does not alter this source. | Component 1; full Apply; still/sequence | Window lifetime. |
-| **Blue / Z / b / h / L / V / I / Cr** | Third monochrome source selector | `<--NO IMAGE-->` | None | Open grayscale still/sequence view; label follows the chosen mode | Supplies component 2: Blue, Z, `b*`, LCh hue, HSL lightness, HSV value, HSI intensity, or red-difference chroma. Omission supplies zero. | Same dynamic list and compatibility requirements. | Zero can mean minimum lightness/value/intensity or non-neutral chroma; Linear Match likewise uses a temporary fitted copy. | Component 2; full Apply; still/sequence | Window lifetime. |
-| **Linear Match** | Checkbox | Off | None | Off/On | On treats the first selected component as reference and applies `output = a × source + b` to temporary copies of each later selected component before composition: `a` is the ratio of the two planes' robust scales (median absolute deviation), always positive, and `b` moves the component's median onto the reference's, both measured where both planes hold a sample inside the normalized limits `[1e-7, 0.875]`. | Always editable, including while running; it is read when **OK** is pressed. It does not align geometry and is unaware of circular hue or centered chroma semantics. | Can reduce RGB level/spread differences, but can destroy meaningful component encodings in the output and write outside normalized float range. A pair with no sample inside the limits fails the run. Adds scans and per-pixel work without modifying sources. | Pre-composition; selected later components; each sequence frame; no mask | Window lifetime; always off in a new dialog. |
-| **OK** | Action | Disabled until the first selector is valid | None | One detached operation at a time | Captures the components' images, Color Space, and Linear Match, disables OK/Close, validates the required first source, and starts still or sequence composition. Success opens a new view and closes this window. | Source selectors, Color Space, and Linear Match remain enabled while running; the run uses what was captured. | Full-resolution work and possible temporary disk for sequences. Linear Match transformations are isolated working copies. | Full still/sequence Apply | Output/history persist when saved; dialog settings do not. |
-| **Close** | Action | Enabled while idle | None | Click action | Closes without starting composition. | Disabled after OK until failure/cancel or successful close. It is not the sequence cancellation control. | Discards pending choices. Title-bar closing during detached execution is not a substitute for cancellation. | Dialog only | Not persisted. |
-| Sequence progress/status | Read-only progress | Hidden for stills | None | 0–100 percent; title/text **Channel Composition** / **Executing Channel Composition** | Reports the share of the first component's frames written. | Created when any selected source is a sequence; a mix of stills and sequences is refused before it appears. Main OK/Close are disabled. | Updates after each frame is written; output consumes temporary disk. | Sequence Apply | Not persisted. |
-| **Cancel** (sequence progress) | Action | Available in progress dialog | None | Cooperative request | Stops the run and leaves the composition dialog open; the unfinished sequence leaves no file and nothing is opened. | The stop reaches the current frame's engine work as well as the frame loop. | Nothing is published. | Sequence Apply only | Request only. |
+The window has no preview, no histogram and no Channel box, and reads no
+[mask](../../reference/glossary.md#mask). Its controls are read when you press **OK**.
 
-## How the algorithm works
+```controls
+window: Channel Composition
+controls:
+  - name: Color Space
+    kind: combo
+    default: RGB
+    options: [RGB, CIE XYZ, CIE L*a*b*, CIE L*c*h*, HSL, HSV, HSI, YCbCr]
+    effect: Chooses what the three images are. **RGB** takes them as red, green and blue. Every other choice takes them as the three components of that color model and converts them to red, green and blue.
+    range: "The three boxes are renamed after the components: X, Y and Z for **CIE XYZ**, L, a and b for **CIE L*a*b***, L, c and h for **CIE L*c*h***, H, S and L for **HSL**, H, S and V for **HSV**, H, S and I for **HSI**, and Y, Cb and Cr for **YCbCr**."
+    enabled: Always, also while a run works. The run keeps the choice it started with.
+    tradeoff: Every choice but **RGB** converts each pixel and holds each channel between 0 and 1, so a color outside the range is clipped. CIE components and HSI cost more than the others. A hue or a chroma cannot stand in for a level of light.
+    scope: The whole of each image, or each frame of the sequences.
+    persistence: Until the window closes. Each new window opens at **RGB**.
+  - name: Red
+    kind: combo
+    default: "<--NO IMAGE-->"
+    options: ["<--NO IMAGE-->"]
+    effect: Chooses the first component, red in **RGB**. It is required. Its image gives the result its size and its place in the workspace, and leads its header.
+    range: After `<--NO IMAGE-->` the list holds every open grayscale image and sequence. The box's label follows **Color Space**, as **X**, **L**, **H** or **Y**. The tooltip of each item gives its file, size, channels, pixel type and memory.
+    enabled: The list follows the views as they open, close, change or are renamed. A view that closes or stops being grayscale leaves every list, and a box that named it returns to `<--NO IMAGE-->`.
+    tradeoff: A wrong first image changes the whole result. Its world coordinates and plate solution are kept whether or not the other components share its grid.
+    scope: The image its view shows when you press **OK**, or every frame of its sequence. With **Linear Match** on it is the reference, and is not changed.
+    persistence: Until the window closes or its view goes.
+  - name: Green
+    kind: combo
+    default: "<--NO IMAGE-->"
+    options: ["<--NO IMAGE-->"]
+    effect: Chooses the second component, green in **RGB**. In the other models it is Y, a*, c*, the saturation of HSL, HSV or HSI, or Cb. Left at `<--NO IMAGE-->`, it is a plane of zeros.
+    range: The same list as **Red**. One view may fill several boxes.
+    enabled: Optional. It must be an image when the first is an image and a sequence when the first is a sequence, of the first one's width and height.
+    tradeoff: Zero is not neutral for every component. An a* or a Cb of 0 is the far end of its axis, and gives a strong cast.
+    scope: The image its view shows when you press **OK**, or every frame of its sequence. With **Linear Match** on, a matched copy of it.
+    persistence: Until the window closes or its view goes.
+  - name: Blue
+    kind: combo
+    default: "<--NO IMAGE-->"
+    options: ["<--NO IMAGE-->"]
+    effect: Chooses the third component, blue in **RGB**. In the other models it is Z, b*, h, the lightness of HSL, the value of HSV, the intensity of HSI, or Cr. Left at `<--NO IMAGE-->`, it is a plane of zeros.
+    range: The same list as **Red**.
+    enabled: Optional, under the same conditions as **Green**.
+    tradeoff: A zero is black where the component is a lightness, a value or an intensity, and a strong cast where it is b* or Cr.
+    scope: The image its view shows when you press **OK**, or every frame of its sequence. With **Linear Match** on, a matched copy of it.
+    persistence: Until the window closes or its view goes.
+  - name: Linear Match
+    kind: check
+    default: "Off"
+    effect: Scales and shifts the second and third components, before they are composed, so that their median and their median absolute deviation equal the first one's, by equation (4).
+    range: The two numbers are measured only where both planes hold a sample from 0.0000001 to 0.875 of full scale, so zeros and the brightest stars take no part. The match then applies to every sample.
+    enabled: Always, also while a run works. The run keeps the state it started with.
+    tradeoff: It gives the channels one background level and one spread, which is not a color calibration. It knows nothing of hue, neutral chroma, filters or exposure, so it spoils the components of every model but RGB. A floating-point result can leave 0 to 1. A pair without a sample inside the limits fails the run.
+    scope: Working copies of the second and third components, for this run. The images in their views are not changed.
+    persistence: Until the window closes. Each new window opens with it off.
+    note: Its scale is always positive, so a component that runs against the first is scaled, never turned over. It costs a pass over each plane, the statistics of each pair and a copy of each matched component.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Composes the three components as the window stands and opens the result beside the first component, as a new image or a new sequence of three channels, without alpha. The window then closes. A failure shows "Error running Channel Composition" with the reason, and the window stays open.
+    enabled: While the first box names an image and no run works. During a run **OK** and **Close** are disabled and the other controls are not, and a change made then reaches the next run only.
+    tradeoff: A full image of three channels in memory, a working copy of each component, and for sequences a second copy on disk. The work is spread over the processor's threads.
+    scope: The whole of each image. No preview, preview area or mask plays a part.
+    persistence: "The new image is unsaved and named after the color space: `RGB`, `CIE XYZ`, `CIE L*a*b`, `CIE L*c*h`, `HSL`, `HSV`, `HSI` or `YCbCr`, with `_1`, `_2` and so on added when the name is taken. A new sequence is named after its temporary file. The history starts with a step that reads `ChannelComposition: created from image channels R:'<red>' G:'<green> B:'<blue>'`, with `-` for an empty box and the model's component names, such as L, a and b, in place of R, G and B. It does not say whether Linear Match was on, nor give its scale and offset."
+    note: "The header is built from the components. The exposure is the light they hold together: the sum, over the distinct acquisitions, of each one's `TOTEXP`, else its `LIVETIME`, else its exposure times its `STACKCNT`, else `NCOMBINE`, else one. Components that state the same exposure start are one acquisition, such as an image, its starless image and a channel taken from it, and count once with the largest integration and frame count any of them states. A component that states no start counts on its own, so one view in two boxes counts once only when it states a start. One component keeps its own exposure. The components' `EXPOSURE` and `EXPTIME` cards are dropped, and the result states its own `EXPTIME` and `TOTEXP`, `LIVETIME` when a component states one, and `STACKCNT` and `NCOMBINE` summed the same way, each when a component states it. The observation start is the earliest, with its `DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` together. The object, instrument, telescope, observer, filter, sensor temperature, gain and binning are kept when every component states the same, and so is every other card. The first component's pointing cards `RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA` and `TELDEC` are kept, and so are its WCS and SIP cards and its plate solution, without a check that the others share its grid. No processing-state or file identity card of a component is kept."
+```
 
-### Conceptual pipeline
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: Shows the share of the frames written, from 0 to 100 percent, in a window titled **Channel Composition** that reads "Executing Channel Composition".
+    range: The share is counted against the longest of the sequences, so it stops short of 100 when a later component has more frames than the first.
+    enabled: Only when the components are sequences. A still image has no progress window.
+    tradeoff: The new sequence is written to a temporary file, which needs the disk space of a second copy.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the run, inside the work on a frame as well as between frames. Nothing opens, the unfinished sequence leaves no file, and the composition window stays open.
+```
 
-1. Resolve each selected view. Missing components become zero-filled grayscale
-   images or dummy sequences with the first selected source's geometry, type,
-   and frame count.
-2. Per still or per sequence frame, read every plane as a fraction of its own
-   full scale. The result is written in the highest of the components'
-   representations, in the order signed 8-bit, unsigned 8-bit, signed 16-bit,
-   unsigned 16-bit, signed 32-bit, unsigned 32-bit, float32, then float64.
-3. If **Linear Match** is on, keep the first selected plane unchanged and match
-   every later selected plane to it by the scaling match described below.
-4. Require equal width and height, then either copy RGB planes directly or
-   interpret the normalized planes in the selected color model and reconstruct
-   RGB, the CIE models through the engine's colour transforms in double
-   precision.
-5. Build the result's metadata from the actual selected sources, state its
-   processing state, create a new view next to the first selected source, and
-   record a history description containing the assignments.
+## How it works
 
-### Model and equations
+1. Each component is read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale) into a
+   floating-point plane: 64-bit when a component is 64-bit floating point or a 32-bit integer, 32-bit otherwise. An
+   empty box is a plane of zeros at the first component's size.
+2. With **Linear Match** on, the second and third planes are matched to the first by equation (4).
+3. In **RGB** the three planes become red, green and blue as they are. A CIE model is converted through XYZ to
+   sRGB-encoded red, green and blue with a D65 white. [HSL](../../reference/glossary.md#hsl),
+   [HSV](../../reference/glossary.md#hsv), [HSI](../../reference/glossary.md#hsi) and YCbCr give red, green and blue
+   as stored. Every model but RGB is computed in double precision, and each channel is held between 0 and 1.
+4. The result is written once in the highest [pixel type](../../reference/glossary.md#pixel-type) of the components,
+   ranked from signed and unsigned 8-bit, through 16-bit and 32-bit integers, to 32-bit and 64-bit floating point.
+   An integer result is rounded to the nearest code and held at the ends of its type.
+5. The new image's [processing state](../../reference/glossary.md#processing-state) is its own, with the operation
+   `channel-composition`. In RGB it is linear when every component is declared linear and nonlinear when one is
+   declared nonlinear, and otherwise it is not stated. Every other model records it as nonlinear.
 
-Let `c0`, `c1`, and `c2` be normalized samples from the first, second, and third
-selectors. Integer samples are normalized across their full type range; float
-and double samples are used directly.
+### Model
 
-| Mode | Component interpretation and RGB reconstruction |
-| --- | --- |
-| RGB | `R = c0`, `G = c1`, `B = c2`. Samples are copied into the result's representation; there is no gamut clamp in this path. |
-| CIE XYZ | `X = 95.047 c0`, `Y = 100 c1`, `Z = 108.883 c2`. The D65 XYZ-to-linear-sRGB matrix is followed by the sRGB transfer function and an RGB `[0,1]` clamp. |
-| CIE L\*a\*b\* | `L* = 100 c0`, `a* = 255 c1 - 128`, `b* = 255 c2 - 128`. CIELAB is converted through D65 XYZ to sRGB and clamped. Neutral `a*` and `b*` are therefore near `0.502`, not zero. |
-| CIE L\*c\*h\* | `L* = 100 c0`, `C* = 200 c1`, `h = 360 c2 - 180` degrees; `a* = C* cos(h)` and `b* = C* sin(h)`. The Lab/XYZ/sRGB route then clamps RGB. |
-| HSL | `c0`, `c1`, and `c2` are normalized hue, saturation, and lightness. The standard six-sector implementation reconstructs stored RGB values. Hue `1` wraps once to `0`. |
-| HSV | `c0`, `c1`, and `c2` are normalized hue, saturation, and value. A six-sector conversion reconstructs stored RGB values. |
-| HSI | `c0`, `c1`, and `c2` are normalized hue, saturation, and intensity, where forward HSI intensity is `(R+G+B)/3`. The three 120-degree inverse sectors are clamped to `[0,1]`. |
-| YCbCr | `Y=c0`, `Cb=c1`, `Cr=c2`, with neutral chroma at `0.5`, by the exact BT.601 full-range coefficients: `R=Y+1.402(Cr-0.5)`, `B=Y+1.772(Cb-0.5)`, and `G=(Y-0.299R-0.114B)/0.587`, that is `G=Y-0.344136(Cb-0.5)-0.714136(Cr-0.5)`. RGB is clamped. |
+A component sample \(c_0\), \(c_1\) or \(c_2\) is a value from 0 to 1, from the first, second and third box. In
+**CIE L\*a\*b\*** they are the lightness \(L^*\) and the axes \(a^*\) and \(b^*\). In **CIE L\*c\*h\*** the second and
+third are the chroma \(C^*\) and the hue angle \(h\) in degrees:
 
-For Linear Match, the first selected plane is reference `r` and a later plane
-is target `x`. Linear Match is the normalization stage's scaling match:
+\[ L^* = 100\,c_0, \qquad a^* = 255\,c_1 - 128, \qquad b^* = 255\,c_2 - 128, \qquad C^* = 200\,c_1, \qquad h = 360\,c_2 - 180 \tag{1} \]
 
-`x' = a x + b`, with `a = MAD(r) / MAD(x)` and `b = median(r) - a median(x)`,
+so a neutral \(a^*\) or \(b^*\) is 0.502, and a plane of zeros is \(-128\). For **CIE XYZ** each plane is the
+tristimulus value over the white's, with \(X_w = 0.95047\) and \(Z_w = 1.08883\) for D65:
 
-where the medians and median absolute deviations are measured over the
-positions at which both planes hold a sample inside the inclusive interval
-`[1e-7, 0.875]`, so zeros and samples above seven eighths of full scale take no
-part. The slope `a` is always positive, so a plane that runs against the
-reference is scaled, never turned over. The match is applied to every sample of
-the plane, those outside the limits included.
+\[ X = X_w\,c_0, \qquad Y = c_1, \qquad Z = Z_w\,c_2 \tag{2} \]
 
-Linear Match operates on scalar encoded values. It does not understand hue
-wrap, neutral chroma, filters, exposure, WCS, or astronomical color response.
+For **YCbCr**, with the luma \(Y = c_0\) and the color differences \(C_b = c_1\) and \(C_r = c_2\), neutral at 0.5,
+the full-range BT.601 weights give
 
-### Boundary and failure behavior
+\[ R = Y + 1.402\,(C_r - 0.5), \qquad B = Y + 1.772\,(C_b - 0.5), \qquad G = \frac{Y - 0.299\,R - 0.114\,B}{0.587} = Y - 0.344136\,(C_b - 0.5) - 0.714136\,(C_r - 0.5) \tag{3} \]
 
-- A missing first selector keeps **OK** disabled. If execution is invoked through
-  another path, it reports **The first channel component is required** rather
-  than starting the worker.
-- All selected sources must be either stills or sequences. A mixed selection
-  raises **All the selected images must be either sequences or images**.
-- Stills, and the frames of sequences, must have the same width and height or
-  the run fails with **All the images must have the same size**. Sequences need
-  not have the same number of frames: the output has the first component's
-  frame count, a frame missing from a shorter later component is a zero plane,
-  and frames of a longer later component beyond the first's are not read.
-- There is no registration, resampling, WCS comparison, crop, or edge policy.
-  Pixels are combined at identical array coordinates.
-- A Linear Match the engine cannot measure - a pair with no sample inside the
-  limits - fails the run with the engine's reason; it does not leave a black
-  component. Floating output is not clamped by the match.
-- CIE, HSI, and YCbCr reconstruction clamp RGB gamut. Direct RGB does not;
-  HSL/HSV assume valid normalized components. An integer result is rounded to
-  the nearest code of the result's representation in every mode.
-- A sequence output is written in the first component's container - SER, image
-  list, AVI, MP4, or another video container (Matroska) - each frame converted
-  for it as the sequence writer converts every frame: SER at 8 or 16 bits, AVI
-  and video at 8 bits, a video at an even width and height. The sequence is
-  published whole, once every frame is written, or not at all.
-- Cancellation stops the run, inside the current frame's work as well as
-  between frames; an unfinished sequence leaves no file.
+For **HSL**, **HSV** and **HSI** the hue is a fraction of a turn, and a hue of 1 is the hue of 0. The intensity of
+HSI is the mean of the three channels, its hue read in sectors of 120 degrees. The value of HSV is the largest
+channel, and the lightness of HSL the mean of the largest and the smallest.
 
-## Parameter interactions and starting points
+With **Linear Match** on, take \(r\) for the first plane and \(x\) for a later one, the medians \(\tilde r\) and
+\(\tilde x\) and the [median absolute deviations](../../reference/glossary.md#median-absolute-deviation)
+\(\sigma_r\) and \(\sigma_x\). Each sample of \(x\) becomes
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Registered R/G/B + Linear Match off | Use three equal-size calibrated linear masters from the same geometry | Existing level/spread differences remain visible in statistics | Not applicable; assignment itself has no amount | Register/crop, normalize upstream if justified, assign R/G/B, compose, then color-calibrate. |
-| Comparable R/G/B + Linear Match on | Use broad, varying, unclipped content and the first selected channel as the intended reference | Channel backgrounds/spreads remain unequal | Clipped/out-of-range color or a black component | Verify alignment and sample support, enable once, compose, then inspect the output. |
-| Lab/LCh/XYZ component planes | Use all three planes extracted with AfterNight's corresponding encoding; keep Linear Match off | Missing/incorrect component produces implausible color or luminance | Gamut clipping and extreme color from non-neutral or mismapped chroma | Verify mode and plane order, confirm neutral encodings, compose, inspect gamut. |
-| HSL/HSV/HSI/YCbCr component planes | Use normalized maps from one compatible conversion and all three assignments | Wrong value/lightness or neutral chroma leaves output dark or tinted | Saturated sectors, hue discontinuity, or channel clipping | Confirm hue/chroma normalization first, assign intensity/value/luma last, keep matching off. |
-| Partial assignment | Prefer all three; use omission only for a deliberate zero component in RGB | Expected color is absent | Non-RGB zero component has unintended semantic meaning | Select the first component, fill all remaining components, then choose deliberate omissions. |
+\[ x' = a\,x + b, \qquad a = \frac{\sigma_r}{\sigma_x}, \qquad b = \tilde r - a\,\tilde x \tag{4} \]
 
-These are source-derived starting points, not executed visual prescriptions.
+### Boundaries
 
-## Inputs, outputs, and metadata
+- Sequences are composed frame by frame and may differ in length. The result has the first one's frames: a frame missing from a shorter later
+  sequence is a plane of zeros, and frames beyond the first one's count are not read.
+- A new sequence is written whole, or not at all, in the first sequence's container: a [SER](../../reference/glossary.md#ser)
+  file at 8 or 16 bits, an image list, or an AVI or another video at 8 bits and an even width and height. It plays at
+  the first one's frame rate, or one frame a second when it states none.
+- In **RGB** a floating-point result keeps samples below 0 and above 1, and an integer one is held at the ends of its
+  type. A match that cannot be measured fails the run rather than leave a black channel.
+- Closing the window during a run, by ++esc++ or its title bar, stops the run, and nothing opens. A still image
+  shows no progress window.
 
-- The output is a new three-channel RGB view in the highest of the selected
-  components' representations. Source geometry is unchanged; no alpha channel
-  is produced.
-- Still image names are **RGB**, **CIE XYZ**, **CIE L\*a\*b**, **CIE L\*c\*h**,
-  **HSL**, **HSV**, **HSI**, or **YCbCr** before the view factory makes the name
-  unique. Sequence names retain the displayed Lab/LCh asterisks.
-- History records the selected mode's three source names, using `-` for an
-  omitted source. It does not record Linear Match coefficients, accepted sample
-  counts, sample type conversions, clipping counts, or alignment evidence.
-- The result's metadata is built from the assigned sources. With more than one,
-  its exposure is the light they hold together, recorded once: the sum, over
-  the distinct acquisitions, of each source's whole integration - its `TOTEXP`
-  card, else its `LIVETIME` card, else its exposure times its frame count
-  (`STACKCNT`, else `NCOMBINE`, else one). Three mono masters of 120 s
-  sub-exposures stating `TOTEXP` 25920, 18840 and 13800 give 58560 s, not
-  360 s. Sources that state the same exposure start are one acquisition - an
-  image and copies made of it, such as its starless image, its stars or a
-  channel taken out of it - and count once, with the largest integration and
-  the largest frame count any of them states, since a copy such as a StarNet
-  output may have lost its `TOTEXP` and `STACKCNT` cards. A source that states
-  no exposure start always counts on its own, so a view assigned twice counts
-  once only when it states an exposure start. One assigned source keeps its
-  own exposure. The observation start is the earliest any source states. The
-  object, instrument, telescope, observer, filter, sensor temperature, gain,
-  and binning are kept when every assigned source states the same value and
-  dropped otherwise.
-- The result keeps the header cards every assigned component states
-  identically, but no exposure, processing-state or identity card of a
-  component; a card the components state differently, or only some state, is
-  dropped. Two kinds of card are kept although the components differ: the first
-  component's pointing cards (`RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`,
-  `OBJDEC`, `TELRA`, `TELDEC`), because the result is on its pixel grid, and
-  the observation-start cards (`DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`,
-  `MJD-BEG`, `TIME-OBS`), taken together from the component that began
-  earliest. With more than one component the result states its own `EXPTIME`
-  and `TOTEXP` as the exposure above, `LIVETIME` the same when a component
-  states one, and `STACKCNT` and `NCOMBINE` as the frame counts of the distinct
-  acquisitions summed, each when a component states it. It keeps the first
-  component's plate solution with its world coordinate (WCS/SIP) cards, so the
-  viewer, the astrometry window and a new plate solve find that solution on the
-  composed image.
-- The inherited processing state is cleared. RGB is marked linear only when
-  every valid selected input is explicitly declared linear; it is marked
-  nonlinear if any input is declared nonlinear, otherwise it stays unknown.
-  Every non-RGB composition is marked nonlinear because reconstruction uses
-  encoded color-space behavior.
-- **Linear Match** preserves metadata/name state in its fitted outputs, and
-  Channel Composition substitutes those outputs only in its local working list.
-  Selected stills and decoded source frames are not swapped or written in place.
-- A sequence output is written as `SEQ_SWAP<token>` in the session's temporary
-  directory, in the first component's container family and at its nominal frame
-  rate (one frame per second when it states none), and opens beside the first
-  component once every frame is written. Save/export any wanted result.
+### Worked example
 
-## Performance
+The red, green and blue masters of the Carina Nebula are 7246 × 5429, in 32-bit floating point, from one stacking
+run on one grid. Their medians are 0.0277, 0.0800 and 0.1031, and their median absolute deviations 0.00175, 0.00108
+and 0.00159. Assign them in that order in **RGB** and tick **Linear Match**. Equation (4) gives green \(a = 1.62\)
+and \(b = -0.102\), and blue \(a = 1.10\) and \(b = -0.086\), so every channel's median is 0.0277 and its deviation
+0.00175. The result is the RGB master the other pages of this guide use. With **Linear Match** off the channels keep
+their medians, and the background is blue-green until its color is calibrated.
 
-Direct RGB assignment is linear in pixel count and allocates a three-channel
-output plus any type-conversion or missing-plane buffers. Color-space modes add
-per-pixel conversion; CIE and HSI paths use powers/trigonometry and are more
-expensive than direct copies or simple matrix/sector conversions. Engine loops
-use oneTBB.
+The new image states `EXPTIME` and `TOTEXP` 58560, the sum of the masters' 25920, 18840 and 13800 seconds, and
+`STACKCNT` 488. Its `DATE-OBS` is the red master's, which is the earliest, its `FILTER` card is gone, and its world
+coordinates are those of the red master.
 
-Linear Match adds full-plane scans, the robust statistics of each pair, and an
-output buffer per matched component. Sequences decode all input frames, compose one output frame at a time, and write a complete temporary
-sequence. Prototype the assignment on duplicated crops when checking semantics,
-but use the full registered geometry for the final composition.
+```figure
+images:
+  - image: ../../assets/images/processes/color-composition/channel-composition-before.webp
+    alt: The whole red master in the view's Autostretch, a gray picture of the nebula's clouds, dark dust lanes and many stars.
+    label: Before
+  - image: ../../assets/images/processes/color-composition/channel-composition-after.webp
+    alt: The whole composed image in the same display, the nebula's red and white clouds and its stars over a gray background.
+    label: After
+caption: >-
+  The red master, and the color image OK composes from the three masters with Linear Match on. Both are the whole
+  frame in the view's Autostretch. With Linear Match on, the three channels share one median and spread, so the
+  display shows their balance as it is.
+```
 
-## Worked example
+## Starting points
 
-- Input condition/provenance and settings: the behavior records
-  (`src/AfterNightTests/fixtures/common/expectations/behavior/`) hold each
-  space's composition of three planes, and `CombinationsRecordTest` reproduces
-  them through the window; for CIE Lab, constant normalized `a*=0.5`, `b*=0.5`
-  planes beside a lightness gradient.
-- Expected checkpoint: reconstruction produces a valid three-channel RGB image;
-  the neutral chroma planes map close to gray while lightness follows the input
-  plane. `CombinationsProcessCase.CompositionLinearMatchScalesEachComponentOntoTheFirst`
-  holds Linear Match.
-- Inspect at 100%/statistics/history: in an actual run, confirm equal geometry,
-  three RGB channels, no unexpected gamut clipping, the intended state marker,
-  and the three assignment names in history.
-- Limitations: the tests run the Channel Composition window over synthetic
-  planes, not an approved astronomical set/sequence. They do not prove visual
-  quality, alignment quality, FPS preservation, production timing, or peak
-  memory.
-
-## Warnings and limitations
-
-- Channel Composition does not register or align channels. Equal dimensions do
-  not prove equal sky coordinates.
-- The first component is mandatory. **OK** stays disabled for later-only
-  assignments, and execution rejects a missing/unavailable first view before
-  worker launch.
-- **Linear Match** operates on temporary fitted copies and leaves selected
-  sources unchanged. It should still stay off for encoded hue/chroma planes.
-- Controls other than OK/Close remain enabled during a run, but the run uses
-  the components, Color Space, and Linear Match captured when **OK** was
-  pressed.
-- Missing components are literal zeros, not model-specific neutral values.
-- Non-RGB modes assume AfterNight's normalized encoding and sRGB-like D65 model;
-  ICC profiles are not applied. CIE/YCbCr/HSI output can clip out-of-gamut RGB.
-- Active masks are ignored. There is no preview, coefficient report, histogram,
-  clipping diagnostic, or automatic color calibration.
-- A sequence output takes the first component's container and frame count; an
-  AVI or video container holds 8 bits, so a 16-bit composition written into one
-  loses precision. Sequence sources need equal dimensions.
-- The result keeps only the header cards every component states identically,
-  the first component's WCS and pointing cards and the earliest component's
-  observation-start cards, beside the exposure and frame counts it states
-  itself; it does not check that the other components share the first one's
-  geometry. The exposure is summed over distinct acquisitions: a view assigned
-  twice counts once when it states an exposure start, and at each assignment
-  when it states none.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| **OK** is disabled | The first selector is `<--NO IMAGE-->`, or its selected view closed/changed away from grayscale. Later-only selections do not enable execution. | Open a monochrome view and select it in the first component. |
-| A desired view is absent | The view's current image is not grayscale. | Extract the intended scalar component or open a monochrome master; do not select RGB directly. |
-| **All the images must have the same size** | Selected stills have different width/height. Linear Match does not waive the final composition check. | Register/resample and crop all components to exactly matching geometry, then rerun from backups. |
-| **All the selected images must be either sequences or images** | At least one selected view is a sequence and another is a still. | Use only stills or only compatible sequences. |
-| The output sequence is shorter than a component, or a channel is black at the end | The output has the first component's frame count; a shorter later component gives zero planes for its missing frames. | Put the sequence with the wanted frame count first and give every component the same frame range. |
-| A composed 16-bit sequence comes back at 8 bits | The first component is an AVI or video sequence, whose container holds 8 bits. | Use a SER or image-list sequence as the first component. |
-| Output component is black | A component was omitted, so its plane is zero. | Assign the intended plane. |
-| Linear Match fails the run | A component and the reference share no sample inside `[1e-7, 0.875]`. | Turn matching off or use a broad, varying comparable source/reference pair. |
-| Lab/YCbCr output has a severe cast | Missing/wrong component, or chroma was supplied with zero instead of its normalized neutral value near `0.5`. | Use all correctly ordered planes from the matching extraction/conversion path. |
-| Output stars/edges have colored offsets | Inputs share dimensions but were not actually registered. | Register every channel to one reference and use a common crop before composition. |
-| Sequence Cancel leaves no output | Cancel stops the run; an unfinished sequence leaves no file and nothing is opened. | Run again when ready. |
+| Red, green and blue masters of one night | **RGB**, the three masters in order, **Linear Match** off | Calibrate the color next, or tick **Linear Match** first to give the channels one background level. |
+| Masters whose levels differ widely | **RGB** with **Linear Match**, the best master first | Check the medians in Image Statistics, then calibrate the color. |
+| Components taken from one color image | Their color model, the three in the order the model names them, **Linear Match** off | Check that a neutral area stays gray before you work on. |
+| A trial of the assignment | Duplicated crops of the components | Compose the full images once the order and the model are right. |
 
-## Related workflow steps
+## When it goes wrong
 
-Use [Image Registration](../registration-alignment/image-registration.md) before
-composition and [Linear Match](../color-calibration/linear-match.md) only when a
-deliberate scalar normalization is appropriate. [Split CFA](../calibration/split-cfa.md)
-and [Non-Interactive Processes](../utility/non-interactive-processes.md) explain
-ways to create scalar planes; verify their encoding before choosing a non-RGB
-mode.
+!!! danger "An empty box is a plane of zeros, not a neutral component"
+    In RGB it is a black channel. In CIE L\*a\*b\* or YCbCr a zero a\*, b\*, Cb or Cr is the far end of its axis,
+    and the whole image takes a strong cast. Fill all three boxes for every model but RGB.
 
-After direct RGB composition, use [Color Calibration](../color-calibration/color-calibration.md),
-[Photometric Color Calibration](../color-calibration/photometric-cc.md), or
-[Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md)
-as appropriate. Use [LRGB Combination](lrgb-combination.md) when adding a
-separate luminance master to an existing RGB target, and the
-[Narrowband Imaging](../../workflows/narrowband-imaging.md) workflow for palette
-choices and ordering.
+OK stays dimmed
+:   **Cause.** The first box reads `<--NO IMAGE-->`, or the image it named was closed or is no longer grayscale.
+:   **Fix.** Choose a grayscale image in the first box. The second and third alone do not enable **OK**.
+
+The image you want is not in the lists
+:   **Cause.** It is a color image, or it is not open.
+:   **Fix.** Open it, or take the channel or component you need out of the color image with **Image > Extract
+    Channel**.
+
+"All the images must have the same size"
+:   **Cause.** A component's width or height differs from the first one's.
+:   **Fix.** Register and crop every component to the same grid, then compose them again.
+
+"All the selected images must be either sequences or images"
+:   **Cause.** One box names a sequence and another a still image.
+:   **Fix.** Choose only images or only sequences.
+
+Colored fringes on the stars and the edges
+:   **Cause.** The components have one size but were not registered to each other.
+:   **Fix.** Register them to one reference with a common crop, and compose them again.
+
+The colors have a strong cast
+:   **Cause.** In RGB the channels' levels differ. In another model a component is missing, in the wrong box or not
+    of that model.
+:   **Fix.** In RGB, tick **Linear Match** or calibrate the color afterwards. In another model, give the three
+    components of one extraction in their order.
+
+Linear Match fails the run
+:   **Cause.** A component and the first share no sample between 0.0000001 and 0.875 of full scale.
+:   **Fix.** Turn **Linear Match** off, or use components whose background lies inside those limits.
+
+The new sequence is shorter, ends black in one channel, or comes back at 8 bits
+:   **Cause.** The first sequence decides the frame count and the container, and an AVI or a video holds 8 bits.
+:   **Fix.** Put first a SER or an image list with the frames you want, and give every component the same frames.
+
+## Related
+
+- [Image Registration](../registration-alignment/image-registration.md), to bring the components onto one grid
+  first.
+- [Linear Match](../color-calibration/linear-match.md), which matches one image to another as images: use it or this
+  window's **Linear Match**, not both.
+- [Background Neutralization](../color-calibration/background-neutralization.md) and
+  [Photometric Color Calibration](../color-calibration/photometric-cc.md), to calibrate the color of the result.
+- [LRGB Combination](lrgb-combination.md), to give a stretched color image the lightness of a luminance master.
+- [Non-Interactive Processes](../utility/non-interactive-processes.md), whose **Extract Channel** commands make the
+  components this window composes back.
+- [Process Windows](../../interface/process-windows.md), for the progress window and what every process window
+  shares.
 
 ## Credits
 
-- International Color Consortium, [How to interpret the sRGB color
-  space](https://www.color.org/sRGB.pdf). Used to contextualize the sRGB
-  transfer, D65 white, and RGB/XYZ relationship implemented by AfterNight; the
-  process does not perform ICC color management.
-- CIE, [Colorimetry — Part 4: CIE 1976 L\*a\*b\* Colour
-  Space](https://cie.co.at/publications/colorimetry-part-4-cie-1976-lab-colour-space-1).
-  Used for CIELAB/LCh terminology; AfterNight's storage normalization and
-  conversion constants remain project implementation details.
+- International Color Consortium, [How to interpret the sRGB color space](https://www.color.org/sRGB.pdf), for the
+  sRGB transfer, primaries and D65 white the conversions use.
+- CIE, [Colorimetry, Part 4: CIE 1976 L\*a\*b\* Colour Space](https://cie.co.at/publications/colorimetry-part-4-cie-1976-lab-colour-space-1),
+  for the lightness, the two axes, the chroma and the hue of equation (1).
+- ITU-R, [Recommendation BT.601](https://www.itu.int/rec/R-REC-BT.601), for the luma weights of equation (3).

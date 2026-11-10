@@ -3,298 +3,293 @@ kind: process
 stage: color
 menu: Process > Color Calibration > Linear Match
 summary: >-
-  Scales and offsets each channel of a target image so that its level and spread match a reference image's.
+  Scales and offsets each channel of an image so that its level and spread match a reference image's, to bring the
+  masters of different filters or sessions to one level before they are combined.
 data_in: linear
+data_out: linear
+destructive: true
+preview: none
+sequences: true
+masks: none
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active. OK waits until Reference Image names another open image with the same
+    number of channels.
+  inputs: >-
+    One image or sequence of one to four channels, and a reference image of the same number of channels, of any size
+    and pixel type.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, pixel type and header are kept. The scales and offsets are
+    written in its lineage only. No file, preset or report is written.
+  state: >-
+    Linear masters of one field, registered and cropped alike, before they are combined or stacked together.
+derived: false
+rewritten: true
 ---
 # Linear Match
 
-## Purpose and expected result
+Linear Match makes an image's level and spread match those of a reference image. For each channel it takes the ratio
+of the two images' [median absolute deviations](../../reference/glossary.md#median-absolute-deviation) as a scale, and
+the offset that moves the image's median onto the reference's. Images of one size are measured over the positions both
+keep, and images of two sizes each on its own.
 
-Linear Match multiplies and offsets each channel of a target image so that its
-level and spread match those of a reference image. Per channel it takes the
-ratio of the two images' median absolute deviations as the scale, and the offset
-that moves the target's median onto the reference's. When the two images have
-the same width and height, the statistics are measured over the pixel positions
-both images keep; when they differ, each image is measured on its own.
+**OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), adds one step to its
+[history](../../reference/glossary.md#history) and closes the window. The size, the
+[pixel type](../../reference/glossary.md#pixel-type) and the header are kept, and the result is not clamped. The window
+has no preview.
 
-On success the target still, or every frame of the target sequence, is
-replaced, one **Linear Match** Image History step is recorded, and the window
-closes. Use it to bring aligned channels, panels or session masters to a common
-level before combination. It is not colour calibration, registration, gradient
-removal or histogram matching: one straight-line map per channel is all it
-applies.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Color Calibration > Linear Match** |
-| Enabled when | An image or sequence view is active. The process is shared (it does not take exclusive access to the view). **OK** is enabled only once a **Reference Image** is chosen. |
-| Inputs | One target still or sequence and one other open view with the same number of channels (one to four); width, height and sample representation may differ. Two limits, as fractions of full scale, choose the samples measured. |
-| Outputs | Replaces the target as one Image History step; a sequence is written whole into a new sequence the view then shows. No new view, coefficient table or report is produced; the scale and offset are written into the image's lineage. |
-| Recommended image state | Linear data from comparable preprocessing; registered and cropped alike when the two images have one size, since positions are paired. |
-| Preview support | None. **OK** runs the full operation. |
-| Sequence support | Yes: every frame, matched to the same reference image, behind a progress window with **Cancel**. |
-| Mask support | No. An enabled view mask is not applied. |
-| External dependencies | None. |
+```figure
+image: ../../assets/images/processes/color-calibration/linear-match.webp
+alt: >-
+  The Linear Match window. Reference Image names the red master. Reject low reads 0.000 with its slider at the left,
+  and Reject high 0.920 with its slider near the right. Target Image names the green master, and OK and Close sit at
+  the bottom.
+caption: >-
+  Linear Match on the night's green master, with the red master as its reference and the default limits.
+pins:
+  - {n: 2, x: 3.0, y: 33.8}
+  - {n: 3, x: 3.0, y: 59.2}
+  - {n: 4, x: 50.0, y: 91.3}
+```
 
 ## Before you start
 
-1. Decide which image sets the level and spread. Linear Match changes
-   **Target Image** to resemble **Reference Image**, never the reverse, and
-   never modifies the reference.
-2. Use linear data. The process does not check linearity or processing state.
-3. For two images of one size, register and crop them alike. Pixel `(x, y)` of
-   the target is measured beside pixel `(x, y)` of the reference; unrelated
-   framing pairs unrelated samples.
-4. For two images of different sizes, only each channel's median and median
-   absolute deviation are matched; positions play no part. Changing the size of
-   either image by one pixel changes which of the two measurements runs.
-5. A sample that is exactly zero means nothing in either image and is never
-   measured. Black borders therefore need no limit, but samples just above zero
-   do.
-6. Both images must have the same number of channels. Their representations may
-   differ: every sample is measured as a fraction of its own representation's
-   full scale.
-7. The result is recorded in Image History and can be undone. Save a copy if you
-   need the original outside the session.
+- Decide which image sets the level. Linear Match changes **Target Image** to resemble **Reference Image**, never the
+  reverse, and never changes the reference.
+- Use [linear images](../../reference/glossary.md#linear-image). The window checks neither the images' linearity nor
+  their [processing state](../../reference/glossary.md#processing-state).
+- Images of one width and height are paired by position: register and crop them alike. Images of two sizes are matched
+  by each channel's median and spread alone, and one pixel of difference switches between the two measurements.
+- A sample of exactly zero is never measured, in either image. Black borders therefore need no limit, but samples just
+  above zero do.
+- Both images need the same number of channels, up to four. Their sizes and pixel types may differ: each sample is
+  measured as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale) of its own pixel type.
+- **OK** replaces the target, and its history keeps the step before. Save a copy to keep the original outside the
+  session. A [mask](../../reference/glossary.md#mask) on the view is not used.
 
-## Procedure
+## Steps
 
-1. Activate the intended target and open **Process > Color Calibration > Linear
-   Match**. Confirm **Target Image**.
-2. Choose **Reference Image**. The list holds every other open view whose image
-   has the target's number of channels, of any size or representation; a
-   sequence view offers the frame it shows. Until one is chosen the selector
-   reads `<--NO IMAGE-->` and **OK** is disabled.
-3. Start with **Reject low** `0.00` and **Reject high** `0.92`. Both limits are
-   inclusive.
-4. For one-size images, lower **Reject high** to leave bright stars and clipped
-   highlights out of the measurement, and raise **Reject low** to leave dark
-   artefacts out. Only the reference's samples are held to the limits; a
-   position is left out of both images when the reference's sample there is.
-5. For different-size images, the same limits are applied to each image on its
-   own. Make sure both images keep a broad, varying set of samples inside them.
-6. Choose **OK**. The reference, its image and both limits are read at that
-   moment; changing a control, choosing another reference or closing the
-   reference view afterwards does not reach the run. A still runs without a
-   progress window. A sequence shows **Linear Match** progress with **Cancel**.
-7. On success the window closes. Inspect the target's statistics, check for
-   values below zero or above full scale, and review the **Linear Match** step
-   in Image History.
+1. **Open both images.** Open the target and the reference, make the target the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Color Calibration > Linear Match**.
+2. **Choose the reference.** In **Reference Image**, choose the image whose level and spread the target should take.
+   Until you do, it reads `<--NO IMAGE-->` and **OK** is disabled.
+3. **Set the limits.** Keep **Reject high** below the brightest stars and clipped cores, so that they stay out of the
+   measurement. Raise **Reject low** only to leave dark artifacts above zero out.
+4. **Match.** Choose **OK**. The window closes, and the history lists **Linear Match** with both images and the limits.
+5. **Check.** Choose **Image > Information > Statistics** and compare each channel's median with the reference's. They
+   now agree closely.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Reference Image** | Open-view selector | `<--NO IMAGE-->` | None | Any other open view whose image has the target's channel count; size and representation may differ | Chooses the image whose level and spread the target is matched to. The image it shows when **OK** is pressed is the one measured. | The target is never listed. **OK** is disabled while `<--NO IMAGE-->` is selected. The list is rebuilt when views are created, changed, renamed or closed; a closed reference returns the selector to `<--NO IMAGE-->`, and choosing another target clears the choice. | A poor reference passes its background and spread on; one-size images that are not registered pair unrelated samples. | Apply; every channel; no mask; still or sequence (one reference for every frame) | Window lifetime |
-| **Reject low** | Fraction of full scale; slider and spin box | `0.00` | None | `0.00`–`1.00`; spin step `0.01`, three decimals, so the box holds every slider position; slider `0`–`1000`; inclusive | Raising it leaves darker samples out of the measurement. A zero is left out whatever the limit. | Editable at any time; a change after **OK** does not reach the run. Nothing stops it exceeding **Reject high**; limits that keep no sample are refused when the run measures. | Too high leaves too few samples; it never limits which samples are changed. | Measurement only; every channel; still or sequence | Window lifetime; no Reset or preset |
-| **Reject high** | Fraction of full scale; slider and spin box | `0.92` | None | `0.00`–`1.00`; spin step `0.01`, three decimals, so the box holds every slider position; slider `0`–`1000`; inclusive | Lowering it leaves brighter samples out of the measurement; `1.00` keeps full-scale samples. | As **Reject low**. | Lower keeps stars and clipping out; too low leaves too few or flat samples. | Measurement only; every channel; still or sequence | Window lifetime; no Reset or preset |
-| **Target Image** | Open-view selector | The view the window was opened over | None | Open image and sequence views the process list offers | Chooses the image or sequence that is changed. | Changing it rebuilds the reference list for the new channel count and returns **Reference Image** to `<--NO IMAGE-->`; a view the process cannot run over closes the window. | The wrong target is changed. | Apply; every channel; still or sequence | Window lifetime |
-| **OK** | Action | Disabled until a reference is chosen | None | One run at a time | Reads the dialog and the reference's image, then matches on a worker. | **OK** and **Close** are disabled while the run is in flight; the other controls stay editable but do not reach the run. | Keeps the replaced image for Image History; a sequence adds a temporary output sequence. | Apply; every channel; no mask; still or sequence | Result and history persist; settings do not. The window closes once the result is shown. |
-| **Close** | Action | Enabled | None | Button or title-bar close | Closes without applying. | The button is disabled while a run is in flight; a title-bar close then hides the window, which closes once the run has landed. It does not stop the run. | Nothing waits on the GUI thread. | Dialog only | Not persisted |
-| Sequence progress | Read-only progress window | Shown for a sequence only | None | Titled **Linear Match**; text `Executing linear match to sequence <name>` | Shows the run over the frames. | Belongs to the run, not to the Linear Match window. | The temporary output sequence needs disk space. | Sequence Apply | Not persisted |
-| **Cancel** in sequence progress | Action | Enabled while a sequence runs | None | One request | Stops the run between frames. | Sequence only; a still has no Cancel. | A stopped run leaves the sequence as it was, writes nothing into Image History and leaves no temporary sequence behind; nothing is reported. The window stays open. | Sequence Apply | Per run |
+What every process window shares is on [Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: Linear Match
+controls:
+  - name: Reference Image
+    kind: combo
+    default: "<--NO IMAGE-->"
+    options: ["<--NO IMAGE-->"]
+    effect: Chooses the image whose level and spread the target takes. The image its view shows when you press OK is the one measured.
+    range: It also lists every other open image or sequence with the target's number of channels, of any size and pixel type. The target is never listed. A sequence's view offers the frame it shows. Each item's tooltip describes the image.
+    enabled: The list follows the views as they open, change, are renamed or close. Closing the chosen view returns it to `<--NO IMAGE-->`, and **OK** is disabled while it reads so.
+    tradeoff: A reference of another field or another state passes its level and spread on. Images of one size that are not registered alike pair unrelated samples, and give a meaningless scale. Each channel of a color image is matched on its own, so a color cast of the reference passes on too. An encoded hue or chroma component has no level or spread to match.
+    scope: OK, on every channel. Every frame of a sequence is matched to the same reference.
+    persistence: Until the window closes. Choosing another target returns it to `<--NO IMAGE-->`.
+    note: The reference is never changed.
+  - name: Reject low
+    kind: spinbox
+    default: "0.000"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 3}
+    effect: Sets the lowest sample measured, as a fraction of full scale. Higher leaves darker samples out of the measurement. A sample equal to the limit is kept, and a sample of exactly zero is left out whatever the limit.
+    range: Its three decimals hold every position of the slider, which moves in thousandths. Nothing keeps it below **Reject high**, and limits that keep no sample are refused when the run measures.
+    tradeoff: Too high leaves too few samples. It never chooses which samples change.
+    scope: The measurement only, in every channel. For images of one size it holds the reference's samples only, and a position is left out of both images where the reference's sample is. For images of two sizes it holds each image's samples.
+    persistence: Until the window closes. The window has no **Reset**.
+  - name: Reject high
+    kind: spinbox
+    default: "0.920"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 3}
+    effect: Sets the highest sample measured. Lower leaves bright stars and clipped cores out of the measurement. At 1, samples at full scale are kept too. A sample equal to the limit is kept.
+    range: Its three decimals hold every position of the slider, which moves in thousandths.
+    tradeoff: Lower keeps stars and clipping out. Too low leaves too few samples, or a nearly flat set that no longer stands for the spread.
+    scope: The measurement only, in every channel, held to the same images as **Reject low**.
+    persistence: Until the window closes.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence]
+    effect: Chooses the image or sequence OK replaces. Choosing another one lists the references of its number of channels, and returns **Reference Image** to `<--NO IMAGE-->`.
+    tradeoff: The image chosen here is the one replaced.
+    persistence: Until the window closes.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Measures the target against the reference and changes the whole image, or every frame of the sequence. The window closes once the view shows the result.
+    enabled: While **Reference Image** names an image. While the run works, OK and **Close** are disabled. The other controls stay editable, and a change does not reach the run.
+    tradeoff: The run holds floating-point working copies of both images, and a bit a sample for those it measures. A single image shows no progress window, and its run cannot be stopped once it starts. A sequence measures every frame against the reference again, and needs the disk space of a second copy.
+    scope: Every channel, without the mask on the view. Every frame of a sequence, whatever frames its player has selected, debayered first, by the method the sequence states, when the view debayers them.
+    persistence: "The image and its history keep the result, as the step **Linear Match** with the text `Target image '<target>', Reference image '<reference>', Reject Low: 0, Reject High: 0.92` for the default limits. Over a sequence it begins `Target sequence`."
+    note: "A reference view that holds no image when you press OK is refused with \"The selected reference image is no longer available.\", under the title Linear Match, and nothing runs. A failure shows \"Error running linear match\" with \"An error occurred when executing the linear match process:\" and the reason, writes them to the log, and leaves the image, its history and the window as they were. While another run holds a sequence, the busy message comes under the title Linear Match and nothing starts. When the history cannot keep the image, it says so once in a message titled \"Image History\"."
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window without applying.
+    enabled: Disabled while a run works.
+    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run goes on, on a sequence until the progress window's **Cancel** stops it.
+```
 
-### Conceptual pipeline
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: "Shows the share of the frames done, under the title **Linear Match** and the text `Executing linear match to sequence <name>`."
+    enabled: Only while OK works on a sequence. A single image has no progress window.
+    tradeoff: The new sequence is written to a temporary file, which needs its disk space until the run ends.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the run, before the next frame at the latest, without a message. The sequence stays as it was, with no history step, and the temporary file is removed. The Linear Match window stays open.
+```
 
-1. On **OK**, read both limits and the reference view's current image on the
-   GUI thread. The worker reads only those.
-2. Read the target and the reference as working copies whose samples are
-   fractions of full scale: an unsigned integer as a fraction of its largest
-   value, a signed integer counted from its smallest, held in 32-bit floating
-   point, or 64-bit for 64-bit floating point and the two 32-bit integer
-   representations.
-3. Refuse a reference with another number of channels, or an image of more than
-   four channels.
-4. Choose the samples measured. A sample counts when the image's own validity
-   rule admits it, it is finite, and it is not exactly zero.
-   - **Same width and height:** a position counts in a channel only when both
-     images keep it there, and only the reference's sample is held to the
-     inclusive range `[Reject low, Reject high]`.
-   - **Different sizes:** each image's samples are held to the range on their
-     own.
-5. Measure each channel's median and median absolute deviation over the kept
-   samples, and derive the scale and offset (below). Refuse the run when the
-   limits keep no sample in some channel.
-6. Write `scale * sample + offset` into every target sample the image's validity
-   admits, whatever the limits measured. No clamp is applied; the working copy
-   is brought back to the image's own representation to the nearest value,
-   saturating an integer at the ends of its range.
-7. For a still image the result is an edit of the view: Image History records
-   the step before the view shows it. For a sequence, see Inputs, outputs, and
-   metadata.
+## How it works
 
-### Model and equations
+1. **OK** reads both limits and the image the reference's view shows. A change made afterwards does not reach the run.
+2. Both images are read as fractions of full scale, in single precision, or double for a 64-bit floating-point or
+   32-bit integer image. A sample is measured when it is finite, valid under its image's
+   [validity rule](../../reference/glossary.md#validity-rule) and not exactly zero.
+3. Images of one width and height are paired: a position counts in a channel when both images keep it there and the
+   reference's sample lies between the limits. Images of two sizes are measured each on its own, both held to the
+   limits.
+4. Each channel's median and median absolute deviation give a scale and an offset. Every sample the target's validity
+   rule admits is then written as the scale times the sample plus the offset, whatever the limits measured, with no
+   clamp. It is brought back to the image's pixel type, rounded to the nearest value, and an integer stops at the ends
+   of its range.
+5. The result replaces the target with one history step. Its header, acquisition data,
+   [plate solution](../../reference/glossary.md#plate-solution) and processing state are kept, and its
+   [lineage](../../reference/glossary.md#lineage) gains an entry with the detail `linear match:` and each channel's
+   scale and offset, named `red`, `green` and `blue` in a color image and `channel 1` and so on otherwise.
 
-For channel `c`, let `T` be the target's kept samples and `R` the reference's,
-over the shared positions when the images have one size. With `med` the median
-and `MAD(X) = med(|X - med(X)|)`:
+### Model
 
-\[
-a_c=\frac{\mathrm{MAD}(R_c)}{\mathrm{MAD}(T_c)},\qquad
-b_c=\mathrm{med}(R_c)-a_c\,\mathrm{med}(T_c),
-\]
+For channel \(c\), let \(T_c\) be the target's kept samples and \(R_c\) the reference's, over the shared positions for
+images of one size. With \(\operatorname{med}\) the median and
+\(\operatorname{MAD}(X) = \operatorname{med}\bigl(|X - \operatorname{med}(X)|\bigr)\), the scale \(a_c\) and the
+offset \(b_c\) are
 
-and every admitted target sample becomes
+\[ a_c = \frac{\operatorname{MAD}(R_c)}{\operatorname{MAD}(T_c)}, \qquad b_c = \operatorname{med}(R_c) - a_c\,\operatorname{med}(T_c) \tag{1} \]
 
-\[
-O_c=a_cI_c+b_c .
-\]
+and every admitted sample \(x_c\) of the target becomes
 
-When either median absolute deviation is zero - more than half of the kept
-samples share one value - the scale is left at `1` and only the medians are
-matched.
+\[ x'_c = a_c\,x_c + b_c \tag{2} \]
 
-On data that already lie on one straight line the scaling match and a
-least-squares line agree exactly. On real data a bright star or a gradient moves
-a least-squares line but barely moves the medians and median absolute
-deviations. The match reproduces only a level and a spread per channel, not a
-histogram's shape, gradients or spatial content.
+So the target's median lands on the reference's, and its spread takes the reference's. A target sample of 0, which is
+never measured, still becomes \(b_c\). When either deviation is zero, because more than half the kept samples share
+one value, the scale stays 1 and only the medians are matched, without a message.
 
-### Boundary and failure behavior
+On samples that already lie on one straight line, this match and a least-squares line agree exactly. On real data, a
+bright star or a gradient moves a least-squares line but barely moves a median or a median absolute deviation. The
+match carries one level and one spread per channel: not a histogram's shape, a gradient or any spatial structure.
 
-- **Different channel counts.** The reference list offers none, so this is
-  normally seen only over a sequence whose frames differ from the view's image;
-  the run
-  reports `Reference and target images must have the same number of channels`.
-- **Limits that keep nothing.** When no sample of some channel survives -
-  **Reject low** above **Reject high**, a range the reference never enters, or
-  an image that is zero there - the run is refused, changing nothing. For two
-  images of one size the reason is `A channel of the image and its reference
-  shares no position whose reference sample lies between the limits <low> and
-  <high> and where neither sample is zero; widen the limits or choose another
-  reference`; for two sizes it is `A channel of the image or of its reference
-  holds no sample that lies between the limits <low> and <high> and is not zero;
-  widen the limits or choose another reference`. The message does not say which
-  channel.
-- **A reference closed before OK.** If the chosen view is no longer there when
-  **OK** is pressed, a message titled **Linear Match** says `The selected
-  reference image is no longer available.` and nothing runs.
-- **Any other failure** is reported under **Error running linear match** with
-  the text `An error occurred when executing the linear match process:` followed
-  by the reason, written to the log, and leaves the image and its history as
-  they were; the window stays open.
-- **Image History refuses.** If Image History cannot keep the image the match
-  replaces, the history says so once, in a message titled **Image History**,
-  and nothing changes.
-- **Busy sequence.** If another run holds a sequence view, a busy warning titled
-  **Linear Match** is shown and nothing starts.
-- **Out-of-range output.** A floating-point result can hold values below zero
-  or above one. An integer result saturates at the ends of its range.
+### Boundaries
 
-## Parameter interactions and starting points
+- Limits that keep no sample in some channel are refused, and nothing changes. For images of one size the reason is
+  "A channel of the image and its reference shares no position whose reference sample lies between the limits 0 and
+  0.92 and where neither sample is zero; widen the limits or choose another reference". For two sizes it is "A channel
+  of the image or of its reference holds no sample that lies between the limits 0 and 0.92 and is not zero; widen the
+  limits or choose another reference". Neither names the channel.
+- A reference of another number of channels is refused with "Reference and target images must have the same number of
+  channels". **Reference Image** offers none, so only a sequence whose frames differ from its view's image meets it.
+  An image of more than four channels is refused too.
+- A floating-point result keeps samples below 0 and above 1, and an integer result stops at the ends of its range.
+- A pixel that the target's validity rule rejects is left as it was.
+- A single image's run has no progress window and cannot be stopped once it starts.
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| One size + registration | Registered, cropped images of comparable content; defaults `0.00`–`0.92` | Levels still differ because clipped or invalid areas dominate | Unrelated pixel pairs give an implausible scale | Register and crop first, choose the reference, then adjust each limit. |
-| Reject low + dark artefacts | Start at `0.00`; zeros are already left out | Low, nonzero border artefacts pull the median down | Too few dark samples remain; the run is refused if none do | Raise in small steps only past the artefacts. |
-| Reject high + stars and clipping | Start at `0.92`; lower only when bright sources dominate | Stars and saturated cores widen the spread | Too little dynamic range remains; the spread is no longer representative | Inspect the reference's histogram and lower in small steps. |
-| Different sizes | Comparable linear images with broad distributions inside the limits | Medians align but the shape of the histograms still differs | One image keeps a nearly flat set of samples, and the scale falls back to `1` | Remove gradients and crop defects first, then tune one limit at a time. |
-| RGB channels + colour | Same filter and colour state on target and reference | Per-channel levels differ | Independent channel matches import the reference's colour cast | Colour-calibrate consistently first; use Linear Match to normalize sessions, not as a colour standard. |
+### Worked example
 
-## Inputs, outputs, and metadata
+The night's green and red [masters](../../reference/glossary.md#master) are linear, 7246 by 5429 pixels and registered
+alike, so their samples are paired. In Image Statistics the green background sits at 0.0800 with a median absolute
+deviation of 0.00108, and the red one at 0.0277 with 0.00175. Open both, make the green master active, choose the red
+master in **Reference Image**, keep the limits and choose **OK**.
 
-- Target and reference may have one to four channels and must have the same
-  number. Width, height and representation may differ. The reference is never
-  modified.
-- A still keeps its dimensions, channel layout and representation (any of the
-  eight). Its description, validity rule, acquisition record, plate solution,
-  header cards and meaning are kept; the image's lineage gains an entry
-  `an::applyGlobalNormalization` whose detail reads `linear match:` followed by
-  each channel's scale and offset (`red`, `green`, `blue` for a colour image,
-  `channel 1` and so on otherwise). No processing-state card is added.
-- The history step is named **Linear Match** and its description reads
-  `Target image '<target>', Reference image '<reference>', Reject Low: <low>,
-  Reject High: <high>`, for example `Target image 'target', Reference image
-  'reference', Reject Low: 0, Reject High: 0.92`; over a sequence it begins
-  `Target sequence`.
-- On a sequence, Linear Match takes the view for the run, reads every frame -
-  demosaiced when the view demosaics them, by the method the sequence states from
-  the one RAW
-  [Demosaic Algorithm](../../interface/settings-dialog.md#raw-images-settings)
-  setting - matches each to the same reference image, writes it into a new
-  temporary sequence of the same container, publishes the sequence whole and
-  shows it in the view as one Image History step. Each frame is measured against
-  the reference on its own. A run that fails or is cancelled leaves the
-  sequence as it was and nothing in the temporary directory.
-- A view mask is not applied, and no mask, report or extra view is produced.
+Equation (1) gives a scale of 1.6242 and an offset of -0.1022, and equation (2) brings the green background to 0.0277
+and its deviation to the red's 0.00175. A star core at 1.0 becomes 1.52 and stays there, unclamped: 7309 samples end
+above 1 and 12 below 0. The result has the median, the spread, the minimum and the maximum of the green channel of the
+RGB master the other pages use, and the history reads
+`Target image '<green>', Reference image '<red>', Reject Low: 0, Reject High: 0.92`.
 
-## Performance
+```figure
+images:
+  - image: ../../assets/images/processes/color-calibration/linear-match-before.webp
+    alt: The whole green master before Linear Match, a pale gray frame with the nebula faint and washed out.
+    label: Before
+  - image: ../../assets/images/processes/color-calibration/linear-match-after.webp
+    alt: The whole green master after Linear Match, a dark gray background with the nebula's structure spread above it.
+    label: After
+caption: >-
+  The green master before and after OK with the red master as its reference. Both are the whole frame stretched
+  afterwards by Histogram Transformation with Shadows and Midtones at 0.02, and shown in the Linear display mode.
+```
 
-Measurement and application are proportional to the samples of both images.
-The run holds floating-point working copies of the target and the reference,
-one bit per sample per channel for the samples kept, and the result; a still
-also keeps the replaced image for Image History. A sequence measures the
-reference again for every frame and needs the temporary output sequence on disk.
-No timing is claimed on this page.
+## Starting points
 
-## Worked example
-
-- Input condition and settings: a `32×2` floating-point RGB target whose first
-  row holds `1/64` to `32/64` and whose second row is zero; a reference of the
-  same size whose first row is `2 × target + 0.05` and whose second row is
-  `0.5`; **Reject low** `0.00`, **Reject high** `1.00`.
-- Expected checkpoint: the target's zero row is left out of the measurement, and
-  so are the positions where the reference rises above `1.00`; the samples kept
-  still lie on one line, so every channel's scale is `2` and its offset `0.05`.
-  Every target sample is then written, so the zero row becomes `0.05`.
-- Inspect at 100%/statistics/history: compare a channel's median before and
-  after, the lineage's scale and offset, and the **Linear Match** step's
-  description.
-- Limitations: a synthetic, exactly linear relation proves the measurement and
-  the apply, not robustness to gradients, registration errors or different
-  fields, nor visual quality or timing.
-
-## Warnings and limitations
-
-- **OK** replaces the target; undo through Image History.
-- One-size and different-size images are measured differently: paired by
-  position, or image by image.
-- One-size images must be registered and correspond pixel for pixel.
-- The limits are inclusive and zeros are always left out. Limits that keep
-  nothing are refused, but a nearly flat selection falls back to a scale of `1`
-  without a message.
-- No clamp: a floating-point result can leave the unit range, and an integer
-  result saturates.
-- View masks are ignored.
-- The process does not display the scale and offset; they are recorded only in
-  the image's lineage.
-- Linear Match adjusts the level and spread of each channel. It does not correct
-  colour response, nonlinear contrast, gradients, geometry or full histograms.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| **OK** is disabled | **Reference Image** is `<--NO IMAGE-->`: none chosen, the chosen view was closed, or the target was changed | Choose a reference |
-| The desired reference is not listed | It has another number of channels, or it is the target | Choose another target or reference; size and representation need not match |
-| `A channel of the image ... between the limits <low> and <high> ...` | The limits keep no sample of some channel | Widen the limits, make **Reject low** no higher than **Reject high**, or choose another reference |
-| `The selected reference image is no longer available.` | The reference view was closed before **OK** was pressed | Choose another reference and run again |
-| **Error running linear match** | The engine refused the run, for example a channel-count mismatch over a sequence or an allocation | Read the message and the log, then run again |
-| The result differs after resizing or cropping one image | One size pairs positions; different sizes measure each image on its own | Choose the intended mode deliberately |
-| Values below zero or above full scale | The match is not clamped | Use a better-matched reference or limits; an integer result saturates |
-| The mask had no effect | Linear Match does not apply a view mask | Apply globally, or use a process that supports masks |
-| The sequence does not change after Cancel | A stopped run publishes nothing | Run again |
-| Busy warning titled **Linear Match** | Another run holds the sequence view | Wait for it to finish, then run again |
+| Masters of one field from different filters, before Channel Composition | One master as the reference for the others, default limits | Compare the medians in Image Statistics, and calibrate the color after composing: the match sets each channel's spread, not the color balance. |
+| Masters of two sessions of one target | The better session as the reference, both registered and cropped alike | Lower **Reject high** if bright stars dominate. |
+| Bright stars or clipped cores fill the field | **Reject high** at 0.5 | Lower it in small steps, watching that enough samples stay. |
+| Images of two sizes | Comparable linear images with broad histograms inside the limits | Remove gradients and crop defects first, then change one limit at a time. |
 
-## Related workflow steps
+## When it goes wrong
 
-Use [Image Registration](../registration-alignment/image-registration.md) and
-[Background Extraction](../background-extraction/background-extraction.md)
-before a one-size, paired match when geometry or gradients differ. For
-multi-session data, match comparable linear masters before
-[Image Stacking](../stacking-integration/image-stacking.md) or
-[Channel Composition](../color-composition/channel-composition.md); do not use
-Linear Match to repair fundamentally different filters or exposures, or encoded
-hue or chroma components.
+!!! warning "OK changes the target, and the result can leave 0 to 1"
+    The match is not clamped, so a floating-point image can hold samples below 0 and above 1 afterwards. Use the
+    image's history to return to the image before the step.
 
-[Color Calibration](color-calibration.md),
-[Photometric Color Calibration](photometric-cc.md), and
-[Spectrophotometric Color Calibration](spectrophotometric-cc.md) solve colour
-balance rather than reference level and spread. [LRGB Combination](../color-composition/lrgb-combination.md)
-and [NBRGB Combination](../color-composition/nbrgb-combination.md) have their own
-combination-specific normalization; avoid normalizing twice without checking
-their behavior.
+OK is disabled
+:   **Cause.** **Reference Image** reads `<--NO IMAGE-->`: none is chosen, the chosen view closed, or the target changed.
+:   **Fix.** Choose a reference.
+
+The image you want is not in Reference Image
+:   **Cause.** It has another number of channels than the target, or it is the target.
+:   **Fix.** Choose another target or reference. The size and the pixel type need not match.
+
+"A channel of the image and its reference shares no position whose reference sample lies between the limits"
+:   **Cause.** The limits keep no sample of some channel, or **Reject low** is above **Reject high**.
+:   **Fix.** Widen the limits, keep **Reject low** below **Reject high**, or choose another reference.
+
+"The selected reference image is no longer available."
+:   **Cause.** The reference's view held no image when you pressed **OK**.
+:   **Fix.** Choose another reference and press **OK** again.
+
+"Error running linear match"
+:   **Cause.** The run was refused for the reason the message gives, such as a sequence frame of another number of
+    channels, or memory.
+:   **Fix.** Read the reason, free memory or choose a matching reference, and press **OK** again.
+
+The result changed after one image was cropped or resized
+:   **Cause.** Images of one size are paired by position, and images of two sizes are measured each on its own.
+:   **Fix.** Give both images one size when they show one field, registered alike.
+
+Samples below 0 or above 1 after OK
+:   **Cause.** The match is not clamped, and a scale above 1 carries star cores past full scale.
+:   **Fix.** Keep them for the next linear step, or choose a closer reference or other limits.
+
+The mask on the view had no effect
+:   **Cause.** Linear Match does not use a mask.
+:   **Fix.** Match the whole image, or use a process that blends through a mask.
+
+## Related
+
+- [Channel Composition](../color-composition/channel-composition.md), which composes the matched masters and has a
+  linear match of its own: use one of the two, not both.
+- [Image Registration](../registration-alignment/image-registration.md) and
+  [Background Extraction](../background-extraction/background-extraction.md), before a match of images of one size.
+- [Background Neutralization](background-neutralization.md), which moves only the levels, measured in one reference.
+- [Color Calibration](color-calibration.md), [Photometric Color Calibration](photometric-cc.md) and
+  [Spectrophotometric Color Calibration](spectrophotometric-cc.md), which balance color rather than match a reference.
+- [Image Statistics](../../interface/image-statistics.md), to compare the medians and deviations before and after.
+- [Process Windows](../../interface/process-windows.md), for what every process window shares.
