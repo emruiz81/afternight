@@ -23,6 +23,34 @@ Rules, each reported with its id:
   R6  Credits. A process page that states `derived: true` has a `## Credits` section that says something: the work
       its result is computed with, its authors and its licence are credited on the page itself.
 
+The rules of a rewritten page hold a page to the guide's writing system: the templates under
+docs/user-guide/templates/, the budgets of data/limits.yml and the vocabulary of data/vocabulary.yml, which
+docs/dev/USER_GUIDE_STYLE.md explains. A page that states `rewritten: true` fails on them. A page that does not is
+only counted against R7, R8, R9 and R11, as warnings, and is not held to R10, R12 and R13: a page not yet rewritten
+never fails a rule it cannot meet, and a rewritten one is protected from the day it lands.
+
+  R7  Headings. A page has the sections of its kind's template, in the template's order, and no others; the parts
+      the theme draws from them have their shape - a process page's steps an ordered list with bold leads and its
+      controls in a `controls` block, a tutorial's steps `###` headings, a troubleshooting entry a **Cause.** and a
+      **Fix.**. The glossary is `## <letter>` sections of `### <term>` entries. The home page and the catalog have
+      nothing below their H1.
+  R8  Limits. The page is within the budgets of data/limits.yml: the words of its summary, its opening and its
+      body, its steps, bullets, callouts, troubleshooting entries, related links and credits, and the columns and
+      rows of its tables.
+  R9  Vocabulary. The page says none of the forbidden words of data/vocabulary.yml - what cites its proof, names
+      code or dates the application - in its prose, its front matter, its `controls` facets and its captions, apart
+      from what the allow-list states with a reason. An allowance its page does not use is a warning. An HTML
+      comment is a note for the page's authors, and is refused with them.
+  R10 Figures. Every picture is a `figure` block with a caption and an alternative text; a process or interface page
+      opens with one, before its first section; a pin's number is a step's; and on an interface page every item of
+      "What you see" has its pin. A process page of a nav group data/limits.yml lists under `before_after_groups`
+      shows a before-and-after pair in its worked example (a warning).
+  R11 Image files. A picture a page shows is a PNG, WebP or JPEG file within the size and weight of data/limits.yml,
+      with a row in the media provenance page.
+  R12 A rewritten process page states every key its "At a glance" is drawn from, the four texts of `glance` among
+      them, and says whether it is `derived`.
+  R13 Glossary. The first use on a page of a term the glossary defines is a link to the glossary (a warning).
+
   R1  The built site (--site). Every relative reference in its HTML - `href`, `src`, `srcset`, `poster`, `data`,
       inline `style` and `<style>` - and every `url()` and `@import` in its stylesheets names a file inside the site,
       spelled with the file's own case; a folder does not count, because a browser opened from disk lists a folder
@@ -35,14 +63,16 @@ Rules, each reported with its id:
       of the website's, so the guide and the site wear one skin: the two files are equal once their line endings are.
 
 Usage, with the documentation toolchain's Python, which has PyYAML (docs/user-guide/.venv, made by the build helper):
-    python build/scripts/tools/check_user_guide.py [--guide docs/user-guide] [--page <page> ...] [--site <site>]
-                                                   [--tokens <the website's assets/css/tokens.css>]
+    python build/scripts/tools/check_user_guide.py [--guide docs/user-guide] [--page <page> ...] [--pending]
+                                                   [--site <site>] [--tokens <the website's assets/css/tokens.css>]
 
-R2-R6 hold every page, or with --page only the pages named (relative to the docs folder or to the working
+R2-R13 hold every page, or with --page only the pages named (relative to the docs folder or to the working
 directory); the guide-wide parts - nav entries, menu coverage and unused images - run only over every page. R1 runs
 when --site names a built site, R16 when --tokens names the website's file. Each finding prints as
-`path:line: Rnn message`, then a count per rule and what was read. Exits 1 on any error, 0 otherwise, and 2 when the
-guide's own data cannot be read.
+`path:line: Rnn message`, a warning as `path:line: Rnn warning: message`, then a count per rule and what was read.
+The warnings of the pages not yet rewritten are counted and not listed, so that the errors can be read; --page lists
+those of the pages it names, and --pending lists them all. Exits 1 on any error, 0 otherwise, and 2 when the guide's
+own data cannot be read.
 
 Tests: build/scripts/tools/check_user_guide_test.py
 """
@@ -71,9 +101,83 @@ RULES = {
     'R4': 'menu parity',
     'R5': 'images',
     'R6': 'credits of derived pages',
+    'R7': 'headings',
+    'R8': 'limits',
+    'R9': 'vocabulary',
+    'R10': 'figures',
+    'R11': 'image files',
+    'R12': 'process keys',
+    'R13': 'glossary links',
     'R16': 'token parity',
 }
 THEME_TOKENS = 'theme/assets/guide/css/tokens.css'
+
+# --- The templates (R7) ----------------------------------------------------------------------------------------------
+# The sections of a page of each kind, in order: (the titles a section may have, whether the page must have it). The
+# theme finds the parts it draws by these titles (docs/user-guide/hooks/guide_html.py), and the templates under
+# docs/user-guide/templates/ are held to them by this script's test.
+
+ANY_SUBSECTIONS = 'any'
+CREDITS_SECTION = ((CREDITS,), False)
+SECTIONS = {
+    'process': (
+        (('Before you start',), True),
+        (('Steps',), True),
+        (('Controls',), True),
+        (('How it works',), True),
+        (('Starting points',), False),
+        (('When it goes wrong',), True),
+        (('Related',), True),
+        CREDITS_SECTION,
+    ),
+    'interface': (
+        (('What you see',), True),
+        (('What you can do',), True),
+        (('Controls',), False),
+        (('When it goes wrong',), True),
+        (('Related',), True),
+        CREDITS_SECTION,
+    ),
+    'tutorial': (
+        (('What you need',), True),
+        (('Your camera', 'Your data'), False),
+        (('Steps',), True),
+        (('The result',), True),
+        (('Next',), True),
+        CREDITS_SECTION,
+    ),
+}
+SECTIONS['workflow'] = SECTIONS['tutorial']
+TEMPLATES = 'docs/user-guide/templates/'
+TEMPLATE_FILES = {
+    'process': 'PROCESS_PAGE_TEMPLATE.md',
+    'interface': 'INTERFACE_PAGE_TEMPLATE.md',
+    'tutorial': 'TUTORIAL_PAGE_TEMPLATE.md',
+    'workflow': 'TUTORIAL_PAGE_TEMPLATE.md',
+    'reference': 'REFERENCE_PAGE_TEMPLATE.md',
+}
+# The `###` headings a section may hold: a fixed list, in order, or any (one per window, tab, task or step). A
+# section not named here has none.
+SUBSECTIONS = {
+    'process': {'Controls': ANY_SUBSECTIONS, 'How it works': ('Model', 'Boundaries', 'Worked example')},
+    'interface': {'What you can do': ANY_SUBSECTIONS, 'Controls': ANY_SUBSECTIONS},
+    'tutorial': {'Steps': ANY_SUBSECTIONS},
+    'workflow': {'Steps': ANY_SUBSECTIONS},
+}
+DATA_DRAWN_KINDS = ('home', 'catalog')
+GLOSSARY_SECTION = re.compile(r'^(?:[A-Z]|0-9)$')
+TASK_ITEM = re.compile(r'^\[[ xX]\][ \t]')
+WARNING_CALLOUTS = ('warning', 'danger')
+WRONG_CALLOUT = 'wrong'
+# What a rewritten process page states beside the keys every process page needs (R12).
+PROCESS_KEYS = ('data_in', 'data_out', 'destructive', 'preview', 'sequences', 'masks', 'external', 'glance',
+                'derived')
+# The sentences a block puts on the page, which R9 reads; a control's name, default and options are the window's own
+# words.
+BLOCK_PROSE = {
+    'controls': ('range', 'effect', 'enabled', 'tradeoff', 'scope', 'persistence', 'note'),
+    'figure': ('alt', 'caption', 'label'),
+}
 
 
 def check_tokens(guide, website_tokens, display):
@@ -124,9 +228,12 @@ class Finding:
     rule: str
     message: str
     severity: str = 'error'
+    # A warning about a page not yet rewritten: counted, and listed only when asked for.
+    pending: bool = False
 
     def __str__(self):
-        return '%s:%d: %s %s' % (self.path, self.line, self.rule, self.message)
+        return '%s:%d: %s %s%s' % (self.path, self.line, self.rule, 'warning: ' if self.severity == 'warning' else '',
+                                   self.message)
 
 
 class _ExactCase:
@@ -410,6 +517,454 @@ def _covered(path, page_paths):
     return any(path == menu or path.startswith(menu + ' > ') for menu in page_paths)
 
 
+def _article(kind):
+    return ('an %s' if kind[:1] in 'aeiou' else 'a %s') % kind
+
+
+def _count(count, singular, plural=None):
+    return '%d %s' % (count, singular if count == 1 else plural or singular + 's')
+
+
+def _template_order(kind):
+    """The sections of a kind's template, as a message says them."""
+    return 'the sections of %s page are, in order: %s' % (_article(kind), ', '.join(
+        ' or '.join(titles) + ('' if required else ' (optional)') for titles, required in SECTIONS[kind]))
+
+
+def _meta_prose(meta):
+    """(key, text) for every sentence a page's front matter puts on the page."""
+    def texts(value):
+        if isinstance(value, str):
+            yield value
+        elif isinstance(value, list):
+            for item in value:
+                yield from texts(item)
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                if key not in ('page', 'image', 'actions'):
+                    yield from texts(item)
+
+    for key in ('summary', 'external', 'glance', 'needs', 'notice', 'reach', 'hero', 'paths'):
+        for text in texts(meta.get(key)):
+            yield key, text
+
+
+class _Writing:
+    """One page held to the rules of a rewritten page: R7-R10, R12 and R13."""
+
+    def __init__(self, check, relative, path, front):
+        model = check.model
+        self.check = check
+        self.model = model
+        self.limits = check.limits
+        self.relative = relative
+        self.path = path
+        self.front = front
+        self.meta = front.meta
+        self.kind = front.meta['kind']
+        self.rewritten = front.meta.get('rewritten') is True
+        self.lines = model.prose_lines(front.body, front.body_line)
+        self.headings = model.headings(self.lines)
+        self.sections = [heading for heading in self.headings if heading.level == 2]
+        self.fences = model.fence_blocks(front.body, front.body_line)
+        title = next((heading for heading in self.headings if heading.level == 1), None)
+        self.top = title.line if title else front.body_line
+
+    def report(self, rule, line, message):
+        """A finding that fails a rewritten page and only counts against a page not yet rewritten."""
+        if self.rewritten:
+            self.check.report(rule, self.path, line, message)
+        else:
+            self.check.report(rule, self.path, line, message, 'warning', pending=True)
+
+    def run(self):
+        self.check_headings()
+        self.check_limits()
+        self.check_vocabulary()
+        if self.rewritten:
+            self.check_figures()
+            self.check_process_keys()
+            self.check_glossary_links()
+
+    # --- Reading the page ---
+
+    def section(self, *titles):
+        return next((heading for heading in self.sections if heading.title in titles), None)
+
+    def under(self, heading):
+        """The lines of a heading's section, its subsections included."""
+        return self.model.section_lines(self.lines, self.headings, heading)
+
+    def own(self, heading):
+        """The lines under a heading, before the next heading of any level."""
+        end = next((other.line for other in self.headings if other.line > heading.line), None)
+        return [(number, text) for number, text in self.lines
+                if number > heading.line and (end is None or number < end)]
+
+    def subsections(self, heading, title=None):
+        lines = {number for number, _ in self.under(heading)}
+        return [other for other in self.headings if other.level == heading.level + 1 and other.line in lines
+                and (title is None or other.title == title)]
+
+    def blocks_under(self, heading, language):
+        """(line, source) of the fenced blocks of a language in a heading's section."""
+        lines = {number for number, _ in self.under(heading)}
+        return [(line, source) for name, line, source in self.fences if name == language and line in lines]
+
+    def steps(self):
+        """The number of steps a pin may name, or None on a page whose kind has no steps."""
+        if self.kind == 'process':
+            heading = self.section('Steps')
+            return len(self.model.ordered_items(self.own(heading))) if heading else 0
+        if self.kind == 'interface':
+            heading = self.section('What you see')
+            return len(self.model.ordered_items(self.own(heading))) if heading else 0
+        if self.kind in ('tutorial', 'workflow'):
+            heading = self.section('Steps')
+            return len(self.subsections(heading)) if heading else 0
+        return None
+
+    # --- R7: headings ---
+
+    def check_headings(self):
+        if self.kind in DATA_DRAWN_KINDS:
+            self._nothing_below_the_title()
+        elif self.relative == self.limits.glossary_page:
+            self._glossary_sections()
+        elif self.kind in SECTIONS:
+            self._template_sections()
+            self._component_shapes()
+
+    def _nothing_below_the_title(self):
+        visible = re.sub(r'(?s)<!--.*?-->', lambda match: re.sub(r'[^\n]', ' ', match.group(0)), self.front.body)
+        for number, text in enumerate(visible.split('\n'), start=self.front.body_line):
+            if number > self.top and text.strip():
+                self.report('R7', number, 'the %s page is drawn from its front matter; it has nothing below its H1' %
+                            ('home' if self.kind == 'home' else 'catalog'))
+                return
+
+    def _template_sections(self):
+        kind = self.kind
+        template = SECTIONS[kind]
+        order = _template_order(kind)
+        seen = {}
+        last = None    # (place in the template, title) of the section furthest down the template so far
+        parent = None  # the section a `###` belongs to, when the template has it
+        met = []       # the subsections of `parent` so far
+        for heading in self.headings:
+            if heading.level == 2:
+                parent, met = None, []
+                place = next((index for index, (titles, _) in enumerate(template) if heading.title in titles), None)
+                if place is None:
+                    self.report('R7', heading.line, '`## %s` is no section of %s page (%s)' %
+                                (heading.title, _article(kind), TEMPLATES + TEMPLATE_FILES[kind]))
+                elif place in seen:
+                    self.report('R7', heading.line, '`## %s` repeats `## %s` of line %d; a page has the section once'
+                                % (heading.title, seen[place].title, seen[place].line))
+                else:
+                    seen[place] = heading
+                    parent = heading
+                    if last is not None and place < last[0]:
+                        self.report('R7', heading.line, '`## %s` comes after `## %s`; %s' %
+                                    (heading.title, last[1], order))
+                    else:
+                        last = (place, heading.title)
+            elif heading.level == 3:
+                if parent is None:
+                    if not any(other.line < heading.line for other in self.sections):
+                        self.report('R7', heading.line, '`### %s` comes before the first section; the opening of a '
+                                    'page has no heading' % heading.title)
+                    continue  # under a section the template does not have, which is reported
+                allowed = SUBSECTIONS[kind].get(parent.title)
+                if allowed == ANY_SUBSECTIONS:
+                    continue
+                if not allowed:
+                    self.report('R7', heading.line, '`### %s` is under `## %s`, which has no subsections' %
+                                (heading.title, parent.title))
+                elif heading.title not in allowed:
+                    self.report('R7', heading.line, '`### %s` is no subsection of `## %s`; they are %s, in that order'
+                                % (heading.title, parent.title, ', '.join(allowed)))
+                elif heading.title in met:
+                    self.report('R7', heading.line, '`### %s` comes twice under `## %s`' %
+                                (heading.title, parent.title))
+                else:
+                    if met and allowed.index(heading.title) < allowed.index(met[-1]):
+                        self.report('R7', heading.line, '`### %s` comes after `### %s`; the subsections of `## %s` '
+                                    'are %s, in that order' % (heading.title, met[-1], parent.title,
+                                                               ', '.join(allowed)))
+                    met.append(heading.title)
+            elif heading.level > 3:
+                self.report('R7', heading.line, '"%s" is a heading of level %d; a page has its template\'s sections '
+                            'and subsections, and one that needs more splits off a reference page' %
+                            (heading.title, heading.level))
+        for place, (titles, required) in enumerate(template):
+            if required and place not in seen:
+                self.report('R7', self.top, 'the page has no `## %s`, which %s page has (%s)' %
+                            (titles[0], _article(kind), TEMPLATES + TEMPLATE_FILES[kind]))
+
+    def _component_shapes(self):
+        """The parts the theme draws from a section have the shape it draws."""
+        model = self.model
+        kind = self.kind
+        steps = self.section('Steps')
+        if steps and kind == 'process':
+            items = model.ordered_items(self.own(steps))
+            if not items:
+                self.report('R7', steps.line, '`## Steps` has no ordered list; the steps of a process page are its '
+                            'items, each a bold lead and a sentence or two')
+            for position, (line, text) in enumerate(items, start=1):
+                if not text.startswith('**'):
+                    self.report('R7', line, 'step %d opens without a bold lead, such as `**Open the window.**`' %
+                                position)
+        if steps and kind in ('tutorial', 'workflow') and not self.subsections(steps):
+            self.report('R7', steps.line, '`## Steps` has no step; each step of %s is a `###` heading' %
+                        _article(kind))
+        controls = self.section('Controls')
+        if controls and kind == 'process' and not self.blocks_under(controls, 'controls'):
+            self.report('R7', controls.line, '`## Controls` has no `controls` block; the controls of a window are '
+                        'written in one')
+        shown = self.section('What you see')
+        if shown and not model.ordered_items(self.own(shown)):
+            self.report('R7', shown.line, '`## What you see` has no numbered list; its items are the pins of the '
+                        'page\'s figure')
+        need = self.section('What you need')
+        if need and not any(TASK_ITEM.match(text) for _, text in model.bullets(self.own(need))):
+            self.report('R7', need.line, '`## What you need` has no task list (`- [ ] ...`), which the page draws as '
+                        'a checklist')
+        trouble = self.section('When it goes wrong')
+        if trouble:
+            for line, term, texts in model.definitions(self.under(trouble)):
+                for part in ('Cause', 'Fix'):
+                    if not any(text.startswith('**%s.**' % part) for text in texts):
+                        self.report('R7', line, 'the entry "%s" has no `**%s.**`; a troubleshooting entry is the '
+                                    'symptom, then `:   **Cause.** ...` and `:   **Fix.** ...`' % (term, part))
+
+    def _glossary_sections(self):
+        letter = None
+        last = None
+        for heading in self.headings:
+            if heading.level == 2:
+                letter = None
+                if not GLOSSARY_SECTION.match(heading.title):
+                    self.report('R7', heading.line, '`## %s` is no section of the glossary; its sections are single '
+                                'letters, `## A` to `## Z`, and `## 0-9`' % heading.title)
+                    continue
+                if last is not None and heading.title <= last:
+                    self.report('R7', heading.line, '`## %s` comes after `## %s`; the glossary\'s sections are in '
+                                'alphabetical order, each once' % (heading.title, last))
+                else:
+                    last = heading.title
+                letter = heading.title
+            elif heading.level == 3:
+                if letter is None:
+                    if not any(other.line < heading.line for other in self.sections):
+                        self.report('R7', heading.line, '`### %s` is under no letter; a term sits under the section '
+                                    'of its first letter' % heading.title)
+                    continue
+                first = next((character for character in heading.title if character.isalnum()), '')
+                if not (first.isdigit() if letter == '0-9' else first.upper() == letter):
+                    self.report('R7', heading.line, '`### %s` is under `## %s`; a term sits under the section of its '
+                                'first letter' % (heading.title, letter))
+            elif heading.level > 3:
+                self.report('R7', heading.line, '"%s" is a heading of level %d; the glossary has letters and terms' %
+                            (heading.title, heading.level))
+
+    # --- R8: limits ---
+
+    def _limit(self, name, count, line, said):
+        limit = self.limits.of(self.kind, name, self.relative)
+        if limit is not None and count > limit:
+            large = self.relative in self.limits.large_pages and name in self.limits.large.get(self.kind, {})
+            self.report('R8', line, '%s, over the limit of %d for %s page' %
+                        (said, limit, 'a large %s' % self.kind if large else _article(self.kind)))
+
+    def check_limits(self):
+        model, limits, kind = self.model, self.limits, self.kind
+        summary = self.meta.get('summary')
+        if isinstance(summary, str) and model.count_words(summary) > limits.summary_words:
+            self.report('R8', self.front.key_lines.get('summary', 1), '`summary` has %d words, over the limit of %d' %
+                        (model.count_words(summary), limits.summary_words))
+        for line, columns, _ in model.tables(self.lines):
+            if columns > limits.table_columns:
+                self.report('R8', line, 'the table has %d columns, over the limit of %d; write it as a definition '
+                            'list, or as a table of what a reader compares' % (columns, limits.table_columns))
+        if self.relative == limits.glossary_page:
+            for letter in self.sections:
+                for entry in self.subsections(letter) if GLOSSARY_SECTION.match(letter.title) else []:
+                    words = model.count_words('\n'.join(text for _, text in self.under(entry)))
+                    if words > limits.glossary_entry_words:
+                        self.report('R8', entry.line, 'the entry "%s" has %d words, over the limit of %d for a '
+                                    'glossary entry' % (entry.title, words, limits.glossary_entry_words))
+        if kind not in limits.kinds:
+            return
+        credits = self.section(CREDITS)
+        left_out = {number for number, _ in self.under(credits)} | {credits.line} if credits else set()
+        words = model.count_words('\n'.join(text for number, text in self.lines if number not in left_out))
+        self._limit('words', words, self.top, 'the page has %d words' % words)
+        first = self.sections[0].line if self.sections else None
+        opening = model.count_words('\n'.join(text for number, text in self.lines
+                                              if number > self.top and (first is None or number < first)))
+        self._limit('opening_words', opening, self.top, 'the opening has %d words' % opening)
+        for name, title, read, scope, singular, plural in (
+                ('before_you_start', 'Before you start', model.bullets, self.own, 'bullet', None),
+                ('how_it_works', 'How it works', model.ordered_items, self.own, 'numbered statement', None),
+                ('troubleshooting', 'When it goes wrong', model.definitions, self.under, 'entry', 'entries'),
+                ('related', 'Related', model.bullets, self.under, 'link', None),
+                ('credits', CREDITS, model.bullets, self.under, 'entry', 'entries')):
+            heading = self.section(title)
+            if heading:
+                found = read(scope(heading))
+                self._limit(name, len(found), heading.line, '`## %s` has %s' %
+                            (title, _count(len(found), singular, plural)))
+        steps = self.section('Steps')
+        if steps and kind == 'process':
+            found = model.ordered_items(self.own(steps))
+            self._limit('steps', len(found), steps.line, '`## Steps` has %s' % _count(len(found), 'step'))
+        elif steps:
+            found = self.subsections(steps)
+            self._limit('steps', len(found), steps.line, '`## Steps` has %s' % _count(len(found), 'step'))
+            for step in found:
+                wrong = [line for line, name in model.callouts(self.under(step)) if name == WRONG_CALLOUT]
+                self._limit('wrong_per_step', len(wrong), step.line, 'the step "%s" has %s' %
+                            (step.title, _count(len(wrong), '`wrong` box', '`wrong` boxes')))
+        how = self.section('How it works')
+        for boundaries in self.subsections(how, 'Boundaries') if how else []:
+            found = model.bullets(self.under(boundaries))
+            self._limit('boundaries', len(found), boundaries.line, '`### Boundaries` has %s' %
+                        _count(len(found), 'bullet'))
+        starting = self.section('Starting points')
+        for line, columns, rows in model.tables(self.under(starting)) if starting else []:
+            self._limit('starting_points_rows', rows, line, 'the table of `## Starting points` has %s' %
+                        _count(rows, 'row'))
+            self._limit('starting_points_columns', columns, line, 'the table of `## Starting points` has %s' %
+                        _count(columns, 'column'))
+        warnings = [line for line, name in model.callouts(self.lines) if name in WARNING_CALLOUTS]
+        self._limit('warnings', len(warnings), warnings[-1] if warnings else self.top,
+                    'the page has %d warning and danger callouts' % len(warnings))
+
+    # --- R9: vocabulary ---
+
+    def check_vocabulary(self):
+        model = self.model
+        said = [(number, model.without_addresses(text)) for number, text in self.lines]
+        said += [(self.front.key_lines.get(key, 1), text) for key, text in _meta_prose(self.meta)]
+        for language, line, source in self.fences:
+            said += [(line + offset, text) for offset, _, text in model.block_texts(source,
+                                                                                    BLOCK_PROSE.get(language, ()))]
+        # A comment says nothing to the reader: it is a note for the page's authors, which a page does not carry. The
+        # lines of a fenced block are empty here, so a comment shown as code is not one.
+        for (number, text), written in zip(self.lines, self.front.body.split('\n')):
+            if '<!--' in written and text:
+                self.report('R9', number, 'the page has an HTML comment; a page carries no note for its authors')
+        allowances = [allowance for allowance in self.check.vocabulary.allow if allowance.page == self.relative]
+        for number, text in said:
+            plain = model.without_code_spans(text)
+            allowed = []
+            for allowance in allowances:
+                start = text.find(allowance.text)
+                while start >= 0:
+                    allowed.append((start, start + len(allowance.text)))
+                    self.check.used_allowances.add(allowance)
+                    start = text.find(allowance.text, start + 1)
+            reported = []  # one finding for one word, whichever pattern finds it first
+            for pattern in self.check.vocabulary.patterns:
+                for match in pattern.regex.finditer(text if pattern.code else plain):
+                    if any(start <= match.start() and match.end() <= end for start, end in allowed) \
+                            or any(match.start() < end and start < match.end() for start, end in reported):
+                        continue
+                    reported.append((match.start(), match.end()))
+                    self.report('R9', number, 'says "%s": %s' % (match.group(0), pattern.why))
+
+    # --- R10: figures ---
+
+    def check_figures(self):
+        model = self.model
+        kind = self.kind
+        for line, _ in model.inline_images(self.front.body, self.front.body_line):
+            self.report('R10', line, 'the picture is not in a `figure` block, which gives it its caption and its '
+                        'alternative text')
+        figures = [(line, model.read_figure(source)) for name, line, source in self.fences if name == 'figure']
+        figures = [(line, figure) for line, figure in figures if figure is not None]
+        steps = self.steps()
+        for line, figure in figures:
+            if not figure['caption']:
+                self.report('R10', line, 'the figure has no `caption`; say in one sentence what the picture shows')
+            if any(not image['alt'] for image in figure['images']):
+                self.report('R10', line, 'the figure has a picture without `alt`; describe it for a reader who '
+                            'cannot see it')
+            for pin in figure['pins']:
+                # A page without its steps is R7's to report, once.
+                if steps and not 1 <= pin <= steps:
+                    self.report('R10', line, 'pin %d matches no step; the page has %s' % (pin, _count(steps, 'step')))
+        if kind in ('process', 'interface'):
+            first = self.sections[0].line if self.sections else None
+            opening = [figure for line, figure in figures if first is None or line < first]
+            if len(opening) != 1 or opening[0]['pair']:
+                self.report('R10', self.top, '%s page opens with one figure of its window, before its first section; '
+                            'this one has %s there' % (_article(kind).capitalize(), 'a before-and-after pair'
+                                                       if len(opening) == 1 else _count(len(opening), 'figure')))
+            elif kind == 'interface':
+                unpinned = [str(item) for item in range(1, steps + 1) if item not in opening[0]['pins']]
+                if unpinned:
+                    self.report('R10', self.top, '%s of `## What you see` %s no pin on the opening figure' %
+                                ('item ' + unpinned[0] if len(unpinned) == 1 else 'items ' + ', '.join(unpinned),
+                                 'has' if len(unpinned) == 1 else 'have'))
+        groups = self.check.nav_groups.get(self.relative, ())
+        if kind == 'process' and groups and groups[-1] in self.limits.before_after_groups:
+            how = self.section('How it works')
+            worked = self.subsections(how, 'Worked example') if how else []
+            pairs = [line for example in worked for line, source in self.blocks_under(example, 'figure')
+                     if (model.read_figure(source) or {}).get('pair')]
+            if not pairs:
+                self.check.report('R10', self.path, worked[0].line if worked else self.top, 'a %s process is judged '
+                                  'by its result, and the page shows no before-and-after pair under `### Worked '
+                                  'example`' % groups[-1], 'warning')
+
+    # --- R12: the keys of a rewritten process page ---
+
+    def check_process_keys(self):
+        if self.kind != 'process':
+            return
+        for key in PROCESS_KEYS:
+            if key not in self.meta:
+                self.report('R12', self.front.key_lines.get('kind', 1), 'a rewritten process page states `%s`' % key)
+        glance = self.meta.get('glance')
+        if isinstance(glance, dict):
+            missing = [key for key in self.model.GLANCE_KEYS if key not in glance]
+            if missing:
+                self.report('R12', self.front.key_lines.get('glance', 1), '`glance` lacks %s; it states %s' %
+                            (', '.join('`%s`' % key for key in missing), ', '.join(self.model.GLANCE_KEYS)))
+
+    # --- R13: glossary terms linked on first use ---
+
+    def check_glossary_links(self):
+        model = self.model
+        glossary = self.limits.glossary_page
+        if self.kind in DATA_DRAWN_KINDS or self.relative == glossary:
+            return
+        terms = self.check.glossary_terms()
+        if not terms:
+            return
+        heading_lines = {heading.line for heading in self.headings}
+        folder = posixpath.dirname(self.relative)
+        pending = list(terms)
+        for number, text in self.lines:
+            if not pending or number in heading_lines or not text.strip():
+                continue
+            said = model.without_addresses(model.without_code_spans(text))
+            to_glossary = [(start, end) for start, end, address in model.links(text)
+                           if posixpath.normpath(posixpath.join(folder, urllib.parse.unquote(
+                               address.split('#', 1)[0].split('?', 1)[0]))) == glossary]
+            for term, regex in list(pending):
+                match = regex.search(said)
+                if not match:
+                    continue
+                pending.remove((term, regex))
+                if not any(start <= match.start() and match.end() <= end for start, end in to_glossary):
+                    self.check.report('R13', self.path, number, '"%s" is a term of the glossary; link its first use '
+                                      'on the page to its entry' % term, 'warning')
+
+
 class _GuideCheck:
     def __init__(self, model, repo, guide, display):
         self.model = model
@@ -421,12 +976,18 @@ class _GuideCheck:
         self.docs = model.docs_dir(guide, self.config)
         self.stages = model.load_stages(guide)
         self.stage_ids = [stage.id for stage in self.stages]
+        self.limits = model.load_limits(guide)
+        self.vocabulary = model.load_vocabulary(guide)
         self.nav = model.nav_entries(self.config)
+        self.nav_groups = {entry.path: entry.groups for entry in self.nav}
         self.exact = _ExactCase(self.docs)
         self.pages = {}
+        self.shown = {}                # image -> [(the page that shows it, whether that page is rewritten)]
+        self.used_allowances = set()
+        self._glossary_terms = None
 
-    def report(self, rule, path, line, message, severity='error'):
-        self.findings.append(Finding(self.display(path), line, rule, message, severity))
+    def report(self, rule, path, line, message, severity='error', pending=False):
+        self.findings.append(Finding(self.display(path), line, rule, message, severity, pending))
 
     def page_path(self, relative):
         return os.path.join(self.docs, relative)
@@ -491,6 +1052,8 @@ class _GuideCheck:
             resolved = self.check_image(path, relative, line, url)
             if resolved:
                 referenced.add(resolved)
+                self.shown.setdefault(resolved, []).append((relative, bool(front.meta)
+                                                            and front.meta.get('rewritten') is True))
         # R6: a derived page credits the work it is derived from.
         if front.meta and front.meta.get('derived') is True:
             credits = model.section(front.body, CREDITS, front.body_line)
@@ -500,7 +1063,74 @@ class _GuideCheck:
             elif not credits[1]:
                 self.report('R6', path, credits[0], 'the `## Credits` section is empty, and the page states '
                             '`derived: true`; it credits the upstream work, its authors and its licence there')
+        # R7-R10, R12, R13: the page against its template, its budgets and the guide's vocabulary.
+        if front.meta and front.meta.get('kind') in model.KINDS:
+            _Writing(self, relative, path, front).run()
         return referenced
+
+    def glossary_terms(self):
+        """(term, the expression that finds it in prose) for every `### <term>` of the glossary's letter sections. A
+        term matches whole, with or without a plural ending; one written all in capitals matches only so."""
+        if self._glossary_terms is None:
+            model = self.model
+            self._glossary_terms = []
+            path = self.page_path(self.limits.glossary_page)
+            if os.path.isfile(path):
+                front = model.split_front_matter(model.read_text(path))
+                under_letter = False
+                for heading in model.headings(model.prose_lines(front.body, front.body_line)):
+                    if heading.level == 2:
+                        under_letter = bool(GLOSSARY_SECTION.match(heading.title))
+                    elif heading.level == 3 and under_letter and heading.title:
+                        flags = 0 if heading.title.upper() == heading.title else re.IGNORECASE
+                        self._glossary_terms.append((heading.title, re.compile(
+                            r'(?<![\w-])%s(?:e?s)?(?![\w-])' % re.escape(heading.title), flags)))
+        return self._glossary_terms
+
+    def check_image_files(self):
+        """R11: every picture a checked page shows, as a file."""
+        model = self.model
+        limits = self.limits
+        provenance = os.path.join(self.docs, limits.provenance_page)
+        recorded = set()
+        if os.path.isfile(provenance):
+            recorded = {posixpath.normpath(name) for name in re.findall(r'`([^`\s]+)`', model.read_text(provenance))}
+        for image in sorted(self.shown):
+            full = os.path.join(self.docs, image)
+            pages = self.shown[image]
+            rewritten = any(marked for _, marked in pages)
+            problems = []
+            try:
+                size = model.image_size(full)
+                weight = os.path.getsize(full)
+            except OSError:
+                continue  # R5 reports a picture that cannot be opened under the name the page gives it
+            if size is None:
+                problems.append('is not a PNG, WebP or JPEG file')
+            elif max(size) > limits.image_longest_side:
+                problems.append('is %d px on its longest side, over the limit of %d px' %
+                                (max(size), limits.image_longest_side))
+            if weight > limits.image_max_bytes:
+                problems.append('weighs %d KB, over the limit of %d KB' %
+                                ((weight + 1023) // 1024, limits.image_max_bytes // 1024))
+            if image not in recorded:
+                problems.append('has no row in %s' % limits.provenance_page)
+            shown_by = sorted({page for page, marked in pages if marked or not rewritten})
+            for problem in problems:
+                self.report('R11', full, 1, 'the picture %s (shown by %s)' % (problem, ', '.join(shown_by)),
+                            'error' if rewritten else 'warning', pending=not rewritten)
+
+    def check_allowances(self, pages, whole_guide):
+        """R9: an allowance that allows nothing is stale."""
+        vocabulary = os.path.join(self.guide, 'data', 'vocabulary.yml')
+        for allowance in self.vocabulary.allow:
+            if allowance.page in pages:
+                if allowance not in self.used_allowances:
+                    self.report('R9', vocabulary, allowance.line, 'the allow-list allows "%s" on %s, which does not '
+                                'say it; remove the entry' % (allowance.text, allowance.page), 'warning')
+            elif whole_guide:
+                self.report('R9', vocabulary, allowance.line, 'the allow-list names %s, which is not a page' %
+                            allowance.page, 'warning')
 
     def check_image(self, path, relative, line, url):
         url = url.strip()
@@ -583,7 +1213,7 @@ class _GuideCheck:
                     self.report('R5', full, 1, 'no page, README.md, logo or favicon shows this image', 'warning')
 
     def run(self, selected=None):
-        """R2-R6 over every page, or over the pages selected; returns what the summary reports."""
+        """R2-R13 over every page, or over the pages selected; returns what the summary reports."""
         try:
             product = ProductMenus(self.repo)
             product_paths = product.existing_paths()
@@ -595,6 +1225,8 @@ class _GuideCheck:
         referenced = set()
         for relative in pages:
             referenced |= self.check_page(relative, product, product_paths)
+        self.check_image_files()
+        self.check_allowances(set(pages), selected is None)
         coverage = None
         if selected is None:
             self.check_nav()
@@ -608,9 +1240,11 @@ def _guide_summary(check, pages, coverage):
     kinds = {}
     stages = {}
     derived = 0
+    rewritten = 0
     for relative in pages:
         meta = check.pages[relative].meta or {}
         kinds[meta.get('kind')] = kinds.get(meta.get('kind'), 0) + 1
+        rewritten += meta.get('rewritten') is True
         if meta.get('kind') == 'process':
             stages[meta.get('stage')] = stages.get(meta.get('stage'), 0) + 1
             derived += meta.get('derived') is True
@@ -620,6 +1254,7 @@ def _guide_summary(check, pages, coverage):
         lines.append('process pages by stage: %s; %d derived' % (
             ', '.join('%s %d' % (stage, stages[stage]) for stage in check.stage_ids + [None] if stages.get(stage)),
             derived))
+    lines.append('%d of %d pages rewritten and held to R7-R13 as errors' % (rewritten, len(pages)))
     if coverage:
         registered, unregistered, covered = coverage
         lines.append('menus: %d of %d registered actions and other Process menu actions on a page\'s `menu`' %
@@ -647,7 +1282,9 @@ def main(argv=None, stream=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--repo', default=REPO_ROOT, help='the repository whose application sources R4 reads')
     parser.add_argument('--guide', help='the guide folder that holds mkdocs.yml; default <repo>/docs/user-guide')
-    parser.add_argument('--page', action='append', help='hold only this page to R2-R6; may be repeated')
+    parser.add_argument('--page', action='append', help='hold only this page to R2-R13; may be repeated')
+    parser.add_argument('--pending', action='store_true', help='list the warnings of the pages not yet rewritten, '
+                        'which are otherwise only counted')
     parser.add_argument('--site', help='a built site to hold to R1, such as docs/user-guide/site')
     parser.add_argument('--tokens', help='the website\'s assets/css/tokens.css, to hold the theme\'s copy to (R16)')
     arguments = parser.parse_args(argv)
@@ -694,8 +1331,15 @@ def main(argv=None, stream=None):
     else:
         summary.append('R16 not run: no --tokens')
 
+    list_pending = arguments.pending or bool(arguments.page)
+    unlisted = [finding for finding in findings if finding.pending and not list_pending]
     for finding in findings:
-        print(finding, file=stream)
+        if list_pending or not finding.pending:
+            print(finding, file=stream)
+    if unlisted:
+        summary.append('%d warning(s) about %d file(s) of pages not yet rewritten are counted and not listed; --page '
+                       '<page> lists a page\'s, --pending all of them' %
+                       (len(unlisted), len({finding.path for finding in unlisted})))
     errors = 0
     ran = {'R1': bool(arguments.site), 'R16': bool(arguments.tokens)}
     for rule, name in RULES.items():

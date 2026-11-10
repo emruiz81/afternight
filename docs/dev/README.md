@@ -79,7 +79,11 @@ from, under which licence, and which files carry its notice ("Credit for derived
 - [USER_GUIDE_AUTHORING.md](USER_GUIDE_AUTHORING.md) - how the user guide is built and written: its theme, hooks,
   data and packaging, the page metadata, the content rules, what makes a page complete, and the checks that hold
   it.
-- The page templates under [../user-guide/templates/](../user-guide/templates/).
+- [USER_GUIDE_STYLE.md](USER_GUIDE_STYLE.md) - how a page of the user guide is written: who reads which kind of
+  page, voice and sentences, what a page does not say, pictures, troubleshooting, credits and length.
+- The page templates under [../user-guide/templates/](../user-guide/templates/), one per kind of page, and the
+  budgets and vocabulary under [../user-guide/data/](../user-guide/data/) that `check_user_guide.py` holds a
+  rewritten page to.
 
 ## Inputs the tools read
 
