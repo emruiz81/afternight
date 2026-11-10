@@ -28,13 +28,16 @@ rewritten: true
 ---
 # Histogram Transformation
 
-Histogram Transformation stretches a [linear image](../../reference/glossary.md) into a visible one. You set a black
-point, a white point and a midtones balance, and every sample is mapped through the
-[midtones transfer function](../../reference/glossary.md) they define. Two toolbar buttons derive the same kind of
-curve from the image's statistics instead.
+Histogram Transformation [stretches](../../reference/glossary.md#stretch) a
+[linear image](../../reference/glossary.md#linear-image) into a visible one. You set a
+[black point](../../reference/glossary.md#black-point), a [white point](../../reference/glossary.md#white-point) and a
+[midtones](../../reference/glossary.md#midtones) balance, and every sample is mapped through the
+[midtones transfer function](../../reference/glossary.md#midtones-transfer-function) they define. Two toolbar buttons
+derive the same kind of curve from the image's statistics instead.
 
-**Apply** replaces the image or sequence with the stretched one, keeps its size and pixel type, and adds one step to
-its history. The result is recorded as nonlinear.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the stretched one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/stretching/histogram-transformation.webp
@@ -56,20 +59,21 @@ pins:
 
 ## Before you start
 
-- Finish the work that needs linear data first: gradient removal, color calibration, measurement, deconvolution and
-  linear noise reduction. After **Apply** the image is nonlinear.
+- Finish the work that needs linear data first: gradient removal, color calibration, measurement,
+  [deconvolution](../../reference/glossary.md#deconvolution) and linear noise reduction. After **Apply** the image is nonlinear.
 - **Apply** replaces the image. Its history keeps the step before, and this window has no inverse. Stretch once:
   every repeated stretch adds rounding and clipping.
 - The image is grayscale or RGB. A raw color-filter mosaic is stretched as a grayscale image, which breaks the
-  relation between its sensor values: debayer it first.
-- A [mask](../../reference/glossary.md) on the view blends the stretched image with the original after the stretch.
+  relation between its sensor values: [debayer](../../reference/glossary.md#debayer) it first.
+- A [mask](../../reference/glossary.md#mask) on the view blends the stretched image with the original after the stretch.
   The histograms and the **Clipped** fields are counted without it.
 - On a sequence, your own values give every frame the same curve. An Auto-stretch button gives each frame the curve
   of its own statistics.
 
 ## Steps
 
-1. **Open the window.** Make the linear master the active image and choose **Process > Intensity Transformations >
+1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Intensity Transformations >
    Histogram Transformation**. The lower histogram shows the image as a narrow peak at the left, and the preview is
    nearly black.
 2. **Choose the channel.** Leave **Channel** at **RGB** to stretch the three channels with one curve. Choose
@@ -251,8 +255,10 @@ controls:
 3. Every selected sample is brought to the range 0 to 1, sent through the curve and written back in the image's own
    pixel type, rounded to the nearest value. The other channels are kept exactly as they were.
 4. A mask on the view then blends the result with the original.
-5. The image replaces the target and its history gets one step. Its header, its acquisition data and its plate
-   solution are kept, and its processing state is recorded as nonlinear with the operation `histogram-mtf`.
+5. The image replaces the target and its history gets one step. Its header, its acquisition data and its
+   [plate solution](../../reference/glossary.md#plate-solution) are kept, and its
+   [processing state](../../reference/glossary.md#processing-state) is recorded as nonlinear with the operation
+   `histogram-mtf`.
 
 ### Model
 
@@ -270,7 +276,8 @@ With \(m = 0.5\), equation (2) is a straight line between the two points. The sa
 0.5, which is where the middle handle sits: at \(S + (H - S)\,m\).
 
 An Auto-stretch takes, for each channel \(j\), the median \(v_j\) and the deviation \(q_j\), which is 1.4826 times
-the median absolute deviation, or 0.001 when that is zero. The linked button derives
+the [median absolute deviation](../../reference/glossary.md#median-absolute-deviation), or 0.001 when that is zero.
+The linked button derives
 
 \[ S = \max\Bigl(0,\ \overline{v_j - 2.8\,q_j}\Bigr), \qquad H = 1, \qquad m = f_{0.25}\bigl(\overline{v_j} - S\bigr) \tag{3} \]
 
@@ -383,7 +390,7 @@ The preview is slow
 
 ## Credits
 
-- The [XISF 1.0 specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html) describes display
-  functions and the midtones transfer function this explanation uses.
+- The [XISF](../../reference/glossary.md#xisf)
+  [1.0 specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html) describes display functions and the midtones transfer function this explanation uses.
 - A [PixInsight forum explanation of the midtones transfer function](https://pixinsight.com/forum/index.php?threads/after-doing-luminance-levels-transform-the-image-is-monochrome.741/)
   describes the two end points, the control point at 0.5 and the straight line at a midtones balance of 0.5.

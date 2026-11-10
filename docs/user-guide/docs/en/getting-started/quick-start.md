@@ -9,9 +9,9 @@ rewritten: true
 ---
 # Quick Start
 
-You start with the frames of one night on one target: your [light frames](../reference/glossary.md) and, when you
-have them, darks, flats and bias frames. You end with one stacked, linear master open in AfterNight, and a report of
-what was done to get it. **Image Integration Lite** does the calibration, the registration and the stacking in one
+You start with the frames of one night on one target: your [light frames](../reference/glossary.md#light-frame) and,
+when you have them, darks, flats and [bias frames](../reference/glossary.md#bias-frame). You end with one stacked,
+linear [master](../reference/glossary.md#master) open in AfterNight, and a report of what was done to get it. **Image Integration Lite** does the calibration, the registration and the stacking in one
 run, with settings chosen for a first result.
 
 ## What you need
@@ -25,7 +25,8 @@ Lights alone are enough to run. The result is then stacked but not calibrated, a
 
 ## Your camera
 
-- **A color camera.** Use the raw or FITS files as the camera wrote them, and do not debayer them first. The
+- **A color camera.** Use the raw or [FITS](../reference/glossary.md#fits) files as the camera wrote them, and do not
+  [debayer](../reference/glossary.md#debayer) them first. The
   calibration works on the raw mosaic, and the registration turns it into color with the filter pattern the files
   state. You get one linear color master.
 - **A mono camera.** Use the lights of one filter, with the flats taken through that filter. Each filter makes a
@@ -92,7 +93,8 @@ A file that is already listed is not added twice.
 
 ??? wrong "If it goes wrong: the import adds no rows"
     None of the files is a still image AfterNight can read, and the banner returns to "No light frames available."
-    Use a format listed in [Supported Formats](supported-formats.md). Frames inside a video or a sequence file are
+    Use a format listed in [Supported Formats](supported-formats.md). Frames inside a video or a
+    [sequence](../reference/glossary.md#sequence) file are
     extracted first.
 
 ### Check the table
@@ -115,8 +117,9 @@ must show the one filter you meant to add.
 ### Leave the processing settings
 
 Leave the four lines of **Processing Settings** closed for this first run. They read **Calibration: Automatic, flat
-auto-level**, **Registration: Homography, auto reference**, **Normalization: Global Additive Scaling** and
-**Stacking: Average, Auto, final solve off, drizzle off**. With the final plate solve off, the run needs no solver
+auto-level**, **Registration: [Homography](../reference/glossary.md#homography), auto reference**, **Normalization:
+Global Additive Scaling** and **Stacking: Average, Auto, final solve off, [drizzle](../reference/glossary.md#drizzle)
+off**. With the final plate solve off, the run needs no solver
 and no star catalog.
 
 Keep **Open results when complete** on. **Limit memory usage** makes the stacking work in tiles. It does not bound
@@ -125,7 +128,8 @@ everything else the run allocates.
 ### Read the banner
 
 The banner at the top says whether the run can start. Red is an error and must be resolved. Amber is a warning:
-hover over the banner to read each one, and decide whether you accept it. Without calibration frames the amber
+hover over the banner to read each one, and decide whether you accept it. Without
+[calibration frames](../reference/glossary.md#calibration-frame) the amber
 banner reads "No calibration frames provided. Lights will be integrated without bias, dark, or flat calibration."
 
 The banner checks that the run can be built. It does not judge whether the calibration matches are good ones, or
@@ -163,8 +167,9 @@ kept and reported.
 
 ### Look at the result
 
-With **Open results when complete** on, the master opens in the workspace. It is [linear](../reference/glossary.md),
-so it looks nearly black: choose **Autostretch** in the display mode box of its toolbar to see it. That changes the
+With **Open results when complete** on, the master opens in the workspace. It is
+[linear](../reference/glossary.md#linear-image), so it looks nearly black: choose
+[**Autostretch**](../reference/glossary.md#autostretch) in the display mode box of its toolbar to see it. That changes the
 display only, not the image.
 
 Zoom to 100 % and look at the stars and the background. Then open the report of the run, `workflow_report.html`
@@ -203,14 +208,14 @@ caption: >-
 ```
 
 Lite keeps its list of frames only while the window is open, and does one target at a time. It does not take video
-or sequence files, masks or comets. For those, and to assign calibration by hand or save the work as a project,
+or sequence files, [masks](../reference/glossary.md#mask) or comets. For those, and to assign calibration by hand or save the work as a project,
 choose **Open Full Process**: it opens Image Integration with the frames and the settings you have here.
 
 ## Next
 
 - [Image Viewer](../interface/image-viewer.md) shows how to inspect the master and what Autostretch does.
-- [Histogram Transformation](../processes/stretching/histogram-transformation.md) stretches the master into a
-  picture.
+- [Histogram Transformation](../processes/stretching/histogram-transformation.md)
+  [stretches](../reference/glossary.md#stretch) the master into a picture.
 - [Image Integration Lite](../processes/stacking-integration/image-integration-lite.md) describes every control of
   the window you just used.
 - [Image Integration](../processes/stacking-integration/image-integration.md) is the full process, for several

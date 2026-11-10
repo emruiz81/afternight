@@ -1410,7 +1410,20 @@ class GlossaryRuleTests(WritingCase):
         self.change('workflows/deep.md', '### Stretch\n', '### Stretch the linear master\n\nSet `linear` off.\n')
         self.assertPasses()
         self.change('workflows/deep.md', 'A finished picture.', 'A [linear](../processes/ht.md) picture.')
-        self.assertWarns('R13', '"Linear"')
+        self.assertPasses()
+
+    def test_a_name_the_page_repeats_is_no_use_and_the_next_use_is_the_first(self):
+        for name in ('the [Linear Fit](../processes/ht.md) page', '**Linear Fit**', 'the message "not linear"'):
+            with self.subTest(name=name):
+                self.change('workflows/deep.md', 'A finished picture.', 'Open %s.' % name)
+                self.assertPasses()
+                self.change('workflows/deep.md', 'A finished picture.', 'Open %s, then a linear picture.' % name)
+                self.assertWarns('R13', 'deep.md:33: R13 warning: "Linear"')
+
+    def test_a_name_linked_to_its_entry_is_the_linked_first_use(self):
+        self.change('workflows/deep.md', 'A finished picture.',
+                    'Choose **[Linear](../reference/glossary.md#linear) Fit**, then a linear picture.')
+        self.assertPasses()
 
     def test_the_glossary_itself_links_nothing(self):
         self.change('reference/glossary.md', 'The median absolute deviation.', 'A linear estimate of spread.')

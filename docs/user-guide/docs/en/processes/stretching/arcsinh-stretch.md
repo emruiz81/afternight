@@ -28,16 +28,18 @@ rewritten: true
 ---
 # ArcSinh Stretch
 
-ArcSinh Stretch brightens a [linear image](../../reference/glossary.md) with an inverse hyperbolic sine curve. The
-curve lifts faint signal strongly and compresses the highlights, and it leaves black and white where they are. On
-an RGB image the curve is applied to a luminance, and the three channels are multiplied by one factor. The ratios
-between the colors are kept until a channel clips.
+ArcSinh [Stretch](../../reference/glossary.md#stretch) brightens a
+[linear image](../../reference/glossary.md#linear-image) with an inverse hyperbolic sine curve. The curve lifts faint
+signal strongly and compresses the highlights, and it leaves black and white where they are. On an RGB image the
+curve is applied to a luminance, and the three channels are multiplied by one factor. The ratios between the colors
+are kept until a channel clips.
 
-**Black Point** first sends every sample at or below a level you choose to black. It estimates nothing from the
-image.
+[**Black Point**](../../reference/glossary.md#black-point) first sends every sample at or below a level you choose to
+black. It estimates nothing from the image.
 
-**Apply** replaces the image or sequence with the stretched one, keeps its size and pixel type, and adds one step to
-its history. The result is recorded as nonlinear.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the stretched one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/stretching/arcsinh-stretch.webp
@@ -64,14 +66,16 @@ pins:
 - **Apply** replaces the image or sequence. Duplicate it first, or use its history, which keeps the step before.
 - Use a grayscale or a three-channel RGB image with samples between 0 and 1.
 - A raw color-filter mosaic is stretched as a grayscale image, which breaks the relation between its sensor values:
-  debayer it first. For a mosaic sequence, decide whether its automatic debayer turns the frames into RGB.
+  [debayer](../../reference/glossary.md#debayer) it first. For a mosaic sequence, decide whether its automatic
+  debayer turns the frames into RGB.
 - Prefer a floating-point image. Integer samples are stretched in a floating-point copy and rounded back.
-- A [mask](../../reference/glossary.md) on the view blends the stretched image with the original after the
+- A [mask](../../reference/glossary.md#mask) on the view blends the stretched image with the original after the
   stretch: white takes the result, black keeps the original, gray mixes them, and **Invert Mask** swaps the two.
 
 ## Steps
 
-1. **Open the window.** Make the linear master the active image and choose **Process > Intensity Transformations >
+1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Intensity Transformations >
    ArcSinh Stretch**. The window opens under the title **ArcSinhStretch**, with a narrow peak at the left of the
    histogram and a nearly black preview.
 2. **Raise the stretch factor.** Increase **Stretch Factor** until the faint signal shows in the preview. The
@@ -206,19 +210,20 @@ controls:
 
 ## How it works
 
-1. Every sample is read as a fraction of full scale: an unsigned integer divided by its largest value, a signed
-   one counted from its smallest value, a floating-point sample as it is.
+1. Every sample is read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale): an
+   unsigned integer divided by its largest value, a signed one counted from its smallest value, a floating-point
+   sample as it is.
 2. A black point above 0 is taken from every channel, and the rest is rescaled so that 1 stays 1. Every sample is
    then held between 0 and 1.
 3. A grayscale image goes through the curve. For an RGB image the curve is applied to a luminance of the three
    channels, the channels are multiplied by the ratio of the stretched luminance to the original one, and a
    channel that passes 1 is cut to 1.
 4. The result is written back in the image's own pixel type. A mask on the view then blends it with the original.
-5. The image replaces the target and its history gets one step. Its header, its acquisition data, its plate
-   solution and its color calibration record are kept. A saved file records the new state in its header: `ANLIN`
-   is `nonlinear`, `ANASRC` is `process`, `ANOP` is `arcsinh-stretch`, and `ANBASIS` is `monochrome` or
-   `display-rgb`. A linear encoding the image stated is no longer stated, and its lineage gains an entry with the
-   three values.
+5. The image replaces the target and its history gets one step. Its header, its acquisition data, its
+   [plate solution](../../reference/glossary.md#plate-solution) and its color calibration record are kept. A saved
+   file records the new state in its header: `ANLIN` is `nonlinear`, `ANASRC` is `process`, `ANOP` is
+   `arcsinh-stretch`, and `ANBASIS` is `monochrome` or `display-rgb`. A linear encoding the image stated is no longer
+   stated, and its [lineage](../../reference/glossary.md#lineage) gains an entry with the three values.
 
 ### Model
 
@@ -326,8 +331,8 @@ Human-weighted luminance changes nothing
 :   **Fix.** Confirm that the target is RGB, and compare strongly colored regions with the same two numbers.
 
 The result of Apply differs from the preview
-:   **Cause.** The target, its mask or the frame the sequence shows changed, or a **Preview area** showed the
-    result in one area only.
+:   **Cause.** The target, its mask or the frame the sequence shows changed, or a
+    [**Preview area**](../../reference/glossary.md#preview-area) showed the result in one area only.
 :   **Fix.** Confirm the target and the mask, wait for the last preview, and compare with **Preview area** off.
 
 A few pixels are unchanged after Apply
@@ -342,8 +347,9 @@ A mosaic sequence is RGB after Apply
 
 - [Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md), which needs the image
   linear and comes before.
-- [Histogram Transformation](histogram-transformation.md), a stretch through a black point, a white point and a
-  midtones balance, by hand or from the image's statistics.
+- [Histogram Transformation](histogram-transformation.md), a stretch through a black point, a
+  [white point](../../reference/glossary.md#white-point) and a [midtones](../../reference/glossary.md#midtones)
+  balance, by hand or from the image's statistics.
 - [Generalized Hyperbolic Transformation](gh-transformation.md), a stretch with more curve families, channel and
   color-component modes and an inverse.
 - [Curves Transformation](curves-transformation.md), to shape tone and color after the stretch.

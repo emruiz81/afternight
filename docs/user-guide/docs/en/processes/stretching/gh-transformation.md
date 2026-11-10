@@ -30,15 +30,16 @@ rewritten: true
 ---
 # Generalized Hyperbolic Transformation
 
-Generalized Hyperbolic Transformation stretches a [linear image](../../reference/glossary.md) with a curve you
-place. A stretch factor sets its strength and a local intensity its shape. A
-[symmetry point (SP)](../../reference/glossary.md) names the tones that get the most contrast, and two
-[protection points (LP/HP)](../../reference/glossary.md) limit how far the curve bends on either side. The same
-window offers a histogram, an arcsinh and a linear curve, the negative of the image, and a curve derived from the
-image's statistics.
+Generalized Hyperbolic Transformation [stretches](../../reference/glossary.md#stretch) a
+[linear image](../../reference/glossary.md#linear-image) with a curve you place. A stretch factor sets its strength and
+a local intensity its shape. A [symmetry point (SP)](../../reference/glossary.md#symmetry-point) names the tones that
+get the most contrast, and two [protection points (LP/HP)](../../reference/glossary.md#protection-point) limit how far
+the curve bends on either side. The same window offers a histogram, an arcsinh and a linear curve, the negative of the
+image, and a curve derived from the image's statistics.
 
-**Apply** replaces the image or sequence with the stretched one, keeps its size and pixel type, and adds one step to
-its history. The result is recorded as nonlinear, whichever curve you chose.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the stretched one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear, whichever curve you chose.
 
 ```figure
 image: ../../assets/images/processes/stretching/gh-transformation.webp
@@ -65,20 +66,23 @@ pins:
 
 ## Before you start
 
-- Finish the work that needs linear data first: gradient removal, color calibration, measurement, deconvolution and
-  linear noise reduction. After **Apply** the image is nonlinear.
+- Finish the work that needs linear data first: gradient removal, color calibration, measurement,
+  [deconvolution](../../reference/glossary.md#deconvolution) and linear noise reduction. After **Apply** the image is
+  nonlinear.
 - **Apply** replaces the image, and its history keeps the step before. Stretch in few passes: every pass adds
   rounding, and clipping at both ends.
-- The image is grayscale or RGB. A raw color-filter mosaic is stretched as a grayscale image: debayer it first.
+- The image is grayscale or RGB. A raw color-filter mosaic is stretched as a grayscale image:
+  [debayer](../../reference/glossary.md#debayer) it first.
 - Samples below 0 or above 1 are cut to that range before the curve.
-- A [mask](../../reference/glossary.md) on the view blends the stretched image with the original after the stretch.
+- A [mask](../../reference/glossary.md#mask) on the view blends the stretched image with the original after the stretch.
   The curve, the histograms and the clipping figures leave it out.
 - On a sequence, your values give every frame the same curve. Only **STF Transformation** gives each frame the curve
   of its own statistics.
 
 ## Steps
 
-1. **Open the window.** Make the linear master the active image and choose **Process > Intensity Transformations >
+1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Intensity Transformations >
    Generalized Hyperbolic Transformation**. The lower histogram shows the image as a narrow peak at the left, and the
    preview is nearly black.
 2. **Keep the channel and the type.** Leave **Channel** at **RGB** and **Transformation type** at **Generalized
@@ -393,8 +397,10 @@ controls:
    own, or the lightness, the saturation or a luminance, from which the three channels are rebuilt.
 4. The result is written back in the image's own pixel type, rounded to the nearest value. The channels left out and
    an alpha channel are kept exactly as they were. A mask on the view then blends the result with the original.
-5. The image replaces the target and its history gets one step. Its header, its acquisition data and its plate
-   solution are kept, and its processing state is recorded as nonlinear with the operation `ght-stretch`.
+5. The image replaces the target and its history gets one step. Its header, its acquisition data and its
+   [plate solution](../../reference/glossary.md#plate-solution) are kept, and its
+   [processing state](../../reference/glossary.md#processing-state) is recorded as nonlinear with the operation
+   `ght-stretch`.
 
 ### Model
 
@@ -443,13 +449,15 @@ straight line with the slope it has there, so a protection point makes no corner
 the curve changes nothing. **Invert** sends a sample \(y\) to the \(x\) for which \(F(x) = y\), which the
 [reference page](gh-transformation-reference.md) gives in closed form.
 
-With \(B\) and \(W\) the black and the white point, **Linear Stretch** and **Image Inversion** are
+With \(B\) and \(W\) the black and the [white point](../../reference/glossary.md#white-point), **Linear Stretch**
+and **Image Inversion** are
 
 \[ F(x) = \min\Bigl(1,\ \max\Bigl(0,\ \frac{x - B}{W - B}\Bigr)\Bigr), \qquad F(x) = 1 - x \tag{6} \]
 
 **STF Transformation** takes, for each channel \(j\), the median \(v_j\) and the deviation \(\sigma_j\), which is
-1.4826 times the median absolute deviation, or 0.001 when that is zero. With \(M_m\) the base curve of equation (3)
-for a balance \(m\), it derives a black point \(c\) and a balance, and stretches the range from \(c\) to 1:
+1.4826 times the [median absolute deviation](../../reference/glossary.md#median-absolute-deviation), or 0.001 when
+that is zero. With \(M_m\) the base curve of equation (3) for a balance \(m\), it derives a
+[black point](../../reference/glossary.md#black-point) \(c\) and a balance, and stretches the range from \(c\) to 1:
 
 \[ c = \max\bigl(0,\ \overline{v_j - 2.8\,\sigma_j}\bigr), \qquad m = M_{0.25}\bigl(\overline{v_j} - c\bigr), \qquad F(x) = M_m\Bigl(\frac{x - c}{1 - c}\Bigr) \tag{7} \]
 
@@ -561,5 +569,6 @@ The frames of a sequence come out unevenly bright
 - Mike Cranfield's [Generalized Hyperbolic Stretch documentation](https://www.ghsastro.co.uk/doc/tools/GeneralizedHyperbolicStretch/GeneralizedHyperbolicStretch.html)
   describes the five-parameter stretch, its curve families, its inverse, its protection points and its color modes,
   which this explanation follows. It credits David Payne's proposal of 2021 and his work with Mike Cranfield.
-- The [Generalized Hyperbolic Stretch information page](https://ghsastro.co.uk/information/) of GHS Astro gives the
+- The [Generalized Hyperbolic Stretch information page](https://ghsastro.co.uk/information/) of
+  [GHS](../../reference/glossary.md#ghs) Astro gives the
   authors and the publication history of the algorithm.
