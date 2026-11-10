@@ -371,9 +371,40 @@ The installers bundle the built site, and it works opened from disk without a ne
   the published guide, whose address is `kAfterNightUserGuideOnlineUrl` in
   `src/AfterNightControls/app/DialogOrchestrationCoordinator.h`. `AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE=1` turns the
   fallback off for offline smoke tests; the application then says that the offline guide could not be opened.
+  From a process window it opens that process's page ([Help from a process window](#help-from-a-process-window)).
 - The guide is English only (`docs_dir: docs/en`). Adding a language moves `docs_dir` to `docs/` with one directory
   per language and pins the `mkdocs-static-i18n` plugin in `requirements.in`; an untranslated page falls back to
   English only once that migration is in place.
+
+### Help from a process window
+
+F1 in a process window opens the guide at that process's page, from the bundled site first and from the published
+guide otherwise, as the home page opens.
+
+- **The table.** `src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp` holds the help table, `kHelpPages`: a row
+  per registered action, from its object name to the page as the built guide names it
+  (`processes/stretching/histogram-transformation.html`). The channel extractions and the format and sequence
+  conversions open no window and have no row: they share `kNonInteractiveHelpPage`. A descriptor carries its page as
+  `helpPath`; an extension's process has none, and Help opens the home page from its window.
+- **Why a table in the application.** The published guide and the bundled one name a page by the same path, because
+  `use_directory_urls: false` holds for both, so one relative path serves both. The application cannot ask the guide
+  which page describes a window, since the guide may not be installed, so it states the path itself, and the check
+  holds the statement to the guide.
+- **The window.** The launcher states the descriptor's page on the window a launch shows
+  (`TopLevelProcessBaseControl::setHelpPath`). An entry point makes and shows its own window and hands nothing back,
+  so the window is the process window shown after the launch that was not shown before it.
+  `DialogOrchestrationCoordinator::openHelp` walks up from the widget with the keyboard focus to the nearest process
+  window that states a page (`an::ui::helpPathFor`). A path that is not a page inside the guide - one that climbs out
+  of it, an absolute one, an address - is not followed, and the home page opens (`an::ui::userGuidePage`).
+- **One F1.** A process window is a window of its own, and a shortcut of the main window's context is not heard
+  there, so **Help > User Guide** has the application's shortcut context. Qt runs neither command when two shortcuts
+  on one key are both active, so no window binds F1 to a command of its own: Image Integration's list of keys is on
+  Shift+F1, and `Test_ProcessesShared` opens every process window and refuses an action or a shortcut on F1.
+- **Moving or renaming a page** changes its row in the same change. Rule R15 of `check_user_guide.py` reads the
+  table from the source: every path is a page the guide has, every row is of a registered action, every registered
+  action has a row or is a non-interactive operation, and the page a row names is one whose `menu` reaches the
+  action. `Test_AfterNightApp` holds the same of the descriptors the application registers, and
+  `Test_ProcessesShared` that every window a launch shows carries its descriptor's page.
 
 ## Sources of truth
 
@@ -767,7 +798,7 @@ Linux, the environment the build helper makes. It prints each finding as `path:l
 rule and what it read, and exits 1 on any error; a warning prints as `path:line: Rnn warning: message` and fails
 nothing. `--page <page>` holds only the pages named, and ends with each one's count of words against its budget,
 which rule R8 otherwise states only once a page is over; the parts that need the whole guide - nav entries, menu
-coverage and unused images - then do not run.
+coverage, the help table and unused images - then do not run.
 
 - R2 holds each page's front matter to its schema and the stage ids to `data/stages.yml`.
 - R3 holds every page to the nav and to exactly one H1, and every nav entry to a page.
@@ -777,6 +808,8 @@ coverage and unused images - then do not run.
   `assets/images` that no page, `README.md`, logo or favicon shows.
 - R6 holds every page that states `derived: true` to a `## Credits` section that says something
   ([Naming other programs](#naming-other-programs)).
+- R15 holds the application's help table to the guide: every page it names exists, every registered action opens
+  one, and the page is one whose `menu` reaches the action ([Help from a process window](#help-from-a-process-window)).
 
 The rules of a rewritten page hold a page to its template, its budgets, the style guide and its windows. They are
 errors on a page that states `rewritten: true`. On a page that does not, R7, R8, R9 and R11 are warnings, and R10,

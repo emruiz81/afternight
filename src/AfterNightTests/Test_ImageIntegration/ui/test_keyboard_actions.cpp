@@ -254,9 +254,13 @@ TEST_F(KeyboardActionsTest, ShortcutsAreConfiguredOnMenuActions)
                                      QStringLiteral("Execute Integration")),
               nullptr);
 
-    // HelpContents is typically F1.
-    EXPECT_NE(findActionWithShortcut(process, QKeySequence::HelpContents, QStringLiteral("Keyboard Shortcuts")),
-              nullptr);
+    // The window's list of keys is on Shift+F1. F1 is the application's, which opens the user guide at this window's
+    // page: an action of the window on F1 would make the key ambiguous here, and it would then run neither command.
+    EXPECT_NE(
+        findActionWithShortcut(process, QKeySequence(QStringLiteral("Shift+F1")), QStringLiteral("Keyboard Shortcuts")),
+        nullptr);
+    EXPECT_EQ(findActionWithShortcut(process, QKeySequence(Qt::Key_F1)), nullptr);
+    EXPECT_EQ(findActionWithShortcut(process, QKeySequence::HelpContents), nullptr);
 }
 
 TEST_F(KeyboardActionsTest, NavigateMenuRegistersCtrl1ThroughCtrl8)

@@ -267,6 +267,9 @@ public:
         actionSystem_Information->setObjectName("actionSystem_Information");
         actionUser_Guide = new QAction(AfterNightAppClass);
         actionUser_Guide->setObjectName("actionUser_Guide");
+        // A process window is a window of its own, where a shortcut of the main window's context is not heard: Help
+        // answers from whichever window of the application is active, and opens that window's page.
+        actionUser_Guide->setShortcutContext(Qt::ApplicationShortcut);
         actionUndo = new QAction(AfterNightAppClass);
         actionUndo->setObjectName("actionUndo");
         actionUndo->setEnabled(false);

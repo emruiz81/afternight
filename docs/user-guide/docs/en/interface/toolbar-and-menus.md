@@ -99,8 +99,9 @@ With an image open, a right-click on the main window outside the views offers **
 
 ### Get help and information
 
-Press ++f1++ or choose **Help > User Guide** for this guide. **About > About AfterNight** shows the version and the
-libraries AfterNight uses, and **About > System Information** a report of the application and the computer.
+Press ++f1++ or choose **Help > User Guide** for this guide. In a process window, ++f1++ opens the guide at that
+process's page. **About > About AfterNight** shows the version and the libraries AfterNight uses, and
+**About > System Information** a report of the application and the computer.
 
 ## Controls
 
@@ -167,7 +168,7 @@ controls:
     kind: action
     default: ""
     effect: Opens this guide from the copy installed with AfterNight, else the online guide at `https://docs.afternightastro.org/`.
-    enabled: Always. ++f1++ does the same.
+    enabled: Always. ++f1++ does the same from the main window, and from a process window it opens that process's page.
     tradeoff: The online guide opens in your browser and uses the network.
     note: "With the environment variable `AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE` set to `1`, `true`, `yes` or `on`, the online guide is never opened, and a missing copy gives \"The offline AfterNight User Guide could not be opened, and online fallback is disabled by policy.\" When neither opens, a message titled \"Help\" says \"The AfterNight User Guide could not be opened locally or online.\""
   - name: About Qt

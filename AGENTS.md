@@ -670,6 +670,7 @@ mkdocs build -f docs/user-guide/mkdocs.yml --strict
 
 ### In-app help
 - `Help -> User Guide` opens bundled offline docs first from the installed app's docs location
+- F1 is that one command in every window of the application, and no window binds F1 to anything else; from a process window it opens that process's page, which the help table of `ProcessRegistryBuiltins.cpp` names (`docs/dev/USER_GUIDE_AUTHORING.md`, "Help from a process window")
 - If bundled docs are unavailable, the app falls back to the published online guide
 - Set `AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE=1` for offline-policy smoke tests; with that policy enabled, missing bundled docs should show a clear warning instead of opening the web guide
 

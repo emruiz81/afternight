@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <deque>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,6 +20,7 @@
 #include <QIcon>
 #include <QString>
 #include <QStringList>
+#include <QUrl>
 
 class MainDashboard;
 class GlobalSettingsPersistence;
@@ -61,14 +63,47 @@ inline int firstExistingHelpCandidateIndex(const std::vector<bool>& candidateExi
     return -1;
 }
 
-[[nodiscard]] inline QStringList bundledUserGuideCandidatePaths(const QString& applicationDir)
+/// The page of the user guide a help path names: the path itself when it names a page inside the guide - a relative
+/// path of forward slashes that ends in `.html` and climbs out of nothing - and the guide's home page otherwise, an
+/// empty path among them. A path is joined to a folder and to an address, so one that could leave either is not
+/// followed.
+///
+/// @param helpPath a page relative to the guide's root, as a process descriptor states it; may be empty.
+/// @return the page to open, relative to the guide's root.
+[[nodiscard]] inline QString userGuidePage(const QString& helpPath)
+{
+    const QString home = QStringLiteral("index.html");
+    if (!helpPath.endsWith(QStringLiteral(".html")) || helpPath.startsWith(QLatin1Char('/')) ||
+        helpPath.contains(QLatin1Char('\\')) || helpPath.contains(QLatin1Char(':')) ||
+        helpPath.contains(QLatin1Char('?')) || helpPath.contains(QLatin1Char('#')))
+    {
+        return home;
+    }
+    for (const QString& part : helpPath.split(QLatin1Char('/')))
+    {
+        if (part.isEmpty() || part == QStringLiteral(".") || part == QStringLiteral(".."))
+        {
+            return home;
+        }
+    }
+    return helpPath;
+}
+
+/// Where a page of the bundled user guide is looked for, in order: beside the application, where an installation puts
+/// the guide, and in the source tree's built site.
+///
+/// @param applicationDir the folder the application runs from.
+/// @param helpPath the page, relative to the guide's root; the home page when empty or no page of the guide.
+[[nodiscard]] inline QStringList bundledUserGuideCandidatePaths(const QString& applicationDir,
+                                                                const QString& helpPath = QString())
 {
     const QDir appDir(applicationDir);
+    const QString page = userGuidePage(helpPath);
     return {
-        appDir.filePath(QStringLiteral("docs/index.html")),
-        appDir.filePath(QStringLiteral("../share/doc/AfterNight/index.html")),
-        appDir.filePath(QStringLiteral("../../../docs/user-guide/site/index.html")),
-        appDir.filePath(QStringLiteral("../../docs/user-guide/site/index.html")),
+        appDir.filePath(QStringLiteral("docs/") + page),
+        appDir.filePath(QStringLiteral("../share/doc/AfterNight/") + page),
+        appDir.filePath(QStringLiteral("../../../docs/user-guide/site/") + page),
+        appDir.filePath(QStringLiteral("../../docs/user-guide/site/") + page),
     };
 }
 
@@ -82,6 +117,22 @@ inline int firstExistingHelpCandidateIndex(const std::vector<bool>& candidateExi
 [[nodiscard]] inline bool onlineUserGuideFallbackAllowed()
 {
     return onlineUserGuideFallbackAllowed(qEnvironmentVariable(kAfterNightDisableOnlineUserGuideEnv));
+}
+
+/// The address of a page in the online user guide, which publishes the pages under the paths the bundled guide has;
+/// nothing when the policy value turns the online guide off.
+///
+/// @param helpPath the page, relative to the guide's root; the guide's own address when empty or no page of the guide.
+/// @param policyValue the value of the policy that turns the online guide off.
+[[nodiscard]] inline std::optional<QUrl> onlineUserGuideUrl(const QString& helpPath, const QString& policyValue)
+{
+    if (!onlineUserGuideFallbackAllowed(policyValue))
+    {
+        return std::nullopt;
+    }
+    const QString page = userGuidePage(helpPath);
+    const QString address = QString::fromLatin1(kAfterNightUserGuideOnlineUrl);
+    return QUrl(page == QStringLiteral("index.html") ? address : address + page);
 }
 
 inline QWidget* resolveDialogParent(QWidget* fallbackParent, QWidget* requestedParent)
@@ -191,6 +242,10 @@ public:
     explicit DialogOrchestrationCoordinator(const Dependencies& dependencies);
 
     void about() const;
+
+    /// Opens the user guide at the page of the process window the keyboard focus is in, and at its home page when the
+    /// focus is in no process window that states a page: from the bundled guide first, and from the online guide
+    /// when the bundled page cannot be opened and the policy allows it.
     void openHelp() const;
     void openSettings() const;
     void openSettingsAt(const QString& pageName) const;

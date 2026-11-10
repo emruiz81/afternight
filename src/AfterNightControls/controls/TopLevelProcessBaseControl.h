@@ -64,6 +64,15 @@ public:
     /// before it drains the pool and deletes them (`an::ui::destroyProcessWindowsAtExit`). GUI thread.
     void stopWorkInFlight();
 
+    /// States the user guide's page of the window's process, relative to the guide's root as the built guide names it
+    /// (`processes/stretching/histogram-transformation.html`). The launcher states it on the window a launch shows,
+    /// from the descriptor the launch is for.
+    void setHelpPath(const QString& helpPath);
+
+    /// The user guide's page of the window's process; empty when none was stated, and Help then opens the guide's
+    /// home page.
+    [[nodiscard]] QString helpPath() const;
+
     virtual ~TopLevelProcessBaseControl();
 
 protected:
@@ -103,10 +112,18 @@ private:
 
     std::string m_tl_process_name;
     std::stop_source m_WindowStop;
+    QString m_HelpPath;
 };
 
 namespace an::ui
 {
+/// The user guide's page Help opens from a widget: the page of the nearest process window at or above it that states
+/// one, and nothing - the guide's home page - when there is none. GUI thread.
+///
+/// @param widget where Help was asked for - the widget with the keyboard focus; may be null.
+/// @return the page, relative to the guide's root; empty for the home page.
+[[nodiscard]] AFTERNIGHTCONTROLS_API QString helpPathFor(const QWidget* widget);
+
 /// Destroys the process windows still open as the application exits. A run's work calls its window's process body on
 /// a worker, so no window is deleted under its work: each is asked to stop what it runs, the thread pool is drained
 /// while every window is still there, and each is then deleted. The work their going leaves on the pool - a window's

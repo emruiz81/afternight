@@ -99,6 +99,10 @@ choose it. A process an extension adds is disabled in the menu instead, with the
 Choose **Reset** to return the process's controls to their defaults. Choose **Close**, or press ++esc++, to leave
 without applying. The next window of the same process opens at the size you left this one.
 
+### Read about the process
+
+Press ++f1++ in a process window to open this guide at that process's page.
+
 ## Controls
 
 ### The window
