@@ -1,60 +1,53 @@
+# The user guide: MkDocs with the guide's own theme (theme/), its hooks (hooks/) and its data (data/). Built from the
+# repository root:
+#
+#   build\scripts\msvc\build_user_guide_docs.bat
+#   build/scripts/linux/build_user_guide_docs.sh
+#
+# docs/dev/USER_GUIDE_AUTHORING.md describes the parts and gives their reasons.
 site_name: AfterNight Documentation
 site_description: >-
   Comprehensive user guide for AfterNight, a cross-platform astrophotography
   processing application.
 site_url: https://docs.afternightastro.org/
+repo_url: https://github.com/emruiz81/afternight
+edit_uri: edit/main/docs/user-guide/docs/en/
 
 docs_dir: docs/en
 site_dir: site
+# The copy the installers bundle is opened from disk, where a folder has no index; the page-relative image paths of
+# the figure blocks depend on it too.
 use_directory_urls: false
 
 copyright: Copyright &copy; 2024-2026 Ezequiel Ruiz
 
+# No named theme: the templates and their assets are the guide's own. With `name: null` MkDocs reads no
+# mkdocs_theme.yml, so the theme's keys are stated here.
 theme:
-  name: material
-  language: en
+  name: null
+  custom_dir: theme
+  static_templates: [404.html]
+  locale: en
   logo: assets/images/interface/logo.png
   favicon: assets/images/interface/favicon.png
-  icon:
-    repo: fontawesome/brands/github
-  features:
-    - navigation.tracking
-    - navigation.tabs
-    - navigation.tabs.sticky
-    - navigation.sections
-    - navigation.expand
-    - navigation.top
-    - navigation.indexes
-    - navigation.footer
-    - search.suggest
-    - search.highlight
-    - search.share
-    - content.tabs.link
-    - content.code.copy
-    - content.code.annotate
-    - content.tooltips
-    - toc.follow
-    - announce.dismiss
-  palette:
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: indigo
-      accent: deep purple
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: indigo
-      accent: deep purple
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-  font: false
 
-extra_css:
-  - stylesheets/extra.css
+# The one hook file registers the guide's `controls` and `figure` blocks itself and writes the search index.
+hooks:
+  - hooks/guide_hooks.py
 
+# No MkDocs search plugin: its worker cannot run from file://, and the hooks write the index as a script.
+plugins:
+  - glightbox
+
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    anchors: warn
+    unrecognized_links: warn
+
+# The theme links its own stylesheets and scripts; these are the runtimes the pages bring.
+extra_css: []
 extra_javascript:
   # Keep documentation fully offline-capable for installer bundles.
   - assets/javascripts/mermaid/mermaid.min.js
@@ -62,22 +55,6 @@ extra_javascript:
   # The configuration loads first: it points MathJax at its vendored fonts.
   - assets/javascripts/mathjax/mathjax-config.js
   - assets/javascripts/mathjax/tex-mml-chtml.js
-
-extra:
-  polyfills:
-    - assets/javascripts/polyfills/resize-observer.js
-    - assets/javascripts/iframe-worker/shim.js
-  social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/emruiz81/afternight
-  generator: false
-
-plugins:
-  - search:
-      lang: en
-  - tags
-  - glightbox
-  - offline
 
 markdown_extensions:
   - abbr
@@ -96,9 +73,6 @@ markdown_extensions:
   - pymdownx.caret
   - pymdownx.critic
   - pymdownx.details
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -110,8 +84,7 @@ markdown_extensions:
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
-          # Render with the local runtime so file:// installer copies never
-          # fall back to Material's network-loaded Mermaid worker.
+          # Drawn by the vendored runtime (mermaid-init.js), so a copy opened from file:// needs no network.
           class: an-mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:

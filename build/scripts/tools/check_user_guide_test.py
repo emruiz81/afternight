@@ -221,11 +221,11 @@ MKDOCS = '''\
 site_name: Test guide
 docs_dir: docs/en
 theme:
-  name: material
+  name: null
   logo: assets/images/logo.png
 markdown_extensions:
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.superfences:
+      format: !!python/name:pymdownx.superfences.fence_code_format
 nav:
   - Home: index.md
   - Processes:

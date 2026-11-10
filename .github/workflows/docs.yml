@@ -109,7 +109,11 @@ jobs:
       - name: Install MkDocs and plugins
         run: pip install --require-hashes -r docs/user-guide/requirements.txt
 
+      # A release names its version, which the guide's footer and home page state; any other build says it comes from
+      # the development line.
       - name: Build documentation
+        env:
+          AFTERNIGHT_GUIDE_VERSION: ${{ inputs.release_version }}
         run: mkdocs build -f docs/user-guide/mkdocs.yml --strict
 
       # The strict build holds the pages' links; the check holds each page's front matter against the guide's data and
@@ -123,13 +127,6 @@ jobs:
 
       - name: Check the guide and the built site
         run: python build/scripts/tools/check_user_guide.py --site docs/user-guide/site
-
-      # The guide in its own theme, built beside the Material site until it replaces it; nothing ships from it yet.
-      - name: Build the guide in its own theme
-        run: mkdocs build -f docs/user-guide/mkdocs.theme.yml --strict
-
-      - name: Check the theme's built site
-        run: python build/scripts/tools/check_user_guide.py --site docs/user-guide/site-theme
 
       - name: Upload docs site artifact
         uses: actions/upload-artifact@v6

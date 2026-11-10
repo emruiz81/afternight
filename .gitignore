@@ -40,7 +40,6 @@
 !/build/scripts/tools/rawspeed/CMakeLists.txt
 !LICENSES/*.txt
 !docs/user-guide/requirements.txt
-!docs/user-guide/docs/en/assets/javascripts/iframe-worker/LICENSE-MIT.txt
 !docs/user-guide/docs/en/assets/javascripts/mathjax/LICENSE-Apache-2.0.txt
 !docs/user-guide/docs/en/assets/javascripts/mathjax/fonts/mathjax-newcm-font/LICENSE-Apache-2.0.txt
 !docs/user-guide/docs/en/assets/javascripts/mathjax/fonts/mathjax-newcm-font/GUST-FONT-LICENSE.txt
@@ -111,9 +110,8 @@ __pycache__/
 *.whl
 catalogs/**
 
-# Documentation build output and MkDocs Material privacy/offline plugin cache
+# Documentation build output
 docs/user-guide/site/
-docs/user-guide/site-theme/
 docs/user-guide/.venv/
 .cache/
 docs/user-guide/.cache/
