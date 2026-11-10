@@ -1,311 +1,423 @@
 ---
 kind: reference
 summary: >-
-  What AfterNight reads and writes in each file format: sample precision, compression and metadata.
+  Format by format, the pixel types AfterNight reads and writes, how a save converts what a format cannot hold, the
+  compression it offers and the metadata a file keeps, for still images, sequences and video.
+rewritten: true
 ---
 # File Formats
 
-## Purpose, scope, audience, prerequisites, expected result, and authority
+This page gives, format by format, the [pixel types](glossary.md#pixel-type) AfterNight reads and writes, the
+compression it offers, how a save converts what a format cannot hold, and the metadata a file keeps. Still images come
+first, then [sequences](glossary.md#sequence) and video. [Supported Formats](../getting-started/supported-formats.md)
+lists the extensions and helps you choose a format, [Saving and Exporting](../interface/saving-and-exporting.md)
+describes the commands that write a file, and [Sequences](../interface/sequences.md) describes how a sequence opens.
 
-This is the authoritative guide to AfterNight's current file-format support,
-sample precision, compression, and metadata behavior. It covers the standard
-application open/save paths and Sequence Export. It does not promise support
-for every camera model, every stream codec inside a recognized video container,
-or every optional feature in the underlying format standards.
+## Still images
 
-Use this reference to decide which artifact is a processing master, an external-
-editor handoff, a display copy, or a sequence delivery.
+The extension decides the format, in upper or lower case, when a file is opened and when it is saved. A filter chosen
+in a file window does not. The options of a save are those of **Settings > Export**, read when you confirm the save:
+the save window has none of its own, and none applies to a sequence. [Settings](../interface/settings-dialog.md)
+describes each option.
 
-## Reachability or applicability
+### FITS
 
-- Open files with **File > Open...**, the Open toolbar action, recent files, or
-  supported drag-and-drop paths.
-- Save the active still or same-family sequence with **File > Save as...** or
-  **Image > Actions > Save File...**. These are aliases and always prompt.
-- Render a sequence to SER, raw AVI, MP4, or WebM with **Image > Sequence >
-  Export...**.
-- Configure initial/default still behavior under **Settings > General** and
-  **Settings > Export**. The standard save dialog does not expose compression,
-  quality, precision, or metadata controls itself.
+Extensions
+:   `.fits`, `.fit` and `.fts`: a [FITS](glossary.md#fits) file, read and written. The save window's filter lists
+    `.fit` and `.fits`.
 
-The engine dispatches still codecs by filename extension. Sequence opening
-dispatches `.ser` and `.anseq` natively and the allowed video suffixes through
-FFmpeg. A recognized suffix is only the first gate: AfterNight admits only the
-video containers (AVI, MOV/MP4, Matroska/WebM, MPEG program and transport
-streams, NUT) and video decoders on its own lists, even when the installed
-FFmpeg could decode more, and the decoder must still understand the file's
-actual stream. A stream that states BT.709 is read as BT.709, and one that
-states nothing as BT.601 at limited range. A video decodes on the processor
-unless a device is named.
+What opens
+:   The first image of the file: the primary image, an image extension or a tile-compressed image. Grayscale or
+    color, in 8, 16 or 32-bit integers, signed or unsigned, or in 32 or 64-bit floating point, and a Bayer mosaic its
+    header states.
 
-## Complete reference matrix
+64-bit integers
+:   An image of 64-bit integers opens as 64-bit floating point while every value lies within \(\pm 2^{53}\), which
+    floating point holds exactly. Beyond, it is refused with "FITS integer exceeds Float64's guaranteed exact range;
+    preserve raw codes or acknowledge lossy decoding".
 
-### Still-image compatibility, precision, and use
+What a save writes
+:   Every pixel type at the FITS type of its width. Signed 8-bit and unsigned 16 and 32-bit samples are stored with
+    the standard's offset, `BZERO`, so the full unsigned 32-bit range comes back exactly. Color is written as three
+    planes, and a Bayer mosaic with its pattern.
 
-| Item/exact label | Type/unit/category | Default/current value | Valid values/constraints | Meaning/effect | Dependencies/applicability | Trade-off/side effect | Scope | Persistence/metadata |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| FITS (`.fit`, `.fits`, `.fts`) | Astronomy still | Standard save supported; dialog offers `.fit/.fits` | Mono or RGB; signed/unsigned 8/16/32-bit integer and 32/64-bit floating samples, using matching fixed-width FITS sample types. A `BITPIX = 64` integer image opens as 64-bit floating samples while every stored value is within ±2^53, and is refused otherwise | Preserves signed 8-bit and full-range unsigned 32-bit samples plus FITS-style astronomy metadata | OpenFITS; extension selects codec | No user-facing FITS compression; geometry changes can stale WCS/SIP | Open/save | Rewrites structural fields; carries FITS header/CFA/WCS/SIP where present; no save writes a processing history |
-| XISF (`.xisf`) | Astronomy still | Standard save supported | Mono/RGB; native unsigned 8/16/32 and float 32/64. A signed image is written as the unsigned representation of its width. A Bayer or an X-Trans mosaic keeps its filter array | High-precision astronomy/PixInsight interchange | OpenXISF | Uncompressed unless **Settings > Export** names lossless zlib, LZ4, LZ4-HC or Zstandard; Zstandard is read only by readers of Revision 1 of the specification | Open/save | Carries FITS-like keywords and structured AfterNight color-calibration provenance; does not use generic EXIF preference |
-| TIFF (`.tif`, `.tiff`) | Interchange still | Clean-profile default save format; compression None | Active 8/16/32-bit signed/unsigned or 32/64-bit floating sample type, including signed 8-bit reload. A palette, white-is-zero, separated-ink or subsampled-chroma TIFF is refused by name; a 64-bit integer or half-precision float TIFF is not opened | Preserves active sample width/type for external editing | LibTIFF; reader needs matching sample/compression support | Potentially large; JPEG compression is lossy and only used for 8-bit samples | Open/save | Best-effort allowed EXIF subset when enabled; astronomy metadata is not authoritative |
-| PNG (`.png`) | Lossless display still | Compression level 6 | Unsigned 8/16 native; signed 8/16 convert to matching unsigned; 32-bit integer/float convert to unsigned 16; a colour filter array mosaic is refused. A palette PNG opens in its table's colours, and an alpha channel is kept | Lossless encoding of the converted samples | libpng | Precision conversion can clip/quantize relative to the processing master | Open/save | Best-effort small EXIF subset when enabled; no general astronomy header |
-| JPEG (`.jpg`, `.jpeg`, `.jpe`) | Lossy display still | Quality 95 | Mono/RGB unsigned 8 in file; every other input converts to unsigned 8; a colour filter array mosaic is refused. A camera's recorded orientation is kept in the metadata, not applied | Small sharing/preview copy | libjpeg-turbo | Lossy, precision-reducing, unsuitable as sole processing master | Open/save | Best-effort allowed EXIF subset when enabled; no astronomy header authority |
-| Camera RAW | Acquisition still | Input only | `.nef`, `.crw`, `.cr2`, `.cr3`, `.dng`, `.arw`, `.sr2`, `.srf`, `.dcr`, `.k25`, `.kdc`, `.erf`, `.mrw`, `.orf`, `.pef`, `.raf`, `.raw`, `.x3f` | Decodes camera data according to the RAW settings in effect when the open was asked for: a mosaic's white balance applied to its codes, a full-colour frame's by the decoder, and auto-rotate turning either by the camera's recorded orientation. A four-colour (CMYG, CYGM) sensor is refused; an X-Trans (Fujifilm) mosaic opens in colour, demosaiced by the X-Trans counterpart of the RAW setting's method (the fast X-Trans estimate for **Bilinear**, three-pass Markesteijn in camera RGB for every other), or as its mosaic when the debayer question is answered **No** | Bundled LibRaw and supported camera/variant | Decoding choices can change color/orientation; cannot save back to RAW | Open only | Source camera metadata is read where available; save processed output separately |
+Compression
+:   None is written, and no setting offers one. The stored value `export/fitsFloatFormat` is not read: the image's
+    own type decides.
 
-### Compression and save-option behavior
+[Header cards](glossary.md#header-card)
+:   The cards the image was read with are written back, its `HISTORY` cards and world coordinates among them. The
+    cards that describe the data are written new, a long [processing state](glossary.md#processing-state) continues
+    over `CONTINUE` cards, and a keyword longer than eight characters is written as a `HIERARCH` card.
 
-| Item/exact label | Type/unit/category | Default/current value | Valid values/constraints | Meaning/effect | Dependencies/applicability | Trade-off/side effect | Scope | Persistence/metadata |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TIFF compression | Encoding option | None | None; LZW; ZIP/Deflate; JPEG | Selects TIFF storage codec | Standard TIFF save | None/LZW/ZIP preserve decoded samples; JPEG is lossy | All later TIFF saves | `export/tiffCompression` |
-| TIFF JPEG fallback | Compatibility rule | Automatic | JPEG requested with non-8-bit samples | Uses LZW instead of JPEG | TIFF save only | Output is lossless but not the requested compression; no dialog warning, but the session console says so | One TIFF save | Not separately persisted |
-| JPEG quality | Integer | 95 | 1-100, the Export page's range | Controls lossy JPEG and 8-bit JPEG-in-TIFF quality | JPEG save; 8-bit TIFF JPEG | Higher usually trades size for fidelity; no project-specific ratio is guaranteed | All later JPEG/JPEG-TIFF saves | `export/jpegQuality` |
-| PNG compression | Integer level | 6 | 0-9, the Export page's range | Controls DEFLATE effort | PNG save | Higher can reduce size and increase write time; decoded pixels are unchanged | All later PNG saves | `export/pngCompression` |
-| FITS float format | Hidden/stored preference | `float32` | Stored string | No effect in standard current save | No visible Export control; options builder does not read it | Do not infer output precision from this key; active pixel type controls FITS output | None in current path | `export/fitsFloatFormat` |
-| XISF compression | Encoding option | None | None; zlib; LZ4; LZ4-HC; Zstandard | Selects the codec of the pixel data, written in pieces of 4 MiB a reader decodes one at a time | XISF save | Every choice is lossless; zlib and LZ4 are read by every XISF reader, Zstandard only by readers of Revision 1 of the specification | All later XISF saves | `export/xisfCompression` |
-| XISF byte shuffling | Boolean | On | Off/On, offered beside a compression | Stores every sample's first byte, then its second, before compressing | Compressed XISF save; 8-bit samples are not shuffled | Usually smaller 16-bit and floating-point files; decoded pixels are unchanged | All later compressed XISF saves | `export/xisfByteShuffle` |
-| XISF checksum | Selector | None | None; SHA-256 | Writes a checksum of the pixel data, verified when the file is read | XISF save | A file whose pixels fail their checksum is refused when it is opened; hashing costs time on save and open | All later XISF saves | `export/xisfChecksum` |
-| Embed EXIF | Boolean | On | Off/On | A TIFF/PNG/JPEG save carries the camera's EXIF record and the image's other header cards, within the format's allowed subset, in the same write | Not used for FITS/XISF, which always carry the header | An EXIF field the metadata library cannot write is skipped while the others are written, so save success does not prove every field was kept | Later display/interchange saves | `export/embedExif` |
-| Embed processing history in FITS header | Boolean | Off | Off/On | Writes nothing in this release, and the Export page says so | FITS save | Enabling it adds no history; the cards the image was read with, `HISTORY` among them, are carried as they are | None | `export/embedHistory`; existing header HISTORY is separate |
-| Sequence Export: Debayer CFA | Boolean | Off on every dialog open | Off/On; applicable to CFA source frames | Converts CFA mosaics to RGB before encoding exported frames | Sequence Export only; the source sequence supplies the demosaic method | Output is no longer a CFA mosaic and can be larger; leave Off when retaining native mosaic data | All frames in one export operation | Not persisted; snapshotted and locked before the worker starts |
+### XISF
 
-### Sequence and video compatibility
+What opens
+:   An [XISF](glossary.md#xisf) file in grayscale or color, in 8, 16 or 32-bit unsigned integers or 32 or 64-bit
+    floating point, and Bayer and X-Trans mosaics. 64-bit integer and complex samples are refused, and so is a file
+    whose pixel data fail their checksum.
 
-| Item/exact label | Type/unit/category | Default/current value | Valid values/constraints | Meaning/effect | Dependencies/applicability | Trade-off/side effect | Scope | Persistence/metadata |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| SER (`.ser`) | Native sequence | Open, same-family save, export | Opens mono, Bayer RGGB/GRBG/GBRG/BGGR, RGB and BGR in unsigned 8/16 bits; a recording that stopped before its frame count was written opens with its complete frames; a CMY mosaic (YCMY/YMCY/MYYC) opens as one grey plane of its codes; the frame rate is the one its timestamp trailer gives - one frame per mean interval between the trailer's earliest and latest instants, in whole 100 ns ticks | Native planetary/lucky-imaging sequence | Engine SER reader/writer | Written frames are mono, Bayer mosaic or RGB: unsigned and signed 8-bit frames as unsigned 8, every other representation as unsigned 16 | Whole sequence | Writes the geometry, colour layout and frames, and each frame's exposure start in the timestamp trailer (an unknown entry for a frame that states none); the header's recording date is written as unknown; automatic debayer can create RGB copy |
-| AfterNight Image List (`.anseq`) | Native sequence manifest | Open and same-family save | XML manifest naming its frames: **New Sequence** names each file where it is, by absolute path; a save writes every frame as `<stem>-frames/<stem>-<i>.fits` beside the manifest and names it relative to the manifest's directory. A manifest named without a directory finds its frames beside itself; a manifest whose version is not 1, that nests deeper than 4,096 elements, or that names a frame path that is not UTF-8, holds a NUL or is too long is refused | Lightweight/lazy ordered frame sequence | Referenced files must remain readable | Not self-contained; a saved frame is a FITS file with its header cards, in the first frame's representation | Whole sequence | Stores the first frame's width, height, channel count and whether it is a mosaic, the creation time, the frame rate (four significant digits, written the same in every locale), and the frame paths |
-| AVI (`.avi`) | Video container | Open through FFmpeg; same-container save; raw AVI export | Input stream must decode; a raw AVI is written from decoded mono or RGB frames converted to unsigned 8, a mosaic as grey, stored upright with the exact frame-rate fraction, every row-padding byte zero, in sections of at most 1 GiB | Video input or very large uncompressed delivery | FFmpeg for input; native AVI writer for output | Raw AVI is large; no astronomy metadata archive; a recording that would need more 1 GiB sections than the index reserves is refused | Whole sequence | Standard save proposes `.avi` and writes a raw AVI frame by frame |
-| MP4 (`.mp4`) | Video container | Open; same-container save; H.264/H.265 export | Admitted decoder for input; frames written in 8 bits, a mosaic as grey, colour through BT.709, encoded with one thread; an odd width or height is cropped by one column or row | Compact delivery video | FFmpeg; the software encoders libx264 and libx265 | Lossy; metadata/history not preserved | Whole sequence | Standard save proposes `.mp4` and writes H.264; export stores selected FPS and persists format/codec |
-| WebM (`.webm`) | Video container | Open; same-container save; VP9 export | Admitted decoder for input; frames written as for MP4, an odd width or height cropped by one | Compact VP9 delivery video | FFmpeg; the software encoder libvpx-vp9 | Lossy; not a science master | Whole sequence | Standard save proposes `.webm` and writes VP9; export stores selected FPS and persists its selector |
-| MOV/MKV/MPG/MPEG | Video input containers | Open; same-container save for `.mov` and `.mkv` | `.mov`, `.mkv`, `.mpg`, `.mpeg`; actual stream must decode | Input/inspection/extraction; a `.mov` save is written as an MP4 container under that name and a `.mkv` save as Matroska, both H.264 | FFmpeg | No matching general export choice; transcode through supported Export output. A `.mpg`/`.mpeg` save is refused, because AfterNight writes no MPEG stream | Whole sequence | Standard save proposes the recognized source suffix; source container metadata is not promoted into AfterNight image history |
+What a save writes
+:   The same types. A signed image is written as the unsigned integers of its width. Bayer and X-Trans mosaics keep
+    their filter array.
 
-## How to use this reference
+Compression
+:   None on a new profile. The XISF **Default Compression:** offers zlib, LZ4, LZ4-HC and Zstandard, all lossless,
+    written in pieces of 4 MiB that a reader decodes one at a time. Every XISF reader reads zlib and LZ4, and only
+    readers of Revision 1 of the specification read Zstandard. Beside a compression, **Shuffle the bytes of each
+    sample before compressing**, on by default, stores every sample's first byte, then its second, which makes
+    16-bit and floating-point images smaller. An 8-bit image is never shuffled.
 
-1. Identify whether the output is a processing master, interchange copy,
-   display image, sequence archive, or delivery video.
-2. Find the format row and confirm its precision conversion, metadata, and
-   dependency constraints before saving.
-3. Configure global still options in Settings if necessary. For a sequence
-   delivery, use Sequence Export and review FPS/autostretch/resize explicitly.
-4. Write to a new path when the old file matters. A still save replaces an
-   existing file only once the new one is complete, and creates no backup.
-5. Reopen the result. For stills, check dimensions, channels, pixel type, and
-   required FITS/XISF/EXIF fields. For sequences, check container/family, frame
-   count, dimensions, sample depth, FPS, first frame, and last frame.
+Checksum
+:   **Checksum:** at **SHA-256** writes a checksum of the pixel data. AfterNight checks it when the file opens, and
+    refuses a file whose pixels do not match. The hash costs time at every save and every open.
 
-## Implementation behavior and model
+Properties and keywords
+:   Every property is read under its own name and written back as the type it was: a number, a vector, a matrix, or
+    text with line breaks, such as a record of processing written into the file. The FITS keywords are carried too.
+    When the keywords state no [plate solution](glossary.md#plate-solution), the one the properties store is read.
 
-### Extension dispatch and display versus data
+Cards XISF cannot hold
+:   A save is refused before anything is written, and names the card, when the image carries a FITS keyword longer
+    than eight characters or with text outside printable ASCII: "a FITS card is not one an XISF FITSKeyword element
+    can hold: its name is more than eight characters or its text is not printable ASCII". Such a keyword comes from a
+    capture program's `HIERARCH` card, which a FITS save keeps. A property whose name is not an XISF identifier is
+    refused the same way.
 
-Still codec selection uses the final filename suffix, case-insensitively. A
-selected file-dialog filter does not override a conflicting suffix. The
-standard still save passes the underlying image to the codec; viewer
-autostretch, channel selection, masks, annotations, zoom, and overlays are not
-flattened. An applied processing operation changes the underlying image and is
-therefore saved.
+### TIFF
 
-On load nothing is removed or turned: an image with an alpha channel opens with
-it, and no still codec applies an orientation - a JPEG's or TIFF's recorded
-orientation is kept in its metadata, not applied to the pixels. Only a camera
-RAW frame is turned, by **Auto-rotate**. FITS/XISF read their own headers; the
-raster formats read EXIF through Exiv2, except an embedded XMP packet, which is
-not read. A file whose samples are none of the eight representations AfterNight
-processes - a 64-bit integer or half-precision float TIFF, for one - is refused
-with **the file holds samples outside the eight this engine processes**.
+Extensions
+:   `.tif` and `.tiff`.
 
-### Numeric conversion
+What opens
+:   Grayscale, or color with or without an alpha channel, in 8, 16 or 32-bit integers, signed or unsigned, or in 32
+    or 64-bit floating point, and a mosaic its tags state. A color TIFF compressed as JPEG opens in red, green and
+    blue.
 
-FITS and TIFF are the broadest standard save paths for retaining the active
-sample type. FITS uses the signed-byte convention for signed 8-bit samples and
-fixed-width signed/unsigned transfers for 32-bit samples; focused tests include
-the full unsigned 32-bit range. TIFF reloads the stored signedness at every
-supported width, including signed 8-bit. XISF natively maps AfterNight's
-unsigned and floating types; a signed image is written as the unsigned
-representation of its width. PNG accepts only unsigned 8/16 and converts
-unsupported types to those depths. JPEG always converts to unsigned 8. These
-conversions operate on the actual numeric image, not on a display rendering, at
-corresponding full scales to the nearest value; floating data in physical units
-is converted as a fraction of full scale; a value exactly halfway between two
-codes goes to the even one. A Bayer (two-by-two) mosaic is saved only as FITS,
-XISF, or TIFF, which record the filter array; a PNG or JPEG save of one is
-refused before anything is written. An X-Trans mosaic is saved only as XISF or
-TIFF: FITS states a mosaic's filters in one two-by-two pattern card, so a FITS,
-PNG or JPEG save of one is refused before anything is written, the message
-naming XISF and TIFF.
+What is refused
+:   A palette, white-is-zero, CMYK or any other [color model](glossary.md#color-model) whose values are not gray
+    levels or red, green and blue: "this image states a photometric interpretation whose samples are not what they
+    appear to be, and this engine refuses it rather than reading them as grey levels". Associated alpha is refused
+    too. A TIFF of 64-bit integers or half-precision floating point gives "the file holds samples outside the eight
+    this engine processes".
 
-SER creation accepts unsigned 8/16 natively. Signed 8 converts to unsigned 8;
-signed 16 and types above unsigned 16 convert to unsigned 16. Raw AVI also
-converts every frame to unsigned 8. Video encoders consume decoded frames
-converted to unsigned 8 and produce delivery encodings; they are not
-precision-preserving masters. Raw AVI and video write a mosaic frame as grey,
-while SER keeps it a mosaic.
+What a save writes
+:   Every pixel type with its kind, signed 8-bit included, and Bayer and X-Trans mosaics with their pattern, in strips
+    of about a quarter of a megabyte. A file whose pixels pass 3,500 MiB is written in the BigTIFF form, which
+    addresses more than 4 GiB.
 
-### Sequence representation and export geometry
+Compression
+:   None on a new profile. The TIFF **Default Compression:** offers LZW and ZIP/Deflate, which keep every value, and
+    JPEG, which loses some, at a fixed quality of 95 that the JPEG **Quality:** does not change. JPEG takes only 8-bit
+    samples: a deeper image is written with LZW, and the Session Console says so.
 
-Standard sequence Save reads every frame of the source and writes it, through
-the same writer Sequence Export uses, into the container the destination's
-extension names: SER, an image list, raw AVI, or MP4, Matroska or WebM video.
-Nothing is published until the last frame is in, so a failed or stopped save
-leaves nothing at the destination. Image List creates a new manifest and a FITS
-frame directory. No container is a byte copy of the source.
+### PNG
 
-Sequence Export snapshots its settings before starting the worker and decodes
-each source frame. A CFA source remains mosaic by default; **Debayer CFA** can
-request RGB frames, demosaiced by the method the sequence states. Export can
-then stretch each frame as **Apply Stretch** does, through the presentation the
-view shows, and use Lanczos4 to resize. Fit preserves aspect inside a black
-canvas; Fill preserves aspect and center-crops; Stretch changes aspect; Center
-adds black canvas without scaling. A video frame of an odd width or height is
-cropped by one column or row, and no other size rule is applied. Frames are
-stored upright, and a failed export leaves nothing at its path.
+What opens
+:   8 or 16-bit grayscale or color, with or without an alpha channel. A palette image opens in its palette's colors.
 
-## Inputs, outputs, persistence, and metadata
+What a save writes
+:   8 and 16-bit unsigned integers. Signed 8 and 16-bit images are written as unsigned integers of their width, and
+    every wider type as 16-bit.
 
-The standard save input is the active view's underlying still or sequence. A
-successful save adds the chosen destination to recent files and clears the
-standard view's pending-change marker, but it does not change the image/
-sequence object's source filename or attach the view to the new destination.
-There is no separate plain Save/write-back action.
+Compression
+:   Deflate, at the **Compression Level:** from 0 to 9, 6 on a new profile. A higher level writes a smaller file more
+    slowly, and the pixels read back are the same.
 
-Still output naming begins with the view's unique name in the shared last-open
-directory. The clean-profile default filter is TIFF. The filename extension
-chooses the codec. Sequence same-family filters depend on whether the active
-view is SER, image list, or video. Video save preserves a recognized source
-suffix and otherwise falls back to `.mp4`; Sequence Export normalizes the path
-to the selected writer's `.ser`, `.avi`, `.mp4`, or `.webm` suffix. `.anseq`
-output is incomplete without its sibling frame directory.
+### JPEG
 
-FITS and XISF carry the header cards the image was read with while
-regenerating structural fields. An XISF file's properties are read whole under
-their own names and written back as the types they were - a number, a vector, a
-matrix - text with line breaks, such as a processing history written into the
-file, included; when an XISF file's FITS keywords state no plate solution, the
-solution its properties store is read. TIFF/PNG/JPEG carry a format-specific
-allowed EXIF subset when Embed EXIF is on, as part of the same write; the save
-does not stamp the EXIF record with the time of the write or write a FITS `GAIN`
-card as `Exif.Photo.GainControl`. No file carries an image's processing history.
+Extensions
+:   `.jpg`, `.jpeg` and `.jpe`. The save window's filter lists `.jpg` and `.jpeg`.
 
-A still save is written beside its destination and moved into place only when it
-is complete, so a failed or stopped save leaves nothing and an existing
-destination as it was. Normal sequence cancellation removes expected partial
-output and does not clear the view's pending-change marker or add the cancelled
-path to recent files.
+What opens
+:   8-bit grayscale or color. 12-bit and CMYK JPEG are refused, and so is a file that ends before its last row.
 
-## Performance and resource implications
+What a save writes
+:   8-bit grayscale or color, compressed with loss at the **Quality:** from 1 to 100, 95 on a new profile. Every
+    other type is converted to 8 bits.
 
-- FITS and uncompressed XISF/TIFF can be large but avoid display-format
-  precision loss. TIFF LZW/ZIP and PNG add lossless compression work.
-- JPEG and H.264/H.265/VP9 trade fidelity and CPU for smaller delivery output.
-  The guide makes no fixed compression-ratio or time claim because image
-  content, dimensions, encoder, and platform dominate.
-- Image-list saving writes many FITS files and an XML list. Plan for directory
-  entry overhead, free space, and the need to keep all files together.
-- Sequence work scales with decoded pixels multiplied by frames. Autostretch
-  adds statistics/transforms per frame; Lanczos4 resize adds temporary buffers;
-  raw AVI has particularly high disk bandwidth/space demand.
-- Standard still save and sequence work run on background workers. A still save
-  writes the image as it was when the save was confirmed; editing or closing the
-  view meanwhile does not change the file.
+### Camera raw
 
-## Worked lookup example
+Camera [RAW](glossary.md#raw) files are read and never written. Supported Formats lists the extensions by maker.
 
-- Question, lookup path, verified conclusion, and revision/platform/data
-  limitation: "Which output should retain a float RGB processing master and
-  which should be sent for web sharing?" The still matrix shows FITS, TIFF, and
-  XISF retain 32-bit floating samples;
-  PNG converts float to unsigned 16 and JPEG converts to unsigned 8 with lossy
-  encoding. Therefore save and reopen a FITS/XISF/TIFF master first, then make a
-  separate PNG/JPEG delivery copy. Codec round-trip and metadata tests support
-  the implementation model, but this source-derived lookup does not prove a
-  particular external editor, file-size ratio, EXIF round trip, or visual-
-  quality threshold.
+- The file is decoded by LibRaw, or by a private build of RawSpeed for the cameras where that decoder gives the same
+  samples and metadata.
+- It opens under the **Raw Images** settings in force when you asked to open it. A mosaic's white balance is applied to
+  its values, a full-color frame's by the decoder, and **Auto-rotate based on EXIF orientation** turns either by the
+  orientation the camera recorded.
+- A Bayer or X-Trans mosaic, or a full-color frame such as a linear DNG, opens as such. For a mosaic, the
+  **Open CFA file** question decides whether it is turned into color: Supported Formats says how an X-Trans mosaic is.
+- A four-color sensor, such as CMYG or CYGM, and a camera model the decoder does not know are refused.
+- The camera's record is read where the file holds one. Save the processed image as FITS, XISF or TIFF, and keep the
+  raw files.
 
-## Warnings and limitations
+## How a save converts pixel types
 
-- A recognized extension is not proof that the file contents are valid or that
-  the deployed FFmpeg/LibRaw build supports a particular stream/camera.
-- Output is not automatically read back or checksummed. A success notification
-  proves only that the surfaced writer path completed without a reported error.
-- A still save is whole or absent, but it still replaces an existing file once
-  complete. Use a new path for irreplaceable data.
-- Standard video sequence Save re-encodes every frame in 8 bits and is lossy.
-  A `.mpg`/`.mpeg` destination is refused. Retain the original.
-- An image list's saved frames are FITS files in the first frame's
-  representation; a frame of a deeper representation is narrowed to it.
-- An X-Trans mosaic cannot be saved as FITS; save it as XISF or TIFF, or
-  demosaic it first.
-- JPEG, raw AVI, and video encoders are not science-master formats. PNG also
-  reduces float/32-bit integer data to unsigned 16.
-- TIFF JPEG falls back to LZW above 8 bits, as the session console says. XISF
-  is written uncompressed unless **Settings > Export** names a compression. FITS has no exposed compression control in the
-  standard path.
-- An XISF save is refused, before anything is written and naming the card, when
-  the image carries a FITS keyword longer than eight characters (the HIERARCH
-  convention some capture programs use) or with text outside printable ASCII,
-  or a property whose name is not an XISF identifier. An image refused only for
-  a long keyword can still be saved as FITS, which writes it as a HIERARCH card.
-- The processing-history checkbox writes nothing; no file carries an image's
-  processing history.
-- Metadata presence is not metadata validity. Crop, rotate, resize, alignment,
-  and other geometry operations can invalidate WCS/SIP even when keywords remain.
-- `.anseq` is a manifest, not a single-file archive. Moving/deleting its frame
-  directory or referenced source images breaks it.
+When the format holds the image's pixel type, the image is written in it. Otherwise it is written in the narrowest
+type of the format that is at least as wide, or in the format's widest type when none is. Each value keeps its share
+of full scale: it is computed in double precision and rounded to the nearest code, a value halfway between two codes
+going to the even one. A floating-point image of physical values is converted as the
+[fraction of full scale](glossary.md#fraction-of-full-scale) the viewer shows.
+
+FITS and TIFF write every type as it is. The other formats write:
+
+| Pixel type of the image | XISF | PNG | JPEG | [SER](glossary.md#ser) |
+| --- | --- | --- | --- | --- |
+| 8-bit unsigned | 8-bit unsigned | 8-bit unsigned | 8-bit | 8-bit unsigned |
+| 8-bit signed | 8-bit unsigned | 8-bit unsigned | 8-bit | 8-bit unsigned |
+| 16-bit unsigned | 16-bit unsigned | 16-bit unsigned | 8-bit | 16-bit unsigned |
+| 16-bit signed | 16-bit unsigned | 16-bit unsigned | 8-bit | 16-bit unsigned |
+| 32-bit unsigned | 32-bit unsigned | 16-bit unsigned | 8-bit | 16-bit unsigned |
+| 32-bit signed | 32-bit unsigned | 16-bit unsigned | 8-bit | 16-bit unsigned |
+| 32-bit floating point | 32-bit floating point | 16-bit unsigned | 8-bit | 16-bit unsigned |
+| 64-bit floating point | 64-bit floating point | 16-bit unsigned | 8-bit | 16-bit unsigned |
+
+AVI and the video formats write 8-bit unsigned frames, and an image list writes every frame in the first frame's type.
+
+A mosaic keeps its filter pattern only where the format can state it. A save to another format is refused before
+anything is written:
+
+| Mosaic | Written as | Refused for |
+| --- | --- | --- |
+| Bayer | FITS, XISF, TIFF, SER and an image list | PNG and JPEG: "a colour filter array mosaic cannot be written as PNG or JPEG" |
+| X-Trans | XISF and TIFF | FITS, PNG and JPEG: "an X-Trans mosaic cannot be written as FITS, PNG or JPEG" |
+
+FITS states a filter pattern in one two-by-two card, which cannot describe an X-Trans array. AVI and the video formats
+write a mosaic's values as gray, without its pattern. [Debayer](glossary.md#debayer) the mosaic first for color.
+
+## Metadata
+
+The [EXIF](glossary.md#exif) record
+:   TIFF and JPEG carry the part of it their format allows, PNG a smaller part, with the image's other header cards,
+    in the same write, while **Embed EXIF metadata in exported files** is on, as it is on a new profile. A field the
+    metadata library cannot write is left out while the others are written. The record is not dated with the time of
+    the save, and a FITS `GAIN` card is not written as the EXIF gain control. FITS and XISF carry their header
+    whatever the setting says.
+
+XMP
+:   An XMP packet inside a TIFF, PNG or JPEG file is not read.
+
+The processing [history](glossary.md#history)
+:   No file carries it. **Embed processing history in FITS header** writes nothing, whatever it says. The `HISTORY`
+    cards a FITS file was read with are carried as they are.
+
+The plate solution
+:   FITS and XISF carry the world coordinates the image holds. A process that turns or resizes the image has already
+    dropped the cards that no longer fit, so no stale coordinates are written.
+
+Orientation and alpha
+:   Nothing is turned or removed when a file opens. A JPEG's or TIFF's recorded orientation is kept in its metadata and
+    not applied, and only a camera raw file is turned, by its setting. An alpha channel opens with the image.
+
+Sequences
+:   A SER keeps each frame's exposure start, and an image list each frame's header cards: the exposure, the filter,
+    the date and the world coordinates. AVI and the videos keep no astronomical metadata. A container's own metadata
+    is not read into the image's history.
+
+## Sequences and video
+
+A sequence is saved frame by frame: every frame is read from the sequence's file and written into the container the
+extension names, so a save under another extension converts the sequence. A save to a video container decodes and
+codes every frame again, and is never a copy of the file. **Image > Sequence > Export...** writes SER, AVI, MP4 or
+WebM with choices of its own - the coding, the rate, a debayer, a [stretch](glossary.md#stretch) and a resize - which
+[Saving and Exporting](../interface/saving-and-exporting.md#export-a-sequence) describes.
+
+### SER
+
+What opens
+:   Gray frames, Bayer mosaics in RGGB, GRBG, GBRG or BGGR, and RGB or BGR frames, of 8 or 16 bits, read by
+    AfterNight itself. A recording that stopped before it wrote its frame count opens with its complete frames. A cyan, yellow and magenta
+    mosaic opens as one gray plane of its values.
+
+Frame rate
+:   A SER has no field for a rate. It plays at one frame per mean interval between the earliest and the latest time its
+    timestamp trailer records, in whole ticks of 100 nanoseconds.
+
+What a save writes
+:   Gray, Bayer mosaic or RGB frames, 8-bit frames as 8-bit unsigned and every other type as 16-bit unsigned. A mosaic
+    stays a mosaic. Each frame's exposure start goes into the timestamp trailer, as unknown for a frame that states
+    none, and the header's recording date is written as unknown.
+
+### Image list
+
+An image list, `.anseq`, is a short XML file that names image files in order. It holds no pixels.
+
+What opens
+:   The files the list names, each decoded when it is shown, in the pixel type of its file. A path in the list is
+    taken as written when it is absolute, and from the list's own folder otherwise.
+
+What it states
+:   The first frame's width, height, channel count and whether it is a mosaic, the time it was made, the rate with
+    four significant digits, written the same whatever the computer's language, and the frames' paths.
+
+What a save writes
+:   The list, and a folder beside it named `<name>-frames` that holds each frame as a FITS file,
+    `<name>-frames/<name>-<index>.fits`, the index counted from 0: `M42-frames/M42-0.fits` is the first frame of
+    `M42.anseq`. The list names each frame relative to its own folder, so the list and its folder move together.
+    Every frame is written in the first frame's type, with its header cards.
+
+**New Sequence**
+:   An image list that **File > New Sequence...** makes names its files where they are, by their absolute paths. It
+    works only while those files stay where they are.
+
+Limits
+:   A list is refused when its version is not 1, its elements nest more than 4,096 deep, or a frame path is empty, is
+    not UTF-8, holds a NUL or is too long. A list holds at most 1,048,576 frames and its file at most 128 MiB.
+
+### Reading a video
+
+What opens
+:   `.avi`, `.mp4`, `.mov`, `.mkv`, `.webm`, `.mpg` and `.mpeg` files, read by FFmpeg on the processor. AfterNight
+    admits only the AVI, MP4 and MOV, Matroska and WebM, MPEG program and transport stream and NUT containers, and
+    the codecs Supported Formats lists, even where FFmpeg could read another. Sound is never read.
+
+How a frame arrives
+:   Gray, mosaic and RGB frames arrive as the stream stores them. A color stream in luma and chroma is converted to
+    RGB through the matrix and the range it states, or as BT.601 at limited range when it states neither. A stream of
+    8 bits or fewer becomes 8-bit RGB, a wider one 16-bit RGB. A palette is looked up into RGB, and a palette left
+    empty, as some AVI files hold, is read as gray.
+
+Order
+:   The frames come in the order a player shows them. Opening reads every packet header once, so a jump lands on
+    exactly the frame asked for. FFmpeg opens no other file and no network address for a video.
+
+### AVI
+
+AfterNight writes AVI with its own writer. FFmpeg only reads it.
+
+What a save writes
+:   Uncompressed 8-bit frames: gray through a gray palette, or 24-bit color. Every deeper type is converted to 8 bits.
+    The frames are stored the right way up, every byte that pads a row is zero, and the rate is stored as its exact
+    fraction.
+
+Size
+:   A frame is at most 32,767 pixels wide and tall. The file is written in sections of at most 1 GiB, behind an index
+    whose room is reserved when the save starts. A recording that would need more sections than the index holds is
+    refused, not continued in a second file.
+
+### MP4, MOV, MKV and WebM
+
+FFmpeg writes these containers, through the software encoders x264 for H.264, x265 for H.265 and libvpx for VP9.
+
+What a save writes
+:   An `.mp4` or `.mov` file is an MP4 container and an `.mkv` file a Matroska one, both in H.264, and a `.webm` file
+    is VP9. **Export Sequence** writes MP4 in H.264 or H.265, or WebM in VP9.
+
+Frames
+:   8-bit frames. Color is coded through the BT.709 matrix at limited range, and a gray frame stays gray. An odd width
+    or height loses its last column or row, keeping the top left.
+
+Quality
+:   One fixed quality: a constant rate factor of 26 for H.264, 29 for H.265 and 32 for VP9. Each encoder works on one
+    thread. Every coding loses detail, so a video is a copy to watch, never a [master](glossary.md#master).
+
+MPG and MPEG
+:   AfterNight writes no MPEG stream. A sequence read from an `.mpg` or `.mpeg` file is saved under another extension.
+
+## What a save does with the file
+
+- **The image is written, not its display.** The [Autostretch](glossary.md#autostretch) display, the channel shown,
+  the zoom, overlays, annotations and [masks](glossary.md#mask) are not written. A process you applied is.
+- **The image is written as it was when you confirmed the save.** An edit made while it is written reaches only the
+  next save, and closing the view does not change the file.
+- **A file is written whole or not at all.** A still image is written beside its destination and moved into place only
+  when it is complete, and a sequence appears only when its last frame is in. A save that fails or is stopped leaves
+  nothing at the destination, and an existing file as it was.
+- **Replacing a file keeps no backup of it.** Save a result under a new name when the old file matters.
+- **AfterNight does not read a file again to check it.** Open what you wrote before you delete its source:
+  [Saving and Exporting](../interface/saving-and-exporting.md#check-what-you-wrote) says what to look at.
+- **Every save works in the background**, behind a progress window, and you can go on working.
+
+## What a format costs
+
+- FITS, and XISF and TIFF without compression, are large but lose nothing. LZW, ZIP/Deflate, the XISF compressions
+  and the PNG levels cost time when the file is written and opened, and change nothing in the pixels.
+- JPEG, H.264, H.265 and VP9 make small files at the cost of detail and processor time. No size or time is promised
+  for a setting: it depends on the image.
+- An image list writes one FITS file for each frame and a list. Keep them together, with room for them all.
+- The work of a sequence grows with its frames times their pixels. An export's stretch measures every frame, its
+  resize needs memory for each frame, and an uncompressed AVI takes much disk space and disk speed.
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| Which format keeps float samples? | FITS, TIFF, and XISF map 32/64-bit float; PNG/JPEG do not. | Keep an astronomy-native/interchange master, then make delivery copies. |
-| Save rejects a filename | Extension is missing/unsupported even if a broad filter was selected; a still save names only FITS, XISF, TIFF, PNG and JPEG. | Use a recognized still extension; see [Saving And Exporting](../interface/saving-and-exporting.md). |
-| TIFF used LZW instead of JPEG | The written samples were not 8-bit; the session console says so. | Keep LZW/ZIP for lossless high-depth output or deliberately make an 8-bit delivery copy. |
-| FITS has no new HISTORY cards | No save writes a processing history. | Preserve provenance separately and inspect existing header records. |
-| EXIF field disappeared | Field was outside the format's allowed subset, an embedded XMP packet, a field the metadata library could not write, or Embed EXIF was off. | Retain source metadata; verify after reopening; use FITS/XISF for astronomy fields. |
-| `.anseq` works only on the original machine/path | Manifest frame paths or sibling directory are missing; **New Sequence** names its files by absolute path. | Move the whole artifact or rebuild the list from available frames. |
-| A saved image list's frames have another sample type than some sources | A save writes every frame in the first frame's representation, with its header cards. | Make the first frame the one whose representation the list should keep, or save the frames individually. |
-| Video opens but export dimensions change | An odd width or height is cropped by one column or row, or the chosen resize preset applies. | Use an even width and height; verify output. |
-| Video sequence Save is refused for a `.mpg` or `.mpeg` file | AfterNight writes no MPEG stream. | Save with an `.mp4`, `.mkv` or `.webm` name, or use [Sequence Export](../interface/saving-and-exporting.md#export-a-sequence) to a new file. |
-| A TIFF does not open, naming its photometric interpretation | Palette, white-is-zero, separated-ink and subsampled-chroma TIFFs are refused. | Convert it to an RGB or grey TIFF with another tool. |
-| A 64-bit integer FITS does not open | A stored value lies beyond ±2^53. | Convert it to a 32-bit or floating FITS with another tool. |
-| A JPEG or TIFF opens unrotated | No still codec applies an orientation. | Turn it with the view's rotate commands or a geometry process. |
-| A video does not open although another player shows it | Its container or decoder is outside AfterNight's admission lists. | Convert it to a listed container and codec with another tool. |
-| An X-Trans mosaic is refused for a FITS save, naming XISF or TIFF | FITS states a mosaic's filters in one two-by-two pattern card, which cannot describe an X-Trans array. | Save as XISF or TIFF, or demosaic the mosaic first. |
+"the product writes FITS, XISF, TIFF, PNG and JPEG files only"
+:   **Cause.** The name of a still image has no extension AfterNight writes, whatever filter the save window shows.
+:   **Fix.** Save again with `.fits`, `.xisf`, `.tif`, `.png` or `.jpg` at the end of the name.
 
-## Related pages
+A sequence save to `.mpg` or `.mpeg` is refused
+:   **Cause.** AfterNight writes no MPEG stream.
+:   **Fix.** Save it as `.ser`, `.anseq`, `.avi`, `.mp4`, `.mkv` or `.webm`, or export it.
 
-- [Supported Formats](../getting-started/supported-formats.md) is the concise
-  compatibility list; this page remains authoritative for precision,
-  compression, and metadata details.
-- [Saving And Exporting](../interface/saving-and-exporting.md) documents exact
-  actions, controls, naming, overwrite, progress, cancellation, and verification.
-- [Sequences](../interface/sequences.md) covers sequence creation, playback,
-  extraction, conversion, and temporary state.
-- [Settings](../interface/settings-dialog.md) documents persistent defaults and
-  their current limitations.
-- [FITS Header, EXIF, And Astrometry Metadata](../interface/fits-header-viewer.md) and [Image
-  Summary](../interface/image-summary.md) and
-  [Image Statistics](../interface/image-statistics.md) help verify reopened output.
-- [Troubleshooting And Diagnostics](troubleshooting.md) routes open, save,
-  metadata, sequence, and external-tool symptoms to the specific remedies.
+The saved file has fewer bits than the image
+:   **Cause.** The format does not hold the image's pixel type, and the save converted it.
+:   **Fix.** Keep the master as FITS, XISF or TIFF, and make a PNG or JPEG copy beside it.
+
+A TIFF was written with LZW instead of JPEG
+:   **Cause.** The image is deeper than 8 bits, and JPEG compression takes only 8-bit samples. The Session Console
+    says so.
+:   **Fix.** Keep LZW or ZIP/Deflate for a deep image, or save an 8-bit copy on purpose.
+
+An EXIF field is missing from a TIFF, PNG or JPEG
+:   **Cause.** The format does not allow the field, the field was in an XMP packet, the metadata library could not
+    write it, or **Embed EXIF metadata in exported files** was off.
+:   **Fix.** Keep the original file, and save astronomical fields in FITS or XISF.
+
+A FITS file has no new `HISTORY` cards
+:   **Cause.** No save writes the processing history.
+:   **Fix.** Keep the record of your steps apart, and read the cards the file already had in the FITS Header window.
+
+An XISF save is refused, naming a card
+:   **Cause.** The image carries a FITS keyword longer than eight characters, a `HIERARCH` card, or text outside
+    printable ASCII, which XISF cannot hold.
+:   **Fix.** Save it as FITS, which keeps such a card.
+
+An image list opens only on the computer that made it
+:   **Cause.** **New Sequence** named its files by their absolute paths, or the list's frames folder was not moved
+    with it.
+:   **Fix.** Move the list together with its files and its frames folder, or make the list again from the files where
+    they are now.
+
+A saved image list's frames have another pixel type than some of the files
+:   **Cause.** A save writes every frame in the first frame's type.
+:   **Fix.** Put first the frame whose type the list should keep, or save the frames one by one.
+
+An exported video is one pixel narrower or lower
+:   **Cause.** A video stores an even width and height, and the last odd column or row is cut away.
+:   **Fix.** Give the frames an even width and height, or resize them in the export.
+
+"this image states a photometric interpretation whose samples are not what they appear to be"
+:   **Cause.** The TIFF is a palette, white-is-zero, CMYK or another color model AfterNight refuses.
+:   **Fix.** Convert it to a grayscale or RGB TIFF in the program that made it.
+
+"FITS integer exceeds Float64's guaranteed exact range"
+:   **Cause.** The 64-bit integer FITS holds a value beyond \(\pm 2^{53}\).
+:   **Fix.** Convert it to a 32-bit integer or floating-point FITS with another program.
+
+"the file holds samples outside the eight this engine processes"
+:   **Cause.** The file stores 64-bit integers or half-precision floating point, such as some TIFF files.
+:   **Fix.** Convert it to a 32-bit integer or floating-point file with another program.
+
+A JPEG or TIFF opens turned on its side
+:   **Cause.** AfterNight does not apply the orientation such a file records.
+:   **Fix.** Turn the image with a geometry process.
+
+A video does not open although a player shows it
+:   **Cause.** Its container or codec is not one AfterNight admits.
+:   **Fix.** Have the program that made it write a copy as SER, or as H.264 in MP4.
+
+An X-Trans mosaic is refused for a FITS save
+:   **Cause.** FITS states a filter pattern in one two-by-two card, which cannot describe an X-Trans array.
+:   **Fix.** Save it as XISF or TIFF, or debayer it first.
 
 ## Credits
 
-- [FITS Standard 4.0](https://fits.gsfc.nasa.gov/fits_standard.html), official
-  IAU FITS Working Group reference.
-- [XISF 1.0
-  Specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html),
-  PixInsight primary specification.
-- [TIFF specification
-  index](https://libtiff.gitlab.io/libtiff/specification/index.html) and
-  [TIFF/JPEG Technical Note
-  2](https://libtiff.gitlab.io/libtiff/specification/technote2.html), primary
-  LibTIFF-hosted references.
-- [PNG Specification, Second
-  Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html), primary
-  specification.
-- [Independent JPEG Group](https://ijg.org/) and [JPEG Still Picture Compression
-  Standard](https://www.ijg.org/files/Wallace.JPEG.pdf), primary
-  implementation/technical references.
-- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html),
-  primary libavformat documentation.
-- [SER format description, version
-  3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf), primary format
-  description.
+- [FITS Standard 4.0](https://fits.gsfc.nasa.gov/fits_standard.html), by the IAU FITS Working Group.
+- [XISF 1.0 Specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html), by Pleiades
+  Astrophoto.
+- [TIFF 6.0 specification](https://libtiff.gitlab.io/libtiff/specification/index.html) and
+  [TIFF/JPEG Technical Note 2](https://libtiff.gitlab.io/libtiff/specification/technote2.html), as LibTIFF hosts them.
+- [PNG Specification, Second Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html).
+- [Independent JPEG Group](https://ijg.org/) and
+  [The JPEG Still Picture Compression Standard](https://www.ijg.org/files/Wallace.JPEG.pdf), by Gregory K. Wallace.
+- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html).
+- [SER format description, version 3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf).
