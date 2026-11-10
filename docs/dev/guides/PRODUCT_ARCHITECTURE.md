@@ -516,7 +516,11 @@ under, its exclusive access and its still-image requirement; the registry launch
 the reading the menu's action state shares, and an attached window answers `requiresExclusiveAccess` from its
 descriptor. The members that open a process are `app/ProcessEntryPoints.cpp`, compiled only with every process; the
 image operations' non-interactive half is `nonInteractiveImageOperations`, beside the channel extractor; the registry
-binds Export to `ExportSequenceControl::openFor`. `Test_ProcessesShared`, an isolated suite, holds the helpers, the
+binds Export to `ExportSequenceControl::openFor`. A descriptor also states the user guide's page of its process
+(`helpPath`, from the help table beside the registrations), and the launcher states it on the window a launch shows -
+the process window shown after the launch that was not shown before it, since an entry point hands its window to
+nobody - so that Help, asked from that window, opens the page; `docs/dev/USER_GUIDE_AUTHORING.md` says how the table
+is held to the guide. `Test_ProcessesShared`, an isolated suite, holds the helpers, the
 launcher and the registry: every registered action opens its real window, or runs its real channel action, through
 the library's entry points; a process family's suite (`Test_Processes<Family>`) holds its own processes the same way.
 

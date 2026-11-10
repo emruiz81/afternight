@@ -1182,6 +1182,30 @@ QString TopLevelProcessBaseControl::processMessage() const
     return infoBannerMessage->text();
 }
 
+void TopLevelProcessBaseControl::setHelpPath(const QString& helpPath)
+{
+    m_HelpPath = helpPath;
+}
+
+QString TopLevelProcessBaseControl::helpPath() const
+{
+    return m_HelpPath;
+}
+
+QString an::ui::helpPathFor(const QWidget* widget)
+{
+    for (; widget != nullptr; widget = widget->parentWidget())
+    {
+        // A process window declares no meta-object of its own, so it is known by its type.
+        const auto* window = dynamic_cast<const TopLevelProcessBaseControl*>(widget);
+        if (window != nullptr && !window->helpPath().isEmpty())
+        {
+            return window->helpPath();
+        }
+    }
+    return {};
+}
+
 void TopLevelProcessBaseControl::keyPressEvent(QKeyEvent* evt)
 {
     if (evt->key() == Qt::Key_Escape)

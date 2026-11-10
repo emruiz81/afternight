@@ -48,6 +48,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QKeySequence>
 #include <QLabel>
 #include <QLayout>
 #include <QLayoutItem>
@@ -62,6 +63,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSet>
+#include <QShortcut>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -1319,6 +1321,20 @@ inventoriesOn(const std::string& viewName, const std::uint32_t width, const std:
         EXPECT_EQ(opened.size(), 1u) << descriptor.id;
         if (opened.size() == 1u)
         {
+            // The window Help is asked from opens the page its descriptor states.
+            EXPECT_FALSE(descriptor.helpPath.empty()) << descriptor.id << " states no page of the user guide";
+            EXPECT_EQ(opened[0].window->helpPath().toStdString(), descriptor.helpPath) << descriptor.id;
+            // F1 is the application's Help in every window. A command of the window on the same key would make it
+            // ambiguous there, and an ambiguous key runs neither.
+            for (const QAction* action : opened[0].window->findChildren<QAction*>())
+            {
+                EXPECT_NE(action->shortcut(), QKeySequence(Qt::Key_F1))
+                    << descriptor.id << ": \"" << action->text().toStdString() << "\" takes F1";
+            }
+            for (const QShortcut* shortcut : opened[0].window->findChildren<QShortcut*>())
+            {
+                EXPECT_NE(shortcut->key(), QKeySequence(Qt::Key_F1)) << descriptor.id << ": a shortcut takes F1";
+            }
             settle();
             WindowInventory inventory;
             // A window that sets no title is known by the name its process attaches to a view under.

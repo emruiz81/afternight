@@ -47,7 +47,7 @@ command.
 | ++ctrl+minus++ | **Image > View > Zoom Out** | An image is active |
 | ++ctrl+0++ | **Image > View > Zoom 100%** | An image is active |
 | ++ctrl+comma++ | **Edit > Settings...** | Always |
-| ++f1++ | **Help > User Guide** | Always |
+| ++f1++ | **Help > User Guide**. In a process window, the guide opens at that process's page. | Always |
 | ++ctrl+f++ | Puts the cursor in the [Dashboard](../interface/dashboard.md)'s search box and selects its text | The Dashboard shows its recent files. The box is hidden while the list is empty. |
 
 **File > New Sequence...** has no key. **Image > View > Fit To Window** and **Maximize View** have none in the menu:
@@ -126,8 +126,8 @@ is docked, its own window while it floats.
 
 ## Image Integration
 
-Image Integration's window has its own menus. Its keys work while its window is active, and there ++ctrl+o++ and
-++f1++ do what this table says, not what they do in the main window.
+Image Integration's window has its own menus. Its keys work while its window is active, and there ++ctrl+o++
+does what this table says, not what it does in the main window.
 [Image Integration](../processes/stacking-integration/image-integration.md) describes each command.
 
 | Keys | Command | Works when |
@@ -141,7 +141,7 @@ Image Integration's window has its own menus. Its keys work while its window is 
 | ++ctrl+e++ | **Project > Export Project...** | Always |
 | ++ctrl+num-enter++ | **Run > Execute Integration** | Nothing in the project blocks a run |
 | ++ctrl+1++ to ++ctrl+8++ | **Navigate > Bias**, **Darks**, **Flats**, **Lights**, **Calibration**, **Registration**, **Stacking** and **Summary** | Always |
-| ++f1++ | **Help > Keyboard Shortcuts**, the window's list of keys | Always |
+| ++shift+f1++ | **Help > Keyboard Shortcuts**, the window's list of keys | Always |
 | ++f5++ | Refreshes the window: its theme, the Registration and Stacking tables, the issue badges and the tabs' labels | Always |
 | ++ctrl+f++ | Puts the cursor in the search box of the frame tab shown and selects its text. A keyboard's Find key does the same. | A frame tab is shown: Bias, Darks, Flats or Lights |
 
