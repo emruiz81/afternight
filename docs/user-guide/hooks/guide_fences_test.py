@@ -278,6 +278,27 @@ class FigureTests(unittest.TestCase):
         self.assertRefused(figure + '  - {n: 1, x: 1, y: 1}\n  - {n: 1, x: 2, y: 2}\n', 'pin 1 is placed twice')
         self.assertRefused(figure + '  - {n: 1, x: 1}\n', 'a pin states `n`, `x` and `y`')
 
+    def test_an_owed_picture_is_drawn_as_its_description_until_it_is_taken(self):
+        html = fences.render_figure(self.parse('image: ../assets/absent.png\nowed: true\nalt: The "window" as it '
+                                               'opens.\ncaption: C.\npins:\n  - {n: 1, x: 15, y: 20}\n'))
+        self.assertIn('<figure class="an-figure"><div class="shotwrap owed" role="img" aria-label="The &quot;window'
+                      '&quot; as it opens.">', html)
+        self.assertIn('<span class="owed-label">Picture to come</span>', html)
+        self.assertNotIn('<img', html)
+        self.assertNotIn('class="pin"', html, 'a pin marks a place on a picture, and there is none yet')
+        pair = fences.render_figure(self.parse(
+            'images:\n  - {image: ../assets/b.png, alt: Dark., label: Before}\n'
+            '  - {image: ../assets/a.png, alt: Bright., label: After}\ncaption: C.\nowed: true\n'))
+        self.assertEqual(pair.count('<div class="shotwrap owed"'), 2)
+        self.assertIn('<span class="pair-label">After</span>', pair)
+
+    def test_owed_is_true_or_false_and_a_picture_taken_is_no_longer_owed(self):
+        self.assertRefused('image: ../assets/absent.png\nowed: soon\nalt: A.\ncaption: C.\n',
+                           '`owed` is true or false')
+        self.assertRefused('image: ../assets/window.png\nowed: true\nalt: A.\ncaption: C.\n',
+                           'image ../assets/window.png exists', 'remove `owed`')
+        self.assertRefused('image: ../assets/absent.png\nowed: false\nalt: A.\ncaption: C.\n', 'does not exist')
+
     def test_a_pair_is_two_labelled_images_without_pins(self):
         entry = '  - {image: ../assets/before.png, alt: A., label: Before}\n'
         self.assertRefused('images:\n' + entry + 'caption: C.\n', '`images` is a pair')

@@ -3,247 +3,331 @@ kind: process
 stage: calibrate
 menu: Process > Geometry > CFA Integer Resample
 summary: >-
-  Changes an undebayered Bayer mosaic by a whole-number factor without mixing samples taken under different color
-  filters.
+  Bins or enlarges a raw Bayer mosaic, or every frame of a sequence, by a whole factor, combining or copying samples
+  only among the sites of one filter, so the result is a mosaic of the same pattern.
 data_in: cfa
+data_out: cfa
+destructive: true
+preview: none
+sequences: true
+masks: none
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active. Target Image lists only the open one-channel mosaics, and OK refuses a
+    target that states no two-by-two Bayer pattern.
+  inputs: >-
+    One undebayered mosaic of an RGGB, BGGR, GRBG or GBRG pattern at any phase, as a still image or a sequence, in any
+    pixel type.
+  outputs: >-
+    The same view, replaced, with one history step: a mosaic of the same pattern and phase, smaller or larger by the
+    factor, in the same pixel type. No file, preset or report is written.
+  state: >-
+    A raw or calibrated mosaic of a one-shot color camera, before the debayer, to bin for less noise in each pixel or
+    to enlarge by whole blocks.
+derived: false
+rewritten: true
 ---
 # CFA Integer Resample
 
-## Purpose and expected result
+This process changes the size of a raw [CFA](../../reference/glossary.md#cfa) mosaic by a whole factor and keeps its
+filters. **Downsample** combines a square block of one filter's sites, the factor wide, into one site, by the average,
+the median, the maximum or the minimum. **Upsample** copies each site into such a block. Two filters are never mixed,
+and nothing is interpolated.
 
-CFA Integer Resample changes an undebayered Bayer mosaic by an integer factor
-without mixing the four CFA positions. It runs one filter-aware plan of the
-image engine: Downsample combines only samples under the same filter, and
-Upsample replicates each sample within its own filter's lattice. The result is a
-mosaic of the same arrangement and phase.
+**OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), with a mosaic of the
+same [Bayer pattern](../../reference/glossary.md#bayer-pattern) and phase, adds one step to its
+[history](../../reference/glossary.md#history) and closes the window. The
+[pixel type](../../reference/glossary.md#pixel-type) is kept.
 
-The operation modifies the selected still image or replaces its sequence. It is
-not ordinary interpolation and does not create additional sensor resolution.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Geometry > CFA Integer Resample** |
-| Enabled when | An image or sequence view is active. The target selector lists only views shown as a one-channel mosaic; a target that does not state a two-by-two mosaic is refused when **OK** is pressed. |
-| Inputs | One undebayered RGGB/BGGR/GRBG/GBRG still or sequence. An image that states no filter array, a colour image and an X-Trans mosaic are refused by name. |
-| Outputs | Same target/sequence at a CFA-preserving integer scale, same sample type, Bayer pattern and phase. No new view/file for stills. |
-| Recommended image state | Calibrated linear CFA data before Debayer. |
-| Preview support | None. Read-only geometry/memory estimates are the only pre-execution feedback. |
-| Sequence support | Supported: every frame is resampled into a new sequence that replaces the view's, with progress and **Cancel**. |
-| Mask support | Unsupported. |
-| External dependencies | None. |
+```figure
+owed: true
+image: ../../assets/images/processes/calibration/cfa-integer-resample.webp
+alt: >-
+  The CFA Integer Resample window. Under the title, the process name and the line Resample CFA frames by integer
+  factors while preserving the CFA pattern. In the Resample group, Resample Factor at 2, Downsample Mode at Average,
+  and the Downsample and Upsample buttons with Downsample chosen. In the New Size group, Original Px reads 5544 and
+  3684 and Target Px 2772 and 1842, with Current Size at 38.96 MB and New Size at 9.74 MB. Under them Target Image
+  names the light, and Reset, OK and Close run along the bottom.
+caption: >-
+  CFA Integer Resample on a raw NGC 253 light, binning by 2 with Average, as the window opens: Target Px and New Size
+  show the result before OK.
+pins:
+  - {n: 2, x: 28.0, y: 35.5}
+  - {n: 3, x: 5.5, y: 28.4}
+  - {n: 5, x: 71.5, y: 58.6}
+  - {n: 6, x: 58.5, y: 94.8}
+```
 
 ## Before you start
 
-1. Verify CFA metadata. The process changes geometry in place; the change is one
-   history step you can undo.
-2. Prefer a factor that divides each half-resolution CFA plane: source width and
-   height should be divisible by `2 × factor` for the displayed `W/factor` size
-   to equal the actual downsampled result without discarded edges.
-3. Check disk/RAM independently before large Upsample factors. A factor `f`
-   multiplies pixel count by `f²`; readouts are capped by 100,000-pixel spin-box
-   limits and can under-report larger computed dimensions.
-4. Plan to plate-solve again after resampling if astrometry matters: the result
-   drops the source's solution, because the four filters' samples sit at
-   different places within each block, which one solution cannot describe.
+- **OK** replaces the mosaic. **Downsample** discards detail, and **Upsample** multiplies the memory without adding
+  any. The image's history keeps the step before.
+- The image is a mosaic that states its pattern. Do not [debayer](../../reference/glossary.md#debayer) it: when a raw
+  [FITS](../../reference/glossary.md#fits) file opens with the question "Do you want to automatically debayer it before
+  opening?", answer **No**.
+- Prefer a factor that divides half the mosaic's width and half its height. Otherwise the last rows and columns of
+  each filter's sites are dropped, and the result is smaller than **Target Px** shows.
+- The result states no [plate solution](../../reference/glossary.md#plate-solution). Plate-solve it again when you
+  need one.
+- A [mask](../../reference/glossary.md#mask) on the view is not used. On a sequence, every frame gets the same factor,
+  direction and reducer, whatever frames its player has selected.
 
-## Procedure
+## Steps
 
-1. Open **Process > Geometry > CFA Integer Resample** and verify **Target Image**.
-2. Choose **Downsample** or **Upsample** and set **Resample Factor**.
-3. For Downsample, choose Average, Median, Maximum, or Minimum.
-4. Compare **Original Px**, **Target Px**, **Current Size**, and **New Size**.
-   Calculate the exact result from the formula below when dimensions are
-   odd/not divisible or the readout reaches 100,000.
-5. Click **OK**. Sequence mode shows a progress window; still mode runs without
-   one.
-6. Confirm actual dimensions, CFA pattern and history before Debayer.
+1. **Open the window.** Make the mosaic the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Geometry > CFA Integer Resample**. The window opens ready to bin by 2 with **Average**, so **OK** is
+   enabled at once.
+2. **Choose the direction.** Choose **Downsample** to combine each block of one filter's sites into one site, or
+   **Upsample** to copy each site into a block.
+3. **Set the factor.** Type **Resample Factor**. For **Downsample**, twice the factor must not exceed the mosaic's
+   width or height.
+4. **Choose how a block is combined.** For **Downsample**, choose **Downsample Mode**. **Upsample** disables it.
+5. **Check the size.** **Target Px** shows the width and height the window expects, and **New Size** the memory the
+   result will hold.
+6. **Resample.** Choose **OK**. The window closes, the view shows the mosaic at its new size, and its history lists
+   **CFA Integer Resample** with the factor and the size.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Downsample | Radio button | On | None | Mutually exclusive with Upsample | Reduces each filter's lattice by the factor using the selected statistic. | Enables Downsample Mode. | Reduces resolution/data; Average improves random-noise SNR, Median rejects outliers, extrema bias output. | Execute; still/sequence; no mask | Window lifetime; target change/Reset restores On. |
-| Upsample | Radio button | Off | None | Mutually exclusive with Downsample | Replicates each sample within its filter's lattice by the factor on both axes. | Disables Downsample Mode. | Pixel count/memory/disk grow by `f²`; no new detail is created. | Execute; still/sequence | Window lifetime; target change/Reset restores Off. |
-| Resample Factor | Integer multiplier/divisor | `2` | None | `2`–`100`; step `1`; a reduction additionally needs `2 × factor` no larger than the even width and height | Larger factors reduce/enlarge more strongly. Every whole factor is accepted and keeps the arrangement's phase, as the tooltip says. | Both directions. | Downsample discards incomplete blocks; Upsample cost grows quadratically and can exceed readout limits. | Execute | Window lifetime; target change/Reset restores `2`. |
-| Downsample Mode | Selector | **Average** | None | **Average**, **Median**, **Maximum**, **Minimum** | Chooses the statistic over each `f×f` block of one filter's samples. | Enabled only for Downsample. | Average preserves mean; Median resists outliers; Maximum/Minimum select extremes and bias brightness/noise. Median is costlier. | Downsample only | Window lifetime; target change/Reset restores Average. |
-| Original Px > Width | Read-only pixels | Target width | Live | `1`–`100000` display range | Shows current source width, clamped by widget maximum. | Refreshes on target/image update. | Can under-report sources wider than 100,000. | Readout only | Live. |
-| Original Px > Height | Read-only pixels | Target height | Live | `1`–`100000` display range | Shows current source height. | Same. | Same cap. | Readout only | Live. |
-| Target Px > Width | Read-only pixels | `floor(W/2)` for default UI formula `W/2` | Live | `1`–`100000` display range | UI displays integer `W/f` or `W×f`. The actual size follows the formula below. | Recalculates with direction/factor. | May differ for odd/non-divisible dimensions or clamp at 100,000. | Readout only | Live. |
-| Target Px > Height | Read-only pixels | `floor(H/2)` for default | Live | `1`–`100000` display range | UI displays `H/f` or `H×f`. | Same. | Same discrepancy/cap. | Readout only | Live. |
-| Current Size | Read-only estimate | Current image/sequence bytes in MB/GB | Live | Two decimals; uses current frame bytes × frame count | Estimates uncompressed image payload, not container overhead. | Sequence count included. | Does not represent working copies or compression. | Readout only | Live. |
-| New Size | Read-only estimate | Computed target width×height×sample bytes×frames | Live | Two decimals | Estimates final uncompressed payload from displayed Target Px. | Recalculates with settings. | Can under-report when dimensions clamp and omits working memory. | Readout only | Live. |
-| Target Image | CFA mono image/sequence selector | Launching view | None | Views shown as a one-channel mosaic | Changes source and resets direction/factor/mode. | Stays enabled during execution; a change does not affect the run already started. | Sequence length drives disk/time. | Execute | Current window only. |
-| OK | Button | Enabled at factor 2 when displayed target differs | None | Valid two-by-two mosaic target | Checks the target, reads the dialog and resamples on a worker as an edit of the still image, or replaces the sequence; records one history step on success. | Disabled while running and when the displayed target equals the current size. | Can allocate very large outputs; still work has no progress/cancel window. | Execute | Window closes after success. |
-| Reset | Button | — | None | Click action | Refreshes source/readouts and restores Downsample, factor 2, Average. | Disabled during execution. | Does not undo an already applied resample; use Image History. | Process window | No preset. |
-| Close | Button | — | None | Click action | Closes without executing pending settings. | Disabled during execution. A window closed during a run stays hidden until it lands. | No change. | Process window | No persistence. |
+The window has no preview and no **Channel**. What every process window shares is on
+[Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: CFA Integer Resample
+controls:
+  - name: Resample Factor
+    kind: spinbox
+    default: "2"
+    widget: {min: 2, max: 100, step: 1}
+    effect: Sets the factor. Higher makes the mosaic smaller with **Downsample**, larger with **Upsample**. Every whole factor keeps the pattern's phase, as the tooltip says, an odd one as well as an even one.
+    range: For **Downsample**, twice the factor must be no larger than the mosaic's even width and height. The window lets you type more, and the run refuses it.
+    tradeoff: A larger **Downsample** factor loses more detail, and can drop more rows and columns at the edges. An **Upsample** factor multiplies the memory and the disk by its square.
+    scope: OK, on the mosaic or on every frame of the sequence.
+    persistence: Until the window closes. **Reset** and another target return it to 2.
+  - name: Downsample Mode
+    kind: combo
+    default: Average
+    options: [Average, Median, Maximum, Minimum]
+    effect: Chooses how the sites of one filter in a block become one. **Average** takes their mean, **Median** their middle value, **Maximum** the largest and **Minimum** the smallest.
+    enabled: With **Downsample** chosen.
+    tradeoff: "**Average** keeps the mean level and lowers random noise. **Median** removes an isolated outlier and can soften small stars. It costs more time and holds eight bytes for each pixel it reads while it works. **Maximum** and **Minimum** pick the extremes, which raise or lower the level and change the noise."
+    scope: The sites of each filter on their own.
+    persistence: Until the window closes. **Reset** and another target return it to **Average**.
+  - name: Downsample / Upsample
+    kind: radio
+    default: Downsample
+    options: [Downsample, Upsample]
+    effect: "**Downsample** divides the mosaic by the factor and combines each block of one filter's sites by **Downsample Mode**. **Upsample** multiplies it by the factor and copies each site into a block of its own filter's sites."
+    tradeoff: "**Downsample** leaves fewer samples, and what it merges or discards is gone. **Upsample** adds no detail, and takes the factor's square in memory and disk."
+    scope: OK, on the mosaic or on every frame of the sequence.
+    persistence: Until the window closes. **Reset** and another target return it to **Downsample**.
+  - name: Original Px
+    kind: readout
+    default: The mosaic's width and height
+    effect: Shows the width and the height of the mosaic now, in pixels.
+    range: From 1 to 100,000. A wider or taller mosaic shows 100,000.
+    scope: Read again when the image changes or another target is chosen.
+  - name: Target Px
+    kind: readout
+    default: Half the mosaic's width and height, rounded down
+    effect: Shows the width and the height the window expects, which the history records too. It is the mosaic's divided by the factor, rounded down, for **Downsample**, or multiplied by it for **Upsample**.
+    range: From 1 to 100,000. The result can be smaller, as the Model says, and a factor the run refuses still shows a size.
+    scope: Counted again with the factor, the direction and any change of the mosaic's size.
+  - name: Current Size
+    kind: readout
+    default: The mosaic's size in memory
+    effect: Gives the memory the mosaic's samples hold now, for all the frames of a sequence together.
+    range: In MB with two decimals, and in GB above 1024 MB.
+    tradeoff: It counts the samples only, not the working memory of a run, a container's overhead or the compression of a file.
+  - name: New Size
+    kind: readout
+    default: A quarter of Current Size
+    effect: Gives the memory the result's samples will hold, from **Target Px** and the bytes of one sample, for every frame of a sequence.
+    range: In MB with two decimals, and in GB above 1024 MB.
+    tradeoff: It reads too little when **Target Px** is cut at 100,000. It leaves out the working memory, the image the history keeps and the temporary sequence.
+  - name: Target Image
+    kind: combo
+    default: The active mosaic
+    options: [The active mosaic, Every other open one-channel mosaic]
+    effect: Chooses the mosaic or mosaic sequence OK resamples. Choosing another one reads its size and returns every control to its default.
+    range: It lists the views that show a one-channel mosaic, a still image that states a filter array, or a sequence whose view does not debayer its frames. An X-Trans mosaic is listed, and OK refuses it.
+    enabled: Disabled while a run works.
+    tradeoff: The mosaic chosen here is the one replaced. A longer sequence takes more time and more temporary disk.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+    note: Opened on an image that is no mosaic, the window works on that image, which its title names, and OK refuses it even while this box shows a mosaic.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Checks that the target is a two-by-two mosaic, reads the factor, the direction and the reducer, and resamples the mosaic or every frame of the sequence. The window closes once the view shows the result.
+    enabled: When **Target Px** differs from the mosaic's size, which it does as the window opens. Its tooltip then reads "Apply integer resampling to the target image.", and otherwise "Target dimensions match the current image. Change the resample factor to enable."
+    tradeoff: The history keeps the mosaic as it was beside the result, so the run needs the memory of both, and of a cut copy when a side is odd. A still image shows no progress window, and its run cannot be stopped once it starts.
+    scope: The whole mosaic, without the mask. A change made in the window after you press it does not reach the run.
+    persistence: "The view and its history keep the result, as the step **CFA Integer Resample** with the text `Binning factor: <f>X - New size: <w>x<h> - Binning method: <mode>` for **Downsample** or `Resample factor: <f>X - New size: <w>x<h>` for **Upsample**, with the size **Target Px** shows."
+    note: OK, **Close**, **Reset** and **Target Image** are disabled while the run works, and the other controls stay editable. A run that fails leaves the window open.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window without resampling.
+    enabled: Disabled while a run works.
+    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run is not stopped, on a sequence either.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Resample Factor** to 2, the direction to **Downsample** and **Downsample Mode** to **Average**, and reads the mosaic's size again.
+    range: It leaves **Target Image** as it is, and undoes no resample already applied, which the image's history does.
+    enabled: Disabled while a run works.
+```
 
-### Conceptual pipeline
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: "Shows the share of the frames done, from 0 to 100 percent, under the title **CFA Integer Resample** and the text `Executing CFA integer resample to sequence <name>`."
+    enabled: Shown only while OK works on a sequence. A still image has no progress window.
+    tradeoff: The resampled sequence is written to a temporary file, which needs its disk space until the run ends. An **Upsample** multiplies that space by the factor's square.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the run, before the next frame at the latest. The sequence stays as it was, with no history step, and the temporary file is removed.
+    note: Closing the CFA Integer Resample window does not stop the run.
+```
 
-1. Check that the target is a one-channel two-by-two mosaic.
-2. If the width or height is odd, crop the last column and/or row first; the
-   crop starts at the top-left pixel, so the phase is unchanged.
-3. Run the engine's filter-aware integer plan: Downsample each filter's samples
-   independently with the selected `f×f` statistic, or Upsample by replicating
-   each sample within its filter's lattice.
-4. Publish the still image or replace the sequence, as one history step.
+## How it works
 
-### Model and equations
+1. **OK** checks that the target is a one-channel mosaic of a two-by-two pattern, and reads the factor, the direction
+   and the reducer.
+2. A mosaic of an odd width or height first loses its last column or row. The cut starts at the top-left pixel, so
+   the pattern's phase is kept.
+3. Each position of the cell is a lattice of one filter's sites. **Downsample** combines each complete block of a
+   lattice with the reducer, and drops the sites of an incomplete block at the right and bottom. **Upsample** copies
+   each site into a block of its lattice. The result is a mosaic of the same pattern and phase, written in the
+   mosaic's pixel type, an average or a median rounded to the nearest value.
+4. The header follows the rule of every geometry change, which [Crop](../geometry/crop.md#model) describes with the
+   [header cards](../../reference/glossary.md#header-card) it keeps. `XPIXSZ` and `YPIXSZ` are restated, and the
+   [processing state](../../reference/glossary.md#processing-state) cards go with the other cards. The plate solution
+   is dropped: the four filters' sites of a block lie at different places, which one solution cannot describe. The
+   [lineage](../../reference/glossary.md#lineage) records the change under the process's name.
+5. The mosaic replaces the target with one history step. A sequence's frames are read as recorded, and resampled into
+   a new [temporary sequence](../../reference/glossary.md#temporary-sequence), which replaces the view's sequence once
+   every frame is written.
 
-Let source dimensions be `W×H`, factor `f`, and per-filter lattice dimensions
-`w=floor(W/2)`, `h=floor(H/2)`.
+### Model
 
-Actual Downsample output dimensions are
+Let \(f\) be the factor, \(W\) and \(H\) the mosaic's width and height, and \(w = \lfloor W/2 \rfloor\) and
+\(h = \lfloor H/2 \rfloor\) the width and height of each lattice. **Downsample** gives a mosaic of
 
-\[
-W_d=2\left\lfloor\frac{w}{f}\right\rfloor,\qquad
-H_d=2\left\lfloor\frac{h}{f}\right\rfloor.
-\]
+\[ W_d = 2\lfloor w/f \rfloor, \qquad H_d = 2\lfloor h/f \rfloor \tag{1} \]
 
-Actual Upsample dimensions are
+pixels, and **Upsample** one of \(2wf\) by \(2hf\). **Target Px** shows \(\lfloor W/f \rfloor\) by
+\(\lfloor H/f \rfloor\), or \(Wf\) by \(Hf\). The two agree for **Downsample** when \(W\) and \(H\) are multiples of
+\(2f\), and for **Upsample** when they are even. The light below, 5544 by 3684, at a factor of 4 shows 1386 by 921
+and gives 1386 by 920.
 
-\[
-W_u=2wf,\qquad H_u=2hf.
-\]
+In one lattice \(L\), let \(B\) be the sites \((i, j)\) with \(fx \le i < f(x+1)\) and \(fy \le j < f(y+1)\) that
+the image's [validity rule](../../reference/glossary.md#validity-rule) calls valid, and \(|B|\) their number.
+**Average** gives
 
-Thus an odd source edge is always lost, and Downsample also drops incomplete
-`f×f` blocks of each filter's lattice. The UI's simpler `floor(W/f)` and `W×f`
-readouts agree only for compatible even/divisible dimensions.
+\[ L'(x, y) = \frac{1}{|B|} \sum_{(i, j) \in B} L(i, j) \tag{2} \]
 
-For Downsample Average, each output sample of one filter position is
+in double precision, rounded to the nearest code, ties to even, for an integer mosaic. **Median** gives the middle
+site, or the mean of the two middle ones of an even count, and **Maximum** and **Minimum** the largest and the
+smallest. **Average** keeps the lattice's mean level, not the total of its sites. **Upsample** sets
+\(L'(fx + i,\ fy + j) = L(x, y)\) for \(0 \le i, j < f\): each cell becomes a block of \(2f\) by \(2f\) pixels whose
+four lattices repeat its four sites, which is not a nearest-neighbour enlargement of the whole mosaic.
 
-\[
-P'(x,y)=\frac{1}{f^2}\sum_{j=0}^{f-1}\sum_{i=0}^{f-1}P(fx+i,fy+j),
-\]
+`XPIXSZ` and `YPIXSZ` are multiplied by the exact factor for **Downsample** and divided by it for **Upsample**,
+whatever edges are dropped, so the plate scale the optics imply is still the result's.
 
-where `P` contains only one CFA position. The mean is accumulated in 64-bit
-float. Median takes the middle value, averaging the two middle values for an even
-count; Maximum and Minimum take the largest and smallest valid sample. An integer
-average or median is rounded to the nearest code, ties to even.
+### Boundaries
 
-Upsample sets `P'(fx+i,fy+j)=P(x,y)` for all `i,j` in `0…f-1`. Each original
-2×2 Bayer cell becomes a `2f×2f` region whose four sublattices retain their
-respective original values. This is not ordinary whole-mosaic nearest neighbor.
+- **OK** refuses an image that states no filter array, one of more than one channel and an X-Trans mosaic, each by
+  name. The run refuses a **Downsample** whose double factor exceeds a side, and an **Upsample** beyond the engine's
+  limits or the memory. The image, its history and the window stay as they were.
+- A refusal or a failure is reported in a message box titled "Error running integer resample", which starts "An
+  error occurred when executing the integer resample process:", and in the log, not in the window's message strip.
+  When the history cannot keep the mosaic, it says so once in a message titled "Image History".
+- A block without a valid site is left unwritten and marked invalid in the result's mask of valid samples. Where every
+  block had one, the image's rule is kept, and such a mask is resampled with the samples. Under a rule that calls every
+  sample valid, a sample that is not a number takes part, and can make its block's answer one too.
+- When another run holds a sequence, a box titled **CFA Integer Resample** says "Another process is executing for
+  this sequence, please cancel that job first before running this process", and nothing starts.
+- A sequence keeps its container, with the frames stored as [Crop](../geometry/crop.md#boundaries) describes.
 
-### Boundary and failure behavior
+### Worked example
 
-- The target is checked when **OK** is pressed. An image that states no filter
-  array is refused with `the image states no colour filter array`, a colour
-  image with `a mosaic has one channel`, and an X-Trans mosaic as not a
-  two-by-two arrangement, each under **Error running integer resample**.
-- A reduction whose `2 × factor` exceeds the even width or height is refused
-  when the run starts with `a CFA reduction factor leaves at least one complete
-  block in every phase`. The UI does not preflight this.
-- Size readouts clamp to 100,000 pixels and can diverge from actual output. The
-  engine's memory budget refuses an allocation it cannot make, with nothing
-  changed.
-- A failure is reported in a message titled **Error running integer resample**
-  that begins `An error occurred when executing the integer resample process:`
-  followed by the reason, and in the log; the image and its history are left as
-  they were. If Image History cannot keep the image the resample replaces, the
-  history says so once, in a message titled **Image History**, this window says
-  nothing more, and nothing changes.
-- A sequence another run holds shows the busy warning. **Cancel** on a
-  sequence's progress window stops the run quietly and leaves nothing in the
-  temporary directory.
+The data is a raw light of NGC 253 from a QHY183C: a FITS file of 5544 by 3684 16-bit
+[sensor codes](../../reference/glossary.md#sensor-code) whose header states `BAYERPAT = 'RGGB'`, opened with **No**
+to the debayer question. The window opens with **Downsample**, a factor of 2 and **Average**. **Target Px** reads 2772
+by 1842, which equation (1) gives too, since both sides are multiples of 4. **Current Size** reads 38.96 MB and
+**New Size** 9.74 MB.
 
-## Parameter interactions and starting points
+After **OK** the mosaic is 2772 by 1842 pixels, still RGGB. By equation (2), its first red site is the mean of the
+light's red sites at (0, 0), (2, 0), (0, 2) and (2, 2): \((1920 + 1856 + 2064 + 2080)/4 = 1980\) codes. Measured
+between neighbouring red sites, the noise falls from about 168 codes in the light to about 96, close to the half that
+independent noise would give. `XPIXSZ` reads 4.8, and the history reads
+`Binning factor: 2X - New size: 2772x1842 - Binning method: Average`.
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Factor + divisibility | Factor 2 with `W,H` divisible by 4 | Desired size reduction/enlargement not reached | Edge loss or huge allocation | Check `2f` divisibility -> exact formula -> memory -> execute |
-| Downsample Mode + data goal | Average for SNR/mean; Median only for outliers | Noise/outliers remain | Max/Min biases brightness; Median removes legitimate extremes | Choose statistic by goal -> small test -> compare values |
-| Upsample + later Debayer | Lowest factor required | Display remains coarse | Large replicated blocks waste resources without detail | Debayer native baseline -> choose required scale -> upsample once |
-| Metadata + geometry | Solve again after resampling | No solution is available on the result | Assuming the original solution still applies | Resample -> plate-solve |
+## Starting points
 
-## Inputs, outputs, and metadata
-
-- Still execution changes the selected view as one edit, preserves sample type
-  (any of the eight AfterNight stores), Bayer pattern and phase, changes
-  dimensions, and records the history step **CFA Integer Resample** with the
-  description `Binning factor: <f>X - New size: <w>x<h> - Binning method:
-  <mode>` or `Resample factor: <f>X - New size: <w>x<h>`. The size in that text
-  is the dialog's **Target Px** readout.
-- Sequence execution reads every frame of the sequence as recorded, whatever the
-  player has selected, writes the resampled frames into a new sequence of the
-  same container in AfterNight's temporary directory, publishes it only when
-  every frame is written, shows it in the view, and records one history step.
-- The result keeps the acquisition record and meaning and, among the header
-  cards, the frame's observing context - its optics, site, pointing, camera
-  settings, filter, object, frame type and date - and the light it holds, its
-  `EXPTIME`, `TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE` cards as it
-  states them, which [Crop](../geometry/crop.md#model)
-  lists. Its `XPIXSZ` and `YPIXSZ` are multiplied by the factor for Downsample
-  and divided by it for Upsample - the exact factor, whatever edges the
-  resample drops - so the plate scale the optics imply is still the result's.
-  It drops the other header cards and the plate solution, and withdraws any
-  output decision; its lineage names the engine's geometry operation and
-  **CFA Integer Resample**. A sample every output was written from keeps the
-  source's validity rule; a mask moves with its samples; a sample the step
-  could not write is marked invalid in a mask.
-- No auxiliary image/file is produced. Save/export remains a separate action.
-
-## Performance
-
-The engine reads each filter's samples in place and writes one result image; a
-still run holds the source and the result, plus an even-cropped copy when the
-source is odd. Average, Minimum and Maximum are linear in input pixels; Median
-does order-statistic work per block. Upsample output/compute/disk scale with
-`f²`. A sequence writes one new sequence. The displayed New Size omits working
-memory and may clamp, so use the exact formula and free-space checks for large
-sequences.
-
-## Worked example
-
-- Input condition/provenance and settings: a 16-bit RGGB mosaic cropped to
-  23×15, resampled with the defaults (Downsample, factor 2, Average); then a
-  32-bit float grey image with no filter array.
-- Expected checkpoint: the odd edges go (22×14), each lattice of 11×7 reduces to
-  5×3, and the result is a 10×6 RGGB mosaic whose first red sample is the
-  average of the first four red samples within half a code. The grey image is
-  refused under **Error running integer resample** naming the missing filter
-  array, and its revision is unchanged.
-- Inspect at 100%/statistics/history: verify actual dimensions, Bayer pattern,
-  block/aggregate values and history.
-- Limitations: no approved CFA still/sequence was executed through this process.
-
-## Warnings and limitations
-
-- This operation replaces the selected view's image or sequence; undo it from
-  the history if needed.
-- There is no preview, mask, or channel selector.
-- Odd/non-divisible dimensions lose edges and can make Target Px and the history
-  text inaccurate.
-- Factors too large for the lattice fail only during execution.
-- Upsample adds no resolution and can require `f²` storage; readouts can clamp at
-  100,000 and omit working storage.
-- The plate solution is dropped; solve the result again if needed.
-- Average preserves mean intensity rather than summed flux; Median/Min/Max have
-  different photometric/noise biases.
-- Every integer 2–100 is accepted and the plan preserves positional phase; an
-  odd factor is as valid as an even one.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Target absent from the selector | View is not shown as a one-channel mosaic. | Open undebayered data with correct Bayer metadata. |
-| `the image states no colour filter array` | The target states no Bayer pattern. | Reopen with correct RAW/CFA metadata. |
-| `a CFA reduction factor leaves at least one complete block in every phase` | `2 × factor` exceeds the even width or height. | Use `f ≤ floor(W/2), floor(H/2)` and preferably dimensions divisible by `2f`. |
-| Actual size differs from Target Px | UI uses `W/f` or `W×f`; the engine crops odd edges and discards incomplete blocks. | Use the exact formulas above; crop to compatible even dimensions first. |
-| New Size looks too small at extreme factor | Target dimension spin boxes cap at 100,000 and the estimate omits working memory. | Calculate externally and reduce factor before executing. |
-| No astrometric solution after Apply | The geometry change drops it. | Plate-solve the result. |
-| An **Image History** error, and nothing changed | Image History could not keep the image the resample replaces; it says so once and the window says nothing more. | Free memory and run again. |
-| The busy warning | Another run holds the sequence. | Wait for it to land and run again. |
-| Result looks blocky after Upsample | Values are intentionally replicated; no interpolation/detail synthesis occurs. | Debayer at native size or use an appropriate post-debayer resampler for display geometry. |
+| Less noise in each pixel of a mosaic | **Downsample**, factor 2, **Average**, on sides that are multiples of 4 | Look at star profiles and the background's noise before you try a larger factor. |
+| Isolated hot or dead pixels | **Downsample**, factor 2, **Median**, on a duplicate | Compare with **Average**: check that small stars survive. |
+| An exact enlargement of a mosaic | **Upsample** with the smallest factor you need | Debayer a copy at its own size first to compare, and check **New Size**. |
 
-## Related workflow steps
+## When it goes wrong
 
-Use [Image Calibration](image-calibration.md) before geometry changes. Compare
-[Split CFA](split-cfa.md) and [Merge CFA](merge-cfa.md) for the positional model,
-then [Debayer](debayer.md) afterward. Use ordinary
-[Integer Resample](../geometry/integer-resample.md) only after Debayer when CFA
-phase no longer needs preservation.
+!!! warning "A Downsample cannot be undone by an Upsample"
+    The sites a block merged are gone, and an **Upsample** only repeats the result. Use the image's history to return
+    to the full-size mosaic.
+
+!!! warning "The result has no plate solution"
+    The filters' sites of a block lie at different places, so no solution is carried. Plate-solve the result, or its
+    debayered image, with [Plate Solving](../registration-alignment/plate-solving.md).
+
+**Target Image** does not list the mosaic
+:   **Cause.** The view shows no one-channel mosaic: the file was debayered as it opened, or a sequence's view
+    debayers its frames.
+:   **Fix.** Open the raw file or the sequence again, and answer **No** when AfterNight asks whether to debayer it.
+
+"the image states no colour filter array"
+:   **Cause.** The target states no Bayer pattern, or the window opened on an image that is no mosaic.
+:   **Fix.** Open the mosaic from a file that states its pattern, make its view active, and open the window again.
+
+"a CFA reduction factor leaves at least one complete block in every phase"
+:   **Cause.** Twice the **Downsample** factor exceeds the mosaic's even width or height.
+:   **Fix.** Lower **Resample Factor** to no more than half the mosaic's shorter side.
+
+The result is smaller than **Target Px** showed
+:   **Cause.** A side is not a multiple of twice the factor, and the sites of incomplete blocks are dropped.
+:   **Fix.** Undo the step, crop the mosaic at an even corner to multiples of twice the factor, and resample again.
+
+**Target Px** or **New Size** stops growing
+:   **Cause.** The readouts stop at 100,000 pixels a side, and **New Size** follows them.
+:   **Fix.** Work the size out with equation (1), and lower the factor when it is more than you can hold.
+
+An "Image History" error, and the mosaic is not resampled
+:   **Cause.** The history could not keep the mosaic as it was before the change.
+:   **Fix.** Close images you do not need, or raise the memory limit on the **Processing** page of the settings, and
+    choose **OK** again.
+
+The result looks blocky after an Upsample
+:   **Cause.** Each site is repeated in its block, on purpose: nothing is interpolated.
+:   **Fix.** Debayer the mosaic at its own size, and enlarge the color image with Resize when you need a smooth one.
+
+"Another process is executing for this sequence, please cancel that job first before running this process"
+:   **Cause.** Another run holds the sequence, and nothing started.
+:   **Fix.** Wait for that run to end, or cancel it, then choose **OK** again.
+
+## Related
+
+- [Image Calibration](image-calibration.md), to calibrate the mosaic before you change its size.
+- [Debayer](debayer.md), to make a color image of the result.
+- [Crop](../geometry/crop.md), to cut the sides to multiples of twice the factor, and for the header cards every
+  geometry change keeps.
+- [Integer Resample](../geometry/integer-resample.md), to bin or enlarge an image that is no longer a mosaic.
+- [Split CFA](split-cfa.md) and [Merge CFA](merge-cfa.md), for the mosaic's positions as images of their own.
+- [Process Windows](../../interface/process-windows.md), for what every process window shares.
