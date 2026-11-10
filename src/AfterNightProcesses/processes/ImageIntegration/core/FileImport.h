@@ -24,6 +24,7 @@
 namespace an
 {
 class ImageMetadata;
+class RawFrameDescriptor;
 } // namespace an
 
 namespace an::consumer
@@ -133,10 +134,20 @@ buildDetectedFrameInfoWithIssue(const an::consumer::EngineSession& session, cons
  * @param width the image's width in pixels.
  * @param height the image's height in pixels.
  * @param fileInfo the file, whose modification time is the capture time when the metadata states none.
+ * @param sampleLayout what each pixel holds, from the probe's descriptor (`sampleLayoutOf`).
  * @return the figures, as `buildDetectedFrameInfoWithIssue` describes them.
  */
 [[nodiscard]] FrameMetadata frameMetadataFromProbe(const an::ImageMetadata& metadata, FrameType type, int width,
-                                                   int height, const QFileInfo& fileInfo);
+                                                   int height, const QFileInfo& fileInfo,
+                                                   std::optional<FrameSampleLayout> sampleLayout = std::nullopt);
+
+/**
+ * @brief What each pixel of a probed image holds.
+ *
+ * @param descriptor the probe's description of the image.
+ * @return its channel count, and whether that one channel is a colour-filter mosaic.
+ */
+[[nodiscard]] FrameSampleLayout sampleLayoutOf(const an::RawFrameDescriptor& descriptor);
 
 AFTERNIGHTPROCESSES_API void sortDetectedFramesForImport(std::vector<DetectedFrameInfo>& detectedFrames);
 

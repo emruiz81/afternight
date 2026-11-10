@@ -2087,8 +2087,8 @@ controls:
   - name: Disk space
     kind: readout
     default: "Disk: --"
-    effect: Reads the free space and an estimate of what the run needs. Its tooltip divides the estimate into masters, maps, calibrated and registered lights and drizzle data.
-    tradeoff: The estimate leaves out the quality maps and never stops a run.
+    effect: Reads the free space and an estimate of what the run needs. Its tooltip divides the estimate into masters, maps, calibrated and registered lights and drizzle data, each image counted as it is written, in 32-bit floats and, for a color camera, three channels once registered.
+    tradeoff: The estimate leaves out the quality maps and never stops a run. A project saved before AfterNight recorded each light's color layout counts its lights as color until you add them again.
   - name: Fix Issues First
     kind: button
     default: ""

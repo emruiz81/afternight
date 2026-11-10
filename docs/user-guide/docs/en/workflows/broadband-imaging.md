@@ -26,7 +26,7 @@ one image.
 
 A registered light of a color camera holds three 32-bit channels. On the guide's data, 1.4 GB of lights fill about
 9 GB of the output folder, 245 MB for each registered light. The **Disk space** line of the Summary counts each
-registered light at the size of its raw file, which is too little for a color camera.
+calibrated, registered and stacked image at the size it is written, from the lights' dimensions.
 
 ## Your camera
 

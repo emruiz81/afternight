@@ -26,6 +26,26 @@
 #include <optional>
 
 /**
+ * @brief What one pixel of a frame holds: how many channels, and whether that is one colour-filter mosaic plane.
+ *
+ * It decides what the files a run makes from the frame weigh: a calibrated frame keeps its own channels, while a
+ * registered or stacked one holds the demosaiced three of a mosaic.
+ */
+struct FrameSampleLayout
+{
+    int channels = 1;
+    bool mosaic = false;
+
+    /** @brief The channels the frame holds once demosaiced: three for a mosaic, its own count otherwise. */
+    [[nodiscard]] int developedChannels() const noexcept
+    {
+        return mosaic ? 3 : channels;
+    }
+
+    [[nodiscard]] bool operator==(const FrameSampleLayout&) const = default;
+};
+
+/**
  * @brief Extracted metadata used for grouping and workflow configuration.
  *
  * This class provides read-only access to frame metadata extracted from
@@ -57,10 +77,12 @@ public:
      * @param objectName Target object name (may be empty).
      * @param capturedAtUtc Capture timestamp in UTC.
      * @param readoutMode Camera readout mode identifier (may be empty).
+     * @param sampleLayout What each pixel holds, as the import read it (std::nullopt when it was not recorded).
      */
     FrameMetadata(FrameType type, const QSize& dimensions, double exposureSeconds, std::optional<double> temperatureC,
                   std::optional<int> isoGain, std::optional<int> offset, const QString& filter,
-                  const QString& objectName, const QDateTime& capturedAtUtc, const QString& readoutMode);
+                  const QString& objectName, const QDateTime& capturedAtUtc, const QString& readoutMode,
+                  std::optional<FrameSampleLayout> sampleLayout = std::nullopt);
 
     /** @brief Return the frame type. */
     [[nodiscard]] FrameType type() const noexcept;
@@ -93,6 +115,13 @@ public:
     [[nodiscard]] const QString& readoutMode() const noexcept;
 
     /**
+     * @brief Return what each pixel holds, if the import recorded it.
+     *
+     * A project saved before the import recorded it states none.
+     */
+    [[nodiscard]] std::optional<FrameSampleLayout> sampleLayout() const noexcept;
+
+    /**
      * @brief Return a formatted resolution string.
      * @return String in format "WIDTHxHEIGHT" (e.g., "6000x4000").
      */
@@ -109,4 +138,5 @@ private:
     QString m_objectName;
     QDateTime m_capturedAtUtc;
     QString m_readoutMode;
+    std::optional<FrameSampleLayout> m_sampleLayout;
 };

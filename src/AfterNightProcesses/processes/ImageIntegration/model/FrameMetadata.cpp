@@ -7,10 +7,10 @@
 FrameMetadata::FrameMetadata(FrameType type, const QSize& dimensions, double exposureSeconds,
                              std::optional<double> temperatureC, std::optional<int> isoGain, std::optional<int> offset,
                              const QString& filter, const QString& objectName, const QDateTime& capturedAtUtc,
-                             const QString& readoutMode)
+                             const QString& readoutMode, std::optional<FrameSampleLayout> sampleLayout)
     : m_type(type), m_dimensions(dimensions), m_exposureSeconds(exposureSeconds), m_temperatureC(temperatureC),
       m_isoGain(isoGain), m_offset(offset), m_filter(filter), m_objectName(objectName), m_capturedAtUtc(capturedAtUtc),
-      m_readoutMode(readoutMode)
+      m_readoutMode(readoutMode), m_sampleLayout(sampleLayout)
 {
 }
 
@@ -62,6 +62,11 @@ const QDateTime& FrameMetadata::capturedAtUtc() const noexcept
 const QString& FrameMetadata::readoutMode() const noexcept
 {
     return m_readoutMode;
+}
+
+std::optional<FrameSampleLayout> FrameMetadata::sampleLayout() const noexcept
+{
+    return m_sampleLayout;
 }
 
 QString FrameMetadata::resolutionString() const

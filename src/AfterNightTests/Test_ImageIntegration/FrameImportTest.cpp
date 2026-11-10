@@ -158,6 +158,38 @@ TEST_F(FrameImportTest, TheFiguresGroupingReadsComeFromTheCards)
     EXPECT_EQ(metadata.capturedAtUtc(), QDateTime(QDate(2026, 1, 12), QTime(21, 15, 30), QTimeZone(QTimeZone::UTC)));
 }
 
+TEST_F(FrameImportTest, WhatEachPixelHoldsIsRecorded)
+{
+    // A mosaic plane, one plane or three channels: what the files a run writes from the frame weigh.
+    using an::tests::fixtures::FixtureCfa;
+    using an::tests::fixtures::FixtureChannels;
+    const auto layoutOf = [&](const QString& relative, const FixtureChannels channels,
+                              const FixtureCfa cfa) -> std::optional<FrameSampleLayout> {
+        an::tests::fixtures::FixtureImage frame =
+            an::tests::fixtures::acquisitionFrame(relative.toStdString(), kindOnly("IMAGETYP", "Light"), 24u, 16u);
+        frame.channels = channels;
+        frame.cfa = cfa;
+        if (channels == FixtureChannels::Rgb)
+        {
+            frame.levels = {frame.levels.front(), frame.levels.front(), frame.levels.front()};
+        }
+        const QString path = m_directory.filePath(relative);
+        std::string error;
+        EXPECT_TRUE(
+            an::tests::fixtures::writeAcquisitionFrame(frame, std::filesystem::path(path.toStdWString()), error))
+            << error;
+        const BuildDetectedFrameInfoResult read = import(path);
+        return read.detected.has_value() ? read.detected->info.metadata.sampleLayout() : std::nullopt;
+    };
+
+    EXPECT_EQ(layoutOf(QStringLiteral("mosaic.fit"), FixtureChannels::Mono, FixtureCfa::Rggb),
+              (FrameSampleLayout{.channels = 1, .mosaic = true}));
+    EXPECT_EQ(layoutOf(QStringLiteral("mono.fit"), FixtureChannels::Mono, FixtureCfa::None),
+              (FrameSampleLayout{.channels = 1, .mosaic = false}));
+    EXPECT_EQ(layoutOf(QStringLiteral("colour.fit"), FixtureChannels::Rgb, FixtureCfa::None),
+              (FrameSampleLayout{.channels = 3, .mosaic = false}));
+}
+
 TEST_F(FrameImportTest, TheIsoSpeedIsTheFigureBeforeTheGainSettingAndTheExposureCardMayBeEither)
 {
     AcquisitionFacts facts = kindOnly("IMAGETYP", "Light");
