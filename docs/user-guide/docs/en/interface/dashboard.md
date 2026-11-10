@@ -168,7 +168,9 @@ controls:
   - name: Extension Manager
     kind: action
     default: ""
-    effect: Opens the Extensions window on its **Browse** tab, to install, update and repair extensions.
+    effect: >-
+      Opens the Extensions window on its **Browse** tab, to install and update extensions; its **Installed** tab
+      repairs them.
     tradeoff: Installing, updating and repairing an extension use the network and disk space.
   - name: Clear recents
     kind: action

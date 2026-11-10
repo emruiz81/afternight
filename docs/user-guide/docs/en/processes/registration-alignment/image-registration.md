@@ -131,7 +131,7 @@ controls:
     options: [Star Matching, Phase Correlation, Comet / Asteroid Tracking]
     effect: >-
       Chooses how a frame is placed on the reference. **Star Matching** pairs its stars with the reference's and fits
-      **Transformation** to the pairs. **Phase Correlation** measures a shift alone, from the whole picture. **Comet /
+      **Transformation** to the pairs. **Phase Correlation** measures a shift alone, from the whole picture - the green channel of a color frame. **Comet /
       Asteroid Tracking** follows a moving object you mark in **Track Comet**, so that the object stays still and the
       stars trail.
     enabled: >-

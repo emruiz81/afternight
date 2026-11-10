@@ -2,45 +2,186 @@
 kind: reference
 summary: >-
   Where every image, diagram and script of the guide comes from, under which licence, and how to update it.
+rewritten: true
 ---
 # Media Provenance
 
-Every committed documentation asset must be listed here before merge. Screenshot
-and result rows keep the stable Media ID they were captured under; other local
-assets use `Not applicable`. Do not add third-party astrophotography images, UI
-captures from other applications, or downloaded media unless redistribution in
-the repository and installer bundles is explicitly permitted.
+Where every file of the guide that is not a page comes from, under which licence, and how to update it. The pictures
+of the application's windows are listed under [Captured windows](#captured-windows), by the group of their pages.
+Every other file - the logo, the fonts, the scripts the pages load, the inline diagrams, and the few pictures taken
+before the guide's capture script - is listed first, by its path, with its source, its licence, the day it was added,
+its SHA-256, how to update it and, for a picture, the data it shows.
 
-| Media ID | Asset path | Creator / source | License or permission | Date | SHA-256 | Update procedure | Sample data |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Not applicable | `assets/images/interface/logo.png` | Derived from repository icon `icons/afternight_icon_512x512_blue.png` | Project asset, distributed with AfterNight under the repository license | 2026-06-10 | Not recorded | Regenerate from the matching repository icon when the application icon changes. | Not applicable |
-| Not applicable | `assets/images/interface/favicon.png` | Derived from repository icon `icons/afternight_icon_128x128_blue.png` | Project asset, distributed with AfterNight under the repository license | 2026-06-10 | Not recorded | Regenerate from the matching repository icon when the application icon changes. | Not applicable |
-| UG-MEDIA-001 | `assets/images/interface/hero-screenshot.png` | Captured from a fresh AfterNight profile by the project maintainer | Project asset, distributed with AfterNight under the repository license | 2026-06-12 | `169599c34f66fbdc655f2f0749bb440454a7302469279806232bea9fa6715d28` | Recapture the fresh-profile dark-theme Dashboard when its onboarding, start cards, quick actions, drop zone, keyboard hints, or surrounding application shell changes; then rerun `Get-FileHash -Algorithm SHA256 docs/user-guide/docs/en/assets/images/interface/hero-screenshot.png`. | Fresh isolated profile; no astronomical sample data |
-| UG-MEDIA-010 | `assets/images/interface/process-windows.png` | Captured from the AfterNight Non-Local Bayes process window by the project maintainer | Project asset, distributed with AfterNight under the repository license | 2026-07-27 | `b695e994ea8e25e2c39b384d5f1de91cfe22bf801740446375530b270e86d043` | Recapture the representative process when the generic target/parameter/preview shell or Reset/Close/Apply footer changes; then rerun `Get-FileHash -Algorithm SHA256 docs/user-guide/docs/en/assets/images/interface/process-windows.png`. | Maintainer-owned Caldwell 77 target; approved target title retained; preview illustrates UI state, not denoise quality |
-| UG-MEDIA-040 | `assets/images/processes/stacking-integration/image-integration.png` | Captured from AfterNight Image Integration by the project maintainer | Project asset, distributed with AfterNight under the repository license | 2026-07-28 | `7106df84cbdf017b94393480f58f2dd51452babf1399cb1cebe0d41cbaf5abb5` | Recapture when frame-source/workflow tabs, populated grouping, calibrated preview, output selection, or workspace layout changes; then rerun `Get-FileHash -Algorithm SHA256 docs/user-guide/docs/en/assets/images/processes/stacking-integration/image-integration.png`. | Maintainer-owned Carina Nebula integration project; visible project, frame, and output paths, including personal directories, are intentionally retained; no credentials, tokens, secrets, or unrelated account data |
-| Not applicable | `assets/javascripts/mermaid/mermaid.min.js` | Mermaid npm package `mermaid@11.16.0`, `dist/mermaid.min.js` from `https://registry.npmjs.org/mermaid/-/mermaid-11.16.0.tgz` | MIT; local license copy at `assets/javascripts/mermaid/LICENSE-MIT` | 2026-07-20 | `74d7c46dabca328c2294733910a8aa1ed0c37451776e8d5295da38a2b758fb9b` | Run `npm pack mermaid@11.16.0 --pack-destination <temp>`, extract `package/dist/mermaid.min.js`, copy it to this path, verify the package integrity `sha512-Zvm3kbstgdpvIJPPItlL7fppIZ3kibvc1oZIGxdvk9t6UFz6flv+Jw7FtRGKwfcI8OckmH04LqG6LlS6X4B1pA==`, then rerun the diagram browser validator. | Not applicable |
-| Not applicable | `assets/javascripts/mermaid/LICENSE-MIT` | Mermaid npm package `mermaid@11.16.0`, `LICENSE` from `https://registry.npmjs.org/mermaid/-/mermaid-11.16.0.tgz` | MIT | 2026-07-20 | `ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80` | Copy from the same Mermaid package tarball used for `mermaid.min.js` whenever the runtime is updated. | Not applicable |
-| Not applicable | `assets/javascripts/mermaid/mermaid-init.js` | AfterNight documentation maintainers; local file-mode renderer for the vendored Mermaid runtime | Project asset, distributed with AfterNight under the repository license | 2026-11-09 | `8031e6edf5fc3af55c780d41f4a3870549ec4650e7f99278faf61d2faf8341ff` | Keep strict Mermaid security, explicit-node rendering, the colors taken from the theme's tokens and the redraw on a theme change; rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox. | Not applicable |
-| Not applicable | `assets/javascripts/mathjax/tex-mml-chtml.js` | MathJax npm package `mathjax@4.1.2`, `tex-mml-chtml.js` from `https://registry.npmjs.org/mathjax/-/mathjax-4.1.2.tgz` | Apache-2.0; local license copy at `assets/javascripts/mathjax/LICENSE-Apache-2.0.txt`, upstream license at `https://github.com/mathjax/MathJax/blob/master/LICENSE` | 2026-06-10 | `74f577e646a82ead6b83e25b61ff29d644eb65a9b0318f9723069650fc2ab695` | Run `npm pack mathjax@4.1.2 --pack-destination <temp>`, extract `package/tex-mml-chtml.js`, copy it to this path, then run `Get-FileHash -Algorithm SHA256 docs/user-guide/docs/en/assets/javascripts/mathjax/tex-mml-chtml.js`. | Not applicable |
-| Not applicable | `assets/javascripts/mathjax/LICENSE-Apache-2.0.txt` | MathJax npm package `mathjax@4.1.2`, `LICENSE` from `https://registry.npmjs.org/mathjax/-/mathjax-4.1.2.tgz` | Apache-2.0 | 2026-06-10 | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` | Copy from the same MathJax package tarball used for `tex-mml-chtml.js` whenever the runtime is updated. | Not applicable |
-| Not applicable | `assets/javascripts/mathjax/mathjax-config.js` | AfterNight documentation maintainers; the MathJax configuration `mkdocs.yml` loads before `tex-mml-chtml.js` | Project asset, distributed with AfterNight under the repository license | 2026-11-09 | `6297dd82a30a902a28bd726e0350b909b01a1ee1c196612698bbfd8e5f7cf35f` | Keep the font path on the vendored fonts, enrichment off and assistive MathML on; rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` on the pages with math. | Not applicable |
-| Not applicable | `assets/javascripts/mathjax/a11y/assistive-mml.js` | MathJax npm package `mathjax@4.1.2`, `a11y/assistive-mml.js` from `https://registry.npmjs.org/mathjax/-/mathjax-4.1.2.tgz`; loaded because the configuration turns assistive MathML on | Apache-2.0; local license copy at `assets/javascripts/mathjax/LICENSE-Apache-2.0.txt` | 2026-11-09 | `6acc217aa1c8f923a75c8708a6f6fad5a2c4f6d7854924f4be5a1c59f195fad8` | Copy from the same MathJax package tarball used for `tex-mml-chtml.js` whenever the runtime is updated. | Not applicable |
-| Not applicable | `assets/javascripts/mathjax/fonts/mathjax-newcm-font/chtml/` (105 `woff2/*.woff2` web fonts and 40 `dynamic/*.js` font-data files, 2.17 MB) | MathJax npm package `@mathjax/mathjax-newcm-font@4.1.2`, `chtml/` from `https://registry.npmjs.org/@mathjax/mathjax-newcm-font/-/mathjax-newcm-font-4.1.2.tgz`, copied unchanged; the web fonts are MathJax's subsets of the New Computer Modern fonts by Antonis Tsolomitis | The package declares Apache-2.0 (local copy at `assets/javascripts/mathjax/fonts/mathjax-newcm-font/LICENSE-Apache-2.0.txt`); the glyphs are "(C) 2019-2021 Antonis Tsolomitis", released under the GUST Font License, as each web font's copyright record states (local copy at `assets/javascripts/mathjax/fonts/mathjax-newcm-font/GUST-FONT-LICENSE.txt`) | 2026-11-09 | Not recorded per file; the package integrity is `sha512-lZHMjNP2XbABHA3kVn40rbse5ERUeMEmrGH03qLkCwxq4/5Z/eNLr0akw1MmQcqTwCbvkx1BFcmJ7RCfbRlw3Q==` | Update with `tex-mml-chtml.js`, to the font package version its MathJax version names: run `npm pack @mathjax/mathjax-newcm-font@<version> --pack-destination <temp>`, verify the package integrity, replace this folder with the package's `chtml/` unchanged, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox. | Not applicable |
-| Not applicable | `assets/javascripts/mathjax/fonts/mathjax-newcm-font/LICENSE-Apache-2.0.txt` | The Apache-2.0 text of the MathJax npm package `mathjax@4.1.2` (`LICENSE`); the font package declares Apache-2.0 and ships no license file | Apache-2.0 | 2026-11-09 | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` | Copy from the MathJax package tarball whenever the fonts are updated. | Not applicable |
-| Not applicable | `assets/javascripts/mathjax/fonts/mathjax-newcm-font/GUST-FONT-LICENSE.txt` | GUST Font License version 1.0, from `https://tug.org/fonts/licenses/GUST-FONT-LICENSE.txt`, the license the New Computer Modern glyphs name | GUST Font License (LaTeX Project Public License 1.3c or later) | 2026-11-09 | `49ea6cb9257bbee0a3979c48a774cd221550ac1c20c95549efe45fc99cc18050` | Fetch again whenever the fonts are updated, and check the license each web font's copyright record names. | Not applicable |
-| Not applicable | `assets/guide/fonts/inter-latin-wght-normal.woff2` (theme: `docs/user-guide/theme/`) | Fontsource npm package `@fontsource-variable/inter@5.3.0`, `files/inter-latin-wght-normal.woff2` from `https://registry.npmjs.org/@fontsource-variable/inter/-/inter-5.3.0.tgz`; the Inter typeface, variable in weight, Latin subset; the same file as the website's | SIL Open Font License 1.1; local license copy at `assets/guide/fonts/LICENSE-inter.txt` | 2026-11-09 | `3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62` | Run `npm pack @fontsource-variable/inter@<version> --pack-destination <temp>`, verify the package integrity (5.3.0: `sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==`), copy `package/files/inter-latin-wght-normal.woff2` unchanged, keep the website's copy the same, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox. | Not applicable |
-| Not applicable | `assets/guide/fonts/inter-latin-wght-italic.woff2` (theme: `docs/user-guide/theme/`) | Fontsource npm package `@fontsource-variable/inter@5.3.0`, `files/inter-latin-wght-italic.woff2` from `https://registry.npmjs.org/@fontsource-variable/inter/-/inter-5.3.0.tgz`; the Inter typeface, variable in weight, Latin subset; the same file as the website's | SIL Open Font License 1.1; local license copy at `assets/guide/fonts/LICENSE-inter.txt` | 2026-11-09 | `7291b5970da2237441273c03b424a504b70b18f09791473fab99687dcc314720` | Run `npm pack @fontsource-variable/inter@<version> --pack-destination <temp>`, verify the package integrity (5.3.0: `sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==`), copy `package/files/inter-latin-wght-italic.woff2` unchanged, keep the website's copy the same, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox. | Not applicable |
-| Not applicable | `assets/guide/fonts/sora-latin-wght-normal.woff2` (theme: `docs/user-guide/theme/`) | Fontsource npm package `@fontsource-variable/sora@5.3.0`, `files/sora-latin-wght-normal.woff2` from `https://registry.npmjs.org/@fontsource-variable/sora/-/sora-5.3.0.tgz`; the Sora typeface, variable in weight, Latin subset; the same file as the website's | SIL Open Font License 1.1; local license copy at `assets/guide/fonts/LICENSE-sora.txt` | 2026-11-09 | `fa26406eeda9a3c6ec3d9ea8813c3045d6dc755e30c716d5c094e8ef43be5a7f` | Run `npm pack @fontsource-variable/sora@<version> --pack-destination <temp>`, verify the package integrity (5.3.0: `sha512-h8kHta4Z8SkfUGeI82TUy1n3rbrKpBRGwuk4t4qCwto5oEHxlbOFD2yGP+Df5fbmTXwKGn+o667vYp0E4K8Whw==`), copy `package/files/sora-latin-wght-normal.woff2` unchanged, keep the website's copy the same, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox. | Not applicable |
-| Not applicable | `assets/guide/fonts/jetbrains-mono-latin-wght-normal.woff2` (theme: `docs/user-guide/theme/`) | Fontsource npm package `@fontsource-variable/jetbrains-mono@5.3.0`, `files/jetbrains-mono-latin-wght-normal.woff2` from `https://registry.npmjs.org/@fontsource-variable/jetbrains-mono/-/jetbrains-mono-5.3.0.tgz`; the JetBrains Mono typeface, variable in weight, Latin subset; the same file as the website's | SIL Open Font License 1.1; local license copy at `assets/guide/fonts/LICENSE-jetbrains-mono.txt` | 2026-11-09 | `18be452724bfdc236c074ca94a249a7f41a86752c7d04ab258ce9ed5651f6a7e` | Run `npm pack @fontsource-variable/jetbrains-mono@<version> --pack-destination <temp>`, verify the package integrity (5.3.0: `sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==`), copy `package/files/jetbrains-mono-latin-wght-normal.woff2` unchanged, keep the website's copy the same, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox. | Not applicable |
-| Not applicable | `assets/guide/fonts/jetbrains-mono-latin-wght-italic.woff2` (theme: `docs/user-guide/theme/`) | Fontsource npm package `@fontsource-variable/jetbrains-mono@5.3.0`, `files/jetbrains-mono-latin-wght-italic.woff2` from `https://registry.npmjs.org/@fontsource-variable/jetbrains-mono/-/jetbrains-mono-5.3.0.tgz`; the JetBrains Mono typeface, variable in weight, Latin subset; the same file as the website's | SIL Open Font License 1.1; local license copy at `assets/guide/fonts/LICENSE-jetbrains-mono.txt` | 2026-11-09 | `a8afa085e9ca5e53434e2ee918ba6b65c7dd4dda56509976b36591478c99d62e` | Run `npm pack @fontsource-variable/jetbrains-mono@<version> --pack-destination <temp>`, verify the package integrity (5.3.0: `sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==`), copy `package/files/jetbrains-mono-latin-wght-italic.woff2` unchanged, keep the website's copy the same, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox. | Not applicable |
-| Not applicable | `assets/guide/fonts/LICENSE-inter.txt` (theme: `docs/user-guide/theme/`) | Fontsource npm package `@fontsource-variable/inter@5.3.0`, `LICENSE`: the Inter Project Authors' copyright and the SIL Open Font License 1.1 | SIL Open Font License 1.1 | 2026-11-09 | `3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345` | Copy from the same package tarball whenever the fonts are updated. | Not applicable |
-| Not applicable | `assets/guide/fonts/LICENSE-sora.txt` (theme: `docs/user-guide/theme/`) | Fontsource npm package `@fontsource-variable/sora@5.3.0`, `LICENSE`: the Sora Project Authors' copyright and the SIL Open Font License 1.1 | SIL Open Font License 1.1 | 2026-11-09 | `1ec9623d38c445eb4dfe5fcc783e0f0ee728cc97ca157ce1f8cb2b3bf9d9b0d9` | Copy from the same package tarball whenever the fonts are updated. | Not applicable |
-| Not applicable | `assets/guide/fonts/LICENSE-jetbrains-mono.txt` (theme: `docs/user-guide/theme/`) | Fontsource npm package `@fontsource-variable/jetbrains-mono@5.3.0`, `LICENSE`: the JetBrains Mono Project Authors' copyright and the SIL Open Font License 1.1 | SIL Open Font License 1.1 | 2026-11-09 | `403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b` | Copy from the same package tarball whenever the fonts are updated. | Not applicable |
-| Not applicable | `assets/guide/vendor/lunr-2.3.9.min.js` (theme: `docs/user-guide/theme/`) | lunr npm package `lunr@2.3.9`, `lunr.min.js` from `https://registry.npmjs.org/lunr/-/lunr-2.3.9.tgz`, by Oliver Nightingale; the search index the theme's search.js builds in the browser | MIT; local license copy at `assets/guide/vendor/LICENSE-lunr.txt` | 2026-11-09 | `0c50d9002b85780a842afffb567bb54ede402dae7c6dc5997a018614d8044fc8` (the package's bytes; the repository stores its line endings as CRLF) | Run `npm pack lunr@<version> --pack-destination <temp>`, verify the package integrity (2.3.9: `sha512-zTU3DaZaF3Rt9rhN3uBMGQD3dD2/vFQqnvZCDv4dl5iOzq2IZQqTxu90r4E5J+nP70J3ilqVCrbho2eWaeW8Ow==`), copy `package/lunr.min.js`, rename it after the version and update `data-search-engine` in `theme/base.html`, then rerun the strict build and the render tool's search queries in Chromium and Firefox. | Not applicable |
-| Not applicable | `assets/guide/vendor/LICENSE-lunr.txt` (theme: `docs/user-guide/theme/`) | lunr npm package `lunr@2.3.9`, `LICENSE`: "Copyright (C) 2013 by Oliver Nightingale" | MIT | 2026-11-09 | `ae33f5a0d538cd93de1136a052ffa734b59d6b28e7cfc19e03de1d8b5d9f40ea` | Copy from the same package tarball whenever lunr is updated. | Not applicable |
-| Not applicable | `interface/overview.md#move-between-the-dashboard-and-the-workspace` (inline Mermaid source) | AfterNight documentation maintainers; current dashboard/dock-workspace lifecycle source/tests | Project content, distributed with AfterNight under the repository license | 2026-07-20 | `32fa46a4090bae16f5beaee808c9e7e5cc28e4b4100683924b24986514cbdbcc` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Not applicable |
-| Not applicable | `processes/stacking-integration/image-integration-reference.md#the-stages-of-a-run` (inline Mermaid source) | AfterNight documentation maintainers; current manifest, executor, stage, report, and focused-test sources | Project content, distributed with AfterNight under the repository license | 2026-11-10 | `4f777cb29646f32ee07424dc0bf6261c08cb273fb507d03e4bf03d42fc2123d3` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Not applicable |
-| Not applicable | `workflows/broadband-imaging.md#workflow-map-and-decision-points` (inline Mermaid source) | AfterNight documentation maintainers; current workflow/process sources and retained execution evidence | Project content, distributed with AfterNight under the repository license | 2026-07-20 | `5465b05cc9d1ddc623b21bd89a95e12a4b3a39906a71d895c15001356ab1306d` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Approved broadband sets support the flow; no sample pixels are embedded in the diagram. |
+A file is listed here in the change that adds it. No third-party astrophotography image, capture of another
+application or downloaded media is added unless its licence allows it to be distributed in the repository and the
+installers.
+
+## Other files
+
+`assets/images/interface/logo.png`
+:   **Source.** Derived from repository icon `icons/afternight_icon_512x512_blue.png`
+:   **Licence.** Project asset, distributed with AfterNight under the repository license
+:   **Added** 2026-06-10. **SHA-256** `ccbecc37012f8bdb0a583bb7d76f9b34c0b6ec86785046623463bd3d0a8807f0`.
+:   **To update.** Regenerate from the matching repository icon when the application icon changes.
+
+`assets/images/interface/favicon.png`
+:   **Source.** Derived from repository icon `icons/afternight_icon_128x128_blue.png`
+:   **Licence.** Project asset, distributed with AfterNight under the repository license
+:   **Added** 2026-06-10. **SHA-256** `5c585d19978c1bd3408fd2266e014107369caa569f128dcc63232f2ba3296b18`.
+:   **To update.** Regenerate from the matching repository icon when the application icon changes.
+
+`assets/images/interface/hero-screenshot.png`
+:   **Source.** Captured from a fresh AfterNight profile by the project maintainer
+:   **Licence.** Project asset, distributed with AfterNight under the repository license
+:   **Added** 2026-06-12. **SHA-256** `169599c34f66fbdc655f2f0749bb440454a7302469279806232bea9fa6715d28`.
+:   **To update.** Recapture the fresh-profile dark-theme Dashboard when its onboarding, start cards, quick actions, drop zone, keyboard hints, or surrounding application shell changes; then rerun `Get-FileHash -Algorithm SHA256 docs/user-guide/docs/en/assets/images/interface/hero-screenshot.png`.
+:   **Data.** Fresh isolated profile; no astronomical sample data
+
+`assets/images/interface/process-windows.png`
+:   **Source.** Captured from the AfterNight Non-Local Bayes process window by the project maintainer
+:   **Licence.** Project asset, distributed with AfterNight under the repository license
+:   **Added** 2026-07-27. **SHA-256** `b695e994ea8e25e2c39b384d5f1de91cfe22bf801740446375530b270e86d043`.
+:   **To update.** Recapture the representative process when the generic target/parameter/preview shell or Reset/Close/Apply footer changes; then rerun `Get-FileHash -Algorithm SHA256 docs/user-guide/docs/en/assets/images/interface/process-windows.png`.
+:   **Data.** Maintainer-owned Caldwell 77 target; approved target title retained; preview illustrates UI state, not denoise quality
+
+`assets/images/processes/stacking-integration/image-integration.png`
+:   **Source.** Captured from AfterNight Image Integration by the project maintainer
+:   **Licence.** Project asset, distributed with AfterNight under the repository license
+:   **Added** 2026-07-28. **SHA-256** `7106df84cbdf017b94393480f58f2dd51452babf1399cb1cebe0d41cbaf5abb5`.
+:   **To update.** Recapture when frame-source/workflow tabs, populated grouping, calibrated preview, output selection, or workspace layout changes; then rerun `Get-FileHash -Algorithm SHA256 docs/user-guide/docs/en/assets/images/processes/stacking-integration/image-integration.png`.
+:   **Data.** Maintainer-owned Carina Nebula integration project; visible project, frame, and output paths, including personal directories, are intentionally retained; no credentials, tokens, secrets, or unrelated account data
+
+`assets/javascripts/mermaid/mermaid.min.js`
+:   **Source.** Mermaid npm package `mermaid@11.16.0`, `dist/mermaid.min.js` from `https://registry.npmjs.org/mermaid/-/mermaid-11.16.0.tgz`
+:   **Licence.** MIT; local license copy at `assets/javascripts/mermaid/LICENSE-MIT`
+:   **Added** 2026-07-20. **SHA-256** `74d7c46dabca328c2294733910a8aa1ed0c37451776e8d5295da38a2b758fb9b`.
+:   **To update.** Run `npm pack mermaid@11.16.0 --pack-destination <temp>`, extract `package/dist/mermaid.min.js`, copy it to this path, check the package's integrity `sha512-Zvm3kbstgdpvIJPPItlL7fppIZ3kibvc1oZIGxdvk9t6UFz6flv+Jw7FtRGKwfcI8OckmH04LqG6LlS6X4B1pA==`, then rerun the diagram browser validator.
+
+`assets/javascripts/mermaid/LICENSE-MIT`
+:   **Source.** Mermaid npm package `mermaid@11.16.0`, `LICENSE` from `https://registry.npmjs.org/mermaid/-/mermaid-11.16.0.tgz`
+:   **Licence.** MIT
+:   **Added** 2026-07-20. **SHA-256** `ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80`.
+:   **To update.** Copy from the same Mermaid package tarball used for `mermaid.min.js` whenever the runtime is updated.
+
+`assets/javascripts/mermaid/mermaid-init.js`
+:   **Source.** AfterNight documentation maintainers; local file-mode renderer for the vendored Mermaid runtime
+:   **Licence.** Project asset, distributed with AfterNight under the repository license
+:   **Added** 2026-11-09. **SHA-256** `8031e6edf5fc3af55c780d41f4a3870549ec4650e7f99278faf61d2faf8341ff`.
+:   **To update.** Keep strict Mermaid security, explicit-node rendering, the colors taken from the theme's tokens and the redraw on a theme change; rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox.
+
+`assets/javascripts/mathjax/tex-mml-chtml.js`
+:   **Source.** MathJax npm package `mathjax@4.1.2`, `tex-mml-chtml.js` from `https://registry.npmjs.org/mathjax/-/mathjax-4.1.2.tgz`
+:   **Licence.** Apache-2.0; local license copy at `assets/javascripts/mathjax/LICENSE-Apache-2.0.txt`, upstream license at `https://github.com/mathjax/MathJax/blob/master/LICENSE`
+:   **Added** 2026-06-10. **SHA-256** `74f577e646a82ead6b83e25b61ff29d644eb65a9b0318f9723069650fc2ab695`.
+:   **To update.** Run `npm pack mathjax@4.1.2 --pack-destination <temp>`, extract `package/tex-mml-chtml.js`, copy it to this path, then run `Get-FileHash -Algorithm SHA256 docs/user-guide/docs/en/assets/javascripts/mathjax/tex-mml-chtml.js`.
+
+`assets/javascripts/mathjax/LICENSE-Apache-2.0.txt`
+:   **Source.** MathJax npm package `mathjax@4.1.2`, `LICENSE` from `https://registry.npmjs.org/mathjax/-/mathjax-4.1.2.tgz`
+:   **Licence.** Apache-2.0
+:   **Added** 2026-06-10. **SHA-256** `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`.
+:   **To update.** Copy from the same MathJax package tarball used for `tex-mml-chtml.js` whenever the runtime is updated.
+
+`assets/javascripts/mathjax/mathjax-config.js`
+:   **Source.** AfterNight documentation maintainers; the MathJax configuration `mkdocs.yml` loads before `tex-mml-chtml.js`
+:   **Licence.** Project asset, distributed with AfterNight under the repository license
+:   **Added** 2026-11-09. **SHA-256** `6297dd82a30a902a28bd726e0350b909b01a1ee1c196612698bbfd8e5f7cf35f`.
+:   **To update.** Keep the font path on the vendored fonts, enrichment off and assistive MathML on; rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` on the pages with math.
+
+`assets/javascripts/mathjax/a11y/assistive-mml.js`
+:   **Source.** MathJax npm package `mathjax@4.1.2`, `a11y/assistive-mml.js` from `https://registry.npmjs.org/mathjax/-/mathjax-4.1.2.tgz`; loaded because the configuration turns assistive MathML on
+:   **Licence.** Apache-2.0; local license copy at `assets/javascripts/mathjax/LICENSE-Apache-2.0.txt`
+:   **Added** 2026-11-09. **SHA-256** `6acc217aa1c8f923a75c8708a6f6fad5a2c4f6d7854924f4be5a1c59f195fad8`.
+:   **To update.** Copy from the same MathJax package tarball used for `tex-mml-chtml.js` whenever the runtime is updated.
+
+`assets/javascripts/mathjax/fonts/mathjax-newcm-font/chtml/` (105 `woff2/*.woff2` web fonts and 40 `dynamic/*.js` font-data files, 2.17 MB)
+:   **Source.** MathJax npm package `@mathjax/mathjax-newcm-font@4.1.2`, `chtml/` from `https://registry.npmjs.org/@mathjax/mathjax-newcm-font/-/mathjax-newcm-font-4.1.2.tgz`, copied unchanged; the web fonts are MathJax's subsets of the New Computer Modern fonts by Antonis Tsolomitis
+:   **Licence.** The package declares Apache-2.0 (local copy at `assets/javascripts/mathjax/fonts/mathjax-newcm-font/LICENSE-Apache-2.0.txt`); the glyphs are "(C) 2019-2021 Antonis Tsolomitis", released under the GUST Font License, as each web font's copyright record states (local copy at `assets/javascripts/mathjax/fonts/mathjax-newcm-font/GUST-FONT-LICENSE.txt`)
+:   **Added** 2026-11-09. **SHA-256** `Not recorded per file; the package integrity is `sha512-lZHMjNP2XbABHA3kVn40rbse5ERUeMEmrGH03qLkCwxq4/5Z/eNLr0akw1MmQcqTwCbvkx1BFcmJ7RCfbRlw3Q==``.
+:   **To update.** Update with `tex-mml-chtml.js`, to the font package version its MathJax version names: run `npm pack @mathjax/mathjax-newcm-font@<version> --pack-destination <temp>`, check the package's integrity, replace this folder with the package's `chtml/` unchanged, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox.
+
+`assets/javascripts/mathjax/fonts/mathjax-newcm-font/LICENSE-Apache-2.0.txt`
+:   **Source.** The Apache-2.0 text of the MathJax npm package `mathjax@4.1.2` (`LICENSE`); the font package declares Apache-2.0 and ships no license file
+:   **Licence.** Apache-2.0
+:   **Added** 2026-11-09. **SHA-256** `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`.
+:   **To update.** Copy from the MathJax package tarball whenever the fonts are updated.
+
+`assets/javascripts/mathjax/fonts/mathjax-newcm-font/GUST-FONT-LICENSE.txt`
+:   **Source.** GUST Font License version 1.0, from `https://tug.org/fonts/licenses/GUST-FONT-LICENSE.txt`, the license the New Computer Modern glyphs name
+:   **Licence.** GUST Font License (LaTeX Project Public License 1.3c or later)
+:   **Added** 2026-11-09. **SHA-256** `49ea6cb9257bbee0a3979c48a774cd221550ac1c20c95549efe45fc99cc18050`.
+:   **To update.** Fetch again whenever the fonts are updated, and check the license each web font's copyright record names.
+
+`assets/guide/fonts/inter-latin-wght-normal.woff2` (theme: `docs/user-guide/theme/`)
+:   **Source.** Fontsource npm package `@fontsource-variable/inter@5.3.0`, `files/inter-latin-wght-normal.woff2` from `https://registry.npmjs.org/@fontsource-variable/inter/-/inter-5.3.0.tgz`; the Inter typeface, variable in weight, Latin subset; the same file as the website's
+:   **Licence.** SIL Open Font License 1.1; local license copy at `assets/guide/fonts/LICENSE-inter.txt`
+:   **Added** 2026-11-09. **SHA-256** `3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62`.
+:   **To update.** Run `npm pack @fontsource-variable/inter@<version> --pack-destination <temp>`, check the package's integrity (5.3.0: `sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==`), copy `package/files/inter-latin-wght-normal.woff2` unchanged, keep the website's copy the same, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox.
+
+`assets/guide/fonts/inter-latin-wght-italic.woff2` (theme: `docs/user-guide/theme/`)
+:   **Source.** Fontsource npm package `@fontsource-variable/inter@5.3.0`, `files/inter-latin-wght-italic.woff2` from `https://registry.npmjs.org/@fontsource-variable/inter/-/inter-5.3.0.tgz`; the Inter typeface, variable in weight, Latin subset; the same file as the website's
+:   **Licence.** SIL Open Font License 1.1; local license copy at `assets/guide/fonts/LICENSE-inter.txt`
+:   **Added** 2026-11-09. **SHA-256** `7291b5970da2237441273c03b424a504b70b18f09791473fab99687dcc314720`.
+:   **To update.** Run `npm pack @fontsource-variable/inter@<version> --pack-destination <temp>`, check the package's integrity (5.3.0: `sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==`), copy `package/files/inter-latin-wght-italic.woff2` unchanged, keep the website's copy the same, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox.
+
+`assets/guide/fonts/sora-latin-wght-normal.woff2` (theme: `docs/user-guide/theme/`)
+:   **Source.** Fontsource npm package `@fontsource-variable/sora@5.3.0`, `files/sora-latin-wght-normal.woff2` from `https://registry.npmjs.org/@fontsource-variable/sora/-/sora-5.3.0.tgz`; the Sora typeface, variable in weight, Latin subset; the same file as the website's
+:   **Licence.** SIL Open Font License 1.1; local license copy at `assets/guide/fonts/LICENSE-sora.txt`
+:   **Added** 2026-11-09. **SHA-256** `fa26406eeda9a3c6ec3d9ea8813c3045d6dc755e30c716d5c094e8ef43be5a7f`.
+:   **To update.** Run `npm pack @fontsource-variable/sora@<version> --pack-destination <temp>`, check the package's integrity (5.3.0: `sha512-h8kHta4Z8SkfUGeI82TUy1n3rbrKpBRGwuk4t4qCwto5oEHxlbOFD2yGP+Df5fbmTXwKGn+o667vYp0E4K8Whw==`), copy `package/files/sora-latin-wght-normal.woff2` unchanged, keep the website's copy the same, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox.
+
+`assets/guide/fonts/jetbrains-mono-latin-wght-normal.woff2` (theme: `docs/user-guide/theme/`)
+:   **Source.** Fontsource npm package `@fontsource-variable/jetbrains-mono@5.3.0`, `files/jetbrains-mono-latin-wght-normal.woff2` from `https://registry.npmjs.org/@fontsource-variable/jetbrains-mono/-/jetbrains-mono-5.3.0.tgz`; the JetBrains Mono typeface, variable in weight, Latin subset; the same file as the website's
+:   **Licence.** SIL Open Font License 1.1; local license copy at `assets/guide/fonts/LICENSE-jetbrains-mono.txt`
+:   **Added** 2026-11-09. **SHA-256** `18be452724bfdc236c074ca94a249a7f41a86752c7d04ab258ce9ed5651f6a7e`.
+:   **To update.** Run `npm pack @fontsource-variable/jetbrains-mono@<version> --pack-destination <temp>`, check the package's integrity (5.3.0: `sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==`), copy `package/files/jetbrains-mono-latin-wght-normal.woff2` unchanged, keep the website's copy the same, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox.
+
+`assets/guide/fonts/jetbrains-mono-latin-wght-italic.woff2` (theme: `docs/user-guide/theme/`)
+:   **Source.** Fontsource npm package `@fontsource-variable/jetbrains-mono@5.3.0`, `files/jetbrains-mono-latin-wght-italic.woff2` from `https://registry.npmjs.org/@fontsource-variable/jetbrains-mono/-/jetbrains-mono-5.3.0.tgz`; the JetBrains Mono typeface, variable in weight, Latin subset; the same file as the website's
+:   **Licence.** SIL Open Font License 1.1; local license copy at `assets/guide/fonts/LICENSE-jetbrains-mono.txt`
+:   **Added** 2026-11-09. **SHA-256** `a8afa085e9ca5e53434e2ee918ba6b65c7dd4dda56509976b36591478c99d62e`.
+:   **To update.** Run `npm pack @fontsource-variable/jetbrains-mono@<version> --pack-destination <temp>`, check the package's integrity (5.3.0: `sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==`), copy `package/files/jetbrains-mono-latin-wght-italic.woff2` unchanged, keep the website's copy the same, then rerun the strict build and `node build/scripts/render_user_guide.cjs --offline` in Chromium and Firefox.
+
+`assets/guide/fonts/LICENSE-inter.txt` (theme: `docs/user-guide/theme/`)
+:   **Source.** Fontsource npm package `@fontsource-variable/inter@5.3.0`, `LICENSE`: the Inter Project Authors' copyright and the SIL Open Font License 1.1
+:   **Licence.** SIL Open Font License 1.1
+:   **Added** 2026-11-09. **SHA-256** `3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345`.
+:   **To update.** Copy from the same package tarball whenever the fonts are updated.
+
+`assets/guide/fonts/LICENSE-sora.txt` (theme: `docs/user-guide/theme/`)
+:   **Source.** Fontsource npm package `@fontsource-variable/sora@5.3.0`, `LICENSE`: the Sora Project Authors' copyright and the SIL Open Font License 1.1
+:   **Licence.** SIL Open Font License 1.1
+:   **Added** 2026-11-09. **SHA-256** `1ec9623d38c445eb4dfe5fcc783e0f0ee728cc97ca157ce1f8cb2b3bf9d9b0d9`.
+:   **To update.** Copy from the same package tarball whenever the fonts are updated.
+
+`assets/guide/fonts/LICENSE-jetbrains-mono.txt` (theme: `docs/user-guide/theme/`)
+:   **Source.** Fontsource npm package `@fontsource-variable/jetbrains-mono@5.3.0`, `LICENSE`: the JetBrains Mono Project Authors' copyright and the SIL Open Font License 1.1
+:   **Licence.** SIL Open Font License 1.1
+:   **Added** 2026-11-09. **SHA-256** `403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b`.
+:   **To update.** Copy from the same package tarball whenever the fonts are updated.
+
+`assets/guide/vendor/lunr-2.3.9.min.js` (theme: `docs/user-guide/theme/`)
+:   **Source.** lunr npm package `lunr@2.3.9`, `lunr.min.js` from `https://registry.npmjs.org/lunr/-/lunr-2.3.9.tgz`, by Oliver Nightingale; the search index the theme's search.js builds in the browser
+:   **Licence.** MIT; local license copy at `assets/guide/vendor/LICENSE-lunr.txt`
+:   **Added** 2026-11-09. **SHA-256** `0c50d9002b85780a842afffb567bb54ede402dae7c6dc5997a018614d8044fc8` (the package's bytes; the repository stores its line endings as CRLF).
+:   **To update.** Run `npm pack lunr@<version> --pack-destination <temp>`, check the package's integrity (2.3.9: `sha512-zTU3DaZaF3Rt9rhN3uBMGQD3dD2/vFQqnvZCDv4dl5iOzq2IZQqTxu90r4E5J+nP70J3ilqVCrbho2eWaeW8Ow==`), copy `package/lunr.min.js`, rename it after the version and update `data-search-engine` in `theme/base.html`, then rerun the strict build and the render tool's search queries in Chromium and Firefox.
+
+`assets/guide/vendor/LICENSE-lunr.txt` (theme: `docs/user-guide/theme/`)
+:   **Source.** lunr npm package `lunr@2.3.9`, `LICENSE`: "Copyright (C) 2013 by Oliver Nightingale"
+:   **Licence.** MIT
+:   **Added** 2026-11-09. **SHA-256** `ae33f5a0d538cd93de1136a052ffa734b59d6b28e7cfc19e03de1d8b5d9f40ea`.
+:   **To update.** Copy from the same package tarball whenever lunr is updated.
+
+`interface/overview.md#move-between-the-dashboard-and-the-workspace` (inline Mermaid source)
+:   **Source.** AfterNight documentation maintainers; current dashboard/dock-workspace lifecycle source/tests
+:   **Licence.** Project content, distributed with AfterNight under the repository license
+:   **Added** 2026-07-20. **SHA-256** `32fa46a4090bae16f5beaee808c9e7e5cc28e4b4100683924b24986514cbdbcc`.
+:   **To update.** Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash.
+
+`processes/stacking-integration/image-integration-reference.md#the-stages-of-a-run` (inline Mermaid source)
+:   **Source.** AfterNight documentation maintainers; current manifest, executor, stage, report, and focused-test sources
+:   **Licence.** Project content, distributed with AfterNight under the repository license
+:   **Added** 2026-11-10. **SHA-256** `4f777cb29646f32ee07424dc0bf6261c08cb273fb507d03e4bf03d42fc2123d3`.
+:   **To update.** Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash.
 
 ## Captured windows
 
