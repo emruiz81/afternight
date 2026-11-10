@@ -1460,6 +1460,12 @@ class GlossaryRuleTests(WritingCase):
         self.change('reference/glossary.md', 'The median absolute deviation.', 'A linear estimate of spread.')
         self.assertPasses()
 
+    def test_the_media_provenance_links_nothing(self):
+        # A record of the guide's files, whose descriptions are no prose a reader learns the terms from.
+        self.change('assets/MEDIA_PROVENANCE.md', '| `assets/images/ht.png` | Captured by the maintainer |',
+                    '| `assets/images/ht.png` | A linear master, captured by the maintainer |')
+        self.assertPasses()
+
 
 CONTROLS_BLOCK = ('```controls\n- name: Midtones\n  kind: spinbox\n  default: "0.50"\n  widget: {min: 0, max: 1}\n  '
                   'effect: Lower brightens the image.\n```\n')

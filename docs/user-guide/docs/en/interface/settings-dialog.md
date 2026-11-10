@@ -839,8 +839,8 @@ controls:
     default: Three quarters of the computer's memory
     widget: {min: 512, step: 1024}
     effect: >-
-      The most memory, in MB, the engine holds for images at once. Work that would need more is refused with a message
-      that names what it asked for and the limit.
+      The most memory, in MB, the engine holds for images at once. Work that would need more is refused with "the
+      request does not fit the memory budget this engine is configured with", which names neither amount.
     range: >-
       Up to the computer's memory, which the note "Total system RAM" gives. **OK** refuses less than 1024 with "Memory
       limit of 800 MB is too low. Recommended minimum is 1024 MB."

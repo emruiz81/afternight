@@ -93,8 +93,9 @@ decide how your first image opens:
 - **General** shows under **Temporary Files** the folder for the intermediate files of each session: an
   `AfterNight` folder in the system's temporary folder. Until Settings stores it, with **OK** or **Apply**,
   AfterNight uses a `temp` folder in its own data folder instead. This page also holds **Check for
-  extension updates on startup**, which is on. That check is the only thing AfterNight does on the network by itself
-  when it starts. Turn it off if this computer must stay offline.
+  extension updates on startup**, which is on. On a first start that check is the only thing AfterNight does on the
+  network by itself; once extensions are installed, preparing their environments at startup may reach a package index
+  too. Turn it off if this computer must stay offline.
 
 The other pages, such as **External Tools** and **Catalogs & Data**, are for tools and data that opening an image does
 not need. Choose **Cancel** to leave without a change, or **OK** to store what the pages show.

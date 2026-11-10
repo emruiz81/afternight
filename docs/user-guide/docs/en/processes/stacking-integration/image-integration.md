@@ -140,7 +140,7 @@ pins:
    Settings...**. Each row names the master it will write.
 9. **Read the Summary.** On **Summary**, the card reads **Ready to Execute**, **Ready with Warnings** or **Cannot
    Execute**. **Go to** beside an issue opens the place to fix it.
-10. **Execute.** Choose **Execute Integration** or press ++ctrl+enter++. Read the **Execution Plan**, then choose
+10. **Execute.** Choose **Execute Integration** or press ++ctrl+num-enter++, with the keypad's Enter. Read the **Execution Plan**, then choose
     **Run**.
 11. **Follow the run.** The progress window names each stage and file, and **Cancel** stops at the next safe point.
     A box titled **Complete** reads "Workflow completed successfully." at the end.
@@ -278,7 +278,7 @@ controls:
     default: ""
     effect: Prepares the run and shows its **Execution Plan**, as the Summary's button does.
     enabled: When nothing in the project blocks a run.
-    note: ++ctrl+enter++ does the same.
+    note: ++ctrl+num-enter++, with the keypad's Enter, does the same; Ctrl with the main Enter key does nothing.
 ```
 
 ```controls

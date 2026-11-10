@@ -53,7 +53,8 @@ rewritten never fails a rule it cannot meet, and a rewritten one is protected fr
       them, and says whether it is `derived`.
   R13 Glossary. The first use on a page of a term the glossary defines is a link to the glossary (a warning). A term
       inside the words of a link to another page, a bold label or a quoted message is part of a name the page
-      repeats, not a use of the term: the next use is the first.
+      repeats, not a use of the term: the next use is the first. The glossary itself and the media provenance, a record of
+      files, link no term.
   R14 Controls. The `controls` blocks of a rewritten process page say what its windows hold. The windows are the ones
       its `menu` reaches, and what they hold is their inventory under data/ui/, which a test of the application
       writes by opening every process window and fails on when a window changes. Every control of the inventory is
@@ -997,7 +998,9 @@ class _Writing:
     def check_glossary_links(self):
         model = self.model
         glossary = self.limits.glossary_page
-        if self.kind in DATA_DRAWN_KINDS or self.relative == glossary:
+        # The glossary defines the terms, and the media provenance is a record of files whose descriptions no reader
+        # learns the terms from: neither links them.
+        if self.kind in DATA_DRAWN_KINDS or self.relative in (glossary, self.limits.provenance_page):
             return
         terms = self.check.glossary_terms()
         if not terms:
