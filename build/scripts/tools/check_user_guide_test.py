@@ -193,6 +193,8 @@ class FailingSiteTests(SiteCase):
 
 REAL_DATA = {name: (pathlib.Path(guide.REPO_ROOT) / 'docs' / 'user-guide' / 'data' / name).read_text(
     encoding='utf-8') for name in ('stages.yml', 'limits.yml', 'vocabulary.yml')}
+# The guide's own allowances name its pages, which a test's guide does not have: a test starts from none.
+REAL_DATA['vocabulary.yml'] = re.sub(r'(?ms)^allow:.*\Z', 'allow: []\n', REAL_DATA['vocabulary.yml'])
 
 UI_BUILDER = '''\
         menuProcess->setTitle(QCoreApplication::translate("AfterNightAppClass", "&Process", nullptr));
