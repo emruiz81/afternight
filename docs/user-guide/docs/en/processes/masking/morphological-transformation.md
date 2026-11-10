@@ -3,320 +3,389 @@ kind: process
 stage: any
 menu: Process > Morphology > Morphological Transformation
 summary: >-
-  Grows or shrinks bright and dark structures by replacing each sample with a local minimum, maximum or other rank.
+  Grows, shrinks, opens or closes the bright and dark structures of an image or a mask by replacing each sample with
+  the minimum, the maximum or another rank of the samples a structuring element covers.
 data_in: either
+data_out: either
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Morphological Transformation window is open on it yet, and no window
+    that needs the image for itself is open on it.
+  inputs: >-
+    One grayscale or RGB image or sequence, often a mask, and an optional mask of the image's size on its view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, channels, pixel type, header cards and recorded
+    processing state are kept. No file is written, and no mask is made or attached.
+  state: >-
+    A mask, or a duplicate of an image, whose bright or dark structures must grow, shrink or be cleaned, linear or
+    stretched.
+derived: false
+rewritten: true
 ---
 # Morphological Transformation
 
-## Purpose and expected result
+Morphological Transformation applies [morphology](../../reference/glossary.md#morphology) to an image: it reshapes its
+bright and dark structures. Each sample is replaced by the smallest, the largest or another rank of the samples a
+[structuring element](../../reference/glossary.md#structuring-element) covers around it. An
+[erosion](../../reference/glossary.md#erosion) shrinks bright structures, a
+[dilation](../../reference/glossary.md#dilation) grows them, an opening removes bright details smaller than the
+element and a closing fills dark gaps smaller than it. You draw the element on a grid of up to 25 by 25 cells.
 
-Morphological Transformation changes the spatial extent of bright or dark
-structures by replacing each sample with a local minimum or maximum - or, with
-**Morphological Selection**, any rank between them. It can shrink bright mask
-regions, grow them, remove small bright islands, close small dark gaps, or take
-a local median through a shaped neighbourhood. The neighborhood is an editable
-binary structuring element from `3×3` through `25×25`.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the result, keeps its size,
+channels and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The recorded state of the image, linear or nonlinear, is kept as it
+was. No [mask](../../reference/glossary.md#mask) is made or attached.
 
-**Apply is destructive:** a successful run replaces the selected still or
-sequence. The process does not create or assign a mask. To refine a mask, make
-the mask image itself the target (preferably a duplicate), then assign that
-image separately if it is not already attached to the intended target.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Morphology > Morphological Transformation** |
-| Enabled when | An image or sequence is active, this process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One grayscale or RGB still/sequence; optional active target mask; editable odd square binary kernel |
-| Outputs | Replaces the target with the same geometry, channel count, and pixel type; Preview snapshots are separate auxiliary images |
-| Recommended image state | Work on a duplicate grayscale/binary mask with no active mask. Linear or nonlinear science images are accepted, but morphology is destructive and derived-channel reconstruction can change colors. |
-| Preview support | Asynchronous RT preview, compatible Preview area, original/result switch, snapshot, zoom, display autostretch, and display-channel selection |
-| Sequence support | Supported through a temporary replacement sequence with generic progress; source metadata is kept per frame, and Cancel reaches the morphology running on the current frame |
-| Mask support | Supported: after morphology and Amount blending, the shared framework blends the original and result through the target's enabled active mask |
-| External dependencies | None; the AfterNight engine's own morphology and structuring-element rank filter |
-| Non-finite samples | A NaN or infinite sample is treated as missing: it is left out of every neighbourhood and left where it is |
+```figure
+image: ../../assets/images/processes/masking/morphological-transformation.webp
+alt: >-
+  The Morphological Transformation window. On the left, the Morphological Filter group with Operator at Opening,
+  Iterations at 1, Amount at 1.00 with its slider and a grayed Selection box, then the Structuring Element group with
+  a seven by seven grid whose white cells form a disc, the Size box at 7 and seven small icon buttons, then Target
+  Image, Channel at RGB and the Preview box, ticked. On the right, a toolbar over the preview of a red nebula with
+  fewer stars than the original. Reset, Close and Apply run along the bottom.
+caption: >-
+  Morphological Transformation on the stretched Carina master with Opening and a circular element of size 7. The
+  preview shows what Apply writes: the small stars are gone and the clouds keep their shape.
+pins:
+  - {n: 2, x: 2.0, y: 20.5}
+  - {n: 3, x: 2.0, y: 56.0}
+  - {n: 4, x: 2.0, y: 25.0}
+  - {n: 5, x: 2.0, y: 29.5}
+  - {n: 6, x: 8.6, y: 85.4}
+  - {n: 8, x: 89.2, y: 96.0}
+```
 
 ## Before you start
 
-Duplicate a mask or science image before experimenting. Disable the target's
-active mask when the entire mask image should be changed; otherwise the active
-mask limits the morphology result and can introduce intermediate gray values.
-Inspect the current structuring-element grid, not just its **Size** label. A
-size change preserves the centered old cells and initializes the new rim to
-zero; it does not automatically fill the larger square.
+- Work on a duplicate. **Apply** replaces the image, and its history keeps the step before.
+- To change a mask, make the mask image itself the target. The window makes no mask and attaches none.
+- Turn off a mask on the target's view when the whole image must change. That mask blends the original back in, and
+  leaves gray values where it is not white.
+- Look at the grid itself, not only at **Size**. A larger size keeps the old cells in the middle and adds cells that
+  are off around them.
+- Keep the center cell on for the usual centered operation.
 
-Keep the center cell active for conventional centered morphology. **Clear
-grid** creates an element with no active samples; **Apply** is disabled until
-at least one cell is active again, and the preview leaves the image unchanged.
-Choose a preset, **Fill grid**, or click at least one cell.
+## Steps
 
-## Procedure
+1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Morphology > Morphological Transformation**. The preview shows the image eroded by a filled square of
+   3 by 3 cells.
+2. **Choose the operator.** In **Operator**, choose what the element does: shrink, grow, open, close, or take the
+   rank **Selection** sets.
+3. **Shape the element.** Choose **Size**, then a shape with one of the buttons beside the grid, or click cells to
+   turn them on and off. The cells that are on show white.
+4. **Set the reach.** Leave **Iterations** at 1. Raise it only to repeat the same element farther.
+5. **Soften the result.** Lower **Amount** to mix the original back in when the full result is too abrupt.
+6. **Choose the channel.** Leave **Channel** at **RGB** to process each color channel on its own, or choose one
+   component to process it alone.
+7. **Check at 100 %.** Zoom the preview to 100 % on edges, on structures near the size of the element and on the
+   borders of the image. Hold ++space++ to compare with the original.
+8. **Apply.** Choose **Apply**. The image in its view is the reshaped one, its history lists **Morphological
+   Transformation** with the operator, the iterations and the amount, and the controls return to their defaults.
 
-1. Activate a duplicate mask and open **Process > Morphology > Morphological
-   Transformation**. Confirm **Target Image**, remove/disable an unintended
-   active mask, and keep **Preview** checked.
-2. Choose the operation by intent: Erosion shrinks bright regions; Dilation
-   grows them; Opening removes bright details smaller than the element; Closing
-   fills dark gaps smaller than the element; Morphological Selection takes the
-   rank set by **Selection** among the samples the element covers (`0` is
-   Erosion, `1` is Dilation, `0.5` the element's median).
-3. Choose an odd **Size**, then select Circle, Diamond, Cross, or Diagonal, use
-   **Fill grid**, or click cells to make a custom binary element. Confirm the
-   center cell and the intended symmetry.
-4. Start with **Iterations** `1` and **Amount** `1.00`. On RGB images, choose
-   **RGB** to process all stored channels independently, or choose one component
-   to process it and reconstruct the color image.
-5. Inspect the result at **Zoom 100%**, switching between original and result.
-   Check borders and structures near the kernel scale. Use **Preview area** to
-   tune quickly, then inspect more than one representative region.
-6. Reduce **Amount** when the full result is too abrupt. Increase kernel size
-   before Iterations when the neighborhood shape matters; increase Iterations
-   when the same element should reach farther.
-7. Select **Apply** and wait for the target update. Check Image History, but
-   also record the grid separately when reproducibility matters: current
-   history stores operator, iterations, Amount, Selection for Morphological
-   Selection, and the channel of a colour image, not structuring-element size
-   or pattern.
-8. If the processed image should become another image's mask, activate that
-   image and use **Mask > Select Mask**. Morphological Transformation itself
-   neither creates nor assigns that relationship.
+## Controls
 
-## Complete parameter and action reference
+**Target Image**, the preview pane, **Close** and the progress window of a sequence work as in every process window,
+and so does **Channel**: see
+[Process Windows](../../interface/process-windows.md). The window has no histogram.
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Operator** | Selector | Erosion (Minimum) | None | Erosion, Dilation, Opening, Closing, Morphological Selection; see label defect below | Selects local minimum, local maximum, erosion→dilation, dilation→erosion, or the rank **Selection** names | Disabled during Apply | Opening/Closing perform both primitive operations; Selection ranks every covered sample | Preview/Apply; chosen channel(s) | Captured index and history text; Reset/success Erosion |
-| **Selection** | Double + slider | `0.50` | None | `0..1`; spin step `0.05`; slider `0..1000` | Rank among the samples the element covers: `0` the minimum (Erosion), `1` the maximum (Dilation), `0.5` the median; between two ranks the value is interpolated linearly | Enabled only for Morphological Selection; disabled during Apply | Ranking costs more than a minimum/maximum, and grows with the active cell count | Preview/Apply; chosen channel(s) | Captured; recorded in history for Morphological Selection; Reset/success `0.50` |
-| **Iterations** | Integer | `1` | None | `1..20`; step `1` | Repeats the primitive operation(s), extending reach; every requested repetition is applied | Disabled during Apply | Runtime and effect increase with count | Preview/Apply | Captured; Reset/success `1` |
-| **Amount** | Double + slider | `1.00` | None | `0..1`; spin step `0.05`; slider `0..1000` | Blends from original (`0`) to full morphology (`1`) | Disabled during Apply | The full morphology still runs at Amount `0`; blend adds a pass | Preview/Apply; before active mask | Captured; Reset/success `1` |
-| Structuring-element **grid** | Clickable binary grid | Filled `3×3` | None | Each cell active/inactive; centered anchor | Active cells participate in min/max; click toggles one cell | Disabled during Apply | Sparse elements sample fewer positions conceptually; asymmetric grids shift directional influence around the fixed center | Preview/Apply; all processed channels | Deep-copied into each execution snapshot; Reset/success filled `3×3` |
-| **Size** | Selector | `3 (9 elements)` | None | Odd `3,5,…,25`; label reports square capacity | Enlarging preserves centered cells and adds zero rim; shrinking center-crops | Disabled during Apply | Larger footprint increases reach and work | Preview/Apply | Live element; Reset/success `3` |
-| **Clear grid** | Button | — | None | Click | Sets every cell to zero | Disabled during Apply | An empty element has nothing to apply: Apply is disabled and the preview leaves the image unchanged until a cell is active | Preview/Apply settings | Until changed/reset |
-| **Fill grid** | Button | — | None | Click | Activates every cell in the selected square | Disabled during Apply | Strong isotropic square footprint; greatest active-cell count for size | Preview/Apply settings | Until changed/reset |
-| **Invert** | Button | — | None | Click | Swaps active and inactive cells | Disabled during Apply | Can deactivate center or produce disconnected footprint | Preview/Apply settings | Until changed/reset |
-| **Circular structure** | Button | — | None | Click; cells whose squared distance from the center is at most `r²+r`, where `r` is the radius | Replaces grid with a filled circle-like footprint | Disabled during Apply | Smooth, near-isotropic growth/shrinkage | Preview/Apply settings | Until changed/reset |
-| **Diamond structure** | Button | — | None | Click; Manhattan distance from center ≤ radius | Replaces grid with a filled diamond | Disabled during Apply | Axis-weighted footprint | Preview/Apply settings | Until changed/reset |
-| **Cross structure** | Button | — | None | Click | Activates center row and center column | Disabled during Apply | Connects/grows along horizontal and vertical axes | Preview/Apply settings | Until changed/reset |
-| **Diagonal structure** | Button | — | None | Click | Activates both diagonals (an X) | Disabled during Apply | Connects/grows on diagonals; center active | Preview/Apply settings | Until changed/reset |
-| **Target Image** | Image/sequence selector | Attached active target | None | Any target accepted by launch guards | Changes destructive destination, active mask, channels, and preview | Disabled during Apply | Wrong target is overwritten | Preview/Apply; still/sequence | Target lifetime; Reset unchanged |
-| **Channel** | Selector | RGB or disabled Grayscale | None | Grayscale; RGB, R/G/B; CIE L*/a*/b*/c*/h*/X/Y/Z; HSL H/S/L; HSV H/S/V; YCbCr luma/blue chroma/red chroma | RGB applies independently to all stored channels; another RGB component is extracted, processed, then color is reconstructed | Non-grayscale choices only for RGB targets; selector disabled during Apply | Derived-space conversion/reconstruction adds work and can change out-of-gamut colors | Preview/Apply; selected component | Target-dependent; captured for execution/history; Reset unchanged |
-| **Preview** | Checkbox | Checked | None | Off/on | Enables asynchronous live result | Not explicitly disabled during Apply | Recomputes after setting edits; buffers add memory | Preview only; active-mask-aware | Window lifetime; Reset unchanged |
-| **Preview pane** | Image viewer | Full-frame result | None | Standard pan/scroll and actions below | Shows post-Amount, post-mask result without commit | Exists while Preview checked | Holds source/result/display buffers | Preview only | Window lifetime |
-| **Fit To Window** | Preview action | Fitted initially | None | Click or **Ctrl+Shift+F** | Fits whole image | Preview required | Broad context can hide single-pixel changes | Display only | Viewer lifetime |
-| **Zoom In** | Preview action | Current scale | None | Click; `1.25×` | Enlarges view | Preview required | Better kernel-scale inspection | Display only | Viewer lifetime |
-| **Zoom Out** | Preview action | Current scale | None | Click; `0.8×` | Reduces view | Preview required | More context, less pixel detail | Display only | Viewer lifetime |
-| **Zoom 100%** | Preview action | Current scale | None | Click; scale `1.0` | Shows one-pixel viewer scale | Preview required | Best for speckles, gaps, and borders | Display only | Viewer lifetime |
-| **View Channel** | Preview selector | Follows result | None | Supported stored/derived display components | Changes displayed component only | RGB choices require RGB result | Helps isolate channel-dependent structures | Display only | Viewer lifetime |
-| **Display Mode** | Preview selector | Linear | None | Linear, Autostretch | Changes display transfer only | Preview required | Autostretch may exaggerate low-level residuals | Display only | Preview lifetime |
-| **Autostretch Settings** | Preview action | Initialized from target view | None | Opens display settings | Adjusts Autostretch only | Relevant in Autostretch mode | Adds display/statistics work | Display only | Preview lifetime |
-| **Switch image** | Preview action | Result shown | None | Click, **Space**, right-click, or **Ctrl+Shift+O** | Toggles result/original | Preview required | Direct edge comparison | Preview/current frame | Preview lifetime |
-| **Preview area** | Preview checkbox/region | Unchecked; centered `600×600` where geometry permits | None | Off/on; movable supported area | Processes a supplied crop and composites it into full presentation | Disabled during Apply; Apply always processes full frame | Reduces tuning work; can miss structures elsewhere | Preview/snapshot only | Window lifetime |
-| **Take snapshot** | Preview action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes and opens auxiliary result | Preview required; disabled during Apply | Adds processing/allocation; target unchanged | New still | One view per action |
-| **Apply** | Dialog action | Enabled while the element has an active cell | None | One click | Processes full target and replaces it after success | Disabled while the grid is empty and while Apply runs; morphology/grid/channel controls lock | Destructive; work scales with image, element, iterations, and channels | Still/sequence; active-mask-aware | Adds incomplete history; resets settings after success |
-| **Close** | Dialog action | Enabled | None | One click | Closes without starting another Apply | Disabled while Apply runs | A running preview is cancelled | Dialog | Discards UI state |
-| **Reset** | Dialog action | Enabled | None | One click | Restores Erosion, 1, Amount 1, Selection `0.50`, filled `3×3`; schedules Preview | Disabled while Apply runs | May trigger preview work | UI/preview | Immediate; also after success |
-| **Sequence progress / Cancel** | Shared progress dialog | Created on sequence Apply | None | Cooperative Cancel | Writes frames to a temporary sequence and replaces target only after success | Sequence target only; the morphology reports no progress within a frame | Temporary disk/codec cost; Cancel stops the current frame promptly | Destructive sequence replacement | Cancel removes temporary output |
+```controls
+window: Morphological Transformation
+controls:
+  - name: Operator
+    kind: combo
+    default: Erosion (Minimum)
+    options: [Erosion (Minimum), Dilation (Maximum), Opening (Dilation + Erosion), Closing (Erosion + Dilation), Morphological Selection]
+    effect: "**Erosion (Minimum)** takes the smallest sample the element covers, so bright structures shrink and dark ones grow. **Dilation (Maximum)** takes the largest, so bright structures grow. **Opening** erodes and then dilates, which removes bright details the element does not fit into and gives the rest back its size. **Closing** dilates and then erodes, which fills dark gaps and holes smaller than the element. **Morphological Selection** takes the rank **Selection** sets."
+    range: The parentheses of the two labels name the steps in reverse order. An opening erodes first, and a closing dilates first.
+    enabled: Disabled while Apply runs.
+    tradeoff: An opening and a closing run both operations, which doubles the work. **Morphological Selection** ranks every covered sample, which costs more than a minimum or a maximum.
+    scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to **Erosion (Minimum)**. The history step names it.
+  - name: Iterations
+    kind: spinbox
+    default: "1"
+    widget: {min: 1, max: 20, step: 1}
+    effect: Repeats the operation with the same element, which reaches farther. An opening and a closing repeat each of their two steps, so an opening at 2 erodes twice and then dilates twice. That is not two openings in a row.
+    range: Every repetition is applied.
+    enabled: Disabled while Apply runs.
+    tradeoff: The work and the effect grow with the count. A larger element changes which neighbours count and can carry a shape or a direction, while more iterations repeat the same footprint.
+    scope: The preview and Apply.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+  - name: Amount
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Mixes the result with the original. At 1 the image is the full result, at 0 the original.
+    range: The slider moves in 1,000 steps of 0.001.
+    enabled: Disabled while Apply runs. It does not disable **Apply**.
+    tradeoff: The whole operation runs at every **Amount**, 0 included, and the mix adds a pass. Below 1, a binary mask gains gray values.
+    scope: After the channel or component is put back, and before the mask on the view.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+  - name: Selection
+    kind: spinbox
+    default: "0.50"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Sets the rank **Morphological Selection** takes among the samples the element covers. At 0 it is the smallest, as an erosion, at 1 the largest, as a dilation, and at 0.5 the median.
+    range: Between two ranks the value is interpolated in a straight line, so the result need not be one of the covered samples. At 0.5 over a filled square it is the median of that size, as Median Filter gives. The slider moves in steps of 0.001.
+    enabled: Only with **Morphological Selection**. Disabled while Apply runs.
+    tradeoff: The ranking grows with the number of cells that are on. A binary mask can gain values between its two levels.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.5. The history step records it for **Morphological Selection** only.
+  - name: Size
+    kind: combo
+    default: 3 (9 elements)
+    options: [3 (9 elements), 5 (25 elements), 7 (49 elements), 9 (81 elements), 11 (121 elements), 13 (169 elements), 15 (225 elements), 17 (289 elements), 19 (361 elements), 21 (441 elements), 23 (529 elements), 25 (625 elements)]
+    effect: Sets the side of the grid, an odd number of cells, with the number of its cells in parentheses.
+    range: A larger size keeps the cells in the middle and adds cells that are off around them. A smaller size keeps the middle of the grid. For a larger shape, press a shape button or **Fill grid** afterwards.
+    enabled: Disabled while Apply runs.
+    tradeoff: A larger footprint reaches farther and costs more, in proportion to the cells that are on.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 3, with every cell on.
+  - name: Clear grid
+    kind: button
+    default: ""
+    effect: Turns every cell off. Its icon is a bin.
+    enabled: Disabled while Apply runs.
+    tradeoff: An element with no cell on does nothing. **Apply** is then disabled, and the preview shows the image unchanged until a cell is on.
+  - name: Fill grid
+    kind: button
+    default: ""
+    effect: Turns on every cell of the square. Its icon is a paint bucket.
+    enabled: Disabled while Apply runs.
+    tradeoff: The square footprint grows and shrinks the most for its size, and has the most cells to read.
+  - name: Invert
+    kind: button
+    default: ""
+    effect: Turns every cell over. Its icon is a half-filled circle.
+    enabled: Disabled while Apply runs.
+    tradeoff: It can turn the center off, or leave a footprint in pieces.
+  - name: Circular structure
+    kind: button
+    default: ""
+    effect: Replaces the grid with a filled disc. Its icon is a circle.
+    range: A cell is on when its squared distance from the center is at most r² + r, with r half of one less than the side. Size 7 gives 37 cells of 49.
+    enabled: Disabled while Apply runs.
+    tradeoff: The growth and the shrinking are nearly the same in every direction.
+  - name: Diamond structure
+    kind: button
+    default: ""
+    effect: Replaces the grid with a filled diamond, the cells whose row and column distances from the center add up to at most half of one less than the side. Its icon is a diamond.
+    enabled: Disabled while Apply runs.
+    tradeoff: It reaches farther along the rows and columns than along the diagonals.
+  - name: Cross structure
+    kind: button
+    default: ""
+    effect: Turns on the middle row and the middle column. Its icon is a plus sign.
+    enabled: Disabled while Apply runs.
+    tradeoff: It joins and grows structures along the rows and columns only, which can leave jagged edges.
+  - name: Diagonal structure
+    kind: button
+    default: ""
+    effect: Turns on the two diagonals, an X with the center on. Its icon is an X.
+    enabled: Disabled while Apply runs.
+    tradeoff: It joins and grows structures along the diagonals only.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
+    tradeoff: Apply replaces the image chosen here. Check it before you apply.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses what is processed. **RGB** processes each color channel on its own. **Red**, **Green** or **Blue** processes that channel and copies the other two. Any other choice processes one component and converts back to RGB.
+    enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
+    tradeoff: With **RGB** the channels' edges move differently, which can color them. A hue is a circle, but its minimum and maximum are taken as numbers, so colors near the wrap can jump.
+    scope: The preview and Apply, on images and sequences. The history step names it for a color image.
+    persistence: Until the window closes. **Reset** leaves it. A finished Apply or another target returns it to **RGB**.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the result beside the controls, with **Amount** and the mask applied.
+    enabled: It stays enabled while Apply runs.
+    tradeoff: Each change of a value or of the grid processes the image again. Turn it off while you edit the grid at length, or draw a **Preview area**, then check the whole image before Apply.
+    scope: "The window only. The pane's toolbar offers **Display Mode**, whose Autostretch can exaggerate faint changes. While you drag a slider, the preview processes the part of the image the pane shows, at full scale. **Preview area** is off when the window opens, and ticked it starts at 600 by 600 pixels in the middle of the image."
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window without applying.
+    enabled: Disabled while Apply runs.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Operator** to **Erosion (Minimum)**, **Iterations** to 1, **Amount** to 1, **Selection** to 0.5 and the element to a filled square of 3 by 3 cells, and runs a preview.
+    range: It leaves **Target Image**, **Channel** and **Preview** as they are.
+    enabled: Disabled while Apply runs.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Processes the whole image, or every frame of the sequence, with the values, the element and the channel as they are when you press it, then returns the controls to their defaults.
+    enabled: While the element has at least one cell on, as it has when the window opens. While the run works, every control of the window but **Preview** is disabled.
+    tradeoff: The work grows with the pixels, the channels, the cells that are on and the iterations. A 25 by 25 element at 20 iterations costs far more than the default, and a color component adds its conversions.
+    scope: The whole image or sequence, never limited by a preview area, with the mask blended afterwards. Each frame of a sequence keeps its own metadata, and **Cancel** stops the work inside the frame being processed. The progress window counts frames, not the work inside one, so try a short duplicate sequence first.
+    persistence: "The history step is **Morphological Transformation** and reads, for example, `Operator: Opening (Dilation + Erosion), Iterations: 1, Amount: 1.00 in channel: RGB`, with `, Selection: 0.50` after the amount for **Morphological Selection**. For a grayscale image it ends before ` in channel`. It does not record the size or the cells of the element. The image keeps its header cards and its processing state, and the step records it neither as linear nor as nonlinear."
+```
 
-## How the algorithm works
+```controls
+window: The structuring element
+controls:
+  - name: Grid
+    kind: action
+    default: ""
+    effect: Shows the element, its cells that are on in white. A click with the left button turns one cell on or off, and a preview follows.
+    range: The center cell is the anchor, which stays fixed. The element need not have its center on.
+    enabled: Disabled while Apply runs.
+    tradeoff: An element that is not symmetric shifts the result toward one side of each structure.
+    scope: Every channel or component processed.
+    persistence: Each run takes a copy of the element as it is when it starts. **Reset** and a finished Apply return it to a filled square of 3 by 3 cells.
+```
 
-### Operators and equations
+## How it works
 
-Let `S` be the set of active offsets in the binary structuring element, centered
-on its middle cell, and let `X_c(p)` be channel `c` at pixel `p`.
+1. **Channel** decides what is processed: each color channel, one channel, or one component of the image converted to
+   a [color model](../../reference/glossary.md#color-model).
+2. Around each sample, the element is centered on its middle cell, and the samples its cells cover are read. An
+   erosion takes the smallest, a dilation the largest and a selection the rank you set. An opening and a closing
+   chain the two, each step repeated **Iterations** times.
+3. The work is done in single precision, in the image's stored units, and written back in its pixel type.
+4. A component is converted back to RGB, **Amount** mixes the result with the original, and the mask on the view
+   blends the two.
+5. The image replaces the target and its history gets one step. It keeps its size, its pixel type, its
+   [header cards](../../reference/glossary.md#header-card) and its
+   [processing state](../../reference/glossary.md#processing-state).
 
-- Erosion computes `E_c(p) = min_{q in S} X_c(p+q)`.
-- Dilation computes `D_c(p) = max_{q in S} X_c(p+q)`.
-- Opening computes dilation after erosion: `O = D(E(X))`.
-- Closing computes erosion after dilation: `C = E(D(X))`.
-- Morphological Selection computes the rank `s` of the covered samples:
-  `R_c(p) = quantile_s {X_c(p+q) : q in S}`, interpolated linearly between two
-  ranks. At `s=0` it equals Erosion and at `s=1` Dilation by the same element;
-  at `s=0.5` over a filled square it equals the Median Filter of that size.
+### Model
 
-These are the operations executed by AfterNight's engine and verified by the
-focused tests.
-The current selector text says **Opening (Dilation + Erosion)** and **Closing
-(Erosion + Dilation)**; those parenthetical descriptions are reversed. Selection
-still dispatches standard Opening and Closing as defined above.
+With \(S\) the cells that are on, as offsets from the center, and \(X(p)\) a channel at pixel \(p\), an erosion
+\(E\) and a dilation \(D\) give
 
-For Amount `a`, the shared framework then computes
+\[ E(p) = \min_{q \in S} X(p + q), \qquad D(p) = \max_{q \in S} X(p + q) \tag{1} \]
 
-`Y = X(1-a) + M(X)a`,
+With \(n\) the value of **Iterations**, an opening \(O\) and a closing \(C\) are
 
-where `M` is the selected full morphology result. If an enabled active mask has
-normalized value `w`, the final non-inverted result is
+\[ O = D^{n}\bigl(E^{n}(X)\bigr), \qquad C = E^{n}\bigl(D^{n}(X)\bigr) \tag{2} \]
 
-`Z = X(1-w) + Yw`.
+so an opening never brightens a sample and a closing never darkens one. With \(s\) the value of **Selection** and
+\(Q_s\) the value at rank \(s\) of a set of samples, interpolated between two ranks, a morphological selection gives
 
-Inverted masking swaps the weights. Amount and mask blending can therefore
-produce gray transition values even from a binary source mask.
+\[ R(p) = Q_s\bigl\{X(p + q) : q \in S\bigr\} \tag{3} \]
 
-### Iterations, channels, and types
+At \(s = 0\) it equals \(E\), at \(s = 1\) it equals \(D\). With \(a\) the value of **Amount** and \(M(X)\) the
+result, the image becomes
 
-For Erosion, Dilation, or Morphological Selection, **Iterations** repeats that
-primitive. For Opening and Closing, each primitive stage runs the requested
-iteration count: for example, Opening at `2` erodes twice and then dilates
-twice. It is not two independently completed Opening cycles. The engine repeats
-a primitive up to sixteen times per call, so a larger count is split across
-calls; all requested repetitions are applied.
+\[ Y = (1 - a)\,X + a\,M(X) \tag{4} \]
 
-Each stored RGB channel is processed independently.
-Selecting Red, Green, or Blue processes only that plane and copies the others.
-Selecting a CIE, HSL, HSV, or YCbCr component converts the image, processes one
-component, and reconstructs RGB from the processed and untouched components.
-Hue is circular data, but this process still takes ordinary numeric minima or
-maxima; values around the hue wrap can therefore be poor candidates for direct
-morphology.
+and a mask on the view then blends \(Y\) with \(X\) in the same way, by its own value at each pixel.
 
-The engine works on every sample type in its stored units, in single
-precision, and preserves geometry, channel count, and pixel type; 32-bit
-integer and 64-bit float values are rounded to single precision. A NaN or
-infinite sample in an image that marks every sample valid is treated as
-missing: it is left out of every neighbourhood and left in place. An image that
-carries its own validity rule or mask is read under that rule.
+### Boundaries
 
-### Borders and element resizing
+- A neighbour outside the image is left out. An erosion draws no dark rim and a dilation no bright one along the
+  borders, and a selection ranks only the cells inside the image.
+- A sample that is not a number, or is infinite, in an image that states every sample valid, is treated as missing.
+  It is left out of every neighbourhood and left where it is. An image with a
+  [validity rule](../../reference/glossary.md#validity-rule) of its own is read under that rule, and a pixel the rule
+  rejects is left as it was.
+- A 32-bit integer or 64-bit floating-point image is rounded to single precision for the work.
+- An element with no cell on changes nothing.
+- A run the memory budget cannot hold is refused with the reason, and the image stays as it was. Close other images,
+  or use a smaller element.
 
-The anchor is fixed at the element center. Out-of-image samples are left out,
-as with OpenCV's default morphology border: they do not introduce zero-valued
-erosion halos or maximum-valued dilation rims, and Morphological Selection
-ranks only the element's cells that lie inside the image. Only available
-in-image values determine an edge result.
+### Worked example
 
-Changing size center-crops when shrinking. When growing, it copies the old
-element into the center and fills the new border cells with zero. For example,
-changing the default filled `3×3` to size `5` leaves only the centered `3×3`
-active until a preset, Fill, Invert, or manual edit changes it.
+The picture above shows the window on the linear Carina [master](../../reference/glossary.md#master) after Histogram
+Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28. **Operator** is at
+**Opening (Dilation + Erosion)**, **Size** at 7, the element made with **Circular structure**, **Iterations** at 1
+and **Amount** at 1.00. The disc has 37 cells and reaches 3 pixels from its center. A star narrower than the disc
+holds no place where the whole disc fits inside it, so equation (1) erodes it to the darker sky around it, and the
+dilation of equation (2) cannot bring it back. A cloud wider than the disc keeps its shape and loses only its
+narrower peaks, and the grain of the background is flattened and darkened a little.
 
-### Output, state, and failure behavior
+```figure
+images:
+  - image: ../../assets/images/processes/masking/morphological-transformation-before.webp
+    alt: A crop of the nebula at full resolution before Apply, red and white clouds with many small stars on a gray background.
+    label: Before
+  - image: ../../assets/images/processes/masking/morphological-transformation-after.webp
+    alt: The same crop after Apply, the clouds in the same places, the small stars gone, the large ones smaller and rounder, and the background a little darker and smoother.
+    label: After
+caption: >-
+  A crop at 100 % of the middle of the stretched Carina master before and after Apply with Opening and a circular
+  element of size 7. Both are shown in the Linear display mode, without a display stretch.
+```
 
-The engine result is written into a worker image, then Amount and the active
-mask are applied. A still is swapped into the target only after successful
-completion. A sequence is written to a temporary replacement and committed
-only after success; Cancel removes that temporary output. The engine observes
-Cancel while it runs, so a morphology already running on one frame stops
-promptly.
+On a black mask with the default filled square of 3 by 3 cells, a single white pixel vanishes under an erosion or an
+opening, and becomes a white block of 3 by 3 pixels under a dilation. At **Amount** 0.50, equation (4) makes the
+eight new pixels of that block 0.5. A single black pixel in a white field is filled by a closing.
 
-Each execution deep-copies the structuring element and captures the operator
-and channel labels before starting its worker. The worker reads only that
-immutable snapshot, not Qt controls or the live editable grid.
+## Starting points
 
-The result keeps the source image's header cards and metadata, and each
-sequence frame keeps its own. Unlike some nonlinear processes, the current
-implementation does not update processing-state linearity/provenance, so a
-nonlinear morphology result can retain the source's prior state metadata.
-Image History records operator, iterations, Amount, Selection for
-Morphological Selection, and, for a colour image, ` in channel: <channel>`, but
-omits structuring-element size and active-cell pattern. Preserve the grid in
-project notes or a screenshot when exact repetition matters.
-
-An engine/allocation failure is reported through the shared process error path
-without committing the still. The UI constrains size, iteration, Amount, and
-Selection, and disables Apply while the element has no active cell.
-
-## Parameter interactions and starting points
-
-| Goal | Conservative start | Expected effect | Common failure | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Shrink a white mask | Erosion, Circle `3`, 1 iteration, Amount `1` | Boundary moves inward by the active neighborhood | Thin desired structures vanish | Element shape, size, iterations, Amount |
-| Grow a white mask | Dilation, Circle `3`, 1 iteration | Boundary moves outward | Nearby regions merge | Size, iterations, Amount |
-| Remove isolated bright specks | Opening, Circle/Cross `3`, 1 iteration | Small bright components disappear while larger shapes regrow | Desired small stars/details disappear | Shape, size, Amount |
-| Fill small dark holes/gaps | Closing, Circle `3`, 1 iteration | Dark gaps close while larger bright shape is restored | Separate bright regions bridge | Shape, size, Amount |
-| Directional connection | Dilation/Closing with Cross or Diagonal | Growth follows selected axes | Orientation bias or jagged connectivity | Preset, custom cells, iterations |
-| Shaped median or soft rank | Morphological Selection, Circle `5`, Selection `0.5` | Impulses inside the element's shape are replaced by its median | Fine structure smaller than half the element disappears | Shape and size first, then Selection toward `0` or `1` |
-| Softer transition | Any full result, then Amount below `1` | Mixes source and morphology | Output is no longer strictly binary | Establish full operation first, then Amount |
-
-Kernel size and Iterations are not interchangeable. A larger element changes
-which offsets participate and can encode shape/direction. More iterations
-repeat the same footprint and extend its reach. Start with one iteration so the
-element's effect is visible before compounding it.
-
-## Inputs, outputs, and metadata
-
-The input is the selected grayscale or RGB still/sequence plus its optional
-active mask. The output replaces that target and preserves its width, height,
-channel count, pixel type, and copied metadata. Derived-channel selection may
-convert and reconstruct RGB, while RGB itself is processed independently per
-stored channel. The process does not create or assign a mask.
-
-Still Apply commits only after the worker result, Amount blend, and active-mask
-blend succeed. Sequence Apply commits a temporary replacement only after all
-frames succeed, and each output frame explicitly receives its input frame's
-metadata. Current processing-state metadata is preserved without a new
-morphology provenance marker. History omits the element size and pattern.
-
-## Performance
-
-Work grows with pixel count, processed channels, active element footprint, and
-Iterations. Opening and Closing run both erosion and dilation stages. A `25×25`
-element at 20 iterations is substantially more expensive than the `3×3`, one-
-iteration default, and derived color components add conversion/reconstruction.
-Morphological Selection ranks every covered sample and costs more than a
-minimum or maximum. No fixed timing is claimed.
-
-Amount `0` does not skip morphology. Disable Preview while making many grid
-edits, use Preview area for tuning, and return to a representative full-frame
-preview before Apply. Sequence processing also pays temporary output/codec and
-disk costs. Run on a short duplicate sequence first; the current page has no
-approved production timing, peak-memory, or disk-space measurement.
-
-## Worked example
-
-- Input condition/provenance and settings: duplicate binary grayscale mask with
-  no active mask, one isolated white pixel away from the border, default filled
-  `3×3` element, one iteration, and Amount `1` unless noted.
-- Expected checkpoint: Erosion and Opening remove the isolated white pixel;
-  Dilation produces a `3×3` white block; Dilation with Amount `0.5` produces
-  half-strength values where white was added. On a separate solid white field
-  with one isolated black pixel, Closing fills the hole.
-- Inspect at 100%/statistics/history: use 100% zoom to count the Dilation block,
-  use Image Statistics to distinguish binary from half-strength output, and
-  verify operator, iterations, Amount, and channel in Image History. Record the
-  grid separately because history omits its size and active-cell pattern.
-- Limitations: these deterministic checkpoints follow AfterNight's source,
-  equations, and focused engine tests; they do not establish astronomical
-  visual quality, sequence output quality, production timing, memory use, or
-  disk use.
-
-## Warnings and limitations
-
-- The menu route disagrees with the process registry's Filters category; the
-  visible menu is **Morphology**.
-- Opening/Closing selector parentheticals are reversed. Trust the operation
-  name and the standard order documented on this page.
-- Structuring-element size/pattern is absent from history. Per-frame source
-  metadata is preserved, but processing-state provenance is not updated.
-- An all-zero grid disables Apply. NaN and infinity are treated as missing and
-  stay in the result.
-- Morphological Selection between two ranks interpolates, so its result need not
-  be one of the covered samples; a binary mask can gain intermediate values.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Opening/Closing seems opposite to the label | The current parenthetical UI descriptions are reversed | Trust the operation name: Opening is erosion→dilation; Closing is dilation→erosion |
-| Larger size barely changes the result | Size growth preserved the centered old cells and added inactive rim | Select a preset or **Fill grid** after changing Size |
-| Apply is disabled | Every grid cell is inactive | Activate at least the center cell, or choose a preset |
-| Preview or Apply reports a morphology error | Allocation or engine processing failed | Retry on a duplicate with a smaller element |
-| Selection has no effect | An operator other than Morphological Selection is chosen | Select **Morphological Selection** |
-| Result is gray instead of binary | Amount is below `1` or an active mask blended source/result | Set Amount `1` and disable/remove the target's active mask |
-| RGB edges become colored | Stored RGB channels were morphed independently, or one derived component was reconstructed | Inspect **View Channel**; choose a luminance/lightness component when appropriate and check gamut |
-| Border structures change unexpectedly | The centered element is partly outside the image | Inspect at 100%; remember missing samples are neutral, not reflected/replicated pixels |
-| Apply settings differ from Image History | History omits element size/pattern | Record the grid before Apply; do not rely on history alone |
-| NaN or infinity survives | Non-finite samples are treated as missing and left in place | Repair them first if the result must be finite |
+| A white mask to shrink or grow | **Erosion (Minimum)** or **Dilation (Maximum)**, **Circular structure** at size 3 | **Size** first, then **Iterations**, then **Amount**. Watch thin parts vanish or nearby regions merge. |
+| Isolated bright specks to remove | **Opening (Dilation + Erosion)**, **Circular structure** or **Cross structure** at size 3 | A larger element removes larger specks, and small details you want too. |
+| Small dark holes or gaps to fill | **Closing (Erosion + Dilation)**, **Circular structure** at size 3 | Check that separate bright regions are not bridged. |
+| A median through a shape | **Morphological Selection**, **Circular structure** at size 5, **Selection** at 0.5 | Shape and size first, then **Selection** toward 0 or 1. Detail smaller than half the element disappears. |
 
-## Related workflow steps
+## When it goes wrong
 
-- Draw a custom grayscale region with [Mask Drawing](mask-drawing.md).
-- Convert a soft mask to a hard classification with [Binarize](binarize.md).
-- Generate an automatic stellar selection with [Star Mask](../star-operations/star-mask.md).
-- Assign, invert, and enable the result through [Masks](../../interface/masks.md).
-- Inspect the incomplete operation record in [Image History](../../interface/image-history.md).
+!!! warning "The history does not record the element"
+    The history step names the operator, the iterations, the amount and the channel, not the size or the cells of
+    the element. Note the element, or keep a picture of the window, when you must repeat the step.
+
+Opening and Closing seem to run in the order opposite to their labels
+:   **Cause.** The parentheses of the labels name the steps in reverse order.
+:   **Fix.** Go by the name: an opening erodes first, a closing dilates first.
+
+A larger Size barely changes the result
+:   **Cause.** The new cells around the old element are off.
+:   **Fix.** After you change **Size**, press a shape button or **Fill grid**.
+
+Apply is disabled
+:   **Cause.** No cell of the grid is on.
+:   **Fix.** Click the center cell, or press a shape button.
+
+Selection is grayed out
+:   **Cause.** **Operator** is not **Morphological Selection**.
+:   **Fix.** Choose **Morphological Selection** to use a rank.
+
+The result is gray instead of black and white
+:   **Cause.** **Amount** is below 1, or a mask on the view blended the original back in.
+:   **Fix.** Set **Amount** to 1 and turn the mask off, then apply again to the original.
+
+Colored edges appear in an RGB image
+:   **Cause.** Each channel moved its edges on its own, or a component was converted back to RGB.
+:   **Fix.** Look at each channel with the preview's **View Channel**. Try a lightness or luminance component instead.
+
+Structures along the borders change unexpectedly
+:   **Cause.** Part of the element lies outside the image there, and only the samples inside count.
+:   **Fix.** Check the borders at 100 %, and crop them afterwards if they matter.
+
+Samples that held no number are still there
+:   **Cause.** They are treated as missing and left where they are.
+:   **Fix.** Repair them before this step when the result must hold only numbers.
+
+## Related
+
+- [Binarize](binarize.md), to cut a soft mask to black and white before or after reshaping it.
+- [Mask Drawing](mask-drawing.md) and [Star Mask](../star-operations/star-mask.md), to draw a mask by hand or make
+  one from the stars.
+- [Tighten Edges](../color-adjustment/tighten-edges.md), which darkens edges with a fixed filter of 3 by 3 pixels.
+- [Median Filter](../noise-reduction/median-filter.md), for the median of a whole square.
+- [Masks](../../interface/masks.md) and [Image History](../../interface/image-history.md), to attach the result to
+  another image as its mask, and to undo the step.
+- [Process Windows](../../interface/process-windows.md), for the preview, **Channel** and what every process window
+  shares.
 
 ## Credits
 
-- [OpenCV image-filtering reference](https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html)
-  defines the erosion, dilation, morphologyEx, center-anchor, iteration, and
-  default-border behavior the engine's morphology follows.
+- The [OpenCV image-filtering reference](https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html) describes
+  the erosion, dilation, opening and closing, the anchor at the element's center, the iterations and the default
+  border that leaves outside samples out, which the engine's morphology follows.

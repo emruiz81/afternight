@@ -3,270 +3,330 @@ kind: process
 stage: any
 menu: Process > Utilities > Noise Generator
 summary: >-
-  Adds synthetic random noise to an image, to test denoisers, masks and other noise-sensitive processing.
+  Adds random noise of a type and strength you choose to an image or a sequence, to make test data for denoisers,
+  masks, rejection and other processing that depends on noise.
 data_in: either
+data_out: either
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Noise Generator window is open on it yet, and no window that needs the
+    image for itself is open on it.
+  inputs: >-
+    One grayscale or RGB image or sequence, best a duplicate or a synthetic test frame with finite samples between 0
+    and 1, and an optional mask of the image's size on its view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, channels, pixel type, header and recorded processing
+    state are kept. No file, seed or report is written.
+  state: >-
+    A duplicate of any image, linear or stretched, or a synthetic frame, made into test data. Noise on linear data is
+    the easiest to read.
+derived: false
+rewritten: true
 ---
 # Noise Generator
 
-## Purpose and expected result
+Noise Generator adds random noise to an image, so that you can test a denoiser, a
+[mask](../../reference/glossary.md#mask), a stacking [rejection](../../reference/glossary.md#rejection) rule or any
+other step that depends on noise. You choose the type of noise and its strength. It makes test data and is no model of
+a camera: it reads no gain, exposure, temperature, read noise, dark current or quantization from the image.
 
-Noise Generator adds synthetic random noise to a working image so developers and
-advanced users can test denoisers, masks, rejection behavior, and other
-noise-sensitive processing. It is a test-data tool, not a simulation of a full
-camera noise model: it does not combine calibrated read noise, shot noise, dark
-current, gain, and quantization from acquisition metadata.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the noisy one, keeps its size and
+[pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The window draws a random seed when it opens and keeps it, so the
+preview shows the noise Apply adds.
 
-The result is a same-size replacement image or sequence with one of seven
-noise selections - six distinct noise models drawn by AfterNight's own engine,
-plus **LocalVar**, which is Gaussian noise of variance `0.01` - applied to RGB,
-one stored channel, or one converted component. The dialog draws a random seed
-when it opens and holds it for every preview, snapshot, and Apply, so the
-preview shows the noise Apply adds. After an Apply completes, the dialog draws
-a new seed, so a second Apply adds new noise. There is no seed control, and the
-seed is not recorded.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Utilities > Noise Generator** |
-| Enabled when | An image or sequence is active, another Noise Generator is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One grayscale or RGB still/sequence and optional matching active mask; configured CFA sequence frames can be auto-debayered before processing |
-| Outputs | Replaces the still or, after successful temporary processing, the sequence; **Take snapshot** creates an auxiliary still; no file or seed record is written |
-| Recommended image state | A duplicate or synthetic finite normalized test image; linear data is easiest to interpret, but the process accepts the current stored state |
-| Preview support | Asynchronous full-image or movable-area preview, original/result switching, snapshot, display channels, and display-only autostretch; every recomputation draws from the dialog's held seed, so the same settings show the same noise |
-| Sequence support | Yes; noise mode, numeric values, Channel, and seed are captured once when Apply starts; each frame draws its own noise from the seed shifted by its frame index; temporary output replaces the sequence only after success |
-| Mask support | Yes; the active mask blends the generated result with the original after noise generation |
-| External dependencies | None; the AfterNight engine's own noise generator. No Python interpreter, scikit-image, global lock, or network access |
+```figure
+image: ../../assets/images/processes/utility/noise-generator.webp
+alt: >-
+  The Noise Generator window. On the left, Noise Type at Gaussian, the Mean, Var, Amount and Salt vs Pepper boxes with
+  their sliders, the last two grayed, then Target Image, Channel at RGB and, at the bottom, the Preview check box. On
+  the right, a toolbar of zoom buttons, a channel box, a display mode box and a settings button over the preview of a
+  red nebula, with the word PREVIEW in its corner and a framed area in its middle labelled Preview: Noise Generator,
+  grainier than the image around it. Reset, Close and Apply run along the bottom.
+caption: >-
+  Noise Generator on the stretched master with Gaussian noise at a Var of 0.0100. The framed area in the preview shows
+  the noise over the original.
+pins:
+  - {n: 2, x: 2.0, y: 16.7}
+  - {n: 3, x: 2.0, y: 25.7}
+  - {n: 4, x: 2.0, y: 43.4}
+  - {n: 5, x: 61.8, y: 55.3}
+  - {n: 6, x: 88.7, y: 96.0}
+```
 
 ## Before you start
 
-- Duplicate valuable data. Successful Apply replaces the target, and the seed is
-  not recorded, so the generated noise cannot be subtracted later.
-- Decide what is being tested. **Gaussian** and **Speckle** expose Mean/Var;
-  impulse modes expose Amount; **Poisson** is data-dependent; **LocalVar** is
-  Gaussian noise at a fixed variance of `0.01`.
-- Use normalized finite data. Mean, Var, and Amount are fractions of full
-  scale: an integer image's values are restated in its own codes (Mean times the
-  type's span, Var times its square). Generated output is clipped to the image's
-  full scale - `[0,1]` for a float image, the type's range for an integer one -
-  and a pepper sample takes the lowest value of that range.
-- For RGB, decide between **RGB** and a component. RGB generates independent
-  random values for R, G, and B samples; impulse noise therefore need not replace
-  all three samples at the same pixel.
-- The full-frame Preview shows the noise the next Apply adds: the dialog holds
-  one seed until an Apply completes. Changing a setting changes the noise
-  computed from that seed; reopening the dialog or completing an Apply draws a
-  new seed.
+- Work on a duplicate. The seed is not recorded, so the noise can be neither taken out nor drawn again later. The
+  image's history keeps the step before.
+- Use finite samples between 0 and 1. For Gaussian, **Mean** is a
+  [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale) and **Var** its square, and every result
+  is held to full scale: 0 to 1 for a floating-point image, the range of its type for an integer one.
+- With **RGB**, each channel gets its own draws, so an impulse need not hit all three samples of a pixel. Choose a
+  component in **Channel** when the noise must be one plane.
+- A mask on the view blends the noisy image with the original afterwards.
+- On a sequence, every frame gets the same type, values, **Channel** and mask, and noise of its own. The frames are
+  read with the view's automatic [debayer](../../reference/glossary.md#debayer) setting, which can turn the frames of a
+  [CFA](../../reference/glossary.md#cfa) sequence into RGB first.
 
-## Procedure
+## Steps
 
-1. Activate a duplicate or synthetic target and open **Process > Utilities >
-   Noise Generator**. Confirm **Target Image**, **Channel**, and mask state.
-2. Keep **Preview** checked and select **Noise Type**. Use the enabled numeric
-   controls listed below; controls that remain enabled after a mode switch can be
-   ignored when the backend does not consume them.
-3. For Gaussian/Speckle, choose Mean and Var. For Salt/Pepper/Salt & Pepper,
-   choose Amount and, for the combined mode, Salt vs Pepper. Poisson and LocalVar
-   have no effective numeric control in this UI.
-4. Inspect the preview at **Zoom 100%**. Confirm the range and spatial
-   character. Use **Switch image** to compare the current draw with the
-   original.
-5. Uncheck **Preview area** for a full-frame distribution check. If using a mask,
-   confirm its enabled/inverted state and geometry.
-6. Select **Apply**. The full-frame result is the noise the preview showed; the
-   dialog then draws a new seed for the next run. For a sequence, monitor
-   progress; Cancel preserves the original.
+1. **Open the window.** Make the duplicate the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Utilities > Noise Generator**. The preview shows Gaussian noise inside a framed
+   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, over the original.
+2. **Choose the noise.** Choose a **Noise Type**. Use only the boxes that type reads, which the controls below list.
+3. **Set its strength.** For Gaussian and Speckle raise **Var**, and set **Mean** only for a shift on purpose. For the
+   impulse types set **Amount**, and for Salt & Pepper also **Salt vs Pepper**.
+4. **Choose the channel.** Leave **Channel** at **RGB** to give each channel its own noise. Choose
+   **CIE L* (Lightness)** or **CIE Y (Luminance)** for noise in the brightness alone.
+5. **Check at 100 %.** Zoom the preview to 100 % and hold ++space++ to compare with the original. Untick **Preview
+   area** in the menu at the end of the preview's toolbar to see the noise Apply adds to the whole image.
+6. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the noisy image, and its history
+   lists **Noise Generator** with the type.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Noise Type | Combo box | **Gaussian** | None | **Gaussian**, **LocalVar**, **Poisson**, **Salt**, **Pepper**, **Salt & Pepper**, **Speckle** | Selects the distribution and which numeric arguments are consumed | Disabled during Apply; mode changes update numeric enablement, but Salt/Pepper/Salt & Pepper do not explicitly disable Mean/Var and Speckle does not explicitly disable Salt vs Pepper, so stale enabled controls can remain after some transitions | Every mode draws per sample from the held seed; changing type recomputes the preview | Preview/Apply; selected channel/component; before mask; still/sequence | Captured per execution; Reset and successful Apply restore Gaussian |
-| Mean | Double value plus slider, additive-noise mean as a fraction of full scale (Speckle: relative multiplier mean) | `0.0000` | None | `0.0000..0.5000`; configured single-step hint `0.005`, but adaptive decimal stepping makes arrow/keyboard increments vary with magnitude; slider has 1001 positions | Raises the Gaussian additive offset or Speckle multiplier mean | Intended for Gaussian and Speckle; ignored by every other backend mode even if stale-enabled after a mode transition | Positive means brighten Gaussian output and bias Speckle in proportion to source; clipping increases near the upper bound | Preview/Apply; selected channel/component; before mask; still/sequence | Captured per execution; Reset/successful Apply return `0` |
-| Var | Double value plus slider, variance | `0.0020` | None | `0.0000..0.5000`; configured single-step hint `0.001`, but adaptive decimal stepping makes arrow/keyboard increments vary with magnitude; standard deviation is `sqrt(Var)` | Widens Gaussian/Speckle random variation | Intended for Gaussian and Speckle; ignored by LocalVar and every other backend mode even if stale-enabled | Larger variance increases clipping and obscures structure; `0` removes random spread but Mean can still change samples | Preview/Apply; selected channel/component; before mask; still/sequence | Captured per execution; Reset/successful Apply return `0.002` |
-| Amount | Double value plus slider, replacement probability per selected array sample | `0.0200` | None | `0.0000..0.5000`; configured single-step hint `0.001`, but adaptive decimal stepping makes arrow/keyboard increments vary with magnitude | Raises the probability that Salt/Pepper/Salt & Pepper replaces a sample | Enabled for the three impulse modes; ignored by Gaussian, LocalVar, Poisson, and Speckle | More replacements destroy more source samples; RGB draws independently per channel sample | Preview/Apply; selected channel/component; before mask; still/sequence | Captured per execution; Reset/successful Apply return `0.02` |
-| Salt vs Pepper | Double value plus slider, salt fraction among selected impulse replacements | `0.50` | None | `0.00..1.00`; configured single-step hint `0.01`, but adaptive decimal stepping makes arrow/keyboard increments vary with magnitude; `0` all pepper, `1` all salt | Raises the share replaced by the top of the range; lowers the share replaced by its bottom | Consumed only by Salt & Pepper; may remain stale-enabled when switching from Salt & Pepper to Speckle, where it is ignored | Extreme values make one-sided impulse tests; does not change total Amount | Preview/Apply; selected channel/component; before mask; still/sequence | Captured per execution; Reset/successful Apply return `0.5` |
-| Target Image | Image selector | Attached/active target | None | Open eligible still or sequence | Changes source, Channel list, Preview, active mask, and Apply destination | Active target required; duplicate/exclusive launch gates apply | A wrong target is destructively replaced after success | Preview/Apply source and active mask | Target lifetime; Reset does not change it |
-| Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, CIE L*a*b*/L*c*h*/XYZ, HSL, HSV, and YCbCr components exposed by the shared selector | RGB draws noise independently for every stored channel sample; a component draws on one converted plane and reconstructs RGB | Components require RGB; disabled during Apply; the selection is captured when Apply starts | Component conversion adds buffers/quantization/gamut risk | Preview/Apply; active mask post-blend; still/sequence | Dialog-local; Reset/successful Apply restore RGB on RGB targets |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables asynchronous full-image or selected-area random generation | Process idle | Every recomputation draws from the dialog's held seed | Preview only; mask-aware; still/current displayed sequence frame | Window lifetime; Reset unchanged |
-| Preview pane | Image viewer | Current generated result | None | Pan/drag and toolbar actions below | Shows the current mask-aware realization without modifying target | Exists only with Preview | Holds source/result/display buffers | Preview only | Window lifetime |
-| Fit To Window | Preview-toolbar action | Fitted initially | None | Click or **Ctrl+Shift+F** | Fits the whole image | Preview image required | Useful for broad distribution; resampling hides individual impulses | Preview display only | Viewer lifetime |
-| Zoom In | Preview-toolbar action | Current scale | None | Click; `1.25×` relative zoom | Enlarges around viewport center | Preview image required | Improves sample inspection; increases panning | Preview display only | Viewer lifetime |
-| Zoom Out | Preview-toolbar action | Current scale | None | Click; `0.8×` relative zoom | Reduces around viewport center | Preview image required | Adds context but hides fine grain | Preview display only | Viewer lifetime |
-| Zoom 100% | Preview-toolbar action | Current scale | None | Click; absolute scale `1.0` | Shows one-pixel display scale | Preview image required | Preferred for impulse locations and channel-wise grain | Preview display only | Viewer lifetime |
-| View Channel | Preview-toolbar combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | Stored/derived RGB, CIE, HSL, HSV, HSI, and YCbCr display components | Selects only displayed component | Separate from process Channel; components require RGB | Helps reveal independent per-channel draws without changing data | Preview display only | Viewer lifetime |
-| Display Mode | Preview-toolbar combo box | Inherits target Linear/Autostretch | None | **Linear**, **Autostretch** | Changes display only; Autostretch takes the image's exact median and MAD and rounds each display byte to the nearest value | Autostretch enables settings action | Stretch can exaggerate low-amplitude noise | Preview display only | Preview-view state |
-| Autostretch Settings | Preview-toolbar dialog action | Disabled in Linear mode; inherits target-view settings | Shared-view values load when opened | Opens preview autostretch controls; **Apply Stretch** hidden | Tunes display only | Autostretch mode only | Changes judgment, never generated samples | Preview display only | Viewer-scoped |
-| Switch image | Preview-toolbar action | Generated result shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles current result/original | Preview required | Comparison only; no recomputation | Preview display | Preview lifetime |
-| Preview area | Preview-toolbar checkbox | Checked with initial `1200×1200` area | None | Checked/unchecked; move/resize overlay | Generates noise only for the selected area and composites over original preview | Preview required | Reduces tuning cost; the area is drawn on its own, so judge the distribution there and the exact samples in a full-frame preview | Preview/snapshot; mask cropped consistently; Apply always full-frame | Preview lifetime |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes with the dialog's held seed and opens `<target> - Noise Generator - SNAPSHOT` | Preview required | Adds a complete execution and auxiliary still; it draws the same noise as the preview of the same scope | New still; target unchanged; area/mask honored | Each action creates a view; does not draw a new seed |
-| Apply | Button/action | Enabled | None | One action | Captures noise type, numeric values, Channel, and seed, locks the target, and draws the full target from the held seed | Target must lock; process controls are disabled during Apply; another Apply is ignored while running | Component conversion, masks, sequence encoding, and temporary storage add cost | Destructive still/sequence replacement after success | History records Noise Type and, for a colour image, the Channel label, not numeric values or seed; settings then Reset and a new seed is drawn |
-| Reset | Button/action | Enabled while idle | None | One action | Restores Gaussian, Mean `0`, Var `0.002`, Amount `0.02`, Salt vs Pepper `0.5`, and RGB for RGB targets | Does not change Target, Preview, mask, preview toolbar, or the held seed; Preview checked recomputes | Cannot restore a seed an earlier Apply used | Configuration only | Immediate; also invoked after successful Apply |
-| Close | Button/action | Enabled while idle | None | One action | Closes without applying current settings | Disabled during Apply | Requests preview cancellation, which the generator observes | Window/execution | Settings and the held seed are discarded |
-| Sequence progress / Cancel | Shared per-process/frame progress and Cancel | Created for sequence Apply | None | Cooperative Cancel; the generator observes it while drawing a frame | Sequence target only | A frame stops promptly on Cancel | Each frame draws its own noise from the seed shifted by its frame index; captured mode, numerics, and Channel are stable | Cancel removes temporary output; success replaces sequence and records one history step |
+**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
+[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
 
-## How the algorithm works
+```controls
+window: Noise Generator
+controls:
+  - name: Noise Type
+    kind: combo
+    default: Gaussian
+    options: [Gaussian, LocalVar, Poisson, Salt, Pepper, "Salt & Pepper", Speckle]
+    effect: Chooses the distribution the noise is drawn from, and the boxes below that it reads. **Gaussian** adds noise of **Mean** and **Var**. **LocalVar** adds Gaussian noise of a variance of 0.01 everywhere. **Poisson** redraws each sample about its own value. **Salt**, **Pepper** and **Salt & Pepper** replace a share of the samples by the top or the bottom of the range. **Speckle** adds noise in proportion to the sample.
+    range: Gaussian and Speckle read **Mean** and **Var**. Salt, Pepper and Salt & Pepper read **Amount**, and Salt & Pepper also **Salt vs Pepper**. LocalVar and Poisson read no box.
+    enabled: Disabled while Apply runs. A type enables the boxes it reads, but does not always disable the others. Salt, Pepper and Salt & Pepper leave **Mean** and **Var** as the type before left them, and Speckle leaves **Salt vs Pepper** so. A box left enabled that way is ignored.
+    tradeoff: Each change computes the preview again, from the same seed.
+    scope: The preview and Apply, on what **Channel** selects, before the mask is blended, for images and sequences.
+    persistence: Until the window closes. Each run takes it as it is when it starts. **Reset** and a finished Apply return it to **Gaussian**.
+  - name: Mean
+    kind: spinbox
+    default: "0.0000"
+    widget: {min: 0, max: 0.5, step: 0.005, decimals: 4}
+    effect: Sets the mean of the normal draw. For Gaussian it shifts every sample by that much, so a higher value brightens the image. For Speckle it is a share of the sample, so it brightens bright samples more than dark ones.
+    range: A fraction of full scale for Gaussian, a share of the sample for Speckle. The arrows step by one power of ten below the value, and by 0.0001 at 0. The slider moves the value in 1,000 equal steps.
+    enabled: For Gaussian and Speckle. Every other type ignores it, also when it stays enabled after a change of type.
+    tradeoff: A positive mean pushes more samples against the top of the range, where they are held.
+    scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Var
+    kind: spinbox
+    default: "0.0020"
+    widget: {min: 0, max: 0.5, step: 0.001, decimals: 4}
+    effect: Sets the variance of the normal draw. Higher spreads the samples further from where they were. The standard deviation is its square root, about 0.045 at the default.
+    range: A variance, not a deviation. In squared fractions of full scale for Gaussian, and in squared shares of the sample for Speckle. The arrows and the slider move it as they move **Mean**.
+    enabled: For Gaussian and Speckle. LocalVar and the other types ignore it, also when it stays enabled.
+    tradeoff: A large variance holds more samples at the ends of the range and hides the structure of the image. At 0 nothing random is added, and **Mean** still shifts the samples.
+    scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Amount
+    kind: spinbox
+    default: "0.0200"
+    widget: {min: 0, max: 0.5, step: 0.001, decimals: 4}
+    effect: Sets the share of the samples that Salt, Pepper and Salt & Pepper replace. Higher replaces more.
+    range: The chance that each sample of each channel is replaced, drawn for each on its own. The arrows and the slider move it as they move **Mean**.
+    enabled: For Salt, Pepper and Salt & Pepper. Every other type ignores it, and it is disabled when the window opens.
+    tradeoff: A replaced sample is lost. With **RGB** the three samples of a pixel are drawn separately, so the impulses can be colored.
+    scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Salt vs Pepper
+    kind: spinbox
+    default: "0.50"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 2}
+    effect: Sets the share of the replaced samples that take the top of the range, the others taking its bottom. Higher gives more bright impulses, lower more dark ones. At 0 every replaced sample is black, at 1 every one is white.
+    range: It does not change how many samples are replaced, which is **Amount**. The arrows and the slider move it as they move **Mean**.
+    enabled: For Salt & Pepper, and disabled when the window opens. It stays enabled when you switch from Salt & Pepper to Speckle, which ignores it.
+    tradeoff: Its two ends make a one-sided test with Salt & Pepper.
+    scope: The preview and Apply, on what **Channel** selects, before the mask is blended.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
+    tradeoff: Apply replaces the image chosen here once it succeeds, and the noise cannot be taken out again.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses where the noise goes. **RGB** draws noise for each sample of the three channels on its own. **Red**, **Green** or **Blue** adds it to that channel and keeps the other two. Every other choice adds it to one component of another color model, as one plane, and converts the image back.
+    enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
+    tradeoff: A component costs two conversions and a working copy, and the conversion back can round the image again and put colors out of range.
+    scope: The preview and Apply, before the mask is blended. Process Windows describes each component.
+    persistence: Until the window closes. Each run takes it as it is when it starts. **Reset**, a finished Apply and a new target return it to **RGB**.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the noisy image beside the controls, with the mask blended in. Every preview draws from the window's seed, so the same values show the same noise.
+    range: >-
+      The pane opens with a **Preview area** of 1,200 by 1,200 pixels in the middle of the image, labelled "Preview:
+      Noise Generator", or the whole image when it is smaller. At the window's default size, **Preview area** and
+      **Take snapshot** are in the menu at the end of the pane's toolbar.
+    tradeoff: The area is drawn as an image of its own, so its noise is not the noise Apply puts on those pixels. Judge the kind and the strength of the noise there, and untick **Preview area** to see the samples Apply writes.
+    scope: "The window only. On a sequence it shows the frame the view displays, with the noise of the first frame. Look at the noise at **Zoom 100%**: a fitted view resamples it and hides single impulses. **View Channel** shows each channel's own draws. **Display Mode** and **Autostretch Settings** change only how the preview is shown, and an Autostretch makes faint noise look stronger."
+    persistence: Until the window closes. **Reset** leaves it as it is.
+    note: A snapshot of the preview draws from the same seed as the preview of the same part, opens as `<target> - Noise Generator - SNAPSHOT`, and draws no new seed.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Noise Type** and the four boxes to their defaults and, for an RGB image, **Channel** to **RGB**.
+    range: It keeps the seed, so the preview that follows draws the same noise as before for the same values.
+    enabled: Disabled while Apply runs.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Adds the noise to the whole image, or to every frame of the sequence, with the type, the four values, **Channel** and the seed as they are when you press it. Then it returns the controls to their defaults and draws a new seed, so the next Apply adds new noise.
+    enabled: Always, also at the defaults, which add Gaussian noise. While a run works it is disabled, with **Noise Type**, the four boxes, **Reset** and **Close**.
+    tradeoff: A single image shows a progress window too, with **Cancel**, which the generator notices between two rows. The work grows with the number of samples, so an RGB image costs three times a grayscale one. Poisson costs more than the other types, and a color component, a mask and a sequence add work and memory.
+    scope: The whole image or sequence, with the mask and its inversion as they are when you press it, blended afterwards. On a single image, Apply adds exactly the noise of a preview without an area. Each frame of a sequence draws its own noise, from the seed shifted by the frame's index.
+    persistence: "The history step is **Noise Generator** and reads, for example, `Noise Type Gaussian -  in channel: RGB`. For a grayscale image it ends after the type. It records neither the four values nor the seed. The header cards, the other metadata and the recorded processing state are kept."
+    note: Closing the window instead discards the values and the seed. Nothing of the window is saved between sessions, and nothing brings back the seed of an earlier Apply. For another draw with the same values, apply to a fresh duplicate after an Apply, or open the window again.
+```
 
-### Conceptual pipeline
+## How it works
 
-1. The selected stored image or converted component is handed to AfterNight's
-   engine in its stored units. Mean and Var are restated in those units for an
-   integer type; the clip range and the salt and pepper values are the type's
-   full scale (`[0,1]` for float).
-2. The engine draws one random value or replacement decision per sample. Every
-   draw is keyed on the sample's coordinate and the run's seed rather than taken
-   from a generator that advances, so the same seed gives the same noise at any
-   thread count. A sequence frame uses the seed shifted by a fixed multiple of
-   its frame index.
-3. The result is clipped to the full-scale range and written back in the source
-   pixel type.
-4. AfterNight reconstructs RGB for a component path, keeps the source metadata,
-   then applies the active mask blend.
+1. **Channel** decides what gets the noise: every channel, one channel, or one component of the image converted to
+   another [color model](../../reference/glossary.md#color-model). An integer image's values are restated in its own
+   codes: for Gaussian, **Mean** times the span of its type and **Var** times the square of that span.
+2. Each sample gets its own draw, keyed on its position, its channel and the seed rather than taken from a running
+   series. The same seed gives the same noise at any number of threads, and each frame of a sequence uses the seed
+   shifted by a fixed multiple of its index.
+3. The result is held to full scale and written back in the image's own pixel type, an integer rounded to the
+   nearest code. A salt sample takes the top of that range and a pepper sample its bottom.
+4. A component is converted back to RGB, and a mask on the view then blends the result with the original.
+5. The image replaces the target and its history gets one step. Its header, its metadata and its recorded
+   [processing state](../../reference/glossary.md#processing-state) are kept, and nothing records that the noise was
+   added.
 
-### Model and equations
+### Model
 
-Let `I(p)` be a selected sample as a fraction of full scale, `m` be **Mean**,
-`v` be **Var**, `a` be **Amount**, `q` be **Salt vs Pepper**, and `N(m,v)` be an
-independent Gaussian draw with mean `m` and variance `v`.
+With \(I\) a sample as a fraction of full scale, \(m\) the value of **Mean**, \(v\) the value of **Var** and \(z\) a
+draw from the standard normal distribution, Gaussian gives
 
-- **Gaussian:** `O(p) = I(p) + N(m,v)`.
-- **LocalVar:** `O(p) = I(p) + N(0,0.01)` at every element - the Gaussian model
-  at a fixed variance of `0.01`. Mean/Var are disabled/ignored for this mode.
-- **Speckle:** `O(p) = I(p) + I(p)N(m,v)`.
-- **Salt:** each element is replaced by the top of the range (`1`) with
-  probability `a`.
-- **Pepper:** each element is replaced by the bottom of the range (`0`) with
-  probability `a`.
-- **Salt & Pepper:** replacement occurs with probability `a`; a replaced element
-  becomes the top with conditional probability `q`, otherwise the bottom.
-- **Poisson:** each sample is redrawn as `Poisson(I(p)s)/s` with a rate scale
-  `s` fixed by the sample type: `256` for an 8-bit integer image and `65,536`
-  for every other type, so the noise depends on the sample value and not on the
-  rest of the picture. A sample at or below zero becomes zero.
+\[ O = I + m + \sqrt{v}\,z \tag{1} \]
 
-All array elements are independent draws under these models. In an interleaved
-RGB array, `p` identifies a channel sample, not an RGB triplet. The active mask
-is applied later by the shared process path:
+LocalVar is equation (1) with \(m = 0\) and \(v = 0.01\). Speckle gives
 
-\[
-F(p)=(1-M(p))I(p)+M(p)O_c(p),
-\]
+\[ O = I + I\,\bigl(m + \sqrt{v}\,z\bigr) \tag{2} \]
 
-where `M` is the effective normalized mask (or its inverse) and `O_c` is the
-clipped, type-restored generated result.
+so its noise grows with the sample. With \(a\) the value of **Amount** and \(q\) that of **Salt vs Pepper**, Salt
+replaces a sample by the top of the range with the probability \(a\), and Pepper by the bottom. Salt & Pepper replaces
+it with the probability \(a\), by the top with the probability \(q\) and otherwise by the bottom. With \(s\) equal to
+256 for an 8-bit integer image and to 65,536 for every other type, and \(P(\lambda)\) a draw from the Poisson
+distribution of mean \(\lambda\), Poisson gives
 
-### Reproducibility, boundaries, and failure behavior
+\[ O = \frac{P(I\,s)}{s} \tag{3} \]
 
-- The dialog draws its seed from the system's entropy source and the clock when
-  it opens, holds it for every preview, snapshot, and Apply, and draws a new one
-  after an Apply completes. Equal settings, input, and seed give the same noise
-  at any thread count; the seed is not stored with the image, so a later session
-  cannot reproduce it.
-- Var is variance, not standard deviation. The Gaussian sigma is `sqrt(Var)`.
-- Clipping occurs before mask blending. Out-of-range random values can be
-  flattened irreversibly; integer conversion then rounds them.
-- NaN/Inf are not validated and stay non-finite.
-- Generator failures are reported as an error; the target is unchanged.
-- The generator observes Cancel while it runs, and no global lock serializes it
-  with other processes.
+Its deviation is \(\sqrt{I/s}\): about 0.002 at a sample of 0.28 in a floating-point image, which is faint. A sample at
+or below 0 becomes 0. Every draw is for one sample of one channel: in an RGB image, \(I\) is one channel of a pixel.
 
-## Parameter interactions and starting points
+### Boundaries
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Gaussian Mean × Var | Mean `0`, Var `0.002` on a duplicate | Distribution is indistinguishable at the chosen display scale | Broad clipping and strong brightness dispersion | Keep Mean `0`; raise Var; add Mean only for an intentional bias |
-| Speckle Mean × Var | Mean `0`, low Var | Bright structures show little signal-dependent variation | Bright structures fragment/clip much more than dark background | Set Mean, then raise Var while comparing bright/dark regions |
-| Amount × Salt vs Pepper | Amount `0.02`, ratio `0.5` | Too few impulses to stress the tested operation | Source structure is dominated by replacements | Set total Amount, then tune the salt/pepper split |
-| RGB × component | Compare RGB with one deliberate luminance component | One plane does not stress color-channel handling | Independent RGB impulses create colored samples | Choose channel semantics first, then distribution/strength |
+- The seed comes from the system's source of randomness and the clock when the window opens, and is kept until an
+  Apply finishes. It is not stored with the image, so a later session cannot draw the same noise.
+- **Var** is a variance, not a standard deviation. The deviation is its square root.
+- The result is held to full scale before the mask blends it and before an integer image is rounded. What the clip
+  cut is lost.
+- A sample the image marks as invalid keeps its value. A sample that is not a finite number is not refused: under
+  Gaussian and Speckle one that is not a number stays so, and Poisson makes it 0.
+- Each channel is worked as a single-precision plane, so a 64-bit floating-point image comes back at single
+  precision. A run that fails or is cancelled writes nothing, and no lock makes other processes wait for it.
 
-These are test-design starting points, not measurements of astronomical
-quality. Reopen the dialog, or Apply to a fresh duplicate after a completed
-Apply, to get further independent draws when evaluating statistical behavior.
+### Worked example
 
-## Inputs, outputs, and metadata
+The image is the linear [master](../../reference/glossary.md#master) after Histogram Transformation with **Shadows**
+and **Midtones** at 0.02, which leaves the background near 0.28. With **Noise Type** at **Gaussian**, **Mean** at 0,
+**Var** at 0.0100 and **Channel** at **RGB**, the deviation is \(\sqrt{0.01} = 0.1\). By equation (1), about two
+background samples in three land between 0.18 and 0.38, and about one in 400 falls below 0 and is held there. A star
+core at 1 keeps 1 in about half its samples, and the other half drop below it. The three channels draw apart, so the
+grain is colored.
 
-- Dimensions normally match input. Channel count normally matches, except that
-  configured CFA sequence frames can be auto-debayered to RGB before generation.
-- Output keeps the source pixel type. Noise is drawn in the stored units and
-  integer data is rounded; RGB/component reconstruction can add further
-  rounding/gamut clipping.
-- Apply replaces a still only after a successful result. Preview and snapshot do
-  not modify it. A snapshot is the held seed's draw in a separate still view.
-- The result keeps the source image's header cards and metadata. Image History
-  records **Noise Type** and, for a colour image, ` in channel: <channel>`; it
-  does not record Mean, Var, Amount, Salt vs Pepper, or the seed.
-- No explicit linear/nonlinear state or simulated-camera provenance is added.
-- Sequence Apply writes temporary output and draws separately per frame from the
-  held seed shifted by the frame index. Success replaces the sequence;
-  cancellation removes temporary output. No seed manifest, noise map, report, or
-  standalone file is created.
+```figure
+images:
+  - image: ../../assets/images/processes/utility/noise-generator-before.webp
+    alt: A crop of the stretched nebula at 100 percent before the noise, bright clouds beside dark dust lanes and many small stars on a gray background.
+    label: Before
+  - image: ../../assets/images/processes/utility/noise-generator-after.webp
+    alt: The same crop after the noise, every part covered by a coarse colored grain that blurs the edges of the dust lanes and hides the faintest stars.
+    label: After
+caption: >-
+  The middle of the stretched Carina Nebula master at 100 % before and after Apply with Gaussian noise at a Var of
+  0.0100. Both are shown in the Linear display mode, without a display stretch.
+```
 
-## Performance
+## Starting points
 
-- Generation scales with selected pixel count and channel count and runs on the
-  threads the operation is granted; RGB triples the sample work relative to mono.
-- Poisson draws take a bounded number of uniform draws per sample whatever the
-  rate, so they cost more than the other modes but cannot run unbounded.
-- No global lock serializes the generator with other processes.
-- Preview area reduces tuning work. No production timing or peak-memory
-  measurement was run.
-
-## Worked example
-
-- **Input condition and settings:** Constant finite mono image at `0.5`, Gaussian,
-  Mean `0`, Var `0.002`, no mask.
-- **Expected checkpoint:** A generated result differs from the constant source,
-  is clipped to `[0,1]`, and has an intended standard deviation of
-  `sqrt(0.002) ≈ 0.0447` before finite-sample variation/clipping.
-- **Reproducibility checkpoint:** Trigger two full-frame previews, or a
-  full-frame Preview then Apply. With the same settings the sample values match,
-  because both draw from the dialog's held seed; a second Apply after the first
-  completes draws different noise.
-- **Inspect at 100%/history:** Confirm grain on the selected process Channel and
-  verify history records type/channel only.
-- **Limitations:** No claim is made for exact sample statistics, visual realism,
-  production runtime, sequence output, or memory without an approved execution.
-
-## Warnings and limitations
-
-- There is no seed control or seed history. The held seed reproduces noise only
-  within one dialog session, until an Apply completes.
-- This is not a calibrated sensor model and does not read gain, exposure,
-  temperature, read-noise, dark-current, or camera quantization metadata.
-- LocalVar is not spatially varying; it is Gaussian noise of constant variance
-  `0.01`. The visible Mean/Var values do not affect it.
-- Mode switches can leave ignored controls enabled: Gaussian to Salt/Pepper/Salt
-  & Pepper can leave Mean/Var enabled; Salt & Pepper to Speckle can leave Salt vs
-  Pepper enabled. Backend routing, not enabled appearance, determines effect.
-- RGB randomness is per channel sample. Salt/pepper can produce colored impulses.
-- Output clips and returns to source type; clipping and integer rounding are
-  irreversible.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Apply does not match a Preview area | The area is drawn on its own | Compare a full-frame preview with Apply |
-| A second Apply adds different noise | The dialog draws a new seed after each completed Apply | Expected; a completed Apply's seed cannot be reused, so duplicate the noisy result when identical noise is needed elsewhere |
-| Mean/Var appears enabled but has no effect | Stale control enablement after switching to an impulse mode; the generator ignores the values | Use only the mode-consumed controls in this page; Reset before changing modes if clarity is needed |
-| LocalVar looks like uniform-strength Gaussian noise | LocalVar is Gaussian noise of constant variance `0.01` | Use Gaussian for a tunable uniform variance; use another tool for a spatial variance map |
-| RGB salt/pepper contains colored pixels | Replacement decisions are drawn for every channel sample independently | Select a luminance/component channel if impulses should share one reconstructed plane |
-| Highlights/shadows flatten | Generated values are clipped to full scale before type conversion/mask blend | Reduce Mean/Var/Amount and work on a duplicate |
-| Result is unchanged | Gaussian/Speckle Var `0` with Mean `0`, impulse Amount `0`, or mask protection | Check mode-consumed values and mask/inversion |
-| An error is reported | Invalid data or insufficient memory | Verify target data; retry on a duplicate |
+| A denoiser test on noise of one strength | **Gaussian**, **Mean** at 0, **Var** at 0.002 | Raise **Var** until the noise shows at the scale you test. Add **Mean** only for a shift on purpose. |
+| Noise that grows with the signal | **Speckle**, **Mean** at 0, a low **Var** | Raise **Var** while you compare bright and dark regions. Too much breaks up and clips the bright structure. |
+| [Hot pixels](../../reference/glossary.md#hot-pixel) and [cold pixels](../../reference/glossary.md#cold-pixel), or a test of rejection | **Salt & Pepper**, **Amount** at 0.02, **Salt vs Pepper** at 0.5 | Set **Amount** first, then the split. Too much hides the image under the impulses. |
+| Noise in the brightness alone | **Channel** at **CIE L* (Lightness)** | Compare with **RGB**, whose separate draws make colored grain and colored impulses. |
 
-## Related workflow steps
+## When it goes wrong
 
-Use this process to build controlled stress inputs before comparing
-[Wavelet Denoise](../noise-reduction/wavelet-denoise.md),
-[Total Variation Denoise](../noise-reduction/total-variation-denoise.md), or
-stacking rejection. Use [Pixel Math](../pixel-math/pixel-math.md) when a formula
-with a stated seed is required, and [Image History](../../interface/image-history.md)
-to compare or revert destructive Apply. Save test fixtures through
-[Saving and Exporting](../../interface/saving-and-exporting.md), noting that this
-process does not preserve its seed for later recreation.
+!!! danger "The noise cannot be taken out"
+    Apply replaces the image, and records neither the seed nor the values. Work on a duplicate, and use the image's
+    history to return to the image before.
+
+!!! warning "A box can stay enabled for a type that ignores it"
+    After a change of **Noise Type**, **Mean** and **Var** can stay enabled for an impulse type, and **Salt vs Pepper**
+    for Speckle. Only the boxes the type reads change the noise. Press **Reset** before you change the type for a
+    clean start.
+
+The noise Apply added is not the noise of the preview area
+:   **Cause.** The area is drawn as an image of its own.
+:   **Fix.** Untick **Preview area**, and compare the preview of the whole image with Apply.
+
+A second Apply adds different noise
+:   **Cause.** The window draws a new seed after each finished Apply.
+:   **Fix.** Duplicate the noisy result when you need the same noise on another copy.
+
+LocalVar looks like plain Gaussian noise
+:   **Cause.** It is Gaussian noise of one variance, 0.01, over the whole image.
+:   **Fix.** Use Gaussian for a variance you choose. Noise that varies over the image needs another tool.
+
+Salt and pepper make colored pixels
+:   **Cause.** Each sample of each channel is drawn on its own.
+:   **Fix.** Choose **CIE L* (Lightness)** or **CIE Y (Luminance)** in **Channel**.
+
+Highlights and shadows go flat
+:   **Cause.** Noise beyond full scale is held at the ends of the range.
+:   **Fix.** Lower **Mean**, **Var** or **Amount**.
+
+Nothing seems to change
+:   **Cause.** The values add nothing, a box the type ignores was changed, a mask protects the area, or Poisson adds
+    very little to a floating-point image.
+:   **Fix.** Check the values the type reads, the mask and its inversion, and look at the preview at 100 %.
+
+Apply reports "An error occurred when running the process:" and a reason
+:   **Cause.** The run was refused, often because the memory limit cannot hold the copies it needs, and nothing was
+    written.
+:   **Fix.** Close other images or work on a smaller one, or raise the memory limit on the Processing page of the
+    settings, which takes effect at the next start.
+
+## Related
+
+- [Wavelet Denoise](../noise-reduction/wavelet-denoise.md) and
+  [Total Variation Denoise](../noise-reduction/total-variation-denoise.md), to test on the noisy image.
+- [Image Integration](../stacking-integration/image-integration.md), whose rejection can be tested on frames with
+  impulses.
+- [Pixel Math](../pixel-math/pixel-math.md), for noise from a formula with a seed you state.
+- [Image History](../../interface/image-history.md) and [Saving and Exporting](../../interface/saving-and-exporting.md),
+  to undo the step and to keep a test frame, since its seed is not kept.
+- [Masks](../../interface/masks.md), to add noise to one part of the image.
+- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
+  window shares.
 
 ## Credits
 
-- [scikit-image 0.26.0 `random_noise`](https://scikit-image.org/docs/stable/api/skimage.util.html#skimage.util.random_noise) — the noise modes and parameters whose distributions the engine's generator follows; this process does not use scikit-image or Python.
+- [scikit-image: `random_noise`](https://scikit-image.org/docs/stable/api/skimage.util.html#skimage.util.random_noise),
+  whose noise types and parameters AfterNight's own generator follows. The process does not use scikit-image.

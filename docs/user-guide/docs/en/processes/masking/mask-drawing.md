@@ -3,366 +3,509 @@ kind: process
 stage: any
 menu: Process > Mask Generation > Mask Drawing
 summary: >-
-  Draws a grayscale mask by hand over a preview of an image, with brushes, fills, gradients and shapes.
+  Paints a grayscale mask by hand over the preview of an image, with a brush, an eraser, a fill, a gradient and
+  shapes you can still move, and opens it as a new image.
 data_in: either
+data_out: either
+destructive: false
+preview: real-time
+sequences: true
+masks: none
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Mask Drawing window is open on it yet, and no window that needs the
+    image for itself is open on it.
+  inputs: >-
+    One image or sequence, whose width and height the mask takes, and optionally an image file of exactly that size
+    to start from.
+  outputs: >-
+    One new grayscale image named after the target with " - MASK", beside it, in the target's pixel type, or a new
+    sequence of that name. The target stays as it is. Export Mask writes a file only when you ask.
+  state: >-
+    Any image the mask is for, linear or stretched, shown under a display that lets you see the structures you
+    outline.
+derived: false
+rewritten: true
 ---
 # Mask Drawing
 
-## Purpose and expected result
+You paint a [mask](../../reference/glossary.md#mask) by hand in this window, over the preview of an image. A brush, an
+eraser, a fill, a gradient and shapes you can still move and resize lay values from 0 to 1, which the preview shows
+as a colored tint. Use it where no threshold or star detector finds the region you mean.
 
-Mask Drawing is an interactive editor for building a grayscale mask over the RT
-preview of an open image. It supports pressure-aware painting, erasing,
-connected fill, a linear gradient, editable geometric shapes, import/export,
-and a 100-step undo history. It is intended for local structures that an
-automatic threshold or star detector cannot isolate reliably.
+**OK** opens the drawing as a new grayscale image, named after the target with ` - MASK`, beside the target and in
+its [pixel type](../../reference/glossary.md#pixel-type), and closes the window. The target is not changed, and the
+new image is not attached to it as its mask.
 
-Selecting **OK** creates a neighboring, same-size grayscale image named
-`<target-name> - MASK` in the target's representation and then closes the
-window; it does not alter the target or automatically assign the result as that
-target's active mask. Assignment is a separate **Mask > Select Mask** step.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Mask Generation > Mask Drawing** |
-| Enabled when | An image or sequence is active, this process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One target view; optional same-size image file (the import filter offers FITS, TIFF, PNG, and XISF) imported into the editor |
-| Outputs | On still-image OK, one new same-size, one-channel image named `<target> - MASK` in the target's representation; on a sequence, a new sequence of that name whose every frame is the drawing. Export writes a copy of the drawing to a selected file under the application's export settings |
-| Recommended image state | Any displayable target whose geometry matches the intended mask; linearity does not change mask construction, but judge the overlay under a stable display stretch |
-| Preview support | Required RT preview: the preview shows the target, and the editable drawing is painted over it as a separate overlay; the checked **Preview** control is disabled |
-| Sequence support | OK writes a new sequence named `<target> - MASK` in which every frame is the same drawing in that frame's representation; no focused test runs this process over a sequence |
-| Mask support | The process does not consume the target's active mask; the generated image is not assigned automatically |
-| External dependencies | None; import/export uses AfterNight's installed image codecs |
+```figure
+image: ../../assets/images/processes/masking/mask-drawing.webp
+alt: >-
+  The Mask Drawing window. On the left, the Tool group with six buttons and Shape pressed, the Brush group grayed out
+  with Tip Shape, Size, Hardness, Opacity, Flow, Spacing, Stabilization and Blend Mode, the Shapes group with Shape at
+  Ellipse, Feather at 100.0 and Filled ticked, Mask View at Red, the Import Mask and Export Mask buttons, Undo, Redo
+  and Clear, Target Image and a grayed Preview box. On the right, the preview of a red nebula with a red-tinted
+  ellipse over the middle of the frame, outlined, with four square handles on its sides. Reset, OK and Cancel run along the
+  bottom.
+caption: >-
+  Mask Drawing on the linear Carina master in the Autostretch display, with one ellipse drawn at Feather 100. The
+  tint is the mask, and the handles show that the ellipse can still be edited.
+pins:
+  - {n: 2, x: 3.4, y: 29.6}
+  - {n: 3, x: 3.4, y: 53.3}
+  - {n: 4, x: 3.4, y: 19.7}
+  - {n: 5, x: 34.7, y: 19.7}
+  - {n: 6, x: 3.4, y: 80.1}
+  - {n: 7, x: 3.4, y: 65.7}
+  - {n: 8, x: 3.4, y: 72.8}
+  - {n: 9, x: 78.3, y: 97.6}
+```
 
 ## Before you start
 
-Open the target whose width and height the mask must match. A still image is
-the tested path; a sequence target produces a new sequence that repeats the one
-drawing in every frame. Choose a stable Linear or Autostretch display before
-judging edges, because **Mask View** changes only the overlay presentation, not
-stored mask values.
+- The mask takes the target's width and height. Open the image the mask is for, or one of exactly its size.
+- **Size** and **Feather** are in pixels of the image. At a zoom that fits a large image in the pane, the brush is
+  small: zoom in to paint detail, and use a shape or a fill for large areas.
+- Choose the preview's **Display Mode** before you judge edges. The tint of **Mask View** changes nothing in the
+  mask.
+- The drawing lives in the window only. **Cancel**, the window's close button, **Reset** and a target of another
+  size discard it with its undo steps. **Export Mask...** keeps a copy in a file.
+- The drawing holds four planes of 32-bit floating point at the image's size, about 16 bytes a pixel: about 630 MB
+  for an image of 7246 × 5429 pixels.
+- A mask on the target's view plays no part here: the window neither reads it nor blends through it.
 
-Mask Drawing keeps one in-window drawing, made from the application's engine
-session at the target's width and height. A drawing the session's memory budget
-cannot hold is refused with a message, and the window then has no drawing to
-edit. Changing **Target Image** to an image of another size, or editing the
-target to another size while the window is open, makes a new blank drawing and
-discards the current one with its undo history. Changing to another target with
-the same size retains the drawing, so clear or reset it deliberately if that
-reuse is not intended.
+## Steps
 
-## Procedure
+1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Mask Generation > Mask Drawing**. The preview shows the image with nothing drawn, and **Brush** is
+   the tool.
+2. **Paint.** Set **Size**, **Hardness** and **Opacity**, then drag over the preview with the left button. What you
+   paint takes a red tint, stronger where the mask is higher.
+3. **Draw a shape.** Choose **Shape**, pick a shape in the **Shape** box and set **Feather**. Drag from corner to
+   corner, or from the center for a **Circle**. For **Polygon** and **Line**, click each point and double-click the
+   last one.
+4. **Edit the shapes.** Choose **Edit**. Drag a shape to move it, drag a handle to resize it, or drag a handle with
+   the middle button to rotate it. ++delete++ removes the selected shape.
+5. **Fill or fade.** Choose **Fill** and click a region to set it to **Opacity**, or **Gradient** and drag to fade
+   from 0 to **Opacity**. Both turn the shapes into paint that can no longer be edited.
+6. **Correct.** Choose **Eraser**, or press ++x++, and paint over what you want to remove. **Undo** and **Redo**
+   step through your changes.
+7. **Check the mask.** Zoom the preview in on the edges. Choose another **Mask View** when the tint is hard to see
+   on the image.
+8. **Keep a copy.** To use the drawing again later, choose **Export Mask...** and save it as
+   [FITS](../../reference/glossary.md#fits), [XISF](../../reference/glossary.md#xisf) or TIFF.
+9. **Create the mask.** Choose **OK**. A new image named after the target with ` - MASK` opens beside it, white
+   where you painted, and the window closes.
 
-1. Activate a representative still and open **Process > Mask Generation > Mask
-   Drawing**. Confirm the intended **Target Image** and the checked, disabled
-   **Preview** indicator.
-2. Choose **Brush**. Start with Round, Size `24`, Hardness `1`, Opacity `1`,
-   Flow `1`, Spacing `0.25`, Stabilization `0`, and Normal blend. Paint over the
-   RT preview; the overlay should appear without replacing the displayed image.
-   While the engine is busy with other work, strokes wait and land a moment
-   later, in the order you drew them.
-3. Change **Mask View** if the overlay is hard to distinguish. Red, Green, Blue,
-   and Amber are colored overlays; Grayscale follows mask intensity;
-   Checkerboard alternates two overlay colors. This choice does not change the
-   output mask.
-4. Refine the mask with **Eraser**, **Fill**, **Gradient**, or **Shape**. Use
-   **Edit** to move or resize a committed shape; middle-drag a shape handle to
-   rotate it, and press Delete to remove the selected shape.
-5. Use **Undo** and **Redo** after each meaningful change; they, like **Clear**,
-   land after the strokes made before them. **Clear** removes all paint and
-   shapes but is itself undoable. **Reset** is broader: it makes a new blank
-   drawing, restores all defaults, and removes the prior undo stack.
-6. Optionally choose **Export Mask...** to save a copy of the drawing before
-   closing the editor; it is written in the background under the application's
-   export settings. Reopen it with **Import Mask...** only against a target of
-   exactly the same dimensions; the file is read in the background and replaces
-   the drawing once read.
-7. Select **OK**. Confirm that a neighboring `<target> - MASK` image opens, the
-   window closes, and the source remains unchanged. Activate the source and use
-   **Mask > Select Mask** to assign the new image, then inspect polarity before
-   enabling a mask-aware process.
+## Controls
 
-## Complete parameter and action reference
+**Target Image**, **Preview**, the preview pane, **Cancel** and the progress window of a
+[sequence](../../reference/glossary.md#sequence) work as in every process window: see
+[Process Windows](../../interface/process-windows.md). The window has no histogram and no **Channel**.
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Brush** | Exclusive tool button | Selected | None | Brush tool | Paints positive mask coverage with the current tip and blend mode | Enables Brush controls; disables Shapes controls | Dense strokes and soft tips increase touched pixels | RT drawing; mouse or tablet | Dialog lifetime; Reset selects |
-| **Eraser** | Exclusive tool button | Off | None | Eraser tool | Multiplies existing mask values by inverse stroke coverage | Brush controls enabled; Blend Mode disabled and forced to Erase | Erasing over editable shapes flattens all shapes first; its undo restores them as shapes | RT drawing | Dialog lifetime |
-| **Shape** | Exclusive tool button | Off | None | Shape-draw tool | Creates the selected geometric shape | Shapes controls enabled; Brush controls disabled, although the last Size and Opacity still determine line width and shape opacity | Each shape keeps one feathered layer over the area it can reach, drawn when the shape is made or changed | RT drawing | Dialog lifetime |
-| **Edit** | Exclusive tool button | Off | None | Shape-selection tool | Selects, moves, resizes, or rotates committed shapes | Shapes and Brush control groups disabled | Editing is nondestructive until committed on release; each commit keeps an undo step holding the shape list and no paint | RT drawing | Dialog lifetime |
-| **Fill** | Exclusive tool button | Off | None | Four-connected flood fill | Blends the Opacity value, with the selected Blend Mode, into the region connected to the clicked pixel whose mask values are within fixed normalized tolerance `0.05` of it | Brush group enabled, but only Opacity and Blend Mode affect Fill | Can traverse the full image; flattens editable shapes when it changes anything; its undo step keeps the changed rectangle | RT drawing | Dialog lifetime |
-| **Gradient** | Exclusive tool button | Off | None | Click-drag linear gradient | Applies a full-canvas projection from `0` at the start point to Opacity at the end point | Brush group enabled, but only Opacity and Blend Mode affect Gradient; zero-length drag does nothing | Full-image operation; flattens editable shapes; its undo step keeps the whole paint | RT drawing | Dialog lifetime |
-| **Tip Shape** | Selector | Round | None | Round, Square | Square uses maximum-axis distance and fills tip corners; Round uses radial distance | Brush/Eraser/Fill/Gradient group enabled, but used only by Brush/Eraser | Square affects more corner pixels at the same Size | Brush/Eraser strokes | Dialog lifetime; Reset Round |
-| **Size** | Integer pixels + slider | `24` px | None | `1..200`, step `1` | Increases brush diameter; while Shape is active, the last value gives Line width `max(1, Size/4)` | Brush group enabled for Brush/Eraser/Fill/Gradient; ignored by Fill/Gradient; inherited but not editable for Shape | Larger tips touch more pixels per dab; larger line shapes are wider | RT drawing | Dialog lifetime; Reset `24` |
-| **Hardness** | Normalized double + slider | `1.00` | None | `0..1`, step `0.05` | Moves the fully covered inner radius outward; values below 1 use a Gaussian-like falloff to zero at the tip radius | Used by Brush/Eraser only; ignored by Fill/Gradient | Low values produce wider soft transitions | RT drawing | Dialog lifetime; Reset `1` |
-| **Opacity** | Normalized double + slider | `1.00` | None | `0..1`, step `0.05` | Scales the final stroke blend, supplies Fill value and Gradient end value, and becomes shape opacity | Brush group disabled for Shape, but its last value is inherited by new shapes | Lower values build softer/weaker masks; `0` can make an operation invisible | All drawing engines | Dialog lifetime; Reset `1` |
-| **Flow** | Normalized double + slider | `1.00` | None | `0..1`, step `0.05` | Scales each brush dab before repeated dabs accumulate | Brush/Eraser only; ignored by Fill/Gradient | Lower flow builds gradually; tighter spacing then accumulates more strongly | Brush/Eraser strokes | Dialog lifetime; Reset `1` |
-| **Spacing** | Tip-size fraction + slider | `0.25` | None | `0.01..1`, step `0.01`; actual spacing is at least 1 px | Raises or lowers distance between interpolated dabs | Brush/Eraser only; ignored by Fill/Gradient | High values can make separated/scalloped marks; low values increase work and flow buildup | Brush/Eraser strokes | Dialog lifetime; Reset `0.25` |
-| **Stabilization** | Normalized double | `0.00` | None | `0..1`, step `0.05` | Raises cursor smoothing; each intermediate point follows a fraction `1-0.85s` of the new delta | Brush/Eraser mouse/tablet movement; first and release points are unsmoothed | High values reduce hand jitter but lag tight turns | Brush/Eraser strokes | Dialog lifetime; Reset `0` |
-| **Blend Mode** | Selector | Normal | None | Normal, Multiply, Screen, Overlay | Chooses how Brush, Fill, and Gradient combine with the existing mask values | Disabled for Eraser; not used by Shape | Multiply can darken; Screen can only raise against nonzero input; Overlay is base-dependent | Brush/Fill/Gradient | Dialog lifetime; Reset Normal |
-| **Shape** | Selector | Rectangle | None | Rectangle, Ellipse, Circle, Polygon, Line | Chooses drag geometry or a click-defined path | Enabled only for Shape tool | Polygon/Line need multiple vertices and a double-click to commit | Shape tool | Dialog lifetime; Reset Rectangle |
-| **Feather** | Double pixels | `0.0` px | None | `0..100`, step `0.5` | Blurs the rasterized shape with Gaussian sigma `max(0.5, Feather/2)` | Enabled only for Shape; applies to filled and outline shapes | Larger values expand/soften edges and widen the area the shape's layer covers | Shape tool | Dialog lifetime; Reset `0` |
-| **Filled** | Checkbox | Checked | None | Off/on | Checked fills Circle/Ellipse/Rectangle/Polygon; unchecked draws a 1-pixel antialiased outline | Enabled only for Shape; Line is always an outline | Outlines make narrow masks; feather can broaden them | Shape tool | Dialog lifetime; Reset checked |
-| **Mask View** | Selector | Red | None | Red, Green, Blue, Amber, Grayscale, Checkerboard | Changes only cached overlay color/intensity presentation | Available while dialog is active | Full overlay cache rebuild on change; no output effect | Preview display only | Dialog lifetime; Reset Red |
-| **Import Mask...** | File-open action | No file | Last browse location may be remembered by shared file context | Filter: FIT/FITS/TIF/TIFF/PNG/XISF or all files; exact target dimensions required | Reads the file in the background, then replaces the paint with its grey values (a color image's Rec. 601 luma, `0.299R+0.587G+0.114B` in floating point) clamped to `[0,1]`, a sample that is not a number read as no coverage, and removes editable shapes, after the edits before it | Requires a drawing; a file of another size is refused by name | Full-image read and conversion; its undo step keeps the whole paint | Editor document | Document change is undoable |
-| **Export Mask...** | File-save action | No file | Last browse location may be remembered by shared file context | User-selected path; the extension names the container: FITS, XISF, TIFF, PNG, or JPEG | Writes a copy of the drawing as it stands, in the background, under the application's export settings | Requires a drawing; an empty drawing is still exportable | Full-image copy plus codec/disk cost; PNG is written at 16 bits and JPEG at 8 | File output only | Does not change document/history |
-| **Undo** | Action button | Disabled | None | Up to 100 kept changes | Reverts the latest stroke, shape, import, fill, gradient, or clear change, after the edits before it | Enabled only when history exists | Steps keep only the paint a change touched (a shape edit keeps none) and are admitted against the session's undo memory allowance | Editor document | Dialog lifetime |
-| **Redo** | Action button | Disabled | None | Available until a new change branches history | Reapplies the next reverted change, after the edits before it | Enabled only after Undo | Same memory characteristics as Undo | Editor document | Dialog lifetime |
-| **Clear** | Action button | Enabled | None | One action | Clears paint and editable shapes, after the edits before it | No effect when already empty | Its undo step keeps the painted rectangle; undoable | Editor document | Dialog lifetime |
-| **Target Image** | Image selector | Active launch target | Open-image selection can change while dialog remains open | Open compatible target; drawing geometry follows width/height | Changes the image under the overlay | A target of another size makes a new blank drawing; same size retains drawing | Size change discards current drawing/undo state | RT preview and OK | Selection lives for dialog |
-| **Preview** | Disabled checkbox | Checked | None | Fixed on | Indicates the drawing canvas requires RT preview | Cannot be unchecked | Live overlay redraw/caching | Preview only | Fixed |
-| **OK** | Dialog action | Enabled | None | One action | Takes a copy of the drawing as it stands, creates `<target> - MASK` from it on a worker in the target's representation, then closes | Controls/listener are disabled during execution; a sequence run shows a progress window whose Cancel stops it | Full-image copy and conversion; the source remains unchanged | Still image, or a new sequence | Successful close discards editor state |
-| **Cancel** | Dialog action | Enabled | None | One action | Closes without creating the new image | Does not undo an already exported file | Unsaved editor document is lost | Dialog only | None |
-| **Reset** | Dialog action | Enabled | None | One action | Makes a new blank drawing at the target's size and restores all toolbar defaults | Requires a current target to make a drawing | Clears drawing and all undo/redo history, unlike Clear | Dialog only | Defaults listed above |
-| **[ / ]** | In-window shortcuts | Available | None | Left/right bracket | Decreases/increases Size by 1 within `1..200` | Widget-with-children scope | Same Size trade-offs | Dialog/tool state | Dialog lifetime |
-| **X** | In-window shortcut | Available | None | Key X | Toggles Brush/Eraser | Widget-with-children scope | Eraser semantics apply immediately | Dialog/tool state | Dialog lifetime |
-| **F / G** | In-window shortcuts | Available | None | F selects Fill; G selects Gradient | Activates the named tool and synchronizes its state | Widget-with-children scope | Same Fill/Gradient costs | Dialog/tool state | Dialog lifetime |
-| **Delete** | In-window shortcut | Available | None | Delete key | Removes the selected editable shape | Effective only after Edit selects a shape | Undo step keeps the shape list, no paint | Shape document | Undoable |
-| **Undo/Redo shortcut** | Standard platform shortcuts | Available | None | Usually Ctrl+Z / Ctrl+Y or platform equivalent | Same as Undo/Redo buttons, landing through the same queue | Widget-with-children scope and matching history state | Same history memory | Editor document | Dialog lifetime |
+```controls
+window: Mask Drawing
+controls:
+  - name: Brush
+    kind: button
+    default: "On"
+    effect: Paints with the tip, the values and the blend mode of the **Brush** group.
+    enabled: Pressing it enables the **Brush** group and disables the **Shapes** group. ++x++ switches between **Brush** and **Eraser**.
+    tradeoff: A large or soft tip touches more pixels with each dab, which costs more work per stroke.
+    scope: The drawing, with the mouse or a tablet, whose pressure scales **Flow**. A pressure that is not a number lays nothing.
+    persistence: Until the window closes. **Reset** chooses it again.
+  - name: Eraser
+    kind: button
+    default: "Off"
+    effect: Takes paint away with the same tip. Each pixel keeps its value times one minus what the stroke covers at **Opacity**.
+    enabled: The **Brush** group stays enabled, except **Blend Mode**, which keeps the choice it shows and is not used.
+    tradeoff: An eraser stroke over shapes first turns every shape into paint, which can no longer be edited. Its undo step brings the shapes back.
+    scope: The drawing.
+  - name: Shape
+    object: toolShapeButton
+    kind: button
+    default: "Off"
+    effect: Draws the shape chosen in the **Shapes** group. Each shape stays an object you can move, resize, rotate and delete with **Edit**.
+    enabled: Pressing it enables the **Shapes** group and disables the **Brush** group. A new shape still takes its opacity from **Opacity**, and a **Line** its width from **Size**, as they were last set.
+    tradeoff: Each shape keeps a layer of its own over the part of the image it can reach, drawn again only when the shape changes and counted against the memory the session allows.
+    scope: The drawing.
+  - name: Edit
+    kind: button
+    default: "Off"
+    effect: Selects, moves, resizes and rotates the shapes already drawn.
+    enabled: Pressing it disables the **Brush** and **Shapes** groups.
+    tradeoff: A change lands when you release the button, as one undo step that holds the list of shapes and no paint.
+    scope: The shapes only. Paint cannot be selected.
+  - name: Fill
+    kind: button
+    default: "Off"
+    effect: A click blends the value of **Opacity**, with **Blend Mode**, into the region connected to the pixel you click. The region holds the pixels whose mask value is within 0.05 of that pixel's, reached through their four side neighbours.
+    enabled: The **Brush** group stays enabled, but only **Opacity** and **Blend Mode** act on a fill. ++f++ chooses it.
+    tradeoff: A fill can visit every pixel of the image. One that changes something turns the shapes into paint first. Its undo step keeps the rectangle it changed.
+    scope: The drawing as it is, shapes included. The tolerance cannot be changed.
+  - name: Gradient
+    kind: button
+    default: "Off"
+    effect: A drag lays a straight ramp across the whole image, from 0 at the line through the start to **Opacity** at the line through the end, blended with **Blend Mode**.
+    enabled: The **Brush** group stays enabled, but only **Opacity** and **Blend Mode** act on a gradient. A drag of no length does nothing. ++g++ chooses it.
+    tradeoff: In **Normal** the ramp replaces the whole mask, paint included. **Multiply** fades what is painted and **Screen** adds the ramp to it. It turns the shapes into paint, and its undo step keeps the whole paint.
+    scope: Every pixel of the image.
+  - name: Tip Shape
+    kind: combo
+    default: Round
+    options: [Round, Square]
+    effect: "**Round** measures a pixel's distance from the tip's center as a circle does, **Square** by the larger of its two offsets, which fills the corners."
+    enabled: With **Brush** and **Eraser**. The cursor over the preview takes the same shape.
+    tradeoff: At one **Size**, a square tip covers more pixels.
+    persistence: Until the window closes. **Reset** returns it to **Round**.
+  - name: Size
+    kind: spinbox
+    default: "24"
+    widget: {min: 1, max: 200, step: 1}
+    effect: Sets the tip's width in pixels of the image. Higher paints wider strokes.
+    range: The tip is the size rounded up to a whole, odd number of pixels, and each dab sits on the nearest whole pixel. `[` and `]` lower and raise it by 1.
+    enabled: With **Brush** and **Eraser**. A fill and a gradient do not use it. A **Line** shape is a quarter of it wide, and at least 1 pixel.
+    tradeoff: A larger tip touches more pixels with each dab.
+    scope: New strokes and new lines.
+    persistence: Until the window closes. **Reset** returns it to 24.
+  - name: Hardness
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Sets the share of the tip's radius that covers fully. Lower softens the edge of the stroke, which falls off to nothing at the radius.
+    range: The slider moves in steps of 0.01.
+    enabled: With **Brush** and **Eraser**. A fill and a gradient do not use it.
+    tradeoff: A low value leaves a wide gray rim around each stroke.
+    persistence: Until the window closes. **Reset** returns it to 1.
+  - name: Opacity
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Sets how far a stroke moves the mask toward what it paints. It is also the value a fill lays, the end of a gradient and the opacity of a new shape. Lower builds a weaker mask.
+    range: It caps a whole stroke, however many of its dabs overlap. The slider moves in steps of 0.01.
+    enabled: Disabled with **Shape**, which still takes its last value.
+    tradeoff: At 0 a stroke, a fill or a shape changes nothing.
+    scope: Every tool that draws.
+    persistence: Until the window closes. **Reset** returns it to 1.
+  - name: Flow
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Sets how much of the tip each dab lays down. Lower builds a stroke up gradually where its dabs overlap.
+    range: Tablet pressure multiplies it. The slider moves in steps of 0.01.
+    enabled: With **Brush** and **Eraser**. A fill and a gradient do not use it.
+    tradeoff: At a low **Flow**, a closer **Spacing** makes the stroke denser.
+    persistence: Until the window closes. **Reset** returns it to 1.
+  - name: Spacing
+    kind: spinbox
+    default: "0.25"
+    widget: {min: 0.01, max: 1, step: 0.01, decimals: 2}
+    effect: Sets the distance between dabs along a stroke, as a share of **Size**. Higher spreads them apart, lower packs them closer.
+    range: The distance is never less than 1 pixel.
+    enabled: With **Brush** and **Eraser**. A fill and a gradient do not use it.
+    tradeoff: High values leave scalloped or separate marks. Low values cost more work and add up **Flow** faster.
+    persistence: Until the window closes. **Reset** returns it to 0.25.
+  - name: Stabilization
+    kind: spinbox
+    default: "0.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Smooths the pointer's path. Higher steadies a shaking hand, and the stroke lags behind tight turns.
+    range: Each point of the stroke moves from the last smoothed point toward the pointer by 1 minus 0.85 times this value. The first and the last point of a stroke are not smoothed.
+    enabled: With **Brush** and **Eraser**.
+    tradeoff: The last point jumps to the pointer when you release, which can leave a kink at the end of the stroke.
+    persistence: Until the window closes. **Reset** returns it to 0.
+  - name: Blend Mode
+    kind: combo
+    default: Normal
+    options: [Normal, Multiply, Screen, Overlay]
+    effect: Chooses how a stroke, a fill or a gradient combines with the mask. **Normal** moves the mask toward the new value, **Multiply** toward the product of the two, **Screen** toward one minus the product of their complements, and **Overlay** multiplies where the mask is below 0.5 and screens elsewhere.
+    enabled: With **Brush**, **Fill** and **Gradient**. Disabled with **Eraser**, which always erases.
+    tradeoff: "**Multiply** and **Overlay** can only darken where the mask is 0, so they change only what is already painted. **Screen** never darkens."
+    scope: Strokes, fills and gradients. Shapes are always screened.
+    persistence: Until the window closes. **Reset** returns it to **Normal**.
+  - name: Shape
+    object: shapeTypeCombo
+    kind: combo
+    default: Rectangle
+    options: [Rectangle, Ellipse, Circle, Polygon, Line]
+    effect: Chooses the shape **Shape** draws. **Rectangle** and **Ellipse** are dragged from corner to corner, **Circle** from its center. **Polygon** and **Line** are clicked point by point.
+    range: A double-click adds the last point and ends the shape. A polygon needs three points and a line two.
+    enabled: With **Shape**.
+    scope: New shapes. A shape already drawn keeps its kind.
+    persistence: Until the window closes. **Reset** returns it to **Rectangle**.
+  - name: Feather
+    kind: spinbox
+    default: "0.0"
+    widget: {min: 0, max: 100, step: 0.5, decimals: 1}
+    effect: Softens a new shape's edge with a Gaussian blur whose standard deviation is half this value, in pixels of the image, and at least 0.5. Higher spreads the edge wider.
+    range: The edge falls from nearly 1 to nearly 0 over about twice this value, centered on the outline.
+    enabled: With **Shape**. It softens outlines and lines as well as filled shapes.
+    tradeoff: A wider feather widens the layer the shape keeps, which costs memory and time when the shape is drawn or moved.
+    scope: New shapes.
+    persistence: Until the window closes. **Reset** returns it to 0.
+    note: A wide feather may be blurred in several passes, which add up to the same blur.
+  - name: Filled
+    kind: check
+    default: "On"
+    effect: On fills a rectangle, an ellipse, a circle or a polygon. Off draws only its outline, 1 pixel wide and smoothed.
+    enabled: With **Shape**. A **Line** is always an outline.
+    tradeoff: An outline makes a very narrow mask. **Feather** widens it.
+    persistence: Until the window closes. **Reset** turns it on.
+  - name: Mask View
+    kind: combo
+    default: Red
+    options: [Red, Green, Blue, Amber, Grayscale, Checkerboard]
+    effect: Chooses how the mask is drawn over the preview. **Red**, **Green**, **Blue** and **Amber** tint it in that color, at most nearly two thirds opaque. **Grayscale** draws the mask's own gray. **Checkerboard** alternates two dark tints in squares of 8 pixels of the image.
+    tradeoff: A change redraws the whole tint. It changes nothing in the mask or the result.
+    scope: The preview only.
+    persistence: Until the window closes. **Reset** returns it to **Red**.
+  - name: Import Mask...
+    kind: button
+    default: ""
+    effect: Reads an image file and replaces the paint with it, removing every shape. A grayscale file's samples are read as fractions of full scale, and a color file's luma, 0.299 red plus 0.587 green plus 0.114 blue. Every value is then held between 0 and 1, and a sample that is not a number reads as 0.
+    range: "The file must have exactly the target's width and height: it is never resized or aligned. A file of other channels than one, three or three and alpha is refused. The dialog lists FIT, FITS, TIF, TIFF, PNG and XISF files, or all files."
+    tradeoff: The file is read away from the window, which stays responsive, and the import lands after the edits made before it. Its undo step keeps the whole paint, twice.
+    scope: The drawing.
+    persistence: One undo step. The import and export dialogs open in the folder either one last used.
+    note: Without a drawing it shows "Open a target image before importing a mask." A drawing replaced by **Reset** or another target before the file is read drops the import.
+  - name: Export Mask...
+    kind: button
+    default: ""
+    effect: Writes a copy of the drawing as it stands to a file, under the export settings of the application.
+    range: The extension of the name you give chooses the format. FITS, XISF and TIFF keep the 32-bit floating-point values, PNG is written at 16 bits and JPEG at 8. Any other extension is refused.
+    tradeoff: The file is written away from the window, which stays responsive. Each export takes one more copy of the drawing in memory while it writes.
+    scope: A file only. The drawing, its undo steps and the window stay as they are, and nothing is attached as a mask.
+    note: An empty drawing is written too. Without a drawing it shows "There is no mask to export yet."
+  - name: Undo
+    kind: button
+    default: ""
+    effect: Takes back the last stroke, shape change, fill, gradient, import or clear, after the edits made before it have landed.
+    range: At most 100 steps are kept, the oldest dropped first.
+    enabled: When there is a step to take back. ++ctrl+z++ does the same.
+    tradeoff: A step keeps only the paint its change touched. A shape change keeps none, a gradient or an import the whole paint. Steps count against the memory the session allows for undo.
+    scope: The drawing.
+    persistence: Until the window closes. **Reset** deletes the steps and frees their memory.
+  - name: Redo
+    kind: button
+    default: ""
+    effect: Does again the last change **Undo** took back.
+    enabled: After **Undo**, until you make a new change, which discards what could be redone. ++ctrl+shift+z++ does the same, and ++ctrl+y++ on Windows.
+    scope: The drawing.
+  - name: Clear
+    kind: button
+    default: ""
+    effect: Removes all paint and every shape, as one step **Undo** can take back.
+    range: An empty drawing keeps no step.
+    tradeoff: Its undo step keeps the rectangle that held paint.
+    scope: The drawing. The values of the groups stay as they are.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image under the drawing, which **OK** names the mask after and takes its size and pixel type from.
+    range: An image of another size, or an edit that changes the target's size, replaces the drawing with a blank one and loses its undo steps. An image of the same size keeps the drawing.
+    persistence: Until the window closes.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Always on and disabled. The drawing is made on the preview pane, which shows the target with the tint over it.
+    scope: "The pane's toolbar offers **Display Mode**. While the pane shows the original, with ++space++, the right button or **Switch image**, the tint is hidden and you cannot draw."
+  - name: OK
+    kind: button
+    default: ""
+    effect: Takes a copy of the mask as it stands, writes it into a new grayscale image of the target's size, origin, pixel aspect and pixel type, named after the target with ` - MASK`, opens the image beside the target and closes the window.
+    range: An edit still waiting to land is not in the copy. A floating-point target receives the values as they are. An integer target receives each value as a share of its range, rounded to the nearest code, so soft edges fall into its steps.
+    enabled: From the moment the window opens, also with nothing drawn, when the mask is black. While the run works, the tools, the drawing, **Reset** and **Cancel** are disabled.
+    tradeoff: A single image shows no progress window and its run cannot be cancelled. The copy is kept until the drawing changes.
+    scope: "On a sequence it writes a new sequence of that name, each frame the same drawing in that frame's pixel type. A frame of another size stops the run with \"the drawing is not the size of the image\"."
+    persistence: The new image's history starts with **Mask Drawing** and the text `Create painted grayscale mask`. It keeps the target's acquisition data, plate solution and lineage, and none of its header cards. It is not recorded as linear or as nonlinear.
+    note: It does not attach the new image as a mask. Do that on the target with **Image > Mask > Select Mask**.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Makes a new blank drawing at the target's size, deletes every undo and redo step, chooses **Brush**, and returns every value of the **Brush** and **Shapes** groups and **Mask View** to its default.
+    range: Unlike **Clear**, it cannot be taken back.
+    note: Its tooltip reads "Clear the drawing and restore the default brush settings."
+```
 
-## How the algorithm works
+```controls
+window: The drawing
+controls:
+  - name: A stroke
+    kind: action
+    default: ""
+    effect: With **Brush** or **Eraser**, a drag with the left button lays dabs of the tip along a smooth curve through the points of the pointer.
+    range: A point outside the image is ignored. One inside is held to the first and last pixel.
+    tradeoff: The work grows with the area the dabs cover and with their number.
+  - name: A click or a drag for Fill and Gradient
+    kind: action
+    default: ""
+    effect: A click with **Fill** fills the region under the pointer. A drag with **Gradient** lays the ramp, and a dashed line shows its direction while you drag.
+    range: A fill never crosses the edge of the image.
+  - name: A drag or clicks for a shape
+    kind: action
+    default: ""
+    effect: With **Shape**, a drag outlines a rectangle, an ellipse or a circle, which is added when you release the button. Clicks add the points of a polygon or a line, and a dashed outline follows the pointer until a double-click ends the shape.
+    range: A shape may reach past the edges of the image. Only the part inside counts.
+    persistence: The new shape is selected, with its handles shown, and is one undo step.
+  - name: Selecting, moving, resizing and rotating
+    kind: action
+    default: ""
+    effect: "With **Edit**, a click selects the topmost shape under the pointer, drawn with a solid outline and square handles, and a click elsewhere selects none. A drag inside the shape moves it. A drag of a handle resizes it: any point of a rectangle's edge, the four side points of an ellipse or a circle, each point of a polygon or a line. A drag of a handle with the middle button rotates the shape about its center."
+    range: A handle is caught within about 6 pixels of the screen. The cursor shows what a drag would do.
+    note: ++delete++ removes the selected shape.
+  - name: Brush cursor
+    kind: readout
+    default: ""
+    effect: Shows the tip over the preview at its size at the present zoom, as a circle or a square, dashed for **Eraser**. A dotted inner outline marks where full coverage ends at a **Hardness** below 1.
+  - name: Tint
+    kind: readout
+    default: ""
+    effect: Shows the mask over the preview in the color of **Mask View**, stronger where the mask is higher and absent where it is 0. Only the areas a change touched are drawn again.
+    note: Edits land in the order you made them. While the engine is busy with other work, they wait and land a moment later, so the tint can trail the pointer. None is dropped.
+  - name: Keys
+    kind: action
+    default: ""
+    effect: "`[` and `]` change **Size** by 1. ++x++ switches between **Brush** and **Eraser**, and chooses **Brush** from any other tool. ++f++ chooses **Fill** and ++g++ **Gradient**. ++delete++ removes the selected shape. ++ctrl+z++ undoes and ++ctrl+shift+z++ redoes, as does ++ctrl+y++ on Windows."
+    enabled: While the window has the keyboard.
+```
 
-### Conceptual pipeline
+## How it works
 
-1. The window makes a drawing from the application's engine session at the
-   target's width and height: the paint, a copy of the paint as it was before
-   the active stroke, the stroke's own dabs, and the mask - the paint with the
-   editable shapes screened over it. Each is a zeroed, one-channel 32-bit float
-   image the engine counts against its memory budget.
-2. Every edit - a stroke point, a fill, a gradient, a shape, an import, Undo,
-   Redo, Clear - is queued in the order it was made and lands under an engine
-   operation the window asks for without waiting. When the engine is busy the
-   queue tries again a moment later, so no input is dropped and the window never
-   stalls; the overlay redraws every area the landed edits changed.
-3. Brush samples are joined by Catmull-Rom interpolation. Round or square tip
-   coverage is stamped at `max(1, Size×Spacing)` pixel intervals; hardness
-   controls the tip's full-strength core and soft falloff. Tablet pressure
-   multiplies Flow.
-4. A brush stroke lands against the paint as it was before the stroke began;
-   Fill and Gradient blend into the current mask. Each shape is antialiased into
-   one layer over the area it can reach, optionally Gaussian-feathered, and
+1. The window makes a drawing of the target's width and height: the paint, the paint as it was before the stroke
+   being drawn, that stroke, and the mask, which is the paint with every shape over it. Each is one channel of 32-bit
+   floating point, counted against the memory the engine may use.
+2. Every edit is queued in the order you made it, and lands when the engine has room for it. A busy engine delays it
+   and drops nothing, and the window never waits.
+3. A stroke's dabs add up in the stroke plane, which is blended once per pixel into the paint as it was before the
+   stroke began. A fill and a gradient blend into the mask as it is. Each shape keeps a smoothed, feathered layer,
    screened over the paint at its opacity.
-5. **OK** takes a copy of the mask when it is selected. The run, on a worker,
-   writes the copy's values into a new grey image in the target's
-   representation, and the window opens it beside the target.
+4. The tint redraws the areas each edit changed.
+5. **OK** copies the mask, writes the copy into a new image of the target's pixel type away from the window, and
+   opens it beside the target. Its [lineage](../../reference/glossary.md#lineage) records the drawing.
 
-### Model and equations
+### Model
 
-For a brush dab, let `q` be tip coverage, `f` Flow, and `p` tablet pressure
-(`p=1` for mouse input; a pressure that is not a number lays nothing). Repeated
-overlapping dabs accumulate stroke coverage
+A dab of the tip covers a pixel at distance \(d\) from its center by \(q\). With \(r\) half of **Size** and \(h\)
+the value of **Hardness**, \(q = 1\) for \(d \le h\,r\), \(q = 0\) beyond \(r\), and between the two, with
+\(t = (d - h\,r)/(r - h\,r)\),
 
-`v_new = 1 - (1 - v_old)(1 - q f p)`.
+\[ q = \frac{e^{-4t^2} - e^{-4}}{1 - e^{-4}} \tag{1} \]
 
-The tip is Size rounded up to a whole, odd number of pixels, and each dab sits
-on the nearest whole pixel. Hardness `h` makes the region inside radius `h r`
-fully covered, where `r` is half Size. Between `h r` and `r`, coverage follows
-the normalized falloff `(exp(-4t²) - exp(-4)) / (1 - exp(-4))`, with `t`
-running from `0` at `h r` to `1` at `r`. Outside `r`, coverage is zero. A
-square tip uses `max(|dx|,|dy|)` for distance; a round tip uses Euclidean
-distance.
+The dabs fall every \(\max(1, \text{Size} \times \text{Spacing})\) pixels. With \(f\) the value of **Flow** and \(p\)
+the pressure, 1 for a mouse, each dab adds to the stroke's coverage \(v\) as
 
-Let `b` be the existing value - for a brush stroke, the paint as it was before
-the stroke began; for Fill and Gradient, the current mask - `v` the accumulated
-stroke/fill/gradient value, and `o` Opacity. Normal uses `T=v`; Multiply uses
-`T=bv`; Screen uses `T=1-(1-b)(1-v)`; Overlay uses `T=2bv` for `b<0.5` and
-`T=1-2(1-b)(1-v)` otherwise. The stored result is
+\[ v \leftarrow 1 - (1 - v)(1 - q\,f\,p) \tag{2} \]
 
-`R = clamp(b + (T-b)o, 0, 1)`.
+A stroke, a fill or a gradient then moves each value \(b\) of the mask toward a target \(T\) by the value \(o\) of
+**Opacity**. \(T\) is \(v\) in **Normal**, \(b\,v\) in **Multiply**, \(1 - (1 - b)(1 - v)\) in **Screen**, and in
+**Overlay** \(2\,b\,v\) below \(b = 0.5\) and \(1 - 2(1 - b)(1 - v)\) above. The eraser scales \(b\) instead:
 
-A pixel the stroke does not cover keeps `b`. Eraser instead uses
-`R=clamp(b(1-vo),0,1)`. Fill always passes an operation opacity of 1 and uses
-the toolbar Opacity as `v`; it follows four-connected neighbors whose original
-composite values are within `0.05` of the clicked seed. Gradient projects every
-pixel onto the drag vector, clamps projection `t` to `[0,1]`, and uses
-`v=t×Opacity`.
+\[ R = b + (T - b)\,o, \qquad R_{\text{erase}} = b\,(1 - v\,o) \tag{3} \]
 
-Each shape layer is antialiased and, when Feather is positive, blurred with the
-engine's exact Gaussian of `sigma=max(0.5,Feather/2)`: one kernel on the
-engine's compiled single-precision path, or, when Feather is above `64` and the
-engine does not run that path, several exact passes. The layers are then
-screened over the paint one after another, each at its inherited Opacity `o`:
-`R=1-(1-b)(1-o s)`, where `s` is the layer's coverage. Overlapping positive
-shapes therefore approach white rather than subtracting from one another.
+A pixel the stroke does not cover keeps \(b\). A fill uses \(v = o\) at full opacity, so **Normal** sets the region
+to **Opacity**, and a gradient \(v = t\,o\), with \(t\) the position from 0 at the start line to 1 at the end line. A
+shape of coverage \(s\), feathered with a blur of standard deviation \(\sigma = \max(0.5, \text{Feather}/2)\), is
+screened at its opacity:
 
-### Boundary and failure behavior
+\[ R = 1 - (1 - b)(1 - o\,s) \tag{4} \]
 
-Pointer input outside the scaled image is rejected; accepted coordinates are
-clamped to the first/last image pixel. Brush rectangles are intersected with
-the canvas. Shapes may extend beyond the target, but a shape's layer covers only
-the part of the image its outline and feather can reach, so its raster is
-clipped to the target bounds. Fill never crosses the image edge and uses
-four-neighbor connectivity. Gradient is evaluated across the entire bounded
-canvas.
+So overlapping shapes add toward white and never take from each other. Every value is held between 0 and 1.
 
-Fill, Gradient, Import, and Eraser-over-shapes flatten the current composite
-into paint and clear shape editability before applying their change. This
-preserves visible coverage but means those shapes can no longer be selected as
-objects afterward; undoing that change restores them as shapes. An eraser
-stroke that lays nothing, or a fill that changes nothing, leaves the shapes as
-they were.
+### Boundaries
 
-Import reads the file in the background. A file that cannot be read is reported
-with the reason, and a file of another size is refused with **The imported mask
-must match the target image size (W × H).**; either way the drawing is
-unchanged. If the drawing is replaced - by Reset or a target of another size -
-before the file has been read, the import is dropped. Export writes a copy of
-the drawing in the background and reports a failure with its reason. Both report
-through the application's error notification once their work finishes, so the
-window keeps responding while a file is read or written.
+- Pointer input outside the image is ignored. A shape's layer is cut to the image, and a fill does not cross its
+  edge.
+- **Fill**, **Gradient**, **Import Mask...** and an eraser stroke over shapes turn every shape into paint first. Their
+  undo step brings the shapes back. An eraser stroke that lays nothing, or a fill that changes nothing, leaves them.
+- An undo step is admitted against the memory the session allows for undo. Redo steps, then the oldest steps, are
+  dropped to make room. An edit whose step still does not fit is not made, without a message, and a stroke is taken
+  back.
+- A drawing the memory budget cannot hold is refused when the window opens, in a message titled **Mask Drawing**,
+  and the window then has nothing to draw on. Free memory, then choose **Reset** or open the window again.
+- A run the engine refuses creates nothing and says why under "Error executing the process". With no drawing, the
+  reason is "there is no drawing to create a mask from".
 
-**OK** runs on a worker. A still-image run shows no progress window; a sequence
-run shows one whose **Cancel** stops it. A stopped run creates nothing and
-shows no error; a run the engine refuses creates nothing and reports why under
-**Error executing the process**.
+### Worked example
 
-Undo keeps at most 100 steps. A step keeps only the paint its change touched,
-before and after: a stroke the rectangle its dabs reached, a fill the rectangle
-it changed, a clear the rectangle the paint covered, and a gradient or an import
-the whole paint. A shape added, moved, or removed keeps no paint, only the shape
-list with its layers; a change that flattened shapes also keeps the shapes'
-rectangle and list. Steps are admitted against the session's memory allowance
-for undo: redo steps and then the oldest steps are dropped to make room, and an
-edit whose step still cannot be admitted is not made (a stroke is taken back),
-without a message. A new edit after Undo discards the redo branch.
+On the Carina [master](../../reference/glossary.md#master), shown in the
+[Autostretch](../../reference/glossary.md#autostretch) display, choose **Shape**, set the **Shape** box to **Ellipse**
+and **Feather** to 100, and drag an ellipse around the bright middle of the nebula. The feather blurs the ellipse with
+\(\sigma = 50\) pixels, and equation (4) lays it on the empty mask unchanged: a pixel on the outline holds 0.5, one 50
+pixels inside holds 0.84, and one 100 pixels outside holds 0.02. **OK** opens a new 32-bit floating-point grayscale
+image of 7246 × 5429 pixels, white inside the ellipse and black outside it.
 
-## Parameter interactions and starting points
+```figure
+images:
+  - image: ../../assets/images/processes/masking/mask-drawing-before.webp
+    alt: The whole Carina master in the Autostretch display, red and white clouds of nebula across a field of stars.
+    label: Image
+  - image: ../../assets/images/processes/masking/mask-drawing-after.webp
+    alt: The new mask image, a white ellipse with a soft edge over the middle of the frame on a black background.
+    label: Mask
+caption: >-
+  The Carina master in the Autostretch display, and the mask that OK made from one ellipse at Feather 100, shown in
+  the Linear display.
+```
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Opaque painted region | Round, Size `24`, Hardness `1`, Opacity `1`, Flow `1`, Spacing `0.25` | Gaps or incomplete coverage remain | Boundary covers adjacent structure | Size, then Hardness, then Opacity/Flow |
-| Soft brush transition | Hardness `0.5`, Opacity `0.5`, Flow `0.5`, Spacing `0.25` | Edge remains abrupt or stroke builds too slowly | Broad gray skirt affects protected pixels | Size, Hardness, Flow, Opacity, then Spacing |
-| Smooth hand-drawn contour | Stabilization `0`, raise gradually | Cursor jitter remains | Stroke lags corners and release endpoint can kink | Size first, then Stabilization |
-| Editable geometric mask | Shape, Rectangle/Ellipse/Circle, Feather `0`, Filled on | Edge too hard or geometry misses structure | Feather bleeds beyond intended boundary | Geometry, edit handles, Feather, then inherited Opacity |
-| Connected fill | Fill, Normal, Opacity `1` | Similar region remains partly unchanged because a >0.05 boundary blocks propagation | Connected background is filled unintentionally | Inspect seed region, Undo if needed, then choose a better seed/import separation |
-| Directional gradient | Gradient, Normal, Opacity `1` | Transition ends too low | White coverage extends too far | Drag direction/length first, then Opacity |
+## Starting points
 
-## Inputs, outputs, and metadata
-
-The in-window drawing and an exported file are one-channel masks clamped to
-`[0,1]`; the drawing holds 32-bit float values. Import accepts any image the
-application reads whose width and height match exactly: a grey image's samples
-are read as fractions of full scale, a red, green, and blue image (with or
-without alpha) is reduced to its Rec. 601 luma, and an image with other
-channels is refused. A sample holding no number reads as zero, every value is
-clamped to `[0,1]`, and editable shapes are removed. Import and Export do not
-resample or register images.
-
-**OK** writes the drawing into a new grey image of the target's size, origin,
-and pixel aspect, in the target's representation: a floating target receives
-the values as they are, and an integer target receives each value as a fraction
-of its range - from zero to the largest code for an unsigned type, from the
-smallest to the largest code for a signed one - rounded to the nearest code.
-This quantizes soft values for integer targets. The copy the run uses is taken
-when **OK** is selected, so an edit still waiting for a busy engine is not in
-it. The new image is named `<target-name> - MASK`; the target is not modified.
-It keeps the target's acquisition record, astrometric solution, and lineage,
-carries none of the target's header cards, is not recorded as nonlinear, and
-its lineage gains an entry naming the drawing document. The process adds the
-history description **Create painted grayscale mask** to the new view.
-
-Export writes a copy of the drawing as it stands, independent of **OK**, under
-the application's export settings. The file's extension names the container:
-FITS, XISF, and TIFF keep the 32-bit float values, PNG is written at 16 bits
-and JPEG at 8, and the compression is the one the export settings give for that
-container; any other extension is refused. A successful export does not mark an
-undo step, close the dialog, or assign the file/image as a target mask.
-
-Over a sequence, **OK** reads each frame and writes the same drawing into it in
-that frame's representation, producing a new sequence named
-`<target-name> - MASK` beside the target; a frame of another size than the
-drawing stops the run. This path is derived from the source only.
-
-## Performance
-
-Brush updates scale with the stamped area and number of interpolated dabs.
-Spacing below one brush diameter increases both stroke density and work. Fill
-can visit every pixel. Gradient, import, export, output creation, and a
-whole-overlay redraw are full-image operations; ordinary edits rebuild and
-redraw only the areas they changed.
-
-The drawing itself holds four full-size 32-bit float planes - the paint, the
-paint before the active stroke, the stroke, and the mask - about 16 bytes per
-pixel. One 6000×4000 plane is about 96 MB, so such a drawing is about 384 MB,
-and the session's memory budget refuses a drawing it cannot hold before anything
-is drawn. A run is handed another full float copy, kept until the drawing
-changes, each Export takes one more, and the output image adds its own
-representation. Undo steps hold only the patches their changes touched, but a
-gradient or an import keeps two whole-paint copies per step. Each editable shape
-keeps one feathered layer over the area it can reach, drawn once when the shape
-is made or changed; a large Feather widens that area. Undo patches and shape
-layers are counted against the session's memory allowances. Use fewer
-full-image steps, clear history by Reset when appropriate, and prototype
-geometry on a smaller same-aspect target. No production timing or peak-memory
-measurement was made.
-
-## Worked example
-
-- Input condition/provenance and settings: finite same-size still, Brush Round,
-  Size `24`, Hardness `1`, Opacity `1`, Flow `1`, Spacing `0.25`, Normal blend;
-  then one filled Rectangle with Feather `0`; no approved astronomical data.
-- Expected checkpoint: brush and rectangle centers reach positive/near-white
-  mask coverage, untouched pixels remain zero, Undo removes the last committed
-  object, Redo restores it, and **OK** creates a same-size one-channel
-  `<target> - MASK` view in the target's representation, closes the window, and
-  leaves the target unchanged.
-- Inspect at 100%/statistics/history: check brush spacing and shape edges at
-  100%, verify mask minimum/maximum and channel count in Image Statistics, and
-  confirm **Create painted grayscale mask** belongs to the new view.
-- Limitations: the numerical/undo checkpoints are covered by focused tests, but
-  this workflow was not executed on approved astronomical data; visual quality,
-  production timing, peak memory, and sequence output remain unclaimed.
-
-## Warnings and limitations
-
-- Prefer a still image. Over a sequence, **OK** repeats the one drawing in
-  every frame of a new sequence; no focused test covers that path, so inspect
-  the result.
-- **OK** does not assign the result as a mask. Activate the intended target and
-  use **Mask > Select Mask** afterward.
-- **OK** copies the drawing as it stands when selected; an edit still waiting
-  for a busy engine is not included.
-- Changing targets across different dimensions, or editing the target to
-  another size, silently starts a blank drawing; changing between equal-size
-  targets retains the current drawing.
-- Fill, Gradient, Import, and Eraser-over-shapes flatten editable shapes. Undo
-  immediately if you need to recover object editability.
-- Reset is not equivalent to Clear: Reset discards the drawing and history;
-  Clear is undoable.
-- Shape uses the last Brush Size and Opacity even though Brush controls are
-  disabled while Shape is active. Set those values before selecting Shape.
-- Fill and Gradient leave most Brush controls enabled even though only Opacity
-  and Blend Mode affect them.
-- Soft masks are quantized when **OK** writes them into an integer target type.
-  Export the drawing as FITS, XISF, or TIFF when retaining float precision is
-  important.
-- No mask-aware post-blend, registration, resampling, automatic selection, or
-  clipping warning is provided, and a still-image **OK** shows no progress
-  window.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Preview cannot be unchecked | The canvas requires the RT preview and the control is intentionally checked/disabled | Leave it enabled; use Switch image/display controls to inspect the underlying target |
-| A new target shows a blank document | Width or height differs from the prior target, or the target was edited to another size | Return to the prior target if still available, or export before switching geometry |
-| A same-size target unexpectedly shows the old drawing | Document reset is geometry-based, not target-identity-based | Select Reset or Clear before drawing for the new target |
-| An error titled **Mask Drawing** appears and nothing can be drawn | The drawing could not be made from the engine session, for example because the memory budget cannot hold it | Free memory or use a smaller target, then select Reset or reopen the window |
-| **Open a target image before importing a mask.** or **There is no mask to export yet.** | The window has no drawing | Activate a target, then select Reset or reopen the window |
-| **The imported mask must match the target image size (W × H).** | Imported width/height differs; no resampling occurs | Resize/register it separately to exact geometry, then import again |
-| **Failed to import the selected mask.** followed by the reason | The file could not be read: missing, unreadable, or not an image the application reads | Verify the file opens normally and use a supported FITS/TIFF/PNG/XISF mask |
-| **Failed to export the current mask.** followed by the reason | Path, container, permission, or disk failure; an extension other than FITS, XISF, TIFF, PNG, or JPEG is refused | Choose a writable path with a supported suffix and retry; the drawing remains open |
-| **Error executing the process** naming *there is no drawing to create a mask from* | **OK** was selected while the window had no drawing | Activate a target, select Reset or reopen the window, and draw again |
-| Strokes appear a moment after they are drawn | The engine is busy with a preview or another process; edits wait in order and land when it admits them | Keep drawing; nothing is dropped |
-| Fill crosses more area than expected | Four-connected samples stayed within fixed `0.05` of the clicked seed | Undo and choose a more isolated seed or prepare a stronger boundary |
-| Shape cannot be edited after Fill/Gradient/Eraser/Import | That operation flattened shape objects into paint | Undo restores them as shapes; edit shapes first, then flattening operations last |
-| Soft output becomes banded | OK wrote the float mask into an integer target pixel type | Export the float mask as FITS, XISF, or TIFF, or use a float target before OK |
+| A broad region, such as a nebula's bright core | **Shape**, **Ellipse** or **Polygon**, **Feather** 50 to 100 | Move and resize with **Edit**, then check the edge at 100 %. |
+| A hand-painted area | **Brush**, **Round**, **Hardness** 0.5, **Opacity** and **Flow** at 1 | **Size** first, then **Hardness**. Lower **Flow** to build up gradually. |
+| A soft fade across the frame | **Gradient**, **Normal**, **Opacity** 1 | Drag the length of the fade. Paint after it, or use **Screen** to keep earlier paint. |
+| Fixing a mask from a file | **Import Mask...** with a file of the image's size | Paint with **Brush** and **Eraser**, then **OK**. |
 
-## Related workflow steps
+## When it goes wrong
 
-Use [Range Selection](../analysis/range-selection.md), [Star Mask](../star-operations/star-mask.md),
-or [Binarize](binarize.md) when the mask can be derived automatically. Refine a
-binary result with [Morphological Transformation](morphological-transformation.md).
-After drawing, follow [Masks](../../interface/masks.md) to select the generated
-image, inspect its polarity, and enable it on the intended target.
+!!! warning "Export the drawing before you leave the window"
+    **Cancel**, the window's close button, **Reset** and a target of another size discard the drawing and its undo
+    steps. A file you exported stays. Choose **Export Mask...** first when you may need the drawing again.
+
+!!! warning "OK does not attach the mask"
+    The new image is not the target's mask until you select it on the target with **Image > Mask > Select Mask**.
+    Check which side is white before you run a process through it.
+
+Dragging over the preview draws nothing
+:   **Cause.** The pane shows the original, which hides the tint and stops drawing, or the tool is **Edit**.
+:   **Fix.** Release ++space++ or press **Switch image** again, and choose a tool that draws.
+
+Strokes appear a moment after you draw them
+:   **Cause.** The engine is busy with other work, and your edits wait their turn.
+:   **Fix.** Keep drawing. Every edit lands, in the order you made it.
+
+The drawing is blank after choosing another image
+:   **Cause.** The new target has another size, so a blank drawing replaced the old one.
+:   **Fix.** Choose the first image again and import the drawing if you exported it. Export before you switch.
+
+A new target shows the old drawing
+:   **Cause.** The drawing follows the size of the target, and this image has the same size.
+:   **Fix.** Choose **Clear**, or **Reset**, before you draw for the new image.
+
+"The imported mask must match the target image size (W × H)."
+:   **Cause.** The file has another width or height, and an import is never resized.
+:   **Fix.** Resize or register the file to the target's exact size first, then import it again.
+
+"Failed to import the selected mask." or "Failed to export the current mask." with a reason
+:   **Cause.** The file cannot be read or written, or its extension names no format the export writes.
+:   **Fix.** Check the file, the folder and the extension, and try again. The drawing is unchanged.
+
+A shape can no longer be selected
+:   **Cause.** A fill, a gradient, an import or an eraser stroke turned the shapes into paint.
+:   **Fix.** **Undo** that step to get the shapes back. Edit the shapes first, and fill or fade last.
+
+The soft edge of the mask shows steps
+:   **Cause.** The target has an integer pixel type, and **OK** rounded the values to its codes.
+:   **Fix.** Export the drawing as FITS, XISF or TIFF, or use **Convert to 32 bit float** on a copy of the target
+    before **OK**.
+
+## Related
+
+- [Masks](../../interface/masks.md), to attach the new image to a target, enable it, invert it and show it.
+- [Range Selection](../analysis/range-selection.md) and [Star Mask](../star-operations/star-mask.md), which make a
+  mask from the image's brightness or from its stars.
+- [Binarize](binarize.md), to turn an image into black and white at a threshold.
+- [Morphological Transformation](morphological-transformation.md), to grow, shrink or smooth a mask.
+- [Image Statistics](../../interface/image-statistics.md), to check the range and channels of the new mask.
+- [Process Windows](../../interface/process-windows.md), for the preview pane and what every process window shares.

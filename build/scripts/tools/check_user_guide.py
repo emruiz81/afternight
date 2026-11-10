@@ -1359,7 +1359,8 @@ class _GuideCheck:
 
     def glossary_terms(self):
         """(term, the expression that finds it in prose) for every `### <term>` of the glossary's letter sections. A
-        term matches whole, with or without a plural ending; one written all in capitals matches only so."""
+        term matches whole, with or without a plural ending on any of its words; one written all in capitals matches
+        only so."""
         if self._glossary_terms is None:
             model = self.model
             self._glossary_terms = []
@@ -1372,8 +1373,10 @@ class _GuideCheck:
                         under_letter = bool(GLOSSARY_SECTION.match(heading.title))
                     elif heading.level == 3 and under_letter and heading.title:
                         flags = 0 if heading.title.upper() == heading.title else re.IGNORECASE
+                        # Any word of the term may take the plural: "light frames", "fractions of full scale".
+                        words = r'(?:e?s)?\s+'.join(re.escape(word) for word in heading.title.split())
                         self._glossary_terms.append((heading.title, re.compile(
-                            r'(?<![\w-])%s(?:e?s)?(?![\w-])' % re.escape(heading.title), flags)))
+                            r'(?<![\w-])%s(?:e?s)?(?![\w-])' % words, flags)))
         return self._glossary_terms
 
     def check_image_files(self):

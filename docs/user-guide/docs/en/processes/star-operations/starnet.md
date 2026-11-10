@@ -3,367 +3,526 @@ kind: process
 stage: noise
 menu: Process > Star Processing > Starnet++
 summary: >-
-  Removes the stars from an image with the separately installed StarNet2 tool, and opens the starless result and, if
-  you ask, the stars.
-data_in: linear
+  Removes the stars from an image or a sequence with StarNet2, a separately installed program, and opens the starless
+  image, and the star mask or the star layer you ask for, as new views beside it.
+data_in: either
 data_out: nonlinear
+destructive: false
+preview: none
+sequences: true
+masks: none
+external: The StarNet2 command-line tool, 2.5.3 or newer, with its ONNX model, installed separately
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Starnet++ window is open on it yet, and no window that needs the image
+    for itself is open on it. The window opens whether or not StarNet2 is installed, and OK waits until the window
+    says the program is ready.
+  inputs: >-
+    One grayscale or RGB image or sequence of any pixel type, not a raw color-filter mosaic. StarNet2 asks for at
+    least 512 by 512 pixels.
+  outputs: >-
+    New views beside the target: the starless image, and the star mask, the star layer or both when you ask, in the
+    target's pixel type and recorded as nonlinear. The target and its history are not changed, and no file is kept.
+  state: >-
+    A stacked master, linear with Pre-Stretch linear image ticked, or stretched with it off. Star Reduction and
+    Starmask Recombination need a starless image of the stretched image.
 derived: true
+rewritten: true
 ---
 # Starnet++
 
-## Purpose and expected result
+Starnet++ removes the stars from an image with StarNet2, a trained neural network that runs as a separate program
+you install yourself. AfterNight hands it the image as a 16-bit file, runs it on your computer, and brings its
+answers back to the image's own scale and [pixel type](../../reference/glossary.md#pixel-type). It takes a
+[linear image](../../reference/glossary.md#linear-image) through an optional pre-stretch, or a stretched one as it is.
+There is no preview.
 
-Starnet++ sends the current image, or every frame of the current sequence,
-through a separately installed StarNet2 CLI 2.5.3 or newer. A successful run
-always opens a new starless image. It can also open StarNet2's native
-subtractive mask, native unscreen star layer, or both. The source is never
-replaced and no history step is added to it.
+**OK** opens the [starless image](../../reference/glossary.md#starless-image) as a new view beside the target and,
+when you ask, the star [mask](../../reference/glossary.md#mask) and the star layer the program makes. The target
+and its [history](../../reference/glossary.md#history) stay as they were, and the window stays open.
 
-Use this process to separate stars from a nebula, galaxy, or other background
-before treating the components independently. It is not AfterNight's analytical
-[Star Mask](star-mask.md) detector, and it is not the dedicated
-[StarNet++ Star Mask](starnet-star-mask.md) cleanup workflow.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Star Processing > Starnet++** |
-| Enabled when | The menu action follows the normal single-image launch gates: an image or sequence view is active, no duplicate Starnet++ window is attached to it, and no attached process holds exclusive access. The dialog remains reachable when the CLI is unavailable; its processing controls and **OK** require a configured `starnet2` executable to pass the bounded 2.5.3+ readiness probe. Current CLIs are product-validated through `--machine-info`; older supported CLIs fall back to `--version` |
-| Inputs | The current grayscale or RGB image, handed to StarNet2 as a temporary 16-bit TIFF of the unit interval. A colour filter array mosaic is refused by name; demosaic it first |
-| Outputs | Always `<target> - starless`; optionally `<target> - star mask`, `<target> - stars`, or both, opened beside the target in that order. A still image gives new stills; a sequence gives one new sequence per output |
-| Recommended image state | A calibrated, registered, integrated linear master with **Pre-Stretch linear image** on; for already nonlinear data, leave it off |
-| Preview | Not available. **OK** starts the external run directly |
-| Sequence behavior | Every frame is handed to StarNet2 in turn, demosaiced first when the view demosaics its frames; each requested output becomes a new sequence, published whole and opened beside the target; the progress window counts the frames |
-| Active mask | Ignored; the full current image is sent to StarNet2. Only a pixel the image's own validity rule rejects is handed as zero |
-| Persistence | StarNet2 executable path is global Settings state; process options and custom weights are dialog-lifetime only |
+```figure
+image: ../../assets/images/processes/star-operations/starnet.webp
+alt: >-
+  The Starnet++ window. Under the title bar, the process name and a line that says it extracts stars or starless
+  output with StarNet2. In a card below, the check boxes Upsample x2 and Pre-Stretch linear image, clear, and
+  Highlight protection and Generate Stars Output, ticked; Output reading Subtractive Mask; Stride reading Standard
+  (256), with a grayed box reading 256 beside it; Weights, an empty field showing Default StarNet2_weights.onnx in
+  gray, with a Browse button; Target Image reading RGB; the line StarNet2 is configured and ready to use; and a
+  Configure button. OK and Close run along the bottom.
+caption: >-
+  Starnet++ at its defaults on the stretched Carina master, once AfterNight knows where StarNet2 is: the line above
+  Configure says the program is ready.
+pins:
+  - {n: 1, x: 3.0, y: 77.7}
+  - {n: 2, x: 3.0, y: 84.5}
+  - {n: 3, x: 3.0, y: 70.3}
+  - {n: 4, x: 3.0, y: 30.7}
+  - {n: 5, x: 3.0, y: 41.9}
+  - {n: 6, x: 3.0, y: 55.3}
+  - {n: 7, x: 41.5, y: 94.2}
+```
 
 ## Before you start
 
-1. Install an official StarNet2 CLI package, including its model and runtime
-   files, and comply with the package's current `LICENSE.txt`.
-2. In **Edit > Settings > External Tools**, select the `starnet2` executable.
-   AfterNight requires version 2.5.3 or newer. The dialog's processing controls
-   and **OK** stay disabled if the path is empty, missing, non-executable, too
-   old, slow to answer, or returns unparseable version text.
-3. Keep a portable archive together: executable, default
-   `StarNet2_weights.onnx`, runtime files, README, and license. Native installers
-   may put the executable and support files in separate documented locations.
-4. Demosaic colour filter array data first. Starnet++ refuses a mosaic by name
-   rather than sending its pattern to the network. A sequence's frames are
-   demosaiced before the run when the view demosaics them.
-5. Use an image at least `512 x 512` pixels in normal mode. This is StarNet2's
-   published minimum; AfterNight does not prevalidate it.
-6. Ensure the temporary-files volume has space for the 16-bit source and up to
-   three 16-bit output TIFFs per image or frame. **Upsample x2** also raises
-   external runtime and memory substantially.
+- Install StarNet2 2.5.3 or newer from its author's site, and keep its package together as it comes: the program,
+  its model, its runtime files, its README and its licence. AfterNight does not include it. A native installer may
+  put the program and the model in separate folders, as its README says.
+- StarNet2 has a licence of its own, not AfterNight's. It allows astrophotography only, forbids using the program, its
+  parts or its results to build commercial software or to train other networks, and limits sharing full-size raw
+  images that show what it does. Read `LICENSE.txt` in its package.
+- The image must be grayscale or RGB and not a raw mosaic: [debayer](../../reference/glossary.md#debayer) one first.
+  StarNet2 asks for at least 512 by 512 pixels, which AfterNight does not check before the run.
+- Choose when the stars come out. On the linear [master](../../reference/glossary.md#master), tick the pre-stretch.
+  For [Star Reduction](star-reduction.md) and [Starmask Recombination](starmask-recombination.md), make the starless
+  image from the stretched image, with the pre-stretch off.
+- **OK** opens new views and leaves the target as it is. The mask on the view is not used, and the window has no
+  preview, **Apply**, **Reset** or **Channel**. A star mask it opens is an ordinary image until you attach it through
+  [Masks](../../interface/masks.md).
+- The temporary files location, on the **General** page of the settings, needs room for a 16-bit copy of the image
+  and up to three 16-bit answers, for each image or frame.
 
-!!! note "The run reads the dialog once"
-    Pressing **OK** reads every option and the **Target Image** on the GUI
-    thread and runs from that snapshot. A change made to the dialog while
-    StarNet2 runs reaches the next run only, and **OK** stays disabled until the
-    run lands. To stop a run, use **Cancel** on the progress window: closing the
-    process window does not kill the program; the window hides until the run
-    lands and then closes.
+## Steps
 
-## Procedure
+1. **Open the window.** Make the image or [sequence](../../reference/glossary.md#sequence) the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Star Processing > Starnet++**. The
+   line above **Configure** says whether AfterNight can run StarNet2.
+2. **Point AfterNight at StarNet2.** When the line names a problem, click **Configure**, then **Detect** beside
+   **StarNet2:** and the settings' **OK**. The line reads "StarNet2 is configured and ready to use."
+3. **Check the target.** **Target Image** names the image or sequence StarNet2 receives. The new views take its
+   name.
+4. **Choose the pre-stretch.** Tick **Pre-Stretch linear image** for a linear image, so the program sees a visible
+   picture. Leave it off for a stretched image.
+5. **Choose the star output.** Leave **Generate Stars Output** ticked and choose in **Output**: **Subtractive Mask**
+   for stars you will add back, **Unscreen Star Layer** for stars you will screen back. Untick it for the starless
+   image alone.
+6. **Leave the rest for a first run.** Keep **Highlight protection** ticked, **Upsample x2** off, **Stride** at
+   **Standard (256)** and **Weights** empty.
+7. **Run.** Click **OK**. A progress window follows the program, and its **Cancel** stops it. The views
+   `<target> - starless` and the star output open as tabs beside the target.
+8. **Check at 100 %.** Zoom the starless view and the target to 100 % in the same display mode. The nebula stands
+   without its stars: look there and in the star output for stars left behind, detail taken away, rings around
+   bright stars and seams.
 
-1. Select a calibrated master and open **Process > Star Processing > Starnet++**.
-2. Confirm the green readiness message and the intended **Target Image**.
-3. For a linear image, check **Pre-Stretch linear image**. Leave it unchecked
-   for an image whose pixel values are already stretched.
-4. Start with **Highlight protection** on, **Stride** at **Standard (256)**,
-   and **Upsample x2** off.
-5. Leave **Weights** empty to use the model bundled with the configured CLI.
-6. Choose the optional star output. **Unscreen Star Layer** is usually the more
-   direct component for later recombination; **Both** is useful for comparing
-   the two native representations.
-7. Click **OK**. A progress window titled `Starnet++ <target>` opens; its
-   **Cancel** kills StarNet2 and publishes nothing.
-8. Inspect the new starless image and every requested star output at 100% with
-   a consistent display stretch. Look for missed stars, removed nebula detail,
-   bright-star residuals, seams, and halos before continuing.
+## Controls
 
-## Complete parameter and action reference
+What every process window shares is on [Process Windows](../../interface/process-windows.md). This window has no
+preview: it reads its controls when you press **OK**.
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Upsample x2 | Checkbox | Off | None | Off/On | Passes `--upsample` for StarNet2's intermediate 2x mode | Disabled until CLI readiness passes | Can help tight/tiny stars and radiating artifacts; upstream estimates about four times the compute/runtime and warns that very large stars may be harder | External execution; grayscale/RGB; still image or every frame of a sequence | Dialog lifetime |
-| Pre-Stretch linear image | Checkbox | Off | None | Off/On | Applies the engine's automatic midtones transfer per channel before the 16-bit hand-off, then its inverse to the starless and unscreen outputs | Disabled until readiness passes | Helps a linear master meet model expectations; the shadow clipping of the stretch and the 16-bit quantization of the handed image and of StarNet2's answer are not recoverable; does not inverse-transform the subtractive mask | Pre/post hand-off; all channels independently; still image or every frame of a sequence | Dialog lifetime |
-| Highlight protection | Checkbox | On | None | On/Off | On leaves StarNet2's default protection active; Off adds `--disable-highlights-protection` | Disabled until readiness passes | Off is an intentional comparison for saturated/near-saturated regions and may worsen bright-star residuals | Native CLI inference; still image or every frame | Dialog lifetime |
-| Generate Stars Output | Checkbox | On | None | Off/On | Requests optional native star output(s); starless is always requested | Controls **Output** enablement | Extra output TIFFs, reads, conversions, views, memory, and disk | New stills or sequences only; not an active processing mask | Dialog lifetime |
-| Output | Selector | **Subtractive Mask** | None | **Subtractive Mask**, **Unscreen Star Layer**, **Both** | Adds `--mask`, `--unscreen`, or both | Enabled only when **Generate Stars Output** is on and CLI is ready | Both performs one inference but writes/reads two auxiliary TIFFs; representations are not interchangeable | Native optional outputs; still image or every frame | Dialog lifetime |
-| Stride | Selector, pixels | **Standard (256)** | None | **Standard (256)**, **Wide-field (384)**, **Custom** | Sets the CLI window stride; 384 is upstream's current wide-field/small-star suggestion | **Custom** enables its value field; disabled until readiness | Stride changes how inference windows advance. Upstream recommends 256 for most images and says values below 256 are rarely useful; exact blending is proprietary | Native CLI tiling; still image or every frame | Dialog lifetime |
-| Custom stride value | Integer pixels | `256`, disabled | None | Even `2..512`; step `2`. Odd programmatic values are rounded down after clamping | Chooses the exact `--stride` value | Enabled only for **Custom** and CLI readiness | Extreme values may sharply increase work or change overlap behavior; no visual preview | Native CLI tiling | Dialog lifetime |
-| Weights | Path | Empty; placeholder **Default StarNet2_weights.onnx** | None | Empty or model checkpoint path | Empty omits `--weights`; nonempty passes the trimmed path verbatim | Disabled until readiness passes | A custom model can change quality, compatibility, runtime, and licensing. AfterNight does not validate the file or model version before launch | Native CLI model; relative paths resolve from the executable's directory, where the program is started | Dialog lifetime; not saved globally |
-| Browse | File action | No selection | Starts from a valid custom-model folder or StarNet2 executable folder | `*.onnx` filter plus all files | Writes the chosen path into **Weights** | Disabled until readiness passes | Selection is not a compatibility test | Model selection only | Remembers the browser folder context; chosen value remains dialog-only |
-| Target Image | Image/sequence selector | Attached active target | None | Open eligible view | Selects the image or sequence sent to StarNet2 and the parent/name used for outputs | Active target required; remains enabled during execution, but a run is bound to the target selected when **OK** was pressed and a later change affects the next run only | An image another run is writing is refused with a busy warning; run it again once it is shown | Full current image; active mask ignored; a sequence means every frame | Target lifetime |
-| Readiness message | Status text | Probe result | Executable path comes from global Settings | Ready, missing, non-executable, wrong product, unparseable, unsupported, or timeout detail | Reports whether **OK** and processing controls can be used | Rechecked at dialog creation, after **Configure**, and again on the worker before each run | Each check first requests `starnet2 --machine-info`; a valid v1 document supplies product, version, and progress capability. Output without the machine-readable document falls back to `--version` within the same 3-second budget | Configuration only | Reflects current global path |
-| Configure | Settings action | Enabled | Global **External Tools > StarNet2** path persists | Opens Settings at External Tools | Reloads the saved path and repeats readiness detection after Settings closes | Remains enabled even when processing controls are disabled | Does not run an image or validate the bundled/default model | Configuration only | Global Settings persistence |
-| OK | Execution action | Enabled only when ready and no run is in flight | None | Click | Reads the dialog once, opens the progress window and starts the run on a worker | Disabled while the run is in flight and re-enabled when it lands; the other controls stay editable but are not read by the running job | Always creates starless on success; requested auxiliaries add reads, conversions and views | No preview; new still(s) or new sequence(s) | One run; dialog remains open after a run |
-| Close | Dialog action | Enabled | None | Click | While idle, closes without output; during a run, hides the window until the run lands and then closes it. The run itself is not stopped | Remains enabled during execution | Outputs of a run in flight still open when the run lands; use the progress **Cancel** to stop it | Current window | Discards dialog options |
-| Progress / Cancel | Progress action | `0..100`; StarNet2's own progress maps to `10..90`, reading the answers reports `95` | None | Cooperative Cancel | Uses stable JSON Lines progress on stderr when `--machine-info` advertises the v1 schema; otherwise parses the printed percentages. Diagnostics the program prints are logged at debug level. Cancel kills the subprocess, publishes nothing and reports nothing | Exists only after OK | Cancellation is checked before anything is written, at every read of the program's output (at most 300 ms apart), after the input is written and after each answer is read; nothing is opened unless every answer came back | External run and output publication | Per run |
+```controls
+window: Starnet++
+controls:
+  - name: Upsample x2
+    kind: check
+    default: "Off"
+    effect: Asks StarNet2 for its intermediate 2x mode, `--upsample`. The program enlarges the image twice, removes the stars, and returns its answers at the image's size. It helps with very tight stars and with marks left around removed stars.
+    enabled: Once the line above **Configure** says StarNet2 is ready.
+    tradeoff: Its author says it can take about four times as long, and it needs more memory. Very large stars can become harder to remove. Use it when an image needs it, not by default.
+    scope: The whole image, or every frame of a sequence.
+    persistence: Until the window closes. The lineage keeps it among the program's arguments.
+  - name: Pre-Stretch linear image
+    kind: check
+    default: "Off"
+    effect: Stretches the copy the program receives, each channel by a curve from its own statistics, and brings the starless image and the star layer back through the inverse of that curve. Off hands the image as it is, mapped into 0 to 1 by equation (1).
+    range: The curve is equation (2). It puts each channel's black point 2.8 deviations below its median and the median near 0.25. Neither number can be changed.
+    enabled: Once the line above **Configure** says StarNet2 is ready.
+    tradeoff: >-
+      A linear image reaches the program as a visible picture instead of a nearly black one. The way back cannot
+      restore what the curve sent to black or what the 16-bit file rounded, so the round trip is close, not exact.
+      It changes the samples of the copy, unlike the Autostretch display of a view. A stretched image stretched again
+      comes back with wrong tones, and the window does not check which kind of image it has.
+    scope: Each channel on its own, in the copy only. The star mask is not brought back through the inverse, so it stays in the units of the stretched copy.
+    persistence: Until the window closes. The lineage records `pre-stretch unlinked`, or `pre-stretch none` when it is off.
+  - name: Highlight protection
+    kind: check
+    default: "On"
+    effect: On, StarNet2 keeps its own protection of bright and nearly saturated regions in the starless image, as it does by default. Off passes `--disable-highlights-protection`.
+    enabled: Once the line above **Configure** says StarNet2 is ready.
+    tradeoff: Its author offers Off for comparison or troubleshooting. Off can leave worse marks around bright stars.
+    persistence: Until the window closes.
+  - name: Generate Stars Output
+    kind: check
+    default: "On"
+    effect: On, the run also opens the star output that **Output** names. Off, it opens the starless image alone.
+    enabled: Once the line above **Configure** says StarNet2 is ready. Its tick enables **Output**.
+    tradeoff: The program runs once either way. Each output adds a file the program writes, a read, a conversion and a new view, with the disk and memory they take.
+    scope: New views only. A star mask it opens is an ordinary image until you attach it to a view as its mask.
+    persistence: Until the window closes.
+  - name: Output
+    kind: combo
+    default: Subtractive Mask
+    options: [Subtractive Mask, Unscreen Star Layer, Both]
+    effect: >-
+      **Subtractive Mask** opens `<target> - star mask`, what the program took away: the image less the starless
+      image, held between 0 and 1, by equation (5). **Unscreen Star Layer** opens `<target> - stars`, the stars as a
+      layer to screen onto the starless image, by equation (4). **Both** opens the two, the mask first.
+    range: The program receives `--mask`, `--unscreen` or both.
+    enabled: With **Generate Stars Output** ticked, once the line above **Configure** says StarNet2 is ready.
+    tradeoff: >-
+      The two are different images and are not interchangeable. Add the star mask back, with Starmask Recombination
+      for example. Screen the star layer back: added, its stars return too bright. **Both** lets you compare them.
+    scope: >-
+      With **Pre-Stretch linear image**, the star layer comes back through the inverse curve, which puts its black at
+      each channel's black point rather than at 0, and the star mask stays in the stretched units.
+    persistence: Until the window closes.
+  - name: Stride
+    object: stridePreset
+    kind: combo
+    default: Standard (256)
+    options: [Standard (256), Wide-field (384), Custom]
+    effect: Sets how many pixels apart the program places the windows of 512 pixels it works in. **Standard (256)** is the program's own default, **Wide-field (384)** places them further apart, and **Custom** takes the box beside it.
+    enabled: Once the line above **Configure** says StarNet2 is ready.
+    tradeoff: Its author starts most images at 256, suggests 384 for wide fields of generally small stars, and finds values below 256 rarely useful. How the program blends its windows is not published.
+    scope: The whole image, or every frame of a sequence, all channels together. The program receives it as `--stride`.
+    persistence: Until the window closes. The lineage keeps the stride that ran.
+  - name: Stride
+    object: customStrideValue
+    kind: spinbox
+    default: "256"
+    widget: {min: 2, max: 512, step: 2}
+    effect: Sets the stride when **Custom** is chosen. Lower overlaps the windows more.
+    range: Even values only. An odd value you type is lowered to the even value below it.
+    enabled: With **Custom** chosen, once the line above **Configure** says StarNet2 is ready.
+    tradeoff: A smaller stride places more windows and takes longer. Extreme values change how the windows overlap, and there is no preview to judge them.
+    persistence: Until the window closes. It keeps its value while the list shows another choice.
+  - name: Weights
+    kind: field
+    default: ""
+    effect: Names a model file for the program to run instead of its own. Empty runs the model of the package, `StarNet2_weights.onnx`.
+    range: >-
+      The empty field shows "Default StarNet2_weights.onnx" in gray. A path is passed to the program after `--weights`
+      as you typed it, without the spaces around it, and a relative path is read from the program's own folder, where
+      it is started.
+    enabled: Once the line above **Configure** says StarNet2 is ready.
+    tradeoff: >-
+      AfterNight does not check the file, its model or its licence before the run. A missing or unsuitable file makes
+      the run fail when the program starts. Another model gives another result, and may take another time.
+    scope: The whole image, or every frame of a sequence.
+    persistence: Until the window closes. It is not saved. The lineage keeps it among the program's arguments.
+    note: Try a model on a duplicate, with every other control as it was for a run with the default model, so the two results can be compared.
+  - name: Browse
+    kind: button
+    default: ""
+    effect: Opens the file dialog "Select StarNet2 weights" and puts the file you choose in **Weights**.
+    range: >-
+      The dialog lists ONNX models, or all files. It opens in the folder of the file in **Weights**, or, with the
+      field empty, in the program's own folder. The Windows installer keeps the model in `lib\starnet2` beside the
+      program's `bin` folder, as `C:\Program Files\StarNet2\lib\starnet2`.
+    enabled: Once the line above **Configure** says StarNet2 is ready.
+    tradeoff: Choosing a file does not check it.
+    persistence: The path stays in **Weights** until the window closes.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence the program receives. The new views are named after it and open beside it.
+    range: Whether the program can take the image is checked when you press **OK**, before anything is written.
+    enabled: Whether or not StarNet2 is ready, and also while a run works. A run keeps the view that was chosen when you pressed **OK**, and a change reaches the next run.
+    tradeoff: A larger image or a sequence needs more disk, memory and time.
+    scope: The whole image, every channel, without the mask on the view.
+    persistence: Until the window closes.
+  - name: Status line
+    kind: readout
+    default: StarNet2 executable path is empty.
+    effect: Says whether the program the settings name is one AfterNight can run. "StarNet2 is configured and ready to use." enables the controls and **OK**, in green. Any other text, in orange, keeps them disabled and says why.
+    range: >-
+      The other texts are "StarNet2 executable path is empty.", "StarNet2 executable was not found.", "StarNet2 path is
+      not executable.", "The configured executable returned machine information for a product other than StarNet2.",
+      "Could not detect StarNet2 version. StarNet2 2.5.3 or newer is required." and "StarNet2 2.5.0 detected. StarNet2
+      2.5.3 or newer is required.", with the version the program gave.
+    enabled: >-
+      Worked out when the window opens and when the settings close after **Configure**. The program is asked
+      `--machine-info` first, and a program that gives no such answer is asked `--version`, as StarNet2 2.5.3 is. Both
+      answers must come within 3 seconds, which the window can wait for while it opens.
+    tradeoff: Ready means the program answered a version of 2.5.3 or newer, not that its model and runtime can complete a run.
+    scope: The window, and every run, which asks the program again before it writes anything.
+    persistence: The program's path is kept in the settings, as `tools/starnetPath`, for every session and for both StarNet2 windows. The line is worked out again each time.
+  - name: Configure
+    kind: button
+    default: ""
+    effect: Opens the settings at **External Tools**, whose **StarNet2:** holds the program's path. When the settings close, the window reads the saved path and asks the program again.
+    range: >-
+      **Detect** there looks for `starnet2.exe` on the system's `PATH`, then in `C:\Program Files\StarNet2\bin`,
+      `C:\Program Files\StarNet2`, and `StarNet2`, `AppData\Local\StarNet2\bin` and `AppData\Local\StarNet2` in your
+      home folder. On Linux it looks for `starnet2` in `/usr/bin`, `/usr/local/bin`, `/opt/StarNet2/bin`,
+      `/opt/starnet2/bin`, `~/StarNet2` and `~/.local/bin`, and on macOS in `/usr/local/bin`, `/opt/homebrew/bin`,
+      `~/StarNet2` and `~/.local/bin`. It accepts only a supported version, and the page then shows
+      "✓ StarNet2 2.5.3 detected", with the version found.
+    enabled: Always, also while the other controls are disabled and while a run works.
+    tradeoff: The check starts the program and sends it no image, so it does not check the model.
+    persistence: The path is kept for every session. The window's own values are not saved.
+  - name: OK
+    kind: button
+    default: ""
+    effect: >-
+      Reads the window as it is, opens the progress window and runs StarNet2 over the target. When every answer is
+      back, it opens the starless image, then the star mask, then the star layer, as new views beside the target. The
+      window stays open with its values for another run.
+    enabled: >-
+      Once the line above **Configure** says StarNet2 is ready. It is disabled from the press until the run has ended.
+      The other controls stay enabled, and what you change reaches the next run only.
+    tradeoff: >-
+      The run writes a 16-bit copy of the image and the program's answers to disk and holds them in memory. The
+      program's own work dominates, and grows with the image's area, **Upsample x2** and a smaller stride. It chooses
+      its own device: its Windows package tries CUDA when a CUDA runtime was put beside it, then DirectML on the
+      graphics card, then the processor. AfterNight neither chooses nor reports it, and its own thread and memory
+      settings do not reach the program.
+    scope: >-
+      The whole image. On a sequence, every frame, whatever frames the player has selected, each debayered when the
+      view debayers its frames, with one run of the program for each frame. Each output becomes a new sequence of
+      every frame, published whole.
+    persistence: >-
+      The target and its history are not changed. The new views' histories begin with `StarNet2: Starless image
+      created from '<target>'`, `StarNet2: Star mask created from '<target>'` and `StarNet2: Unscreen stars image
+      created from '<target>'`. A name already in use is made unique. Nothing is saved to a file.
+    note: >-
+      A failed run says why in a message titled "Error running StarNet2", whose text starts "An error occurred when
+      running StarNet2 process:", and in the log, and opens nothing.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window. Its values are discarded.
+    enabled: Always, also while a run works.
+    note: Closing the window while a run works hides it, and it closes when the run has ended. It does not stop the run, whose views still open. The progress window's **Cancel** stops it.
+```
 
-## How the algorithm works
+```controls
+window: Progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: >-
+      Follows the run, under the title `Starnet++ <name>`. On an image, the text names each stage, "Preparing StarNet2
+      execution...", "Executing StarNet2..." and "Processing output...", and the bar follows the program's own
+      percentages from 10 to 90 percent, then 95 while the answers are read. On a sequence, the text reads
+      `Executing StarNet2 on <name>` and the bar counts the frames.
+    tradeoff: >-
+      The bar moves forward only. StarNet2 2.5.3 prints its percentages, which AfterNight reads. A version whose
+      `--machine-info` answer says it reports its progress for machines is asked for `--machine-progress`, and that
+      report, on the program's error stream, is read instead.
+    note: >-
+      The log keeps the line `Executing <program> <arguments>`. The program's other lines go to the log at the Debug
+      level, set on the Logging page of the settings, where a line such as "Backend: ONNX Runtime (DirectML execution
+      provider)" names the device it chose. When the program fails, its lines follow the error message.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the run. The program's output is read at least every 300 milliseconds, and the program is ended at the next read. The progress window closes without a view and without a message.
+    range: The stop is also seen before anything is written, once the copy for the program is written, and after each answer is read.
+    tradeoff: The program is ended at once, with no chance to finish. The temporary files are removed.
+    persistence: The target and its history stay as they were, and no view opens.
+```
 
-### Conceptual pipeline
+## How it works
 
-1. Read the dialog on the GUI thread when **OK** is pressed: stride, upsample,
-   highlight protection, weights, pre-stretch, the star outputs and the target.
-   For a still image, lease the target's current image for reading; an image
-   another run is still writing is refused with a busy warning and nothing runs.
-   For a sequence, take the view for the run.
-2. On a worker, refuse by name an image that is a colour filter array mosaic or
-   that has neither one nor three channels, then recheck the configured
-   executable with `--machine-info`. A valid v1 document must identify product
-   `starnet2`; it supplies the semantic version and whether stable v1 machine
-   progress is supported. Older CLIs that do not return the schema fall back to
-   `--version` within the same timeout budget. Anything below 2.5.3 or without a
-   parseable version fails the run.
-3. Hand the image to the engine's external-tool hand-off. An integer image is
-   read as its fraction of full scale; a floating-point image is mapped from the
-   unit interval widened to its smallest and largest finite valid samples, so
-   samples below `0` or above `1` are kept rather than clipped. With
-   **Pre-Stretch linear image**, derive one automatic midtones transfer per
-   channel from that channel's exact median and median absolute deviation and
-   apply it. Write every sample once as an unsigned 16-bit code rounded to
-   nearest (ties to even); a pixel the image's validity rule rejects is left
-   out of the range and the statistics and handed as zero. The image is written
-   as `srcFile.tiff` into a temporary directory named after `starnet2` below the
-   session's temporary directory, whole or not at all.
-4. Run StarNet2 from the executable's directory with named `--input`,
-   `--output`, `--stride`, and optional `--mask`, `--unscreen`, `--weights`,
-   `--upsample`, and `--disable-highlights-protection` arguments. Add
-   `--machine-progress` only when the machine-info capability is present;
-   otherwise parse the printed percentages. The program's progress moves the
-   progress window from 10% to 90%, never backwards; a stop kills the program.
-5. At 95%, read each requested answer back through the engine's TIFF codec and
-   hold it to the source's width, height and channel count. The starless image
-   comes back through the inverse of each channel's transfer and the range's
-   offset and span; the unscreen star layer through the inverse and the span
-   alone, because StarNet2 screens it onto the image rather than adding it; the
-   subtractive mask is only narrowed to the source's representation, never
-   unstretched or mapped. Each answer is computed in double and written once in
-   the source's representation, rounded to nearest and saturating, with the
-   metadata described below.
-6. Once every answer is back, open the views on the GUI thread in the order
-   starless, star mask, stars - new stills for a still image, new sequences for
-   a sequence. Nothing is opened unless the whole run succeeded. The temporary
-   directory and its files are removed when the run ends.
+1. When you press **OK**, the window reads its controls and its target. The run refuses a raw mosaic and an image of
+   other than one or three channels before anything is written, then asks the program its version again.
+2. The engine writes the image as unsigned 16-bit codes, rounded to the nearest code with ties to even, to
+   `srcFile.tiff`, whole or not at all, in a folder of the run's own named after `starnet2` under the temporary files
+   location. Each sample is mapped by equation (1) and, with the pre-stretch, stretched by equation (2). The program
+   receives the samples only, not the image's file or header.
+3. AfterNight starts the program from its own folder with `--input`, `--output` and `--stride`, adds `--mask`,
+   `--unscreen`, `--weights`, `--upsample`, `--disable-highlights-protection` and `--machine-progress` when they
+   apply, and never passes `--eight` or `--quiet`. The program writes its answers as 16-bit TIFF files.
+4. Each answer is read, held to the image's width, height and channels, and computed in double precision: the
+   starless image by equation (3), the star layer by equation (4), and the star mask as the program wrote it, as a
+   [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale). Each is written once in the target's
+   pixel type, rounded and held to its range.
+5. Once every answer is back, the views open. Each keeps the target's acquisition data,
+   [plate solution](../../reference/glossary.md#plate-solution) and [lineage](../../reference/glossary.md#lineage),
+   and has no other [header card](../../reference/glossary.md#header-card) of the target. Its
+   [processing state](../../reference/glossary.md#processing-state) records it as nonlinear under `starnet-starless`,
+   `starnet-star-mask` or `starnet-stars`, even a starless image brought back linear. Its lineage gains an entry with
+   the program's name and version, its arguments, `handed as UInt16` and the pre-stretch. The temporary folder is
+   removed.
 
-### Automatic MTF and inverse
+### Model
 
-For a normal, non-inverted channel, the engine calculates the exact normalized
-median `median_c` and normalized MAD `mad_c` of the mapped channel, the shadow
-point `s_c = max(0, median_c - 2.8 x 1.4826 x mad_c)` - the MAD scaled to a
-normal standard deviation, a zero deviation taken as `0.001` - and a midtones
-value that maps `median_c - s_c` toward target background `0.25`. It then applies the rational
-midtones transfer per channel:
+For a floating-point image, \(L\) is the smaller of 0 and the smallest finite valid sample, and \(H\) the larger of 1
+and the largest. A sample \(v\) is handed as
 
-`u = (x - s_c) / (1 - s_c)`
+\[ h = \frac{v - L}{H - L} \tag{1} \]
 
-`MTF(u, m_c) = ((m_c - 1) x u) / (((2 x m_c - 1) x u) - m_c)`
+and written as the nearest of the codes 0 to 65,535, \(65535\,h\). An integer image uses \(L = 0\) and \(H = 1\), its
+samples read as fractions of full scale. Samples below 0 or above 1 reach the program whole, and the rest share fewer
+codes.
 
-Values at or below the shadow point map to zero; values at or above the
-highlight point map to one. Whether the image is treated as inverted is decided
-once, from every channel's median: when every median exceeds `0.5`, the
-highlight point is derived instead of the shadow point.
+The pre-stretch uses the [midtones transfer function](../../reference/glossary.md#midtones-transfer-function)
+\(f_m(t) = (m - 1)\,t \,/\, \bigl((2m - 1)\,t - m\bigr)\). For each channel \(j\), let \(v_j\) be the median of its
+handed values and \(q_j\) 1.4826 times their
+[median absolute deviation](../../reference/glossary.md#median-absolute-deviation), or 0.001 when that is zero. The
+[black point](../../reference/glossary.md#black-point) \(S_j\), the balance \(m_j\) and the stretched value \(p\) of
+a handed value \(h\) are
 
-After inference, the starless and unscreen samples are passed through the
-inverse of the same channel's transfer: the complementary midtones balance
-between the same endpoints, evaluated in double. An output at or below zero
-answers the shadow point and one at or above one the highlight point. The
-inverse cannot recover source values the stretch clipped together below the
-shadow point, nor the precision StarNet2's 16-bit answer does not carry; the
-handed image's 16-bit quantization does not matter for an unchanged sample,
-because the inverse reads the program's answer, not the handed file. This is
-why the round trip is not lossless even though the inverse is exact. A program
-that changes nothing gives back the source within `1.5e-5` of full scale,
-`3.2e-5` for an image beyond the unit interval and its star layer, `6.2e-5`
-through the pre-stretch, and four codes of a 16-bit image.
+\[ S_j = \max(0,\ v_j - 2.8\,q_j), \qquad m_j = f_{0.25}(v_j - S_j), \qquad p = f_{m_j}\!\Bigl(\frac{h - S_j}{1 - S_j}\Bigr) \tag{2} \]
 
-!!! note "The native mask stays in the stretched domain"
-    With **Pre-Stretch linear image** on, AfterNight inverse-transforms the
-    starless image and unscreen star layer only. The native subtractive mask is
-    read and narrowed to the source sample type without that inverse and without
-    the range mapping. Do not assume it is numerically
-    `original - inverse-stretched starless`.
+and a value at or below \(S_j\) becomes 0. When every channel's median is above 0.5, the roles turn round, as in
+[Histogram Transformation](../stretching/histogram-transformation.md). Let
+\(g_j(p') = S_j + (1 - S_j)\,f_{1 - m_j}(p')\) be the inverse of that curve, which gives \(S_j\) for an answer of 0.
+Without the pre-stretch, \(g_j(p') = p'\). A starless answer \(s'\) comes back as
 
-### External model and outputs
+\[ s = L + (H - L)\,g_j(s') \tag{3} \]
 
-StarNet2 owns neural inference, its model architecture/weights, tiling blend,
-highlight-protection implementation, and the formulas used for native mask and
-unscreen outputs. AfterNight chooses arguments and transports images; it does
-not recreate those algorithms. The current official CLI reference confirms:
+AfterNight treats the star layer as one the program screens onto its starless answer, so a layer answer \(u'\) gets
+back the span and not the offset:
 
-- 8-bit/16-bit grayscale or RGB TIFF/PNG input, plus standard integer or
-  floating-point FITS image HDUs in CLI 2.5.4;
-- even stride `2..512`, optional 2x upsampling, model override, and default
-  highlight protection;
-- mandatory starless output plus independently optional subtractive mask and
-  unscreen star layer; and
-- 16-bit TIFF/PNG output by default, or 32-bit floating-point FITS output when a
-  FITS destination is requested.
+\[ u = (H - L)\,g_j(u') \tag{4} \]
 
-AfterNight always hands a 16-bit TIFF, because StarNet2 2.5.3 states that it
-refuses floating-point images; it never requests the CLI's 8-bit mode and does
-not expose quiet mode. Leaving **Weights** empty delegates default-model
-discovery to the installed CLI package.
+Let \(r\) be what the program received: \(h\), or \(p\) with the pre-stretch. StarNet2 documents its star mask as
+the positive difference between \(r\) and its starless answer, each between 0 and 1:
 
-### Boundary and failure behavior
+\[ k = \min\bigl(\max(r - s',\ 0),\ 1\bigr) \tag{5} \]
 
-- CLI readiness does not validate the default or custom model. Missing,
-  incompatible, or inaccessible weights fail only when StarNet2 starts.
-- A mosaic, an image with two or four channels, a program that could not start,
-  crashed, or exited with a nonzero code, a missing answer file, or an answer
-  of another size or channel count is reported under **Error running StarNet2**
-  and publishes nothing. Nonzero-exit text includes what the program printed.
-  Machine progress uses separate stdout/stderr channels; printed progress uses
-  the merged-channel path.
-- The temporary directory is removed when the run ends, however it ends.
-- The source image, its metadata and its history are untouched. Every output
-  is derived from the target: it keeps the target's acquisition record (object,
-  exposure, instrument and the rest), its plate solution - the pixel grid is
-  unchanged - and its lineage, carries the processing-state cards that mark it
-  nonlinear, and no other header card of the target. Its lineage records the
-  program name and version, the exact arguments, the format handed (`UInt16`)
-  and the pre-stretch (`none` or `unlinked`). Each new view receives a StarNet
-  history description.
-- Every answer is read back before any view opens, so a failure of the program
-  or of one answer publishes nothing. Only a view the application itself cannot
-  open leaves the views opened before it.
-- The run works from the dialog as it was when **OK** was pressed. Changing an
-  option or the target during execution cannot make preparation and
-  postprocessing disagree; it affects the next run.
+The mask is read as it is, without equations (1) and (3) the other way. So for an image between 0 and 1 without the
+pre-stretch, the starless image plus the star mask gives the image back, to within rounding. With the pre-stretch, or
+with samples beyond 0 to 1, they do not add up to it.
 
-## Parameter interactions and starting points
+### Boundaries
 
-| Situation | Starting point | What to compare |
+- StarNet2 2.5.3 refuses floating-point images, so every image is handed as 16-bit codes in a TIFF file, also to a
+  version that reads [FITS](../../reference/glossary.md#fits) files, and a 32-bit or 64-bit result gains no
+  precision. A program that changes nothing gives the image back within one code of the handed range,
+  \((H - L)/65535\), which is 0.000015 for an image between 0 and 1. Through the pre-stretch it comes back within
+  0.000062, or four codes of a 16-bit image, and samples the curve sent to black come back at the black point.
+- A pixel the image's [validity rule](../../reference/glossary.md#validity-rule) rejects is handed as 0, left out of
+  \(L\), \(H\) and the statistics, and comes back valid with the program's answer. A sample that is not a finite
+  number in a pixel the rule admits is refused with "a source holds a sample that is not finite in a pixel its
+  validity admits". A channel without a valid sample cannot be pre-stretched.
+- Every answer is read before any view opens, so a failure of the program or of one answer opens nothing. Only a
+  view the application itself cannot open leaves the views opened before it.
+- The temporary folder is removed however the run ends, and a failed or cancelled run leaves the target as it was.
+- How the network treats the image's edges, the meeting of its windows, the highlight protection and the star layer
+  is the program's own, and not published.
+
+### Worked example
+
+The target is the Carina master after Histogram Transformation with **Shadows** and **Midtones** at 0.02. Its samples
+lie between 0 and 1, so equation (1) uses \(L = 0\) and \(H = 1\) and hands each sample as it is: the background near
+0.28 becomes code 18,350. Leave the controls as they open: **Pre-Stretch linear image** off, **Highlight protection**
+on, **Generate Stars Output** on with **Subtractive Mask**, **Standard (256)** and **Weights** empty. Click **OK**.
+When the run ends, the views `RGB - starless` and `RGB - star mask` open beside `RGB`, in its 32-bit floating-point
+pixel type.
+
+Where StarNet2 leaves a pixel as it was, the star mask holds 0. Where the master holds 0.90 on a star and the starless
+image 0.40, equation (5) gives the mask 0.50, and [Starmask Recombination](starmask-recombination.md) adds the two back
+to 0.90.
+
+```figure
+images:
+  - image: ../../assets/images/processes/star-operations/starnet-before.webp
+    alt: A crop at 100 % of the middle of the stretched nebula, pink clouds of nebula beside a dark dust lane, dense with stars.
+    label: Before
+  - image: ../../assets/images/processes/star-operations/starnet-after.webp
+    alt: The same crop of the starless view, the same clouds and dust lanes with the stars gone and the nebula filled in where they were.
+    label: After
+caption: >-
+  The middle of the stretched Carina master at 100 %, and of the starless view that OK opened at the window's
+  defaults. Both crops are shown in the Linear display mode.
+```
+
+On the linear master instead, tick **Pre-Stretch linear image**. Its samples run from about -0.02 to 1.84, so
+equation (1) hands the median of 0.0277 as 0.0256, and equation (2) gives each channel \(S \approx 0.0217\) and
+\(m \approx 0.0116\). The program then sees the background near 0.25 instead of a nearly black picture. Where it
+leaves the background as it was, equation (3) brings it back near 0.0277.
+
+## Starting points
+
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Linear RGB or grayscale master | Pre-Stretch On; Standard 256; highlight protection On; upsample Off; default weights | Starless structure, mask/stars layer, and background at identical display stretch |
-| Wide-field image dominated by small stars | Wide-field 384; then compare Standard 256 | Missed small stars, seams, and runtime |
-| Tight stars or radiating residuals | Standard 256 plus Upsample x2 | Tiny-star completeness and bright-star artifacts versus the much longer run |
-| Bright saturated stars | Highlight protection On; run a deliberate Off comparison only if needed | Cores, halos, residual rings, and removed background structure |
-| Linear recombination workflow | Pre-Stretch On; Unscreen Star Layer | Whether starless + chosen recombination method restores stars without clipping |
-| Custom model evaluation | Duplicate source; keep every other option fixed | Model-specific quality, compatibility, licensing, and runtime; AfterNight provides no model preview/validation |
+| A linear master, before the [stretch](../../reference/glossary.md#stretch) | **Pre-Stretch linear image** ticked, every other control as it opens | Compare at 100 %. If bright filaments are gone, try a darker stretched image with the pre-stretch off. |
+| A stretched image, for Star Reduction or Starmask Recombination | **Pre-Stretch linear image** off, **Subtractive Mask** | Add the mask back to the starless image, and compare the sum with the image. |
+| A wide field of small stars | **Wide-field (384)** | Compare with **Standard (256)** on a duplicate: small stars left, seams and time. |
+| Very tight stars left behind, or marks around removed stars | **Standard (256)** with **Upsample x2** | Expect about four times the time, and check the largest stars. Change one control per run. |
 
-## Inputs, outputs, and metadata
+## When it goes wrong
 
-| Aspect | Current contract |
-| --- | --- |
-| Source dimensions/channels | StarNet2 receives the full image. Official normal mode requires at least `512 x 512`; grayscale and RGB are supported. A colour filter array mosaic and an image with two or four channels are refused by name |
-| Source precision | Any supported sample type - 8-, 16- or 32-bit integer, signed or unsigned, Float32 or Float64 - is handed as unsigned 16-bit codes of the unit interval, rounded to nearest. An integer image is handed as its fraction of full scale. A floating-point image is mapped from the unit interval widened to its smallest and largest finite valid samples, and the starless and unscreen outputs are mapped back, so samples outside `[0,1]` are not clipped; the 16-bit quantization of the hand-off remains |
-| Starless output | Always read, brought back through the inverse stretch and the range, written in the source type, named `<target> - starless`, and opened as a new still or sequence |
-| Subtractive mask | Optional native `--mask` TIFF, narrowed to the source type as the program's own answer, named `<target> - star mask`, and opened as a new still or sequence |
-| Unscreen stars | Optional native `--unscreen` TIFF, brought back through the inverse stretch and the range's span alone, written in the source type, named `<target> - stars`, and opened as a new still or sequence |
-| Dimensions/channel count | Each answer must match the source's width, height and channel count; one that does not is refused and nothing is published |
-| Linearity state | Every published output is explicitly marked nonlinear (`starnet-starless`, `starnet-star-mask`, or `starnet-stars`), including inverse-stretched outputs |
-| Metadata | Every output keeps the target's acquisition record, plate solution and lineage, carries the processing-state cards and no other header card of the target, and adds a lineage entry naming the program, its version, its arguments, the format handed and the pre-stretch |
-| Active mask | Ignored for input and output; a generated "star mask" is an ordinary new image until assigned through the mask system |
-| Sequence | Every frame is processed in turn, demosaiced first when the view demosaics its frames; each output is a new sequence of the same frame count, published whole or not at all |
+!!! warning "A sequence is processed whole"
+    **OK** runs the program once for every frame, whatever frames the player has selected, and opens one new
+    sequence for each output. To process one frame, extract it first with **Image > Sequence > Extract Frame**.
 
-## Performance
+!!! warning "The star mask and the star layer go back in different ways"
+    The star mask is a difference, to add back. The star layer is a layer to screen back, and added it makes the stars
+    too bright. With the pre-stretch, the mask stays stretched while the starless image comes back linear, so the
+    two no longer add up to the image.
 
-Neural inference dominates runtime. Image area, backend/hardware chosen by the
-installed CLI, stride, 2x upsampling, output count, and temporary TIFF I/O are
-the main drivers. StarNet2's current Windows package can use DirectML with CPU
-fallback; AfterNight does not select or report that backend itself.
+!!! danger "A plausible starless image can hide lost detail"
+    StarNet2 can take compact nebula or galaxy detail for stars, and can leave soft, saturated, elongated or
+    undersampled stars behind. Look at the star output at 100 %, not only at the starless image.
 
-**Upsample x2** is the largest exposed cost multiplier; upstream guidance says
-it can take roughly four times the compute/runtime. Smaller strides can imply
-more overlapping window positions, but the current public documentation does
-not define the proprietary blending or an exact cost formula. **Both** outputs
-do not repeat inference, but they add TIFF writing, reading, conversion, and two
-view allocations. A sequence multiplies all of it by its frame count, one
-program run per frame.
+"StarNet2 executable path is empty." and **OK** stays disabled
+:   **Cause.** AfterNight does not know where the program is.
+:   **Fix.** Click **Configure**, click **Detect** beside **StarNet2:** or browse to the program, and click the
+    settings' **OK**.
 
-No timing, GPU-utilization, temporary-disk, or peak-memory measurement on
-approved astronomical data was run for this page, so it gives no production
-estimate.
+"Could not detect StarNet2 version. StarNet2 2.5.3 or newer is required."
+:   **Cause.** The program gave no version within 3 seconds, or one older than 2.5.3, which the line then names.
+:   **Fix.** Install a current StarNet2 package whole, and choose its program again. Run `starnet2 --version` in a
+    terminal to see what it answers.
 
-## Worked example
+**OK** is disabled although the line says the program is ready
+:   **Cause.** A run of this window is still working.
+:   **Fix.** Wait for the progress window to close, or click its **Cancel**.
 
-This bounded example is a verification procedure, not a claimed image-quality
-result:
+"StarNet2 takes a grey or colour picture, not a colour filter array mosaic; demosaic the image first"
+:   **Cause.** The image is a raw mosaic. "StarNet2 supports grayscale and RGB images only." means it has neither one
+    channel nor three.
+:   **Fix.** Debayer the mosaic, let the sequence's view debayer its frames, or make a grayscale or RGB copy.
 
-1. Duplicate a linear, demosaiced, integrated RGB master at least `512 x 512`.
-2. Open Starnet++ and verify the ready message and duplicate target.
-3. Select **Pre-Stretch linear image**, **Highlight protection**,
-   **Generate Stars Output**, **Unscreen Star Layer**, and **Standard (256)**.
-   Leave **Upsample x2** off and **Weights** empty.
-4. Click **OK** and wait for the progress window to close.
-5. Confirm two new stills: `<target> - starless` appears before
-   `<target> - stars`. Both have the source sample type, are marked nonlinear,
-   and carry the source's acquisition record and plate solution.
-6. Compare the source, starless result, and stars layer at 100%. Check bright
-   cores, small stars, nebula filaments, galaxy knots, and tile-like boundaries.
-7. If only tight small stars are missed, repeat from the unchanged duplicate
-   with **Upsample x2**. If the field is wide and stars are small, compare stride
-   384 separately. Change only one factor per run.
+"StarNet2 exited with code 1." followed by the program's lines
+:   **Cause.** The program refused the run, often for an image under 512 pixels a side, a model file or its runtime.
+:   **Fix.** Read the program's lines, use an image of at least 512 by 512 pixels, clear **Weights**, and restore the
+    package as installed.
 
-## Warnings and limitations
+"Could not start the StarNet2 process." or "StarNet2 process crashed."
+:   **Cause.** The program's runtime files are missing or were replaced, or security software stopped it.
+:   **Fix.** Reinstall the package whole, keep its files where it put them, and run again with **Weights** empty. A
+    package that reads FITS files also needs the CFITSIO and zlib files it comes with.
 
-- StarNet2 is external software and model data, not bundled or licensed by this
-  user-guide page. Use the official package and its current license.
-- There is no preview, ROI, Apply/Reset model, active mask blend, channel
-  selector, or persistent process preset.
-- A run over a sequence processes every frame. To process one frame, extract it
-  first.
-- A colour filter array mosaic is refused; demosaic it first.
-- **Pre-Stretch linear image** is an actual pixel transform, not the viewer's
-  display autostretch. Its shadow clipping and the 16-bit bridge are not
-  lossless, although the inverse itself is exact.
-- The subtractive mask is not inverse-stretched. Native mask and unscreen
-  outputs are independent upstream products; do not treat their pixel values as
-  equivalent.
-- The target's header cards other than the processing state are not carried
-  into the outputs; its acquisition record, plate solution and lineage are.
-- Custom weights receive only a file-picker filter. AfterNight does not verify
-  model format, tensor compatibility, provenance, license, or expected quality.
-- StarNet2 can mistake compact nebula/galaxy detail for stars or miss unusual,
-  soft, saturated, elongated, or undersampled stars. Always inspect the star
-  output, not only the plausible-looking starless image.
-- Closing the process window does not stop a run; use the progress window's
-  **Cancel**. A stop is quiet and publishes nothing.
+"the tool wrote no image file", or "the tool's image is ... where the image is ..."
+:   **Cause.** The program ended well but left no answer, or one of another size. The same is said of the mask and
+    the star layer.
+:   **Fix.** Restore the package and clear **Weights**.
 
-## Troubleshooting
+"Could NOT set temporary dir for StarNet2 execution"
+:   **Cause.** The temporary files location cannot hold a new folder.
+:   **Fix.** Check its place, its permissions and its free space on the **General** page of the settings.
 
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| Process options and OK are disabled | Empty/missing/non-executable path, wrong machine-info product, unparseable/old version, or readiness probing exceeding the shared 3-second budget | Click **Configure**, select StarNet2 2.5.3+, save Settings, and return. For 2.5.4+, verify `starnet2 --machine-info`; for older supported versions, verify `--version` |
-| OK is disabled although the message is green | A run of this window is still in flight | Wait for the progress window to close, or cancel the run |
-| "Could not start" or crash message | Executable/runtime files are missing, blocked, or incompatible | Keep the complete package files in their official layout; current FITS-capable packages also require their bundled CFITSIO/zlib runtime files |
-| Error says the image is a colour filter array mosaic | The target is an undemosaiced camera frame | Demosaic the image (or enable demosaicing for the sequence) and run again |
-| Nonzero exit mentions input size/layout | Image is below normal-mode minimum or has an unsupported layout after external decoding | Use at least `512 x 512`; use grayscale/RGB |
-| Nonzero exit mentions weights/model | Custom path is wrong/incompatible, or default package model cannot be found | Clear **Weights** and restore the official model/runtime layout; or select a known-compatible ONNX model |
-| Busy warning instead of a run | The target's image is being written by another process or edit | Wait until the view shows the result, then run again |
-| Result looks permanently stretched | Pre-stretch was used on already nonlinear data, or the stretch's shadow clipping removed detail the inverse cannot restore | Rerun from an unchanged duplicate with the checkbox off for nonlinear input |
-| Star mask and stars layer do not match | They are separate native subtractive and unscreen outputs; only unscreen receives the inverse stretch and the range mapping | Choose the representation required by the next workflow and do not compare as identical pixel layers |
-| The whole sequence was processed when one frame was wanted | Starnet++ runs over every frame of a sequence view | Extract the intended frame to a still image first |
-| Cancel closes progress without output | The subprocess was killed before normal publication | This is expected; rerun when ready |
-| The process window vanished while the run continued | Close was pressed during a run; the window hides until the run lands | Wait for the outputs to open, or cancel from the progress window |
+"Another process is executing for this image, please cancel that job first before running this process"
+:   **Cause.** Another process is still changing the target. It reads "sequence" for a sequence.
+:   **Fix.** Wait until its result is shown, or cancel it, then click **OK** again.
 
-## Related workflow steps
+The starless image looks stretched, or its tones are wrong
+:   **Cause.** The pre-stretch ran on a stretched image, or the curve sent faint detail to black, which the way back
+    cannot restore.
+:   **Fix.** Run again from the unchanged image, with **Pre-Stretch linear image** off for a stretched image.
 
-Use [Star Mask](star-mask.md) for analytical detection and a controllable mask
-profile without an external model. Use [StarNet++ Star Mask](starnet-star-mask.md)
-when you need its separately documented mask-focused workflow. Continue with
-[Star Reduction](star-reduction.md), whose **Generate starless view** opens this
-window set to the unscreen star layer with no star output, takes the starless
-view it makes, and closes it; [Starmask Recombination](starmask-recombination.md);
-or a composition method appropriate to the chosen native star layer. Configure
-the executable under [Settings Dialog](../../interface/settings-dialog.md) and
-assign any output used as a processing mask through [Masks](../../interface/masks.md).
+The window disappeared while the run went on
+:   **Cause.** **Close** was pressed during the run, which hides the window until the run ends.
+:   **Fix.** Wait for the views to open, or click **Cancel** in the progress window to stop the run.
+
+## Related
+
+- [Starnet++ Star Mask](starnet-star-mask.md), for a star mask from StarNet2 shaped to one channel or to black and
+  white.
+- [Star Mask](star-mask.md), for a star mask found by measuring the stars, without an external program.
+- [Star Reduction](star-reduction.md), whose **Generate starless view** opens this window to make its starless
+  image, with no star output, and closes it when the image opens.
+- [Starmask Recombination](starmask-recombination.md), to add the star mask back to the starless image.
+- [Settings](../../interface/settings-dialog.md), whose **External Tools** page holds the program's path.
+- [Process Windows](../../interface/process-windows.md), for what every process window shares.
 
 ## Credits
 
-- [StarNet command-line tool reference](https://starnetastro.com/documentation/starnet/command-line-tool/)
-  documents the CLI options, input/output layouts, minimum size, model/package
-  layout, stride, upsampling, highlight protection, mask, and unscreen outputs.
-- [StarNet tips and tricks](https://starnetastro.com/documentation/starnet/tips-and-tricks/)
-  supplies current upstream guidance for color input, 256/384 stride, 2x
-  upsampling, and inspecting removed structure.
-- [Current command-line releases](https://starnetastro.com/cli-tools/) and
-  [CLI installer locations](https://starnetastro.com/documentation/cli-installers/)
-  define the current 2.5.4 platform packages, runtime/backend lanes, and native
-  installer layouts. AfterNight accepts 2.5.3 as its compatible minimum.
+- [StarNet2](https://starnetastro.com/cli-tools/starnet/), the command-line tool and its trained model, by Mikita
+  (Nikita) Misiura, who holds their copyright, under the StarNet2 Software License Agreement that comes with it as
+  `LICENSE.txt`. AfterNight runs the program as it is installed and neither includes nor changes it.
+- The [StarNet command-line reference](https://starnetastro.com/documentation/starnet/command-line-tool/), for its
+  options, inputs, outputs, star mask, star layer, stride, upsampling, highlight protection, minimum size and package
+  layout.
+- The [StarNet tips and tricks](https://starnetastro.com/documentation/starnet/tips-and-tricks/), for its advice on
+  stride, upsampling, color input and checking what the starless image lost.
+- The [locations of the command-line installers](https://starnetastro.com/documentation/cli-installers/), for the
+  versions, runtimes and installed paths of each platform.
+- [ONNX Runtime](https://onnxruntime.ai), by Microsoft, under the MIT licence, which the Windows package of StarNet2
+  carries with its notices to run the model.

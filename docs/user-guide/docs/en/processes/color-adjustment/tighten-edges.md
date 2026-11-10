@@ -3,244 +3,260 @@ kind: process
 stage: finish
 menu: Process > Morphology > Tighten Edges
 summary: >-
-  Darkens samples in proportion to their local edge strength, hardening the edges of bright structures.
+  Darkens each sample by the strength of the edges around it, measured in four directions over three by three
+  pixels, which contracts and hardens the edges of bright structures.
 data_in: either
 data_out: either
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Tighten Edges window is open on it yet, and no window that needs the
+    image for itself is open on it.
+  inputs: >-
+    One grayscale or RGB image or sequence with samples between 0 and 1, and an optional mask of the image's size on
+    its view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, channels, pixel type and recorded processing state are
+    kept. No file, preset or report is written.
+  state: >-
+    A linear or a stretched image, a star layer or a mask whose bright edges need tightening, after noise reduction.
+derived: false
+rewritten: true
 ---
 # Tighten Edges
 
-## Purpose and expected result
+Tighten Edges measures how strongly the image changes around each sample and darkens the sample by that much. On a
+bright structure against a dark field, such as a star, the edge contracts and hardens. The measure is one fixed
+neighbourhood of three by three pixels, so the window has no radius and no scale. It is no
+[deconvolution](../../reference/glossary.md#deconvolution), no sharpening as in
+[Unsharp Mask](../sharpening/unsharp-mask.md) and no [morphology](../../reference/glossary.md#morphology) with a shape
+you choose.
 
-Tighten Edges darkens samples in proportion to a fixed local edge magnitude,
-then blends that filtered image with the source. On bright structures against a
-dark field this can contract or harden the bright-side transition. It is not a
-deconvolution, an unsharp mask, or a selectable-scale morphology operation.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the filtered one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The recorded state of the image, linear or nonlinear, is kept as it
+was.
 
-Use it sparingly on a duplicate, star layer, or mask whose edges actually need
-contraction. The operation is mathematically nonlinear because it uses absolute
-gradient responses and clamps, even though the process accepts both linear and
-nonlinear images and does not change their recorded linearity state.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Morphology > Tighten Edges** |
-| Enabled when | An image or sequence is active, the same process is not already attached, and no attached process holds exclusive access |
-| Inputs | One grayscale or RGB still/sequence; RGB can use stored or derived component channels; intended finite normalized samples; optional enabled active mask |
-| Outputs | Replaces the target at the same geometry and pixel type; RGB/component reconstruction follows the selected Channel; a successful sequence uses a temporary replacement sequence; Take snapshot creates an auxiliary still |
-| Recommended image state | Linear or nonlinear is accepted; visually easier to tune after a display stretch or on a dedicated mask/star layer; recorded processing state is preserved rather than explicitly changed |
-| Preview support | Asynchronous full-image Preview with Linear/Autostretch display, original/result switch, selectable Preview area, and snapshot |
-| Sequence support | Generic temporary replacement-sequence path with progress and cooperative cancellation; configured CFA auto-debayer can supply RGB frames |
-| Mask support | Active target mask post-blends source and the Amount-blended process result; white applies, black protects, gray blends, and Invert Mask reverses weights |
-| External dependencies | None; the AfterNight engine's own four-direction edge-tightening filter |
+```figure
+image: ../../assets/images/processes/color-adjustment/tighten-edges.webp
+alt: >-
+  The Tighten Edges window. On the left, the Value box at 0.50 and the Amount box at 1.00 with their sliders, then
+  Target Image, Channel at RGB and the Preview box, ticked. On the right, a toolbar over the preview of a red nebula
+  with many stars. Reset, Close and Apply run along the bottom.
+caption: >-
+  Tighten Edges on a stretched master with Value at 0.50 and Amount at 1.00. The preview shows what Apply writes.
+pins:
+  - {n: 2, x: 2.0, y: 82.7}
+  - {n: 3, x: 2.0, y: 20.1}
+  - {n: 4, x: 2.0, y: 25.1}
+  - {n: 5, x: 33.0, y: 40.0}
+  - {n: 6, x: 90.6, y: 96.0}
+```
 
 ## Before you start
 
-Reduce noise before tightening edges: the filter responds to every local
-gradient, including grain, ringing, hot pixels, mask stair steps, and compression
-artifacts. Inspect at 100% and include both a representative transition and
-smooth background.
+- Reduce the noise first. The filter darkens every local change: grain,
+  [ringing](../../reference/glossary.md#ringing), [hot pixels](../../reference/glossary.md#hot-pixel), the steps of a
+  [mask](../../reference/glossary.md#mask) and compression artifacts as well as edges.
+- Work on a duplicate, a star layer or a mask whose edges need tightening. **Apply** replaces the image, and its
+  history keeps the step before.
+- A [linear image](../../reference/glossary.md#linear-image) is accepted, but the edges are easier to judge after a
+  [stretch](../../reference/glossary.md#stretch).
+- A mask on the view blends the result with the original afterwards, after **Amount**.
 
-Choose the process **Channel** before tuning. **RGB** filters stored R, G, and B
-independently and can produce colored rims. A luminance/lightness component can
-reduce that risk, but component conversion/reconstruction can change colour,
-and an integer image's reconstruction clips at its type's range (a floating
-image keeps values outside `[0, 1]`).
+## Steps
 
-## Procedure
+1. **Open the window.** Make the image active and choose **Process > Morphology > Tighten Edges**. **Apply** stays
+   disabled while **Value** is 0.
+2. **Choose the channel.** Leave **Channel** at **RGB**, or compare it with **CIE Y (Luminance)** or
+   **CIE L* (Lightness)** when colored rims appear.
+3. **Set the strength.** Raise **Value** a little at a time. The preview follows, and the edges of the stars darken.
+4. **Blend the result.** Lower **Amount** to mix the original back in when the effect is too strong.
+5. **Check at 100 %.** Zoom the preview into small stars, both sides of a bright edge, the noise of the background and
+   the four borders of the image. Press ++space++ to compare with the original.
+6. **Apply.** Choose **Apply**. The edges in the view are tighter, and the history lists **Tighten Edges** with the
+   value, the amount and, for a color image, the channel.
 
-1. Select a duplicate, mask, or star layer and open **Process > Morphology >
-   Tighten Edges**.
-2. Choose **Channel**. For RGB color data, compare **RGB** with **CIE L*
-   (Lightness)** or **CIE Y (Luminance)** rather than assuming they are
-   equivalent.
-3. Set **Value** to `0.10..0.25` and keep **Amount** below `1.00` while finding a
-   useful direction. This is conservative guidance, not a measured optimum.
-4. Inspect bright and dark sides of edges, small stars, noise, all four frame
-   borders, and any active-mask boundary. Use 100% zoom.
-5. If using **Preview area**, ignore its one-pixel perimeter when judging the
-   full result; cropping creates different edge neighbors there.
-6. Select **Apply** and recheck the committed target, metadata/state, and Image
-   History before continuing.
+## Controls
 
-## Complete parameter and action reference
+**Target Image**, **Channel**, **Preview**, the preview pane, **Close** and the progress window of a sequence work as
+in every process window: see [Process Windows](../../interface/process-windows.md). The entries below hold what is
+particular to this window, which has no histogram.
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Value | Double value plus slider, edge-subtraction scale | `0.00` | None | `0.00..2.00`; displayed spin step `0.50` with adaptive decimal stepping; slider has 2001 positions | Multiplies the modified Sobel magnitude before subtraction; `0` is identity for finite inputs within full scale | Apply disabled only at exactly `0`; control disables during Apply | Larger values darken/clip more edge samples and amplify border, ringing, noise, and color artifacts; fixed kernel cost is unchanged | Preview/Apply; selected channel/component; before Amount and mask; still/sequence | Captured per execution; Reset/success returns `0.00` |
-| Amount | Double value plus slider, blend fraction | `1.00` | None | `0.00..1.00`; displayed spin step `0.50` with adaptive decimal stepping; slider has 1001 positions | Blends source to the already filtered/clamped result: `0` source, `1` full filter | Apply gate ignores Amount; with Value nonzero, Amount `0` permits an identity-looking Apply | Reduces visible effect without changing edge-map work; cannot undo clipping inside the filtered branch, only mix source back | Preview/Apply; after selected-channel reconstruction and before active mask; still/sequence | Captured per execution; Reset/success returns `1.00` |
-| Target Image | Image selector | Attached/active target | None | Open eligible still/sequence | Changes source, Channel list, Preview, active mask, and Apply destination | Active image required; duplicate/exclusive launch guards apply | Wrong target is destructively replaced after success | Preview/Apply source and active mask | Target lifetime; Reset does not change it |
-| Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | RGB filters three stored planes independently; a component filters one converted plane and reconstructs/copies the others | Component choices require RGB; mono selector disabled; disabled during Apply; the selection is captured when Apply starts | RGB can make color rims; component round trips add buffers/quantization/gamut effects; hue planes are treated as ordinary noncircular scalars | Preview/Apply; active mask post-blend; still/sequence | Dialog-local; Reset/success does not restore RGB |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables asynchronous full-image or selected-area execution | Remains interactive during Apply | Full filter, float buffers, optional component conversion, and display autostretch add work | Preview only; mask-aware; still/current displayed sequence frame | Window lifetime; Reset does not change it |
-| Preview pane | Image viewer | Filtered result | None | Pan with scroll bars or dragging; toolbar actions below | Shows mask-aware result without modifying the target | Exists only with Preview | Holds source/result/display buffers in addition to filter buffers | Preview only | Window lifetime |
-| Fit To Window | Preview-toolbar action | Preview fitted when first displayed | None | Click or **Ctrl+Shift+F** | Fits the whole image uniformly in the viewport | Preview image required | Resampling can hide one-pixel rims and noise | Preview display only | Viewer lifetime |
-| Zoom In | Preview-toolbar action | Current scale | None | Click; `1.2×` relative zoom within viewer limits | Enlarges around viewport center | Preview image required | Rendering only | Preview display only | Viewer lifetime |
-| Zoom Out | Preview-toolbar action | Current scale | None | Click; `0.8×` relative zoom within viewer limits | Reduces around viewport center | Preview image required | Shows more context but hides fine artifacts | Preview display only | Viewer lifetime |
-| Zoom 100% | Preview-toolbar action | Current scale | None | Click; absolute scale `1.0` | Shows the viewer's one-pixel scale | Preview image required | Required for one-pixel edge/border artifacts | Preview display only | Viewer lifetime |
-| View Channel | Preview-toolbar combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | Stored and derived RGB/CIE/HSL/HSV/HSI/YCbCr display components | Selects only the displayed component | Separate from process Channel; RGB target required for components | Helps diagnose colored rims without changing pixels | Preview display only | Viewer lifetime; not in process history |
-| Display Mode | Preview-toolbar combo box | Inherits target **Linear** or **Autostretch** when Preview is created | None | **Linear**, **Autostretch** | Changes display only; Autostretch uses prepared target/result statistics | Autostretch enables settings action | Strong stretch can exaggerate noise and rims | Preview display only | Preview-view state; not in process history |
-| Autostretch Settings | Preview-toolbar dialog action | Disabled in Linear mode; inherits target-view settings | Shared-view values load when opened | Opens Preview autostretch controls; **Apply Stretch** is hidden | Tunes Preview display only | Autostretch mode only; disabled while its dialog is open | Changes visual judgment, never filter samples | Preview display only | Viewer-scoped; not a Tighten Edges parameter |
-| Switch image | Preview-toolbar action | Filtered Preview shown | None | Click, **Space**, right-click, or **Ctrl+Shift+O** | Toggles result/original | Preview required | Comparison only; no recomputation | Preview display; still/current frame | Preview-window lifetime |
-| Preview area | Preview-toolbar checkbox | Unchecked; first enablement centers a bounded `600×600` area or the full image when smaller | None | Checked/unchecked; move/resize overlay | Processes only the crop and composites it over the original Preview; Apply remains full-frame | Preview required | Faster tuning, but crop borders use zero neighbors and differ from full-image interior; inspect outside its one-pixel perimeter | Preview and Take snapshot; mask cropped consistently | Preview-window lifetime; Reset unchanged |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes settings and opens `<target> - Tighten Edges - SNAPSHOT` | Preview required | Adds a complete execution and auxiliary image; Preview-area perimeter behavior is baked into the snapshot | New still; target unchanged; area/mask honored | Each action creates a separate image view |
-| Apply | Button/action | Disabled while Value is `0`; enabled otherwise, even when Amount is `0` | None | One action | Captures Value/Amount, locks target, then filters the full still or every sequence frame | Apply visually stays enabled during work when Value is nonzero, although repeat clicks are ignored; Target, Channel, Value, Amount, Close, and Reset are disabled during Apply | Full float edge/filter buffers plus component conversion, blend, mask, and sequence work | Destructive still/sequence replacement after success | Records Value/Amount and, for a colour image, Channel; success resets Value/Amount only |
-| Reset | Button/action | Enabled while idle | None | One action | Restores Value `0.00` and Amount `1.00` | Does not change Target, Channel, Preview, mask, or Preview toolbar; disabled during Apply | Checked Preview schedules another full execution | Configuration only | Immediate; also invoked after successful Apply |
-| Close | Button/action | Enabled while idle | None | One action | Closes without applying current settings | Disabled during Apply | A preview being computed is cancelled | Window/execution | Process settings do not persist after destruction |
-| Sequence progress / Cancel | Shared per-frame progress and Cancel | Created for sequence Apply | None | Cooperative Cancel; frame/task text updates around temporary processing | Sequence target only; automatic CFA debayer can produce RGB frames | The filter observes Cancel between rows, so a frame stops promptly | Temporary encode/disk cost; Value, Amount, and Channel are captured once for every frame | Cancel removes temporary output; success replaces sequence, records one history step, and resets Value/Amount |
+```controls
+window: Tighten Edges
+controls:
+  - name: Value
+    kind: spinbox
+    default: "0.00"
+    widget: {min: 0, max: 2, step: 0.5, decimals: 2}
+    effect: Sets how much of the edge map is taken from each sample. Higher darkens the edges more. At 0 nothing changes.
+    range: The arrows change it by 0.01 below 1 and by 0.1 from 1. The slider moves in 1,000 steps of 0.002.
+    enabled: At exactly 0, **Apply** is disabled. Disabled while Apply runs.
+    tradeoff: Larger values darken and clip more edge samples, and strengthen the rims at the image's borders, ringing, noise and colored fringes. The work is the same at every value.
+    scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask. Images and sequences.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Amount
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.5, decimals: 2}
+    effect: Mixes the filtered image with the original. At 1 the result is the filtered image, at 0 the original.
+    range: The arrows change it as those of **Value** do. The slider moves in 1,000 steps of 0.001.
+    enabled: It does not enable **Apply**. With **Value** above 0, Apply works at **Amount** 0 too, and records a step that changes nothing.
+    tradeoff: It weakens the visible effect without changing the work. It cannot bring back what the filter clipped to black, only mix the original back in.
+    scope: After the channel or component is put back, and before the mask on the view.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
+    persistence: Until the window closes. **Reset** leaves it.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses what is filtered. **RGB** filters the three channels, each with an edge map of its own. **Red**, **Green** or **Blue** filters that channel alone. Any other choice filters one component and converts back to RGB.
+    enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs, which takes the choice it finds when you press **Apply**.
+    tradeoff: With **RGB** the channels' edges differ, which can leave colored rims. A lightness or luminance component avoids them, but the conversion back can change colors, cuts an integer image at the ends of its type and leaves a floating-point image outside 0 to 1. A hue component is treated as a line, not as a circle.
+    scope: The preview and Apply, on images and sequences. The history step names the choice.
+    persistence: Until the window closes. **Reset** leaves it. A finished Apply or another target returns it to **RGB**.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the filtered image beside the controls, with **Amount** and the mask applied.
+    enabled: It stays enabled while Apply runs.
+    tradeoff: Each change filters the image again. A color component adds its two conversions, and the Autostretch display its stretch.
+    scope: "The window only. The pane's toolbar offers **Display Mode**. **Preview area** is off when the window opens, and ticked it starts at 600 by 600 pixels in the middle of the image, or the whole image when that is smaller. While you drag a slider, the preview filters the part of the image the pane shows, at full scale."
+    persistence: Until the window closes. **Reset** leaves it.
+    note: The outermost pixels of a preview area are filtered against neighbours of 0, as the image's own border is, so they do not show what Apply writes there. A snapshot, named `<target> - Tighten Edges - SNAPSHOT`, keeps them as the preview shows them.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Value** to 0 and **Amount** to 1, and one preview follows.
+    range: It leaves **Target Image**, **Channel**, **Preview**, the mask and the preview's toolbar as they are.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Filters the whole image, or every frame of the sequence, with the values it finds when you press it, and then returns **Value** and **Amount** to their defaults.
+    enabled: When **Value** is not 0, whatever **Amount** is. While the run works, **Value**, **Amount**, **Target Image**, **Channel**, **Reset** and **Close** are disabled. **Apply** itself still looks enabled, but a second press does nothing.
+    tradeoff: One pass over each plane filtered, then the blend of **Amount**, the mask and the conversions of a component.
+    scope: The whole image, never limited by a preview area.
+    persistence: "The history step is **Tighten Edges** and reads, for example, `Adjust value to 0.5, amount 1 in channel: RGB`. For a grayscale image it ends after the amount. The image keeps its header cards and its processing state, and the step records it neither as linear nor as nonlinear."
+```
 
-## How the algorithm works
+## How it works
 
-### Conceptual pipeline
+1. The channel or component **Channel** selects is read in its own units and computed in single precision. A 64-bit
+   floating-point image is narrowed for the computation.
+2. Four kernels of three by three pixels measure the change across each sample: from top to bottom, from left to
+   right and along the two diagonals. Their absolute responses are added and scaled by 0.05. That is the edge map.
+3. **Value** times the edge map is taken from the sample, and the result is held to the full scale of the pixel type,
+   0 to 1 for floating point. It is written back in the image's pixel type.
+4. A component is converted back to RGB, **Amount** mixes the result with the original, and the mask on the view
+   blends the two.
+5. The image keeps its size, its pixel type, its [header cards](../../reference/glossary.md#header-card) and its
+   [processing state](../../reference/glossary.md#processing-state).
 
-1. The engine reads the selected stored image or component in its stored units,
-   in single precision; double data is narrowed to float32.
-2. For every plane, compute four signed 3×3 directional responses: horizontal,
-   vertical, and two diagonals. Sum their absolute magnitudes and multiply by
-   `0.05`.
-3. Subtract **Value** times that nonnegative edge map from the source, then clamp
-   the filtered branch to the image's full scale (`0..1` for float, the type's
-   range for an integer image) and write it back in the target pixel type.
-4. Reconstruct RGB for a selected component, blend source and filtered result by
-   **Amount**, then post-blend the active mask.
+### Model
 
-### Model and equations
+For a plane \(S\) in [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale), with \(K_1\) to
+\(K_4\) the four kernels, each weighting its middle row, column or diagonal twice, the edge map is
 
-For one plane `S`, written as fractions of full scale, and the four fixed
-derivative kernels `K_j`, the
-edge map is
+\[ E = 0.05 \sum_{j=1}^{4} \bigl\lvert K_j \ast S \bigr\rvert \tag{1} \]
 
-\[
-E(x,y)=0.05\sum_{j=1}^{4}\left|K_j*S\right|(x,y).
-\]
+With \(v\) the value of **Value** and \(a\) the value of **Amount**, the filtered plane \(T\) and the result \(O\) are
 
-There is one fixed 3×3 neighborhood: no radius, iteration, pyramid, or scale
-selector exists. With Value `v` and Amount `a`,
+\[ T = \min\bigl(1,\ \max(0,\ S - v\,E)\bigr), \qquad O = (1 - a)\,S + a\,T \tag{2} \]
 
-\[
-T(x,y)=\operatorname{clamp}(S(x,y)-vE(x,y),0,1),
-\]
+Where \(T\) is not clipped, the sample loses \(a\,v\,E\). Where \(T\) has reached 0, a lower **Amount** mixes the
+original back in but does not undo the clip. On a straight step between two flat levels, along the rows or the
+columns, equation (1) gives both sides of the step half the height of the step. The filter only takes away: it adds
+no detail and models no star profile. A bright structure contracts at its edge, and the dark side of the edge falls
+toward black rather than being sharpened.
 
-\[
-O(x,y)=(1-a)S(x,y)+aT(x,y).
-\]
+### Boundaries
 
-Where `T` has not clipped, the net subtraction is approximately `avE`; after
-`T` reaches zero, lowering Amount mixes source back but does not change the
-clipped filtered branch. The active mask is a second blend after `O`.
+- Every neighbour outside the image counts as 0, on all four sides, so strong settings draw a dark or colored rim
+  along the image's borders. A [preview area](../../reference/glossary.md#preview-area) makes borders of its own.
+- The neighbourhood is fixed. Structures broader than a few pixels change little, while fine noise and one-pixel
+  stars are eroded.
+- A sample that holds no number is not refused or cleaned. It stays in the result and can turn its neighbours'
+  results into not-a-number. A pixel the image marks as invalid is left as it was and counts as 0 for its neighbours.
+- At **Value** 0 a sample between 0 and 1 keeps its value. An integer result is rounded to the nearest value.
+- A run that is cancelled stops between rows, so a frame stops promptly, and writes nothing.
 
-The filter only subtracts a nonnegative edge magnitude. It does not add a
-high-pass residual or solve a point-spread function. Bright-side transitions can
-contract; dark-side pixels remain at the lower clamp rather than being sharpened
-symmetrically.
+### Worked example
 
-### Boundary and failure behavior
+The picture above shows the window on the linear Carina [master](../../reference/glossary.md#master) after Histogram
+Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28, with **Value** at
+0.50 and **Amount** at 1.00. At a sharp edge between that background and a star core at 1.00, equation (1) gives
+\(E = 0.36\) on both sides. Equation (2) takes 0.18 from each: the star's edge falls to 0.82 and the background beside
+it to 0.10, a dark rim. With **Amount** at 0.25, each side loses 0.045. A sample of 0.80 with \(E = 0.20\) becomes
+0.70, or 0.775 at **Amount** 0.25. Where \(v\,E\) is larger than the sample, \(T\) is 0, and **Amount** 0.25 leaves
+three quarters of the sample.
 
-Every neighbour outside the image is a constant zero, on all four sides. The
-zero border can create dark/colored frame rims. A Preview crop creates new
-boundaries, so its one-pixel perimeter is not Apply-equivalent.
+```figure
+images:
+  - image: ../../assets/images/processes/color-adjustment/tighten-edges-before.webp
+    alt: A crop of the nebula at full resolution before the process, red and white clouds and many small stars on a gray background.
+    label: Before
+  - image: ../../assets/images/processes/color-adjustment/tighten-edges-after.webp
+    alt: The same crop after the process, the stars smaller and harder with dark rims, the edges of the clouds crisper and the background a little darker and grainier.
+    label: After
+caption: >-
+  A crop at 100 % of the middle of the stretched Carina master before and after Apply with Value at 0.50 and Amount at
+  1.00. Both are shown in the Linear display mode, without a display stretch.
+```
 
-The engine does not validate finite floating samples. Its clamp maps finite
-output below the range to its bottom and above it to its top; NaN is not
-sanitized. The filter observes Cancel between rows.
+## Starting points
 
-## Parameter interactions and starting points
-
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Value × Amount | Value `0.10..0.25`, Amount `0.25..0.50` | Edge width/brightness barely changes | Dark rims, clipped bright-side detail, crunchy noise | Set modest Value, then blend with Amount |
-| RGB × luminance component | Compare RGB with **CIE Y (Luminance)** or **CIE L* (Lightness)** | Luminance-only result may leave chromatic edges | RGB produces unequal channel rims or colored borders | Choose Channel first, then tune Value/Amount |
-| Fixed scale × sampling | Inspect at 100%; resize/output scale matters | Coarse/soft structures are unaffected | Fine noise and single-pixel stars are eroded | Judge at final sampling; use another tool for broader scales |
-| Preview area × borders | Ignore one-pixel crop perimeter | Interior change seems subtle | Crop seam/rim is mistaken for full-image behavior | Tune interior, then verify full Preview and frame borders |
-| Amount × active mask | Start with a soft verified mask and modest Amount | Protected edge changes too little | Filter and mask boundaries combine visibly | Tune unmasked direction, then enable/inspect mask |
-
-## Inputs, outputs, and metadata
-
-- Output dimensions and target pixel type match the input. RGB processing
-  returns RGB; grayscale remains grayscale. Component conversion reconstructs
-  RGB through the shared Channel dispatcher.
-- The result keeps the source image's header cards, metadata, and existing
-  processing state for every Channel choice; Tighten Edges adds no explicit
-  linear/nonlinear provenance marker.
-- The target view is replaced in place. Non-float/component temporary paths do
-  not explicitly guarantee the image-internal name/file-name, although the view
-  identity remains.
-- Image History records **Tighten Edges**, Value, and Amount, and for a colour
-  image ` in channel: <channel>` with the selected Channel, derived components
-  included.
-- Sequence Apply writes a temporary sequence and replaces the target only after
-  success. Value, Amount, and Channel are captured once for every frame.
-
-## Performance
-
-Cost is linear in pixel count with a fixed four-response 3×3 neighborhood, run
-on the threads the operation is granted. RGB processes three planes. The filter
-holds one float32 plane of accumulated edge magnitudes beside its working
-planes; double data is narrowed for computation. Amount adds a full-image blend and a
-mask adds another. Derived components add conversion and reconstruction buffers.
-Sequences add decode, encode, and temporary-disk work per frame.
-
-Preview area reduces pixel work but introduces crop-border differences. No
-production timing or peak memory was measured.
-
-## Worked example
-
-- **Identity checkpoint:** Value `0` gives `T=S` for normalized finite inputs;
-  Apply is disabled. With Value nonzero and Amount `0`, `O=S`, but Apply remains
-  enabled and still records a process step.
-- **Bright-side checkpoint:** for `S=0.8`, local edge magnitude `E=0.2`, Value
-  `0.5`, and Amount `1`, `T=O=0.7`.
-- **Blend checkpoint:** with the same `S`, `E`, and Value but Amount `0.25`,
-  `O=0.775`.
-- **Clip checkpoint:** if `vE>S`, the filtered branch is `0`; Amount `0.25`
-  returns `0.75S`, not a negative sample.
-- **Inspect in real use:** both sides of transitions, noise, small stars, channel
-  rims, all frame borders, Preview-area perimeter, mask boundary, and metadata.
-- **Limitations:** These equations verify the implementation order, not halo
-  reduction quality, a saved sequence, runtime, or memory use.
-
-## Warnings and limitations
-
-!!! warning "Inspect every frame border"
-    Neighbours outside the image count as zero on every side. Strong Value
-    settings can create dark or colored border rims.
-
-!!! note "Preview-area perimeter is not Apply-equivalent"
-    Cropping creates new zero neighbors. Judge the Preview-area
-    interior, then switch to full Preview before Apply.
-
-- Tighten Edges has one fixed 3×3 scale. **Value** is strength, not radius or
-  number of scales; **Amount** is only a final source/result blend.
-- The transform subtracts edge magnitude. It can contract bright structures but
-  can also erode faint detail, deepen dark rims, and amplify visible noise.
-- RGB planes are independent. Derived hue components are processed as ordinary
-  linear scalars even though hue is circular; avoid HSL/HSV/CIE h* unless that
-  noncircular behavior is explicitly intended.
-- Apply can look enabled during execution, but repeat clicks are ignored; the
-  other controls are disabled until it finishes.
-- The kernel computes in float32, and a derived component's reconstruction of a
-  floating image is not clamped to `[0, 1]`.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Tighten Edges menu is disabled | No active image/sequence or generic process launch guard failed | Activate a target; close the same or exclusive process |
-| Apply is disabled | Value is exactly `0` | Set a nonzero Value; Amount alone cannot enable Apply |
-| Apply runs but result is unchanged | Amount is `0`, or selected Channel has negligible local gradients | Raise Amount or choose the intended Channel |
-| Dark/colored frame rim appears | Neighbours outside the image count as zero | Reduce Value/Amount; inspect/crop final border only after processing |
-| Preview-area seam differs after Apply | Crop created a different one-pixel neighborhood | Ignore crop perimeter and verify full Preview |
-| RGB result shows color fringes | R, G, and B edge maps are independent | Try CIE Y/L* on a duplicate; lower Value/Amount |
+| A first try | **Value** from 0.10 to 0.25, **Amount** from 0.25 to 0.50 | If the edges barely change, raise **Value**. If dark rims, clipped detail or crunchy noise appear, lower it, then blend with **Amount**. |
+| An RGB image | **RGB** beside **CIE Y (Luminance)** or **CIE L* (Lightness)** | A component can leave colored edges, and **RGB** unequal rims. Choose **Channel** first, then the two values. |
+| Detail at its final scale | Judge at 100 %, at the scale you will deliver | Broad soft structures do not change. For broader scales, use another tool. |
+| Through a mask | A soft mask and a modest **Amount** | Find the strength without the mask, then turn it on and check its boundary. |
 
-## Related workflow steps
+## When it goes wrong
 
-Use [Unsharp Mask](../sharpening/unsharp-mask.md) when you need a selectable
-Gaussian scale and symmetric detail addition, or
-[Morphological Transformation](../masking/morphological-transformation.md) for
-explicit erosion/dilation/opening/closing with a chosen structuring element.
-For star-layer-specific tightening inside recombination, see
-[Profiled Starmask Recombination](../star-operations/profiled-starmask-recomb.md),
-which applies the same engine filter before its mask/addition stage. Verify
-[Image History](../../interface/image-history.md),
-[Image Statistics](../../interface/image-statistics.md), and frame borders after
-Apply.
+!!! warning "Check every border of the image"
+    Neighbours outside the image count as 0, so a strong **Value** draws a dark or colored rim along each border.
+    Lower **Value** or **Amount**, or crop the border after processing.
+
+Apply is disabled
+:   **Cause.** **Value** is exactly 0.
+:   **Fix.** Set a **Value** above 0. **Amount** alone does not enable **Apply**.
+
+Apply ran but nothing changed
+:   **Cause.** **Amount** is 0, or the channel selected has hardly any edges.
+:   **Fix.** Raise **Amount**, or choose the channel you meant.
+
+The edge of a preview area looks different after Apply
+:   **Cause.** The area's outermost pixels were filtered against neighbours of 0.
+:   **Fix.** Judge the inside of the area, then untick **Preview area** and check the whole image.
+
+Colored fringes in an RGB image
+:   **Cause.** The red, green and blue each have an edge map of their own.
+:   **Fix.** Try **CIE Y (Luminance)** or **CIE L* (Lightness)** on a duplicate, or lower **Value** and **Amount**.
+
+Dark halos and grainy background
+:   **Cause.** **Value** is too high for the noise of the image, and the dark side of every edge falls toward black.
+:   **Fix.** Lower **Value**, blend with **Amount**, or reduce the noise first.
+
+## Related
+
+- [Unsharp Mask](../sharpening/unsharp-mask.md), to sharpen at a Gaussian scale you choose, by adding detail on both
+  sides of an edge.
+- [Morphological Transformation](../masking/morphological-transformation.md), to erode, dilate, open or close with a
+  [structuring element](../../reference/glossary.md#structuring-element) you choose.
+- [Profiled Starmask Recombination](../star-operations/profiled-starmask-recomb.md), which applies the same filter to
+  a star layer before it adds the layer back.
+- [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
+  undo the step and to check the range of the result.
+- [Process Windows](../../interface/process-windows.md), for the preview, its toolbar and what every process window
+  shares.

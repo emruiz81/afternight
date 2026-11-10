@@ -3,348 +3,366 @@ kind: process
 stage: noise
 menu: Process > Noise Reduction > Patch PCA Denoise Filter
 summary: >-
-  Reduces noise by projecting groups of similar patches onto their principal components and dropping the weakest ones.
+  Reduces noise with G'MIC's patch PCA filter: around evenly spaced positions it models how nearby patches differ,
+  drops the components weaker than a multiple of the measured noise, and rebuilds the patches from the rest.
 data_in: linear
+data_out: linear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: The G'MIC library, bundled with AfterNight
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Patch PCA Denoise window is open on it yet, and no window that needs the
+    image for itself is open on it. Preview and Apply also need a build that carries G'MIC.
+  inputs: >-
+    One grayscale or RGB image or sequence whose samples are all finite numbers, best between 0 and 1, and an optional
+    mask of the image's size on its view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, channels, pixel type, header and recorded processing
+    state are kept, and its samples are held between 0 and 1. No file is written.
+  state: >-
+    A calibrated and stacked linear master after gradient removal and color calibration, before the stretch.
 derived: true
+rewritten: true
 ---
 # Patch PCA Denoise
 
-## Purpose and expected result
+Patch PCA Denoise reduces noise with the `denoise_patchpca` command of G'MIC, which AfterNight carries. At reference
+positions spread evenly over the image, the command compares the patch there with every patch of a small window around
+it, finds the main directions in which they differ, and keeps only the directions stronger than a multiple of the
+noise it measures. Every patch of the window is rebuilt from those, and the overlapping patches are averaged. Unlike
+NL-Bayes, it does not choose the patches that look alike: every patch of the window counts.
 
-Patch PCA Denoise reduces noise with a local, patch-based principal-component
-filter. At regularly sampled reference positions it compares every patch in a
-square lookup neighborhood with the reference patch, estimates a local
-second-moment matrix, removes eigen-components below an automatically estimated
-noise threshold, reconstructs all neighboring patches, and overlap-averages the
-results.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the denoised one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history).
 
-The expected result is a same-size, same-type still or replacement sequence with
-weaker random noise. Repeated local structure can help define strong components,
-but the current implementation does not rank or reject patches by similarity:
-**Lookup Size includes every position in the window**. Strong thresholds can
-remove faint stars or texture; large neighborhoods can mix unrelated structure;
-and sparse sampling can leave uneven or even uncovered output regions.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Noise Reduction > Patch PCA Denoise Filter** |
-| Enabled when | An image or sequence is active, the same process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One grayscale or RGB still or sequence; a still CFA mosaic is treated as one grayscale sample plane unless debayered first; an optional active mask must match target geometry |
-| Outputs | Destructively replaces a still or, after successful temporary processing, a sequence; **Take snapshot** creates an auxiliary still; dimensions, channels, and source pixel type are retained unless a selected component reconstructs RGB; no file is written directly |
-| Recommended image state | Usually a finite, normalized linear master after calibration, registration, stacking, gradient correction, and color calibration but before stretching |
-| Preview support | Asynchronous RT preview with the same captured parameters, channel conversion, and mask blend as Apply; selected-area preview and display-only autostretch are available |
-| Sequence support | Supported through the generic temporary replacement-sequence path with per-frame processing, progress, and cooperative cancellation; configured CFA auto-debayer can produce RGB frames |
-| Mask support | Supported after denoising for preview, still Apply, and sequence Apply; white applies, black protects, gray blends, and **Invert Mask** reverses weights |
-| External dependencies | Bundled G'MIC 3.5.4 command `denoise_patchpca`, run through AfterNight's optional G'MIC adapter; no separate model, catalog, network service, or installation. In a build without G'MIC, Preview and Apply are disabled and their tooltip says why |
-| Non-finite samples | An image holding a NaN or infinite sample is refused before G'MIC sees it, and left unchanged |
+```figure
+image: ../../assets/images/processes/noise-reduction/patch-pca-denoise.webp
+alt: >-
+  The Patch PCA Denoise window. On the left, the Strength box at 4.00, Patch Size at 5, Lookup Size at 7 and Spatial
+  Sampling at 7, each with its slider, and lower down Target Image, Channel at RGB and the Preview check box. On the
+  right, a toolbar of zoom buttons, a channel box, the display mode box at Autostretch, a settings button, a switch and
+  a menu button over the whole nebula, with the word PREVIEW in its corner and a small framed area labelled Preview:
+  Patch PCA Denoise Filter in its middle. Reset, Close and Apply run along the bottom.
+caption: >-
+  Patch PCA Denoise on the linear Carina master with Strength at 4.00, Patch Size at 5, Lookup Size at 7 and Spatial
+  Sampling at 7, the preview shown in the Autostretch display mode: the framed preview area is denoised, over the
+  original.
+pins:
+  - {n: 2, x: 2.0, y: 82.7}
+  - {n: 3, x: 64.5, y: 55.5}
+  - {n: 4, x: 2.0, y: 20.1}
+  - {n: 5, x: 2.0, y: 24.5}
+  - {n: 6, x: 2.0, y: 33.5}
+```
 
 ## Before you start
 
-- Finish calibration, registration, stacking, gradient correction, and color
-  calibration first. The lookup window uses every local patch, so walking noise,
-  registration defects, gradients, hot pixels, and compression texture enter the
-  local model rather than being identified as outliers.
-- Use finite samples normalized to `[0,1]`. An image holding a NaN or infinite
-  sample - such as the empty border of a registered frame - is refused with
-  "the image holds a sample that is not a finite number, which G'MIC cannot
-  process" and left unchanged. Integer inputs are converted into a float32
-  G'MIC buffer as fractions of full scale; float inputs are processed in place
-  and double inputs are reduced to float32 precision. Output is always clamped
-  to `[0,1]` before conversion back to the original type, so negative or
-  above-one float data is clipped even at Strength `0`.
-- This process needs G'MIC, which AfterNight normally includes. In a build
-  without it, **Preview** and **Apply** are disabled and their tooltip reads
-  "This build of AfterNight carries no G'MIC library, so this process cannot
-  run."
-- Treat the live defaults as `4 / 7 / 11 / 7`, not the dormant builder values
-  `1.8 / 7 / 8 / 7` or G'MIC's omitted-argument defaults. AfterNight explicitly
-  supplies all four values and its constructor calls `initialize()` after the
-  controls are connected.
-- Tune on a representative **Preview area** containing background, fine stars,
-  and a real edge. Patch Size and Lookup Size can increase work by orders of
-  magnitude, while lower Spatial Sampling values make reference centers denser.
-- Duplicate the target or verify Image History. Apply replaces a still only
-  after success; a sequence is processed into temporary storage and committed
-  only after every frame succeeds.
+- Finish calibration, registration, stacking, gradient removal and color calibration first, and denoise the
+  [master](../../reference/glossary.md#master) while it is linear, before the
+  [stretch](../../reference/glossary.md#stretch). Every patch of the window enters the model, so walking noise,
+  registration defects, gradients, [hot pixels](../../reference/glossary.md#hot-pixel) and compression texture are
+  modelled as structure.
+- Every sample must be a finite number, and is best between 0 and 1, where the result is held.
+- The process needs G'MIC, which AfterNight includes: nothing is installed or downloaded. A build without it keeps
+  **Preview** and **Apply** disabled.
+- **Apply** replaces the image. Duplicate it first, or use its history, which keeps the step before.
+- [Debayer](../../reference/glossary.md#debayer) a [CFA](../../reference/glossary.md#cfa) mosaic first. A raw mosaic
+  is denoised as one grayscale plane. The frames of a sequence are read with the automatic debayer setting of its view.
+- A [mask](../../reference/glossary.md#mask) on the view blends the result with the original afterwards.
 
-## Procedure
+## Steps
 
-1. Select a finite normalized master and open **Process > Noise Reduction >
-   Patch PCA Denoise Filter**. Confirm **Target Image**, select **RGB** or one
-   deliberate component, and leave **Preview** selected.
-2. Begin with live defaults: **Strength 4**, **Patch Size 7**, **Lookup Size 11**,
-   and **Spatial Sampling 7**. Use a Preview area before running the full frame.
-3. Judge at **Zoom 100%** under one Display Mode. Toggle **Switch image** and
-   inspect smooth background, faint stars, edges, and each color channel.
-4. Tune **Strength** first. Lower it if faint structure disappears; raise it only
-   while residual random noise falls without flat or blocky patches.
-5. Change **Patch Size** or **Lookup Size** one at a time. Larger values make the
-   model less local and dramatically more expensive. Reduce **Spatial Sampling**
-   only when denser estimation materially improves coverage or consistency.
-6. Verify the full-frame preview, mask state, target, and Channel before selecting
-   **Apply**. For a sequence, monitor frame progress; Cancel preserves the
-   original and removes temporary output.
+1. **Open the window.** Make the linear master the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Noise Reduction > Patch PCA Denoise Filter**. The preview shows a framed
+   [preview area](../../reference/glossary.md#preview-area) in the middle of the image, denoised once its run ends,
+   and **Apply** is enabled at once.
+2. **Choose what to denoise.** Leave **Channel** at **RGB**, or choose **CIE L* (Lightness)** when colors shift around
+   weak detail.
+3. **Place the preview area.** Move it over background, faint stars and an edge, and keep it small.
+4. **Set the strength.** Raise **Strength** while the grain falls. Lower it when faint stars vanish or the background
+   turns blotchy.
+5. **Choose the patches.** Change **Patch Size** or **Lookup Size** one at a time. Smaller values run much faster.
+6. **Keep the sampling dense enough.** Keep **Spatial Sampling** at or below **Patch Size** plus **Lookup Size**
+   minus 1.
+7. **Check at 100 %.** Zoom the preview to 100 %, hold ++space++ to compare, and look at each channel with
+   **View Channel**.
+8. **Apply.** Choose **Apply**. A progress window with a busy bar follows the run, the view shows the denoised image,
+   and its history lists **Patch PCA Denoise** with the four values.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Strength | Double value plus slider, dimensionless noise multiplier | `4.00` | Builder starts at `1.80`, but the live process constructor immediately sets `4.00`; G'MIC omitted-argument default `1.8` is never used | `0.00..16.00`; two decimals; spin step `0.01`; slider has 1000 positions across the range | Sets the cutoff `Strength × estimated noise`; higher values retain fewer leading PCA components, while `0` retains all returned components | Always enabled while idle; noise is estimated automatically and is not exposed | Higher values smooth more and can erase faint structure; the slider resolves about `0.016`, coarser than the spin step | Preview/Apply; selected channel/component; still/sequence; before mask | Captured per execution; Reset and successful Apply return `4.00` |
-| Patch Size | Integer value plus slider, pixels per side | `7` | None | `2..21`, step `1`; even sizes use asymmetric left/right extents | Sets each `N×N` patch and PCA dimension `N²`; larger patches model broader structure | Always enabled while idle; no validation against image dimensions | Covariance storage/work grows with `N⁴` and eigendecomposition approximately with `N⁶`; large values can mix detail and become extremely slow | Preview/Apply; selected channel/component; still/sequence | Captured per execution; Reset and successful Apply return `7` |
-| Lookup Size | Integer value plus slider, patch positions per side | `11` | Builder starts at `8`, but the live process constructor immediately sets `11` | `2..21`, step `1`; all `L²` offsets are used, including the reference region | Expands or contracts the local window used to build the matrix and reconstruct neighboring patches; it does **not** select only similar patches | Always enabled while idle; no distance threshold or group-size control | Work grows approximately with `L²`; larger windows mix less-local structure and increase aggregate writes | Preview/Apply; selected channel/component; still/sequence | Captured per execution; Reset and successful Apply return `11` |
-| Spatial Sampling | Integer value plus slider, reference-center stride in x and y | `7` | G'MIC omitted-argument default is `5`, but AfterNight explicitly supplies `7` | `1..16`, step `1`; a center runs only where both coordinates are divisible by this value | Higher values skip more centers and run faster; lower values produce denser estimates | Always enabled while idle; not automatically limited by Patch/Lookup Size | Approximate center count falls as `1/S²`; overly sparse support can produce uneven weights or uncovered black pixels, especially when `S > Patch Size + Lookup Size - 1` or at the far image edges | Preview/Apply; selected channel/component; still/sequence | Captured per execution; Reset and successful Apply return `7` |
-| Target Image | Image selector | Attached/active target | None | Open eligible image or sequence | Changes source, Channel list, Preview, active mask, and Apply destination | Active image required; duplicate/exclusive gates apply | Wrong target is destructively replaced after success | Preview/Apply source and active mask | Target lifecycle; Reset does not change it |
-| Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | RGB sends all stored channels to G'MIC, which filters each channel independently with one shared noise threshold; a stored/component choice filters one plane and reconstructs/copies the others | Component choices require RGB; mono selector disabled | Independent RGB decisions can change color around weak detail; component conversions add buffers and may clip or shift color | Preview/Apply; active mask post-blend; still/sequence | Captured by current selection; Reset does not restore RGB |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables asynchronous full-image or selected-area execution | Process idle | Runs the complete G'MIC filter; repeated large-patch previews can be very expensive | Preview only; mask-aware; current still/current displayed sequence frame | Window lifetime; Reset does not change it |
-| Preview pane | Image viewer | Current result | None | Pan with scroll bars/dragging; toolbar actions below | Shows the mask-aware result without modifying the target | Exists only with Preview | Holds source/result and display buffers in addition to G'MIC workspaces | Preview only | Window lifetime |
-| Fit To Window | Preview-toolbar action | Preview fitted when first displayed | None | Click or **Ctrl+Shift+F** | Fits the whole image uniformly in the viewport | Preview image required | Good overview; resampling can hide sparse-grid or patch artifacts | Preview display only | Viewer lifetime |
-| Zoom In | Preview-toolbar action | Current scale | None | Click; `1.25×` relative zoom within viewer limits | Enlarges around viewport center | Preview image required | Improves local inspection; more panning | Preview display only | Viewer lifetime |
-| Zoom Out | Preview-toolbar action | Current scale | None | Click; `0.8×` relative zoom within viewer limits | Reduces around viewport center | Preview image required | More context, less fine detail | Preview display only | Viewer lifetime |
-| Zoom 100% | Preview-toolbar action | Current scale | None | Click; absolute scale `1.0` | Shows the viewer's one-pixel scale | Preview image required | Preferred for judging residual noise, black gaps, patch texture, and stars | Preview display only | Viewer lifetime |
-| View Channel | Preview-toolbar combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE a*=R / b*=G (Chrominance)**, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **HSI Hue**, **HSI Saturation**, **HSI Intensity**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | Selects only the displayed stored/derived component | Separate from process Channel; RGB target required for components | Can reveal channel artifacts without changing pixels | Preview display only | Viewer lifetime; not in process history |
-| Display Mode | Preview-toolbar combo box | Inherits target **Linear** or **Autostretch** when preview is created | None | **Linear**, **Autostretch** | Changes display only; Autostretch uses cached full-target source statistics | Autostretch enables settings action | Aggressive display stretch can exaggerate residual noise/artifacts | Preview display only | Preview-view state; not in process history |
-| Autostretch Settings | Preview-toolbar dialog action | Disabled in Linear mode; inherits target-view settings | Shared-view values load when opened | Opens Target Background, Shadows Clipping, linked channels, neutralization/color calibration, saturation/background, brightness, contrast, banner, Reset, and Close; **Apply Stretch** is hidden | Tunes preview display only | Autostretch mode only; disabled while dialog open | Can change visual judgment without changing denoise | Preview display only | Viewer-scoped; not in Patch PCA parameters |
-| Switch image | Preview-toolbar action | Denoised preview shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles result/original | Preview required | Comparison only; no recomputation | Preview display; still/current frame | Preview-window lifetime |
-| Preview area | Preview-toolbar checkbox | Unchecked | None | Checked/unchecked; move/resize overlay | Processes a selected area and composites it over the original preview | Preview required | Safest way to reduce tuning cost; full Apply remains full-frame | Preview and Take snapshot; mask cropped consistently | Preview-window lifetime; Reset unchanged |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes settings and opens `<target> - Patch PCA Denoise - SNAPSHOT` | Preview required | Adds a complete execution and auxiliary image; display stretch is not baked in | New still; target unchanged; area/mask honored | Each action creates a separate image view |
-| Apply | Button/action | Enabled | None | One action | Captures four parameters and selected Channel, then processes the full still or every sequence frame | Target must lock; controls disabled during commit | Full-frame local matrices and eigensolves dominate; component conversion, mask, sequence encode, and temporary storage add cost | Destructive still/sequence replacement after success | Records partial history, then calls Reset; Target, Channel, Preview, and preview toolbar remain |
-| Reset | Button/action | Enabled while idle | None | One action | Restores Strength `4`, Patch Size `7`, Lookup Size `11`, and Spatial Sampling `7` | Does not reset Target, Channel, Preview, mask, or preview toolbar | Checked Preview schedules another full execution | Configuration only | Immediate; also invoked after successful Apply |
-| Close | Button/action | Enabled while idle | None | One action | Closes without applying current settings | Disabled during Apply | Active preview cancellation is requested and reaches the running command through G'MIC's abort flag; pending result discarded | Window/execution | No process settings persist after destruction |
-| Sequence progress / Cancel | Shared per-process/frame progress and Cancel | Created for sequence Apply | None | Cooperative Cancel through G'MIC's abort flag and between frames; frame/task text updates during temporary processing; G'MIC reports no progress within a frame | Sequence target only | Decode/encode, temporary disk, and serial per-frame Patch PCA work add cost | Sequence Apply; captured parameters, Channel, and mask apply to every frame | Cancel removes temporary output; success replaces sequence, records one history step, and resets parameters |
+**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
+[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
 
-## How the algorithm works
-
-### Float bridge and automatic noise estimate
-
-AfterNight runs the command through its G'MIC adapter, one G'MIC session per
-run, and hands G'MIC 3.5.4 the planar samples as single-precision fractions of
-full scale: a tightly packed float image in place, anything else - integer or
-double input, or padded rows - as a working copy. Before the call it checks that
-every sample is finite and refuses the image otherwise. The command's answer is
-held to `[0,1]` and converted back to the image's type, rounded to nearest and
-held to the type's range. The command estimates one noise scale before
-processing channels:
-
-\[
-\hat\sigma=\frac{1.4826}{\sqrt{20}}
-\operatorname{median}\left(
-  \left|\Delta I-\operatorname{median}(\Delta I)\right|
-\right),
-\]
-
-where `ΔI` is G'MIC's 2-D Laplacian. For an RGB image the image statistics cover
-all stored channel samples, so the same scalar threshold is used while each
-channel is filtered independently. The process exposes no manual noise value.
-Real edges and undersampled stars can influence this robust estimate.
-
-### Lookup neighborhood and PCA cutoff
-
-Let Patch Size be `N`, Lookup Size be `L`, Spatial Sampling be `S`, and
-`d=N²`. A reference center is evaluated only when both `x mod S` and `y mod S`
-are zero. Its reference patch is the vector `X`. For every one of the `L²`
-lookup offsets, the neighboring patch `Y_i` contributes
-
-\[
-M=\frac{1}{L^2}\sum_{i=1}^{L^2}(Y_i-X)(Y_i-X)^T.
-\]
-
-This is an uncentered second-moment matrix relative to `X`, not a conventional
-mean-centered covariance and not a similarity-selected patch group. The code
-eigendecomposes `M`, takes `lambda_j=sqrt(abs(mu_j))`, and retains the leading
-returned components while
-
-\[
-\lambda_j \ge \text{Strength}\,\hat\sigma.
-\]
-
-All remaining coefficients are set exactly to zero. Each lookup patch is
-reconstructed as
-
-\[
-\hat Y_i=X+QKQ^T(Y_i-X),
-\]
-
-where `K` is one for retained components and zero otherwise. Strength `0` keeps
-every returned component, but the float bridge, overlap arithmetic, output
-clamp, and type conversion can still change pixels.
-
-### Aggregation, color, and boundaries
-
-Every reconstructed lookup patch is drawn into a full-frame accumulation image
-through a Gaussian patch mask. A separate weight image receives the same mask;
-the final output divides accumulated samples by `max(weight,0.01)`. Patch reads
-outside the image use Neumann/replicated boundaries, while writes outside the
-image are clipped.
-
-For RGB, the G'MIC formula runs in parallel over pixels and channels. It builds a
-separate `N² × N²` matrix and cutoff reconstruction for each channel; there is
-no joint color covariance. A shared noise threshold does not prevent different
-components being retained in R, G, and B, so weak colored structure can shift.
-A selected CIE/HSL/HSV/YCbCr component is converted, filtered as one plane, and
-reconstructed through the shared Channel path. A derived component's
-reconstruction saturates an integer image at its type's range and keeps a
-floating image's values outside `[0, 1]`.
-
-The weight floor does not restore source pixels. If reference centers and their
-lookup patches do not cover a location, its accumulated value remains zero and
-the output can be black there. Interior support from one center spans
-`Patch Size + Lookup Size - 1` pixels per axis; therefore Spatial Sampling above
-that span guarantees interior gaps, and right/bottom edge remainders can be
-uncovered sooner. The live `7/11/7` geometry covers the ordinary interior, but
-extreme allowed combinations require a full-frame check.
-
-## Parameter interactions and starting points
-
-- **Strength × estimated noise** is the only shrinkage threshold. A noisy or
-  edge-dominated estimate changes every local cutoff.
-- **Patch Size** changes both spatial support and matrix dimension. Going from
-  `7` to `14` doubles patch width but makes the dense matrix 16 times larger and
-  raises cubic eigensolver work by roughly 64 times before lookup work.
-- **Lookup Size** does not make a similarity search more selective. Increasing
-  it includes every additional local offset and can blend unrelated features.
-- **Spatial Sampling** is a two-axis stride. Moving from `7` to `1` can create
-  about 49 times as many reference centers away from boundaries.
-- **Patch/Lookup/Sampling coverage** must be checked together. Fast sparse
-  settings can trade consistent overlap for grid texture or zero-weight gaps.
-- **Channel** changes the data model. RGB is three independent filters with one
-  shared noise estimate; a derived component adds conversion/reconstruction and
-  may affect color even though only one component was selected.
-
-## Inputs, outputs, and metadata
-
-- Output dimensions and source pixel type are retained. G'MIC works in float32,
-  final samples are clamped to `[0,1]`, and integer output is rounded.
-- The result keeps the source image's header cards and metadata.
-- The process does not update linear/nonlinear processing-state provenance. Do
-  not infer state only from the fact that denoising was applied.
-- Still Image History records Strength, Patch Size, Lookup Size, Spatial
-  Sampling, and, for a colour image, ` in channel: <channel>`.
-- A still CFA mosaic is treated as one stored sample plane unless debayered
-  first. For a sequence, shared preprocessing may auto-debayer configured CFA
-  frames and the replacement sequence can therefore be RGB.
-- Sequence frames use one captured parameter set, are processed to temporary
-  storage, and replace the original sequence only after success. Cancel/error
-  removes the temporary output.
-- **Take snapshot** creates a still from the current preview scope. It does not
-  change the target or bake the preview's display autostretch into pixel values.
-
-## Performance
-
-For image width `W`, height `H`, channels `C`, patch side `N`, lookup side `L`,
-and sampling stride `S`, the approximate number of reference centers is
-`WH/S²` per channel. At each center the dominant work is about
-`O(L²N⁴ + N⁶)`: `L²` outer products and projections of `N²`-element vectors,
-plus a dense eigendecomposition of the `N² × N²` matrix. These are scaling
-guides, not measured timings. G'MIC's `*` formula evaluates in parallel, so CPU
-core count and memory bandwidth also matter.
-
-G'MIC holds the float input/result, a full-frame per-channel aggregation image,
-a full-frame weight image, and per-thread patch, matrix, eigensystem, and
-projection vectors. AfterNight also holds destination, preview, component, and
-mask buffers as needed. Sequence mode adds decode/encode buffers and temporary
-disk roughly comparable to an output sequence. No approved astronomical image
-was timed and peak memory was not instrumented; use a Preview area and
-avoid changing multiple size parameters upward together.
-
-## Worked example
-
-These source-and-calculator examples explain thresholds and scaling. They were
-not executed on an approved astronomical dataset and make no quality claim.
-
-Suppose the Laplacian estimator returns `sigma=0.020`. At live Strength `4`, the
-component cutoff is
-
-```text
-cutoff = 4 × 0.020 = 0.080
+```controls
+window: Patch PCA Denoise
+controls:
+  - name: Strength
+    kind: spinbox
+    default: "4.00"
+    widget: {min: 0, max: 16, step: 0.01, decimals: 2}
+    effect: Sets the cutoff as a multiple of the noise the command measures. In each local model, the components weaker than **Strength** times the noise are dropped. Higher drops more and smooths more. At 0 every component is kept.
+    range: The slider moves it in 1,000 steps of 0.016. G'MIC's own default for the command is 1.8, and the window always sends its own value.
+    enabled: Disabled while Apply runs.
+    tradeoff: The cutoff is hard, so a high value removes faint stars, thin filaments and texture of low contrast at once, and leaves flat or blotchy areas. It costs no more time.
+    scope: The preview and Apply, on what **Channel** selects, before the mask. The noise is measured once for the whole image or preview area, over all its channels, and is shown nowhere. Real edges and small, sharp stars can raise it.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 4.00.
+  - name: Patch Size
+    kind: spinbox
+    default: "7"
+    widget: {min: 2, max: 21, step: 1}
+    effect: Sets the side, in pixels, of the square patches the model is built on. Larger patches model broader structure, and smaller ones stay closer to the pixel.
+    range: An even size reaches one pixel further on one side than on the other. The size is not checked against the size of the image.
+    enabled: Disabled while Apply runs.
+    tradeoff: A patch of side N is a vector of N² samples, so its model is a matrix of N⁴ values whose eigenvectors cost about N⁶ operations. From 7 to 14 the matrix grows 16 times and that work about 64 times. Large patches also mix unrelated detail.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 7.
+  - name: Lookup Size
+    kind: spinbox
+    default: "11"
+    widget: {min: 2, max: 21, step: 1}
+    effect: Sets the side, in patch positions, of the window around each reference position. Every position of the window enters the model and is rebuilt from it. Larger takes a wider surrounding into each model.
+    range: Every position counts, the reference's own included, alike or not. Its tooltip speaks of similar patches, but the command ranks and rejects none, and has no distance threshold and no group size.
+    enabled: Disabled while Apply runs.
+    tradeoff: The work grows with the square of the value, and so does the number of rebuilt patches added into the image. A large window mixes unrelated structure into one model.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 11.
+  - name: Spatial Sampling
+    kind: spinbox
+    default: "7"
+    widget: {min: 1, max: 16, step: 1}
+    effect: Sets the step, in pixels along both axes, between the reference positions. A model is built only where both coordinates are multiples of it. Higher skips more positions and runs faster. Lower makes the estimates denser.
+    range: G'MIC's own default is 5, and the window always sends its own value. Nothing holds it at or below **Patch Size** plus **Lookup Size** minus 1.
+    enabled: Disabled while Apply runs.
+    tradeoff: The number of positions falls with the square of the value, so from 7 to 1 it grows about 49 times. Above **Patch Size** plus **Lookup Size** minus 1, pixels between positions are rebuilt by no patch and come out black, and a sparse grid can leave uneven texture. The right and bottom edges can be left uncovered sooner.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 7.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses what is denoised. **RGB** hands the command the three channels, and each is modelled on its own, with one noise level for all three. **Red**, **Green** or **Blue** denoises that channel and keeps the other two. Every other choice denoises one component and converts the image back.
+    enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
+    tradeoff: With **RGB** there is no joint color model, and each channel can keep a different number of components around weak detail, which can shift its color. A component costs two conversions and a working copy, and colors the conversion back puts out of range are cut in an integer image and kept in a floating-point one.
+    scope: The preview and Apply, before the mask. Process Windows describes each component.
+    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the denoised image beside the controls, with the mask blended in.
+    range: >-
+      The pane opens with a **Preview area** of 350 by 350 pixels in the middle of the image, labelled "Preview: Patch
+      PCA Denoise Filter", or the whole image when it is smaller. At the window's default size, **Preview area** and
+      **Take snapshot** are in the menu at the end of the pane's toolbar.
+    enabled: >-
+      In a build without G'MIC it stays off and disabled, and its tooltip reads "This build of AfterNight carries no
+      G'MIC library, so this process cannot run."
+    tradeoff: Every change runs the whole command again, on one processor thread, so without the area each change on a large image can take a very long time. An Autostretch display can exaggerate leftover noise.
+    scope: The window only. The area is denoised as an image of its own, with its own noise level, and near its edges the command repeats the area's edge pixels. Judge at **Zoom 100%**, since a fitted view hides black gaps, grid texture and lost stars. The pane offers **Display Mode**.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns the four values to their defaults.
+    range: It leaves **Channel**, the target, **Preview** and the preview area as they are.
+    enabled: Disabled while Apply runs.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Denoises the whole image, or every frame of the sequence, with the four values and **Channel** as they are when you press it, then returns the four values to their defaults.
+    enabled: From the moment the window opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
+    tradeoff: A single image shows a progress window too, with a busy bar, because the command reports no share done, and **Cancel**. A sequence's frames run one after another. A tightly packed floating-point image goes to G'MIC as it is, any other as a single-precision working copy, and the command adds an image the rebuilt patches are added into and an image of their weights. A component, a mask and a sequence add work and memory.
+    persistence: >-
+      The history step is **Patch PCA Denoise** and reads, for example, `Strength: 4.00, Patch Size: 5, Lookup Size: 7,
+      Spatial Sampling: 7 in channel: RGB`. For a grayscale image it ends after the sampling. The header and the
+      recorded processing state are kept.
 ```
 
-If the leading returned component standard deviations are `0.120`, `0.070`,
-and `0.030`, only the first remains. Strength `2` lowers the cutoff to `0.040`
-and retains the first two; Strength `0` retains all returned components.
+## How it works
 
-For default geometry, the matrix dimension is `7²=49`, it contains `49²=2401`
-values, and each sampled center examines `11²=121` lookup patches. Changing only
-Patch Size to `14` makes the dimension `196` and matrix contain `38,416` values.
-Changing only Spatial Sampling from `7` to `1` can make reference centers about
-49 times denser. These ratios omit parallel overhead, boundaries, previews, and
-I/O.
+1. The samples **Channel** selects are checked, and an image that holds a sample that is not a finite number is
+   refused. The others go to G'MIC in one session for the run, as single-precision
+   [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale), with the command `denoise_patchpca`
+   and the four values.
+2. The command measures one noise level for the whole image from its second differences, over every channel at once.
+3. At each reference position and in each channel, it compares the patch there with every patch of the window, finds
+   the principal components of their differences, keeps the leading ones above the cutoff, and rebuilds every patch
+   of the window from them.
+4. The rebuilt patches are added up with Gaussian weights and divided by the sum of the weights. The result is held
+   between 0 and 1 and written back in the image's own pixel type, rounded to the nearest value.
+5. A mask on the view blends the result with the original. The image replaces the target, its history gets one step,
+   and its header and recorded [processing state](../../reference/glossary.md#processing-state) are kept.
 
-## Warnings and limitations
+### Model
 
-- The UI builder's starting values `1.8/7/8/7` are not the live process's: the
-  constructor, Reset, and post-Apply values are `4/7/11/7`.
-- Lookup Size is labeled as a similar-patch search window, but the bundled
-  command uses every one of its `L²` positions; it performs no distance ranking
-  or rejection.
-- Shrinkage is a hard cutoff. Strong values can remove faint stars, thin
-  filaments, and low-contrast texture abruptly or create flat/patchy regions.
-- RGB channels are filtered independently with one shared estimated noise value.
-  Weak color detail can shift, and derived-component round trips can alter
-  color and, in an integer image, clip at its type's range (a floating image
-  keeps values outside `[0, 1]`).
-- Spatial Sampling can create grid inconsistency or black zero-weight gaps for
-  sparse parameter combinations and far edges. Always inspect a full-frame
-  result at 100% after tuning on an area.
-- Even patch and lookup sizes have asymmetric integer extents. Oversized windows
-  are accepted even when larger than the image and rely on replicated boundary
-  samples.
-- Float/double values outside `[0,1]` are clamped on output; double input is
-  processed at float32 precision; integer output is requantized.
-- An image holding a NaN or infinite sample is refused by name and left
-  unchanged; repair or crop non-finite samples first.
-- Without G'MIC in the build, the process cannot run: Preview and Apply stay
-  disabled.
-- The Windows and Linux builds give slightly different results for the same
-  image and settings: G'MIC's script weighs its patches with the platform's own
-  mathematical library, and a last-bit difference there can change how many
-  components a patch keeps. Each build gives the same result every time; do not
-  compare a Windows result with a Linux one sample by sample.
-- Apply automatically resets all four algorithm parameters after success. Target,
-  Channel, Preview, mask, and preview-toolbar state remain.
-- Cancellation is cooperative through G'MIC's abort flag. A costly internal
-  matrix/eigen operation may delay the visible response; sequence Cancel is also
-  checked between frames.
+With \(\Delta I\) the Laplacian of the image, the sum of its second differences along the two axes, the noise level
+over every sample of every channel is
 
-## Troubleshooting
+\[ \hat\sigma = \frac{1.4826}{\sqrt{20}}\,\operatorname{median}\bigl|\Delta I - \operatorname{median}\Delta I\bigr| \tag{1} \]
 
-| Symptom | Cause | Fix |
+With \(N\) the value of **Patch Size**, \(L\) that of **Lookup Size**, \(X\) the patch at a reference position as a
+vector of \(N^2\) samples, and \(Y_i\) the \(L^2\) patches of its window, the model is the matrix
+
+\[ M = \frac{1}{L^2}\sum_{i=1}^{L^2} (Y_i - X)(Y_i - X)^{\mathsf T} \tag{2} \]
+
+It is taken around \(X\), not around the mean of the patches, and no patch is left out. With \(\mu_j\) its
+eigenvalues, from the largest, and \(t\) the value of **Strength**, the command keeps the leading components while
+
+\[ \sqrt{|\mu_j|} \ge t\,\hat\sigma \tag{3} \]
+
+With \(Q\) the eigenvectors and \(K\) the diagonal matrix of ones for the kept components and zeros for the others,
+each patch of the window is rebuilt as
+
+\[ \hat Y_i = X + Q K Q^{\mathsf T}(Y_i - X) \tag{4} \]
+
+With \(w\) the Gaussian weight of a pixel inside its patch, whose standard deviation is half of **Patch Size**,
+rounded down, a pixel's value over every rebuilt patch that covers it is
+
+\[ \hat I = \frac{\sum w\,\hat Y}{\max\bigl(\sum w,\ 0.01\bigr)} \tag{5} \]
+
+With \(S\) the value of **Spatial Sampling**, \(W\) and \(H\) the image's width and height, there are about
+\(WH/S^2\) reference positions in each channel, and the work grows as
+
+\[ \frac{WH}{S^2}\bigl(L^2 N^4 + N^6\bigr) \tag{6} \]
+
+the first term for building and using the model, the second for its eigenvectors. One position reaches
+\(N + L - 1\) pixels along each axis, so a larger \(S\) leaves pixels that no patch covers, which equation (5) makes 0.
+
+### Boundaries
+
+- An image that holds a sample that is not a finite number is refused with "the image holds a sample that is not a
+  finite number, which G'MIC cannot process", and left unchanged.
+- The result is held between 0 and 1, also in a floating-point image and at a **Strength** of 0. A 64-bit image is
+  narrowed to single precision, and an integer image is rounded once to the nearest code. At a **Strength** of 0 the
+  averaging, the hold and the rounding still change some samples.
+- Beyond the edge, a patch repeats the edge pixel, and what a rebuilt patch puts outside the image is dropped. A patch
+  or a window larger than the image is accepted and rests on repeated edge pixels.
+- The command runs on one processor thread. **Cancel**, or closing the window, is noticed at G'MIC's next check,
+  which the matrix work of a large patch delays, and on a sequence between frames. A stopped run writes nothing.
+- The Windows and Linux builds can differ slightly: the command weighs its patches with each system's mathematics
+  library, and a last-bit difference can change how many components a patch keeps. Each build repeats its own result.
+
+### Worked example
+
+The pair below is made on a crop of 1,100 by 820 pixels from the middle of the linear master, whose noise from one
+pixel to the next is about 0.0003 in red, 0.001 in green and 0.0007 in blue. **Channel** is at **RGB**, **Strength**
+at 4.00, **Patch Size** at 5, **Lookup Size** at 7 and **Spatial Sampling** at 7. If equation (1), which pools the
+channels, measures 0.0007, equation (3) sets the cutoff at \(4 \times 0.0007 = 0.0028\). Of three components whose
+spreads are 0.010, 0.004 and 0.002, the first two are kept and the third is set to zero, and a **Strength** of 2 would
+keep all three.
+
+Each patch is 25 samples, and its model a matrix of 625 values built from 49 patches. By equation (6), a position
+costs \(49 \times 625 + 15{,}625 = 46{,}250\), against 408,170 at the defaults: about a ninth. Since
+\(5 + 7 - 1 = 11\) is above 7, every pixel is covered. In the result, the brighter stars sit in small square halos
+with colored rims. The crop and the result are then stretched by
+[Histogram Transformation](../stretching/histogram-transformation.md) with **Shadows** and **Midtones** at 0.02, and
+shown in Linear.
+
+```figure
+images:
+  - image: ../../assets/images/processes/noise-reduction/noise-crop-before.webp
+    alt: >-
+      A crop at 100 % of the middle of the master, stretched: pink clouds of nebula beside a dark dust lane, many small
+      stars, and a fine colored grain over the background.
+    label: Before
+  - image: ../../assets/images/processes/noise-reduction/patch-pca-denoise-after.webp
+    alt: >-
+      The same crop denoised before the same stretch: the grain of the background smoothed, and the brighter stars each
+      inside a small square halo with colored rims.
+    label: After
+caption: >-
+  The middle of the master at 100 %, without and with Patch PCA Denoise at Strength 4.00, Patch Size 5, Lookup Size 7
+  and Spatial Sampling 7, both then stretched by Histogram Transformation with Shadows and Midtones at 0.02 and shown
+  in the Linear display mode.
+```
+
+## Starting points
+
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Dialog starts at `4/7/11/7`, not `1.8/7/8/7` | Live constructor overwrites builder values | Use the live values; Reset returns them too |
-| Large black spots or a grid appear | Spatial Sampling leaves zero-weight pixels | Reduce Spatial Sampling; enlarge support carefully; inspect the full frame at 100% |
-| Fine stars disappear abruptly | Strength threshold retains too few PCA components | Lower Strength and compare under the same stretch |
-| Increasing Lookup Size changes structure rather than finding better matches | Every lookup position is included | Reduce Lookup Size around mixed structures; it is not a similarity-ranked group |
-| Runtime jumps after a modest Patch Size change | Matrix dimension is Patch Size squared and eigensolve is dense | Return toward `7`; tune on Preview area |
-| Colors shift | Per-channel PCA decisions or a component conversion round trip | Compare RGB and a deliberate luminance component on a duplicate; inspect View Channel |
-| Negative highlights or values above one are clipped | The G'MIC result is held to `[0,1]` | Normalize a working copy before denoising |
-| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged |
-| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another denoiser |
-| Preview differs from Apply | Preview area, mask, target/channel, or display stretch changed | Match all controls and use one Display Mode; Apply always processes the full target |
-| Cancel appears delayed | G'MIC has not reached an abort check inside costly work | Wait for the current operation; use smaller patches/lookup or a smaller Preview area next time |
+| A linear master, first look | The defaults, on the preview area | **Strength** first, then **Patch Size** or **Lookup Size**, one at a time. |
+| A large master that must finish in reasonable time | **Patch Size** at 5, **Lookup Size** at 7, **Spatial Sampling** at 7 | Compare with the defaults on the preview area before you apply. |
+| Faint stars or filaments vanish | A lower **Strength** | Compare with ++space++ under one display mode. |
+| Colors shift around weak detail | **CIE L* (Lightness)** in **Channel**, on a duplicate | Compare the channels with **View Channel**. |
+
+## When it goes wrong
+
+!!! danger "Samples outside 0 to 1 are cut"
+    The command's result is held between 0 and 1, also in a floating-point image and at a **Strength** of 0.
+    Negative samples and star cores above 1 are lost. Bring the image between 0 and 1 before you denoise it.
+
+!!! warning "A whole-image run can take very long"
+    The command works on one processor thread, and its cost grows with the square of **Lookup Size** and faster
+    still with **Patch Size**: a small change of **Patch Size** can multiply the time. Tune on the preview area, use
+    smaller patches on a large master, and do not raise several sizes at once.
+
+Black dots, black lines or a grid appear
+:   **Cause.** **Spatial Sampling** leaves pixels that no rebuilt patch covers, between positions or at the right and
+    bottom edges.
+:   **Fix.** Lower **Spatial Sampling** to **Patch Size** plus **Lookup Size** minus 1 or less, and check the whole
+    image at 100 %.
+
+Faint stars or thin filaments disappear abruptly
+:   **Cause.** Their components fell below the hard cutoff **Strength** sets.
+:   **Fix.** Lower **Strength**, and compare under one display mode.
+
+A larger **Lookup Size** changes the structure instead of matching it better
+:   **Cause.** Every position of the window counts, alike or not.
+:   **Fix.** Lower **Lookup Size** where unrelated structures meet.
+
+Colors shift
+:   **Cause.** Each channel keeps its own components, or a component was converted back.
+:   **Fix.** Choose **CIE L* (Lightness)** on a duplicate, and compare the channels with **View Channel**.
+
+"the image holds a sample that is not a finite number, which G'MIC cannot process"
+:   **Cause.** The image holds a sample that is not a number or is infinite, such as the empty border of a registered
+    frame. Nothing was written.
+:   **Fix.** Repair or crop away those samples, and apply again.
+
+**Preview** and **Apply** are disabled, and their tooltip names G'MIC
+:   **Cause.** This build of AfterNight was made without G'MIC.
+:   **Fix.** Use a build that includes G'MIC, or another denoiser of this group.
+
+The applied image differs from the preview
+:   **Cause.** The preview area is denoised alone, with its own noise level and its own edges, or the mask, the target
+    or the channel changed.
+:   **Fix.** Judge the area away from its edges, keep the mask, target and channel, and check the result at 100 %
+    after Apply.
+
+## Related
+
+- [NL-Bayes](nl-bayes.md), which groups only the patches that look alike and estimates them in two passes.
+- [Wavelet Denoise](wavelet-denoise.md) and [Total Variation Denoise](total-variation-denoise.md), which work scale by
+  scale or by smoothing gradients.
+- [Histogram Transformation](../stretching/histogram-transformation.md), the stretch that follows.
+- [Image Viewer](../../interface/image-viewer.md), for the zoom, **View Channel** and the
+  [Autostretch](../../reference/glossary.md#autostretch) display.
+- [Masks](../../interface/masks.md) and [Image History](../../interface/image-history.md), to protect a region and to
+  undo the step.
+- [Process Windows](../../interface/process-windows.md), for the preview and what every process window shares.
 
 ## Credits
 
-- [G'MIC `denoise_patchpca` reference](https://www.gmic.eu/reference/denoise_patchpca.html)
-  lists the command's four arguments and upstream omitted-argument defaults.
-  AfterNight bundles G'MIC 3.5.4 and supplies all four arguments itself.
-- [G'MIC mathematical expressions](https://gmic.eu/reference/mathematical_expressions.html)
-  defines image median `ic`, matrix `eig()`, and the parallel `*` evaluation used
-  by the bundled command.
-- [G'MIC PCA reference](https://gmic.eu/reference/pca.html) describes the general
-  eigenvector projection/reconstruction convention. Patch PCA Denoise uses its
-  own local hard-cutoff implementation rather than invoking that command.
-- [G'MIC project and JOSS citation](https://github.com/GreycLab/gmic) identifies
-  the upstream framework, authorship, and primary project publication.
-
-## Related workflow steps
-
-- [NL-Bayes](nl-bayes.md) uses similarity-ranked patch groups and two Bayesian
-  stages when a more explicitly non-local model is appropriate.
-- [Wavelet Denoise](wavelet-denoise.md) exposes direct scale-by-scale control
-  without a dense local eigensolve.
-- [Total Variation Denoise](total-variation-denoise.md) uses iterative gradient
-  regularization and has different edge/staircasing trade-offs.
-- [Process Windows](../../interface/process-windows.md), [Image Viewer](../../interface/image-viewer.md),
-  [Masks](../../interface/masks.md), and [Image History](../../interface/image-history.md)
-  explain the shared controls and verification workflow.
+- [G'MIC](https://gmic.eu) 3.5.4 and its CImg library, by David Tschumperlé and the G'MIC contributors at GREYC,
+  under the CeCILL 2.1 or the CeCILL-C licence, at your choice. AfterNight runs its `denoise_patchpca` command
+  unchanged, and G'MIC computes the result. G'MIC's own filter that runs the command names David Tschumperlé and
+  Jérôme Boulanger as its authors.
+- [G'MIC `denoise_patchpca`](https://gmic.eu/reference/denoise_patchpca.html), for the command's four arguments and
+  its own defaults of 1.8, 7, 11 and 5. AfterNight passes all four values itself.
+- [G'MIC `std_noise`](https://gmic.eu/reference/std_noise.html), for the noise level of equation (1).
+- [G'MIC mathematical expressions](https://gmic.eu/reference/mathematical_expressions.html), for the image median and
+  the eigen decomposition the command uses.
+- [G'MIC `pca`](https://gmic.eu/reference/pca.html), for the projection on eigenvectors and the rebuilding from them.
+  The command does its own local projection with a hard cutoff, and does not call `pca`.
+- [G'MIC on GitHub](https://github.com/GreycLab/gmic), for the project, its authors and the publication it asks to be
+  cited.
