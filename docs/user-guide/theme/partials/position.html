@@ -1,0 +1,59 @@
+{#- "Where it belongs", on a process page: the stage before, the page's own and the stage after, each leading to its
+    lane of the catalog, then the bar that shows where along the pipeline the image turns nonlinear, with what the
+    page states of the image it takes and leaves. A page of "Any time" has no neighbours: its one card says so. -#}
+{%- set pos = gp.position %}
+{%- set catalog = 'processes/index.html' %}
+<section class="where" aria-labelledby="where-it-belongs">
+  <h2 id="where-it-belongs">Where it belongs</h2>
+  <div class="pos{% if not gp.stage.number %} pos-any{% endif %}" style="--s:var(--s{{ gp.stage.index }})">
+    {%- if gp.stage.number %}
+    {%- if pos.before %}
+    <div style="--s:var(--s{{ pos.before.index }})">
+      <p class="k">Comes after</p>
+      <p class="n"><i aria-hidden="true">{{ pos.before.number }}</i><a href="{{ (catalog ~ '#stage-' ~ pos.before.id)|url }}">{{ pos.before.name|e }}</a></p>
+      {%- if pos.before.sample %}
+      <p>{{ pos.before.sample|join(', ')|e }}</p>
+      {%- endif %}
+    </div>
+    {%- else %}
+    <div class="edge">
+      <p class="k">Comes after</p>
+      <p class="n">The frames as recorded</p>
+      <p>The pipeline starts with this stage.</p>
+    </div>
+    {%- endif %}
+    {%- endif %}
+    <div class="here">
+      <p class="k">This stage</p>
+      <p class="n"><i aria-hidden="true">{{ gp.stage.number if gp.stage.number else '+' }}</i><a href="{{ (catalog ~ '#stage-' ~ gp.stage.id)|url }}">{{ gp.stage.name|e }}</a></p>
+      <p>{{ gp.stage.description|e }}{% if not gp.stage.number %} It belongs to no one stage: use it wherever the image needs it.{% endif %}</p>
+    </div>
+    {%- if gp.stage.number %}
+    {%- if pos.after %}
+    <div style="--s:var(--s{{ pos.after.index }})">
+      <p class="k">Comes before</p>
+      <p class="n"><i aria-hidden="true">{{ pos.after.number }}</i><a href="{{ (catalog ~ '#stage-' ~ pos.after.id)|url }}">{{ pos.after.name|e }}</a></p>
+      {%- if pos.after.sample %}
+      <p>{{ pos.after.sample|join(', ')|e }}</p>
+      {%- endif %}
+    </div>
+    {%- else %}
+    <div class="edge">
+      <p class="k">Comes before</p>
+      <p class="n">The finished picture</p>
+      <p>The pipeline ends with this stage.</p>
+    </div>
+    {%- endif %}
+    {%- endif %}
+  </div>
+  <div class="linbar">
+    <span aria-hidden="true">linear</span>
+    <span class="bar" aria-hidden="true">
+      {%- for segment in pos.bar -%}
+      <i class="{{ segment.data }}{% if segment.on %} on{% endif %}" style="--c:var(--s{{ segment.index }})"></i>
+      {%- endfor -%}
+    </span>
+    <span aria-hidden="true">nonlinear</span>
+    <span class="note">{{ pos.note }}{% if gp.data %} <span class="dm dm-{{ gp.data.left or gp.data.given }}"><span class="visually-hidden">This process: </span>{{ gp.data.label }}</span>{% endif %}</span>
+  </div>
+</section>

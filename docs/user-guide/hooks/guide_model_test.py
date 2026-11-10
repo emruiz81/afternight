@@ -189,6 +189,45 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual(model.menu_paths({'menu': ['A > B', 'C']}), ['A > B', 'C'])
         self.assertEqual(model.menu_paths({}), [])
 
+    HERO = {'lede': 'The guide.', 'actions': [{'label': 'Start', 'page': 'start/first.md'}]}
+
+    def test_the_home_page_states_its_hero_paths_and_popular_pages(self):
+        picture = dict(self.HERO, accent='guide', image='assets/a.png', alt='A window.', caption='The window.')
+        self.assertEqual(self.problems(kind='home', hero=self.HERO), [])
+        self.assertEqual(self.problems(
+            kind='home', hero=picture, notice='Unfinished.',
+            paths=[{'tag': 'First', 'title': 'Install', 'text': 'Set it up.', 'page': 'start/install.md'}],
+            popular=['start/first.md', 'reference/glossary.md']), [])
+
+    def test_a_hero_is_stated_whole(self):
+        def hero(**changes):
+            value = dict(self.HERO, **changes)
+            return [key for key, _ in self.problems(kind='home', hero={k: v for k, v in value.items()
+                                                                     if v is not None})]
+        self.assertEqual(hero(lede=None), ['hero'])
+        self.assertEqual(hero(actions=[]), ['hero'])
+        self.assertEqual(hero(actions=[{'label': 'Start', 'page': 'start/first.md'}] * 4), ['hero'])
+        self.assertEqual(hero(actions=[{'label': 'Start', 'page': 'start/first.html'}]), ['hero'])
+        self.assertEqual(hero(actions=[{'label': 'Start'}]), ['hero'])
+        self.assertEqual(hero(image='assets/a.png'), ['hero'])
+        self.assertEqual(hero(image='assets/a.png', alt='A window.'), ['hero'])
+        self.assertEqual(hero(title='Another title'), ['hero'])
+
+    def test_paths_and_popular_name_pages_by_their_source_path(self):
+        path = {'tag': 'First', 'title': 'Install', 'text': 'Set it up.', 'page': 'start/install.md'}
+        self.assertEqual([key for key, _ in self.problems(kind='home', paths=[])], ['paths'])
+        self.assertEqual([key for key, _ in self.problems(kind='home', paths=[path] * 5)], ['paths'])
+        self.assertEqual([key for key, _ in self.problems(kind='home', paths=[dict(path, page='/start/x.md')])],
+                         ['paths'])
+        self.assertEqual([key for key, _ in self.problems(kind='home', paths=[dict(path, icon='x')])], ['paths'])
+        self.assertEqual([key for key, _ in self.problems(kind='home', popular=['a.md', 'a.md'])], ['popular'])
+        self.assertEqual([key for key, _ in self.problems(kind='home', popular=['Quick start'])], ['popular'])
+
+    def test_meta_images_names_the_home_pages_picture(self):
+        self.assertEqual(model.meta_images({'hero': {'image': 'assets/a.png'}}), ['assets/a.png'])
+        self.assertEqual(model.meta_images({'hero': 'x'}), [])
+        self.assertEqual(model.meta_images({}), [])
+
 
 def _luminance(color):
     def channel(value):
@@ -209,6 +248,20 @@ class StageTests(TempDir):
         self.assertEqual([stage.id for stage in stages], STAGE_IDS)
         self.assertEqual([stage.number for stage in stages], [1, 2, 3, 4, 5, 6, 7, None])
         self.assertEqual(stages[4].name, 'Noise & stars')
+
+    def test_the_image_is_linear_until_the_stretch_turns_it(self):
+        stages = model.load_stages(str(GUIDE_DIR))
+        self.assertEqual([stage.data for stage in stages],
+                         ['linear'] * 5 + ['turn', 'nonlinear', None])
+
+    def test_a_numbered_stage_states_where_the_image_stands_and_any_time_does_not(self):
+        hue = 'hue: {dark: "#FFFFFF", light: "#000000"}'
+        for first, last in (('', ''), ('data: sideways, ', ''), ('data: linear, ', 'data: linear, ')):
+            with self.subTest(first=first, last=last):
+                guide = self.write_stages('stages:\n  - {id: a, number: 1, %sname: A, description: D, %s}\n'
+                                          '  - {id: any, %sname: Any, description: D, %s}\n' % (first, hue, last, hue))
+                with self.assertRaisesRegex(model.GuideDataError, '`data`'):
+                    model.load_stages(guide)
 
     def test_every_hue_is_readable_on_its_backgrounds(self):
         for stage in model.load_stages(str(GUIDE_DIR)):
@@ -235,7 +288,8 @@ class StageTests(TempDir):
             model.load_stages(guide)
 
     def test_repeated_ids_are_refused(self):
-        stage = '{id: a, number: %d, name: A, description: D, hue: {dark: "#FFFFFF", light: "#000000"}}'
+        stage = ('{id: a, number: %d, data: linear, name: A, description: D, '
+                 'hue: {dark: "#FFFFFF", light: "#000000"}}')
         guide = self.write_stages('stages:\n  - %s\n  - %s\n  - {id: any, name: Any, description: D, '
                                   'hue: {dark: "#FFFFFF", light: "#000000"}}\n' % (stage % 1, stage % 2))
         with self.assertRaisesRegex(model.GuideDataError, 'repeat'):
@@ -282,6 +336,27 @@ class BodyTests(unittest.TestCase):
                 '![spaced](<e f.png>)\n')
         self.assertEqual(model.image_references(body, first_line=5), [
             (5, '../../assets/images/a.png'), (6, 'b.webp'), (7, 'c.jpg'), (11, 'e f.png')])
+
+
+class FenceTests(unittest.TestCase):
+    BODY = ('Text.\n\n```figure\nimage: ../assets/a.png\nalt: A.\ncaption: C.\n```\n\n'
+            '    ```controls\n    - name: A\n    ```\n\n'
+            '````markdown\n```figure\nimage: ../assets/shown.png\n```\n````\n\n'
+            '~~~ { .python title="x" }\nprint()\n~~~\n\n```\nplain\n```\n')
+
+    def test_fence_blocks_are_found_with_their_line_and_language(self):
+        blocks = model.fence_blocks(self.BODY, first_line=10)
+        self.assertEqual([(language, line) for language, line, _ in blocks],
+                         [('figure', 12), ('controls', 18), ('markdown', 22), ('python', 28)])
+        self.assertEqual(blocks[0][2], 'image: ../assets/a.png\nalt: A.\ncaption: C.')
+        self.assertEqual(blocks[1][2], '    - name: A')
+
+    def test_a_figure_blocks_images_are_images_the_page_shows(self):
+        self.assertEqual(model.image_references(self.BODY, first_line=10), [(13, '../assets/a.png')])
+        pair = '```figure\nimages:\n  - {image: a.png, alt: A, label: Before}\n  - image: b.webp\ncaption: C\n```\n'
+        self.assertEqual(model.image_references(pair), [(3, 'a.png'), (4, 'b.webp')])
+        self.assertEqual(model.figure_images('image: [unclosed'), [])
+        self.assertEqual(model.figure_images('- a list'), [])
 
 
 class ImageSizeTests(TempDir):
