@@ -35,11 +35,13 @@ white. A factor above 1 brightens the image as a longer exposure would, and one 
 the factor can scale one channel or one color component instead.
 
 **Exposure** sets the factor, between 0.02 and 2. It is not a number of
-[exposure stops](../../reference/glossary.md): a value of 1 multiplies by 1.2. No value makes a black
-[linear image](../../reference/glossary.md) visible, which is the work of a stretch.
+[exposure stops](../../reference/glossary.md#exposure-stop): a value of 1 multiplies by 1.2. No value makes a black
+[linear image](../../reference/glossary.md#linear-image) visible, which is the work of a
+[stretch](../../reference/glossary.md#stretch).
 
-**Apply** replaces the image or sequence with the scaled one, keeps its size and pixel type, and adds one step to
-its history. The result is recorded as nonlinear.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the scaled one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/stretching/exposure-correction.webp
@@ -61,8 +63,8 @@ pins:
 
 ## Before you start
 
-- Exposure Correction does not stretch. Its largest factor is 2, which leaves a linear master black in the view's
-  **Linear** display mode.
+- Exposure Correction does not stretch. Its largest factor is 2, which leaves a linear
+  [master](../../reference/glossary.md#master) black in the view's **Linear** display mode.
 - On linear data the factor is a true change of exposure until a sample clips, and on stretched data it only
   scales the displayed values. Either way **Apply** records the result as nonlinear: run every step that needs
   linear data first.
@@ -70,10 +72,10 @@ pins:
   past white is lost.
 - Use a grayscale or an RGB image with finite samples between 0 and 1. A raw color-filter mosaic is scaled as a
   grayscale image and is not debayered.
-- A [mask](../../reference/glossary.md) on the view blends the scaled image with the original afterwards: white
+- A [mask](../../reference/glossary.md#mask) on the view blends the scaled image with the original afterwards: white
   takes the result, black keeps the original, gray mixes them, and **Invert Mask** swaps the two.
 - On a sequence, one value and one **Channel** choice are used for every frame. Check them, the mask and the
-  automatic debayer of the sequence before you Apply.
+  automatic [debayer](../../reference/glossary.md#debayer) of the sequence before you Apply.
 
 ## Steps
 
@@ -213,18 +215,20 @@ controls:
 
 ## How it works
 
-1. Every sample is read as a fraction of full scale: an unsigned integer divided by its largest value, a signed
-   one counted from its smallest value, a floating-point sample as it is.
+1. Every sample is read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale): an
+   unsigned integer divided by its largest value, a signed one counted from its smallest value, a floating-point
+   sample as it is.
 2. **Exposure** gives one factor. With **RGB**, or on a grayscale image, every stored sample is multiplied by it
    and then held between 0 and 1. With **Red**, **Green** or **Blue**, only that channel is.
 3. With a component choice, the image is converted, that component is multiplied and held between 0 and 1, and the
    image is converted back to red, green and blue.
 4. The result is written back in the image's own pixel type, an integer rounded to the nearest value with a tie
    going to the even one. A mask on the view then blends it with the original.
-5. The image replaces the target and its history gets one step. Its header, its acquisition data and its plate
-   solution are kept. A saved file records the new state in its header: `ANLIN` is `nonlinear`, `ANASRC` is
-   `process`, `ANOP` is `exposure-correction`, and `ANBASIS` is `monochrome` or `display-rgb`. A linear encoding
-   the image stated is no longer stated, and its lineage gains an entry with the value and its factor.
+5. The image replaces the target and its history gets one step. Its header, its acquisition data and its
+   [plate solution](../../reference/glossary.md#plate-solution) are kept. A saved file records the new state in its
+   header: `ANLIN` is `nonlinear`, `ANASRC` is `process`, `ANOP` is `exposure-correction`, and `ANBASIS` is
+   `monochrome` or `display-rgb`. A linear encoding the image stated is no longer stated, and its
+   [lineage](../../reference/glossary.md#lineage) gains an entry with the value and its factor.
 
 ### Model
 
@@ -272,8 +276,8 @@ Under a mask whose value at a pixel is \(k\), from 0 for black to 1 for white, t
 
 ### Worked example
 
-The picture above shows the Carina Nebula master after Histogram Transformation with **Shadows** and **Midtones**
-at 0.02, which leaves its background near 0.28. With **Channel** at **RGB** and **Exposure** at 1.50, equation (1)
+The picture above shows the Carina Nebula master after Histogram Transformation with **Shadows** and
+[**Midtones**](../../reference/glossary.md#midtones) at 0.02, which leaves its background near 0.28. With **Channel** at **RGB** and **Exposure** at 1.50, equation (1)
 gives a factor of 1.3. Equation (2) moves the background to 0.36 and turns every sample at or above 0.77 into
 white: the whole picture is brighter, and the brightest clouds and the star cores go flat.
 
@@ -336,8 +340,8 @@ Highlights turn flat white, or bright stars change color
 :   **Fix.** Undo the step, then lower **Exposure** until **Clipping High** stops rising.
 
 The image looks the same after Apply
-:   **Cause.** The view is in **Autostretch**, which measures the scaled image again and shows its background at
-    the level it had before.
+:   **Cause.** The view is in [**Autostretch**](../../reference/glossary.md#autostretch), which measures the scaled
+    image again and shows its background at the level it had before.
 :   **Fix.** Switch the view to **Linear**, or compare the numbers in Image Statistics.
 
 A floating-point image has samples outside 0 to 1 after a component choice

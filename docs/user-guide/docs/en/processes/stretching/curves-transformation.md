@@ -32,10 +32,11 @@ rewritten: true
 Curves Transformation remaps an image through a curve you draw. The curve runs from input brightness, left to
 right, to output brightness, bottom to top. Where it lies above the diagonal the image gets brighter, and where it
 lies below, darker. It acts on every channel, on one channel, or on one component of a color space, such as
-lightness or saturation, after the main [stretch](../../reference/glossary.md).
+lightness or saturation, after the main [stretch](../../reference/glossary.md#stretch).
 
-**Apply** replaces the image or sequence with the curved one, keeps its size and pixel type, and adds one step to
-its history. The result is recorded as nonlinear.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the curved one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/stretching/curves-transformation.webp
@@ -60,15 +61,16 @@ pins:
 
 - Finish background correction and color calibration while the image is still linear. A curve makes faint
   gradients and color casts harder to correct afterwards.
-- Make the main stretch first. Curves derives no black point, median or highlight protection from the image.
+- Make the main stretch first. Curves derives no [black point](../../reference/glossary.md#black-point), median or
+  highlight protection from the image.
 - **Apply** replaces the image. Its history keeps the step before, but not the points of the curve: duplicate the
   image when you must be able to return.
 - The image is grayscale or RGB, with samples between 0 and 1. A floating-point sample outside that range takes
   the curve's value at the nearer end.
-- A raw color-filter mosaic is curved as a grayscale image: debayer it first. On a sequence, the view's automatic
+- A raw color-filter mosaic is curved as a grayscale image: [debayer](../../reference/glossary.md#debayer) it first. On a sequence, the view's automatic
   debayer option decides: with it on, every frame is decoded to RGB before the curve and the sequence is replaced
   by an RGB one.
-- A [mask](../../reference/glossary.md) on the view blends the curved image with the original after the curve.
+- A [mask](../../reference/glossary.md#mask) on the view blends the curved image with the original after the curve.
   White takes the result, black keeps the original, gray mixes them, and **Invert Mask** swaps the two.
 
 ## Steps
@@ -249,9 +251,10 @@ controls:
 3. **RGB**, **Grayscale** and a single color send the samples through the table directly. A component choice
    converts the image to that color space, sends the one component through and converts back.
 4. A mask on the view then blends the result with the original.
-5. The image replaces the target and its history gets one step. Its header, its acquisition data and its plate
-   solution are kept. Its processing state is recorded as nonlinear with the operation `curves-transformation`,
-   and no transfer function is stated.
+5. The image replaces the target and its history gets one step. Its header, its acquisition data and its
+   [plate solution](../../reference/glossary.md#plate-solution) are kept. Its
+   [processing state](../../reference/glossary.md#processing-state) is recorded as nonlinear with the operation
+   `curves-transformation`, and no transfer function is stated.
 
 ### Model
 
@@ -262,7 +265,7 @@ The points are \((x_0, y_0), \ldots, (x_n, y_n)\), with their inputs in increasi
 \[ y(x) = \min\bigl(1, \max\bigl(0, S(x)\bigr)\bigr), \qquad S(x_i) = y_i \tag{1} \]
 
 A sample equal to a point's input therefore gets that point's output, whatever the interpolation. Between the
-points the interpolation decides. **Cubic** is the natural cubic [spline](../../reference/glossary.md), whose
+points the interpolation decides. **Cubic** is the natural cubic [spline](../../reference/glossary.md#spline), whose
 curvature is zero at both ends.
 
 With **RGB**, equation (1) is applied to the red, green and blue samples \(R\), \(G\) and \(B\) of a pixel
@@ -294,7 +297,8 @@ chosen one of its three components:
 
 ### Worked example
 
-The master in the picture above was stretched with Histogram Transformation, **Shadows** and **Midtones** at 0.02,
+The [master](../../reference/glossary.md#master) in the picture above was stretched with Histogram Transformation,
+**Shadows** and [**Midtones**](../../reference/glossary.md#midtones) at 0.02,
 which leaves its background near 0.28. With **Channel** at **RGB** and **Interpolation** at **Cubic**, one point is
 taken on the line at input 0.28, over the peak of the histogram, and dragged straight down to 0.14. By
 equation (1) the background becomes 0.14, half as bright, and black and white stay where they were. The cubic
@@ -324,8 +328,8 @@ rises all the way. Only the lightness of each pixel goes through the curve.
 | Situation | Start | Then adjust |
 | --- | --- | --- |
 | More contrast in one range of tones | **RGB** and **Cubic**, one gentle point, then an anchor on each side | Move the main point. Flat or steep transitions, crushed ends and more noise mean too much. |
-| Contrast without a change of color | **CIE L\* (Lightness)** or **HSV Value**, with a gentle curve | Check strongly colored regions, where the conversion back can leave the range. |
-| More or less color | **HSL Saturation** or **CIE c\***, with broad, small moves | Stop at color noise or neon colors. Use a hue curve only to move a color on purpose. |
+| Contrast without a change of color | **CIE L\* (Lightness)** or [**HSV Value**](../../reference/glossary.md#hsv), with a gentle curve | Check strongly colored regions, where the conversion back can leave the range. |
+| More or less color | [**HSL Saturation**](../../reference/glossary.md#hsl) or **CIE c\***, with broad, small moves | Stop at color noise or neon colors. Use a hue curve only to move a color on purpose. |
 | A curve through a mask | A gentle curve first, with the mask off | Enable the mask and judge the blended preview. Soften a visible edge in the mask, not in the curve. |
 
 ## When it goes wrong

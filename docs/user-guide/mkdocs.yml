@@ -111,6 +111,7 @@ nav:
       - Docking Panels: interface/docking-panels.md
       - Toolbar & Menus: interface/toolbar-and-menus.md
       - Process Windows: interface/process-windows.md
+      - Process Windows Reference: interface/process-windows-reference.md
       - Session Console: interface/log-viewer.md
       - Image History: interface/image-history.md
       - Image Statistics: interface/image-statistics.md

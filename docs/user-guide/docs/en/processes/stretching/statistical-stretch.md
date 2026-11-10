@@ -28,14 +28,17 @@ rewritten: true
 ---
 # Statistical Stretch
 
-Statistical Stretch stretches a [linear image](../../reference/glossary.md) from its own statistics. It measures the
-median and a black point, sends everything at or below the black point to black, and places the median at the level
-you set in **Target Median**. An RGB image gets one curve for each channel, or one for the three. Two optional
-stages follow: a curve that lifts the range above the target, and a division by the brightest sample.
+Statistical [Stretch](../../reference/glossary.md#stretch) stretches a
+[linear image](../../reference/glossary.md#linear-image) from its own statistics. It measures the median and a
+[black point](../../reference/glossary.md#black-point), sends everything at or below the black point to black, and
+places the median at the level you set in **Target Median**. An RGB image gets one curve for each channel, or one for
+the three. Two optional stages follow: a curve that lifts the range above the target, and a division by the
+brightest sample.
 
 The preview shows a result as soon as the window opens, stretched from the starting values. **Apply**
-replaces the image or sequence with the stretched one, keeps its size and pixel type, and adds one step to its
-history. The result is recorded as nonlinear.
+replaces the image or [sequence](../../reference/glossary.md#sequence) with the stretched one, keeps its size and
+[pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/stretching/statistical-stretch.webp
@@ -58,18 +61,20 @@ pins:
 
 ## Before you start
 
-- Finish the work that needs linear data first: gradient removal, color calibration, measurement, deconvolution and
-  linear noise reduction. The process finds no gradient, removes no pedestal and calibrates no color.
-- **Apply** replaces the image. Its [history](../../reference/glossary.md) keeps the step before, and this window
-  has no inverse. Duplicate the image first to compare two stretches.
+- Finish the work that needs linear data first: gradient removal, color calibration, measurement,
+  [deconvolution](../../reference/glossary.md#deconvolution) and linear noise reduction. The process finds no
+  gradient, removes no [pedestal](../../reference/glossary.md#pedestal) and calibrates no color.
+- **Apply** replaces the image. Its history keeps the step before, and this window has no inverse. Duplicate the
+  image first to compare two stretches.
 - The image is grayscale or RGB. Prefer a floating-point one: an integer image is rounded back to its own values.
-- Every statistic is the whole image's, also for a **Preview area** and under a
-  [mask](../../reference/glossary.md), which blends the result with the original afterwards.
+- Every statistic is the whole image's, also for a [**Preview area**](../../reference/glossary.md#preview-area) and
+  under a [mask](../../reference/glossary.md#mask), which blends the result with the original afterwards.
 - On a sequence, every frame is measured and stretched alone.
 
 ## Steps
 
-1. **Open the window.** Make the linear master the active image and choose **Process > Intensity Transformations >
+1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Intensity Transformations >
    Statistical Stretch**. The preview shows the image already stretched, and the histogram shows that result.
 2. **Set the background level.** Move **Target Median** to the brightness the median should have. On most deep-sky
    images the median is the sky background, and the peak of the histogram moves with it.
@@ -251,8 +256,9 @@ controls:
    black and white where they are and moves the median to **Target Median**.
 4. The optional curve and the optional normalization follow. The result is held to the range 0 to 1 and written
    back in the image's own pixel type, rounded to the nearest value.
-5. A mask on the view then blends the result with the original, and the image replaces the target. Its processing
-   state is recorded as nonlinear with the operation `statistical-stretch`.
+5. A mask on the view then blends the result with the original, and the image replaces the target. Its
+   [processing state](../../reference/glossary.md#processing-state) is recorded as nonlinear with the operation
+   `statistical-stretch`.
 
 ### Model
 
@@ -276,7 +282,8 @@ Median**, the result is
 \[ f(z) = \frac{(m - 1)\,t\,z}{m\,(t + z - 1) - t\,z} \tag{4} \]
 
 Equation (4) sends the black point to 0, the median to \(t\) and 1 to 1 in one pass, with nothing to iterate. It is
-a [midtones transfer function](../../reference/glossary.md) whose midtones balance is \(m(1 - t) / (m + t - 2mt)\).
+a [midtones transfer function](../../reference/glossary.md#midtones-transfer-function) whose midtones balance is
+\(m(1 - t) / (m + t - 2mt)\).
 The smaller \(m\) is, the steeper the curve: a black point close to the median makes a hard stretch, and a higher
 **Black Point Sigma** or **No Black Clipping** a softer one.
 

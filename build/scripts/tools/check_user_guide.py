@@ -49,7 +49,9 @@ rewritten never fails a rule it cannot meet, and a rewritten one is protected fr
       with a row in the media provenance page.
   R12 A rewritten process page states every key its "At a glance" is drawn from, the four texts of `glance` among
       them, and says whether it is `derived`.
-  R13 Glossary. The first use on a page of a term the glossary defines is a link to the glossary (a warning).
+  R13 Glossary. The first use on a page of a term the glossary defines is a link to the glossary (a warning). A term
+      inside the words of a link to another page, a bold label or a quoted message is part of a name the page
+      repeats, not a use of the term: the next use is the first.
   R14 Controls. The `controls` blocks of a rewritten process page say what its windows hold. The windows are the ones
       its `menu` reaches, and what they hold is their inventory under data/ui/, which a test of the application
       writes by opening every process window and fails on when a window changes. Every control of the inventory is
@@ -181,6 +183,8 @@ SUBSECTIONS = {
 }
 DATA_DRAWN_KINDS = ('home', 'catalog')
 GLOSSARY_SECTION = re.compile(r'^(?:[A-Z]|0-9)$')
+# What R13 does not take for a use of a term: a bold label and a quoted message of the application.
+GLOSSARY_NAMES = re.compile(r'\*\*.+?\*\*|"[^"]*"')
 TASK_ITEM = re.compile(r'^\[[ xX]\][ \t]')
 WARNING_CALLOUTS = ('warning', 'danger')
 WRONG_CALLOUT = 'wrong'
@@ -1003,17 +1007,25 @@ class _Writing:
             if not pending or number in heading_lines or not text.strip():
                 continue
             said = model.without_addresses(model.without_code_spans(text))
-            to_glossary = [(start, end) for start, end, address in model.links(text)
-                           if posixpath.normpath(posixpath.join(folder, urllib.parse.unquote(
-                               address.split('#', 1)[0].split('?', 1)[0]))) == glossary]
+            to_glossary, elsewhere = [], []
+            for start, end, address in model.links(text):
+                target = posixpath.normpath(posixpath.join(folder, urllib.parse.unquote(
+                    address.split('#', 1)[0].split('?', 1)[0])))
+                (to_glossary if target == glossary else elsewhere).append((start, end))
+            # A term inside the words of a link to another page, a bold label or a quoted message is part of a name
+            # the page repeats - a process, a control, a message of the application - not a use of the term, and the
+            # first use is the next one. Linked to its entry there all the same, it is the linked first use.
+            named = elsewhere + [match.span() for match in GLOSSARY_NAMES.finditer(said)]
             for term, regex in list(pending):
-                match = regex.search(said)
-                if not match:
-                    continue
-                pending.remove((term, regex))
-                if not any(start <= match.start() and match.end() <= end for start, end in to_glossary):
-                    self.check.report('R13', self.path, number, '"%s" is a term of the glossary; link its first use '
-                                      'on the page to its entry' % term, 'warning')
+                for match in regex.finditer(said):
+                    linked = any(start <= match.start() and match.end() <= end for start, end in to_glossary)
+                    if not linked and any(start <= match.start() and match.end() <= end for start, end in named):
+                        continue
+                    pending.remove((term, regex))
+                    if not linked:
+                        self.check.report('R13', self.path, number, '"%s" is a term of the glossary; link its first '
+                                          'use on the page to its entry' % term, 'warning')
+                    break
 
 
     # --- R14: the controls against the windows' inventory ---
