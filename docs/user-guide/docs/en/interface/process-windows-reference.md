@@ -106,6 +106,7 @@ The [Session Console](log-viewer.md) keeps these lines of a window's work.
 | Write a new image or sequence in place of the target | Mask Drawing, Narrowband Palette Composer, NB Color Mapper, NBRGB Combination, Profiled Starmask Recombination, Range Selection, Star Mask, Starmask Recombination, and Star Reduction when its settings ask for one |
 | Close when the new image is made | Mask Drawing, Profiled Starmask Recombination, Range Selection, Star Mask and Starmask Recombination |
 | Do not blend through the target's mask | Mask Drawing, Narrowband Palette Composer, Profiled Starmask Recombination, Range Selection, Star Mask and Starmask Recombination |
+| Go on with a run when the window is closed, until the run ends or its progress window's **Cancel** stops it | Background Neutralization, CFA Integer Resample, Color Calibration, Crop, [Debayer](../processes/calibration/debayer.md), DeepSNR, Extract Sequence, Integer Resample, Linear Match, Pixel Math, Resize, Rotate, SCNR, Split CFA, Starnet++ and Starnet++ Star Mask |
 | Name the two images of the preview in their own words | Image Blend (PREVIEW and BASE IMAGE), Image Compare (IMAGE 1 and IMAGE 2) and Star Reduction (PREVIEW and TARGET IMAGE) |
 
 The windows without a [real-time preview](../reference/glossary.md#real-time-preview), such as Pixel Math, Crop, Resize, Rotate,

@@ -3,326 +3,350 @@ kind: process
 stage: any
 menu: Process > Geometry > Resize
 summary: >-
-  Resamples an image, or every frame of a sequence, to new pixel dimensions.
+  Resamples an image, or every frame of a sequence, to a new width and height in pixels, through an interpolation you
+  choose, for a delivery size or a lighter image to work on.
 data_in: either
+data_out: either
+destructive: true
+preview: none
+sequences: true
+masks: none
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Resize window is open on it yet, and no window that needs the image to
+    itself is open on it.
+  inputs: >-
+    One image or sequence of any pixel type and any number of channels. A raw color-filter mosaic only after you
+    answer Yes to the Resize CFA question.
+  outputs: >-
+    The same view, replaced, with one history step, at 1 to 100000 pixels a side. Its pixel type, its channels and the
+    shape of its pixels are kept. No file, preset or report is written.
+  state: >-
+    Any image: a calibrated, registered linear image for a resize you will measure, or a duplicate of a finished
+    picture for its display size.
+derived: false
+rewritten: true
 ---
 # Resize
 
-## Purpose and expected result
+Resize gives an image a new width and height in pixels. You type the new size, or a percentage of the old one, and
+choose how each new sample is computed from its neighbors. A resize makes new values: it reveals no detail and adds
+no signal that the image did not hold.
 
-Resize changes the pixel-grid dimensions of one image or every frame in a
-sequence. Use it to create a delivery size, reduce later processing cost, or
-intentionally change sampling. Unlike Crop, Resize computes new sample values; it
-cannot reveal detail or signal absent from the source.
+**OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), with the resized one,
+adds one step to its [history](../../reference/glossary.md#history) and closes the window. The
+[pixel type](../../reference/glossary.md#pixel-type), the channels and the shape of the pixels are kept, and a
+[plate solution](../../reference/glossary.md#plate-solution) is scaled with the pixels, so no new plate solve is
+needed.
 
-The result keeps the source sample representation, channel layout, pixel
-aspect, acquisition record and meaning. A plate solution the image's header
-cards state is carried, scaled with the pixels, so no new plate solve is needed,
-and so are the frame's observing context - its optics, site, pointing, camera
-settings, filter, object, frame type and date, with its pixel size restated for
-the new pixels - and the light it holds, its `EXPTIME`, `TOTEXP`, `LIVETIME`,
-`STACKCNT` and `NCOMBINE` cards as it states them; the other header cards read
-from the file are dropped. Interpolation changes noise correlation, sharpness,
-extrema, and photometric sums.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Geometry > Resize** |
-| Enabled when | An image or sequence is active, Resize is not already attached, and no attached process requires exclusive access |
-| Inputs | One still or sequence of any of the eight sample representations and any channel layout; a colour-filter-array mosaic only after **Resize CFA** is answered **Yes** |
-| Outputs | Replaces the target at `1..100000` pixels per axis as one Image History step; a sequence is written whole into a new sequence of the same container (another video container is written as Matroska), which the view then shows |
-| Recommended image state | Any state; prefer calibrated/registered linear data for scientific resampling and a duplicate for display-size experimentation |
-| Preview support | No processed preview; dimension and memory estimates update before OK |
-| Sequence support | Yes: every frame, whatever frames the player has selected, with one size and interpolation; progress and Cancel are shown |
-| Mask support | No; active masks are not applied |
-| External dependencies | None; the resize is the image engine's own |
+```figure
+image: ../../assets/images/processes/geometry/resize.webp
+alt: >-
+  The Resize window. A grid with the columns Original Px, Target Px and % Adjust and the rows Width and Height: 7246
+  and 5429 under Original Px, 3623 and 2714 under Target Px, 50.00 and 50.00 under % Adjust. Under it Keep aspect
+  ratio is ticked and Interpolation reads Auto. Current Size reads 450.19 MB and New Size 112.53 MB. Target Image
+  names the master, and Reset, OK and Close run along the bottom.
+caption: >-
+  Resize on the linear Carina master at 50 percent with Keep aspect ratio on: the Target Px column and New Size show
+  the result before OK.
+pins:
+  - {n: 2, x: 2.0, y: 55.5}
+  - {n: 3, x: 2.0, y: 38.6}
+  - {n: 4, x: 2.0, y: 64.0}
+  - {n: 5, x: 51.0, y: 93.0}
+```
 
 ## Before you start
 
-- Duplicate valuable data. **OK** replaces the target and interpolation is not
-  exactly reversible; the step can be undone in Image History.
-- Leave **Keep aspect ratio** checked unless geometric distortion is deliberate.
-  A non-uniform resize changes object shapes and pixel scale differently by axis;
-  the result is a new grid of pixels of the source's shape.
-- Choose output dimensions from the actual downstream requirement. Upsampling
-  increases files and computation without adding spatial information or SNR.
-- For a colour-filter-array mosaic, use
-  [CFA Integer Resample](../calibration/cfa-integer-resample.md) when the mosaic
-  must remain a mosaic, or [Debayer](../calibration/debayer.md) first. If you
-  answer **Yes** to the **Resize CFA** question, the mosaic is resized as one grey
-  plane and the result states no filter array.
-- Resize carries a plate solution stated in the image's header cards, with its
-  scale changed by the resize and the card naming its solver beside it. A
-  distortion model is kept, rescaled, while the two axis scales agree within a
-  thousandth - as they do for a resize with **Keep aspect ratio** checked whose
-  truncated Target Px values are a thousand pixels or more - and a resize whose
-  scales differ by more keeps the linear solution and drops the distortion model.
-- If the sequence viewer demosaics the frames it shows, the frames are
-  demosaiced before they are resized, nothing is asked, and the new sequence holds
-  colour frames.
+- **OK** replaces the image. Its history keeps the step before: duplicate an image you could not load again.
+- Choose the size from what comes next: a file to publish, a lighter image to process. An enlarged image takes more
+  memory and time and holds no more detail or [SNR](../../reference/glossary.md#snr).
+- Every channel is resized, and a [mask](../../reference/glossary.md#mask) on the view is not used.
+- A [CFA](../../reference/glossary.md#cfa) mosaic must stay a mosaic for
+  [CFA Integer Resample](../calibration/cfa-integer-resample.md), or be debayered first. Resize mixes its filters
+  into one gray plane.
+- On a sequence, every frame gets the same size and interpolation, whatever frames its player has selected. When the
+  view [debayers](../../reference/glossary.md#debayer) the frames, they are debayered before they are resized, and the
+  new sequence holds color frames.
 
-## Procedure
+## Steps
 
-1. Select the target and open **Process > Geometry > Resize**. Confirm **Original
-   Px**, **Current Size**, and **Target Image**.
-2. Leave **Keep aspect ratio** checked and set either **Target Px** dimension or
-   its **% Adjust** field. Confirm the linked axis and **New Size**. Uncheck the
-   box only for an intentional per-axis scale.
-3. Choose an interpolation. The first entry reads **Auto (Lanczos4 to enlarge,
-   Pixel Area Relation to reduce)**: it chooses Lanczos4 when either Target Px
-   value is larger than the original and Pixel Area Relation otherwise.
-4. If the target is a mosaic and the **Resize CFA** question appears, normally
-   choose **No**, then Debayer or use the CFA-specific resampler.
-5. Select **OK**. The dialog is read at that moment; changing a field afterwards
-   does not reach the run. A still is resized on a worker without a progress
-   window. A sequence shows progress and **Cancel**. Success closes Resize and
-   records `Previous size: <w>x<h> - New size: <w>x<h> - Interpolation: <name>`
-   in Image History, naming the interpolation that ran, never Auto.
-6. Confirm output dimensions and inspect stars/high-contrast edges at 100%. On
-   solved data, the carried solution stays in use (when the axis scales differ
-   by more than a thousandth and the field had a distortion model, plate-solve
-   again for the best fit); on quantitative data,
-   remeasure background noise and flux rather than carrying pre-resize values.
+1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Geometry > Resize**. **Original Px** shows its size, and **OK** stays disabled while **Target Px** is
+   the same.
+2. **Keep the proportions.** Leave **Keep aspect ratio** ticked, so one percentage sets both sides. Untick it only to
+   change one axis on purpose.
+3. **Set the size.** Type the new **Width** or **Height** under **Target Px**, or a percentage under **% Adjust**. The
+   other side follows, and **New Size** gives the memory the result will hold.
+4. **Choose the interpolation.** Leave **Interpolation** at Auto, which reduces with **Pixel Area Relation** and
+   enlarges with **Lanczos4**, or choose another.
+5. **Resize.** Choose **OK**. The window closes, the view shows the image at its new size, and its history lists
+   **Resize** with both sizes and the interpolation that ran.
+6. **Check at 100 %.** Zoom the view to 100 % over bright stars and sharp edges. Blocks or rims around them show what
+   the interpolation cost.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Width / Original Px | Read-only integer, pixels | Source width | None | `1..100000` display range | Reports current source width | Updates on target/image change | Information only | Setup; still/sequence | Recomputed |
-| Height / Original Px | Read-only integer, pixels | Source height | None | `1..100000` display range | Reports current source height | Updates on target/image change | Information only | Setup; still/sequence | Recomputed |
-| Width / Target Px | Integer, pixels | Source width | None | `1..100000`; step `1` | Sets output width and updates Width % | With aspect lock, also sets Height from the same percentage; integer conversion truncates the linked result | More pixels increase memory/runtime; upsampling adds no information | OK; all channels; mask not applied; still/sequence | Window lifetime; Reset/target change restores source width |
-| Height / Target Px | Integer, pixels | Source height | None | `1..100000`; step `1` | Sets output height and updates Height % | With aspect lock, also sets Width from the same percentage | Same as Width; unequal scaling distorts geometry | OK; all channels; mask not applied; still/sequence | Window lifetime; Reset/target change restores source height |
-| Width / % Adjust | Double percentage | `100.00` | None | `1.00..1000.00`; default step `1.00`; two decimals | Sets width as source width times percentage | With aspect lock, also sets Height and Height % | Values above 100 enlarge storage/work without new detail | OK; still/sequence | Window lifetime; Reset/target change `100.00` |
-| Height / % Adjust | Double percentage | `100.00` | None | `1.00..1000.00`; default step `1.00`; two decimals | Sets height as source height times percentage | With aspect lock, also sets Width and Width % | Unequal percentages distort object shapes | OK; still/sequence | Window lifetime; Reset/target change `100.00` |
-| Keep aspect ratio | Checkbox | Checked | None | Checked/unchecked | Links both axes to one percentage | When newly checked, the process keeps the percentage of the currently larger Target Px dimension and adjusts the other axis | Prevents geometric stretching; integer dimensions can leave a tiny per-axis scale difference | Setup/OK; still/sequence | Window lifetime; Reset checks it |
-| Interpolation | Combo box | **Auto (Lanczos4 to enlarge, Pixel Area Relation to reduce)** | None | Auto, **Nearest Neighbor**, **Bilinear**, **Bicubic**, **Pixel Area Relation**, **Lanczos4**, **Bit Exact Bilinear**, **Bit Exact Nearest Neighbor** | Selects the sampling kernel; Auto chooses Lanczos4 when either Target Px value is larger than the original, otherwise Pixel Area Relation | Always visible; read when OK is pressed | Nearest is blocky; Bilinear/Bicubic/Lanczos4 smooth across neighborhoods; Bicubic/Lanczos4 can ring and are guarded against dark rings; Pixel Area Relation suits reduction; the Bit Exact entries follow fixed-point rules | OK; each channel; still/sequence | Window lifetime; Reset returns Auto |
-| Current Size: | Read-only estimate, MB/GB | Current sample bytes; multiplied by frame count for sequence | None | Two decimals; GB above 1024 MB | Reports approximate current sample volume | Recomputed on target update | Excludes metadata/compression | Information only | Recomputed |
-| New Size: | Read-only estimate, MB/GB | Same as current at 100% | None | `Target width × Target height × channels × bytes per sample`; frame-count multiplier for sequence | Reports approximate output sample volume | Updates with target dimensions | Excludes working planes, the source kept for history, temporary sequence storage, metadata, and compression | Information only | Recomputed |
-| Target Image | Image/sequence selector | Attached active target | None | Any open target accepted by generic image-process support | Reattaches and resets all dimensions/options for the new target | Cannot attach where an exclusive process conflicts | Wrong target is replaced | Setup/OK; still/sequence | Target lifecycle |
-| OK | Dialog action | Disabled at unchanged dimensions | None | Enabled when either Target Px axis differs | Asks the **Resize CFA** question for a mosaic, then reads the dialog and starts the resize on a worker | OK/Close/Reset disable while it runs; the fields stay editable but no longer reach the run | Keeps the source for Image History; a sequence adds a temporary output sequence | Apply; all channels; mask not applied; still/sequence | Success closes and records history |
-| Reset | Dialog action | Enabled | None | One action | Restores source dimensions, 100%, aspect lock, and Auto | Disabled during execution | No pixel change | Setup | Immediate |
-| Close | Dialog action | Enabled | None | Button or title-bar close | Closes without starting a new resize | Button disables during execution; a title-bar close while a run is in flight hides the window, which closes once the run has landed; it does not stop the run | Nothing waits on the GUI thread | Dialog only | No settings saved |
-| Cancel | Sequence-progress action | Not requested | None | Available only during a sequence run | Stops the run between frames | The progress window belongs to the run | A stopped run leaves the sequence and its history as they were and no temporary sequence behind; nothing is reported | Apply; sequence only | Per run |
+**Target Px** and **% Adjust** each have a **Width** and a **Height** box, in the rows of the window. What every
+process window shares is on [Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: Resize
+controls:
+  - name: Original Px
+    kind: readout
+    default: The image's width and height
+    effect: Shows the width and the height of the image now, in pixels.
+    scope: Read again when the image changes or another target is chosen.
+  - name: Width
+    object: targetWidth
+    kind: spinbox
+    default: The image's width
+    widget: {min: 1, max: 100000, step: 1}
+    effect: Sets the result's width in pixels, under **Target Px**. The **% Adjust** box of the row shows it as a percentage of the image's width.
+    range: With **Keep aspect ratio** ticked, the height takes the same percentage, cut to a whole pixel.
+    tradeoff: More pixels take more memory and time, and an enlargement adds no information.
+    scope: OK, on every channel and every frame of a sequence.
+    persistence: Until the window closes. **Reset** and another target return it to the image's width.
+  - name: Width
+    object: targetWidthPercent
+    kind: spinbox
+    default: "100.00"
+    widget: {min: 1, max: 1000, step: 1, decimals: 2}
+    effect: Sets the result's width as a percentage of the image's, under **% Adjust**. Below 100 it shrinks the image, above 100 it enlarges it.
+    range: The width it gives is the image's width times the percentage, cut to a whole pixel. With **Keep aspect ratio** ticked, it sets the height and its percentage too.
+    tradeoff: Above 100 the image takes more memory and time without new detail.
+    persistence: Until the window closes. **Reset** and another target return it to 100.00.
+  - name: Height
+    object: targetHeight
+    kind: spinbox
+    default: The image's height
+    widget: {min: 1, max: 100000, step: 1}
+    effect: Sets the result's height in pixels, under **Target Px**. The **% Adjust** box of the row shows it as a percentage of the image's height.
+    range: With **Keep aspect ratio** ticked, the width takes the same percentage, cut to a whole pixel.
+    tradeoff: A height and a width of different percentages stretch every star and object along one axis.
+    scope: OK, on every channel and every frame of a sequence.
+    persistence: Until the window closes. **Reset** and another target return it to the image's height.
+  - name: Height
+    object: targetHeightPercent
+    kind: spinbox
+    default: "100.00"
+    widget: {min: 1, max: 1000, step: 1, decimals: 2}
+    effect: Sets the result's height as a percentage of the image's, under **% Adjust**.
+    range: The height it gives is the image's height times the percentage, cut to a whole pixel. With **Keep aspect ratio** ticked, it sets the width and its percentage too.
+    tradeoff: Unequal percentages change the shape of every object.
+    persistence: Until the window closes. **Reset** and another target return it to 100.00.
+  - name: Keep aspect ratio
+    kind: check
+    default: "On"
+    effect: Ties both sides to one percentage, so a change of either one sets the other.
+    range: Ticked again, it keeps the percentage of the side that is larger in pixels and sets the other side to it.
+    tradeoff: Whole pixels can leave the two sides scaled by very slightly different amounts. The result's pixels keep their shape all the same, and a plate solution follows the exact scales.
+    persistence: Until the window closes. **Reset** ticks it.
+  - name: Interpolation
+    kind: combo
+    default: "Auto (Lanczos4 to enlarge, Pixel Area Relation to reduce)"
+    options: ["Auto (Lanczos4 to enlarge, Pixel Area Relation to reduce)", Nearest Neighbor, Bilinear, Bicubic, Pixel Area Relation, Lanczos4, Bit Exact Bilinear, Bit Exact Nearest Neighbor]
+    effect: Chooses how each new sample is computed from the samples around it. Auto chooses **Lanczos4** when either side grows, even when the other shrinks, and **Pixel Area Relation** otherwise.
+    range: "**Nearest Neighbor** copies one sample. **Bilinear** weighs the four around, **Bicubic** sixteen and **Lanczos4** sixty-four. **Pixel Area Relation** averages the area each new pixel covers when no side grows, and weighs like **Bilinear** when one does. The two **Bit Exact** choices follow the fixed-point rules of OpenCV's `INTER_LINEAR_EXACT` and `INTER_NEAREST_EXACT`."
+    tradeoff: "**Nearest Neighbor** is fast and blocky. **Bilinear**, **Bicubic** and **Lanczos4** smooth across their neighbors. **Bicubic** and **Lanczos4** keep edges sharper and can ring, which a guard against dark rings tempers, and they take longer, the guard included. **Pixel Area Relation** suits a reduction."
+    scope: OK, on each channel.
+    persistence: Until the window closes. **Reset** returns it to Auto.
+    note: The history names the interpolation that ran, never Auto.
+  - name: Current Size
+    kind: readout
+    default: The image's size in memory
+    effect: Gives the memory the image's samples hold now, for all the frames of a sequence together.
+    range: In MB with two decimals, and in GB above 1024 MB.
+    tradeoff: It counts the samples only, not the working memory of a run or the compression of a file.
+  - name: New Size
+    kind: readout
+    default: The image's size in memory
+    effect: Gives the memory the result's samples will hold, which is the two **Target Px** values times the channels times the bytes of one sample, for every frame of a sequence.
+    range: In MB with two decimals, and in GB above 1024 MB.
+    tradeoff: It leaves out the working planes, the image the history keeps, the temporary sequence a sequence needs, the header and the compression of a file.
+    scope: Counted again with every change of the size.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence OK resizes. Choosing another one returns every control to its default for that image.
+    tradeoff: The image chosen here is the one replaced.
+    persistence: Until the window closes. **Reset** leaves it as it is. When the image's own size changes, **Original Px** follows, and **Target Px** follows the percentages.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Reads the size and the interpolation and resizes the image, or every frame of the sequence. The window closes once the view shows the result.
+    enabled: When either **Target Px** value differs from the image's size. Its tooltip then reads "Apply the resize to the target image.", and otherwise "Target dimensions match the current image. Change width or height to enable."
+    tradeoff: The history keeps the image as it was beside the result, so the run needs the memory of both. A sequence needs the disk space of the resized copy.
+    scope: The whole image, on every channel, without the mask. A change made in the window after you press it does not reach the run.
+    persistence: "The image and its history keep the result, as the step **Resize** with the text `Previous size: <w>x<h> - New size: <w>x<h> - Interpolation: <name>`."
+    note: "For a mosaic the view does not debayer, it first asks \"Resize CFA\" whether to run anyway, and **No** starts nothing. OK, **Close** and **Reset** are disabled while the run works, and the other controls stay editable. A single image shows no progress window, and its run cannot be stopped once it starts. A run that fails leaves the window open."
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window without resizing.
+    enabled: Disabled while a run works.
+    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run is not stopped, on a sequence either.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns both sides to the image's size, both percentages to 100.00, **Keep aspect ratio** to ticked and **Interpolation** to Auto.
+    range: It leaves **Target Image** as it is.
+    enabled: Disabled while a run works.
+```
 
-### Conceptual pipeline
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: "Shows the share of the frames done, from 0 to 100 percent, under the title **Resize** and the text `Executing resize to sequence <name>`."
+    enabled: Shown only while OK works on a sequence. A single image has no progress window.
+    tradeoff: The resized sequence is written to a temporary file, which needs its disk space until the run ends.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the run, before the next frame at the latest. The sequence stays as it was, with no history step, and the temporary file is removed.
+    note: Closing the Resize window does not stop the run.
+```
 
-1. On **OK**, ask the **Resize CFA** question when the target is a mosaic the
-   view does not demosaic, then read the target size and the interpolation on
-   the GUI thread, resolving Auto: Lanczos4 when either Target Px value is larger
-   than the original, otherwise Pixel Area Relation.
-2. Plan the resize against the image's description. A mosaic is planned as one
-   grey plane, its filter array forgotten, only after **Yes**.
-3. Sample every channel at each destination pixel through the chosen
-   interpolation, in Float32 working planes accumulated in Float64, with the edge
-   sample repeated for taps beyond the border.
-4. For Bicubic and Lanczos4, apply the dark-ringing guard described below.
-5. Write the result back in the source representation through the default
-   conversion (nearest code, saturating at the representation's range). A
-   floating image in a normalized domain is held to `[0,1]`; one in a sensor-code
-   or physical domain is left as computed.
-6. Restate the metadata under the geometry policy and record
-   `an::transformImageGeometry`, detail `Resize`, in the lineage.
+## How it works
 
-### Model and equations
+1. **OK** reads the size and the interpolation, and resolves Auto by whether either side grows.
+2. A mosaic is read as one gray plane, its filters forgotten, only after you answer **Yes** to the question.
+3. Each new sample is computed from the samples around its place in the image, through the interpolation, in
+   floating point. A tap beyond the edge reads the edge sample. **Bicubic** and **Lanczos4** then pass the dark-ring
+   guard.
+4. The result is written back in the image's pixel type, rounded to the nearest value and held to the type's range.
+   A floating-point image of
+   [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale) is held to 0 to 1. One of
+   [sensor codes](../../reference/glossary.md#sensor-code) or of a
+   [physical quantity](../../reference/glossary.md#physical-quantity) keeps what was computed.
+5. The header follows the rule of every geometry change, which [Crop](crop.md#how-it-works) describes with the
+   [header cards](../../reference/glossary.md#header-card) it keeps. The plate solution is scaled, the pixel size is
+   restated, and the [processing state](../../reference/glossary.md#processing-state) cards go with the other cards.
+   The image replaces the target with one history step, or a sequence is written whole into a new
+   [temporary sequence](../../reference/glossary.md#temporary-sequence).
 
-Let `sx = Win/Wout` and `sy = Hin/Hout`. Each destination sample is a weighted sum
-of source samples around a source coordinate:
+### Model
 
-`O_c(x,y) = Σ_i Σ_j I_c(i,j) Kx(i - u(x)) Ky(j - v(y))`.
+Let \(W\) and \(H\) be the image's width and height, and \(W'\) and \(H'\) the **Target Px** values. The scales are
 
-Every interpolation except Nearest Neighbor uses the half-pixel convention,
-`u(x) = (x + 0.5)·sx - 0.5` and likewise `v(y)`. The kernels:
+\[ s_x = W / W', \qquad s_y = H / H' \tag{1} \]
 
-- **Nearest Neighbor**: one donor at the asymmetric index `floor(x·sx)`.
-- **Bilinear**: the four surrounding samples with linear weights.
-- **Bicubic**: a four-by-four neighbourhood with the cubic kernel `a = -0.75`.
-- **Pixel Area Relation**: when neither axis grows, the area average of each
-  destination cell's source footprint; when either axis grows, a bilinear sample.
-- **Lanczos4**: an eight-by-eight neighbourhood with a radius-four Lanczos
-  window.
-- **Bit Exact Bilinear**: the fixed-point linear coefficients and rounding of
-  OpenCV's `INTER_LINEAR_EXACT` rule for 8-bit, unsigned 16-bit and signed
-  16-bit samples; ordinary Bilinear for the other representations.
-- **Bit Exact Nearest Neighbor**: the half-pixel nearest rule evaluated in a
-  16-bit fixed-point coordinate, as OpenCV's `INTER_NEAREST_EXACT` evaluates it,
-  copying a stored value exactly.
+The new pixel at \((x, y)\) is computed around the place \((u, v)\) of the image, pixel centers being whole numbers:
 
-**Dark-ringing guard.** For Bicubic and Lanczos4, each output is compared with a
-guide: the area average of its source footprint when neither axis grows, a
-bilinear sample otherwise. An output below `0.98 ×` its guide is replaced by the
-guide, together with its four neighbours. The guard suppresses dark rims beside
-bright stars; it does not limit overshoot.
+\[ u = (x + 0.5)\,s_x - 0.5, \qquad v = (y + 0.5)\,s_y - 0.5 \tag{2} \]
 
-The result states the source's pixel aspect exactly, whatever the rounding of
-its two axis scales: a resize that scales one axis more than the other makes a
-new grid of pixels of the source's shape rather than stating stretched pixels,
-which Rotate refuses. A resized image with square
-pixels can therefore always be rotated.
+Each interpolation but **Nearest Neighbor** weighs the samples \(I_c\) of channel \(c\) around that place with its
+kernel \(K\):
 
-Resize is not a flux-conserving photometric operation. Pixel Area Relation
-reduction generally preserves local average/surface brightness, not the sum of
-stored pixel values. Upsampling distributes correlated estimates over more
-pixels; it adds neither independent samples nor SNR. Downsampling can reduce
-per-pixel noise variation through averaging, but introduces correlation and
-changes the measurement aperture in pixels. Remeasure rather than assuming an
-SNR or flux scaling.
+\[ O_c(x, y) = \sum_i \sum_j I_c(i, j)\; K(i - u)\; K(j - v) \tag{3} \]
 
-### Boundary and failure behavior
+**Nearest Neighbor** takes the sample at column \(\lfloor x\,s_x \rfloor\) and row \(\lfloor y\,s_y \rfloor\).
+**Bicubic** uses the cubic kernel with \(a = -0.75\) over four by four samples, and **Lanczos4** a Lanczos window of
+radius 4 over eight by eight. **Bit Exact Bilinear** computes in the image's own integers for 8-bit, unsigned 16-bit
+and signed 16-bit images, and as **Bilinear** for the other types. **Bit Exact Nearest Neighbor** places its sample
+by the rule of equation (2) in 16-bit fixed point and copies a stored value exactly.
 
-The UI prevents zero dimensions and caps each Target Px axis at 100000. The
-engine creates exactly the requested canvas; Resize has no fill control or extra
-border. Integer results saturate at their representation's range. A normalized
-floating result is held to `[0,1]`, so finite excursions and infinities outside
-it are clipped; a sensor-code or physical-domain result keeps them.
+The dark-ring guard compares each **Bicubic** or **Lanczos4** sample with a guide: the area average of its pixel when
+no side grows, a **Bilinear** sample otherwise. A sample below 0.98 times its guide is replaced by the guide, with its
+four neighbors. The guard removes dark rims beside bright stars and does not limit a bright overshoot.
 
-A sample the image's validity rule calls invalid - a `NaN` under a rule that
-calls non-finite samples invalid, or a sample an explicit mask clears - prevents
-every output whose kernel reaches it from being written; those outputs are marked
-invalid in the result's validity mask. Under a rule that counts every sample
-valid, a `NaN` takes part in the interpolation and can spread to its neighbours.
+A plate solution's degrees per pixel are multiplied by \(s_x\) and \(s_y\), and its reference pixel moves with the
+grid. A distortion is kept, rescaled by the mean of the two scales, while \(s_x\) and \(s_y\) agree within a thousandth of
+the larger. **Keep aspect ratio** keeps them that close for a result of 1000 pixels or more a side, and a smaller one
+can miss by a pixel. Otherwise the linear solution stays and the distortion goes. The `XPIXSZ` and `YPIXSZ` cards are multiplied by \(s_x\) and \(s_y\),
+so the plate scale the optics give is still the result's: a half-size frame of 2.315 µm pixels states 4.63. The
+result states the shape of the image's pixels, so a square-pixel image stays square, and can be rotated, after any
+two scales.
 
-Answering **No** to the **Resize CFA** question starts nothing. The engine's
-refusal of the request or an allocation it cannot make becomes **Error running
-resize**, with
-the text `An error occurred when executing the resize process:` followed by the
-reason, in a message and in the log; the image and its history are left as they
-were and the window stays open. A still resize cannot be stopped once it starts.
-If another run holds a sequence view, Resize shows the view's busy warning titled
-**Resize** and starts nothing. If Image History cannot keep the image the resize
-replaces, the history says so once, in a message titled **Image History**, Resize
-says nothing more, and the image and its history are left as they were.
+A resize keeps no sum. **Pixel Area Relation** keeps a local mean, so the background's level, not the total of the
+samples. Averaging lowers the noise of each sample but correlates neighbors, and an enlargement spreads the same
+values over more pixels: measure noise and [flux](../../reference/glossary.md#flux) again on the result.
 
-## Parameter interactions and starting points
+### Boundaries
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Downsampling | Keep aspect ratio; set final dimensions; start with Auto (Pixel Area Relation) | File/work remain larger than required | Stars and fine structures merge or alias | Choose required size, compare Area with Bilinear/Lanczos at 100%, then commit |
-| Upsampling | Keep aspect ratio; use only a downstream-required size; Auto chooses Lanczos4 | Output still undersized for the destination | Larger soft/ringing pixels and excessive storage with no added detail | Fix destination requirement, choose size, inspect ringing, then compare Bicubic/Bilinear |
-| Non-uniform resize | Leave locked unless correcting a known geometric scale error | Intended distortion remains | Stars/objects stretch, and a distortion model of the plate solution is dropped | Establish axis scales externally, unlock, set axes, then verify shape |
+- Integer results are held to their type's range, and a floating-point image of fractions to 0 to 1, so a ring or a
+  star above 1 is clipped there.
+- A sample the image's [validity rule](../../reference/glossary.md#validity-rule) calls invalid leaves unwritten every
+  new sample whose kernel reaches it, and the result marks those invalid in a mask. Where every sample was written,
+  the image's rule is kept, and a mask of valid samples is resampled with the samples. Under a rule that calls every
+  sample valid, a sample that is not a number takes part, and spreads to its neighbors.
+- A rejected size, or a result there is no memory for, is reported as "Error running resize" and in the log, and the
+  image, its history and the window stay as they were. When the history cannot keep the image, it says so once in a
+  message titled "Image History", and nothing changes.
+- When another run holds a sequence, Resize shows "Another process is executing for this sequence, please cancel
+  that job first before running this process" under its own title, and starts nothing.
+- A sequence keeps its container, with the frames stored as [Crop](crop.md#boundaries) describes.
 
-## Inputs, outputs, and metadata
+### Worked example
 
-Resize modifies one target and keeps its sample representation and channel
-layout. It follows the geometry policy every geometry change shares (Crop,
-Rotate, both integer resamples and the **Image > Fast Geometry** turns and
-mirrors):
-the acquisition record and meaning are kept, and the writer writes the
-acquisition record when the image is saved; every header card read from the file
-(FITS cards, Exif) is dropped except a plate solution, the `PLTSOLVR` card
-naming its solver and the frame's observing context and integration cards,
-which [Crop](crop.md#inputs-outputs-and-metadata) lists; an output decision is
-withdrawn; and the lineage records `an::transformImageGeometry` with `Resize`.
-The result's description states the new dimensions and the source's pixel
-aspect.
+The linear Carina [master](../../reference/glossary.md#master) is 7246 by 5429 pixels, shown in the view's
+[Autostretch](../../reference/glossary.md#autostretch) display. With **Keep aspect ratio** ticked, type 50 in the
+**% Adjust** box of **Width**. **Target Px** reads 3623 and 2714: half of 5429 is cut to a whole pixel, and **New
+Size** reads 112.53 MB. Auto chooses **Pixel Area Relation**, since no side grows. By equation (1), \(s_x = 2\) and
+\(s_y = 5429 / 2714 = 2.00037\), so each new pixel averages a block of two columns and slightly more than two rows.
+The background keeps its level, near 0.028. After **OK** the history reads
+`Previous size: 7246x5429 - New size: 3623x2714 - Interpolation: Pixel Area Relation`.
 
-Pixel size: the observing context's `XPIXSZ` and `YPIXSZ` are divided by the
-resize's scale along each axis, so the plate scale the optics imply is still
-the result's: a 50% resize of a frame of 2.315 µm pixels states 4.63.
+## Starting points
 
-Plate solution: a solution the image's header cards state is carried with its
-scale matrix multiplied by the axis scales and its reference pixel moved with
-the grid, so every result pixel points where the source position it came from
-pointed. A distortion model is carried while the two axis scales agree within a
-thousandth of the larger: its coefficients are rescaled by the mean of the two
-scales and its reference pixel moves with the grid on each axis. A resize whose
-scales differ by more keeps the linear solution and drops a distortion model it
-no longer describes. The same move is
-applied to every frame of a sequence; the new sequence keeps what its container
-stores. Rotate, a filter-array integer resample and the turns and mirrors drop
-the solution.
-
-Validity: where every output was written, the image's validity rule is kept, and
-an explicit mask is resampled with the samples; where an invalid source sample
-prevented some output from being written, the result states its validity as the
-mask the resize wrote.
-
-A mosaic resized after **Yes** is one grey plane with no filter array. On a still
-image the result is one `Resize` Image History step. On a sequence, Resize takes
-the view for the run, reads every frame - whatever the player has selected, and
-demosaiced when the view demosaics them, by the method the sequence states from
-the one RAW
-[Demosaic Algorithm](../../interface/settings-dialog.md#raw-images-settings)
-setting - writes each resized frame into a new temporary sequence of the same
-container (a video in a container the product does not write becomes Matroska),
-publishes it whole, and shows it in the view as one Image History step. Each
-frame is stored as its container stores frames: SER at 8 or 16 unsigned bits,
-AVI and video at 8 bits, and video at an even width and height, so an odd last
-column or row is dropped from a video frame. A run that fails or is cancelled
-leaves the sequence as it was and nothing in the temporary directory. No
-standalone image file or auxiliary view is written.
-
-## Performance
-
-Work and memory increase with output pixels, channels, and kernel support.
-Nearest/Bilinear are generally cheaper than Bicubic/Lanczos4, which also compute
-the guard's guide. The working planes and the result coexist with the source,
-which is kept for Image History. Sequence processing adds temporary output
-storage. The two dialog estimates count samples only and do not predict peak
-memory, compressed file size, or execution time.
-
-## Worked example
-
-- Input and settings: a solved `6000×4000` image, Keep aspect ratio checked,
-  Width Target Px `3000`, Auto.
-- Expected checkpoint: Height becomes `2000`, Auto chooses Pixel Area Relation,
-  output is `3000×2000`, axis scales are `0.5`, the result states square pixels,
-  the plate solution is carried at twice the angular size per pixel, and the
-  history step reads
-  `Previous size: 6000x4000 - New size: 3000x2000 - Interpolation: Pixel Area Relation`.
-- Inspect at 100%/statistics/history: dimensions, star profiles/edges, background
-  noise, the astrometry state, and the interpolation named in the Resize history
-  step.
-- Limitations: synthetic tests establish geometry, kernels, and the metadata
-  policy; this does not establish real-image sharpness, flux accuracy, production
-  timing, or memory.
-
-## Warnings and limitations
-
-- Resize replaces the target and interpolation is not exactly reversible.
-- Active masks and display/channel choices do not limit processing.
-- A mosaic resized after **Yes** mixes its colour positions into one grey plane.
-- Auto is only a direction rule: if either axis grows it chooses Lanczos4, even
-  when the other axis shrinks; otherwise it chooses Pixel Area Relation.
-- Percent-to-pixel conversion truncates to integer dimensions, so the displayed
-  linked percentages and exact `sx/sy` can differ slightly; the result's pixels
-  keep the source's shape, and the carried solution follows the exact scales.
-- A resize whose two axis scales differ by more than a thousandth drops a
-  distortion model from the carried plate solution. A locked aspect ratio whose
-  truncated dimensions are a thousand pixels or more on each side never does; a
-  smaller result can, by a pixel's truncation. Plate-solve again when a
-  distorted field needs it.
-- A normalized floating result is held to `[0,1]` and an integer result to its
-  representation's range; ringing or saturated samples can lose recoverable
-  range.
-- A still resize has no Cancel; closing the window during a run hides it until
-  the run lands but does not stop it.
-- Resampling changes noise correlation and stored-value sums; it does not create
-  flux, resolution, or SNR.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| OK is disabled | Both Target Px values equal current geometry | Change at least one axis |
-| Linked dimension is off by one | Percentage-to-integer conversion and source aspect do not divide exactly | Enter the exact required Target Px; accept the nearest integer aspect or unlock deliberately |
-| **Resize CFA** question | Target is a mosaic the view does not demosaic | Choose No, then Debayer or use CFA Integer Resample |
-| Fine detail looks blocky | Nearest enlargement or excessive scale | Compare Bilinear, Bicubic, or Lanczos4 and avoid unnecessary enlargement |
-| Output contains `NaN` | Source `NaN` samples under a rule that counts every sample valid took part in the interpolation | Repair non-finite samples before Resize and rerun from the original |
-| Dark rims replaced by smoother values or clipped peaks | The dark-ringing guard replaced a ring with its guide, or the result was held to its range | Compare Bilinear/Area, reduce scale, and work from an unclipped source |
-| Astrometry overlay disappears after resize | The image's header cards stated no plate solution, so there was none to carry | Plate-solve the resized image |
-| **Error running resize** | The engine refused the request or could not allocate the result | Read the message and the log, choose supported dimensions, free memory, and retry |
-| An **Image History** error, and the resize is not applied | Image History could not keep the image the resize replaces; it says so once, Resize says nothing more, and nothing changes | Free memory and run Resize again |
+| A smaller image | **Keep aspect ratio**, the final size, and Auto, which reduces with **Pixel Area Relation** | Compare **Bilinear** and **Lanczos4** at 100 % where stars merge or edges alias. |
+| A larger image | Only the size the destination needs, and Auto, which enlarges with **Lanczos4** | Look for rings around stars, then compare **Bicubic** and **Bilinear**. |
+| One axis wrong by a known factor | **Keep aspect ratio** unticked, each side set from the measured scales | Check the shape of stars, and plate-solve again if the field had a distortion. |
 
-## Related workflow steps
+## When it goes wrong
 
-Use [Crop](crop.md) first when unwanted borders should be removed without
-interpolation. Use [Integer Resample](integer-resample.md) for exact integer
-pixel replication and [Rotate](rotate.md) for orientation. For CFA-preserving
-integer operations, use
-[CFA Integer Resample](../calibration/cfa-integer-resample.md). Resize carries a
-plate solution; [Plate Solving](../registration-alignment/plate-solving.md)
-restores one after a rotation or a filter-array resample.
+!!! warning "Resizing back does not undo a resize"
+    Each resize computes new values, and a second one does not bring the first image back. Use the image's history to
+    return to it, and resize once, to the size you need.
+
+**OK** stays disabled
+:   **Cause.** Both **Target Px** values equal the image's size.
+:   **Fix.** Change at least one side.
+
+The linked side is one pixel off
+:   **Cause.** A percentage times the size is cut to a whole pixel.
+:   **Fix.** Type the exact **Target Px** you need in both boxes, or accept the nearest whole pixel.
+
+"Resize CFA" asks whether to run anyway
+:   **Cause.** The image is a mosaic its view does not debayer.
+:   **Fix.** Choose **No**, then debayer it with Debayer, or resize the mosaic with CFA Integer Resample.
+
+Stars and fine detail look blocky
+:   **Cause.** **Nearest Neighbor** enlarged them, or the scale is larger than needed.
+:   **Fix.** Undo the step, then compare **Bilinear**, **Bicubic** or **Lanczos4**, and enlarge less.
+
+Star cores look flat, or dark rims became smooth patches
+:   **Cause.** The result was held to its range, or the dark-ring guard replaced a ring with its guide.
+:   **Fix.** Undo the step and compare **Bilinear** or **Pixel Area Relation**, or resize less.
+
+The result holds samples that are not a number
+:   **Cause.** Such samples in the image took part in the interpolation under a rule that calls every sample valid.
+:   **Fix.** Repair the samples that are not a number first, then resize again from the original.
+
+"Error running resize"
+:   **Cause.** The run refused the size or found no memory for the result.
+:   **Fix.** Read the reason after "An error occurred when executing the resize process:", choose a smaller size or
+    free memory, and choose **OK** again.
+
+The astrometry overlay is gone after the resize
+:   **Cause.** The image's header cards stated no plate solution, so there was none to carry.
+:   **Fix.** Plate-solve the resized image.
+
+## Related
+
+- [Crop](crop.md), to remove borders first without changing a sample, and for the header cards every geometry change
+  keeps.
+- [Integer Resample](integer-resample.md), to enlarge by whole blocks or bin by a whole factor without interpolating.
+- [Rotate](rotate.md), to turn the image by any angle.
+- [CFA Integer Resample](../calibration/cfa-integer-resample.md) and [Debayer](../calibration/debayer.md), for a raw
+  mosaic.
+- [Plate Solving](../registration-alignment/plate-solving.md), to solve again when a distortion was dropped.
+- [Process Windows](../../interface/process-windows.md), for what every process window shares.

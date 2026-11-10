@@ -197,9 +197,11 @@ nav:
           - Integer Resample: processes/geometry/integer-resample.md
       - Pixel Math:
           - Pixel Math: processes/pixel-math/pixel-math.md
+          - Pixel Math Reference: processes/pixel-math/pixel-math-reference.md
       - Analysis:
           - Image Compare: processes/analysis/image-compare.md
           - Image Blend: processes/analysis/image-blend.md
+          - Image Blend Reference: processes/analysis/image-blend-reference.md
           - Range Selection: processes/analysis/range-selection.md
       - Masking:
           - Mask Drawing: processes/masking/mask-drawing.md

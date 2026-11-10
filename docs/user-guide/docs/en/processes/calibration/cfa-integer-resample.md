@@ -175,7 +175,7 @@ respective original values. This is not ordinary whole-mosaic nearest neighbor.
   cards, the frame's observing context - its optics, site, pointing, camera
   settings, filter, object, frame type and date - and the light it holds, its
   `EXPTIME`, `TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE` cards as it
-  states them, which [Crop](../geometry/crop.md#inputs-outputs-and-metadata)
+  states them, which [Crop](../geometry/crop.md#model)
   lists. Its `XPIXSZ` and `YPIXSZ` are multiplied by the factor for Downsample
   and divided by it for Upsample - the exact factor, whatever edges the
   resample drops - so the plate scale the optics imply is still the result's.

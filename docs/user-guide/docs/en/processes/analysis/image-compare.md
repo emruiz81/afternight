@@ -3,247 +3,314 @@ kind: process
 stage: any
 menu: Process > Utilities > Image Compare
 summary: >-
-  Shows two open images at the same pixel positions, side by side or overlaid, without changing either.
+  Shows two open images of the same size at the same pixel positions, one at a time or on either side of a divider
+  you drag, each with its own histogram, and changes neither.
 data_in: either
+data_out: either
+destructive: false
+preview: real-time
+sequences: false
+masks: none
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Image Compare window is open on it yet, and no window that needs the
+    image for itself is open on it.
+  inputs: >-
+    The active image as Image 1, and another open image of exactly its width and height as Image 2. Their pixel types,
+    channels, states and headers may differ. A sequence takes part through the frame its view shows.
+  outputs: >-
+    Nothing. Both images, their histories and their files stay as they were. Take snapshot can open a copy of Image 1.
+  state: >-
+    Two versions of one image on the same pixel grid: before and after a process, two processing choices, or two
+    registered frames.
+derived: false
+rewritten: true
 ---
 # Image Compare
 
-## Purpose and expected result
+Image Compare shows two open images of the same size at the same pixel positions, so you can see what a process
+changed or whether two frames line up. One mode shows one image at a time and switches to the other. Two split modes
+show Image 1 on one side of a divider and Image 2 on the other, and you drag the divider across the preview. Each
+image has its own histogram, counted from its samples. The window computes no difference and no score, and aligns or
+matches nothing.
 
-Image Compare is a non-destructive inspection window for comparing two open
-images at the same pixel coordinates. It is useful for checking registered
-variants, alternate processing results, or before/after states. The observable
-result is a toggle or movable split display plus one or two raw-data
-histograms. It does not calculate a score, align or normalize the inputs, or
-derive a comparison image. The shared **Take snapshot** action can create an
-auxiliary still containing a copy of Image 1; it is not a capture of the split,
-Image 2, or the display stretch.
+The window has no **Apply**. It changes neither image, adds no step to a
+[history](../../reference/glossary.md#history) and writes no file.
 
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Utilities > Image Compare** |
-| Enabled when | At least one image view is open; the active view becomes **Image 1**. |
-| Inputs | One active image and one other open image with exactly the same width and height. Pixel type, channel count, processing state, metadata, and display state need not match. |
-| Outputs | Inspection does not change either input. **Take snapshot** optionally creates `<Image 1> - Image Compare - SNAPSHOT`, copying Image 1 pixels and metadata without the split/Image 2/display stretch. No file is written directly. |
-| Recommended image state | Any state is accepted. Compare like with like: use the same processing state, registration, crop, display channel, zoom, and display mode when interpreting differences. |
-| Preview support | Always-on private comparison view. Toggle and split modes operate in that view: in a split, Image 2 is presented by the engine on a worker exactly as the view presents Image 1 - the same display mode, stretch, balance and channel - and shown once it lands. There is no Apply action, but the shared toolbar can create an Image 1 snapshot. |
-| Sequence support | A sequence view can be Image 1, but Image 2 is the other view's current image. There is no synchronized frame pairing or sequence output. |
-| Mask support | None. Active masks are not applied to either comparison image. |
-| External dependencies | None. |
+```figure
+image: ../../assets/images/processes/analysis/image-compare.webp
+alt: >-
+  The Image Compare window. On the left, two histograms one above the other, captioned Image 1 and Image 2: the upper
+  one a peak a little way in from its left edge, the lower one a spike at the edge. Under them the histogram toolbar,
+  the Mode row of three buttons with the second one pressed, and the Image 1 and Image 2 boxes, each naming an image.
+  On the right, an upright line with a round handle cuts the preview in two: the left half, labelled IMAGE 1, shows a
+  red nebula, and the right half, labelled IMAGE 2, is nearly black. Close sits at the bottom right.
+caption: >-
+  Image Compare with the Carina master after Histogram Transformation as Image 1 and the linear master as Image 2,
+  side by side in the Linear display mode.
+pins:
+  - {n: 2, x: 35.0, y: 87.5}
+  - {n: 4, x: 17.1, y: 54.1}
+  - {n: 5, x: 75.0, y: 55.3}
+  - {n: 7, x: 35.0, y: 24.0}
+  - {n: 8, x: 89.3, y: 96.0}
+```
 
 ## Before you start
 
-Open both images and ensure they already represent the same field and pixel
-grid. Image Compare filters **Image 2** by width and height only. It does not
-check WCS, registration transforms, crop origin, channels, exposure, background,
-or photometric scale. An apparent edge or brightness difference can therefore
-be a coordinate or normalization mismatch rather than a processing result.
+- Bring the two images onto one pixel grid first: register them and crop them alike. The window offers only images
+  of the same width and height, and checks nothing else: not the registration, the
+  [WCS](../../reference/glossary.md#wcs), the crop, the channels, the exposure or the background.
+- Compare like with like: the same [processing state](../../reference/glossary.md#processing-state), the same
+  display channel, zoom and display mode. A difference at an edge or in brightness can come from the pairing rather
+  than from a process.
+- To compare brightness, choose **Linear** in **Display Mode**, which shows the samples as they are. In
+  [Autostretch](../../reference/glossary.md#autostretch) each image is stretched by its own statistics, which shows
+  structure and hides a difference of scale.
+- Neither image is changed, and a [mask](../../reference/glossary.md#mask) on either view plays no part.
+- A [sequence](../../reference/glossary.md#sequence) takes part through the frame its view shows. Two sequences are
+  not paired frame by frame.
 
-Choose **Linear** display when you need the same direct sample-to-screen
-mapping. In **Autostretch**, each image is stretched from its own statistics;
-that is convenient for structural inspection but not evidence that the two
-images have the same intensity scale.
+## Steps
 
-## Procedure
+1. **Open the window.** Make the first image the [active image](../../reference/glossary.md#active-image) and
+   choose **Process > Utilities > Image Compare**. **Image 1** names it, **Image 2** reads `<--NO IMAGE-->`, and the
+   preview shows the image labelled IMAGE 1.
+2. **Choose the second image.** Pick it in **Image 2**. The list holds only the open images of exactly Image 1's
+   width and height.
+3. **Blink the two.** With **Toggle mode (click to switch between images)** pressed, the first button of the
+   **Mode** row, choose **Switch image** in the preview's toolbar, or hold ++space++ over the preview. The preview
+   and the histogram turn to IMAGE 2, and back.
+4. **Split the preview.** Press **Horizontal split (side by side with draggable divider)** to put Image 1 on the left
+   and Image 2 on the right, or **Vertical split (top/bottom with draggable divider)** to put Image 1 on top. A second
+   histogram opens under the first.
+5. **Move the divider.** Drag the line across stars, background and nebula, and double-click it to center it again.
+   Right-click the preview to swap the two sides.
+6. **Look at 100 %.** Choose **Zoom 100%** and hold the left button over either side: the lens magnifies the image of
+   that side.
+7. **Read the histograms.** Each counts the samples of its own image as they are stored, whatever the preview's
+   display does with them.
+8. **Close.** Choose **Close**. Both images, their histories and their files are as they were.
 
-1. Activate the first image, then open **Process > Utilities > Image Compare**.
-   Confirm that its name appears in **Image 1**.
-2. Choose a same-size view in **Image 2**. If it is absent, its dimensions do
-   not match Image 1. The private preview now has both images available.
-3. Set the preview to the same display channel and zoom you intend to inspect.
-   Use **Linear** for direct intensity comparison or **Autostretch** for a
-   separately stretched structural comparison.
-4. Start with **Toggle mode** and use the preview's switch-image action to blink
-   between IMAGE 1 and IMAGE 2. Stationary features should remain at the same
-   pixel location if the pair is registered.
-5. Select **Horizontal split** or **Vertical split** for a seam comparison.
-   Drag the divider through stars, background, and high-signal structure;
-   double-click it to return to the center. Right-click the image, or use the
-   preview switch-image action, to reverse the two sides.
-6. Read the histograms as distributions of stored image samples, not of the
-   screen stretch. Split modes show labelled histograms for both images; Toggle
-   mode shows only the image currently displayed.
-7. If you need a duplicate of Image 1, use **Take snapshot**. This creates a new
-   still from Image 1's stored pixels and metadata; it does not capture the
-   visible comparison, Image 2, or Linear/Autostretch presentation.
-8. Close the window when inspection is complete. Closing alone creates no result
-   and neither source receives a history entry.
+## Controls
 
-## Complete parameter and action reference
+The histogram toolbar is the one every window shares, without **Show histogram**: see
+[Process Windows](../../interface/process-windows.md). Here each of its buttons, and **Plot resolution**, acts on
+both histograms at once. The window has no **Preview** check box: its preview is always shown.
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Zoom in** | Histogram toolbar action | Available | None | Repeated clicks multiply histogram widget size by `1.30` | Magnifies bin geometry; does not recompute image data | Histogram panel active | Easier narrow-bin inspection; more scrolling | Both visible raw-data histograms; display only | Window lifetime |
-| **Zoom out** | Histogram toolbar action | Available | None | Repeated clicks multiply histogram widget size by `0.70` | Fits more of the distribution | Histogram panel active | Less detail; no processing cost | Both visible raw-data histograms; display only | Window lifetime |
-| **Zoom reset** | Histogram toolbar action | Available | None | One click | Fits each histogram widget to its parent | Histogram panel active | Restores overview | Both visible raw-data histograms; display only | Window lifetime |
-| **Show grid** | Checkable histogram action | Checked | None | Off / on | Adds or removes plot grid lines | Histogram panel active | Display-only aid | Both visible histograms | Window lifetime; reset does not establish a saved process preset |
-| **Show clipping info** | Checkable histogram action | Checked | None | Off / on | Shows low/high percentages counted at normalized values `<= 0` and `>= 1`, summed over all channels | Histogram panel active | Adds a small overlay; values describe stored samples, not screen clipping | Each visible raw-data histogram | Window lifetime |
-| **Absolute scales** | Checkable histogram action | Unchecked | None | Off / on | Despite the label, checked sets the implementation's local-channel-normalization flag: every displayed channel uses its own peak. Unchecked uses one shared peak across displayed channels. | Histogram panel active | Checked makes channel shapes easier to see but hides relative peak-count differences | Both visible raw-data histograms | Window lifetime |
-| **Draw histogram areas** | Checkable histogram action | Unchecked | None | Off / on | Switches from lines to additive filled channel areas | Histogram panel active | Filled overlaps are easier to see but can obscure fine bins | Both visible raw-data histograms | Window lifetime |
-| **Plot resolution** | Histogram bin-count list | **8-bit (256)** | None | 6-bit (64), 7-bit (128), 8-bit (256), 9-bit (512), 10-bit (1024), 12-bit (4096), 14-bit (16K), 16-bit (64K), 100, 1000, or 10000 levels | Higher counts preserve narrower distribution detail; lower counts aggregate more samples per bin | Histogram panel active | More bins increase histogram computation and storage and can exceed the on-screen width | Both raw-data histograms; source pixel type is unchanged | Window lifetime |
-| **Toggle mode (click to switch between images)** | Exclusive mode action | Selected | None | Toggle mode | Shows one image at a time; the preview switch action alternates IMAGE 1/IMAGE 2 | Requires a valid Image 2 for a meaningful toggle | Best for blinking registration and small local differences | Private preview only | Window lifetime; switching back from split clears split order |
-| **Horizontal split (side by side with draggable divider)** | Exclusive mode action | Unselected | None | Horizontal split | Uses a vertical divider: Image 1 and Image 2 occupy left/right regions | A valid Image 2 supplies the overlay | Direct seam inspection; display conversion uses an 8-bit QImage overlay | Private preview only | Window lifetime |
-| **Vertical split (top/bottom with draggable divider)** | Exclusive mode action | Unselected | None | Vertical split | Uses a horizontal divider: Image 1 and Image 2 occupy top/bottom regions | A valid Image 2 supplies the overlay | Direct seam inspection; display conversion uses an 8-bit QImage overlay | Private preview only | Window lifetime |
-| **Image 1** | Open-image selector | Active image | None | Any currently open target supported by the launcher | Replaces the primary comparison image and rebuilds Image 2 choices | Changing it clears Image 2 to **No image** | No resampling or copying into a result | Still or current sequence image; all channels/types accepted | Window lifetime |
-| **Image 2** | Same-size open-image selector | **No image** | None | Any other view with width and height exactly equal to Image 1 | Supplies the alternate or split overlay and second split histogram | Excludes Image 1 and every dimension mismatch; updates on view create, close, rename, or image change | No registration, channel, type, WCS, or intensity compatibility check | Still or another view's current image; no mask | Window lifetime |
-| **Fit To Window** | Preview-toolbar action | Preview fitted initially | None | Click or **Ctrl+Shift+F** | Fits the whole comparison image in the preview | Private preview active | Broad context; resampling can hide pixel-scale differences | Display only | Preview lifetime |
-| **Zoom In** | Preview-toolbar action | Current scale | None | Click; `1.25×` relative zoom | Enlarges around the viewport center | Private preview active | Better local seam/blink inspection | Display only | Preview lifetime |
-| **Zoom Out** | Preview-toolbar action | Current scale | None | Click; `0.8×` relative zoom | Reduces the displayed scale | Private preview active | More context, less pixel detail | Display only | Preview lifetime |
-| **Zoom 100%** | Preview-toolbar action | Current scale | None | Click; absolute scale `1.0` | Shows one-pixel viewer scale | Private preview active | Preferred for registration and interpolation inspection | Display only | Preview lifetime |
-| **View Channel** | Preview-toolbar combo box | Follows the current Image 1 channel layout | None | RGB, grayscale, stored channels, and supported derived CIE/HSL/HSV/HSI/YCbCr display components | Changes only the displayed component | Choices follow Image 1/preview channel layout; does not alter histogram source data | Helps compare one component consistently; derived views add display work | Display only | Preview lifetime |
-| **Display Mode** | Preview-toolbar combo box | **Linear** | None | Linear or Autostretch | Linear maps stored samples directly; Autostretch derives presentation statistics independently for the displayed comparison image | Private preview active | Independent stretches can conceal absolute intensity differences | Display only; histograms remain raw | Preview lifetime |
-| **Autostretch Settings** | Preview-toolbar action | Initialized from the target view | None | Opens shadow clipping, target background, saturation, brightness, and contrast settings | Changes Autostretch presentation and its statistics/rendering path | Relevant when Display Mode is Autostretch | Display computation only; does not modify sources or snapshot pixels | Display only | Preview lifetime |
-| Drag split divider | Pointer gesture | Center (`0.5`) | None | Left-drag within 6 display pixels of divider; position clamps to `[0,1]` | Changes how much of each image is visible | Horizontal or Vertical split with a valid overlay | Display-only | Private preview | Window lifetime |
-| Double-click split divider | Pointer gesture | Not invoked | None | Left double-click within divider hit zone | Restores split position to `0.5` | Split mode with valid overlay | Display-only | Private preview | Window lifetime |
-| Right-click split image | Pointer gesture | Image 1 on base side; Image 2 on overlay side | None | Right-click inside the image widget | Reverses the sides without changing selectors | Split mode | Display-only | Private preview | Window lifetime; returning to Toggle resets swapped state |
-| Preview switch-image action | Preview toolbar action | Alternate rendering off initially | None | Click | Toggle mode blinks the two images; split mode reverses their sides | Valid Image 2 | Display-only | Private preview | Window lifetime |
-| **Preview area** | Preview-toolbar checkbox | Unchecked; checking normally creates a centered `600×600` area when possible | None | Off/on with a movable/resizable selection | Limits the shared identity-copy preview execution to the selection, then composites it into the full Image 1 presentation | Private preview active; comparison overlay and raw histograms remain full-image features | Does not provide an area-only comparison result or snapshot | Preview/snapshot source handling | Preview lifetime |
-| **Take snapshot** | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes the identity Image Compare operation and opens `<Image 1> - Image Compare - SNAPSHOT` | Private preview active | Allocates a full still; copies Image 1 stored pixels and metadata, not Image 2, the split, or the display stretch | Auxiliary still; sources unchanged | One new view per action |
-| Histogram left-drag | Pointer gesture | Idle | None | Press/drag over a histogram | Displays bin coordinates/count information | Histogram visible | Inspection only | One histogram at a time | Not persisted |
-| Histogram middle-drag | Pointer gesture | Idle | None | Press/drag over a zoomed histogram | Pans its scroll area | Useful after histogram zoom | Inspection only | One histogram at a time | Not persisted |
-| **Close** | Dialog action | Available | None | One click | Closes the comparison window and removes preview bindings | Always available | Does not create a result or delete snapshots already created | Entire process | No process settings are saved |
+```controls
+window: The histograms
+controls:
+  - name: Histogram of Image 1
+    kind: readout
+    default: ""
+    effect: Shows how the samples of Image 1 are spread between 0 and 1, with Clipping Low and Clipping High in its corner. In Toggle mode it counts the image the preview shows, which is Image 2 while you have switched to it.
+    range: Counted from the stored samples, never from the screen. The display mode, the stretch and the balance do not change it, and the clipping shares count stored samples at or below 0 and at or above 1, not what the screen clips.
+    enabled: >-
+      Always shown. In a split with an image in **Image 2**, a caption over it names the image, as `Image 1: M42`.
+    scope: The window only. Its lines follow the **View Channel** of the preview's toolbar, as in every window.
+  - name: Histogram of Image 2
+    kind: readout
+    default: ""
+    effect: >-
+      Shows how the samples of Image 2 are spread, counted as the first one is, under a caption that names the image,
+      as `Image 2: M42 stretched`.
+    enabled: Shown only in a split, and only while **Image 2** names an image.
+    scope: The window only.
+```
 
-## How the algorithm works
+```controls
+window: The split
+controls:
+  - name: Divider
+    kind: slider
+    default: "0.5"
+    widget: {min: 0, max: 1}
+    effect: Dragging the line moves the border between the two images across the picture. In a horizontal split, Image 2 is right of the line and Image 1 left of it. In a vertical split, Image 2 is below it.
+    range: The value is the share of the picture's width, or height, on the first side, held between 0 and 1. The line is picked up within 6 pixels of the screen on either side of it, where the pointer turns into a double arrow.
+    enabled: Drawn only in a split, and only once Image 2 has been presented beside Image 1.
+    persistence: Until the window closes. A double-click on the line returns it to the middle.
+    note: A round handle with two arrows sits on the line, in the middle of the pane.
+  - name: IMAGE 1 and IMAGE 2
+    kind: readout
+    default: ""
+    effect: Name the image on each side. In a horizontal split IMAGE 1 is at the top left and IMAGE 2 at the top right. In a vertical split IMAGE 2 is at the bottom left.
+    enabled: In Toggle mode one label, in the preview's top left corner, names the image shown.
+  - name: Swap
+    kind: action
+    default: ""
+    effect: A right click on the preview, **Switch image** or ++space++ swaps the two sides of a split. The labels move with their images.
+    range: A right click and **Switch image** swap until you swap again. ++space++ swaps while you hold it.
+    persistence: Until the window closes, or until Toggle mode, which puts the sides back in their order.
+  - name: Lens
+    kind: readout
+    default: ""
+    effect: Holding the left button over a side of a split opens the lens on the image of that side, and the lens follows the pointer across the line.
+    note: On Image 2's side the lens magnifies the picture made of Image 2 for the screen. Near the line the lens closes, and a press on the line drags it instead of opening the lens.
+```
 
-### Conceptual pipeline
+```controls
+window: Image Compare
+controls:
+  - name: Toggle mode (click to switch between images)
+    kind: toolbutton
+    default: "On"
+    effect: Shows one image at a time. **Switch image**, or ++space++ or the right button held over the preview, turns it from Image 1 to Image 2 and back.
+    enabled: The three **Mode** buttons are exclusive, so one of them is always pressed.
+    tradeoff: The quickest way to see a small shift or a small local change, because what moves blinks.
+    scope: The preview and the histogram, which counts the image shown. The second image is shown in the channel **View Channel** names.
+    persistence: Until the window closes.
+    note: With **Image 2** at `<--NO IMAGE-->`, the switch shows Image 1 again under the label IMAGE 2.
+  - name: Horizontal split (side by side with draggable divider)
+    kind: toolbutton
+    default: "Off"
+    effect: Shows Image 1 left of an upright divider and Image 2 right of it, and adds the histogram of Image 2.
+    enabled: Needs an image in **Image 2**. Without one the preview shows Image 1 alone, with no divider and no label.
+    tradeoff: Image 2's side is a picture made for the screen, in 8-bit gray or color, at the image's full size, in the background, and shown when it is ready. It is made again when the display mode or Image 2 changes, and in **Autostretch** that measures Image 2 again. A change of the Autostretch settings alone does not make it again. It shows what the display shows, not the precision of the samples.
+    scope: The preview and the histograms. Image 2's side is presented with the preview's display mode, stretch settings and balance, and shows the whole image whatever **View Channel** shows of Image 1.
+    persistence: Until the window closes.
+  - name: Vertical split (top/bottom with draggable divider)
+    kind: toolbutton
+    default: "Off"
+    effect: Shows Image 1 above a level divider and Image 2 below it, and adds the histogram of Image 2.
+    note: In every other way it is the horizontal split turned on its side.
+  - name: Image 1
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the first image, which the preview shows, the first histogram counts and **Take snapshot** copies.
+    range: Any size, channels, pixel type or state.
+    persistence: Until the window closes. Choosing another fills **Image 2** again with the images of the new size and returns it to `<--NO IMAGE-->`.
+  - name: Image 2
+    kind: combo
+    default: "<--NO IMAGE-->"
+    options: ["<--NO IMAGE-->"]
+    effect: Chooses the second image, which Toggle mode switches to, a split shows beside Image 1 and the second histogram counts.
+    range: After `<--NO IMAGE-->` the list holds every other open view of exactly Image 1's width and height, whatever its channels, pixel type, state or header. An image of another size is left out, never resampled. The tooltip of each item gives its file, size, channels, pixel type and memory.
+    enabled: The list follows the views as they open, close, change or are renamed. When the image chosen closes, or changes to another size, the box returns to `<--NO IMAGE-->` without a message.
+    tradeoff: Nothing else is checked, neither the registration nor the channels, the pixel type, the world coordinates or the brightness. A pair off by a pixel shows as a doubled edge at the divider, or as a jump when you switch.
+    scope: The image its view shows, which is the current frame of a sequence. Its mask plays no part.
+    persistence: Until the window closes or **Image 1** changes.
+```
 
-1. The launcher requires an active image. The Image 2 list retains only other
-   views whose width and height equal Image 1.
-2. Toggle mode assigns Image 2 as the preview's alternate image. Split mode
-   converts Image 2 to an 8-bit grayscale or RGB `QImage`, scales it to the
-   current displayed image rectangle, and clips it to one side of a movable
-   divider. There is no pixel arithmetic between images.
-3. In Autostretch display mode, each image is copied and stretched from its own
-   median/MAD statistics before display. Preview saturation and
-   brightness/contrast adjustments are then applied. Histograms continue to use
-   the unstretched stored images.
-4. A separate histogram is built for every visible input. Inspection never
-   modifies either source image, its metadata/history, or a file.
-5. **Take snapshot** runs the process's identity operation on Image 1 and opens
-   the result as a new still. The new view copies Image 1's stored pixels and
-   metadata; it does not rasterize the comparison widget or include Image 2.
+```controls
+window: The preview pane
+controls:
+  - name: Display Mode
+    kind: combo
+    default: The mode of the view of Image 1
+    options: [The mode of the view of Image 1, Linear, Autostretch]
+    effect: "**Linear** shows both images as their samples are. **Autostretch** stretches each one by its own median and deviation, with the same settings."
+    tradeoff: In **Autostretch** two images of different levels can look alike, because each gets the stretch of its own statistics. Judge brightness in **Linear**.
+    scope: The display only. The histograms and the images do not change.
+  - name: Preview area
+    kind: check
+    default: "Off"
+    effect: Changes nothing you see here. The preview is a copy of Image 1, and an area of it is still Image 1.
+    range: Ticked, it is 600 by 600 pixels in the middle of the image, or the image's size when that is smaller.
+    scope: The preview only. The split and the histograms keep showing the whole images, and there is no comparison of an area alone.
+  - name: Take snapshot
+    kind: toolbutton
+    default: ""
+    effect: Opens a new image named `<Image 1> - Image Compare - SNAPSHOT`, a copy of the samples, channels, pixel type and header of Image 1.
+    range: It holds neither the split nor Image 2 nor the display stretch. A mask on Image 1 changes nothing in it.
+    scope: The images compared stay as they were. The new image's history starts with an Image Compare step that has no description.
+    persistence: Each press opens another image. Closing the window leaves them open.
+```
 
-### Model and equations
+## How it works
 
-Image Compare has no comparison metric or derived-comparison equation. Its
-snapshot operation is the identity `S=A`, where `A` is Image 1. In split mode,
-for a horizontal split fraction `s` in `[0,1]`, the overlay is drawn for display
-coordinates `x >= sW` (or `x <= sW` after swapping), where `W` is the displayed
-image width. Vertical mode applies the equivalent rule to `y` and height `H`.
-The default is `s = 0.5`.
+1. The window opens on the active image as Image 1, and lists for Image 2 every other open view of exactly its width
+   and height.
+2. The preview shows a copy of Image 1. In Toggle mode, Image 2 is the image the preview's switch turns to.
+3. In a split, Image 2 is presented for the screen in the background, as the preview presents Image 1, and drawn on
+   one side of the divider over the picture of Image 1. No arithmetic joins the two: there is no difference, ratio or
+   score.
+4. Each image is counted into its own histogram from its stored samples. In **Autostretch**, each is stretched by the
+   median and deviation of its own samples, then given the saturation, brightness and contrast of the settings.
+5. Neither image, nor its header, history or file, is changed. **Take snapshot** runs the window's process, which
+   copies Image 1, and opens the copy.
 
-For a histogram with `B` bins, a normalized sample `v` is clamped to `[0,1]`
-and counted in bin
+### Boundaries
 
-`b = floor(clamp(v, 0, 1) * (B - 1))`.
+- An image of another size is left out of **Image 2**, never resampled or cropped. The window corrects no shift,
+  rotation, distortion, background or color, so a seam or a registration error of a mosaic shows, and stays.
+- The channels, the [pixel type](../../reference/glossary.md#pixel-type), the world coordinates, the crop origin and the scale of the samples are not checked.
+  A grayscale Image 2 is shown gray beside a color Image 1.
+- Image 2's side of a split is an 8-bit picture for the screen. Read values in the histograms, in Image Statistics or
+  with the lens on Image 1, not from that side.
+- When Image 2 closes or changes to another size, the box returns to `<--NO IMAGE-->` and a split shows Image 1
+  alone. No message is shown.
+- Nothing is applied, so nothing can be undone. Closing the window leaves the snapshots you took open.
 
-Clipping percentages count every channel sample at `v <= 0` or `v >= 1` and
-divide by `width * height * channels`. They are endpoint counts, not a
-difference map and not proof that a display stretch is clipped. With
-**Absolute scales** unchecked, visible channels share one vertical maximum;
-checked, each channel uses its own maximum despite the control's current label.
+### Worked example
 
-### Boundary and failure behavior
+Image 1 is the Carina [master](../../reference/glossary.md#master) after Histogram Transformation with **Shadows** and
+**Midtones** at 0.02, and Image 2 the same master as it was, linear. With **Horizontal split (side by side with
+draggable divider)** pressed and **Display Mode** at **Linear**, the left half shows the nebula and the right half is
+nearly black. The upper histogram peaks near 0.28, where the [stretch](../../reference/glossary.md#stretch) put the
+background, and the lower one is a spike at its left edge, where the median of 0.028 sits. With **Display Mode** at **Autostretch**, the two halves come much closer,
+because each is stretched by its own statistics, and the histograms stay as they were.
 
-- Dimension mismatch removes a view from Image 2 rather than resampling it.
-- A missing, closed, renamed, or newly incompatible Image 2 is cleared or the
-  selector list is rebuilt. No error dialog is required.
-- Channel count, pixel type, WCS, crop origin, and intensity scale are not
-  validated. The split conversion renders one-channel data as grayscale and
-  other data through the engine's 8-bit interleaved RGB conversion.
-- Image Compare does not test or correct translation, rotation, distortion, or
-  normalization. Misregistration appears directly at the seam or while
-  toggling.
-- Histogram construction clamps finite out-of-range values to endpoint bins.
-  The reviewed histogram path has no explicit non-finite guard; sanitize NaN or
-  infinite samples before relying on its plot or clipping readout.
-- There is no Apply action or comparison-result pipeline. Snapshot uses the
-  shared preview worker to create an auxiliary Image 1 copy; it writes no file
-  and does not capture Image 2, the divider, or display presentation. Closing
-  detaches the private preview interactions and leaves completed snapshots open.
+## Starting points
 
-## Parameter interactions and starting points
-
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Toggle + Linear display | Same channel, 100% zoom, matched registered pair | Small differences are hard to localize | Not applicable; no strength control | Match geometry and display channel, then blink |
-| Split + Linear display | Horizontal split at `0.5` | Seam does not cross the feature of interest | Divider at an edge hides one image | Select orientation, drag through background/stars, then swap sides |
-| Autostretch comparison | Same autostretch settings, interpreted as structure only | Faint structure remains hard to see | Independent stretches make intensity equality look better than it is | Inspect Linear first, then use Autostretch for morphology |
-| Histogram resolution + scale mode | 256 bins, shared vertical maximum | Narrow peaks merge | Very high bin counts look sparse/noisy and cost more | Choose bins, then decide shared versus per-channel peak scaling |
-
-## Inputs, outputs, and metadata
-
-The inspection path reads two open image objects and creates a private preview
-plus temporary histogram/display buffers. It does not overwrite either input,
-change source metadata/history, assign a mask, write a file, or produce a
-derived comparison result. Split display is an 8-bit grayscale/RGB
-visualization and must not be used to infer stored precision.
-
-**Take snapshot** is a separate auxiliary-output path. It creates
-`<Image 1> - Image Compare - SNAPSHOT` with Image 1's pixel type, channels,
-stored samples, and copied metadata/history state. No new Image Compare history
-description is supplied. The snapshot is unaffected by which image or split is
-visible and by Linear/Autostretch display settings.
-
-## Performance
-
-Histogram construction scans every pixel and channel and stores one counter per
-channel per selected bin. Raising plot resolution therefore increases histogram
-memory and computation. Autostretch additionally copies and scans Image 2 for
-statistics whenever its split overlay is rebuilt. Split rendering caches a
-scaled pixmap for the current target size. No production timing or peak-memory
-measurement was made.
-
-## Worked example
-
-- Input condition/provenance and settings: two open, already registered images
-  with equal dimensions; Image 1 active; Image 2 selected; Linear display;
-  Toggle followed by Horizontal split at `0.5`; 256-bin histograms.
-- Expected checkpoint: Image 2 is selectable only when dimensions match; Toggle
-  shows one labelled image at a time; Horizontal split shows two labelled
-  distributions and a draggable centered divider; right-click reverses sides.
-- Inspect at 100%/statistics/history: inspect stars and high-contrast edges at
-  100%; use the raw histograms for distribution/clipping context. No history
-  entry is created.
-- Limitations: the example was not executed on approved astronomical data and
-  makes no claim about visual quality, alignment accuracy, timing, or memory.
-
-## Warnings and limitations
-
-- Equal dimensions do not mean equal coordinates. Register and crop the images
-  before interpreting pixel-local differences.
-- There is no PSNR, SSIM, RMS error, correlation, difference image, or numeric
-  threshold. Use [Image Statistics](../../interface/image-statistics.md) or
-  [Pixel Math](../pixel-math/pixel-math.md) when a numerical or derived-image
-  comparison is required.
-- There is no background matching, exposure normalization, color matching, or
-  channel conversion. Independent Autostretch displays can conceal these
-  differences.
-- An active Image 1 mask cannot change the identity snapshot: the shared mask
-  post-blend combines Image 1 with an identical Image 1 copy.
-- Sequence frames are not synchronized across two sequences.
-- Split display is a screen visualization, not a precision-preserving output.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| The second image is absent | Image 2 must be another open view with exactly equal width and height | Resize/crop/register beforehand, or choose an equal-size view |
-| Split mode shows only Image 1 | Image 2 is **No image**, closed, or became incompatible | Select a valid Image 2; reopen/recreate it if needed |
-| Brightness agrees in Autostretch but histograms do not | Each image is stretched from its own statistics; histograms use raw stored data | Switch to Linear for absolute-intensity interpretation |
-| Channel peaks look equally tall unexpectedly | Checked **Absolute scales** activates per-channel peak normalization | Uncheck it for one shared vertical count scale |
-| Features jump while toggling | Images share dimensions but are not registered to the same coordinates | Register the pair; confirm crop/origin and distortion handling |
-| No result appears after closing | **Close** creates nothing; only **Take snapshot** creates an auxiliary still | Use **Take snapshot** before closing for an Image 1 copy, or use Pixel Math/Image Blend for a derived comparison result |
-| Snapshot does not contain the split or Image 2 | Snapshot executes the Image Compare identity operation on Image 1; it is not a screen capture | Use an external screen-capture workflow for the visual split, or Pixel Math for a derived image |
+| Did a process change only what it should? | A duplicate made before the process as Image 2, **Horizontal split (side by side with draggable divider)**, **Linear** | Drag the divider across stars, background and the brightest structure at 100 %. |
+| Do two frames line up? | Toggle mode at 100 %, with one channel in **View Channel** | Hold ++space++ to switch: a star that moves is a registration error. |
+| Two stretches of one image | A split in **Autostretch**, for structure | Return to **Linear** before you judge brightness. |
+| Peaks too narrow to compare | **Plot resolution** at its default | A finer resolution and the toolbar's zoom, for both histograms at once. |
 
-## Related workflow steps
+## When it goes wrong
 
-Use [Image Registration](../registration-alignment/image-registration.md) before Image
-Compare when coordinates do not already match. Use [Image Blend](image-blend.md)
-to create a combined result, [Pixel Math](../pixel-math/pixel-math.md) to create
-a difference or other expression, and [Image Viewer](../../interface/image-viewer.md)
-to understand display channel, zoom, and stretch behavior. In a mosaic workflow,
-comparison can reveal seam or registration differences but does not correct
-them.
+!!! warning "The same size is not the same pixel grid"
+    **Image 2** lists every image of Image 1's width and height. Register and crop the two alike first, or what you
+    see at the divider is the pairing and not the process.
+
+The image you want is not in Image 2's list
+:   **Cause.** It is Image 1 itself, or its width or height differs from Image 1's.
+:   **Fix.** Register, crop or resize it to Image 1's grid, or choose it as **Image 1** instead.
+
+A split shows Image 1 alone, with no divider
+:   **Cause.** **Image 2** reads `<--NO IMAGE-->`, or the image it named closed or changed size.
+:   **Fix.** Choose the second image again in **Image 2**.
+
+Switching shows the same picture under the label IMAGE 2
+:   **Cause.** No image is chosen in **Image 2**, so the switch shows Image 1 again.
+:   **Fix.** Choose the second image in **Image 2**.
+
+The two halves look alike, but the histograms do not
+:   **Cause.** In **Autostretch** each image is stretched by its own statistics.
+:   **Fix.** Choose **Linear** in **Display Mode** to compare the samples as they are.
+
+Stars jump when you switch, or edges are doubled at the divider
+:   **Cause.** The two images have one size but are not registered to the same pixels.
+:   **Fix.** Register and crop the pair, and check its crop origin and distortion.
+
+Image 2's side shows all channels while View Channel shows one, or keeps its old stretch
+:   **Cause.** A split presents Image 2 whole, whatever **View Channel** shows of Image 1, and does not present it
+    again when only the Autostretch settings change.
+:   **Fix.** Use Toggle mode to compare one channel of each. After new Autostretch settings, switch **Display Mode**
+    to **Linear** and back.
+
+Nothing is left after you close the window
+:   **Cause.** The window changes nothing and makes no comparison image.
+:   **Fix.** Use **Take snapshot** for a copy of Image 1 before you close. For an image of the difference, use Image
+    Blend's **Difference** mode or Pixel Math.
+
+The snapshot holds neither the split nor Image 2
+:   **Cause.** A snapshot is a copy of Image 1, not a capture of the screen.
+:   **Fix.** Capture the screen for a picture of the split, or make an image of both with Image Blend or Pixel Math.
+
+## Related
+
+- [Image Registration](../registration-alignment/image-registration.md), to bring two images onto one pixel grid
+  before you compare them.
+- [Image Blend](image-blend.md), whose **Difference** mode makes an image of what differs.
+- [Pixel Math](../pixel-math/pixel-math.md), for a difference, a ratio or any other image made from the two.
+- [Image Statistics](../../interface/image-statistics.md), for numbers in place of a picture.
+- [Image Viewer](../../interface/image-viewer.md), for the zoom, the display channel, the lens and the Autostretch
+  the preview shares.
+- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
+  process window shares.
