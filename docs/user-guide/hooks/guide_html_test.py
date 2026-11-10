@@ -62,13 +62,12 @@ class ScrollerTests(unittest.TestCase):
         self.assertIn('<div class="table-wrap" tabindex="0"><table>', html)
         self.assertIn('</table></div>', html)
 
-    def test_a_table_of_six_columns_or_more_is_marked_wide(self):
-        narrow = '| A | B | C | D | E |\n| - | - | - | - | - |\n| 1 | 2 | 3 | 4 | 5 |\n'
-        wide = '| A | B | C | D | E | F |\n| - | - | - | - | - | - |\n| 1 | 2 | 3 | 4 | 5 | 6 |\n'
-        html = guide_html.wrap_tables(render(narrow + '\nText.\n\n' + wide))
-        self.assertEqual(html.count('<div class="table-wrap" tabindex="0"><table>'), 1)
-        self.assertEqual(html.count('<div class="table-wrap wide" tabindex="0"><table>'), 1)
+    def test_every_table_of_a_page_gets_its_own_scroller(self):
+        table = '| A | B | C | D | E |\n| - | - | - | - | - |\n| 1 | 2 | 3 | 4 | 5 |\n'
+        html = guide_html.wrap_tables(render(table + '\nText.\n\n' + table))
+        self.assertEqual(html.count('<div class="table-wrap" tabindex="0"><table>'), 2)
         self.assertEqual(html.count('</table></div>'), 2)
+        self.assertEqual(html.count('class='), 2)
 
     def test_code_blocks_and_display_equations_can_take_the_focus(self):
         html = guide_html.focusable_scrollers(render('```bash\nls\n```\n\n$$\nx^2\n$$\n'))

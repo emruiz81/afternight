@@ -25,7 +25,6 @@ glance:
   state: >-
     A linear or a stretched image, a star layer or a mask whose bright edges need tightening, after noise reduction.
 derived: false
-rewritten: true
 ---
 # Tighten Edges
 

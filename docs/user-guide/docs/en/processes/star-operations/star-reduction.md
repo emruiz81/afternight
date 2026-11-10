@@ -25,7 +25,6 @@ glance:
   state: >-
     A stretched master, with a starless image made from it at the same stage of processing.
 derived: true
-rewritten: true
 ---
 # Star Reduction
 

@@ -4,7 +4,6 @@ summary: >-
   Image and Sequence Summary reports what an image or a sequence and its file state - size, channels, pixel type,
   mosaic, camera, exposure and dates - and copies the report as text.
 menu: Image > Information > Summary
-rewritten: true
 ---
 # Image and Sequence Summary
 

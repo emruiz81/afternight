@@ -3,7 +3,6 @@ kind: interface
 summary: >-
   The Installed tab of the Extensions window: whether each installed extension can run, its environment, its
   settings and its last launch, and how the processes an extension adds open and run.
-rewritten: true
 ---
 # Using Extensions
 

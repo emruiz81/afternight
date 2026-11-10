@@ -35,7 +35,6 @@ controls_ignore:
     reason: >-
       The zoom box beside Center Selected Star, shown as x2.00, which the inventory names after the count to its left.
       The entry of Center Selected Star describes it.
-rewritten: true
 ---
 # Star Profiler
 

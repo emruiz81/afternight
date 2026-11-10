@@ -21,15 +21,13 @@ Rules, each reported with its id:
       its `figure` blocks and the picture its front matter names (the home page's `hero.image`). An image under
       assets/images that no page, README.md or the site's logo and favicon uses is a warning. A picture a `figure`
       block states `owed: true` for is not yet taken: it must not exist, it is counted in the summary and listed by
-      --owed, and --no-owed, as a release runs it, refuses it.
+      --owed, and --no-owed refuses it, for a build that must show every picture.
   R6  Credits. A process page that states `derived: true` has a `## Credits` section that says something: the work
       its result is computed with, its authors and its licence are credited on the page itself.
 
-The rules of a rewritten page hold a page to the guide's writing system: the templates under
-docs/user-guide/templates/, the budgets of data/limits.yml and the vocabulary of data/vocabulary.yml, which
-docs/dev/USER_GUIDE_STYLE.md explains. A page that states `rewritten: true` fails on them. A page that does not is
-only counted against R7, R8, R9 and R11, as warnings, and is not held to R10, R12, R13 and R14: a page not yet
-rewritten never fails a rule it cannot meet, and a rewritten one is protected from the day it lands.
+R7-R14 hold every page to the guide's writing system: the templates under docs/user-guide/templates/, the budgets
+of data/limits.yml, the vocabulary of data/vocabulary.yml and the inventory of the process windows under data/ui/,
+which docs/dev/USER_GUIDE_STYLE.md and docs/dev/USER_GUIDE_AUTHORING.md explain.
 
   R7  Headings. A page has the sections of its kind's template, in the template's order, and no others; the parts
       the theme draws from them have their shape - a process page's steps an ordered list with bold leads and its
@@ -46,16 +44,17 @@ rewritten never fails a rule it cannot meet, and a rewritten one is protected fr
   R10 Figures. Every picture is a `figure` block with a caption and an alternative text; a process or interface page
       opens with one, before its first section; a pin's number is a step's; and on an interface page every item of
       "What you see" has its pin. A process page of a nav group data/limits.yml lists under `before_after_groups`
-      shows a before-and-after pair in its worked example (a warning).
+      shows a before-and-after pair in its worked example (a warning), unless `before_after_exempt` names the page
+      with the reason it shows none; an exemption that excuses nothing is a warning too.
   R11 Image files. A picture a page shows is a PNG, WebP or JPEG file within the size and weight of data/limits.yml,
       with a row in the media provenance page.
-  R12 A rewritten process page states every key its "At a glance" is drawn from, the four texts of `glance` among
+  R12 A process page states every key its "At a glance" is drawn from, the four texts of `glance` among
       them, and says whether it is `derived`.
   R13 Glossary. The first use on a page of a term the glossary defines is a link to the glossary (a warning). A term
       inside the words of a link to another page, a bold label or a quoted message is part of a name the page
       repeats, not a use of the term: the next use is the first. The glossary itself and the media provenance, a record of
       files, link no term.
-  R14 Controls. The `controls` blocks of a rewritten process page say what its windows hold. The windows are the ones
+  R14 Controls. The `controls` blocks of a process page say what its windows hold. The windows are the ones
       its `menu` reaches, and what they hold is their inventory under data/ui/, which a test of the application
       writes by opening every process window and fails on when a window changes. Every control of the inventory is
       on a block, or named in the page's `controls_ignore` with a reason, or shared by every window (the preview's
@@ -89,7 +88,7 @@ rewritten never fails a rule it cannot meet, and a rewritten one is protected fr
       of the website's, so the guide and the site wear one skin: the two files are equal once their line endings are.
 
 Usage, with the documentation toolchain's Python, which has PyYAML (docs/user-guide/.venv, made by the build helper):
-    python build/scripts/tools/check_user_guide.py [--guide docs/user-guide] [--page <page> ...] [--pending]
+    python build/scripts/tools/check_user_guide.py [--guide docs/user-guide] [--page <page> ...] [--owed] [--no-owed]
                                                    [--site <site>] [--tokens <the website's assets/css/tokens.css>]
 
 R2-R14 hold every page, or with --page only the pages named (relative to the docs folder or to the working
@@ -97,8 +96,8 @@ directory); the guide-wide parts - nav entries, menu coverage, the help table (R
 every page. R1 runs
 when --site names a built site, R16 when --tokens names the website's file. Each finding prints as
 `path:line: Rnn message`, a warning as `path:line: Rnn warning: message`, then a count per rule and what was read.
-The warnings of the pages not yet rewritten are counted and not listed, so that the errors can be read; --page lists
-those of the pages it names, each with the words R8 counted against its budget, and --pending lists them all.
+--page ends with the words R8 counted on each page it names against the page's budget, which R8 otherwise states
+only once a page is over it.
 Exits 1 on any error, 0 otherwise, and 2 when the guide's own data cannot be read.
 
 Tests: build/scripts/tools/check_user_guide_test.py
@@ -200,7 +199,7 @@ GLOSSARY_NAMES = re.compile(r'\*\*.+?\*\*|"[^"]*"')
 TASK_ITEM = re.compile(r'^\[[ xX]\][ \t]')
 WARNING_CALLOUTS = ('warning', 'danger')
 WRONG_CALLOUT = 'wrong'
-# What a rewritten process page states beside the keys every process page needs (R12).
+# What a process page states beside the keys its layout cannot be drawn without (R12).
 PROCESS_KEYS = ('data_in', 'data_out', 'destructive', 'preview', 'sequences', 'masks', 'external', 'glance',
                 'derived')
 # The sentences a block puts on the page, which R9 reads; a control's name, default and options are the window's own
@@ -259,8 +258,6 @@ class Finding:
     rule: str
     message: str
     severity: str = 'error'
-    # A warning about a page not yet rewritten: counted, and listed only when asked for.
-    pending: bool = False
 
     def __str__(self):
         return '%s:%d: %s %s%s' % (self.path, self.line, self.rule, 'warning: ' if self.severity == 'warning' else '',
@@ -634,7 +631,7 @@ def _meta_prose(meta):
 
 
 class _Writing:
-    """One page held to the rules of a rewritten page: R7-R10 and R12-R14."""
+    """One page held to its template, its budgets, the vocabulary and its windows: R7-R10 and R12-R14."""
 
     def __init__(self, check, relative, path, front):
         model = check.model
@@ -646,7 +643,6 @@ class _Writing:
         self.front = front
         self.meta = front.meta
         self.kind = front.meta['kind']
-        self.rewritten = front.meta.get('rewritten') is True
         self.lines = model.prose_lines(front.body, front.body_line)
         self.headings = model.headings(self.lines)
         self.sections = [heading for heading in self.headings if heading.level == 2]
@@ -655,21 +651,16 @@ class _Writing:
         self.top = title.line if title else front.body_line
 
     def report(self, rule, line, message):
-        """A finding that fails a rewritten page and only counts against a page not yet rewritten."""
-        if self.rewritten:
-            self.check.report(rule, self.path, line, message)
-        else:
-            self.check.report(rule, self.path, line, message, 'warning', pending=True)
+        self.check.report(rule, self.path, line, message)
 
     def run(self):
         self.check_headings()
         self.check_limits()
         self.check_vocabulary()
-        if self.rewritten:
-            self.check_figures()
-            self.check_process_keys()
-            self.check_glossary_links()
-            self.check_controls()
+        self.check_figures()
+        self.check_process_keys()
+        self.check_glossary_links()
+        self.check_controls()
 
     # --- Reading the page ---
 
@@ -996,24 +987,31 @@ class _Writing:
                                 ('item ' + unpinned[0] if len(unpinned) == 1 else 'items ' + ', '.join(unpinned),
                                  'has' if len(unpinned) == 1 else 'have'))
         groups = self.check.nav_groups.get(self.relative, ())
-        if kind == 'process' and groups and groups[-1] in self.limits.before_after_groups:
+        judged = kind == 'process' and bool(groups) and groups[-1] in self.limits.before_after_groups
+        exempt = self.relative in self.limits.before_after_exempt
+        pairs = []
+        if judged:
             how = self.section('How it works')
             worked = self.subsections(how, 'Worked example') if how else []
             pairs = [line for example in worked for line, source in self.blocks_under(example, 'figure')
                      if (model.read_figure(source) or {}).get('pair')]
-            if not pairs:
+            if not pairs and not exempt:
                 self.check.report('R10', self.path, worked[0].line if worked else self.top, 'a %s process is judged '
                                   'by its result, and the page shows no before-and-after pair under `### Worked '
                                   'example`' % groups[-1], 'warning')
+        if exempt and (pairs or not judged):
+            self.check.report('R10', self.path, pairs[0] if pairs else self.top, '`before_after_exempt` of '
+                              'data/limits.yml excuses the page from a before-and-after pair, and %s; remove the '
+                              'entry' % ('the page shows one' if pairs else 'no pair is asked of it'), 'warning')
 
-    # --- R12: the keys of a rewritten process page ---
+    # --- R12: the keys of a process page ---
 
     def check_process_keys(self):
         if self.kind != 'process':
             return
         for key in PROCESS_KEYS:
             if key not in self.meta:
-                self.report('R12', self.front.key_lines.get('kind', 1), 'a rewritten process page states `%s`' % key)
+                self.report('R12', self.front.key_lines.get('kind', 1), 'a process page states `%s`' % key)
         glance = self.meta.get('glance')
         if isinstance(glance, dict):
             missing = [key for key in self.model.GLANCE_KEYS if key not in glance]
@@ -1291,13 +1289,13 @@ class _GuideCheck:
         self.vocabulary = model.load_vocabulary(guide)
         self.inventory = model.load_ui_inventory(guide)
         self.product = None            # the application's menus, once read
-        self.held_windows = set()      # the ids of the windows whose inventory a rewritten page was held to
+        self.held_windows = set()      # the ids of the windows whose inventory a page was held to
         self._menus = None
         self.nav = model.nav_entries(self.config)
         self.nav_groups = {entry.path: entry.groups for entry in self.nav}
         self.exact = _ExactCase(self.docs)
         self.pages = {}
-        self.shown = {}                # image -> [(the page that shows it, whether that page is rewritten)]
+        self.shown = {}                # image -> [the pages that show it]
         self.owed = []                 # (page, line, url) of every picture a figure block says is not yet taken
         self.refuse_owed = False       # a release asks for every picture: an owed one is then an R5 error
         self.used_allowances = set()
@@ -1305,8 +1303,8 @@ class _GuideCheck:
         self._glossary_terms = None
         self.help_summary = None       # what R15 read of the help table, once it has
 
-    def report(self, rule, path, line, message, severity='error', pending=False):
-        self.findings.append(Finding(self.display(path), line, rule, message, severity, pending))
+    def report(self, rule, path, line, message, severity='error'):
+        self.findings.append(Finding(self.display(path), line, rule, message, severity))
 
     def page_path(self, relative):
         return os.path.join(self.docs, relative)
@@ -1388,8 +1386,7 @@ class _GuideCheck:
             resolved = self.check_image(path, relative, line, url)
             if resolved:
                 referenced.add(resolved)
-                self.shown.setdefault(resolved, []).append((relative, bool(front.meta)
-                                                            and front.meta.get('rewritten') is True))
+                self.shown.setdefault(resolved, []).append(relative)
         # R6: a derived page credits the work it is derived from.
         if front.meta and front.meta.get('derived') is True:
             credits = model.section(front.body, CREDITS, front.body_line)
@@ -1436,8 +1433,6 @@ class _GuideCheck:
             recorded = {posixpath.normpath(name) for name in re.findall(r'`([^`\s]+)`', model.read_text(provenance))}
         for image in sorted(self.shown):
             full = os.path.join(self.docs, image)
-            pages = self.shown[image]
-            rewritten = any(marked for _, marked in pages)
             problems = []
             try:
                 size = model.image_size(full)
@@ -1454,10 +1449,9 @@ class _GuideCheck:
                                 ((weight + 1023) // 1024, limits.image_max_bytes // 1024))
             if image not in recorded:
                 problems.append('has no row in %s' % limits.provenance_page)
-            shown_by = sorted({page for page, marked in pages if marked or not rewritten})
+            shown_by = sorted(set(self.shown[image]))
             for problem in problems:
-                self.report('R11', full, 1, 'the picture %s (shown by %s)' % (problem, ', '.join(shown_by)),
-                            'error' if rewritten else 'warning', pending=not rewritten)
+                self.report('R11', full, 1, 'the picture %s (shown by %s)' % (problem, ', '.join(shown_by)))
 
     def check_allowances(self, pages, whole_guide):
         """R9: an allowance that allows nothing is stale."""
@@ -1470,6 +1464,16 @@ class _GuideCheck:
             elif whole_guide:
                 self.report('R9', vocabulary, allowance.line, 'the allow-list names %s, which is not a page' %
                             allowance.page, 'warning')
+
+    def check_exemptions(self, pages, whole_guide):
+        """R10: an exemption from the before-and-after pair that names no page excuses nothing."""
+        limits = os.path.join(self.guide, 'data', 'limits.yml')
+        lines = _read(limits).split('\n')
+        for page in sorted(self.limits.before_after_exempt):
+            if whole_guide and page not in pages:
+                line = next((number for number, text in enumerate(lines, start=1) if page in text), 1)
+                self.report('R10', limits, line, '`before_after_exempt` names %s, which is not a page' % page,
+                            'warning')
 
     def check_image(self, path, relative, line, url):
         url = url.strip()
@@ -1632,6 +1636,7 @@ class _GuideCheck:
             referenced |= self.check_page(relative, product, product_paths)
         self.check_image_files()
         self.check_allowances(set(pages), selected is None)
+        self.check_exemptions(set(pages), selected is None)
         coverage = None
         if selected is None:
             self.check_nav()
@@ -1646,11 +1651,9 @@ def _guide_summary(check, pages, coverage):
     kinds = {}
     stages = {}
     derived = 0
-    rewritten = 0
     for relative in pages:
         meta = check.pages[relative].meta or {}
         kinds[meta.get('kind')] = kinds.get(meta.get('kind'), 0) + 1
-        rewritten += meta.get('rewritten') is True
         if meta.get('kind') == 'process':
             stages[meta.get('stage')] = stages.get(meta.get('stage'), 0) + 1
             derived += meta.get('derived') is True
@@ -1660,9 +1663,8 @@ def _guide_summary(check, pages, coverage):
         lines.append('process pages by stage: %s; %d derived' % (
             ', '.join('%s %d' % (stage, stages[stage]) for stage in check.stage_ids + [None] if stages.get(stage)),
             derived))
-    lines.append('%d of %d pages rewritten and held to R7-R14 as errors' % (rewritten, len(pages)))
     if check.inventory:
-        lines.append('controls: %d of the %d windows of the inventory described by rewritten pages' %
+        lines.append('controls: %d of the %d windows of the inventory described' %
                      (len(check.held_windows), len(check.inventory)))
     if coverage:
         registered, unregistered, covered = coverage
@@ -1693,14 +1695,12 @@ def main(argv=None, stream=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--repo', default=REPO_ROOT, help='the repository whose application sources R4 reads')
     parser.add_argument('--guide', help='the guide folder that holds mkdocs.yml; default <repo>/docs/user-guide')
-    parser.add_argument('--page', action='append', help='hold only this page to R2-R13; may be repeated')
-    parser.add_argument('--pending', action='store_true', help='list the warnings of the pages not yet rewritten, '
-                        'which are otherwise only counted')
+    parser.add_argument('--page', action='append', help='hold only this page to R2-R14; may be repeated')
     parser.add_argument('--site', help='a built site to hold to R1, such as docs/user-guide/site')
     parser.add_argument('--tokens', help='the website\'s assets/css/tokens.css, to hold the theme\'s copy to (R16)')
     parser.add_argument('--owed', action='store_true', help='list every picture a figure block says is not yet taken')
-    parser.add_argument('--no-owed', action='store_true', help='refuse every picture not yet taken (R5), as a release '
-                        'does')
+    parser.add_argument('--no-owed', action='store_true', help='refuse every picture not yet taken (R5), for a build '
+                        'that must show every picture')
     arguments = parser.parse_args(argv)
     stream = stream or sys.stdout
     guide = arguments.guide or os.path.join(arguments.repo, 'docs', 'user-guide')
@@ -1759,15 +1759,8 @@ def main(argv=None, stream=None):
     else:
         summary.append('R16 not run: no --tokens')
 
-    list_pending = arguments.pending or bool(arguments.page)
-    unlisted = [finding for finding in findings if finding.pending and not list_pending]
     for finding in findings:
-        if list_pending or not finding.pending:
-            print(finding, file=stream)
-    if unlisted:
-        summary.append('%d warning(s) about %d file(s) of pages not yet rewritten are counted and not listed; --page '
-                       '<page> lists a page\'s, --pending all of them' %
-                       (len(unlisted), len({finding.path for finding in unlisted})))
+        print(finding, file=stream)
     errors = 0
     ran = {'R1': bool(arguments.site), 'R16': bool(arguments.tokens)}
     for rule, name in RULES.items():

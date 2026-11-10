@@ -26,7 +26,6 @@ glance:
     Two images of the same pixel grid at the same stage: an image and a detail layer made from it, two processings of
     one image, or an image and a second one to add or subtract.
 derived: false
-rewritten: true
 ---
 # Image Blend
 

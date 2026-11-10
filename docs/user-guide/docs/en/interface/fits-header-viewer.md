@@ -7,7 +7,6 @@ menu:
   - Image > Information > FITS Header
   - Image > Information > EXIF Viewer
   - Image > Information > Astrometry Info
-rewritten: true
 ---
 # FITS Header, EXIF, And Astrometry Metadata
 

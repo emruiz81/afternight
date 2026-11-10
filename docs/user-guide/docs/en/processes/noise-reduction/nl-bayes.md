@@ -26,7 +26,6 @@ glance:
     A calibrated and stacked linear master after gradient removal and color calibration, before the stretch, whose
     stars, edges and texture repeat across the frame.
 derived: true
-rewritten: true
 ---
 # NL-Bayes
 

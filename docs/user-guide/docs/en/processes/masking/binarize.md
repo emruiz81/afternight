@@ -26,7 +26,6 @@ glance:
     A duplicate, a mask or a classification image whose cutoff you know. The threshold works the same on linear and
     stretched data.
 derived: false
-rewritten: true
 ---
 # Binarize
 

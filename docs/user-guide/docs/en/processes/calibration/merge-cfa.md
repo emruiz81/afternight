@@ -26,7 +26,6 @@ glance:
   state: >-
     The four positional planes Split CFA Channels made of a mosaic, unchanged or changed alike, before the debayer.
 derived: false
-rewritten: true
 ---
 # Merge CFA
 

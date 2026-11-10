@@ -26,7 +26,6 @@ glance:
     The lights of a session, raw or calibrated, before registration and stacking, to look through, put in order and
     thin out by hand.
 derived: true
-rewritten: true
 ---
 # Image List Analyzer
 

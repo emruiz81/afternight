@@ -27,7 +27,6 @@ glance:
     Registered linear narrowband masters of one target, cropped alike, with gradients removed and their levels
     brought together.
 derived: true
-rewritten: true
 ---
 # NB Color Mapper
 

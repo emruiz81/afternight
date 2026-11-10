@@ -9,7 +9,6 @@ kind: reference
 # One sentence, at most 40 words (summary_words): what the reader looks up here.
 summary: >-
   <What the reader looks up here.>
-rewritten: true
 ---
 # <Title>
 
@@ -32,5 +31,5 @@ rewritten: true
 :   <Its definition.>
 
 <!-- The glossary alone has a fixed shape: `## <letter>` sections in alphabetical order (`## 0-9` first), each
-     holding `### <term>` entries of at most 80 words (entry_words). A rewritten page links a term to its entry on
-     first use. -->
+     holding `### <term>` entries of at most 80 words (entry_words). A page links a term to its entry on first
+     use. -->

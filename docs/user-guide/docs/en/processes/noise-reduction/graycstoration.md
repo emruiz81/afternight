@@ -25,7 +25,6 @@ glance:
   state: >-
     A calibrated and stacked linear master, after gradient removal and color calibration and before the stretch.
 derived: true
-rewritten: true
 ---
 # GRAYCstoration
 

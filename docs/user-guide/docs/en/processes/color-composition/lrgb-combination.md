@@ -26,7 +26,6 @@ glance:
     A color image and a luminance image of one target, registered and cropped alike, and both stretched so that their
     backgrounds have about the same lightness.
 derived: false
-rewritten: true
 ---
 # LRGB Combination
 

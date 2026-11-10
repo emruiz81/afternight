@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   What a computer needs to run AfterNight, how many threads and how much memory it uses, which optional programs and
   data a workflow needs, and how much memory and disk a large project takes.
-rewritten: true
 ---
 # System Requirements
 

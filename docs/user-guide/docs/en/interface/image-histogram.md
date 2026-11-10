@@ -4,7 +4,6 @@ summary: >-
   Histogram Analysis draws how the stored samples of an image, or of the frame a sequence shows, spread from black to
   white, channel by channel, with the shares clipped at either end.
 menu: Image > Information > Histogram
-rewritten: true
 ---
 # Histogram Analysis
 

@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   Format by format, the pixel types AfterNight reads and writes, how a save converts what a format cannot hold, the
   compression it offers and the metadata a file keeps, for still images, sequences and video.
-rewritten: true
 ---
 # File Formats
 

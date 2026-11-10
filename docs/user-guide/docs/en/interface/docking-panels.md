@@ -4,7 +4,6 @@ summary: >-
   How the workspace holds image views and the Session Console in areas of tabs, side by side or floating, and how to
   group, split, fit, maximize and lock them.
 menu: Window
-rewritten: true
 ---
 # Docking Panels
 

@@ -3,7 +3,6 @@ kind: interface
 summary: >-
   What the view of a plate-solved image can draw over it: the equatorial grid, the deep-sky objects and bright stars
   of the bundled catalogs, the SIP distortion map and the detected stars. The image itself never changes.
-rewritten: true
 ---
 # Astrometry Overlays
 

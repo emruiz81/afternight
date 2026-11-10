@@ -27,7 +27,6 @@ glance:
   state: >-
     A stacked master, linear with Pre-Stretch linear image ticked, or stretched with it off.
 derived: true
-rewritten: true
 ---
 # Starnet++ Star Mask
 

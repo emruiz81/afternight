@@ -1,6 +1,6 @@
 /* The guide's components: what the hooks and the layouts draw beyond plain Markdown. Callouts with their icons, the
    step cards of a process page, a tutorial's checklist, branch cards, steps beside their figure, result box and next
-   cards, figures with pins and before-and-after pairs, control rows with their widgets, wide tables, troubleshooting
+   cards, figures with pins and before-and-after pairs, control rows with their widgets, troubleshooting
    cards, a process page's position and "At a glance", the catalog's lanes and the home page.
 
    Icons are masks, so they take the color of the text around them and of the theme. Every text color keeps 4.5:1 on
@@ -361,24 +361,6 @@
 .prose ul.opts > li { margin: 0; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; font: 11.5px var(--font-mono); color: var(--text-3); }
 .prose ul.opts > li.on { border-color: var(--accent); color: var(--text); }
 .prose ul.opts.radio > li { border-radius: 999px; }
-
-/* --- Tables --------------------------------------------------------------------------------------------------- */
-
-/* A table too wide for the column, until its page is rewritten without one: smaller, and from a tablet's width its
-   first column stays in view while the rest scrolls under it. */
-.prose .table-wrap.wide table { font-size: 13px; }
-.prose .table-wrap.wide th, .prose .table-wrap.wide td { min-width: 8em; padding: 8px 10px; }
-@media (min-width: 600px) {
-    .prose .table-wrap.wide th:first-child, .prose .table-wrap.wide td:first-child {
-        position: sticky;
-        left: 0;
-        z-index: 1;
-        max-width: 15em;
-        background: var(--bg);
-        box-shadow: 1px 0 0 var(--border-strong);
-    }
-    .prose .table-wrap.wide th:first-child { background: var(--bg-2); }
-}
 
 /* --- Troubleshooting cards ------------------------------------------------------------------------------------ */
 

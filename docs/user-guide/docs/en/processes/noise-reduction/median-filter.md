@@ -26,7 +26,6 @@ glance:
     An image, linear or stretched, with hot or cold pixels or other specks that calibration and Cosmetic Correction
     left, or a mask to clean of specks.
 derived: true
-rewritten: true
 ---
 # Median Filter
 

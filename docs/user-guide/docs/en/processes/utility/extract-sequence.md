@@ -32,7 +32,6 @@ controls_ignore:
     reason: >-
       The window's inventory was recorded on a still image, where the window holds no frames; the block The frame
       range describes the box on a sequence.
-rewritten: true
 ---
 # Extract Sequence
 

@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   What the terms of the guide mean: astrophotography, calibration, stretching, color and file formats, and
   AfterNight's own ideas, such as the history, the preview area and the processing state.
-rewritten: true
 ---
 # Glossary
 

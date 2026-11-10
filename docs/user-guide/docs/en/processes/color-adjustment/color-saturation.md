@@ -26,7 +26,6 @@ glance:
     A stretched RGB image after color calibration, whose colors need a last adjustment. Every Apply records the result
     as nonlinear, at an Amount of 0 too.
 derived: false
-rewritten: true
 ---
 # Color Saturation
 

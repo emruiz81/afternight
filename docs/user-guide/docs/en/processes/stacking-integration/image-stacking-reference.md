@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   The rules behind Image Stacking: each rejection, normalization and weighting, how frames are grouped and files
   named, what a run writes, the memory it takes, comet stacking, settings to start from, and every message.
-rewritten: true
 ---
 # Image Stacking Reference
 

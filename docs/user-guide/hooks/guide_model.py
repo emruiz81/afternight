@@ -70,7 +70,6 @@ KEY_KINDS = {
     'paths': frozenset({'home'}),
     'popular': frozenset({'home'}),
     'reach': frozenset({'catalog'}),
-    'rewritten': _ALL,
 }
 
 # The keys a page of each kind must state.
@@ -252,7 +251,6 @@ def validate_meta(meta, stage_ids):
                                     and len(set(value)) == len(value)),
           'a list of distinct pages, each named by its path under the docs folder')
     check('reach', is_list_of(_is_text, allow_empty=False), 'a list of sentences')
-    check('rewritten', lambda value: value is True, 'true; leave it out until the page is rewritten')
     return problems
 
 
@@ -359,6 +357,7 @@ class Limits:
     image_max_bytes: int
     provenance_page: str
     before_after_groups: tuple
+    before_after_exempt: dict
 
     def of(self, kind, name, page=None):
         """The limit `name` of a page of `kind`, the `large` one when `page` is a large page; None when the kind has
@@ -375,7 +374,8 @@ def load_limits(guide_dir):
     def fail(message):
         raise GuideDataError('%s: %s' % (path, message))
 
-    known = ('summary_words', 'table_columns', 'kinds', 'large_pages', 'glossary', 'images', 'before_after_groups')
+    known = ('summary_words', 'table_columns', 'kinds', 'large_pages', 'glossary', 'images', 'before_after_groups',
+             'before_after_exempt')
     for key in data:
         if key not in known:
             fail('unknown key `%s`' % key)
@@ -426,11 +426,19 @@ def load_limits(guide_dir):
     groups = data['before_after_groups']
     if not isinstance(groups, list) or not all(_is_text(group) for group in groups):
         fail('`before_after_groups` is a list of nav group labels')
+    exempt = data['before_after_exempt']
+    if not isinstance(exempt, list) or not all(
+            isinstance(entry, dict) and set(entry) == {'page', 'reason'} and _is_page_path(entry['page'])
+            and _is_text(entry['reason']) for entry in exempt) \
+            or len({entry['page'] for entry in exempt}) != len(exempt):
+        fail('`before_after_exempt` is a list of {page, reason}: distinct pages, each named by its path under the '
+             'docs folder, with the reason the page shows no before-and-after pair')
     return Limits(summary_words=data['summary_words'], table_columns=data['table_columns'], kinds=kinds,
                   large=large, large_pages=frozenset(pages), glossary_page=glossary['page'],
                   glossary_entry_words=glossary['entry_words'], image_longest_side=images['longest_side'],
                   image_max_bytes=images['max_bytes'], provenance_page=images['provenance'],
-                  before_after_groups=tuple(groups))
+                  before_after_groups=tuple(groups),
+                  before_after_exempt={entry['page']: entry['reason'] for entry in exempt})
 
 
 @dataclass(frozen=True)

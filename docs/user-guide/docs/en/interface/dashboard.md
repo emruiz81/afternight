@@ -3,7 +3,6 @@ kind: interface
 summary: >-
   The Dashboard fills the main window when AfterNight starts and whenever no image is open: open files, start a
   sequence or an integration, and return to recent work.
-rewritten: true
 ---
 # Dashboard
 

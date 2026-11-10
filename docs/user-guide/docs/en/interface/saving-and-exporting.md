@@ -6,7 +6,6 @@ summary: >-
 menu:
   - File > Save as...
   - Image > Sequence > Export...
-rewritten: true
 ---
 # Saving and Exporting
 

@@ -26,7 +26,6 @@ glance:
     A stretched image after noise reduction, whose fine structure needs more contrast. A linear image works too when
     its noise is low and the settings are tried on it first.
 derived: false
-rewritten: true
 ---
 # Unsharp Mask
 

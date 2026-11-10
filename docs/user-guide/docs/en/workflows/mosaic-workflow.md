@@ -5,7 +5,6 @@ summary: >-
   Stack the overlapping panels of a mosaic in one Image Integration run onto one canvas, matched over their overlaps,
   then crop the master and finish it as one field.
 needs: []
-rewritten: true
 ---
 # Mosaic Workflow
 

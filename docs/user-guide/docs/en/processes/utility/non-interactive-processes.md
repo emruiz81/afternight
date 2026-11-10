@@ -34,7 +34,6 @@ glance:
     Any image or sequence, linear or not. Channels, components and pixel types are data management and no substitute
     for calibration. A mirror or a turn belongs before the plate solve.
 derived: false
-rewritten: true
 ---
 # Non-Interactive Processes
 

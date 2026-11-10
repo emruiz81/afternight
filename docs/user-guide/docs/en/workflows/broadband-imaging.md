@@ -5,7 +5,6 @@ summary: >-
   Take one night of broadband frames from a color or a mono camera through calibration, stacking, gradient and color
   correction, noise reduction and the stretch to a finished picture.
 needs: []
-rewritten: true
 ---
 # Broadband Imaging
 

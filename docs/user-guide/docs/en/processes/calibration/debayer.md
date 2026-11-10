@@ -25,7 +25,6 @@ glance:
   state: >-
     A calibrated linear mosaic, or a raw one, before registration, stacking and color calibration.
 derived: true
-rewritten: true
 ---
 # Debayer
 
