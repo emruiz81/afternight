@@ -236,13 +236,21 @@ controls:
 - **`controls`** holds one window's controls: a mapping of `window` and `controls`, or a plain list on a page with
   one window. A control states `name`, `kind`, `default` and `effect`, and may state `range`, `enabled`, `tradeoff`,
   `scope`, `persistence` and `note`. `kind` is `spinbox`, `slider`, `combo`, `check`, `radio`, `toolbutton`, `button`,
-  `field` or `action`. A spin box or slider needs `widget.min` and `widget.max` (and may state `step` and
+  `field`, `action` or `readout`. A spin box or slider needs `widget.min` and `widget.max` (and may state `step` and
   `decimals`), with a numeric default inside them; one whose range follows the image - a crop cannot be wider than
   the picture - states the end it has, or neither, and says what bounds it in `range`. A combo or radio needs
   `options` that hold its default. Each control is drawn as the widget it is, at its default, with its facets beside
-  it, and gets the anchor `ctl-<name>`, which the page's table of contents lists. The facets take `code` and
-  `**bold**` and no other Markdown. A parameter table of ten columns cannot be read on a page; a row per control can,
+  it, and gets the anchor `ctl-<name>`, which the page's table of contents lists. The facets take `code`,
+  `**bold**` and key caps written as in prose (`++ctrl+shift+k++`), and no other Markdown; a message of the
+  application that holds asterisks is quoted as a code span. A parameter table of ten columns cannot be read on a page; a row per control can,
   and it holds the numbers rule R14 compares with the window.
+- **A `readout` is what the window shows and takes no input:** a count beside a control, a status line, a plot. It
+  sits in the block where the window shows it, with what it opens with as its `default`, so that a reader finds
+  the number beside the control it belongs to. It is no control: the inventory does not have it and rule R14 does
+  not look for it. Without it a window's clipping counts and histograms had no place but the prose, where nobody
+  looking for "Clipped" finds them. A readout is named by the caption the window gives it, or by its first words
+  when it has none. Two lines the window shows together are one readout named for both when the page says the same
+  of each, and two when it does not; two readouts of one name state an `object` each.
 - **A control is called by its label,** the name the window gives it. `object` names it in the inventory of the
   window's controls when the label cannot: the window has several controls of that label, or gives the control no
   caption at all ([The windows' controls](#the-windows-controls)). It draws nothing. A name is listed once in a
@@ -450,9 +458,11 @@ and each file lists the controls the window opens with, in the order a person me
   of a real-time preview, which the Process windows page describes once; `process-window` is a window's own Apply,
   Reset and Close. The image view inside a window - the preview and its toolbar - is the image viewer and is not
   recorded: it is the same in every window, and how much of its toolbar shows depends on the window's width.
-- **What the inventory does not have:** a dialog one of the window's buttons opens, and a window that is no
-  registered process, such as Plate Solve. A page describes those in `controls` blocks named for them, which rule
-  R14 does not hold.
+- **What the inventory does not have:** a dialog one of the window's buttons opens, a window that is no registered
+  process, such as Plate Solve, and a part the window draws itself - a histogram with its handles, a curve with
+  its points. A page describes those in `controls` blocks named for them ("The histograms", "Sequence progress"),
+  which rule R14 does not hold. What a window only shows is a `readout` in the window's own block
+  ([Components and blocks](#components-and-blocks)).
 
 **Rule R14 holds a rewritten process page to its windows** ([Checks](#checks)). The page's windows are the ones
 its `menu` reaches that no other page names more exactly, so the Non-Interactive Processes page, which names whole
@@ -461,7 +471,7 @@ submenus, is not held to the windows that have pages of their own.
 - Every control of the inventory is in a `controls` block, under its label and in the window's order; or the
   page's `controls_ignore` names it with a reason; or it is `shared`.
 - Every control a block lists is in the window, and its `kind`, its `default`, the numbers of its `widget` and its
-  `options` are the window's. What `varies` names is the writer's to say, and so are the choices of a list the
+  `options` are the window's. A `readout` is not looked for. What `varies` names is the writer's to say, and so are the choices of a list the
   window opens empty, which it fills from what is installed or open.
 - A block is of the page's window when it states no `window` or the window's title, and of one tab or group of it
   when `window` is that tab's or group's title. A page of several windows names the window of each block.
@@ -564,7 +574,9 @@ A page carries what its reader needs and nothing about how it was written ([Sour
    ([The windows' controls](#the-windows-controls)).
 6. **How it works:** a few numbered statements of what the process does, in order; then, as the page needs them,
    the model with its equations, the boundaries (edges, invalid samples, cancellation) and a worked example with
-   its settings and its result.
+   its settings and its result. The settings are ones a reader can type, the result is worked out with the page's
+   own equations for a value the reader can find - the background's median - and the opening picture and the
+   before-and-after pair show those same settings.
 7. **Starting points,** where there are some: a small table of situation, where to start and what to adjust next.
    A recommendation is given as one, and no result is stated that was not computed or observed.
 8. **When it goes wrong:** the warnings a reader must not miss, then the symptoms with their cause and their fix.
@@ -633,6 +645,10 @@ written, links, credits and length.
 - **The window.** The application runs in its dark theme at 100 % scale, in the `en_US` locale, with an isolated
   profile (`AFTERNIGHT_TEST_STORAGE_ROOT`). A process window is captured at its default size, with the real-time
   preview on, its title visible and the mouse outside it, cropped to the window's frame.
+- **The window at work.** A process page's opening picture shows the window in the state of the page's worked
+  example, not as it opens: a stretch at its defaults shows a black preview and a histogram that is one spike,
+  which tells a reader nothing of what the window is for. The caption names the settings, and the capture script
+  sets them (`-Set`).
 - **The tools.** `build/scripts/tools/capture_guide_screenshots.ps1` takes the picture that way from a deployed
   build, and `build/scripts/tools/optimize_guide_image.py` makes the capture fit the limits and prints its
   provenance row; [docs/user-guide/SCREENSHOTS.md](../user-guide/SCREENSHOTS.md) is the recipe. The capture script
@@ -643,8 +659,14 @@ written, links, credits and length.
   for calibration, registration and stacking; a synthetic frame for a tool that needs no sky.
 - **Pins** are placed in percent of the picture's width and height while looking at it, and carry the numbers of
   the steps they point at.
-- **Before and after.** For a process judged by its result (`before_after_groups` in `limits.yml`), two crops of the
-  same region at 100 %, before and after Apply, under the same display stretch, which the caption names.
+- **Before and after.** For a process judged by its result (`before_after_groups` in `limits.yml`), the same region
+  before and after Apply with the worked example's settings, under the same display mode, which the caption
+  names. A process that changes the tone of the whole picture - a stretch, a curve - shows the whole frame; one
+  whose effect is in the detail - noise, sharpening, stars - shows a crop at 100 %. The capture script takes both
+  from the main window in one run (`-Apply`), so the two are the same place at the same zoom.
+- **A process that works on a stretched image** is captured on the linear master after the stretch its worked
+  example names, which the capture script applies first (`-Prepare`): the guide's data stays one file, and a
+  reader can reproduce the picture from the page.
 - **Provenance.** `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` has a row for every committed picture, by
   its path under the docs folder: its creator or source, its licence or permission, its date, its SHA-256, how to
   update it and the data it shows. A captured window's row is the one the optimizing script prints - the picture,
@@ -739,7 +761,8 @@ Run from the repository root:
 toolchain's Python: `docs\user-guide\.venv\Scripts\python` on Windows and `docs/user-guide/.venv/bin/python` on
 Linux, the environment the build helper makes. It prints each finding as `path:line: Rnn message`, then a count per
 rule and what it read, and exits 1 on any error; a warning prints as `path:line: Rnn warning: message` and fails
-nothing. `--page <page>` holds only the pages named; the parts that need the whole guide - nav entries, menu
+nothing. `--page <page>` holds only the pages named, and ends with each one's count of words against its budget,
+which rule R8 otherwise states only once a page is over; the parts that need the whole guide - nav entries, menu
 coverage and unused images - then do not run.
 
 - R2 holds each page's front matter to its schema and the stage ids to `data/stages.yml`.

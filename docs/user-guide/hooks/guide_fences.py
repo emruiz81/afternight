@@ -11,7 +11,9 @@ controls (`data/ui/`) when the label cannot: the window has several controls of 
 under one caption - or gives the control no caption at all. It is for the check that holds the block to the window,
 and draws nothing; a name may be listed more than once in a block only when `object` tells each of them apart. A spin
 box or a slider states the numbers of its range under `widget`; one whose range follows the image it works on - a
-crop cannot be wider than the picture - says so in `range` instead.
+crop cannot be wider than the picture - says so in `range` instead. A `readout` is what the window shows and takes
+no input - a count beside a control, a plot, a status line: it sits in the block where the window shows it, and it
+is no control of the inventory.
 
 ````markdown
 ```controls
@@ -55,6 +57,12 @@ from mkdocs.plugins import get_plugin_logger
 
 import guide_model
 
+try:  # the names the keys extension gives the keys, so a facet's key caps read as the prose's do
+    from pymdownx import keymap_db as _keymap_db
+    _KEY_NAMES, _KEY_ALIASES = _keymap_db.keymap, _keymap_db.aliases
+except ImportError:  # pragma: no cover - the extension is part of the documentation toolchain
+    _KEY_NAMES, _KEY_ALIASES = {}, {}
+
 log = get_plugin_logger('guide')
 
 CONTROL_KINDS = {
@@ -67,6 +75,9 @@ CONTROL_KINDS = {
     'button': 'button',
     'field': 'text field',
     'action': 'menu action',
+    # What the window shows and takes no input: a count, a plot, a status line. It is no control, so the inventory
+    # of the window's controls does not have it and the check does not look for it there.
+    'readout': 'readout',
 }
 CONTROL_REQUIRED = ('name', 'kind', 'default', 'effect')
 # The facets a control may state beside the required ones, in the order a row shows them, with their labels.
@@ -90,7 +101,9 @@ PIN_KEYS = ('n', 'x', 'y')
 
 _SLUG_DROP = re.compile(r'[^a-z0-9]+')
 _SCHEME = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:')
-_INLINE = re.compile(r'`([^`]+)`|\*\*([^*]+)\*\*')
+# What a facet takes of Markdown: a code span, bold text - which may hold an asterisk, as the label CIE L* does -
+# and key caps written as the pages write them, `++ctrl+shift+k++`.
+_INLINE = re.compile(r'`([^`]+)`|\*\*(.+?)\*\*(?!\*)|\+\+([A-Za-z0-9][A-Za-z0-9+-]*?)\+\+')
 
 
 class FenceError(Exception):
@@ -376,12 +389,24 @@ def _e(text):
     return html.escape(str(text), quote=True)
 
 
+def _key_caps(keys):
+    """`ctrl+shift+k` as the key caps the keys extension draws in the pages' prose, with its names for the keys."""
+    caps = []
+    for name in keys.split('+'):
+        name = name.lower()
+        label = _KEY_NAMES.get(_KEY_ALIASES.get(name, name)) or (name.upper() if len(name) == 1 else name.capitalize())
+        caps.append('<kbd>%s</kbd>' % _e(label))
+    return '<span class="keys">%s</span>' % '<span>+</span>'.join(caps)
+
+
 def inline(text):
-    """A facet's text as HTML: escaped, with `code` and **bold** and nothing else of Markdown."""
+    """A facet's text as HTML: escaped, with `code`, **bold** and ++key+caps++ and nothing else of Markdown."""
     def mark(match):
         if match.group(1) is not None:
             return '<code>%s</code>' % match.group(1)
-        return '<strong>%s</strong>' % match.group(2)
+        if match.group(2) is not None:
+            return '<strong>%s</strong>' % match.group(2)
+        return _key_caps(match.group(3))
     return _INLINE.sub(mark, _e(text.strip()))
 
 
@@ -441,6 +466,9 @@ def _widget_html(control):
     elif kind == 'field':
         drawn = '<span class="fld">%s</span>' % (_e(default) if default else '&nbsp;')
         said = 'Default <b>%s</b>' % _e(default) if default else 'Empty by default'
+    elif kind == 'readout':
+        drawn = '<span class="fld ro">%s</span>' % _e(default) if default else ''
+        said = 'Opens with <b>%s</b>' % _e(default) if default else ''
     else:  # button, action
         drawn = '<span class="abtn%s">%s</span>' % (' menu' if kind == 'action' else '', _e(control['name']))
         said = 'Default <b>%s</b>' % _e(default) if default else ''

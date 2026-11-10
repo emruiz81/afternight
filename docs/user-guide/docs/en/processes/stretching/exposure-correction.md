@@ -1,328 +1,364 @@
 ---
 kind: process
-stage: stretch
+stage: finish
 menu: Process > Adjustments > Exposure
 summary: >-
-  Multiplies the image, or one of its color components, by a factor and clamps the result, like a brighter or darker
-  exposure.
-data_in: linear
+  Multiplies the image, or one of its color components, by one factor and holds the result between black and white,
+  for a small overall brightening or darkening.
+data_in: either
 data_out: nonlinear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Exposure Correction window is open on it yet, and no window that needs
+    the image for itself is open on it.
+  inputs: >-
+    One grayscale or RGB image or sequence with samples between 0 and 1, and an optional mask of the same size on
+    its view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size and pixel type are kept. No file, preset or report is
+    written.
+  state: >-
+    A stretched image that needs a small overall brightening or darkening. On linear data the factor is a change of
+    exposure, but the result is recorded as nonlinear, so every step that needs linear data comes first.
+derived: false
+rewritten: true
 ---
 # Exposure Correction
+
+Exposure Correction multiplies every sample of the image by one factor and holds the result between black and
+white. A factor above 1 brightens the image as a longer exposure would, and one below 1 darkens it. On an RGB image
+the factor can scale one channel or one color component instead.
+
+**Exposure** sets the factor, between 0.02 and 2. It is not a number of
+[exposure stops](../../reference/glossary.md): a value of 1 multiplies by 1.2. No value makes a black
+[linear image](../../reference/glossary.md) visible, which is the work of a stretch.
+
+**Apply** replaces the image or sequence with the scaled one, keeps its size and pixel type, and adds one step to
+its history. The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/stretching/exposure-correction.webp
 alt: >-
-  The Exposure Correction window. On the left, the image's histogram, the Exposure value with its
-  slider, Target Image, Channel and Preview. On the right, the preview of the image, shown in
-  Autostretch like its view.
+  The Exposure Correction window. On the left, a histogram with one broad peak near its left third and the lines
+  Clipping Low and Clipping High in its corner. Under it a toolbar, Exposure at 1.50 with its slider right of the
+  middle, Target Image, Channel at RGB and Preview checked. On the right, the preview shows a red nebula on a gray
+  background. Reset, Close and Apply run along the bottom.
 caption: >-
-  Exposure Correction as it opens on a linear master whose view is in Autostretch, which the
-  preview follows.
+  Exposure Correction on a stretched master with Exposure at 1.50, a factor of 1.3. The histogram is counted from the
+  brightened preview, and the preview shows what Apply writes.
+pins:
+  - {n: 2, x: 8.7, y: 84.3}
+  - {n: 3, x: 2.1, y: 54.0}
+  - {n: 4, x: 2.6, y: 18.9}
+  - {n: 5, x: 45.3, y: 40.0}
+  - {n: 6, x: 90.6, y: 96.0}
 ```
-
-## Purpose and expected result
-
-Exposure Correction multiplies normalized samples or one selected RGB-derived
-component by a scalar and clamps the result to `[0,1]`. In linear light, a
-positive scalar can model a brighter exposure and a scalar below one can model
-a darker exposure. **The Exposure control is not an adjustment in stops: it
-does not use the standard stop equation `2^e`, and its tooltip states the factor
-it applies.**
-
-For entered value `e`, AfterNight computes the float multiplier `m` as
-
-\[
-m(e)=
-\begin{cases}
-1.02 + e/5, & e<0,\\
-1, & e=0,\\
-1 + e/5, & e>0,
-\end{cases}
-\qquad
-y=\operatorname{clamp}(m(e)x,0,1).
-\]
-
-Thus `+1` means `1.2x`, not the `2x` of a true +1-stop adjustment; only the
-positive endpoint `+5` happens to produce `2x`. Negative values use an extra
-`0.02` offset, so the mapping is discontinuous at zero and small negative
-values can brighten rather than darken. The guide reports this current behavior
-so that results are reproducible; it is not a recommended stop definition.
-
-For unclipped RGB in **RGB** mode, the common multiplier preserves stored
-channel ratios. Once one channel clips, color and highlight ratios change.
-Selecting one stored or converted component changes only that component before
-RGB reconstruction and is not a physical exposure adjustment.
-
-Every Apply records its result as nonlinear on the processing-state cards, even
-an unclipped scaling of linear data, and keeps the source's other FITS cards,
-astrometric solution, and acquisition record; see **Inputs, outputs, and
-metadata**.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Adjustments > Exposure** |
-| Enabled when | An image or sequence is active, the same process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One intended normalized grayscale or RGB still or sequence; an optional active mask must match target geometry |
-| Outputs | Destructively replaces a still or, after successful temporary processing, a sequence; **Take snapshot** creates an auxiliary still without replacing the target; component modes reconstruct RGB; automatic sequence CFA debayer can change frame format/channels; no file is written directly |
-| Recommended image state | Linear-light data for exposure-like scaling; on nonlinear data this is only encoded-value brightness scaling; either way the result is recorded as nonlinear |
-| Preview support | Asynchronous RT preview of the full image or a selected preview area, using the same multiply-and-clamp operation as Apply, plus a histogram of the mask-aware result; the preview viewer can display Linear values or a display-only Autostretch |
-| Sequence support | Supported: each decoded frame is processed exactly as a still image of it would be, into a temporary sequence that replaces the target only after every frame succeeds, with per-frame progress and Cancel; the configured CFA auto-debayer request can produce RGB frames |
-| Mask support | Supported for preview, still Apply, and sequence Apply by post-transform blending; white applies, black protects, gray blends, and **Invert Mask** reverses weights |
-| External dependencies | None; bundled engine only; no tool, profile, catalog, or network service |
 
 ## Before you start
 
-- Use linear-light data if the goal is exposure-like scaling. Multiplying
-  gamma-encoded or already stretched samples changes display values, not scene
-  exposure.
-- Apply records its result as nonlinear even when no sample clipped. If later
-  steps rely on a recorded linear state, run them before Exposure Correction.
-- Treat the control as a project-specific scalar control, not a stop control.
-  For a true multiplier `2^s`, the current positive branch can represent only
-  `1..2x`, and its label does not identify the equivalent stop value.
-- Inspect highlights before Apply. Every stored/component value above `1/m` is
-  clipped to `1`; no later operation can recover those distinctions.
-- **RGB** preserves ratios only while all channels remain below the clamp.
-  Red/Green/Blue or derived-component processing intentionally changes color.
-- Avoid hue/chroma modes for ordinary exposure work. Their normalized encoded
-  coordinates are multiplied and clamped as ordinary scalars; hue is not
-  treated as a circular angle.
-- In a converted-component mode only the component is clamped: on a floating
-  image the reconstructed RGB color is not clamped to `[0,1]`, and on an integer
-  image it saturates at the type's range.
-- For a sequence, verify the selected Channel, active mask, and CFA auto-debayer
-  setting before Apply. The same captured Exposure/Channel selection is used for
-  every decoded frame; cancellation discards the temporary output.
+- Exposure Correction does not stretch. Its largest factor is 2, which leaves a linear master black in the view's
+  **Linear** display mode.
+- On linear data the factor is a true change of exposure until a sample clips, and on stretched data it only
+  scales the displayed values. Either way **Apply** records the result as nonlinear: run every step that needs
+  linear data first.
+- **Apply** replaces the image or sequence. Its history keeps the step before, and what a factor above 1 pushes
+  past white is lost.
+- Use a grayscale or an RGB image with finite samples between 0 and 1. A raw color-filter mosaic is scaled as a
+  grayscale image and is not debayered.
+- A [mask](../../reference/glossary.md) on the view blends the scaled image with the original afterwards: white
+  takes the result, black keeps the original, gray mixes them, and **Invert Mask** swaps the two.
+- On a sequence, one value and one **Channel** choice are used for every frame. Check them, the mask and the
+  automatic debayer of the sequence before you Apply.
 
-## Procedure
+## Steps
 
-1. Select a still or sequence and open **Process > Adjustments > Exposure**. Confirm
-   **Target Image**, leave **Channel: RGB**, and keep **Preview** selected.
-2. Change **Exposure** slowly. Positive values multiply by `1+e/5`; negative
-   values multiply by `1.02+e/5`. The identity value `0` disables Apply.
-3. Inspect the histogram's white endpoint and bright colored stars at 100%.
-   Reduce the value if one or more channels form a clipped plateau. On a large
-   image, check **Preview area** on the preview view to tune on one region.
-4. If choosing a single stored/derived channel, inspect color and gamut. This
-   is component scaling, not exposure.
-5. If a mask is active, judge the mask-aware preview. Histogram clipping refers
-   to displayed result bins after blending.
-6. Apply when the result is acceptable. For a sequence, monitor the progress
-   dialog and use Cancel to preserve the original sequence. Image History holds
-   one **Exposure Correction** step that Undo reverses, and the result is
-   recorded as nonlinear with `exposure-correction` as the operation.
+1. **Open the window.** Make the image the active one and choose **Process > Adjustments > Exposure**. The window
+   opens as **Exposure Correction**, its preview shows the image as its view displays it, and **Apply** is
+   disabled.
+2. **Choose the channel.** Leave **Channel** at **RGB** to scale the three channels by one factor. Choose a single
+   channel or component only to change color on purpose.
+3. **Set the exposure.** Raise **Exposure** above 0 to brighten, or lower it below -0.10 to darken. The preview
+   follows, and the peak of the histogram moves right or left.
+4. **Watch the highlights.** Read **Clipping High** in the corner of the histogram while you brighten. Lower the
+   value again when it starts to rise: what it counts has become white.
+5. **Check the preview at 100 %.** Zoom the preview into the brightest stars and the brightest structure, and press
+   ++space++ over it to compare with the original. Star cores that turn flat or change color have clipped in a
+   channel.
+6. **Apply.** Choose **Apply**. The image in its view is the scaled one, its history lists **Exposure Correction**
+   with the value you set, and the controls return to their defaults.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Histogram plot | Graph, normalized intensity/count | Source or current preview; RGB channels overlaid | None | Binning comes from **Plot resolution** | Shows source or mask-aware preview distribution and approximate endpoint-bin clipping; never changes samples | **Show histogram** controls visibility | Recalculation adds work; endpoint counts are resolution-dependent | Display only; shown source/preview channels | Recomputed after source, preview, or resolution changes |
-| Left-drag in histogram | Graph gesture | No readout | None | Hold left button and move | Shows normalized coordinate readout | Histogram must be shown | Diagnostic only | Display only | Ends on release |
-| Middle-drag in histogram | Graph gesture | Fitted/unpanned | None | Hold middle button and drag | Pans within graph scroll area | Useful only beyond viewport | No output effect | Display only | Until reset/window close |
-| Ctrl+mouse wheel in histogram | Graph gesture | Fitted size | None | Up `1.20x`; down `0.8x`; plain wheel scrolls | Zooms around cursor | Interactive graph enabled | Rendering area only | Display only | Window lifetime; process Reset does not change it |
-| Zoom in | Toolbar action | Fitted size | None | Each action `1.30x` | Enlarges plot | Disabled with hidden histogram | Rendering only | Display only | Window lifetime |
-| Zoom out | Toolbar action | Fitted size | None | Each action `0.70x` | Shrinks plot | Disabled with hidden histogram | Rendering only | Display only | Window lifetime |
-| Zoom reset | Toolbar action | — | None | One action | Fits plot/resets scrolling | Disabled with hidden histogram | Rendering only | Display only | Immediate |
-| Show grid | Toggle | Checked | None | Checked/unchecked | Shows/hides grid | Disabled with hidden histogram | Display-only aid | Display only | Window lifetime; hiding histogram resets grid internally |
-| Show clipping info | Toggle | Checked | None | Checked/unchecked | Shows/hides histogram endpoint-bin counts | Disabled with hidden histogram | Binning-dependent estimate, not a count of values clipped specifically by this process | Display only | Window lifetime |
-| Absolute scales | Toggle | Unchecked | None | Checked/unchecked | Checked normalizes each visible histogram channel to its own peak | Disabled with hidden histogram | Can conceal relative channel strength; no image normalization | Display only | Window lifetime |
-| Draw histogram areas | Toggle | Unchecked | None | Checked/unchecked | Filled-area versus line drawing | Disabled with hidden histogram | Area overlap can obscure channels | Display only | Window lifetime |
-| Show histogram | Toggle | Checked | None | Checked/unchecked | Hides/clears graph and disables toolbar, or reloads source/preview | Always available while idle | Hiding saves graph work, not preview processing | Display only | Window lifetime; process Reset does not change it |
-| Plot resolution | Combo box, bins | **8-bit (256)** | None | **6-bit (64)**, **7-bit (128)**, **8-bit (256)**, **9-bit (512)**, **10-bit (1024)**, **12-bit (4096)**, **14-bit (16K)**, **16-bit (64K)**, **100 levels**, **1000 levels**, **10000 levels** | More bins refine the graph/endpoint estimates | Disabled with hidden histogram | Higher bins cost graph memory/rendering; output precision unchanged | Display only | Window lifetime |
-| Exposure | Double value plus slider labelled **Exposure**; its tooltip states the factor below | `0.00` identity | None | `-5.00..+5.00`; two decimals; spin step `0.03`; slider linear over 1,000 positions | Positive uses `1+e/5`; negative uses `1.02+e/5`; `-0.10` is another identity and `(-0.10,0)` brightens despite being negative | Enabled while idle; Apply disabled only exactly at `0.0` | Positive values clip samples above `1/m`; negative branch reaches `0.02x` at `-5`; displayed value is not a true stop count | Preview/Apply; selected channel/component; mask post-blend; still/sequence | Captured per execution; Reset/success returns `0.0` |
-| Target Image | Image selector | Attached/active target | None | Open eligible image or sequence | Changes source, Channel list, histogram, Preview, Apply | Active image required; duplicate/exclusive gates apply | Wrong target is destructively replaced; sequence writes a temporary result and replaces only after success | Preview/Apply source and active mask | Target lifecycle; Reset does not change it |
-| Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | RGB/Grayscale multiplies stored samples; Red/Green/Blue multiplies one stored channel; other modes convert, multiply one encoded component, and reconstruct RGB | Component choices require RGB; mono selector disabled | RGB preserves ratios until clipping; other modes add conversion work and gamut risk (a floating reconstructed color is not clamped to `[0,1]`, an integer one saturates at the type's range); source metadata is kept in every mode | Preview/Apply; selected component; mask post-blend; still/sequence | Captured by current selection; Reset/success returns RGB when target is RGB |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables the asynchronous multiply/clamp preview and switches histogram result/source | Process idle | Result/histogram buffers cost time/memory; same mathematical transfer as Apply | Preview only; mask-aware; current still/current displayed sequence frame | Window lifetime; Reset does not change it |
-| Preview pane | Full-image viewer | Current result | None | Standard viewer zoom/pan/display controls | Shows mask-aware result | Exists only with Preview | Holds result image; component conversions add buffers | Preview only; target unchanged | Window lifetime |
-| Display Mode | Preview-toolbar combo box | Inherits the target view's **Linear** or **Autostretch** mode when the preview is created | None | **Linear**, **Autostretch** | Changes only how the Exposure result is displayed; Autostretch uses cached full-target source statistics without changing process output pixels | Exists only with Preview; Autostretch enables **Autostretch Settings** | A source-derived display stretch can reveal faint structure or exaggerate noise and must not be mistaken for Exposure output | Preview display only; no effect on Apply, snapshots, masks, or sequences | Preview-view state; process Reset does not change it |
-| Autostretch Settings | Preview-toolbar dialog action | Disabled in Linear mode; current target-view settings are inherited | Current shared-view values load when opened | Opens the shared settings for Target Background, Shadows Clipping, linked channels, neutralization/color calibration, saturation/background, brightness, contrast, banner, Reset, and Close | Tunes only the preview viewer's display stretch | Enabled only in Autostretch mode; the action is disabled while its dialog is open; **Apply Stretch** is hidden in this RT-preview dialog | Aggressive display settings can exaggerate noise/color without changing Exposure output | Preview display only | Viewer-scoped; not captured in Exposure parameters or history |
-| Switch image | Preview-toolbar action | Exposure preview shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles the preview viewer between the current result and original target | Exists only with Preview | Display comparison only; no recomputation or pixel change | Preview display only; still/current displayed sequence frame | Preview-window lifetime |
-| Preview area | Preview-toolbar checkbox | Unchecked | None | Checked/unchecked; move/resize the selection overlay | Limits preview and snapshot processing to a selected area and composites that result over the original full image; inside the area the preview is what Apply makes of an image of that area | Exists only with Preview | Reduces multiply/component work while tuning; does not limit final Apply | Preview and Take snapshot only; mask is cropped consistently | Preview-window lifetime; Reset does not change it |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes the current Exposure settings at source depth and opens a new still named `<target> - Exposure Correction - SNAPSHOT` | Exists only with Preview | Allocates and processes an auxiliary image; active mask and selected preview area are honored; Display Mode/Autostretch is not baked into the snapshot | New still image; target is unchanged; a snapshot is a preview result and is not recorded as nonlinear | Each action creates a separate image view |
-| Apply | Button/action | Disabled at Exposure `0.0` | None | One action at any other displayed value, including the second identity `-0.10` | Captures Exposure and runs one fused multiply-and-clamp program over the selected channel for a still or each decoded sequence frame | Target must lock; controls disabled during the run | One parallel engine pass; integer samples add a floating working copy; conversions and masks add passes; recording the nonlinear state usually copies the result once more; clipping is irreversible | Destructive still/sequence replacement; active mask applies | Success records one history step, then resets Exposure and Channel |
-| Reset | Button/action | Enabled while idle | None | One action | Restores Exposure `0.0` and RGB for an RGB target | Does not change Target, Preview, or histogram toolbar/zoom | No output cost | UI only | Immediate |
-| Close | Button/action | Enabled while idle | None | One action | Closes without Apply | Disabled during commit | Pending preview result is discarded | UI only | No setting persistence |
-| Sequence progress / Cancel | Shared modal progress dialog and Cancel action | Created automatically when sequence Apply starts | None | One progress update per frame; cooperative Cancel | Processes decoded frames into a temporary sequence and replaces the target only after success | Sequence target only | Sequence processing adds decode/encode and temporary-disk cost; automatic CFA debayer can produce RGB frames | Sequence Apply; chosen channel and active mask apply to every frame | Cancel or a failed frame discards the temporary sequence; success replaces the sequence, records one history step, and resets settings |
+The toolbar under the histogram - zoom, grid, clipping lines, scales, areas, the histogram itself and **Plot
+resolution** - changes only how the histogram is drawn, and is the same in every window that has one: see
+[Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: The histogram
+controls:
+  - name: Histogram
+    kind: readout
+    default: ""
+    effect: Shows how the samples of the image are spread between 0 and 1. With **Preview** on it is counted from the scaled preview, mask included. With **Preview** off it is counted from the image as it is.
+    range: One line for a grayscale image, three for RGB, in the bins of the toolbar's **Plot resolution**. A finer resolution changes the drawing only, not the factor or the precision of the result.
+    enabled: Shown while the toolbar's histogram button is on. Its lines follow the channel the preview displays, and it shows the original while the preview does.
+    tradeoff: It is counted again after every preview, which adds to the time each change takes. While you drag the slider it may be counted from a reduced copy of the image, and the whole image follows when you release it.
+    scope: The window only. It never changes a sample.
+    persistence: Counted again when the target, the preview or **Plot resolution** changes.
+    note: Holding the left button shows the coordinates under the pointer until you release it. Dragging with the middle button pans, and ++ctrl++ with the wheel zooms about the pointer. **Reset** leaves the zoom as it is.
+  - name: Clipping Low
+    kind: readout
+    default: ""
+    effect: Gives the share of the samples the histogram counts that are at or below 0. In a floating-point image no factor sends a sample above 0 to black, so this share comes from samples that were already there. In an integer image a strong darkening also rounds the lowest values to 0.
+    range: A percentage with three decimals, over all the channels together. It is counted from the samples, not from the bins, so it does not change with **Plot resolution**.
+    enabled: Shown while the toolbar's clipping button is on, as it is when the window opens.
+    scope: The window only.
+  - name: Clipping High
+    kind: readout
+    default: ""
+    effect: Gives the share of the samples the histogram counts that are at or above 1. In the scaled preview those are the samples at or above 1 divided by the factor.
+    range: Counted as **Clipping Low** is.
+    enabled: Shown while the toolbar's clipping button is on.
+    tradeoff: It counts every sample at white, also those that were white before the factor and those a mask left alone. Compare it with **Preview** off to see what the factor adds.
+    scope: The window only.
+```
 
-### Transfer, clipping, and channel behavior
+```controls
+window: Exposure Correction
+controls:
+  - name: Exposure
+    kind: spinbox
+    default: "0.00"
+    widget: {min: -5, max: 5, step: 0.03, decimals: 2}
+    effect: Sets the factor every sample is multiplied by. Above 0 it brightens, up to twice at the top of the range. Below -0.10 it darkens, down to a fiftieth at the bottom.
+    range: The slider beside the box moves the same value in steps of 0.01. At 0 the factor is 1 and nothing changes. At -0.10 the factor is 1 again, and between -0.10 and 0 the image is slightly brightened.
+    enabled: Disabled while Apply runs. Any value but 0 enables **Apply**.
+    tradeoff: A factor above 1 sends every sample above 1 divided by the factor to white, which no later step brings back. The value is not a number of stops, and the label does not say which factor it stands for.
+    scope: The preview and Apply, on the channel or component **Channel** selects, on images and sequences. A mask is blended afterwards.
+    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
+    note: The tooltip of the box and of the slider states the two factors.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image Apply replaces, with the mask on its view. The title of the window, the choices of **Channel**, the histogram and the preview follow it.
+    enabled: Disabled while Apply runs.
+    tradeoff: Apply replaces the image chosen here, so check it before you Apply. A sequence is written again in a temporary place and replaced only when every frame is done.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses what the factor multiplies. With **RGB** it is the three stored channels. With **Red**, **Green** or **Blue** it is that channel, and the other two stay as they are. Every other choice converts the image, multiplies that one component and converts back to red, green and blue.
+    range: The lightness, luminance, value and luma choices scale brightness from black. The saturation choices and the CIE chroma scale the amount of color from gray. The CIE a and b choices and the two YCbCr chroma choices are neutral at the middle of their scale, so a factor moves gray itself and tints the whole image. The three hue choices hold a hue as a fraction of a turn, which is multiplied and cut as a plain number, not turned as an angle. **CIE X** and **CIE Z** shift the balance between the colors.
+    enabled: For an RGB image. A grayscale image shows a disabled **Grayscale** instead, and its one channel is multiplied. Disabled while Apply runs.
+    tradeoff: Only **RGB** keeps the ratios between the colors, and only until a channel clips. Every other choice changes color on purpose and is not a change of exposure. A component choice adds two conversions to every preview and Apply.
+    scope: The preview and Apply, on images and sequences. Only the chosen channel or component is held between 0 and 1. After a component choice the rebuilt colors of a floating-point image can leave that range, and those of an integer image stop at the limits of its type.
+    persistence: Until the window closes. Each preview and each Apply takes the choice as it is when it starts. **Reset** and a finished Apply return an RGB image to **RGB**.
+    note: A component is worked in single precision, or in double precision for a 64-bit floating-point image, and the conversion back is the exact inverse of the conversion there. An image described as linear is converted as linear RGB, any other as sRGB-encoded. The header, the plate solution and the acquisition data are kept with every choice.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the scaled image beside the controls, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
+    enabled: It stays enabled while Apply runs.
+    tradeoff: Each change scales the image again, or the **Preview area** alone, and counts the histogram again. On a large image, turn it off or use a **Preview area** while you try values, and check the whole image before Apply.
+    scope: The window only, on the image or on the frame of the sequence the view shows. It runs the same computation as Apply. A **Preview area** shows the result inside the area over the original, and does not limit Apply.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+    note: The preview opens in the display mode of the image's view, **Linear** or **Autostretch**. In **Autostretch** it is stretched by the statistics of the image as it is, so a brighter exposure looks brighter. That display stretch can show faint structure and noise that the factor did not make, and it is not written by Apply. An image made with the preview's snapshot button is named `<target> - Exposure Correction - SNAPSHOT` and is not recorded as nonlinear.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Exposure** to 0 and, on an RGB image, **Channel** to **RGB**.
+    range: It leaves the target, **Preview**, the toolbar's choices and the zoom of the histogram as they are.
+    enabled: Disabled while Apply runs.
+    scope: The window only. The image is not touched, and Apply is disabled afterwards.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Scales the image, or every frame of the sequence, with the value and the channel as they are when you press it, and then returns the controls to their defaults.
+    enabled: When **Exposure** is not 0. That includes -0.10, where the factor is 1. It is disabled while the window opens and while a run works. While something else is working on the image, it only shows a warning.
+    tradeoff: The run writes the result beside the image, which needs the memory of a second image, in one pass over the processor threads it is given. A mask and a component choice add passes. When the memory limit cannot hold the result, nothing is written and a message says so.
+    scope: The whole image or sequence, with the mask and its inversion as they are when you press it, blended afterwards.
+    persistence: >-
+      The image and its history keep the result, and Undo brings the image back. The history step is
+      **Exposure Correction** and reads, for example, `Adjust exposure to 1.5 in channel: RGB`, without the channel
+      for a grayscale image. It records the value, not the factor or its stops, and not the toolbar's choices or
+      the mask.
+    note: Closing the window instead discards the value and a preview on its way. The window has no presets, and nothing of it is saved between sessions.
+```
 
-The standard exposure-stop law is `m=2^s`: `+1` doubles linear-light samples
-and `-1` halves them. AfterNight instead uses the piecewise linear control map
-shown above. On the positive branch, the equivalent stop change is
-`log2(1+e/5)`; on the negative branch it is `log2(1.02+e/5)`.
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: Shows the preparation and the frame being scaled, from 0 to 100 percent.
+    enabled: Shown only while Apply works on a sequence. A single image has no progress window.
+    tradeoff: Every frame is read and written again in a temporary place, which needs the time of both and the disk space of a second copy until the run ends.
+    scope: Every frame, scaled as a single image of it is, with the value, the channel and the mask taken when you pressed Apply. The frames are read with the automatic debayer setting of the view, which turns the frames of a mosaic sequence into RGB.
+    persistence: A finished run replaces the sequence, adds one step to its history and returns the controls to their defaults.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    range: The request is noticed before each frame and inside the scaling of one.
+    note: The sequence is replaced only when every frame has been scaled. A frame that fails ends the run as Cancel does. After a cancelled run, Apply again and let it finish.
+```
 
-For normalized finite input, multiplication is followed by an unconditional
-clamp. Positive values therefore create a hard highlight plateau wherever
-`x >= 1/m`. The negative branch's multiplier remains positive over its allowed
-range, reaching `0.02` at `-5`, so ordinary normalized values do not black-clip
-except exact zero. Floating samples outside `[0,1]` are also clamped after
-multiplication; a not-a-number sample stays not-a-number. Samples that the
-image's own validity rule or mask marks as invalid are left as they were.
+## How it works
 
-### RGB and selected components
+1. Every sample is read as a fraction of full scale: an unsigned integer divided by its largest value, a signed
+   one counted from its smallest value, a floating-point sample as it is.
+2. **Exposure** gives one factor. With **RGB**, or on a grayscale image, every stored sample is multiplied by it
+   and then held between 0 and 1. With **Red**, **Green** or **Blue**, only that channel is.
+3. With a component choice, the image is converted, that component is multiplied and held between 0 and 1, and the
+   image is converted back to red, green and blue.
+4. The result is written back in the image's own pixel type, an integer rounded to the nearest value with a tie
+   going to the even one. A mask on the view then blends it with the original.
+5. The image replaces the target and its history gets one step. Its header, its acquisition data and its plate
+   solution are kept. A saved file records the new state in its header: `ANLIN` is `nonlinear`, `ANASRC` is
+   `process`, `ANOP` is `exposure-correction`, and `ANBASIS` is `monochrome` or `display-rgb`. A linear encoding
+   the image stated is no longer stated, and its lineage gains an entry with the value and its factor.
 
-- **RGB** uses one multiplier independently on every stored R/G/B value. Ratios
-  are preserved before clipping; they diverge when channels reach white at
-  different input levels.
-- **Red**, **Green**, or **Blue** changes only one stored channel.
-- CIE, HSL, HSV, and YCbCr modes convert the image's red, green, and blue,
-  multiply and clamp one component handed over in the unit interval as a
-  Float32 working plane (Float64 for a 64-bit float image), then reconstruct
-  RGB. A source whose description says it is linear is read as linear RGB; any
-  other is read as sRGB-encoded. Reconstruction can leave the gamut or alter
-  hue/chroma: a floating result is not clamped to `[0,1]`, and an integer result
-  is rounded to the nearest code and saturated at the type's range. CIE
-  components are reconstructed through the exact inverse of the XYZ matrix, and
-  YCbCr through unrounded luma-chroma coefficients. Hue receives no circular
-  wrap treatment.
-- Grayscale and one-channel CFA stills are treated as one stored channel. This
-  process does not demosaic a still.
+### Model
 
-The operation keeps the source pixel type. Integer input is read in normalized
-units (an unsigned integer as a fraction of its largest value, a signed one
-counted from its smallest value to its largest), converted to a floating working
-copy (Float64 for the two 32-bit types, Float32 otherwise), multiplied by the
-single-precision factor, clamped, and rounded back to the nearest code, ties to
-even. Float input remains float and double remains double. The multiply and
-the clamp are one fused engine pass on the operation's threads. Preview and
-Apply use the same engine operation, although histogram bins remain diagnostic
-only.
+With \(e\) the value of **Exposure**, the factor \(m\) is
 
-## Inputs, outputs, and metadata
+\[
+m =
+\begin{cases}
+1 + e/5, & e > 0 \\
+1, & e = 0 \\
+1.02 + e/5, & e < 0
+\end{cases}
+\tag{1}
+\]
 
-### Image state, metadata, masks, and history
+A sample \(x\) of the chosen channel or component then becomes
 
-Scalar multiplication is exposure-like only in linear light and, before
-clipping, preserves linearity. Every Apply nevertheless records its result as
-nonlinear on the processing-state cards a saved file carries: `ANLIN` becomes
-`nonlinear`, `ANASRC` `process`, `ANOP` `exposure-correction`, and `ANBASIS` the
-basis a stretched image of its kind is in (for example `display-rgb` for an RGB
-image). A linear transfer function the source claimed is no longer claimed, and
-the image's lineage gains an entry naming the engine operation with the exposure
-and its factor.
+\[ y = \min\bigl(1,\ \max(0,\ m\,x)\bigr) \tag{2} \]
 
-- Every other FITS card, the astrometric solution, and the acquisition record
-  are kept, in stored-channel and converted-component modes alike.
-- A **Take snapshot** image is a preview result and is not recorded as
-  nonlinear.
+Equation (2) turns every sample at or above \(1/m\) into white. Below zero, equation (1) starts at 1.02 and not at
+1, so the factor jumps as the value crosses zero.
 
-An active mask is blended afterward as
-`source*(1-mask) + corrected*mask`, reversed for an inverted mask. Factor
-derivation and clipping happen before this blend. Image History records one step
-named **Exposure Correction**, described as `Adjust exposure to <e>`, followed
-by ` in channel: <Channel>` for an RGB target (for example
-`Adjust exposure to 1.5 in channel: RGB`); it states the displayed control
-value, not the actual multiplier/equivalent stops. Undo restores the previous
-image. Successful still Apply resets Exposure to zero and Channel to RGB.
+A change of \(s\) stops multiplies linear samples by \(2^s\). The value that gives that factor follows from
+equation (1):
 
-A run whose stop is requested (Cancel in a sequence's progress dialog, or the
-target closing while a run works) is stopped inside the engine operation and
-publishes nothing; the image and its history stay as they were.
+\[ e = 5\,(2^s - 1) \ \text{ for } s > 0, \qquad e = 5\,(2^s - 1.02) \ \text{ for } s < 0 \tag{3} \]
 
-Sequence Apply processes each decoded frame as an Apply processes a still image
-of it, active mask included, writes the frames to a temporary sequence, supports
-Cancel from its progress dialog, and replaces the target only after every frame
-succeeds; a cancelled or failed run leaves no temporary output. The current CFA
-auto-debayer request is passed to the sequence reader. One history step is
-recorded.
+One stop up is the top of the range, 5. One stop down is -2.60, and the bottom of the range is about 5.6 stops
+down. Read the other way, a value of 1 is about a quarter of a stop.
 
-## Parameter interactions and starting points
+Under a mask whose value at a pixel is \(k\), from 0 for black to 1 for white, the pixel becomes
+\((1 - k)\,x + k\,y\). The factor and the cut to white come before this blend.
 
-| Combination | Conservative starting point | Too weak looks like | Too strong or defective looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Exposure + highlight headroom | Small positive increments around `0.1..0.3` | Brightness barely changes because multipliers are only `1.02..1.06` | White plateau and colored-star saturation | Inspect maximum/channel histograms, raise slowly, stop before clipping |
-| Negative value + current discontinuity | Use `e <= -0.10` only after checking the formula | `-0.10` changes nothing | Values between `-0.10` and `0` brighten; near zero the preview jumps | Treat the value as scalar control, not stops; verify result numerically |
-| RGB + channel clipping | Leave **RGB** selected | Desired brightening remains modest | One channel clips before others and changes color | Inspect each RGB endpoint, then reduce Exposure |
-| Component mode + color | Prefer RGB for physical exposure intent | Selected component has little visible effect | Hue, saturation, or gamut shifts after reconstruction | Choose component only for deliberate color editing; inspect colors |
-| Mask + clipping | Use soft transitions and modest positive values | Protected region changes too little | Applied region clips or mask boundary becomes visible | Tune unmasked transfer, then inspect mask-aware result |
+### Boundaries
 
-## Performance
+- A floating-point sample below 0 becomes 0 and one above 1 becomes 1, at every value but 0, also at -0.10. Between
+  0 and 1 only an exact zero is black afterwards, because the factor is never below 0.02. An integer image also
+  loses the values that round to 0.
+- A sample that is not a number stays as it is, and a pixel the image marks as invalid is left unchanged.
+- The factor is computed in single precision. Floating-point samples are worked in their own precision, 8-bit and
+  16-bit integers in single precision and 32-bit integers in double precision.
+- A stopped run writes nothing: the image and its history stay as they were. A run stops on **Cancel** in the
+  progress window of a sequence, or when the image closes while Apply works.
+- A single image has no progress window and cannot be cancelled once Apply starts.
 
-The core is one parallel multiply/clamp pass. Integer samples add a floating
-working copy; stored single-channel modes avoid color conversion; component
-modes compute a floating working plane and convert back. The run works on a copy
-of the target, and recording the nonlinear state usually copies the result once
-more; if the session's memory budget refuses one of these copies, Apply
-publishes nothing and reports the refusal. An active mask adds another
-full-image blend, and Preview also retains a result and updates the histogram.
-Histogram resolution changes diagnostic rendering, not output precision or the
-multiplier.
+### Worked example
 
-Disable Preview while entering several values on a large image, or use
-**Preview area**, then re-enable the full preview for the final check. No
-approved project image was timed, so no production throughput or memory
-figure is claimed.
+The picture above shows the Carina Nebula master after Histogram Transformation with **Shadows** and **Midtones**
+at 0.02, which leaves its background near 0.28. With **Channel** at **RGB** and **Exposure** at 1.50, equation (1)
+gives a factor of 1.3. Equation (2) moves the background to 0.36 and turns every sample at or above 0.77 into
+white: the whole picture is brighter, and the brightest clouds and the star cores go flat.
 
-## Worked example
+```figure
+images:
+  - image: ../../assets/images/processes/stretching/exposure-correction-before.webp
+    alt: The whole frame before the change, the red and white clouds of the nebula across a field of stars on a dark gray background.
+    label: Before
+  - image: ../../assets/images/processes/stretching/exposure-correction-after.webp
+    alt: The whole frame after the change, the same nebula on a lighter gray background, with its brightest clouds and its star cores a flat white.
+    label: After
+caption: >-
+  The stretched Carina Nebula master before and after Apply with Exposure at 1.50. Both are the whole frame as the
+  view shows it in the Linear display mode, without a display stretch.
+```
 
-- **Positive setting:** With Exposure `+1`, the current multiplier is `1.2`, not
-  `2`. Inputs `[0.25, 0.50, 0.90]` become `[0.30, 0.60, 1.00]`; the last raw
-  value is `1.08` and clips. The equivalent unclipped change is about
-  `log2(1.2)=+0.263` stops.
-- **Negative setting:** With Exposure `-1`, the multiplier is `0.82`, so input
-  `0.50` becomes `0.41`. This is about `-0.286` stops, not `-1` stop (`0.25`).
-- **Discontinuity checkpoint:** Exposure `-0.10` produces multiplier `1.0` even
-  though Apply is enabled. Exposure `-0.05` produces `1.01`, so input `0.50`
-  becomes `0.505`: a negative displayed value brightens. At exactly `0`, the
-  multiplier returns to `1` and Apply is disabled.
-- **Inspect in real use:** Check each RGB white endpoint, the brightest star
-  cores, and the recorded history value. Do not translate the displayed value
-  into stops without applying the piecewise equation.
-- **Limitations:** No real-image color fidelity, clipping recovery, metadata
-  round trip, executed sequence output, or production timing was measured.
+A value of 1.00 gives a factor of 1.2: samples of 0.25, 0.50 and 0.90 become 0.30, 0.60 and 1, the last one cut
+from 1.08. A negative value lowers white with everything else. At -1.00 the factor is 0.82: a sample of 0.50
+becomes 0.41, the background moves from 0.28 to 0.23, and nothing in the result is brighter than 0.82. At -0.05
+the factor is 1.01 and 0.50 becomes 0.505, which is brighter, not darker.
 
-## Warnings and limitations
+On the linear master itself the median is near 0.028. The largest value, 5, doubles it to 0.055, which is still
+black in the **Linear** display mode.
 
-!!! danger "The current control is not calibrated in exposure stops"
-    AfterNight does not compute `2^Exposure`. A displayed `+1` gives `1.2x`, and
-    `-1` gives `0.82x`. Use the documented piecewise multiplier when exact
-    scaling matters.
+## Starting points
 
-!!! danger "Small negative values can brighten"
-    The negative branch adds `0.02`, creating a discontinuity at zero.
-    `-0.10` is an enabled identity and values between `-0.10` and `0` brighten.
-
-- Positive scaling hard-clips every value above `1/m`; clipped detail and color
-  ratios cannot be restored later.
-- Scaling nonlinear/encoded samples is not scene exposure compensation. Work in
-  linear light when that interpretation matters.
-- Every Apply is recorded as nonlinear, even an unclipped scaling of linear
-  data. Run steps that rely on a recorded linear state before Exposure
-  Correction.
-- Component modes are color-coordinate edits, not exposure changes, and a
-  floating reconstructed color is not clamped to `[0,1]`.
-- History records the displayed value rather than actual multiplier, so the
-  piecewise formula is required to reproduce the math outside AfterNight.
-- Integer results are rounded to the nearest code, ties to even.
-- A not-a-number floating sample is not repaired. Use finite normalized data.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| `+1` does not look one stop brighter | Current multiplier is `1+1/5=1.2`, not `2^1=2` | Use the current formula, which the tooltip states, and judge highlights; do not read the value as stops |
-| A small negative value brightens | Negative branch is `1.02+e/5`; it exceeds one for `-0.10<e<0` | Use `e<-0.10` for darkening and verify the actual multiplier |
-| Exposure `-0.10` runs but changes no pixel in `[0,1]` | It is a second mathematical identity, while Apply is disabled only at exact `0.0`; floating samples outside `[0,1]` are still clamped, and the result is still recorded as nonlinear with a history step | Reset to `0`; avoid committing `-0.10` |
-| Highlights become flat white or change color | Multiply result is clamped to one; RGB channels can reach the clamp at different inputs | Reduce Exposure or create headroom before scaling |
-| A floating image has values outside `[0,1]` after a component mode | Only the component is clamped; it is converted back to RGB without clamping a floating result | Use a smaller change or a stored-channel mode |
-| A later step treats the result as nonlinear | Apply records `ANLIN` `nonlinear` and `ANOP` `exposure-correction` on the result, even without clipping | Expected; run steps that need a recorded linear state first, or undo the step in Image History |
-| Apply fails with an error naming the memory budget | The session's memory budget cannot hold the run's copy of the target | Close other images, work on a smaller image, or raise the memory limit on the Processing settings page (it takes effect at the next start); the target is unchanged |
-| A cancelled sequence does not replace the target | The sequence run writes a temporary sequence and publishes it only when every frame succeeded; Cancel stops the run and leaves no output | This is expected; restart Apply when ready |
-| Apply resets the controls | Shared successful-commit path calls Exposure Reset | This is expected; re-enter settings for another still |
+| A stretched image a little too dark | **RGB**, and **Exposure** between 0.10 and 0.30 | Raise it in small steps. Stop when **Clipping High** rises or the star cores go flat. |
+| An image too bright | **RGB**, and **Exposure** at -1.00 | Lower it further, and check that the whites have not turned gray. |
+| A change counted in stops, on linear data | The value from equation (3) | Check each channel's white end, then stretch. The image is recorded as nonlinear from here on. |
+| A change through a mask | The value first, with the mask off | Enable a mask with soft edges, then check its edges and the clipping inside it at 100 %. |
 
-## Related workflow steps
+## When it goes wrong
 
-Complete calibration and linear color work before using an exposure-like
-correction. Use [Image Statistics](../../interface/image-statistics.md) and the
-histogram to measure highlight headroom. Compare
-[Gamma Correction](gamma-correction.md) for nonlinear midtone shaping,
-[Histogram Transformation](histogram-transformation.md) or
-[Statistical Stretch](statistical-stretch.md) for a main stretch, and
-[Adjust Brightness/Contrast](../color-adjustment/adjust-brightness-contrast.md)
-for an encoded-value brightness/contrast control. Monitor
-[Image History](../../interface/image-history.md) after Apply.
+!!! danger "Exposure is not a number of stops"
+    The value is not an exponent of 2. A value of 1 multiplies by 1.2 and -1 by 0.82, and only 5 doubles the
+    samples. Use equation (3) when you need a number of stops, and equation (1) to repeat the change elsewhere.
+
+!!! danger "A value between -0.10 and 0 brightens"
+    Below zero the factor starts at 1.02. At -0.10 it is 1, and between -0.10 and 0 the image gets brighter. Type a
+    value below -0.10 to darken.
+
+!!! warning "Apply records the image as nonlinear"
+    A scaling of linear data that clips nothing is recorded as nonlinear too, and a later process treats it so.
+    Use the image's history to go back to the linear image.
+
+Apply is disabled
+:   **Cause.** **Exposure** is 0, which changes nothing.
+:   **Fix.** Move it to any other value.
+
+Apply at -0.10 changed nothing you can see
+:   **Cause.** The factor at -0.10 is 1, yet the run still cuts floating-point samples outside 0 to 1, adds a
+    history step and records the image as nonlinear.
+:   **Fix.** Undo the step. To leave an image as it is, close the window without Apply.
+
+Highlights turn flat white, or bright stars change color
+:   **Cause.** Samples above 1 divided by the factor were cut to white, and the three channels reach white at
+    different levels.
+:   **Fix.** Undo the step, then lower **Exposure** until **Clipping High** stops rising.
+
+The image looks the same after Apply
+:   **Cause.** The view is in **Autostretch**, which measures the scaled image again and shows its background at
+    the level it had before.
+:   **Fix.** Switch the view to **Linear**, or compare the numbers in Image Statistics.
+
+A floating-point image has samples outside 0 to 1 after a component choice
+:   **Cause.** Only the component is held between 0 and 1, and the colors rebuilt from it are not.
+:   **Fix.** Use a smaller change, or **RGB** or a single stored channel.
+
+"Error executing the process", with a message that names the memory limit
+:   **Cause.** The memory limit of the session cannot hold the result beside the image, so nothing was written.
+:   **Fix.** Close other images or work on a smaller one. To raise the limit, change **Memory Limit** on the
+    Processing page of the settings and restart AfterNight.
+
+## Related
+
+- [Histogram Transformation](histogram-transformation.md) and [Statistical Stretch](statistical-stretch.md), to
+  make a linear master visible, which this window cannot do.
+- [Gamma Correction](gamma-correction.md), to brighten or darken the midtones and keep black and white where they
+  are.
+- [Adjust Brightness/Contrast](../color-adjustment/adjust-brightness-contrast.md), to shift the brightness and
+  change the contrast around the middle gray.
+- [Image Statistics](../../interface/image-statistics.md), to measure the room above the highlights before you
+  brighten.
+- [Image History](../../interface/image-history.md), to read the recorded value and to undo the step.
+- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
+  process window shares.

@@ -29,7 +29,7 @@ and what it had learned about driving the application was learned again.
   | Role | For | Data |
   | --- | --- | --- |
   | A linear color master | Color, noise, stretch and finishing pages | A stacked RGB master that was never stretched |
-  | A stretched copy of it | Finishing pages | The same master after its stretch |
+  | The same master, stretched | Finishing pages | The linear master after the stretch `-Prepare` applies in the run, so that the data stays one file |
   | The workflows' frame sets | Calibration, registration and stacking pages | The color-camera and mono sets the workflow pages name |
   | A synthetic frame | A tool that needs no sky | A mono frame made for the purpose |
 
@@ -44,15 +44,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
     -Page processes\stretching\histogram-transformation.md,processes\stretching\gamma-correction.md
 ```
 
-- `-Page` takes process pages of the guide. The script reads each page's `menu`, opens the process from that menu
-  and names the picture after the page.
+- `-Page` takes pages of the guide that state a `menu`: a process page, or a tutorial that works in one window. The
+  script reads each page's `menu`, opens the process from that menu and names the picture after the page.
 - `-Capture "<name>=<menu path>"` takes any menu path instead, and whatever window it opens, a dialog included;
   several are separated by semicolons.
 - `-Open` opens the images the pictures need, in order, through **File > Open**.
 - `-Display Autostretch` shows the opened image stretched. A linear master is nearly black without it, and the
   preview of most processes follows the view.
-- `-MainWindow <name>` adds a picture of the main window as it is at the end.
+- `-MainWindow <name>` adds a picture of the main window as it is at the end. An image the captures left open -
+  the master a run produced - is shown as `-Display` says first.
 - `-Left`, `-Top`, `-Width` and `-Height` place the main window; a process window keeps the size it opens with.
+- `-List` prints the controls of each window it captures: their type, their object name and the name they show.
 
 The script starts the application with a storage root of its own, which it removes afterwards, in the `en_US`
 locale and without display scaling. It waits for each window to stop changing before it saves it, and says when a
@@ -60,6 +62,57 @@ window was still changing after `-SettleSeconds`. It leaves one PNG per capture 
 title bar included, and stops the application. It exits 1 when a capture was not saved.
 
 Look at every capture before going on: the script cannot tell a window in the wrong state from one in the right one.
+
+## The window at work, and the pair
+
+A window as it opens often shows nothing of what it is for: a stretch at its defaults leaves a linear master black.
+A page's opening picture shows the window in the state of the page's worked example, and the worked example of a
+process judged by its result ends with the image before and after. One run takes all three:
+
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_guide_screenshots.ps1 ^
+    -Application bin\msvc\release\AfterNight.exe -Output <a folder outside the repository> ^
+    -Open <the linear master> -Page processes\stretching\histogram-transformation.md ^
+    -Set "shadowsValue=0.02;midtonesValue=0.02" -Apply
+```
+
+- `-Set` does in the window what the worked example says, in order, before the picture is taken. A control is named
+  by its object name, as the window's inventory under `data/ui/` records it, or by the name it shows:
+
+  | Written | Does |
+  | --- | --- |
+  | `shadowsValue=0.02` | Sets a spin box or a slider to a number, written with a decimal point. |
+  | `channelSelector=Red` | Chooses an item of a combo box. |
+  | `preview=Off` | Switches a check box or a checkable button `On` or `Off`. |
+  | `liteOutputDirectoryEdit=C:\stack` | Types a text into a field. |
+  | `autostretchLinked` | Presses a button. |
+  | `curveEditor@25,40` | Clicks in a control the application draws - a curve, a plot - at 25 % of its width and 40 % of its height from its top left corner. |
+  | `curvesEditorScrollArea@28,69>28,82` | Drags in such a control, from the first place to the second: what adds a point to a curve and moves it. |
+  | `liteAddFolderButton?C:\frames\lights` | Presses a button that opens the system's file or folder dialog, answers it with the path and waits for what is loaded. Several files are written as the dialog takes them: `"C:\a.fits" "C:\b.fits"`. |
+  | `liteRunIntegrationButton!` | Presses a button that starts a run and waits until the button is enabled again, up to `-RunTimeoutSeconds`. |
+
+- `-Apply` takes the pair. After the window's picture it saves the main window as `<name>-before.png`, presses the
+  window's **Apply**, waits for the run to end and saves the main window again as `<name>-after.png`. The image is
+  in the same place at the same zoom in both, under the display mode it was opened in. Open a linear master without
+  `-Display` for a stretch: the pair then shows the image as it is, black before and visible after.
+- `-Prepare "<menu path>|<control>=<value>;..."` runs a process on the image before any capture: it opens the
+  process, sets it as `-Set` does, applies it and closes it. A page of a process that works on a stretched image
+  names the stretch in its worked example, and is captured with it:
+
+  ```cmd
+      -Prepare "Process > Intensity Transformations > Histogram Transformation|shadowsValue=0.02;midtonesValue=0.02" ^
+      -Page processes\stretching\gamma-correction.md -Set "gammaValue=1.5" -Apply
+  ```
+
+`-Set` applies to every window of the run, so a page is captured in a run of its own. What a run leaves on the
+screen - the message that it is complete, its progress window - is dismissed before its window is closed, and an
+image it opened stays for `-MainWindow`.
+
+**Cutting the image out of the pair.** With the main window at its default place and size and one image open, fit
+to its view, the image is the same rectangle of both pictures. Give that rectangle to the optimizing script as
+`--crop LEFT,TOP,WIDTH,HEIGHT` for both, so the two crops are the same region. A tone process is shown on the whole
+frame. A process whose effect is in the detail - noise, sharpening, stars - is shown at 100 %: zoom the view
+before the capture, and crop a region where the effect shows.
 
 ## Optimize
 
@@ -121,6 +174,19 @@ Each of these cost time once. They are in the script; they are here for whoever 
   until the box closes, and every other request waits behind it.
 - **A stretching process shows its preview unstretched,** whatever the view's display mode: its preview is what
   Apply writes. The previews of the other processes follow the view's Autostretch.
+- **A control is found by its object name.** The toolkit gives each control an identifier that is the path of
+  object names down to it, and the last part is the name the inventory records. The title bar's own Close button
+  is named `Close` too: the window's buttons are told from it by the path in their identifier.
+- **A spin box takes its number through UI Automation, and keeps the keyboard.** It then draws a focus frame and a
+  blinking caret, and the window never comes to rest. The script gives the keyboard to the window's Reset button,
+  or its Close button, which draw the same with it.
+- **A run disables the button that started it.** Apply disables the window's Reset for as long as the run lasts,
+  and an import or an integration disables its own button; that is how the script knows a run has ended. A window
+  that is busy may not answer UI Automation at all, which is read as still running.
+- **A curve takes a point only where it is pressed on the line.** A click away from the line adds nothing, and a
+  point is moved by a press, a move with the button held and a release, all posted to the window.
+- **PowerShell's variables ignore case,** and a parameter keeps its type: an array assigned to `$left` is an
+  assignment to the integer `-Left`, and fails.
 - **The Dashboard stretches a thumbnail only for a file that records itself as linear.**
 - **The locale comes from `LANG`.** With `LANG=en_US` the application writes `0.50`, not `0,50`, whatever the
   machine's regional format. `QT_ENABLE_HIGHDPI_SCALING=0` and `QT_FONT_DPI=96` give a picture at 100 % on any

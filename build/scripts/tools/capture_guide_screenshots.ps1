@@ -30,6 +30,38 @@ What is captured is named in one of two ways:
 
 -MainWindow <name> adds a picture of the main window as it is when the captures are done.
 
+A window is captured as it opens unless -Set says what to do in it first:
+
+  -Set "<control>=<value>[;<control>[=<value>]...]"
+                             sets controls of each window before its picture is taken, in the order given. A control
+                             is named by its object name, as the window's inventory under docs/user-guide/data/ui
+                             records it (`shadowsValue`), or by the name it shows (`Apply`). A spin box takes a number
+                             written with a decimal point, a combo box one of its choices, a check box or a checkable
+                             button `On` or `Off`. A control named without a value is pressed. `<control>@<x>,<y>`
+                             clicks in a control the application draws itself - a curve, a plot - at a place given
+                             in percent of its width and height from its top left corner, and
+                             `<control>@<x>,<y>><x>,<y>` drags from the first place to the second.
+                             `<control>?<path>` presses a button that opens the system's file or folder dialog,
+                             answers the dialog with the path and waits for what is then loaded. `<control>!`
+                             presses a button that starts a run and waits, up to -RunTimeoutSeconds, until the
+                             button is enabled again.
+  -List                      prints the controls of each window it captures - type, object name and name - which is
+                             what -Set can name.
+  -Prepare "<menu path>|<control>=<value>[;...]"
+                             gives the image the state the captures need, before any of them: opens that process,
+                             sets its controls as -Set does, applies it and closes it. A page of a process that
+                             works on a stretched image is captured on the linear master after the stretch its own
+                             worked example names, so the guide's data stays one file.
+
+-Apply takes a before-and-after pair of the image the process works on: once the window's picture is saved it saves
+the main window as `<name>-before.png`, presses the window's Apply, waits for the run to end and for the view to
+rest, and saves the main window again as `<name>-after.png`. Both show the image under the display mode it was
+opened in, in the same place and at the same zoom; optimize_guide_image.py's --crop cuts the same part out of both.
+A run whose Apply changes nothing in the main window ends with an error.
+
+What a window's run leaves on the screen - the message that it is complete, its progress window - is dismissed
+before the window is closed, and an image it opened stays for -MainWindow, shown as -Display says.
+
 A menu item that does not open a window of its own - a submenu, an action that acts at once - ends the run with an
 error that names it. So does a page's process that the application answers with a message instead of its window -
 it refuses the image, or is open on it already: the script answers the message with Return and stops. A -Capture
@@ -43,9 +75,10 @@ Usage (Windows PowerShell 5.1, which carries UI Automation):
     powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_guide_screenshots.ps1
         -Application bin\msvc\release\AfterNight.exe -Output <folder for the PNGs> [-Open <image>[,<image>...]]
         [-Display <mode>] [-Page <page.md>[,...]] [-Capture "<name>=<menu path>[;...]"] [-MainWindow <name>]
+        [-Set "<control>=<value>[;...]"] [-Prepare "<menu path>|<control>=<value>[;...]"] [-Apply] [-List]
         [-Storage <new folder>]
         [-Guide docs\user-guide] [-Left 80] [-Top 60] [-Width 1600] [-Height 1000] [-SettleSeconds 20]
-        [-OpenTimeoutSeconds 180]
+        [-OpenTimeoutSeconds 180] [-RunTimeoutSeconds 3600]
 
 It exits 0 when every capture was saved, and 1, having stopped the application, when one was not.
 #>
@@ -57,6 +90,10 @@ param(
     [string[]]$Page = @(),
     [string[]]$Capture = @(),
     [string]$MainWindow = '',
+    [string[]]$Set = @(),
+    [string[]]$Prepare = @(),
+    [switch]$Apply,
+    [switch]$List,
     [string]$Storage = '',
     [string]$Guide = '',
     [int]$Left = 80,
@@ -64,7 +101,8 @@ param(
     [int]$Width = 1600,
     [int]$Height = 1000,
     [int]$SettleSeconds = 20,
-    [int]$OpenTimeoutSeconds = 180
+    [int]$OpenTimeoutSeconds = 180,
+    [int]$RunTimeoutSeconds = 3600
 )
 
 $ErrorActionPreference = 'Stop'
@@ -78,6 +116,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -258,6 +297,27 @@ public sealed class AnScreenshots
         IntPtr where = (IntPtr)((point.Y << 16) | (point.X & 0xFFFF));
         AnCaptureNative.PostMessage(handle, 0x0201, (IntPtr)1, where);
         AnCaptureNative.PostMessage(handle, 0x0202, IntPtr.Zero, where);
+    }
+
+    /// Presses the left button at one place on the screen, moves to another with the button held and releases it
+    /// there, as posted messages: what moves a point of a curve or a handle of a plot.
+    public void PostDrag(IntPtr handle, int fromX, int fromY, int toX, int toY)
+    {
+        AnCaptureNative.Point from;
+        from.X = fromX;
+        from.Y = fromY;
+        AnCaptureNative.ScreenToClient(handle, ref from);
+        AnCaptureNative.Point to;
+        to.X = toX;
+        to.Y = toY;
+        AnCaptureNative.ScreenToClient(handle, ref to);
+        IntPtr start = (IntPtr)((from.Y << 16) | (from.X & 0xFFFF));
+        IntPtr end = (IntPtr)((to.Y << 16) | (to.X & 0xFFFF));
+        AnCaptureNative.PostMessage(handle, 0x0201, (IntPtr)1, start);
+        Thread.Sleep(150);
+        AnCaptureNative.PostMessage(handle, 0x0200, (IntPtr)1, end);
+        Thread.Sleep(150);
+        AnCaptureNative.PostMessage(handle, 0x0202, IntPtr.Zero, end);
     }
 
     /// Restores a window that opened maximized and gives it a place and a size, without bringing it to the front.
@@ -499,6 +559,226 @@ public sealed class AnScreenshots
         try { return element.Current.IsEnabled; } catch (ElementNotAvailableException) { return false; }
     }
 
+    // ---- The controls of a process window, read and set through UI Automation.
+
+    /// The object name of a control: the last part of the identifier the toolkit gives it, which is the path of
+    /// object names from the application down to it.
+    public static string ObjectName(AutomationElement element)
+    {
+        string id = element.Current.AutomationId ?? "";
+        int dot = id.LastIndexOf('.');
+        return dot < 0 ? id : id.Substring(dot + 1);
+    }
+
+    private static string TypeName(AutomationElement element)
+    {
+        return element.Current.ControlType.ProgrammaticName.Replace("ControlType.", "");
+    }
+
+    /// Every control of a window: `type  object name  name`, one a line. A process window is small enough to be
+    /// walked whole, which the main window with a large image open is not.
+    public List<string> DescribeControls(IntPtr window)
+    {
+        List<string> lines = new List<string>();
+        AutomationElement root = AutomationElement.FromHandle(window);
+        foreach (AutomationElement element in root.FindAll(TreeScope.Descendants, Condition.TrueCondition))
+        {
+            try
+            {
+                if (element.Current.ControlType == ControlType.Text || element.Current.ControlType == ControlType.Group
+                    || element.Current.ControlType == ControlType.Pane) continue;
+                lines.Add(string.Format("{0,-12} {1,-36} {2}", TypeName(element), ObjectName(element), element.Current.Name));
+            }
+            catch (ElementNotAvailableException) { }
+        }
+        return lines;
+    }
+
+    /// The control of a window that `name` names: by its object name, as the guide's inventory records it, or else
+    /// by the name it shows. Null when the window has none.
+    public AutomationElement Control(IntPtr window, string name)
+    {
+        AutomationElement root = AutomationElement.FromHandle(window);
+        AutomationElement shown = null;
+        foreach (AutomationElement element in root.FindAll(TreeScope.Descendants, Condition.TrueCondition))
+        {
+            try
+            {
+                if (ObjectName(element) == name) return element;
+                if (shown == null && element.Current.Name == name && element.Current.ControlType != ControlType.Text) shown = element;
+            }
+            catch (ElementNotAvailableException) { }
+        }
+        return shown;
+    }
+
+    /// Presses a control on a thread of its own, as Choose does a menu item: a button may open a modal dialog.
+    public Task Press(IntPtr window, string name)
+    {
+        AutomationElement control = Control(window, name);
+        if (control == null) throw new InvalidOperationException("the window has no control '" + name + "'");
+        if (!IsEnabled(control)) throw new InvalidOperationException("'" + name + "' is disabled");
+        return Task.Run(delegate
+        {
+            object pattern;
+            try
+            {
+                if (control.TryGetCurrentPattern(InvokePattern.Pattern, out pattern)) ((InvokePattern)pattern).Invoke();
+                else if (control.TryGetCurrentPattern(TogglePattern.Pattern, out pattern)) ((TogglePattern)pattern).Toggle();
+            }
+            catch (Exception) { }
+        });
+    }
+
+    /// Gives a control a value the way its kind takes one: a combo box one of its choices, a check box or a
+    /// checkable button `On` or `Off`, a spin box or a slider a number, a text field a text. Returns what was done.
+    public string SetControl(IntPtr window, string name, string value)
+    {
+        AutomationElement control = Control(window, name);
+        if (control == null) throw new InvalidOperationException("the window has no control '" + name + "'");
+        if (!IsEnabled(control)) throw new InvalidOperationException("'" + name + "' is disabled");
+        object pattern;
+        if (control.Current.ControlType == ControlType.ComboBox)
+        {
+            if (!ChooseInComboBox(window, control, value)) throw new InvalidOperationException("'" + name + "' has no choice '" + value + "'");
+            return name + " shows " + value;
+        }
+        if (value == "On" || value == "Off")
+        {
+            if (!control.TryGetCurrentPattern(TogglePattern.Pattern, out pattern)) throw new InvalidOperationException("'" + name + "' is not switched on and off");
+            ToggleState wanted = value == "On" ? ToggleState.On : ToggleState.Off;
+            TogglePattern toggle = (TogglePattern)pattern;
+            for (int attempt = 0; attempt < 2 && toggle.Current.ToggleState != wanted; ++attempt)
+            {
+                toggle.Toggle();
+                Thread.Sleep(300);
+            }
+            if (toggle.Current.ToggleState != wanted) throw new InvalidOperationException("'" + name + "' did not go " + value);
+            return name + " is " + value;
+        }
+        if (control.TryGetCurrentPattern(RangeValuePattern.Pattern, out pattern))
+        {
+            double number;
+            if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out number)) throw new InvalidOperationException("'" + name + "' takes a number, not '" + value + "'");
+            RangeValuePattern range = (RangeValuePattern)pattern;
+            if (number < range.Current.Minimum || number > range.Current.Maximum) throw new InvalidOperationException(string.Format(CultureInfo.InvariantCulture, "'{0}' takes {1} to {2}, not {3}", name, range.Current.Minimum, range.Current.Maximum, value));
+            range.SetValue(number);
+            Thread.Sleep(200);
+            return string.Format(CultureInfo.InvariantCulture, "{0} is {1}", name, range.Current.Value);
+        }
+        if (control.TryGetCurrentPattern(ValuePattern.Pattern, out pattern))
+        {
+            ((ValuePattern)pattern).SetValue(value);
+            Thread.Sleep(200);
+            return name + " reads " + ((ValuePattern)pattern).Current.Value;
+        }
+        throw new InvalidOperationException("'" + name + "' takes no value; name it alone to press it");
+    }
+
+    /// Waits for a run that a press of Apply started: until `name` - a button the window disables while it runs -
+    /// is enabled again, having first been seen disabled or else after `startMs`, a run that short having ended.
+    public void WaitForRun(IntPtr window, string name, int startMs, int timeoutMs)
+    {
+        Stopwatch clock = Stopwatch.StartNew();
+        bool started = false;
+        while (clock.ElapsedMilliseconds < timeoutMs)
+        {
+            CheckAlive();
+            // A window that is busy, or behind a dialog that is still closing, may not answer: it is running.
+            bool enabled = false;
+            try
+            {
+                AutomationElement control = Control(window, name);
+                enabled = control != null && IsEnabled(control);
+            }
+            catch (Exception) { enabled = false; }
+            if (!enabled) started = true;
+            else if (started || clock.ElapsedMilliseconds >= startMs) return;
+            Thread.Sleep(150);
+        }
+        throw new TimeoutException("the run did not end");
+    }
+
+    public bool SamePicture(Bitmap one, Bitmap other)
+    {
+        return Same(one, other);
+    }
+
+    /// Clicks in a control, at a place given in percent of its width and its height from its top left corner: a
+    /// control drawn by the application - a curve, a plot - takes a point where a person clicks it.
+    public string ClickIn(IntPtr window, string name, double xPercent, double yPercent)
+    {
+        AutomationElement control = Control(window, name);
+        if (control == null) throw new InvalidOperationException("the window has no control '" + name + "'");
+        if (xPercent < 0 || xPercent > 100 || yPercent < 0 || yPercent > 100) throw new InvalidOperationException("a click is placed in percent of the control, 0 to 100");
+        System.Windows.Rect place = control.Current.BoundingRectangle;
+        if (place.IsEmpty || place.Width < 1 || place.Height < 1) throw new InvalidOperationException("'" + name + "' is not on the screen");
+        int x = (int)Math.Round(place.X + (place.Width - 1) * xPercent / 100.0);
+        int y = (int)Math.Round(place.Y + (place.Height - 1) * yPercent / 100.0);
+        PostClick(window, x, y);
+        Thread.Sleep(300);
+        return string.Format(CultureInfo.InvariantCulture, "clicked {0} at {1},{2} of its {3} x {4}", name, x - (int)place.X, y - (int)place.Y, (int)place.Width, (int)place.Height);
+    }
+
+    /// Drags inside a control, from one place to another, both in percent of its width and its height.
+    public string DragIn(IntPtr window, string name, double fromX, double fromY, double toX, double toY)
+    {
+        AutomationElement control = Control(window, name);
+        if (control == null) throw new InvalidOperationException("the window has no control '" + name + "'");
+        foreach (double percent in new double[] { fromX, fromY, toX, toY })
+        {
+            if (percent < 0 || percent > 100) throw new InvalidOperationException("a drag is placed in percent of the control, 0 to 100");
+        }
+        System.Windows.Rect place = control.Current.BoundingRectangle;
+        if (place.IsEmpty || place.Width < 1 || place.Height < 1) throw new InvalidOperationException("'" + name + "' is not on the screen");
+        int x1 = (int)Math.Round(place.X + (place.Width - 1) * fromX / 100.0);
+        int y1 = (int)Math.Round(place.Y + (place.Height - 1) * fromY / 100.0);
+        int x2 = (int)Math.Round(place.X + (place.Width - 1) * toX / 100.0);
+        int y2 = (int)Math.Round(place.Y + (place.Height - 1) * toY / 100.0);
+        PostDrag(window, x1, y1, x2, y2);
+        Thread.Sleep(400);
+        return string.Format(CultureInfo.InvariantCulture, "dragged in {0} from {1},{2} to {3},{4} of its {5} x {6}", name, x1 - (int)place.X, y1 - (int)place.Y, x2 - (int)place.X, y2 - (int)place.Y, (int)place.Width, (int)place.Height);
+    }
+
+    /// The control of the application that has the keyboard, or null when none of its controls has it.
+    public AutomationElement Focused()
+    {
+        try
+        {
+            AutomationElement focused = AutomationElement.FocusedElement;
+            return focused != null && focused.Current.ProcessId == (int)m_pid ? focused : null;
+        }
+        catch (Exception) { return null; }
+    }
+
+    /// A button of the window that can hold the keyboard without showing it: its Reset button, or else its Close
+    /// button - the window's own, whose identifier is a path, not the title bar's. Null when it has neither.
+    public AutomationElement RestingButton(IntPtr window)
+    {
+        AutomationElement root = AutomationElement.FromHandle(window);
+        AutomationElement close = null;
+        foreach (AutomationElement element in root.FindAll(TreeScope.Descendants,
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)))
+        {
+            try
+            {
+                if (!(element.Current.AutomationId ?? "").Contains(".") || !element.Current.IsEnabled) continue;
+                if (element.Current.Name == "Reset") return element;
+                if (close == null && element.Current.Name == "Close") close = element;
+            }
+            catch (ElementNotAvailableException) { }
+        }
+        return close;
+    }
+
+    /// Gives the keyboard back to a control. A control that was given a value keeps the keyboard, and draws a
+    /// focus frame and a blinking caret that the window did not open with and that never lets its picture rest.
+    public void Focus(AutomationElement element)
+    {
+        if (element == null) return;
+        try { element.SetFocus(); } catch (Exception) { }
+    }
+
     /// Chooses a menu item on a thread of its own: an item whose action opens a modal dialog does not return until
     /// the dialog closes.
     public Task Choose(AutomationElement item)
@@ -539,6 +819,50 @@ function Get-PageMenu([string]$path) {
 $Page = @($Page | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $Open = @($Open | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $Capture = @($Capture | ForEach-Object { $_ -split ';' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+# What to do in a window, in order: (control, value) to set it, (control, x, y) to click in it, (control, answer) to
+# press it and answer the file dialog it opens, (control, wait) to press it and wait for the run it starts, and
+# (control) to press it. A value may hold an equals sign; a control's name holds none of `=`, `?`, `@` and `!`.
+function Read-Changes([string[]]$given, [string]$option) {
+    $read = New-Object System.Collections.Generic.List[object]
+    foreach ($one in @($given | ForEach-Object { $_ -split ';' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+        $at = $one.IndexOf('=')
+        if ($at -eq 0) { throw "$option takes ""<control>=<value>"", ""<control>@<x>,<y>"", ""<control>?<path>"", ""<control>!"" or ""<control>"", not ""$one""" }
+        if ($one -match '^([^=?@!]+)\?(.+)$') {
+            $read.Add(@{ control = $Matches[1].Trim(); value = $null; answer = $Matches[2].Trim() })
+        }
+        elseif ($one -match '^([^=?@!]+)!$') {
+            $read.Add(@{ control = $Matches[1].Trim(); value = $null; wait = $true })
+        }
+        elseif ($at -gt 0) {
+            $read.Add(@{ control = $one.Substring(0, $at).Trim(); value = $one.Substring($at + 1).Trim() })
+        }
+        elseif ($one -match '^(.+)@\s*([0-9.]+)\s*,\s*([0-9.]+)\s*>\s*([0-9.]+)\s*,\s*([0-9.]+)$') {
+            $invariant = [System.Globalization.CultureInfo]::InvariantCulture
+            $read.Add(@{ control = $Matches[1].Trim(); value = $null
+                         x = [double]::Parse($Matches[2], $invariant); y = [double]::Parse($Matches[3], $invariant)
+                         toX = [double]::Parse($Matches[4], $invariant); toY = [double]::Parse($Matches[5], $invariant) })
+        }
+        elseif ($one -match '^(.+)@\s*([0-9.]+)\s*,\s*([0-9.]+)$') {
+            $read.Add(@{ control = $Matches[1].Trim(); value = $null
+                         x = [double]::Parse($Matches[2], [System.Globalization.CultureInfo]::InvariantCulture)
+                         y = [double]::Parse($Matches[3], [System.Globalization.CultureInfo]::InvariantCulture) })
+        }
+        else { $read.Add(@{ control = $one; value = $null }) }
+    }
+    return ,$read
+}
+$changes = Read-Changes $Set '-Set'
+# What -Prepare runs before the captures: (menu path, changes).
+$preparations = New-Object System.Collections.Generic.List[object]
+foreach ($given in @($Prepare | Where-Object { $_ -and $_.Trim() })) {
+    $at = $given.IndexOf('|')
+    $menu = $given
+    $rest = ''
+    if ($at -ge 0) { $menu = $given.Substring(0, $at); $rest = $given.Substring($at + 1) }
+    if (-not $menu.Trim()) { throw "-Prepare takes ""<menu path>|<control>=<value>;..."", not ""$given""" }
+    $preparations.Add(@{ name = $null; menu = $menu.Trim(); process = $true; prepare = $true
+                         changes = (Read-Changes @($rest) '-Prepare') })
+}
 
 $Application = (Resolve-Path -LiteralPath $Application).Path
 $deployment = Split-Path $Application
@@ -610,7 +934,8 @@ try {
         Start-Sleep -Milliseconds 1500
     }
 
-    if ($Display) {
+    # The images -Open opened are shown as -Display says; an image a capture leaves open is, before -MainWindow.
+    if ($Display -and $images.Count -gt 0) {
         $box = $shots.ComboBox($main, $displayModeBox, $OpenTimeoutSeconds * 1000)
         if (-not $box) { throw "no image opened to show as $Display" }
         if (-not $shots.ChooseInComboBox($mainHandle, $box, $Display)) { throw "the image's display mode has no '$Display'" }
@@ -619,7 +944,12 @@ try {
         $shots.Note("the image is shown as $Display")
     }
 
-    foreach ($shot in $captures) {
+    # The preparations run first, each as a capture that saves nothing and applies what it set.
+    $steps = New-Object System.Collections.Generic.List[object]
+    foreach ($preparation in $preparations) { $steps.Add($preparation) }
+    foreach ($shot in $captures) { $shot.prepare = $false; $shot.changes = $changes; $steps.Add($shot) }
+
+    foreach ($shot in $steps) {
         $path = [string[]]($shot.menu -split [regex]::Escape($menuSeparator) | ForEach-Object { $_.Trim() })
         # The item is enabled once the image it works on has opened.
         $clock = [System.Diagnostics.Stopwatch]::StartNew()
@@ -654,21 +984,118 @@ try {
         $shots.Note("'$($window.Title)' shown")
         Start-Sleep -Milliseconds 1000
 
-        $moved = $false
-        $pointer = $shots.MovePointerOut($window.Handle, [ref]$moved)
-        try {
+        if ($List -and -not $shot.prepare) {
             $rested = $false
-            $picture = $shots.SettledPicture($window.Handle, $SettleSeconds * 1000, [ref]$rested)
+            $shots.SettledPicture($window.Handle, $SettleSeconds * 1000, [ref]$rested).Dispose()
+            foreach ($line in $shots.DescribeControls($window.Handle)) { Write-Output "    $line" }
         }
-        finally {
-            if ($moved) { $shots.PutPointerBack($pointer) }
+        # What -Set asks for, once the window has drawn what it opens with; each change is given time to land.
+        if ($shot.changes.Count -gt 0) {
+            $rested = $false
+            $shots.SettledPicture($window.Handle, $SettleSeconds * 1000, [ref]$rested).Dispose()
+            $focused = $shots.Focused()
+            foreach ($change in $shot.changes) {
+                if ($change.ContainsKey('answer')) {
+                    # The button opens the system's dialog; what it then loads disables it until it is loaded.
+                    [void]$shots.Press($window.Handle, $change.control)
+                    $shots.AnswerNativeDialog($change.answer, 20000)
+                    $shots.WaitForRun($window.Handle, $change.control, 1500, $OpenTimeoutSeconds * 1000)
+                    $shots.Note("pressed $($change.control) and answered $($change.answer)")
+                }
+                elseif ($change.ContainsKey('wait')) {
+                    [void]$shots.Press($window.Handle, $change.control)
+                    $shots.Note("pressed $($change.control)")
+                    $shots.WaitForRun($window.Handle, $change.control, 5000, $RunTimeoutSeconds * 1000)
+                    $shots.Note("the run $($change.control) started has ended")
+                }
+                elseif ($change.ContainsKey('toX')) {
+                    $shots.Note($shots.DragIn($window.Handle, $change.control, $change.x, $change.y, $change.toX, $change.toY))
+                }
+                elseif ($change.ContainsKey('x')) {
+                    $shots.Note($shots.ClickIn($window.Handle, $change.control, $change.x, $change.y))
+                }
+                elseif ($null -eq $change.value) {
+                    [void]$shots.Press($window.Handle, $change.control)
+                    $shots.Note("pressed $($change.control)")
+                }
+                else {
+                    $shots.Note($shots.SetControl($window.Handle, $change.control, $change.value))
+                }
+                Start-Sleep -Milliseconds 400
+            }
+            # The keyboard goes back where it was, or to the window's Reset or Close button when no control had it
+            # and the window itself did: a button given the keyboard without a key draws as it did.
+            if (-not $focused -or $focused.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) {
+                $focused = $shots.RestingButton($window.Handle)
+            }
+            $shots.Focus($focused)
+            Start-Sleep -Milliseconds 600
         }
-        $file = Join-Path $Output ($shot.name + '.png')
-        $picture.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
-        $settled = 'at rest'
-        if (-not $rested) { $settled = "still changing after $SettleSeconds s" }
-        $shots.Note("saved $file, $($picture.Width) x $($picture.Height), $settled")
-        $picture.Dispose()
+
+        # A preparation applies what it set and is no picture: the captures find the image as it leaves it.
+        if ($shot.prepare) {
+            $rested = $false
+            $shots.SettledPicture($window.Handle, $SettleSeconds * 1000, [ref]$rested).Dispose()
+            [void]$shots.Press($window.Handle, 'Apply')
+            $shots.WaitForRun($window.Handle, 'Reset', 3000, $OpenTimeoutSeconds * 1000)
+            $shots.SettledPicture($mainHandle, $SettleSeconds * 1000, [ref]$rested).Dispose()
+            $shots.Note("applied '$($shot.menu)'")
+        }
+        else {
+            $moved = $false
+            $pointer = $shots.MovePointerOut($window.Handle, [ref]$moved)
+            try {
+                $rested = $false
+                $picture = $shots.SettledPicture($window.Handle, $SettleSeconds * 1000, [ref]$rested)
+            }
+            finally {
+                if ($moved) { $shots.PutPointerBack($pointer) }
+            }
+            $file = Join-Path $Output ($shot.name + '.png')
+            $picture.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
+            $settled = 'at rest'
+            if (-not $rested) { $settled = "still changing after $SettleSeconds s" }
+            $shots.Note("saved $file, $($picture.Width) x $($picture.Height), $settled")
+            $picture.Dispose()
+        }
+
+        # The pair: the main window before the window's Apply and after its run. The window disables its Reset
+        # button for as long as a run lasts.
+        if ($Apply -and -not $shot.prepare) {
+            $moved = $false
+            $pointer = $shots.MovePointerOut($mainHandle, [ref]$moved)
+            try {
+                $rested = $false
+                $viewBefore = $shots.SettledPicture($mainHandle, $SettleSeconds * 1000, [ref]$rested)
+                $file = Join-Path $Output ($shot.name + '-before.png')
+                $viewBefore.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
+                $shots.Note("saved $file, $($viewBefore.Width) x $($viewBefore.Height)")
+                [void]$shots.Press($window.Handle, 'Apply')
+                $shots.WaitForRun($window.Handle, 'Reset', 3000, $OpenTimeoutSeconds * 1000)
+                $viewAfter = $shots.SettledPicture($mainHandle, $SettleSeconds * 1000, [ref]$rested)
+                $same = $shots.SamePicture($viewBefore, $viewAfter)
+                $viewBefore.Dispose()
+                if ($same) { $viewAfter.Dispose(); throw "Apply changed nothing in the main window" }
+                $file = Join-Path $Output ($shot.name + '-after.png')
+                $viewAfter.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
+                $shots.Note("saved $file, $($viewAfter.Width) x $($viewAfter.Height)")
+                $viewAfter.Dispose()
+            }
+            finally {
+                if ($moved) { $shots.PutPointerBack($pointer) }
+            }
+        }
+
+        # What the window's run left on the screen - a message that it is complete, its progress window - is
+        # dismissed first, the last one shown first: Return answers a message, Escape closes a window that is done.
+        for ($pass = 0; $pass -lt 4; ++$pass) {
+            $leftOpen = @($shots.Windows() | Where-Object { $_.Handle -ne $window.Handle -and -not $before.Contains($_.Handle) -and $_.Title -and $_.ClassName.EndsWith('QWindowIcon') })
+            if ($leftOpen.Count -eq 0) { break }
+            $shots.Note("dismissing '$($leftOpen[0].Title)'")
+            if ($shots.HasMinimizeButton($leftOpen[0].Handle)) { $shots.PostKey($leftOpen[0].Handle, 0x1B) } else { $shots.PostKey($leftOpen[0].Handle, 0x0D) }
+            Start-Sleep -Milliseconds 700
+            if ($shots.IsShown($leftOpen[0].Handle)) { $shots.PostKey($leftOpen[0].Handle, 0x1B); Start-Sleep -Milliseconds 700 }
+        }
 
         # Escape closes a process window; a window that stays is asked to close.
         $shots.PostKey($window.Handle, 0x1B)
@@ -679,11 +1106,25 @@ try {
             $clock.Restart()
             while ($shots.IsShown($window.Handle) -and $clock.ElapsedMilliseconds -lt 5000) { Start-Sleep -Milliseconds 100 }
         }
-        if ($shots.IsShown($window.Handle)) { throw "'$($window.Title)' did not close" }
+        if ($shots.IsShown($window.Handle)) {
+            # A window that will not close is usually behind another one of the application's, which is named.
+            $others = @($shots.Windows() | Where-Object { $_.Handle -ne $window.Handle -and $_.Handle -ne $mainHandle -and $_.Title } | ForEach-Object { "'$($_.Title)'" })
+            $beside = ''
+            if ($others.Count -gt 0) { $beside = "; the application also shows $($others -join ', ')" }
+            throw "'$($window.Title)' did not close$beside"
+        }
         Start-Sleep -Milliseconds 500
     }
 
     if ($MainWindow) {
+        # An image the captures left open - the result of a run - is shown as -Display says, as the opened ones were.
+        if ($Display) {
+            $box = $shots.ComboBox($main, $displayModeBox, 3000)
+            if ($box -and $shots.ValueOf($box) -ne $Display) {
+                if (-not $shots.ChooseInComboBox($mainHandle, $box, $Display)) { throw "the image's display mode has no '$Display'" }
+                $shots.Note("the image is shown as $Display")
+            }
+        }
         $moved = $false
         $pointer = $shots.MovePointerOut($mainHandle, [ref]$moved)
         try {

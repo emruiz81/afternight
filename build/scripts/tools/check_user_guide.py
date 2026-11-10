@@ -58,7 +58,9 @@ rewritten never fails a rule it cannot meet, and a rewritten one is protected fr
       the window gives it, with its `object` where the window has the label more than once; and its kind, its
       default, the numbers of its `widget` and its `options` are the window's, apart from what the inventory records
       as varying with the image and from a list the window opens empty. A control the window gives no caption - the
-      inventory knows it by its object name - is named by the writer and found by its `object`. A block
+      inventory knows it by its object name - is named by the writer and found by its `object`. An entry of the
+      kind `readout` - a count, a plot, a status line: what the window shows and takes no input - is no control and
+      is not looked for in the inventory. A block
       whose `window` is the title of a tab or a group holds that tab's controls; one named for a window the
       inventory does not have - a dialog a button opens - is not held. Controls in another order than the window's
       are a warning.
@@ -83,8 +85,8 @@ directory); the guide-wide parts - nav entries, menu coverage and unused images 
 when --site names a built site, R16 when --tokens names the website's file. Each finding prints as
 `path:line: Rnn message`, a warning as `path:line: Rnn warning: message`, then a count per rule and what was read.
 The warnings of the pages not yet rewritten are counted and not listed, so that the errors can be read; --page lists
-those of the pages it names, and --pending lists them all. Exits 1 on any error, 0 otherwise, and 2 when the guide's
-own data cannot be read.
+those of the pages it names, each with the words R8 counted against its budget, and --pending lists them all.
+Exits 1 on any error, 0 otherwise, and 2 when the guide's own data cannot be read.
 
 Tests: build/scripts/tools/check_user_guide_test.py
 """
@@ -849,6 +851,7 @@ class _Writing:
         left_out = {number for number, _ in self.under(credits)} | {credits.line} if credits else set()
         words = model.count_words('\n'.join(text for number, text in self.lines if number not in left_out))
         self._limit('words', words, self.top, 'the page has %d words' % words)
+        self.check.word_counts[self.relative] = (words, self.limits.of(kind, 'words', self.relative))
         first = self.sections[0].line if self.sections else None
         opening = model.count_words('\n'.join(text for number, text in self.lines
                                               if number > self.top and (first is None or number < first)))
@@ -1059,7 +1062,8 @@ class _Writing:
             window, group = target
             described.add(window.id)
             for entry in block['controls']:
-                if entry['name']:
+                # A readout is what the window shows, not a control: the inventory has none to hold it to.
+                if entry['name'] and entry['kind'] != 'readout':
                     self._check_control(window, group, entry, line + entry['line'], matched[window.id],
                                         spoken_of[window.id])
         ignores = [dict(entry, used=False) for entry in self.meta.get('controls_ignore') or []
@@ -1250,6 +1254,7 @@ class _GuideCheck:
         self.pages = {}
         self.shown = {}                # image -> [(the page that shows it, whether that page is rewritten)]
         self.used_allowances = set()
+        self.word_counts = {}          # page -> (the words R8 counted, its limit or None)
         self._glossary_terms = None
 
     def report(self, rule, path, line, message, severity='error', pending=False):
@@ -1592,6 +1597,11 @@ def main(argv=None, stream=None):
     pages, coverage = check.run(selected)
     findings.extend(check.findings)
     summary.extend(_guide_summary(check, pages, coverage))
+    # A page checked by name is being written: its count against its budget, which R8 states only once it is over.
+    for relative in selected or []:
+        if relative in check.word_counts:
+            words, limit = check.word_counts[relative]
+            summary.append('%s: %d words%s' % (relative, words, ', of a limit of %d' % limit if limit else ''))
     if arguments.site:
         if not os.path.isfile(os.path.join(arguments.site, 'index.html')):
             print('%s holds no index.html; build the guide first' % arguments.site, file=stream)
