@@ -8,12 +8,13 @@
 The user guide is a MkDocs site in a theme of its own, written in Markdown. It is built from a locked toolchain,
 works when opened from disk, ships inside the installers and is published to GitHub Pages with each release. This document states the
 rules a change to the guide follows: where its parts live, how it is built and shipped, what a page's statements
-are read from, what a complete page contains, how it is written and how its media is handled.
+are read from, what a complete page contains and how its media is handled.
+[USER_GUIDE_STYLE.md](USER_GUIDE_STYLE.md) says how a page is written.
 
-> **The guide is being rebuilt ([#37](https://github.com/emruiz81/afternight/issues/37)).** Its theme, metadata and
-> checks are the ones this document describes. Its pages still have the structure of the templates under
-> `docs/user-guide/templates/`, which the rebuild replaces kind by kind as it rewrites them; the sections on page
-> kinds, complete pages, style and media describe that structure until then.
+> **The guide is being rebuilt ([#37](https://github.com/emruiz81/afternight/issues/37)).** Its theme, metadata,
+> templates, budgets and checks are the ones this document describes. Its pages are rewritten on the templates
+> group by group: a page that states `rewritten: true` is held to all of it, and a page that does not yet keeps the
+> structure it was written with and is only counted against the new rules ([Checks](#checks)).
 
 ## Contents
 
@@ -41,14 +42,14 @@ are read from, what a complete page contains, how it is written and how its medi
 | `docs/user-guide/requirements.in` | The direct pins of the documentation toolchain. |
 | `docs/user-guide/requirements.txt` | The resolved lock, with hashes, generated from `requirements.in`. |
 | `docs/user-guide/docs/en/` | The English pages; `mkdocs.yml` names this directory `docs_dir`. |
-| `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)). |
+| `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)); `limits.yml`, the budgets of a page, and `vocabulary.yml`, the words a page does not use ([What a complete page contains](#what-a-complete-page-contains)). |
 | `docs/user-guide/hooks/` | The theme's MkDocs hooks - `guide_hooks.py` (the events, and the only file `mkdocs.yml` names), `guide_fences.py` (the `controls` and `figure` blocks), `guide_html.py` (the passes over each page's HTML) and `guide_search.py` (the search index) - and `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the hooks and `check_user_guide.py` share; their tests beside them. |
 | `docs/user-guide/hooks/fixtures/components/` | A small made-up guide that shows every page kind and component of the theme. The hooks' tests build it strictly, and it is the site to look at while changing the theme ([Components and blocks](#components-and-blocks)). |
 | `docs/user-guide/theme/` | The theme: `main.html`, `base.html`, `404.html`, a layout per page kind in `layouts/`, the shared parts in `partials/`, and under `assets/guide/` its CSS (`tokens.css` a copy of the website's), JavaScript, fonts and the vendored lunr. |
 | `docs/user-guide/docs/en/assets/images/` | Committed screenshots and example images. |
 | `docs/user-guide/docs/en/assets/javascripts/` | The vendored MathJax runtime with its fonts and configuration, and the Mermaid runtime with its initializer. |
 | `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` | The provenance of every committed image and retained diagram, and the offline runtime policy. |
-| `docs/user-guide/templates/` | The four page templates. |
+| `docs/user-guide/templates/` | The four page templates ([Page kinds and templates](#page-kinds-and-templates)). |
 | `docs/user-guide/site/` | The built site. Git ignores it, as it ignores the helpers' environment in `docs/user-guide/.venv/`. |
 
 ## Building
@@ -118,10 +119,11 @@ data_out: nonlinear
 | `data_in`, `data_out` | Process | `linear`, `nonlinear`, `either` or `cfa`: the state the process expects, and the state its result is recorded in. Stated only where the page establishes it. |
 | `derived` | Process | `true` when the process's result is computed, in whole or in part, by another project's code, by a bundled upstream library such as G'MIC, or by an external tool or service, or needs licensed data. The page credits that work ([Naming other programs](#naming-other-programs)). |
 | `needs` | Tutorial, workflow | What it needs from outside AfterNight; an empty list when nothing. |
-| `destructive`, `preview`, `sequences`, `masks`, `external`, `glance`, `controls_ignore` | Process | What the page's "At a glance" shows, and the window's controls the page leaves out on purpose. Stated when the page is rewritten on the new templates. |
+| `destructive`, `preview`, `sequences`, `masks`, `external`, `glance` | Process | What the page's "At a glance" shows: whether Apply replaces the target (`true` or `false`), the preview (`real-time`, `static` or `none`), whether sequences are processed, what a mask does (`post-blend`, `modulates` or `none`), what the process needs from outside (`none` or a short phrase), and four texts - `enabled`, `inputs`, `outputs` and `state`. A rewritten page states them all, and `derived` (rule R12). |
+| `controls_ignore` | Process | The window's controls the page leaves out on purpose, each as `{label, reason}`. |
 | `hero`, `notice`, `paths`, `popular` | Home | What the home page is drawn from ([Pages drawn from data](#pages-drawn-from-data)). |
 | `reach` | Catalog | The ways to reach a process, a list of sentences under the catalog's summary. |
-| `rewritten` | Every page | `true` once the page is rewritten on the new templates. |
+| `rewritten` | Every page | `true` once the page is rewritten on its template; left out until then. It makes the rules of a rewritten page errors on the page ([Checks](#checks)). |
 
 - **One source per fact.** An unknown key is an error. A fact that has a source of its own is not repeated in front
   matter: the title is the page's H1 and its nav label, the category is its nav group, related pages are links in its
@@ -415,112 +417,164 @@ observed, as it says which sources were read.
 
 ## Page kinds and templates
 
+A page's `kind` ([Page metadata](#page-metadata)) picks its layout, its template and the rules it is held to:
+
 | Kind | Template | Pages |
 | --- | --- | --- |
-| Process | `docs/user-guide/templates/PROCESS_PAGE_TEMPLATE.md` | `processes/` |
-| Component | `docs/user-guide/templates/COMPONENT_PAGE_TEMPLATE.md` | Every other page, unless configured otherwise |
-| Workflow | `docs/user-guide/templates/WORKFLOW_PAGE_TEMPLATE.md` | `workflows/` |
-| Reference | `docs/user-guide/templates/REFERENCE_PAGE_TEMPLATE.md` | `reference/` |
+| `process` | `docs/user-guide/templates/PROCESS_PAGE_TEMPLATE.md` | One process of the Process menu, under `processes/<group>/`. |
+| `interface` | `docs/user-guide/templates/INTERFACE_PAGE_TEMPLATE.md` | A window, a panel or a part of the application that is not a process, under `interface/` and `extensions/`. |
+| `tutorial`, `workflow` | `docs/user-guide/templates/TUTORIAL_PAGE_TEMPLATE.md` | A task done from start to finish: a tutorial under `getting-started/`, a workflow, which takes a kind of data through the pipeline, under `workflows/`. |
+| `reference` | `docs/user-guide/templates/REFERENCE_PAGE_TEMPLATE.md` | What a reader looks up: the pages under `reference/`, Supported Formats, the media provenance, and the reference page a process page splits off. |
+| `home`, `catalog` | None | Drawn from their front matter ([Pages drawn from data](#pages-drawn-from-data)); they have no body. |
 
-These are the templates the pages were written on, and they describe the pages as they stand: process pages under
-`processes/`, workflows under `workflows/`, reference pages under `reference/`, and the component template for
-every other page. They are not the `kind` of a page's front matter ([Page metadata](#page-metadata)), which picks
-its layout. A page keeps the headings of its template until it is rewritten, because the theme finds some of its
-components by their headings ([Components and blocks](#components-and-blocks)).
+A template is the page to start from: its front matter with every key, its sections in order, a placeholder where
+the text goes, and a comment at each section saying what it holds and how much. Copy it, replace the placeholders
+and delete the comments. The sections are fixed, and rule R7 of `check_user_guide.py` holds a page to them, for two
+reasons. A reader who has used one process page finds the steps, the controls and the troubleshooting of the next
+in the same place. And the theme draws its components by the words of those headings
+([Components and blocks](#components-and-blocks)), so a renamed section is drawn as plain text.
 
-A page carries what its reader needs and nothing about how it was written ([Sources of truth](#sources-of-truth)).
-Credits, compatibility and version statements and the limits of a worked example are for the reader, and stay.
+| Kind | Sections, in order |
+| --- | --- |
+| Process | The opening and the window's figure, then `Before you start`, `Steps`, `Controls`, `How it works` (with `Model`, `Boundaries` and `Worked example` as the page needs them), `Starting points` (optional), `When it goes wrong`, `Related` and `Credits` (when there is something to credit). |
+| Interface | The opening and a figure with numbered pins, then `What you see`, `What you can do`, `Controls` (optional), `When it goes wrong`, `Related` and `Credits` (optional). |
+| Tutorial, workflow | The opening, then `What you need`, `Your camera` or `Your data` (optional), `Steps` (one `###` heading per step), `The result`, `Next` and `Credits` (optional). |
+| Reference | The opening, then sections of its own. The glossary alone is fixed: `## <letter>` sections in alphabetical order, each holding `### <term>` entries. |
+
+A subsection has a place too: a `###` heading names a step of a tutorial, a task of an interface page, a window or
+tab under `Controls`, or one of the three parts of `How it works`. There is no fourth level. A page that needs more
+structure than its template has is two pages: the page, and a reference page beside it.
+
+**A page is rewritten whole, and says so.** `rewritten: true` in a page's front matter marks a page written on its
+template. The rules of a rewritten page - its sections, budgets, vocabulary, figures and front matter - are errors
+on a page that carries the mark and are only counted on one that does not. So a rewritten page is protected from
+the day it lands, and a page not yet rewritten never fails a rule it cannot meet: the guide stays buildable while
+its pages are rewritten group by group. A page keeps the sections it was written with until it is rewritten whole;
+it is not moved to the template a heading at a time.
 
 ## What a complete page contains
 
+A page carries what its reader needs and nothing about how it was written ([Sources of truth](#sources-of-truth)).
+[USER_GUIDE_STYLE.md](USER_GUIDE_STYLE.md) says how each part is worded.
+
 ### Every page
 
-A review-ready page states:
+- **Front matter** that is complete for its kind, and a summary of one sentence.
+- **An opening** without a heading that says what the page is about, before anything else.
+- **Its template's sections,** in order, each holding what the template says.
+- **No proof, no code names and no dating:** the vocabulary of `docs/user-guide/data/vocabulary.yml`.
+- **Tables a reader can read:** five columns at most. What has more facets than that is a definition list, or the
+  facets of a control.
+- **Links that lead somewhere:** related pages by title, glossary terms on first use.
 
-- its purpose, audience, prerequisites and expected result;
-- the exact path to the feature and the conditions that enable it;
-- a task-oriented procedure with an observable checkpoint after each meaningful step;
-- the inputs and outputs, the image and sequence states it supports, its effect on metadata, and what it persists;
-- warnings about destructive or irreversible actions, linear and nonlinear data, masks, clipping, color changes,
-  memory, disk and external dependencies;
-- troubleshooting tied to the product's actual validation and error paths;
-- links to the pages for the previous and the next workflow step;
-- reviewed terminology, with no generic filler copied from another page.
+### A process page
 
-### Every process page
+1. **The opening** says what the process does and what Apply produces.
+2. **The figure** shows the window; its pins carry the numbers of the steps.
+3. **Before you start:** what the image must be, what to do first, and what Apply cannot give back.
+4. **Steps:** an ordered list, each step a bold lead and a sentence or two, the last one ending in something the
+   reader can see.
+5. **Controls:** every control of the window in a `controls` block, in the window's order, with its kind, default,
+   range and choices as the window has them and its effect as a sentence. The other facets - `range`, `enabled`,
+   `tradeoff`, `scope`, `persistence`, `note` - hold what a reader looks up: when the control is enabled, what it
+   costs, whether it acts on the preview or on Apply, how long its value is kept. A control the page leaves out is
+   listed under `controls_ignore` with the reason.
+6. **How it works:** a few numbered statements of what the process does, in order; then, as the page needs them,
+   the model with its equations, the boundaries (edges, invalid samples, cancellation) and a worked example with
+   its settings and its result.
+7. **Starting points,** where there are some: a small table of situation, where to start and what to adjust next.
+   A recommendation is given as one, and no result is stated that was not computed or observed.
+8. **When it goes wrong:** the warnings a reader must not miss, then the symptoms with their cause and their fix.
+9. **Related:** the pages a reader goes to next, each with its reason.
+10. **Credits,** when the process is derived or the explanation rests on a paper or a standard
+    ([Naming other programs](#naming-other-programs)).
 
-A process page also has:
+Every fact the page stated before it was rewritten is still stated after: in its prose, in a control's facets, or
+on its reference page. A rewrite drops only what proves.
 
-1. **At a glance:** the menu path, input and output types, the linear or nonlinear recommendation, preview, sequence
-   and mask support, and external dependencies.
-2. **Before you start:** prerequisites and data preparation.
-3. **A complete parameter and action reference:** one row per visible control and meaningful action, with:
+### An interface page
 
-   | Field | Meaning |
-   | --- | --- |
-   | UI label | The exact current label. |
-   | Type and unit | Checkbox, selector, integer, normalized float, pixels, sigma, degrees, percent, path, image selector, and so on. |
-   | Default | The runtime default, and any persisted default that overrides it. |
-   | Valid values | Minimum and maximum, enumerated values, step, or file and type constraints. |
-   | Effect | What increasing, decreasing or selecting it changes. |
-   | Dependencies | When it is enabled, hidden, ignored or exclusive of another control. |
-   | Trade-off | The quality, artifact, memory, disk and runtime consequences. |
-   | Scope | Preview or apply, the selected channel, the mask, a still image or a sequence. |
+The opening, and a figure of the part with a numbered pin on each thing worth naming. `What you see` is the
+numbered list of those things, each with what it is for. `What you can do` gives the tasks as instructions. Its
+controls, where the list does not say it all, are in `controls` blocks. Then what goes wrong, and where to go next.
 
-4. **How the algorithm works:** the conceptual pipeline, the equations that matter, the estimators, kernels and
-   transforms, channel and color handling, boundary and invalid-pixel behavior, numerical precision, and the external
-   implementation where one is used.
-5. **Parameter interactions:** the combinations that matter, conservative starting points, and what settings that are
-   too weak or too strong look like.
-6. **Outputs and metadata:** how many images, their names and pixel type, metadata and history, auxiliary maps and
-   files, and whether the source changes.
-7. **Performance:** the main costs and safe ways to prototype.
-8. **A worked example:** the input condition, the settings, the expected observation, and what to inspect at 100%
-   zoom or in statistics and history. It gives no quantitative or visual result that was not computed or observed.
-9. **Troubleshooting:** the process's errors and how to diagnose its artifacts.
-10. **Credits:** under `## Credits`, the upstream work a derived process is computed with, its authors and its
-    licence, and the primary papers, standards and upstream documentation behind the explanation, each with a link.
-    A page with nothing to credit has no such section.
+### A tutorial or a workflow
 
-An equation helps the reader predict behavior: every symbol is defined, and the equation is paired with a
-plain-language reading. Incidental C++ detail stays out unless it affects results, compatibility or performance.
+The opening says what the reader starts with and ends with. `What you need` is a checklist. `Your camera` or
+`Your data` holds the one choice that changes the steps, as two cases. Each step is a `###` heading that is an
+instruction, with what to do, a checkpoint - `!!! see "You should see"` - wherever the page can name one, and at
+most one `??? wrong "If it goes wrong: <symptom>"`. `The result` says what the reader has now, and `Next` where to
+go from here.
+
+### Budgets
+
+`docs/user-guide/data/limits.yml` holds how much a page may hold, and rule R8 holds a page to it:
+
+| Kind | Words | Steps | Troubleshooting entries | Also |
+| --- | --- | --- | --- | --- |
+| Process | 1,800 (large 4,000) | 9 (large 12) | 8 (large 12) | The opening 120 words; 6 bullets before you start; 5 statements and 5 boundaries; 4 rows of starting points; 4 warnings; 6 related links; 8 credits. |
+| Interface | 1,200 (large 3,000) | - | 6 | 6 related links. |
+| Tutorial, workflow | 2,500 | 12 | One `wrong` box per step | - |
+| Reference | - | - | - | A glossary entry 80 words. |
+
+Every page: a summary of 40 words and tables of five columns. The file is the source of these numbers; the table is
+here to be read.
+
+- **Words** are counted in the page's Markdown body. Its front matter, its fenced blocks (controls, figures, code,
+  diagrams), its math, and its credits do not count: what a reader looks up is not what makes a page long to read.
+- **The budgets are upper bounds only.** A lower limit invites padding on a page that has little to say.
+- **Budgets are in one file, not in front matter,** so that a page cannot grant itself an exception and the numbers
+  change in one place.
+- **Large pages** are named in `limits.yml`: the windows with workflow-scale controls (Image Integration, Image
+  Registration, Image Calibration, Image Stacking), the solver and the catalog-backed color calibrations, the page
+  that covers many operations (Non-Interactive Processes), the pages with an external tool or an expression
+  language (Starnet++, Pixel Math), and the Settings dialog. A window with many controls and one job is not large:
+  its controls sit in their block, which is not counted.
+- **A page over its budget splits;** it does not grow headings. A process page splits off `<page>-reference.md`,
+  a reference page beside it, for the facts its budget leaves out, and links it under `Related`.
 
 ## Writing style
 
-- Write for intermediate astrophotographers who know basic imaging but may be new to AfterNight: professional and
-  approachable.
-- Address the reader as "you", never "we" or "I".
-- Describe behavior in the present tense and give instructions in the imperative.
-- Write a UI label in bold, exactly as the current build shows it: **Strength**.
-- Write a menu path in bold with `>` between levels: **Process > Preprocess > Image Integration Lite**.
-- Write a keyboard shortcut as a code span with `+` between keys, as the binding defines it: `Ctrl+Shift+S`.
-- Define a technical term where it is first used and add it to `docs/user-guide/docs/en/reference/glossary.md`.
-- Write math as LaTeX, `\( ... \)` inline and `\[ ... \]` for display; the vendored MathJax renders it.
-- Use admonitions for asides: `!!! note` for supplementary information, `!!! tip` for practical advice,
-  `!!! warning` for a common mistake or risk, `!!! danger` for behavior that can silently give a wrong result or lose
-  work.
-- Link related processes and workflows with relative links to their `.md` files, which the strict build checks.
-- Keep sentences short and plain, without idioms, slang or cultural references, so that pages translate.
+[USER_GUIDE_STYLE.md](USER_GUIDE_STYLE.md) is the style guide: who reads which kind of page, voice and sentences,
+what a page does not say, how the interface, numbers, pictures, equations, callouts and troubleshooting are
+written, links, credits and length.
 
 ## Media
 
-- `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` records every committed screenshot, result image, diagram,
-  GIF, WebM or other asset with its path, creator or source, licence or permission, date, SHA-256, update procedure
-  and sample-data boundary; a row keeps the Media ID its picture was captured under, and a row without one says
-  `Not applicable`. A retained inline diagram is recorded by the SHA-256 of its source with LF line endings: the
-  complete Mermaid fence and its trailing newline. An image is committed with its row, in the same change.
-- A page links only an image that exists, with a caption written for the reader. A picture that is still owed is
-  an issue, not a comment in the page.
-- Prefer captures and processed examples made by the maintainer from data the project may publish. A capture that
-  depicts a result also needs reproducible settings and a bounded claim. Do not commit third-party
-  astrophotography images, catalog screenshots, captures of other applications or downloaded media unless
-  redistribution in the repository and the installers is explicitly allowed; unknown permission keeps an image out.
-- A capture never shows credentials, tokens, licence secrets, private repositories or endpoints, device serials or
-  unrelated personal data.
-- Prefer a Mermaid diagram for a pipeline, a data flow, an algorithm or a decision. The render tool fails a page
-  whose diagram does not render ([Checks](#checks)).
-- Media is committed as ordinary files. Git LFS is not used; adopting it is a separate change to `.gitattributes`, CI
-  and contributor setup together.
+- **Format and size.** A picture is a WebP file at quality 90, or a PNG when that is smaller; a JPEG is accepted.
+  Its longest side is at most 1,600 px and it weighs at most 400 KB (`images` in `limits.yml`; rule R11). A
+  lossless PNG of a window with a sky image in it weighs from 400 KB to over 1 MB, and the same picture as WebP at
+  quality 90 between 130 and 280 KB.
+- **Names.** A process page's window is `assets/images/processes/<group>/<page>.webp`; another page's is
+  `assets/images/<section>/<page>.webp`; a second picture of a page is `<page>-<what>.webp`.
+- **The window.** The application runs in its dark theme at 100 % scale with an isolated profile
+  (`AFTERNIGHT_TEST_STORAGE_ROOT`). A process window is captured at its default size, with the real-time preview
+  on, its title visible and the mouse outside it, cropped to the window's frame.
+- **The data** is the maintainer's own, or data the project may publish: a linear color master for the color, noise,
+  stretch and finishing pages; a stretched copy of it for the finishing pages; the frame sets the workflows name
+  for calibration, registration and stacking; a synthetic frame for a tool that needs no sky.
+- **Pins** are placed in percent of the picture's width and height while looking at it, and carry the numbers of
+  the steps they point at.
+- **Before and after.** For a process judged by its result (`before_after_groups` in `limits.yml`), two crops of the
+  same region at 100 %, before and after Apply, under the same display stretch, which the caption names.
+- **Provenance.** `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` has a row for every committed picture, by
+  its path under the docs folder: its creator or source, its licence or permission, its date, its SHA-256, how to
+  update it and the data it shows; the row of a new capture also names the application commit it was taken from.
+  The file records the vendored runtimes and fonts too, with their licences, and a retained inline diagram by the
+  SHA-256 of its source with LF line endings: the complete Mermaid fence and its trailing newline. A picture is
+  committed with its row, in the same change.
+- **A page shows only a picture that exists,** in a `figure` block, with a caption and an alternative text written
+  for the reader. A picture that is still owed is an issue, not a comment in the page.
+- **Recapture with the window.** A change that alters a window recaptures its picture in the same pull request.
+- **What may be committed.** Captures and processed examples made by the maintainer from data the project may
+  publish. No third-party astrophotography images, catalog screenshots, captures of other applications or
+  downloaded media unless redistribution in the repository and the installers is explicitly allowed; unknown
+  permission keeps an image out. A capture never shows credentials, tokens, licence secrets, private repositories
+  or endpoints, device serials or unrelated personal data.
+- **Diagrams.** Prefer a Mermaid diagram for a pipeline, a data flow, an algorithm or a decision. The render tool
+  fails a page whose diagram does not render ([Checks](#checks)).
+- Media is committed as ordinary files. Git LFS is not used; adopting it is a separate change to `.gitattributes`,
+  CI and contributor setup together.
 
 ## Naming other programs
 
@@ -549,23 +603,32 @@ authoritative, and carries no date on which a link was checked. A page with noth
 
 ## Definition of done
 
-A change to the guide is done when:
+A page is done when:
 
-1. Every page it writes or substantially rewrites meets the rubric for its kind as a review-ready draft, and every
-   synchronization edit is accurate and introduces no contradiction.
-2. Every visible control and action in scope is accounted for, with its default, range, unit, dependencies, preview
-   and apply behavior, persistence and outputs.
-3. Each algorithm explanation is verified against the engine's source and tests.
-4. Menu paths, enabling conditions, image state, sequence support, mask behavior, external prerequisites, errors and
-   performance statements are accurate.
-5. What was observed in the application was observed by a targeted inspection of what source and tests left open.
-6. Navigation, front matter, the glossary, related links and the media provenance agree.
-7. No generic placeholder prose remains in new or rewritten content.
-8. The strict build passes.
-9. `git diff --check` passes and the diff holds nothing unrelated.
-10. The page carries no record of how it was written, and the pull request lists the sources read and the windows
-    observed for each page.
-11. The checks below pass.
+1. **Front matter.** It is complete and valid for the page's kind, and the page sits in the right stage of the
+   catalog with the right neighbours.
+2. **The picture** comes first, the caption is true to it, and its pins match the steps.
+3. **Structure.** The sections are exactly its template's; the page is within its budgets, says none of the
+   forbidden vocabulary and has no table wider than five columns.
+4. **Controls.** Every control of the window is in a `controls` block in the window's order, with its label, kind,
+   default, range and choices as the window has them. Defaults and ranges are not repeated in the prose.
+5. **Facts kept.** Every fact the page stated before is still stated: in its prose, in a control's facets or on its
+   reference page. A process judged by its result shows a before-and-after pair.
+6. **Steps** end in something the reader can see, and a tutorial has a checkpoint wherever the page can name one.
+7. **Equations** are typeset and numbered, with their symbols defined.
+8. **Troubleshooting** entries are symptom, cause and fix.
+9. **Links.** Related links resolve, glossary terms are linked on first use, and a derived page carries its
+   credits.
+10. **Truth.** Every statement was read in the product's source or seen in the window
+    ([Sources of truth](#sources-of-truth)), and the pull request lists, for the page, the sources read and the
+    windows observed. The page itself carries no record of how it was written.
+11. **Checks.** The page states `rewritten: true`; `check_user_guide.py` and the strict build pass; and the page
+    was rendered from disk with the network blocked, in Chromium and Firefox, at 1440, 1024 and 390 px, in both
+    themes ([Checks](#checks)).
+
+A change that touches the guide without rewriting a page - a correction, a new control's row, a recaptured picture
+- is done when what it changed is accurate, navigation, front matter, the glossary, related links and the media
+provenance still agree, `git diff --check` passes, the diff holds nothing unrelated, and the checks below pass.
 
 ## Checks
 
@@ -574,15 +637,17 @@ Run from the repository root:
 | Command | Checks |
 | --- | --- |
 | `build\scripts\msvc\build_user_guide_docs.bat`, `build/scripts/linux/build_user_guide_docs.sh` | The strict build from the lock. |
-| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the hooks' `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths, images and credits, and what the built site references; `docs.yml` runs all three after the strict build. |
+| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the hooks' `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths, images and credits; each rewritten page's sections, budgets, vocabulary, figures and glossary links; and what the built site references. `docs.yml` runs all three after the strict build. |
+| `python build/scripts/tools/check_user_guide.py --page <page>` | One page, with every warning it still has: the command to run while writing it. |
 | `python build/scripts/tools/check_user_guide.py --tokens <the website's assets/css/tokens.css>` | That the theme's tokens are still the website's (R16), where the website's sources are at hand; not in CI. |
 | `node build/scripts/render_user_guide.cjs --offline` | What a reader sees in the copy the installers bundle; the script's header gives its setup, which keeps its Node packages and browsers outside the repository. |
 
 `check_user_guide.py` reads the guide through `guide_model.py`, which needs PyYAML, so it runs with the documentation
 toolchain's Python: `docs\user-guide\.venv\Scripts\python` on Windows and `docs/user-guide/.venv/bin/python` on
 Linux, the environment the build helper makes. It prints each finding as `path:line: Rnn message`, then a count per
-rule and what it read, and exits 1 on any error. `--page <page>` holds only the pages named; the parts that need the
-whole guide - nav entries, menu coverage and unused images - then do not run.
+rule and what it read, and exits 1 on any error; a warning prints as `path:line: Rnn warning: message` and fails
+nothing. `--page <page>` holds only the pages named; the parts that need the whole guide - nav entries, menu
+coverage and unused images - then do not run.
 
 - R2 holds each page's front matter to its schema and the stage ids to `data/stages.yml`.
 - R3 holds every page to the nav and to exactly one H1, and every nav entry to a page.
@@ -592,6 +657,39 @@ whole guide - nav entries, menu coverage and unused images - then do not run.
   `assets/images` that no page, `README.md`, logo or favicon shows.
 - R6 holds every page that states `derived: true` to a `## Credits` section that says something
   ([Naming other programs](#naming-other-programs)).
+
+The rules of a rewritten page hold a page to its template, its budgets and the style guide. They are errors on a
+page that states `rewritten: true`. On a page that does not, R7, R8, R9 and R11 are warnings, and R10, R12 and R13
+do not run ([Page kinds and templates](#page-kinds-and-templates) says why):
+
+- R7 holds the page's sections to its template's, in order, with no others, and the parts the theme draws to their
+  shape: a process page's steps an ordered list with bold leads, its controls in a `controls` block, a tutorial's
+  steps `###` headings, a troubleshooting entry a `**Cause.**` and a `**Fix.**`. The home page and the catalog
+  have nothing below their H1.
+- R8 holds the page to the budgets of `data/limits.yml`
+  ([What a complete page contains](#what-a-complete-page-contains)).
+- R9 refuses the words of `data/vocabulary.yml` in what the page says: its prose, the sentences of its front matter,
+  the facets of its `controls` blocks and the captions of its figures. Fenced code, math and the addresses of links
+  are not read. A code span is read only for the names of source - a file, a test, a scoped name - because a
+  function in a code span may be what the reader types, and a source file's name is a citation however it is set.
+  A label of the application that holds one of the words goes on the file's allow-list, with its page and the
+  reason; an allowance its page does not use is a warning. An HTML comment is refused too: it is a note for the
+  page's authors.
+- R10 holds every picture to a `figure` block with a caption and an alternative text, a process or interface page
+  to one opening figure before its first section, each pin to a step, and each item of an interface page's
+  `What you see` to a pin. It warns when a process page of a group under `before_after_groups` shows no
+  before-and-after pair in its worked example.
+- R11 holds each picture a page shows to PNG, WebP or JPEG, to the size and weight of `limits.yml`, and to a row in
+  `MEDIA_PROVENANCE.md`. A picture is held as an error once a rewritten page shows it.
+- R12 holds a rewritten process page to every key its "At a glance" is drawn from, and to saying whether it is
+  `derived`.
+- R13 warns when the first use on a page of a term the glossary defines - a `### <term>` of one of its letter
+  sections - is not a link to the glossary. A term matches whole, with or without a plural ending; one written all
+  in capitals matches only in capitals.
+
+A warning about a page not yet rewritten is counted and not listed, so that the errors can be read while most pages
+wait: the check ends with the count per rule. `--page <page>` lists the warnings of the pages it names, which is
+what a page still owes its template, and `--pending` lists them all.
 
 Rule R1 holds the built site: every relative reference in its pages and stylesheets names a file inside the
 site, spelled in the file's own case, and nothing the site loads comes from the network; a link a reader follows may

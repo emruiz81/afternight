@@ -408,5 +408,296 @@ class ImageSizeTests(TempDir):
         self.assertIsNone(model.image_size(self.write('b.jpg', b'\xff\xd8\xff')))
 
 
+PROSE = """# Title
+
+Opening with `code` and \\( x^2 \\) and a [link](../page.md "Title").
+
+<!-- a note
+over two lines -->
+
+## Steps {#the-steps}
+
+1. **One.** First.
+2. **Two.** Second,
+   continued.
+    1. Nested.
+
+```text
+## Not a heading
+1. Not an item
+```
+
+\\[
+E = mc^2 \\tag{1}
+\\]
+
+### Sub ##
+
+- A bullet
+- [ ] A task
+
+Term
+:   **Cause.** One.
+    More of it.
+:   **Fix.** Two.
+
+Another term
+
+:   Its definition.
+
+!!! warning "Careful"
+    Text.
+
+??? wrong "If it goes wrong: nothing"
+    Text.
+
+| A | B `x|y` | C \\| c |
+| --- | :-: | ---: |
+| 1 | 2 | 3 |
+| 4 | 5 | 6 |
+"""
+
+
+class ProseTests(unittest.TestCase):
+    def setUp(self):
+        self.lines = model.prose_lines(PROSE, first_line=10)
+        self.by_number = dict(self.lines)
+
+    def test_prose_lines_keep_their_numbers_and_columns(self):
+        self.assertEqual(len(self.lines), len(PROSE.split('\n')))
+        self.assertEqual(self.lines[0], (10, '# Title'))
+        opening = self.by_number[12]
+        self.assertEqual(len(opening), len(PROSE.split('\n')[2]))
+        self.assertIn('Opening with `code` and ', opening)
+        self.assertNotIn('x^2', opening)
+
+    def test_code_blocks_comments_and_math_say_nothing(self):
+        said = '\n'.join(text for _, text in self.lines)
+        for unsaid in ('Not a heading', 'Not an item', 'a note', 'two lines', 'mc^2'):
+            self.assertNotIn(unsaid, said)
+
+    def test_headings_are_read_without_their_attributes_and_closing_marks(self):
+        self.assertEqual([(heading.level, heading.title, heading.line) for heading in model.headings(self.lines)],
+                         [(1, 'Title', 10), (2, 'Steps', 17), (3, 'Sub', 33)])
+
+    def test_section_lines_run_to_the_next_heading_of_the_level_or_above(self):
+        found = model.headings(self.lines)
+        steps = model.section_lines(self.lines, found, found[1])
+        self.assertEqual((steps[0][0], steps[-1][0]), (18, self.lines[-1][0]))
+        title = model.section_lines(self.lines, found, found[0])
+        self.assertEqual(title[0][0], 11)
+
+    def test_ordered_items_and_bullets_are_the_top_level_ones(self):
+        self.assertEqual(model.ordered_items(self.lines), [(19, '**One.** First.'), (20, '**Two.** Second,')])
+        self.assertEqual(model.bullets(self.lines), [(35, 'A bullet'), (36, '[ ] A task')])
+
+    def test_definitions_are_terms_with_their_texts(self):
+        self.assertEqual(model.definitions(self.lines), [
+            (38, 'Term', ['**Cause.** One. More of it.', '**Fix.** Two.']),
+            (43, 'Another term', ['Its definition.']),
+        ])
+
+    def test_callouts_are_read_with_their_type(self):
+        self.assertEqual(model.callouts(self.lines), [(47, 'warning'), (50, 'wrong')])
+
+    def test_tables_count_columns_past_code_spans_and_escaped_bars(self):
+        self.assertEqual(model.tables(self.lines), [(53, 3, 2)])
+        self.assertEqual(model.tables([(1, 'A | B'), (2, '--- | ---'), (3, '1 | 2'), (4, ''), (5, 'x | y')]),
+                         [(1, 2, 1)])
+        self.assertEqual(model.tables([(1, 'not | a table'), (2, 'just text')]), [])
+
+    def test_words_are_counted_without_markers_and_addresses(self):
+        self.assertEqual(model.count_words('## A heading of five words'), 5)
+        self.assertEqual(model.count_words('- [ ] One task\n1. Two words\n:   A definition'), 6)
+        self.assertEqual(model.count_words('See [the page](../a/long-address.md "A title") and '
+                                           '<https://example.org/x>.'), 4)
+        self.assertEqual(model.count_words('| A | B |\n| --- | --- |\n| one two | 3 |'), 5)
+        self.assertEqual(model.count_words('!!! warning "Two words"\n    Three more words.'), 5)
+        self.assertEqual(model.count_words(''), 0)
+
+    def test_links_give_the_place_of_their_words_and_their_address(self):
+        text = 'A [linear](../reference/glossary.md#linear) master and [another](<a b.md> "T").'
+        found = model.links(text)
+        self.assertEqual([(text[start:end], address) for start, end, address in found],
+                         [('linear', '../reference/glossary.md#linear'), ('another', 'a b.md')])
+
+    def test_addresses_and_code_spans_blank_in_place(self):
+        text = 'See [the page](verify.md), `validate()` and <b class="evidence">this</b> at https://example.org/verify.'
+        said = model.without_code_spans(model.without_addresses(text))
+        self.assertEqual(len(said), len(text))
+        for unsaid in ('verify', 'validate', 'evidence'):
+            self.assertNotIn(unsaid, said)
+        self.assertIn('the page', said)
+        self.assertIn('this', said)
+
+    def test_inline_images_are_the_ones_outside_figure_blocks(self):
+        body = '![A](a.png)\n\n```figure\nimage: b.png\nalt: B.\ncaption: C.\n```\n\n<img src="c.png" alt="">\n'
+        self.assertEqual(model.inline_images(body, 5), [(5, 'a.png'), (13, 'c.png')])
+
+
+class BlockTests(unittest.TestCase):
+    def test_a_figure_is_read_as_written(self):
+        figure = model.read_figure('image: a.png\nalt: An image.\ncaption: A caption.\npins:\n  - {n: 2, x: 1, y: 1}\n'
+                                   '  - {n: two, x: 1, y: 1}\n')
+        self.assertEqual(figure, {'pair': False, 'caption': 'A caption.', 'pins': [2],
+                                  'images': [{'image': 'a.png', 'alt': 'An image.', 'label': ''}]})
+
+    def test_a_pair_is_read_with_its_labels_and_what_it_lacks_is_empty(self):
+        figure = model.read_figure('images:\n  - image: a.png\n    label: Before\n  - image: b.png\n    alt: After.\n')
+        self.assertTrue(figure['pair'])
+        self.assertEqual(figure['caption'], '')
+        self.assertEqual([image['alt'] for image in figure['images']], ['', 'After.'])
+
+    def test_a_block_that_is_no_mapping_is_not_read(self):
+        self.assertIsNone(model.read_figure('- a\n- b\n'))
+        self.assertIsNone(model.read_figure('image: [open\n'))
+
+    def test_block_texts_are_the_sentences_under_the_keys_asked_for(self):
+        source = ('window: Levels\ncontrols:\n  - name: Black point\n    kind: spinbox\n    effect: Higher maps more '
+                  'to black.\n    widget: {min: 0, max: 1}\n  - name: Channel\n    note: >-\n      A mono image '
+                  'shows Grayscale.\n')
+        self.assertEqual(model.block_texts(source, ('effect', 'note')),
+                         [(5, 'effect', 'Higher maps more to black.'), (8, 'note', 'A mono image shows Grayscale.')])
+        self.assertEqual(model.block_texts('effect: [open\n', ('effect',)), [])
+
+
+LIMITS = (GUIDE_DIR / 'data' / 'limits.yml').read_text(encoding='utf-8')
+VOCABULARY = (GUIDE_DIR / 'data' / 'vocabulary.yml').read_text(encoding='utf-8')
+
+
+class LimitsTests(TempDir):
+    def load(self, text):
+        self.write('data/limits.yml', text)
+        return model.load_limits(str(self.root))
+
+    def test_the_guides_limits_are_the_budgets_of_its_kinds(self):
+        limits = model.load_limits(str(GUIDE_DIR))
+        self.assertEqual((limits.summary_words, limits.table_columns), (40, 5))
+        self.assertEqual((limits.of('process', 'words'), limits.of('process', 'steps'),
+                          limits.of('process', 'troubleshooting')), (1800, 9, 8))
+        self.assertEqual((limits.of('interface', 'words'), limits.of('tutorial', 'words'),
+                          limits.of('workflow', 'steps')), (1200, 2500, 12))
+        self.assertEqual((limits.image_longest_side, limits.image_max_bytes), (1600, 400 * 1024))
+        self.assertEqual(limits.glossary_page, 'reference/glossary.md')
+        self.assertEqual(limits.provenance_page, 'assets/MEDIA_PROVENANCE.md')
+        self.assertIn('Stretching', limits.before_after_groups)
+
+    def test_a_large_page_has_the_budgets_its_kind_raises_and_the_others_unchanged(self):
+        limits = model.load_limits(str(GUIDE_DIR))
+        page = 'processes/pixel-math/pixel-math.md'
+        self.assertEqual((limits.of('process', 'words', page), limits.of('process', 'steps', page),
+                          limits.of('process', 'troubleshooting', page)), (4000, 12, 12))
+        self.assertEqual(limits.of('process', 'related', page), limits.of('process', 'related'))
+        self.assertEqual(limits.of('interface', 'words', 'interface/settings-dialog.md'), 3000)
+        self.assertEqual(limits.of('process', 'words', 'processes/stretching/gh-transformation.md'), 1800)
+
+    def test_a_limit_a_kind_does_not_state_does_not_apply(self):
+        limits = model.load_limits(str(GUIDE_DIR))
+        self.assertIsNone(limits.of('reference', 'words'))
+        self.assertIsNone(limits.of('interface', 'steps'))
+        self.assertIsNone(limits.of('home', 'words'))
+
+    def test_every_large_page_and_named_page_is_a_page_of_the_guide(self):
+        limits = model.load_limits(str(GUIDE_DIR))
+        docs = pathlib.Path(model.docs_dir(str(GUIDE_DIR), model.load_config(str(GUIDE_DIR))))
+        for page in sorted(limits.large_pages) + [limits.glossary_page, limits.provenance_page]:
+            self.assertTrue((docs / page).is_file(), page)
+
+    def test_every_before_and_after_group_is_a_nav_group(self):
+        limits = model.load_limits(str(GUIDE_DIR))
+        groups = {group for entry in model.nav_entries(model.load_config(str(GUIDE_DIR))) for group in entry.groups}
+        for group in limits.before_after_groups:
+            self.assertIn(group, groups)
+
+    def test_what_is_not_a_limit_is_refused(self):
+        for old, new, message in (
+                ('    steps: 9 ', '    stepz: 9 ', '`process.stepz` is no limit of a process page'),
+                ('    words: 1800', '    words: many', '`process.words` is \'many\', not a count'),
+                ('    words: 1800', '    words: 0', 'not a count'),
+                ('summary_words: 40', 'summary_words: forty', '`summary_words` is \'forty\', not a count'),
+                ('table_columns: 5\n', '', '`table_columns` is missing'),
+                ('table_columns: 5\n', 'table_columns: 5\nfloor_words: 600\n', 'unknown key `floor_words`'),
+                ('  reference: {}', '  catalog: {}', '`kinds` names \'catalog\''),
+                ('large: {words: 3000}', 'large: {steps: 3}', '`interface.large.steps` is 3'),
+                ('  - interface/settings-dialog.md', '  - Settings', '`large_pages` is a list of distinct pages'),
+                ('  entry_words: 80', '  entry_words: eighty', '`glossary` states'),
+                ('  max_bytes: 409600', '  max_bytes: 400 KB', '`images` states'),
+                ('before_after_groups:', 'before_after_groups: Stretching\nother:', '`other`'),
+        ):
+            with self.subTest(new):
+                self.assertEqual(LIMITS.count(old), 1, old)
+                with self.assertRaises(model.GuideDataError) as raised:
+                    self.load(LIMITS.replace(old, new))
+                self.assertIn(message, str(raised.exception))
+
+    def test_a_missing_file_is_a_data_error(self):
+        with self.assertRaises(model.GuideDataError):
+            model.load_limits(str(self.root))
+
+
+class VocabularyTests(TempDir):
+    def load(self, text):
+        self.write('data/vocabulary.yml', text)
+        return model.load_vocabulary(str(self.root))
+
+    def found(self, vocabulary, text, code=False):
+        return sorted({pattern.group for pattern in vocabulary.patterns
+                       if (pattern.code or not code) and pattern.regex.search(text)})
+
+    def test_the_guides_vocabulary_finds_proof_tooling_and_dating(self):
+        vocabulary = model.load_vocabulary(str(GUIDE_DIR))
+        for text, group in (
+                ('The evidence shows it.', 'proof'), ('Verified on a real set.', 'proof'),
+                ('Validation passed.', 'proof'), ('Mode S only.', 'proof'), ('A source-derived default.', 'proof'),
+                ('Focused tests establish it.', 'proof'), ('The authoritative page.', 'proof'),
+                ('Checked 2026-07-27.', 'proof'), ('It calls applyStretch().', 'tooling'),
+                ('See an::ui::Stretch.', 'tooling'), ('In HistogramProcess.cpp.', 'tooling'),
+                ('Test_ProcessesTone covers it.', 'tooling'), ('MEDIA_SLOT', 'tooling'),
+                ('The current behavior is this.', 'dating'), ('Currently implementation-defined: current code.',
+                                                               'dating'),
+                ('It does not promise a result.', 'dating'),
+        ):
+            with self.subTest(text):
+                self.assertEqual(self.found(vocabulary, text), [group])
+        for text in ('Check the result at 100 %.', 'The valid range is 0 to 1.', 'Use the current image.',
+                     'The header (a FITS card).', 'A ratio of 1:2.', 'An evident gradient.'):
+            with self.subTest(text):
+                self.assertEqual(self.found(vocabulary, text), [])
+
+    def test_a_code_span_is_read_only_for_names_of_source(self):
+        vocabulary = model.load_vocabulary(str(GUIDE_DIR))
+        self.assertEqual(self.found(vocabulary, 'mtf()', code=True), [])
+        self.assertEqual(self.found(vocabulary, 'verify', code=True), [])
+        for text in ('Stretch.cpp', 'Stretch.h', 'an::Stretch', 'Test_EngineImage'):
+            self.assertEqual(self.found(vocabulary, text, code=True), ['tooling'])
+
+    def test_the_guide_allows_nothing_yet(self):
+        self.assertEqual(model.load_vocabulary(str(GUIDE_DIR)).allow, ())
+
+    def test_allowances_are_read_with_their_lines(self):
+        allow = ('allow:\n  - page: processes/a.md\n    text: "**Validate**"\n    reason: A label.\n'
+                 '  - {page: processes/b.md, text: Verify, reason: Another label.}\n')
+        vocabulary = self.load(VOCABULARY.replace('allow: []\n', allow))
+        first = len(VOCABULARY.split('allow: []')[0].split('\n')) + 1
+        self.assertEqual([(entry.page, entry.text, entry.reason, entry.line) for entry in vocabulary.allow],
+                         [('processes/a.md', '**Validate**', 'A label.', first),
+                          ('processes/b.md', 'Verify', 'Another label.', first + 3)])
+
+    def test_what_is_not_a_vocabulary_is_refused(self):
+        for old, new, message in (
+                ("'source-derived'", "'source-derived('", 'is not a regular expression'),
+                ("'source-derived'", '12', 'it is a regular expression, or {pattern, code}'),
+                ('allow: []', 'allow:\n  - {page: a.md, text: Validate}', 'an entry of `allow`'),
+                ('allow: []', 'allow: none', '`allow` is a list'),
+                ('allow: []', 'allow: []\nextra: 1', 'the file states `forbidden` and `allow`'),
+                ('    why: >-\n      what proves', '    because: >-\n      what proves', '`forbidden.proof` states'),
+        ):
+            with self.subTest(new):
+                self.assertEqual(VOCABULARY.count(old), 1, old)
+                with self.assertRaises(model.GuideDataError) as raised:
+                    self.load(VOCABULARY.replace(old, new))
+                self.assertIn(message, str(raised.exception))
+
+
 if __name__ == '__main__':
     unittest.main()

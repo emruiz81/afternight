@@ -12,6 +12,7 @@ on:
     paths:
       - 'docs/user-guide/**'
       - 'docs/dev/USER_GUIDE_AUTHORING.md'
+      - 'docs/dev/USER_GUIDE_STYLE.md'
       - 'build/scripts/tools/check_user_guide.py'
       - 'build/scripts/tools/check_user_guide_test.py'
       - 'README.md'

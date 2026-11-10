@@ -1,0 +1,84 @@
+# The budgets of the guide's pages, which rule R8 of build/scripts/tools/check_user_guide.py holds, and what its
+# rules R10, R11 and R13 need to know about the guide. docs/dev/USER_GUIDE_STYLE.md says how a page is written inside
+# them.
+#
+# Every number is an upper bound. There is no lower one: a floor invites padding on a page that has little to say. A
+# page that needs more than its budget splits into the page and a reference page beside it; it does not grow more
+# headings.
+#
+# Words are counted in a page's Markdown body: its front matter, its fenced blocks (controls, figure, code,
+# diagrams), its math, its HTML comments and its `## Credits` section do not count.
+
+# Every page that states a summary.
+summary_words: 40
+
+# Every table of every page. A table of six columns or more cannot be read in the page's column.
+table_columns: 5
+
+kinds:
+  process:
+    words: 1800
+    opening_words: 120          # between the H1 and the first `##`
+    before_you_start: 6         # bullets
+    steps: 9                    # items of the ordered list under `## Steps`
+    how_it_works: 5             # numbered statements, before the first `###`
+    boundaries: 5               # bullets under `### Boundaries`
+    starting_points_rows: 4
+    starting_points_columns: 3  # Situation | Start | Then adjust
+    warnings: 4                 # warning and danger callouts on the page
+    troubleshooting: 8          # entries of the definition list under `## When it goes wrong`
+    related: 6                  # links, one bullet each
+    credits: 8                  # entries
+    large: {words: 4000, steps: 12, troubleshooting: 12}
+  interface:
+    words: 1200
+    troubleshooting: 6
+    related: 6
+    large: {words: 3000}
+  tutorial:
+    words: 2500
+    steps: 12                   # `###` headings under `## Steps`
+    wrong_per_step: 1           # `??? wrong` boxes in one step
+  workflow:
+    words: 2500
+    steps: 12
+    wrong_per_step: 1
+  reference: {}
+
+# The pages that get their kind's `large` budgets: the windows with workflow-scale controls, the solver and the
+# catalog-backed color calibrations, the page that covers many operations, the pages with an external tool or an
+# expression language, and the Settings dialog. A window with many controls and one job is not large.
+large_pages:
+  - processes/stacking-integration/image-integration.md
+  - processes/registration-alignment/image-registration.md
+  - processes/calibration/image-calibration.md
+  - processes/stacking-integration/image-stacking.md
+  - processes/registration-alignment/plate-solving.md
+  - processes/color-calibration/photometric-cc.md
+  - processes/color-calibration/spectrophotometric-cc.md
+  - processes/pixel-math/pixel-math.md
+  - processes/star-operations/starnet.md
+  - processes/utility/non-interactive-processes.md
+  - interface/settings-dialog.md
+
+# The glossary: `## <letter>` sections of `### <term>` entries. Its terms are the ones a rewritten page links on
+# their first use (R13).
+glossary:
+  page: reference/glossary.md
+  entry_words: 80
+
+# The pictures a page shows (R11): PNG, WebP or JPEG, read from the file's own header. 409,600 bytes is 400 KB.
+images:
+  longest_side: 1600
+  max_bytes: 409600
+  provenance: assets/MEDIA_PROVENANCE.md
+
+# The nav groups whose processes are judged by their result: the worked example of a page in one of them shows a
+# before-and-after pair (R10 warns when it does not).
+before_after_groups:
+  - Stretching
+  - Noise Reduction
+  - Sharpening
+  - Background Extraction
+  - Color Calibration
+  - Star Operations
