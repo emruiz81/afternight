@@ -203,6 +203,8 @@
     font-size: 15px;
 }
 .prose .result > :last-child { margin-bottom: 0; }
+/* A caption on the box's tint: the muted caption color falls under 4.5:1 there in the light theme. */
+.prose .result figcaption { color: var(--text-2); }
 
 /* Next: where to go from here, as cards. The whole card is the link's target. */
 .prose ul.nextg { list-style: none; max-width: none; margin: 0 0 20px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -336,6 +338,7 @@
 .abtn { display: inline-flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 6px; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 13px; }
 .abtn.menu { border: 1px solid var(--border-strong); background: var(--bg); color: var(--text); font-weight: 500; }
 .fld { display: inline-block; min-width: 160px; max-width: 100%; height: 30px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); font: 13px/28px var(--font-mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fld.ro { border-style: dashed; background: transparent; color: var(--text-2); }
 .prose ul.opts { list-style: none; max-width: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; flex-basis: 100%; }
 .prose ul.opts > li { margin: 0; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; font: 11.5px var(--font-mono); color: var(--text-3); }
 .prose ul.opts > li.on { border-color: var(--accent); color: var(--text); }

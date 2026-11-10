@@ -32,7 +32,8 @@ rewritten: true
 
 <What the process does. What Apply produces.>
 
-<!-- The window, at its default size with the real-time preview on. A pin's number is a step's number. -->
+<!-- The window, at its default size with the real-time preview on, in the state of the worked example below. A
+     pin's number is a step's number, and it sits just left of the control it points at. -->
 
 ```figure
 image: ../../assets/images/processes/<group>/<page>.webp
@@ -66,7 +67,9 @@ pins:
 <!-- One optional sentence, then one `controls` block per window or tab, every control in the window's order. The
      defaults and ranges live here and are not repeated in the prose. A page with several windows may give each
      block a `### <window or tab>` heading. Start from `draft_guide_controls.py <page>`: the names, kinds, defaults,
-     numbers and choices are the window's inventory (data/ui/), which the check holds the block to. -->
+     numbers and choices are the window's inventory (data/ui/), which the check holds the block to. What the window
+     only shows - a count, a status line - is an entry of `kind: readout` where the window shows it. A part the
+     window draws itself, and a dialog one of its buttons opens, get a block of their own, named for them. -->
 
 ```controls
 window: <Window title>
@@ -111,9 +114,10 @@ controls:
 
 ### Worked example
 
-<!-- The setup, then the result. Where the result is the point - the groups under `before_after_groups` in
-     data/limits.yml - a before-and-after pair: two crops of one region at 100 %, under the display stretch the
-     caption names. -->
+<!-- The setup, then the result: settings a reader can type, and what the page's equations make of a value the
+     reader can find. Where the result is the point - the groups under `before_after_groups` in data/limits.yml - a
+     before-and-after pair with those settings: the whole frame for a tone process, a crop at 100 % for one whose
+     effect is in the detail, both under the display mode the caption names. -->
 
 <The image and the settings.>
 
