@@ -3,376 +3,396 @@ kind: process
 stage: finish
 menu: Process > Intensity Transformations > Curves Transformation
 summary: >-
-  Reshapes tone and color through curves you draw with control points, usually after the main stretch.
+  Reshapes tone and color through a curve you draw with control points, usually after the main stretch.
 data_in: nonlinear
 data_out: nonlinear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active. The window opens beside other process windows, and Apply waits for
+    nothing else to be working on the target.
+  inputs: >-
+    One grayscale or RGB image or sequence with samples between 0 and 1, and an optional mask of the image's size
+    on its view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size and pixel type are kept. No file, preset or curve is
+    written. A mosaic sequence decoded with automatic debayering is replaced by an RGB one.
+  state: >-
+    A stretched image, mono or RGB, ready for its contrast, saturation or color balance to be finished. A gentle
+    first stretch is possible, but nothing here is derived from the image's statistics.
+derived: false
+rewritten: true
 ---
 # Curves Transformation
+
+Curves Transformation remaps an image through a curve you draw. The curve runs from input brightness, left to
+right, to output brightness, bottom to top. Where it lies above the diagonal the image gets brighter, and where it
+lies below, darker. It acts on every channel, on one channel, or on one component of a color space, such as
+lightness or saturation, after the main [stretch](../../reference/glossary.md).
+
+**Apply** replaces the image or sequence with the curved one, keeps its size and pixel type, and adds one step to
+its history. The result is recorded as nonlinear.
 
 ```figure
 image: ../../assets/images/processes/stretching/curves-transformation.webp
 alt: >-
-  The Curves Transformation window. On the left, the curve drawn over the image's histogram, the
-  Interpolation box, Target Image, Channel and Preview. On the right, the preview of the image.
+  The Curves Transformation window. On the left, the curve editor: a white curve that sags below a dotted diagonal
+  through one point, over a grid and the three colored lines of a histogram with its peak near the left edge, and
+  two lines of clipping percentages in its top left corner. Under it a row of toolbar buttons, the Interpolation
+  box, Target Image, Channel and Preview. On the right, the preview shows a red nebula on a dark background. Reset,
+  Close and Apply run along the bottom.
 caption: >-
-  Curves Transformation as it opens, here on a linear master, with a straight curve that changes
-  nothing yet.
+  Curves Transformation on a stretched master with one point pulled down from 0.28 to 0.14. The histogram behind
+  the curve is the result's, and the preview shows what Apply writes.
+pins:
+  - {n: 2, x: 10.4, y: 84.3}
+  - {n: 3, x: 3.6, y: 59.6}
+  - {n: 4, x: 18.0, y: 44.7}
+  - {n: 6, x: 64.0, y: 54.0}
+  - {n: 7, x: 90.4, y: 96.0}
 ```
-
-## Purpose and expected result
-
-Curves Transformation is a point-controlled remapping tool for deliberate tone
-and color shaping. It is intended for users who have completed calibration and,
-for most workflows, the main linear-to-nonlinear stretch. You define a spline
-from normalized input intensity on the horizontal axis to normalized output on
-the vertical axis, then apply that spline to RGB samples or to one selected
-color-space component.
-
-The expected result is one modified still image or replacement sequence with the
-same dimensions and pixel type. Channel count and pixel format are normally
-preserved, except that automatic CFA debayering can turn a one-channel mosaic
-sequence into RGB before the curve runs. A curve above the diagonal
-brightens the affected range; a curve below it darkens that range. Component
-curves can change lightness, saturation, chroma, hue, or color balance without
-requiring channel extraction.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Intensity Transformations > Curves Transformation** |
-| Enabled when | An image or sequence is active, the same process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One intended normalized grayscale or three-channel RGB still image or sequence; a one-channel CFA still is technically treated as grayscale; an optional active mask must match the target geometry |
-| Outputs | Destructively replaces the target still or sequence after success; dimensions and pixel type are preserved, while automatic sequence CFA debayering can change one-channel CFA to RGB; no auxiliary image or file |
-| Recommended image state | Usually nonlinear for finishing contrast, saturation, or color balance; a gentle first stretch is possible but offers no statistics-driven protection |
-| Preview support | Asynchronous RT preview: while you drag a point, of what the preview view shows; when you let go, of the whole image, as Apply computes it. The graph's histogram counts the last whole-image preview |
-| Sequence support | Supported; the same locked curve, interpolation, and selected component are applied to every decoded frame through a temporary replacement sequence. The sequence reader honors the view's automatic CFA debayer setting. |
-| Mask support | Supported by post-transform blending; white applies the result, black keeps the source, gray blends, and **Invert Mask** reverses the weights |
-| External dependencies | None; the curve is the bundled engine's native interpolation, run on its threads; no external tool, model, catalog, or network access |
 
 ## Before you start
 
-- Finish background correction and color calibration while the image is still
-  linear. Curves can make faint gradients and color casts harder to correct.
-- For a primary display stretch, compare
-  [Histogram Transformation](histogram-transformation.md),
-  [Generalized Hyperbolic Transformation](gh-transformation.md), or
-  [ArcSinh Stretch](arcsinh-stretch.md). Curves has no automatic black-point,
-  median, or highlight-protection calculation.
-- Duplicate the target or be prepared to use Image History. **Apply** replaces
-  the current target after processing succeeds.
-- Prefer floating-point data while making strong component curves. Color-space
-  conversion works in a 32-bit float plane (64-bit for a Float64 image) and an
-  integer image's reconstruction is rounded once to its codes, so integer
-  images incur output quantization.
-- Keep normalized floating samples within `[0,1]`. The transfer spline is
-  defined only on that domain.
-- Do not use a one-channel CFA still as a grayscale target: Curves does not
-  debayer still images and would remap the mosaic samples directly. For a CFA
-  sequence, decide whether the view's automatic debayer option should convert
-  every decoded frame to RGB; a successful replacement then remains RGB.
-- If a mask is active, remember that the curve editor is an unmasked
-  diagnostic, while its histogram and clipping readout count the preview's
-  mask-blended result. Judge the mask-aware result in the preview pane.
+- Finish background correction and color calibration while the image is still linear. A curve makes faint
+  gradients and color casts harder to correct afterwards.
+- Make the main stretch first. Curves derives no black point, median or highlight protection from the image.
+- **Apply** replaces the image. Its history keeps the step before, but not the points of the curve: duplicate the
+  image when you must be able to return.
+- The image is grayscale or RGB, with samples between 0 and 1. A floating-point sample outside that range takes
+  the curve's value at the nearer end.
+- A raw color-filter mosaic is curved as a grayscale image: debayer it first. On a sequence, the view's automatic
+  debayer option decides: with it on, every frame is decoded to RGB before the curve and the sequence is replaced
+  by an RGB one.
+- A [mask](../../reference/glossary.md) on the view blends the curved image with the original after the curve.
+  White takes the result, black keeps the original, gray mixes them, and **Invert Mask** swaps the two.
 
-## Procedure
+## Steps
 
-1. Select the target and open **Process > Intensity Transformations > Curves
-   Transformation**. Confirm **Target Image** and leave **Preview** selected.
-   The right pane should show the current full-image result.
-2. Choose **Channel**. Start with **RGB** to apply one curve independently to
-   all three stored channels, or choose a lightness/value component when you
-   want to limit direct color-balance changes.
-3. Leave **Interpolation: Cubic** for a smooth general-purpose curve. Choose
-   **Steffen** or **Monotone Cubic** when avoiding overshoot between monotonic
-   control points matters.
-4. Click the existing diagonal to add an interior control point, then drag it.
-   Drag upward for more output at that input range and downward for less. The
-   curve and preview update together.
-5. Add neighboring points to anchor ranges you want to protect. Use **Show
-   guide** to compare with the identity diagonal and **Show histogram** to see
-   where samples are concentrated.
-6. Inspect shadows, transitions, highlights, and color at 100% zoom. Check the
-   graph's **Clipping Low/High** readout as a coarse warning, then use
-   [Image Statistics](../../interface/image-statistics.md) for exact checks.
-7. Select **Apply**. A successful still-image run replaces the target, writes an
-   Image History step containing Channel and Interpolation, then resets the
-   curve to identity, selects RGB when available, and resets graph zoom. A
-   sequence run reports progress, replaces the sequence only after the temporary
-   output succeeds, offers **Cancel**, and performs the same UI reset. The new
-   identity curve keeps the interpolation the combo shows.
+1. **Open the window.** Make the stretched image active and choose **Process > Intensity Transformations > Curves
+   Transformation**. The editor shows a straight line from corner to corner over the image's histogram, and the
+   preview shows the image unchanged.
+2. **Choose the channel.** Leave **Channel** at **RGB** to send the three channels through one curve. Choose a
+   lightness or value component to change tone with less effect on color.
+3. **Choose the interpolation.** Leave **Interpolation** at **Cubic** for a smooth curve. Choose **Steffen** or
+   **Monotone Cubic** when the curve must not swing past its points.
+4. **Add a point and drag it.** Press the left button on the line, where the pointer turns into a hand, and drag.
+   Up brightens that range of inputs, down darkens it, and the curve and the preview follow.
+5. **Anchor what must stay.** Click the line on each side of the point to pin the ranges you want to protect. The
+   dotted diagonal shows where the image is unchanged, and the histogram where its samples lie. A right click on a
+   point removes it.
+6. **Check the preview at 100 %.** Zoom the preview into the shadows, the transitions and the brightest stars, and
+   press ++space++ over it to compare with the original. Read **Clipping Low** and **Clipping High** in the editor
+   as a first warning.
+7. **Apply.** Choose **Apply**. The image in its view is the curved one, its history lists **Curves
+   Transformation** with the channel and the interpolation, and the editor returns to a straight line.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Curve editor: add/select/drag point | Graph gesture, normalized x/y | Identity endpoints `(0,0)` and `(1,1)` | None | Left-click within about 5.5 screen pixels of the drawn curve to add/select; y clamps to `[0,1]`; endpoint x remains `0`/`1`; interior x stays ordered and inside `(0,1)` | Raising a point brightens its neighborhood; lowering it darkens; horizontal movement relocates the affected input range | Editor enabled while idle; Apply stays disabled for the exact two-endpoint identity | Closely spaced or extreme points can create abrupt contrast, noise emphasis, or spline overshoot | Defines the selected Channel transform for preview/apply, mask post-blend, still/sequence | Until Reset or successful Apply rebuilds the identity curve |
-| Curve editor: delete point | Graph action | — | None | Right-click an interior point; endpoints cannot be deleted | Removes that constraint and rebuilds the interpolant | Must hit an existing interior point | May broaden the influence of neighboring points | Same transform scope as editor | Immediate; no undo inside the dialog |
-| Curve editor: coordinate readout | Graph gesture | Hidden | None | With histogram shown, left-drag away from the curve | Shows normalized x and displayed histogram height, not an editable node value | Suppressed when selecting/dragging a curve point or when histogram is hidden | Diagnostic only; histogram height is display-normalized | Unmasked graph diagnostic | Gesture lifetime |
-| Curve editor: pan | Mouse gesture | No offset | None | Middle-drag after zooming | Scrolls the enlarged editor | Useful only when content exceeds the scroll area | Display only | Graph only | Until Zoom reset, Reset, or successful Apply recenters the graph |
-| Curve editor: Ctrl+wheel zoom | Mouse/wheel gesture | Fit | None | **Ctrl+wheel up/down** scales around the pointer by `1.2`/`0.8` | Enlarges or reduces the graph while keeping the pointer location anchored | Interactive zoom is always enabled | Display only | Graph only | Until Zoom reset, Reset, or successful Apply restores fit |
-| Zoom in | Toolbar action | — | None | Repeated action, `1.30x` per click | Enlarges the editor | Always available while idle | Display only | Graph only | Until Reset or successful Apply restores fit |
-| Zoom out | Toolbar action | — | None | Repeated action, `0.70x` per click | Reduces the editor | Always available while idle | Display only | Graph only | Until Reset or successful Apply restores fit |
-| Zoom reset | Toolbar action | — | None | Single action | Fits the editor to its parent area | Always available while idle | Display only | Graph only | Not persisted |
-| Show grid | Checkable toolbar action | Selected | None | On/off | Shows or hides the eight-by-eight graph grid | Always available while idle | Display only | Graph only | Window lifetime; Reset does not change it |
-| Show guide | Checkable toolbar action | Selected | None | On/off | Shows or hides the identity diagonal `y=x` | Always available while idle | Display only; useful for seeing brightening/darkening | Graph only | Window lifetime; Reset does not change it |
-| Draw histogram areas | Checkable toolbar action | Cleared | None | On/off | Fills displayed histogram channels instead of outlines | Disabled whenever **Show histogram** is cleared | Rendering preference only | Unmasked graph diagnostic | Window lifetime; Reset does not change it |
-| Show histogram | Checkable toolbar action | Selected | None | On/off | Shows the current preview-result histogram and enables **Draw histogram areas** | Histogram is available only while Preview exists; clearing it disables area mode control but retains its checked state | Recounted after each whole-image preview; while you drag a point it keeps the last one's counts | 8-bit graph diagnostic of the mask-blended preview; display-channel selection follows the preview viewer, not process Channel | Window lifetime; Reset does not change it |
-| Clipping Low / Clipping High | Read-only overlay, percent | Current preview histogram endpoints | None | Three decimals; sums endpoint counts across histogram channels | Reports the share of samples at or below `0` and at or above `1` in the image the graph's histogram counts | Visible with the curve editor; updated with its current histogram image | Counts the preview's mask-blended result, or the target while the preview shows its original; values just inside `0` or `1` are not counted | Diagnostic only; preview/still source while configuring a sequence | Recomputed, not persisted |
-| Intensity gradient | Read-only graph strip | Black-to-white, or black-to selected preview-display channel | None | Normalized `0`–`1` | Shows graph direction and current preview display-channel color | Always drawn; follows the preview viewer's display composition | Display only | Graph only | Window lifetime |
-| Interpolation | Combo box | **Cubic** | Reset and successful Apply keep the displayed selection and rebuild the identity curve in it; reopening shows Cubic | **Linear**, **Cubic**, **Akima**, **Steffen**, **Monotone Cubic**; two points always evaluate linearly; selected Akima or Steffen falls back to Cubic below five points | Changes how the curve passes between the same nodes | Rebuilds the spline; controls lock during Apply | Cubic/Akima can overshoot between points before final output clamp; Steffen and Monotone Cubic preserve monotonicity between monotonic nodes; Linear can show corners | Preview/apply, all selected channel modes, still/sequence | Current selection applies, and Reset or a successful Apply keeps it for the new identity curve |
-| Target Image | View selector | Active view at launch | None | Any open grayscale/RGB still or sequence view | Retargets channel choices, preview, histogram, and Apply | Target must be lockable; unsupported exclusive/duplicate process state blocks launch or execution | Recalculation cost follows target size and type | Source for preview/apply and active mask | Window lifetime; Reset does not change it |
-| Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE c***, **CIE h***, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma**; mono **Grayscale** | Selects stored channels or one converted color-space component | Component choices require a three-channel target; mono selector is disabled | Individual/color-component curves can change balance, gamut, hue, or saturation; conversions add full-image work and quantization | Preview/apply, still/sequence; active mask blends after RGB reconstruction | Resets to RGB after success/Reset; remains Grayscale for mono |
-| Preview | Check box | Selected | None | On/off | Enables/disables asynchronous RT preview updates | Requires a valid target; stale preview generations are superseded | While you drag a point the preview works on what the preview view shows; the whole-image preview, its component conversions and the histogram recount follow when you let go, and can be expensive | Preview only; target remains unchanged; active mask is shown | Window lifetime; Reset does not change it |
-| Preview image pane | Image display | Current transformed target | None | Shared viewer zoom/pan/display-channel behavior | Shows the mask-aware result: of what the view shows while you drag a point, of the whole image otherwise | Updated only while Preview is selected and work completes | Holds an additional result image; component modes also hold conversion buffers | Still target preview; current sequence frame while configuring a sequence | Window lifetime |
-| Apply | Button/action | Disabled for exact identity curve | None | Single action after any non-identity curve | Starts destructive still/sequence execution | Target must lock; all mutable controls disable during execution | Curve evaluation is parallel; component conversions and sequence temporary output add CPU/memory/disk cost | Replaces target; mask post-blend; still/sequence | Success resets the curve to identity, selects RGB when available, and resets graph zoom; the new curve keeps the shown interpolation; graph toggles remain |
-| Reset | Button/action | Enabled while idle | None | Single action | Restores an identity curve in the shown interpolation, RGB channel when available, and graph zoom | Does not reset target, Preview, the visible Interpolation selection, Grid, Guide, Histogram, or Area states | No image change | Configuration only | The visible Interpolation selection remains and the rebuilt identity curve uses it |
-| Close | Button/action | Enabled while idle | None | Single action | Closes immediately when idle; an active worker follows shared deferred-close/cancellation handling | Disabled with the other controls during Apply | No output by itself | Window and active execution | No settings persist after the window is destroyed |
-| Sequence progress | Progress dialog | Appears during sequence Apply | None | Frame progress | Reports temporary replacement-sequence processing | Sequence target only | Temporary output uses disk space proportional to the encoded sequence | Sequence Apply only | Run lifetime |
-| Cancel | Sequence progress action | Available while sequence work runs | None | Cooperative request | Stops before replacement, closes/removes temporary output, and preserves the source sequence | Sequence progress dialog only | Current frame may finish before cancellation is observed | Sequence Apply only | Run lifetime |
+The zoom, grid and area buttons under the editor change only how it is drawn, and are the same in every window
+that has them: see [Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: The curve editor
+controls:
+  - name: Curve
+    kind: readout
+    default: ""
+    effect: Shows the curve as a white line with a dot on each point. Input runs along the bottom and output up the side, both from 0 to 1, over a grid of eight by eight squares.
+    range: It opens as the straight line between two points, at input 0 and output 0 and at input 1 and output 1, which changes nothing.
+    enabled: Always shown.
+    tradeoff: The curve is drawn as you set it, without the mask.
+    scope: The curve of the choice in **Channel**, for the preview and Apply, on an image or a sequence.
+    persistence: Until **Reset** or a finished Apply returns the straight line. Closing the window discards it.
+    note: The window has no list of points, no box to type a point's values, no preset, no curve file and no undo. Turning the wheel with ++ctrl++ held zooms the editor around the pointer, by 1.2 or 0.8 for each notch, and dragging with the middle button pans it once it is enlarged. Neither changes what is computed.
+  - name: Points
+    kind: slider
+    default: The two end points
+    widget: {min: 0, max: 1}
+    effect: A press of the left button on a point takes hold of it, and a press within about 5 pixels of the line adds a point where you pressed and takes hold of that. Dragging moves it. Up brightens the inputs around the point, down darkens them, and sideways changes which inputs it acts on.
+    range: The two end points move up and down only. A point between them stays between its neighbors, at least 0.0001 from each, and every output stays between 0 and 1. A right click removes a point between the ends at once. The end points cannot be removed.
+    enabled: The pointer turns into a hand where a press takes or adds a point. The editor takes no press while Apply runs.
+    tradeoff: Points close together, or far from the diagonal, give abrupt contrast, more visible noise or a curve that swings past them. Removing a point widens the reach of its neighbors.
+    scope: While you hold a point, the preview is computed from what the preview pane shows, which is the image reduced to the pane's size with each pixel the mean of its block, or the part of it shown at 1:1 and closer. When you let go, or hold the point still, the whole image follows.
+    persistence: Until **Reset** or a finished Apply.
+    note: A press a few pixels off the line already bends the curve a little, because the point is placed where you pressed.
+  - name: Histogram
+    kind: readout
+    default: ""
+    effect: Shows, behind the curve, the counts of the image the preview shows. That is the result of the curve, or the original while the preview shows the original.
+    range: 256 bins, one line for a grayscale image and three for RGB. A sample at full scale has the last bin to itself.
+    enabled: With **Show histogram** and **Preview** on.
+    tradeoff: It is counted again after each preview of the whole image, and keeps its last counts while you hold a point. It counts the preview with the mask blended in, so it is a guide and not a measurement of the result at full precision.
+    scope: The window only. Its lines follow the channel the preview displays, not **Channel**. On a sequence it counts the frame the preview shows.
+  - name: Clipping Low and Clipping High
+    kind: readout
+    default: ""
+    effect: Give the share of samples at or below 0 and at or above 1 in the image the histogram counts, in percent with three decimals.
+    range: The counts of all channels together. A value just inside 0 or 1 is not counted.
+    enabled: Always shown, in the editor's top left corner.
+    tradeoff: The two numbers are counted with the histogram. With **Show histogram** or **Preview** off they keep their last values.
+    scope: The window only, with the mask blended in.
+    note: For exact counts, use Image Statistics after Apply.
+  - name: Coordinates
+    kind: readout
+    default: ""
+    effect: Shows the input under the pointer and the height of the histogram there, while you hold the left button away from the line and the points.
+    range: Three decimals. The height is a share of the tallest bin displayed, one value for a grayscale image and one for each displayed channel of RGB. It is not the value of a point, and no point can be set from it.
+    enabled: With the histogram shown. It does not appear while you take or drag a point.
+    persistence: Until you release the button.
+  - name: Gradient strip
+    kind: readout
+    default: ""
+    effect: Shows the direction of the input axis under the plot, from black on the left to white on the right.
+    range: While the preview displays the red, green or blue channel alone, the strip ends in that color.
+    enabled: Always shown.
+```
 
-### Conceptual pipeline
+```controls
+window: Curves Transformation
+controls:
+  - name: Show guide
+    kind: toolbutton
+    default: "On"
+    effect: Shows or hides the dotted diagonal, which is the curve of an unchanged image. A curve above it brightens and one below it darkens.
+    scope: The editor's drawing only.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Show histogram
+    kind: toolbutton
+    default: "On"
+    effect: Shows or hides the histogram behind the curve. Off also disables **Draw histogram areas**, which keeps its state.
+    enabled: Always. The histogram itself needs **Preview** on.
+    scope: The editor's drawing only.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Interpolation
+    kind: combo
+    default: Cubic
+    options: [Linear, Cubic, Akima, Steffen, Monotone Cubic]
+    effect: Chooses how the curve passes between the same points. **Linear** joins them with straight segments. **Cubic** is the smoothest. **Akima** keeps a bend from spreading past its neighbors. **Steffen** and **Monotone Cubic** never turn between two points.
+    range: Two points always give a straight line. With fewer than five points, **Akima** and **Steffen** draw the **Cubic** curve.
+    enabled: Disabled while Apply runs.
+    tradeoff: "**Cubic** and **Akima** can swing past their points. What leaves the range 0 to 1 is cut to black or white, which does not stop the curve from turning between points. **Linear** shows a corner at each point."
+    scope: The preview and Apply, for every choice of **Channel**, on an image or a sequence.
+    persistence: Until the window closes. **Reset** and Apply keep the choice and build the new straight line with it. A new window opens with **Cubic**.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image Apply replaces. The choices of **Channel**, the preview and the histogram follow it.
+    tradeoff: A larger image or a sequence takes more time, memory and disk.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses what goes through the curve. **RGB** sends each of the three channels through it on its own. A color sends that channel alone and leaves the other two as they are. Every other choice converts the image to that color space, sends the one component through the curve and converts back.
+    range: Every component is scaled to the range 0 to 1. CIE lightness runs from 0 to 100, chroma from 0 to 200 and the CIE hue from -180 to 180 degrees. The CIE a and b components and the two YCbCr chroma components are signed, with neutral near 0.5. HSL and HSV hue is a share of a full turn. An image whose samples state no full scale, as files are read, is converted as fractions of full scale.
+    enabled: An RGB image. A grayscale image shows a disabled **Grayscale** instead. Disabled while Apply runs.
+    tradeoff: One curve on **RGB** does not keep the ratios between the channels, so it changes saturation. A component costs two conversions of the whole image and a working copy of it, in 32-bit floating point, or 64-bit for a 64-bit image. An integer image is rounded once on the way back, so prefer floating point for strong component curves.
+    scope: The preview and Apply, on an image or a sequence, before the mask is blended. It does not choose the lines of the histogram.
+    persistence: Until the window closes. **Reset** and Apply return it to **RGB**. A grayscale image keeps **Grayscale**.
+    note: Hue is treated as a line from 0 to 1 and not as a circle. A tone curve is rarely right for the signed components, where the middle of the range means no color. The conversion back is the exact inverse of the conversion there, so the two components left alone return the colors they came from.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the curved image beside the controls, with the mask blended in. Off removes it, and the editor's histogram with it.
+    tradeoff: Each change computes the image again and keeps a second copy of it. While you hold a point only what the pane shows is computed. The whole image, its conversions and the histogram follow when you let go, which takes longer on a large image. Turn it off while you place many points on a large image.
+    scope: The window only. The image is not changed. On a sequence it shows the frame the view shows.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+    note: At rest the preview is what Apply writes, and a **Preview area** shows exactly what Apply writes there.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns the curve to the straight line, **Channel** to **RGB** and the editor's zoom to fit.
+    range: It leaves **Interpolation**, the target, **Preview** and the toolbar's buttons as they are, and builds the straight line with the interpolation shown.
+    scope: The window only. The image is not changed, and Apply is disabled afterwards.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Sends the image, or every frame of the sequence, through the curve, and then returns the curve, **Channel** and the editor's zoom as **Reset** does.
+    enabled: When the curve is anything but the straight line between its two end points. It is disabled while the window opens.
+    range: An unsigned 8- or 16-bit image gets one table entry for each of its codes, held in single precision.
+    tradeoff: The work grows with the number of samples and runs on several threads. A component choice adds two conversions, and a sequence is written again in a temporary place.
+    scope: The whole image or sequence, on the choice in **Channel**, with the mask blended afterwards.
+    persistence: The image and its history keep the result. The history and the image's lineage record the texts of **Channel** and **Interpolation**, and not the points, the toolbar's buttons or the mask.
+    note: While it runs, the editor, **Interpolation**, **Channel**, **Reset** and **Close** are disabled. Closing the window instead discards the curve. Nothing of the window is saved between sessions.
+```
 
-1. The editor maintains ordered control points `(x_i,y_i)` on the normalized
-   `[0,1]` square. Endpoints remain at `x=0` and `x=1`; all y values clamp to
-   `[0,1]`.
-2. After every edit, AfterNight builds a Linear, natural Cubic, Akima, Steffen,
-   or Monotone Cubic interpolant through the points. With two points, it uses Linear;
-   selected Akima and Steffen use Cubic until there are at least five points.
-3. RT preview and Apply run one plan: an exact table over every code of an
-   unsigned eight- or sixteen-bit image (each entry held in single precision, so
-   a result is the nearest code to the curve within that rounding), and an
-   8,193-entry table read linearly over a floating image (or a signed or 32-bit
-   integer read as fractions into a Float32 copy), whose largest error against
-   the curve the plan measures and reports (under one millionth for a smooth
-   three-point Cubic; an overshoot
-   held to `[0,1]` counts in it). The preview the window rests on once you let
-   a point go is therefore the result Apply writes, and a **Preview area**
-   shows exactly what Apply writes there. While you drag a point, the same
-   plan runs over what the preview view shows - the image reduced to the
-   view's size, each pixel the mean of its block, or the part of it shown at
-   1:1 and closer - so the drag keeps up on a large image.
-4. RGB/Grayscale maps stored samples directly. A component mode converts RGB to
-   that color space in a 32-bit float working plane (64-bit for a Float64
-   image), maps one component, and reconstructs RGB. An image described as sensor
-   codes or a physical quantity, as files are read, is converted as fractions of
-   full scale. The result keeps the source's cards, acquisition record, and
-   solution, and is marked nonlinear.
-5. The shared process framework then blends an active mask. A successful still
-   swaps the result into the target; a sequence is written to a temporary
-   replacement and committed only after success. Sequence readers first honor
-   automatic CFA debayer, so a decoded CFA frame can already be RGB here.
-6. After either successful commit, the process resets its identity spline,
-   channel, and graph zoom; the identity spline keeps the interpolation the combo
-   shows.
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: Shows the frame being curved, from 0 to 100 percent. Every frame gets the same curve, interpolation and channel.
+    enabled: Shown only while Apply works on a sequence.
+    tradeoff: The sequence is written again in a temporary place, which needs the disk space of a second copy. It replaces the original only when every frame succeeded.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    range: The frame being worked on may finish before the request is noticed.
+    note: A run that fails leaves the original in the same way. Run it again with the final curve, and keep enough free disk space.
+```
 
-### Model and equations
+## How it works
 
-Let the ordered control points be
+1. The editor keeps the points in order of input, with the ends at 0 and 1 and every output between 0 and 1.
+   After each change it builds the curve through them with the interpolation in force.
+2. The preview and Apply turn the curve into the same table. An unsigned 8- or 16-bit image gets the nearest
+   value to the curve for each of its codes. A floating-point image is read through 8,193 entries, joined by
+   straight lines.
+3. **RGB**, **Grayscale** and a single color send the samples through the table directly. A component choice
+   converts the image to that color space, sends the one component through and converts back.
+4. A mask on the view then blends the result with the original.
+5. The image replaces the target and its history gets one step. Its header, its acquisition data and its plate
+   solution are kept. Its processing state is recorded as nonlinear with the operation `curves-transformation`,
+   and no transfer function is stated.
 
-\[
-(x_0,y_0),(x_1,y_1),\ldots,(x_n,y_n),
-\qquad 0=x_0 < \cdots < x_n=1.
-\]
+### Model
 
-The selected interpolation constructs a continuous function `S(x)` that passes
-through every point, so `S(x_i)=y_i`. The stored result for a normalized sample
-`x` is
+The points are \((x_0, y_0), \ldots, (x_n, y_n)\), with their inputs in increasing order from \(x_0 = 0\) to
+\(x_n = 1\). The interpolation builds a continuous function \(S\) that passes through every point, and a sample
+\(x\) becomes
 
-\[
-y=\operatorname{clamp}_{[0,1]}(S(x)).
-\]
+\[ y(x) = \min\bigl(1, \max\bigl(0, S(x)\bigr)\bigr), \qquad S(x_i) = y_i \tag{1} \]
 
-The clamp means interpolation overshoot does not survive outside the display
-range: it becomes black or white. It does not prevent a Cubic or Akima curve
-from changing direction between points. The natural Cubic has zero second
-derivative at the two endpoints; the engine reproduces the GNU Scientific
-Library's rules for these interpolants. Steffen and Monotone Cubic are the
-exposed methods that guarantee no new extrema between control points.
+A sample equal to a point's input therefore gets that point's output, whatever the interpolation. Between the
+points the interpolation decides. **Cubic** is the natural cubic [spline](../../reference/glossary.md), whose
+curvature is zero at both ends.
 
-For **RGB**, the same scalar function is evaluated independently:
+With **RGB**, equation (1) is applied to the red, green and blue samples \(R\), \(G\) and \(B\) of a pixel
+separately:
 
-\[
-(R',G',B')=(S(R),S(G),S(B)),
-\]
+\[ (R', G', B') = \bigl(y(R),\ y(G),\ y(B)\bigr) \tag{2} \]
 
-with the clamp applied to each result. A nonlinear `S` does not generally
-preserve `R:G:B` ratios, so RGB mode can change saturation even though it uses
-one shared curve.
+Unless the curve is a straight line through the origin, the ratios between the three change, and with them the
+saturation.
 
-For a component mode, write `C(R,G,B)` for the conversion and `C^{-1}` for RGB
-reconstruction. If component `k` is selected, AfterNight computes
+With a component choice, \(C\) is the conversion to the color space, \(C^{-1}\) the conversion back and \(c_k\) the
+chosen one of its three components:
 
-\[
-(c_0,c_1,c_2)=C(R,G,B),\qquad
-c'_k=S(c_k),\qquad
-(R',G',B')=C^{-1}(c_0,\ldots,c'_k,\ldots,c_2).
-\]
+\[ (c_0, c_1, c_2) = C(R, G, B), \qquad c'_k = y(c_k), \qquad (R', G', B') = C^{-1}(c_0, \ldots, c'_k, \ldots, c_2) \tag{3} \]
 
-The encoded components are normalized: CIE L* maps `0..100` to `0..1`, CIE a*
-and b* use their signed ranges around neutral `0.5`, CIE c* maps `0..200`, and
-CIE h* maps `-180..180` degrees to `0..1`. HSL/HSV hue is also normalized and
-treated as an ordinary line, not as a circular angle. Strong hue curves near
-the wrap boundary can therefore produce discontinuous-looking color changes.
-A floating image keeps a CIE or YCbCr reconstruction outside `[0,1]` where the
-inverse conversion puts it; an integer image saturates at its range. CIE
-components are reconstructed through the exact inverse of the XYZ matrix, and
-YCbCr through unrounded luma-chroma coefficients.
+### Boundaries
 
-### Boundary and failure behavior
+- **Apply** is enabled for any curve but the straight line between the two end points. A point added on that line
+  enables it, and Apply then writes a history step for an image that looks unchanged.
+- A **Cubic** or **Akima** curve can leave the range 0 to 1 between two points. Equation (1) cuts it there, so that
+  stretch of the curve is flat black or white.
+- After a component choice, a floating-point image keeps the values the conversion back puts outside 0 to 1. An
+  integer image stops at the ends of its range, rounded to the nearest code.
+- A signed or 32-bit integer image is read as fractions of full scale, curved through the floating-point table
+  and rounded back. A 64-bit floating-point image is computed in double precision. For a smooth curve the table is
+  within a millionth of the curve.
+- A sample that is not a number stays one, without a message. Pixels the image marks as invalid are left
+  unchanged.
 
-- Apply is disabled only for the exact two-point identity. Adding a point on the
-  diagonal makes the spline non-identity by structure even when its output is
-  visually identical.
-- Control-point y values and the curve's results clamp to `[0,1]`. A floating
-  input outside the curve's `[0,1]` domain takes the curve's value at the
-  nearer end.
-- CIE, HSL, HSV, and YCbCr conversions preserve the target pixel type. The
-  component is a float plane; an integer result is rounded to the nearest code.
-- There is no NaN-specific guard in the curve evaluator and no per-pixel error
-  report. Use finite normalized input.
-- The output is recorded as nonlinear with provenance `curves-transformation`,
-  states no transfer function, and its lineage records the curve step
-  (`an::applyChannelScope`) with the Channel and Interpolation text Image
-  History shows, not the nodes.
-- Image History records only Channel and Interpolation, not control-point
-  coordinates, graph toggles, or mask settings. History cannot reconstruct the
-  exact curve.
-- Sequence cancellation is cooperative. A cancelled or failed run does not
-  replace the source sequence and its temporary output is removed.
-- A one-channel CFA still follows the Grayscale path and is remapped without
-  demosaicing. A CFA sequence with automatic debayer enabled is decoded to RGB
-  before execution and the successful replacement sequence is RGB.
-- Reset and successful Apply rebuild the identity spline in the interpolation
-  the combo shows.
+### Worked example
 
-## Parameter interactions and starting points
+The master in the picture above was stretched with Histogram Transformation, **Shadows** and **Midtones** at 0.02,
+which leaves its background near 0.28. With **Channel** at **RGB** and **Interpolation** at **Cubic**, one point is
+taken on the line at input 0.28, over the peak of the histogram, and dragged straight down to 0.14. By
+equation (1) the background becomes 0.14, half as bright, and black and white stay where they were. The cubic
+curve through the three points takes a sample of 0.50 to 0.34, one of 0.75 to 0.65 and one of 0.90 to 0.86. The
+peak of the histogram in the editor moves to 0.14.
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Tone curve + anchor points | Add one gentle point, then one anchor on each side | Little visible separation in the intended range | Flat/steep transitions, crushed endpoints, or amplified noise | Place anchors, move the main point, inspect histogram and 100% view |
-| Interpolation + node spacing | Cubic with a few well-spaced points; Steffen for monotonic safety | Curve cannot shape a narrow range | Cubic/Akima bows or oscillates between close points | Simplify nodes first, then compare Steffen/Linear |
-| RGB + saturation | Use a shallow S-curve after color calibration | Contrast change is negligible | Channel ratios diverge; bright colors saturate or clip | Set tone contrast, inspect RGB clipping and star color, reduce curvature |
-| Lightness/value + color preservation | Try **CIE L*** or **HSV Value** with a gentle curve | Subject remains flat | RGB reconstruction clips gamut or changes perceived saturation | Choose component, shape curve, inspect high-saturation regions |
-| Saturation/chroma + hue | Use **HSL Saturation** or **CIE c*** with broad, small changes | Color remains muted | Color noise, neon saturation, gamut clipping | Adjust saturation/chroma first; use hue curves only for deliberate remapping |
-| Mask + curve strength | Tune the unmasked curve gently, then judge the blended preview | Protected region changes too little | Mask edge or transition becomes obvious | Inspect mask, reduce curve strength, then soften/correct mask upstream |
+```figure
+images:
+  - image: ../../assets/images/processes/stretching/curves-transformation-before.webp
+    alt: The whole frame before the curve, the red and white clouds of the nebula across a field of stars on a gray background.
+    label: Before
+  - image: ../../assets/images/processes/stretching/curves-transformation-after.webp
+    alt: The whole frame after the curve, the same nebula on a background half as bright, its faint outer parts darker and its bright core and the stars nearly as before.
+    label: After
+caption: >-
+  The stretched Carina Nebula master before and after Apply with one point taking 0.28 to 0.14. Both are the whole
+  frame as the view shows it in the Linear display mode, without a display stretch.
+```
 
-## Inputs, outputs, and metadata
+A lightness curve works the same way through equation (3). With **Channel** at **CIE L\* (Lightness)** and
+**Interpolation** at **Steffen**, add three points: one low and one high on the line as anchors, and one between
+them slightly above it. With the two ends that makes five points, so the Steffen rule is in force and the curve
+rises all the way. Only the lightness of each pixel goes through the curve.
 
-- One still target produces one modified still; one sequence produces one
-  replacement sequence. Dimensions and pixel type do not change. Channel count
-  and pixel format normally remain unchanged, but automatic sequence CFA
-  debayer converts a one-channel mosaic replacement to RGB.
-- Output keeps the source pixel type. An unsigned eight- or sixteen-bit channel
-  curve maps every code through an exact table; a signed or 32-bit integer is
-  read as fractions into a Float32 copy, curved through the 8,193-entry table,
-  and rounded back to the nearest code; a component mode works on a float plane
-  and rounds the reconstruction once, to the nearest code.
-- The source target is replaced only after successful processing. Sequence work
-  uses a temporary file and swaps it in after success.
-- The source's FITS/XISF cards, acquisition record, and astrometric solution are
-  kept; the output states no transfer function and its lineage records the
-  curve step (`an::applyChannelScope`) with the Channel and Interpolation text,
-  not the nodes. No auxiliary map, curve preset, or curve file is written.
-- Image History receives **Curves Transformation** with the selected Channel and
-  Interpolation. It omits spline nodes and toolbar states.
-- The processing state is nonlinear with provenance `curves-transformation`.
+## Starting points
 
-## Performance
-
-Curve evaluation is linear in the number of image samples and runs on the
-engine's threads, the preview through the same plan as Apply. While you drag
-a point the preview evaluates only what the preview view shows, and the 8-bit
-histogram, when it is shown, is recounted from the whole-image preview that
-follows when you let go.
-
-RGB/Grayscale and individual stored-channel modes need the least auxiliary
-work. CIE, HSL, HSV, and YCbCr modes allocate a full converted image and perform
-forward and reverse conversion. Sequences add temporary output proportional to
-the encoded sequence size. Disable **Preview** while placing many points on a
-large target, or prototype on a duplicate crop; graph zoom itself does not
-change processing cost or precision.
-
-## Worked example
-
-- **Input condition/provenance and settings:** A color-calibrated nonlinear RGB
-  image. Select **Channel: CIE L* (Lightness)** and **Interpolation: Steffen**.
-  Keep endpoints `(0,0)`/`(1,1)`, add a broad midtone point slightly above the
-  diagonal, and add low/high anchors on the diagonal.
-- **Expected checkpoint:** Source logic maps only encoded L* through the spline
-  and reconstructs RGB with the original a*/b* components; a floating image
-  keeps an out-of-gamut value outside `[0,1]`, and an integer image saturates at
-  its range. The curve should remain monotonic when the nodes are monotonic.
-- **Inspect at 100%/statistics/history:** Check dark noise, star cores, saturated
-  colors, mask transitions, clipping statistics, and the Channel/Interpolation
-  history description.
-- **Limitations:** No real-image contrast, color-preservation, clipping, or
-  timing outcome was measured. The exact nodes are intentionally qualitative
-  and are not stored in history.
-
-## Warnings and limitations
-
-!!! warning "Apply is destructive and the curve is not saved"
-    A successful Apply replaces the target and immediately resets the spline to
-    identity. Image History does not record node coordinates, so it cannot
-    reproduce the executed curve after Apply, Reset, or reopening the process.
-
-- Do not assume a shared RGB curve preserves color ratios. Nonlinear per-channel
-  mapping can change saturation and push channels into the output clamp.
-- CIE a*/b* and YCbCr chroma are signed concepts encoded around normalized
-  neutral `0.5`; broad ordinary tone curves are usually inappropriate for them.
-- Hue is circular, but the spline is not. Curves across the `0/1` hue boundary
-  can create a seam-like color change.
-- The histogram and coordinate readouts are 8-bit and display-normalized, and
-  the histogram and clipping readout count the mask-blended preview. The
-  histogram places a whole code on a bin boundary in its own bin, by exact
-  interval arithmetic. They are diagnostic, not a full-precision output
-  measurement.
-- Preview and Apply run one plan: an exact table over every code of an
-  unsigned eight- or sixteen-bit image and an 8,193-entry linear table over a
-  floating one, so the preview the window rests on after you let a point go
-  is the result Apply writes.
-- The output's processing state is recorded as nonlinear
-  (`curves-transformation`); treat any non-identity curve result as nonlinear in
-  workflow decisions.
-- There is no node list, numeric point editor, preset, save/load, or undo within
-  the process window.
-- Successful Apply resets the curve, channel, and graph zoom. Reset does the
-  same without changing the image. In both cases the rebuilt identity curve
-  keeps the interpolation the combo shows.
-- A one-channel CFA still is processed as grayscale, not debayered. A CFA
-  sequence becomes RGB when its automatic debayer option is enabled.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| **Apply** is disabled | The curve is the exact two-endpoint identity | Add or move a point; use Reset when no change is intended |
-| Selected Akima/Steffen looks like another spline | The current implementation substitutes Cubic below five points; any two-point curve is Linear | Add enough well-spaced points or choose the effective method explicitly |
-| Curve overshoots or flattens against black/white | Cubic/Akima interpolation crossed `[0,1]`, then output clamped | Remove close points, reduce curvature, or use Steffen, Monotone Cubic, or Linear |
-| Saturated colors shift after an RGB curve | The same nonlinear function changes each channel value independently, not by a common ratio | Use a gentler curve or compare a lightness/value component |
-| Hue changes abruptly around one color | Hue is encoded on a linear `0..1` axis even though physical hue wraps | Avoid crossing the wrap boundary; prefer a localized color tool |
-| Preview and Apply differ | Preview and Apply run one curve plan, so a difference comes from a changed mask, target, or display setting, a preview still on its way, or a point not yet let go, whose preview shows the image reduced to the view | Compare identical mask/display state, wait for the current preview, and inspect statistics after Apply |
-| History cannot reproduce the result | The step description stores Channel and Interpolation only | Record node values externally or preserve a duplicate result |
-| Sequence remains unchanged after Cancel | Cancellation intentionally removes temporary output before replacement | Retry with final settings; keep enough temporary disk space |
-| The next curve is identity/RGB after Apply | Successful still and sequence commits call the process reset path | This is expected; rebuild the curve and reselect the intended channel |
-| A CFA sequence becomes RGB after Apply | Automatic sequence CFA debayer was enabled, so the reader decoded each mosaic frame to RGB before Curves ran | Disable automatic sequence debayer when preserving a one-channel CFA representation is required; do not stretch CFA mosaics as grayscale |
+| More contrast in one range of tones | **RGB** and **Cubic**, one gentle point, then an anchor on each side | Move the main point. Flat or steep transitions, crushed ends and more noise mean too much. |
+| Contrast without a change of color | **CIE L\* (Lightness)** or **HSV Value**, with a gentle curve | Check strongly colored regions, where the conversion back can leave the range. |
+| More or less color | **HSL Saturation** or **CIE c\***, with broad, small moves | Stop at color noise or neon colors. Use a hue curve only to move a color on purpose. |
+| A curve through a mask | A gentle curve first, with the mask off | Enable the mask and judge the blended preview. Soften a visible edge in the mask, not in the curve. |
 
-## Related workflow steps
+## When it goes wrong
 
-Complete [Background Neutralization](../color-calibration/background-neutralization.md)
-and [Photometric Color Calibration](../color-calibration/photometric-cc.md) or
-[Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md)
-before nonlinear work. Use [Histogram Transformation](histogram-transformation.md),
-[Generalized Hyperbolic Transformation](gh-transformation.md), or
-[ArcSinh Stretch](arcsinh-stretch.md) for the main stretch, then use Curves for
-intentional tone/color finishing. Continue with
-[Color Saturation](../color-adjustment/color-saturation.md), targeted noise
-reduction, and sharpening while monitoring [Image History](../../interface/image-history.md)
-and [Image Statistics](../../interface/image-statistics.md).
+!!! warning "Apply cannot be taken back from this window, and the curve is not kept"
+    Apply replaces the image and returns the editor to a straight line. The history records the channel and the
+    interpolation only, so the curve cannot be drawn again from it. Duplicate the image first, or note where the
+    points were.
+
+Apply is disabled
+:   **Cause.** The curve is the straight line between its two end points, which changes nothing.
+:   **Fix.** Add a point or move an end point.
+
+Akima or Steffen draws the same curve as Cubic
+:   **Cause.** With fewer than five points both draw the **Cubic** curve, and two points always give a straight line.
+:   **Fix.** Add well-spaced points, or choose **Monotone Cubic**, which is in force from three points.
+
+The curve swings past its points, or lies flat against black or white
+:   **Cause.** A **Cubic** or **Akima** curve left the range between two points and was cut there.
+:   **Fix.** Remove points that lie close together, bend the curve less, or choose **Steffen**, **Monotone Cubic** or
+    **Linear**.
+
+Strong colors shift after a curve on RGB
+:   **Cause.** Each channel goes through the curve on its own, which changes the ratios between them and can push
+    one channel to its limit.
+:   **Fix.** Bend the curve less, or use a lightness or value component.
+
+A hue curve breaks one color abruptly
+:   **Cause.** Hue is treated as a line from 0 to 1, although the colors at its two ends are neighbors.
+:   **Fix.** Keep hue curves away from the two ends, or use a tool made for one range of colors.
+
+The preview and the applied image differ
+:   **Cause.** The preview was still on its way, a point was still held and the preview showed the reduced image,
+    or the mask, the target or the display changed in between.
+:   **Fix.** Let the point go, wait for the preview, and compare under the same mask and display.
+
+After Apply the curve is straight again and Channel shows RGB
+:   **Cause.** A finished Apply returns the curve, **Channel** and the editor's zoom to their defaults.
+:   **Fix.** Draw the next curve from the result, and choose the channel again.
+
+A mosaic sequence is RGB after Apply
+:   **Cause.** Automatic debayering was on for the sequence view, so each frame was decoded to RGB before the curve.
+:   **Fix.** Turn automatic debayering off when the frames must stay mosaics.
+
+## Related
+
+- [Background Neutralization](../color-calibration/background-neutralization.md),
+  [Photometric Color Calibration](../color-calibration/photometric-cc.md) and
+  [Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md), which need the image
+  linear and come before.
+- [Histogram Transformation](histogram-transformation.md),
+  [Generalized Hyperbolic Transformation](gh-transformation.md) and [ArcSinh Stretch](arcsinh-stretch.md), for
+  the main stretch.
+- [Color Saturation](../color-adjustment/color-saturation.md), to finish the colors before noise reduction and
+  sharpening.
+- [Image Statistics](../../interface/image-statistics.md), for exact counts of black and white samples after
+  Apply.
+- [Image History](../../interface/image-history.md), to return to the image before the curve.
+- [Process Windows](../../interface/process-windows.md), for the preview, the editor's toolbar and what every
+  process window shares.
 
 ## Credits
 
-- [GNU Scientific Library 2.8: Interpolation](https://www.gnu.org/software/gsl/doc/html/interp.html) — the definitions of the Linear, natural Cubic, Akima, and monotonic Steffen interpolants and their point requirements. AfterNight implements the same rules itself and does not use the library.
+- The [GNU Scientific Library's interpolation reference](https://www.gnu.org/software/gsl/doc/html/interp.html)
+  defines the linear, natural cubic, Akima and Steffen rules, and the number of points each needs, that
+  **Linear**, **Cubic**, **Akima** and **Steffen** follow. AfterNight computes the rules itself and does not use
+  the library for them.
+- F. N. Fritsch and J. Butland,
+  [A method for constructing local monotone piecewise cubic interpolants](https://doi.org/10.1137/0905021),
+  SIAM Journal on Scientific and Statistical Computing 5 (1984), give the rule **Monotone Cubic** follows.
