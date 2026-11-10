@@ -4481,6 +4481,12 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportFormatTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenarios.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenariosTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelJsonTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelBuilderTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportSettingsFactsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportFrameFactsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportComparisonTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelParityTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/test_gaia_catalog_settings.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_image_integration_lite_process.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_image_integration_process.cpp
@@ -4640,6 +4646,7 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/core/WorkflowSettingsRecords.h
     header   src/AfterNightTests/Test_ImageIntegration/ImportSession.h
     header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenarios.h
+    header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelTestSupport.h
     header   src/AfterNightWorkflowDriver/ResidentMemory.h
     header   src/AfterNightWorkflowDriver/WorkflowDriver.h
     header   src/AfterNightTests/Test_ImageIntegration/workflow/CalibrationRun.h
@@ -4726,6 +4733,10 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/MarkdownHtmlRenderer.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportFormat.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/WorkflowReportBuilder.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModel.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModelBuilder.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModelJson.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportSources.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/BaseCalibrationPanel.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/CalibrationGroupTable.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/CalibrationPanelUtils.h

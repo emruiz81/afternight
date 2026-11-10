@@ -5,6 +5,8 @@
 
 #include "AfterNightProcessesExport.h"
 
+#include "ReportModel.h"
+
 #include "processes/ImageIntegration/workflow/WorkflowManifest.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutor.h"
 
@@ -26,77 +28,9 @@ class EngineSession;
 
 namespace ImageIntegration::Reporting
 {
-/// One channel's figures the report prints for an output image, each read through the representation's display range
-/// (`widgets/DisplayNormalization.h`) as the statistics window reads it: a location as a fraction of the range, a
-/// spread as a share of it, and a variance or a mean of squares as a share of its square. The figures are over the
-/// samples the image's validity admits that lie strictly inside the range - the clipped ones at either end are left
-/// out.
-struct WorkflowReportChannelStats
-{
-    /// How many samples the channel has: one per pixel.
-    std::uint64_t samples = 0;
-
-    /// How many samples the figures are over: those the image's validity admits, less the clipped ones.
-    std::uint64_t unclippedSamples = 0;
-
-    /// The smallest sample.
-    double minimum = 0.0;
-
-    /// The largest sample.
-    double maximum = 0.0;
-
-    /// The arithmetic mean.
-    double mean = 0.0;
-
-    /// The median.
-    double median = 0.0;
-
-    /// The population standard deviation, which the report prints as both its sigma and its standard deviation.
-    double standardDeviation = 0.0;
-
-    /// The mean absolute distance from the mean.
-    double averageDeviation = 0.0;
-
-    /// The population variance.
-    double variance = 0.0;
-
-    /// The median absolute deviation from the median, unscaled.
-    double medianAbsoluteDeviation = 0.0;
-
-    /// The background noise taken from each row's first differences.
-    double backgroundNoise = 0.0;
-
-    /// The biweight midvariance about the median.
-    double biweightMidvariance = 0.0;
-
-    /// The mean of the squared samples: the variance plus the square of the mean.
-    double meanOfSquares = 0.0;
-
-    /// The sum of the squared samples: the mean of squares times the samples the figures are over.
-    double sumOfSquares = 0.0;
-
-    /// The iterative k-sigma location, or nothing when the measurement could not state it.
-    std::optional<double> ikssLocation;
-
-    /// The iterative k-sigma scale, or nothing when the measurement could not state it.
-    std::optional<double> ikssScale;
-};
-
-/// What the report measured of an output image it read.
-struct WorkflowReportRawImageStats
-{
-    /// The image's width in pixels.
-    size_t width = 0;
-
-    /// The image's height in pixels.
-    size_t height = 0;
-
-    /// How many channels the image has.
-    size_t channels = 0;
-
-    /// Each channel's figures, in the image's channel order.
-    std::vector<WorkflowReportChannelStats> channelStats;
-};
+/// One channel's figures of an output image, and what one read of the image measured: the report model's own.
+using WorkflowReportChannelStats = ReportChannelStatistics;
+using WorkflowReportRawImageStats = ReportImageStatistics;
 
 class AFTERNIGHTPROCESSES_API WorkflowReportBuilder
 {

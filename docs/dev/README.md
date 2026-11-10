@@ -29,7 +29,7 @@ works; there are no decision records.
 - [IMAGE_INTEGRATION_ARTIFACT_VALIDATION.md](IMAGE_INTEGRATION_ARTIFACT_VALIDATION.md) - how the workflow writes its
   artifacts and decides to reuse them.
 - [IMAGE_INTEGRATION_REPORT.md](IMAGE_INTEGRATION_REPORT.md) - how a run's report is built: when it is written,
-  what it reads, how its values are printed, and the runs its suites build.
+  what it reads, the model it is stated in, how its values are printed, and the runs its suites build.
 - [NO_DATA_SAMPLE_CONTRACT.md](NO_DATA_SAMPLE_CONTRACT.md) - how exact-zero and non-finite samples are marked and
   handled.
 - [OVERLAP_NORMALIZATION.md](OVERLAP_NORMALIZATION.md) - overlap-based global normalization.
