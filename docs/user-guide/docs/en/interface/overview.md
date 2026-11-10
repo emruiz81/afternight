@@ -90,9 +90,10 @@ an RGB image and **Convert to RGB** for a grayscale one, the **Sequence** menu f
 only for an image whose file stated [FITS](../reference/glossary.md#fits) cards or an
 [EXIF](../reference/glossary.md#exif) record. **Undo** and **Redo** name the step they would take back or do again.
 
-A process that cannot open on the active image is greyed in the **Process** menu, and its tooltip says why: no image,
-an image of the wrong kind, a window of the same process already open on it, a window that needs the image to
-itself, or an extension that is not ready. A process such as Image Integration needs no image.
+A process that cannot open on the active image says why in a message when you choose it: no image, an image of the
+wrong kind, a window of the same process already open on it, or a window that needs the image to itself. A process an
+extension adds is greyed in the **Process** menu instead, with the reason as its tooltip, and so is one that needs a
+color image while a grayscale image is active. A process such as Image Integration needs no image.
 
 ### Find a command
 
@@ -175,8 +176,8 @@ Closing the last image does not bring the Dashboard back
 The image commands or a process are greyed
 :   **Cause.** No view is active, the active image is not of the kind the command needs, or a process window already
     open on the image holds it.
-:   **Fix.** Click the view of the image you mean and read the process's tooltip. When it speaks of another process
-    on the image, close that process window first.
+:   **Fix.** Click the view of the image you mean, and read the message a process gives, or the tooltip of a process
+    an extension adds. When it speaks of another process on the image, close that process window first.
 
 A process worked on the wrong image
 :   **Cause.** Another view was active when the process window opened.

@@ -16,8 +16,9 @@ section can be read on its own, and the lists of windows use the titles of the p
 
 ### When a window opens
 
-A process that cannot open on the [active image](../reference/glossary.md#active-image) is disabled in the menu, and the
-message is its tooltip. A process opened another way, such as from the Dashboard, shows the message in a box.
+A process that cannot open on the [active image](../reference/glossary.md#active-image) says why in a message box when
+you choose it. A process an extension adds is disabled in the menu instead, and the message is its tooltip. A process
+that needs a color image is disabled in the menu while a grayscale image is active.
 
 "No selected image to process"
 :   No image or [sequence](../reference/glossary.md#sequence) view is active. Click the view you mean, then choose the process
@@ -237,8 +238,10 @@ mask, a run and its progress start afresh.
 ## Troubleshooting
 
 The process is disabled in the menu
-:   **Cause.** The process cannot open on the active image, for the reason its tooltip gives.
-:   **Fix.** Read the tooltip, and see [When a window opens](#when-a-window-opens).
+:   **Cause.** No image is active, the process needs a color image and a grayscale one is active, or a process an
+    extension adds cannot open, for the reason its tooltip gives.
+:   **Fix.** Make an image of the right kind active, or read the tooltip, and see
+    [When a window opens](#when-a-window-opens).
 
 The window's title names another image than you meant
 :   **Cause.** The window works on the image it opened on, or the one chosen in **Target Image**, whatever view is
