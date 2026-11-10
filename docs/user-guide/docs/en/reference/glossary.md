@@ -328,8 +328,8 @@ cannot be selected or restored.
 An image whose samples are still proportional to the light that reached the sensor, as calibration and stacking
 leave it. It looks nearly black until it is stretched. AfterNight reads whether an image is linear from the transfer
 function the image states, or else from its [processing state](#processing-state), never from its
-[pixel type](#pixel-type). The color calibrations refuse an image recorded as nonlinear, and you can attest that an
-imported image is linear.
+[pixel type](#pixel-type). Photometric and Spectrophotometric Color Calibration refuse an image recorded as nonlinear,
+and you can attest that an imported image is linear.
 
 ### Log file
 
@@ -416,13 +416,14 @@ an XISF image of the 0 to 1 range open as fractions of full scale. Changing the 
 
 ### ONNX
 
-Open Neural Network Exchange, a file format for trained neural network models. DeepSNR's models are ONNX files, run
-on the platforms ONNX Runtime supports.
+Open Neural Network Exchange, a file format for trained neural network models. DeepSNR's models and StarNet2's model
+are ONNX files, run on the platforms ONNX Runtime supports.
 
 ### OSC
 
 One-shot color: a color camera whose sensor carries a [CFA](#cfa), usually in a [Bayer pattern](#bayer-pattern), so
-that each frame is a mosaic to [debayer](#debayer).
+that each frame is a mosaic to [debayer](#debayer). An OSC image is a frame from such a camera, or the color image
+debayered from it.
 
 ## P
 
@@ -670,8 +671,9 @@ above it is lost. Histogram Transformation sets it with **Highlights**. See also
 
 ### White reference
 
-A reference spectrum, chosen by name and version, that sets the balance point at which Spectrophotometric Color
-Calibration evaluates its fit.
+What a color calibration takes as white. In Spectrophotometric Color Calibration, a reference spectrum chosen by name
+and version, which sets the balance point at which the fit is evaluated. In Color Calibration, an image, or a
+rectangle of one, whose channels' means above the background set the gains.
 
 ## X
 

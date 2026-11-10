@@ -3,293 +3,347 @@ kind: process
 stage: color
 menu: Process > Color Calibration > Background Neutralization
 summary: >-
-  Brings the background of the three color channels of an RGB image to one shared level, measured in a reference.
+  Brings the background of the three channels of an RGB image to one shared level, measured in a reference, by adding
+  one constant to each channel.
 data_in: linear
+data_out: linear
+destructive: true
+preview: none
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An RGB image or sequence view is active, and no other process window is open on it: Background Neutralization
+    needs the image to itself.
+  inputs: >-
+    One RGB image or sequence, a background reference of three channels - the image itself or another open RGB image
+    of any size - and an optional mask on the view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, pixel type and header are kept. No file, preset or
+    report is written.
+  state: >-
+    A linear RGB master after gradient removal, before the color calibration that sets the channels' gains.
+derived: false
+rewritten: true
 ---
 # Background Neutralization
 
-## Purpose and expected result
+Background Neutralization makes the background of an RGB image neutral. It measures each channel's background level in
+a reference - the image itself, another open RGB image, or a rectangle of either - as the median of the samples
+between two limits. Then it adds to each channel the constant that brings its level to the mean of the three.
 
-Background Neutralization brings the background of the three colour channels of
-an RGB image, or of every frame of an RGB sequence, to one shared level. It
-measures each channel's background level in a reference - the target itself,
-another open colour image, or a rectangle of either - as the median of the
-samples that lie within the dialog's limits, and moves every channel by the
-constant that brings its level to the mean of the three levels.
+**OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), adds one step to its
+[history](../../reference/glossary.md#history) and closes the window. The size, the
+[pixel type](../../reference/glossary.md#pixel-type) and the header are kept. The window has no preview: what you set
+reaches the image only when you press **OK**.
 
-It is intended for a linear image whose large-scale gradients have already been
-corrected. A successful **OK** replaces the target still or sequence with one
-**Background Neutralization** Image History step, keeps its dimensions, channel
-layout, sample representation and metadata, and closes the window.
-
-This operation aligns additive channel backgrounds; it does not estimate a
-multiplicative white balance, solve catalog colours, remove spatial gradients,
-or guarantee that an unrelated target becomes neutral from a separate reference.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Color Calibration > Background Neutralization** |
-| Enabled when | A colour still or sequence view is active and no other process holds it; the process requires exclusive access. The **Target Image** selector lists the open three-channel RGB views. |
-| Inputs | One three-channel RGB target and one three-channel RGB background reference. The reference may be the target or another open view, and may differ from the target in dimensions and sample representation. |
-| Outputs | The target replaced as one Image History step; a sequence is written whole into a new sequence the view then shows. No auxiliary view or file is written. |
-| Recommended image state | Gradient-corrected, stacked, cropped, linear RGB. The process does not test linearity. |
-| Preview support | No processed preview. **From Selection** draws the ROI rectangle on the reference view only. |
-| Sequence support | Yes: every frame, whatever frames the player has selected. The reference is measured once and the same offsets are applied to every frame; with `<--TARGET IMAGE-->` the reference is the frame the view shows when **OK** is pressed. Progress and **Cancel** are shown. |
-| Mask support | An enabled view mask weighs the result: the source where the mask is empty, the result where it is full; inversion is honoured. The mask does not change the measurement. |
-| External dependencies | None. |
+```figure
+image: ../../assets/images/processes/color-calibration/background-neutralization.webp
+alt: >-
+  The Background Neutralization window. Under the title, Reference image reads TARGET IMAGE between arrows. Lower Limit
+  reads 0.000000 and Upper Limit 0.200000, each with a slider. The Region of interest group is unticked, with its
+  Left, Top, Width and Height boxes dimmed at 0 and its From Selection button. Target Image names the composed image,
+  and Reset, OK and Cancel run along the bottom.
+caption: >-
+  Background Neutralization on an RGB image composed from the red, green and blue masters, with Upper Limit raised to
+  0.2 so that every channel's background lies between the limits.
+pins:
+  - {n: 3, x: 2.2, y: 22.0}
+  - {n: 4, x: 2.2, y: 37.1}
+  - {n: 5, x: 28.5, y: 43.6}
+  - {n: 6, x: 65.0, y: 94.3}
+```
 
 ## Before you start
 
-1. Complete calibration, registration, integration, gradient correction, and
-   border cropping. A spatial gradient cannot be repaired by one offset per
-   channel.
-2. Keep the target linear. An additive offset per channel has its intended
-   radiometric meaning before stretching.
-3. Identify a clean background area without stars, nebulae, galaxy halos,
-   clipped borders, or dust signal. Use a separate reference only when its
-   channel backgrounds are genuinely representative of the target.
-4. Check that the limits contain background in every channel. The defaults keep
-   samples from `0.0` to `0.1` of full scale; a channel with no sample in that
-   range is refused, by name, and nothing changes.
-5. A signed integer image (8, 16 or 32 bits) is read as a fraction counted from
-   its smallest value, so a background stored near the zero code reads near
-   `0.5`. Set the limits around the background as the image reads it.
-6. Image History can undo the step. **OK** replaces the target rather than
-   creating a new view.
+- Work on a [linear image](../../reference/glossary.md#linear-image), before the
+  [stretch](../../reference/glossary.md#stretch): an offset per channel means what it should only on linear data. The
+  window does not check.
+- Remove gradients first, with Background Extraction or Auto Gradient Removal. One constant per channel corrects no
+  gradient, no vignetting and no difference of gain between the channels.
+- **OK** replaces the image, and there is no preview. The image's history keeps the step before. When unsure, try
+  the settings on a duplicate.
+- The window needs the image to itself: close the other process windows open on it first.
+- A [mask](../../reference/glossary.md#mask) on the view blends the result with the original afterwards. The
+  measurement leaves it out.
+- On a sequence, the reference is measured once and every frame gets the same offsets.
 
-## Procedure
+## Steps
 
-1. Open **Process > Color Calibration > Background Neutralization** and confirm
-   **Target Image**.
-2. Choose the background **Reference image**. `<--TARGET IMAGE-->` is selected
-   by default and means the image the run changes.
-3. Leave **Region of interest** off to measure the whole reference, or turn it
-   on and either enter **Left**, **Top**, **Width** and **Height** or press
-   **From Selection** and drag a rectangle of clean sky on the reference view.
-4. Start with **Lower Limit** `0.0` and **Upper Limit** `0.1`. Samples on
-   either limit are kept. Raise **Lower Limit** above black borders and lower
-   **Upper Limit** below stars and bright structure, keeping background in
-   every channel.
-5. Press **OK**. The dialog, the reference's image and the view mask are read
-   at that moment; changing a field afterwards does not reach the run. A still
-   is processed on a worker without a progress window; a sequence shows
-   progress and **Cancel**.
-6. Success closes the window and adds a **Background Neutralization** Image
-   History step whose description is
-   `Reference image '<name>' (ROI X:<x>, Y:<y>, W:<width>, H:<height>)`.
-7. Compare background channel statistics under the same display stretch.
-   Continue to white or colour calibration only if the background is stable and
-   unclipped.
+1. **Open the window.** Make the RGB image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Color Calibration > Background Neutralization**.
+2. **Read the backgrounds.** Choose **Image > Information > Statistics** and note each channel's median. The limits
+   must hold the background of every channel.
+3. **Choose the reference.** Leave **Reference image** at `<--TARGET IMAGE-->` to measure the image itself. Choose
+   another open RGB image only when its background stands for this one's.
+4. **Set the limits.** Keep **Lower Limit** below the darkest channel's background and above any black border. Set
+   **Upper Limit** above the brightest channel's background and below the stars and the bright nebula.
+5. **Choose the area, if the frame is crowded.** Tick **Region of interest** and type the rectangle, or press **From
+   Selection** and drag a rectangle of clean sky on the reference's view.
+6. **Neutralize.** Choose **OK**. The window closes, the three channels share one background level, and the history
+   lists **Background Neutralization** with the reference and its rectangle.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Reference image | Open-image selector | `<--TARGET IMAGE-->` | None | `<--TARGET IMAGE-->` and every other open three-channel RGB view, the target being offered once, as `<--TARGET IMAGE-->`; may differ from the target in dimensions and representation | Chooses the image whose channel medians set all three offsets | A closed reference returns the selector to `<--TARGET IMAGE-->`; a selected view that holds no image when **OK** is pressed is refused with **The selected background reference image is no longer available.** | An unrepresentative reference transfers the wrong offsets to the target | Measured once when **OK** runs; the same offsets reach a still or every sequence frame | Window lifetime; Reset and reopening select `<--TARGET IMAGE-->` |
-| Lower Limit | Fraction of full scale | `0.0` | None | `0.0`–`1.0`; step `0.05`; six decimals; slider in thousandths | Raising it excludes darker samples; a sample equal to the limit is kept | Independent of Upper Limit; a Lower Limit above the Upper Limit keeps nothing | Too high, or above Upper Limit, leaves a channel with no sample, which is refused | Reference measurement, all three channels | Window lifetime; Reset restores `0.0` |
-| Upper Limit | Fraction of full scale | `0.1` | None | `0.0`–`1.0`; step `0.05`; six decimals; slider in thousandths | Raising it admits brighter samples; a sample equal to the limit is kept | Independent of Lower Limit | Too high admits stars and structure; too low may leave a channel with no sample | Reference measurement, all three channels | Window lifetime; Reset restores `0.1` |
-| Region of interest | Checkable group | Off | None | Off/On | On restricts the measurement to the rectangle; off measures the whole reference | Turning it on sets the rectangle to the whole selected reference; turning it off clears the fields to `0` and stops **From Selection** | A small clean region reduces contamination but holds fewer samples | Reference only; the target is never cropped | Window lifetime; Reset turns it off |
-| Left | Integer pixels | `0` when ROI is turned on | None | `0` to reference width − 1; Width's maximum becomes reference width − Left | Moves the rectangle right | Enabled with ROI | Changes the measured background population | Reference ROI | Window lifetime; Reset/turning ROI off clears to `0` |
-| Top | Integer pixels | `0` when ROI is turned on | None | `0` to reference height − 1; Height's maximum becomes reference height − Top | Moves the rectangle down | Enabled with ROI | Changes the measured background population | Reference ROI | Window lifetime; Reset/turning ROI off clears to `0` |
-| Width | Integer pixels | Reference width when ROI is turned on | None | `0` to reference width − Left; **OK** requires more than `0` | Widens or narrows the measured area | Enabled with ROI | A narrow rectangle holds fewer samples | Reference ROI | Window lifetime; Reset/turning ROI off clears to `0` |
-| Height | Integer pixels | Reference height when ROI is turned on | None | `0` to reference height − Top; **OK** requires more than `0` | Extends or shortens the measured area vertically | Enabled with ROI | A short rectangle holds fewer samples | Reference ROI | Window lifetime; Reset/turning ROI off clears to `0` |
-| From Selection | Checkable button and image-view drag | Unchecked | None | Drag or move one rectangle on the selected reference view | Starts an area selection on the reference view and copies its geometry into Left, Top, Width and Height; turning it off keeps the rectangle, or restores the whole reference when Width or Height is `0` | Inside the ROI group; changing the reference stops an active selection | Places the rectangle; processes nothing | Reference view | Window lifetime; Reset stops it |
-| Target Image | RGB image/sequence selector | The view the process was opened on | None | Open three-channel RGB views | Chooses the still or sequence to replace; changing it resets the dialog | Background Neutralization holds the chosen view exclusively | The wrong target will be changed | All three channels; view mask; still/sequence | Target lifecycle |
-| OK | Dialog action | Enabled while idle | None | Needs an available reference; an enabled ROI must be non-empty and lie wholly inside the reference | Reads the dialog, the reference and the view mask, then runs on a worker | OK, Cancel and Reset are disabled while it runs | Keeps the source for Image History; a sequence also writes a temporary output sequence | Apply; all channels; view mask; still/sequence | Success closes the window; a failure leaves it open |
-| Reset | Dialog action | Enabled while idle | None | One action | Restores the reference, both limits and the ROI to their defaults and stops **From Selection** | Disabled during a run | No pixel change | Setup only | No settings are saved |
-| Cancel | Dialog action | Enabled while idle | None | Button or title-bar close | Closes without applying | The button is disabled during a run; a title-bar close during a run hides the window, which closes once the run has landed; it does not stop the run | Nothing waits on the GUI thread | Dialog only | No settings are saved |
+What every process window shares is on [Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: Background Neutralization
+controls:
+  - name: Reference image
+    kind: combo
+    default: "<--TARGET IMAGE-->"
+    options: ["<--TARGET IMAGE-->"]
+    effect: Chooses the image whose channels' background levels set the three offsets. `<--TARGET IMAGE-->` is the image OK changes.
+    range: It also lists every other open RGB image or sequence, of any size and pixel type, and follows them as they open, close and are renamed. The target is offered once, as `<--TARGET IMAGE-->`. Each item's tooltip describes the image.
+    enabled: Closing the view chosen here returns it to `<--TARGET IMAGE-->`.
+    tradeoff: A reference whose background does not stand for the target's passes its offsets on unchanged, and gives the target a new cast.
+    scope: Measured once, when you press OK. Every frame of a sequence gets the same offsets. With `<--TARGET IMAGE-->`, a sequence is measured on the frame its view shows.
+    persistence: Until the window closes. **Reset** and another target return it to `<--TARGET IMAGE-->`.
+    note: The reference is never changed.
+  - name: Lower Limit
+    kind: spinbox
+    default: "0.000000"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 6}
+    effect: Sets the lowest sample that counts as background, as a fraction of full scale. Higher leaves darker samples out, such as black borders. A sample equal to the limit is kept.
+    range: The slider moves in thousandths. Nothing keeps it below **Upper Limit**, and above it no sample is kept and the run is refused. A signed integer image reads its zero code near 0.5, counted from its smallest value, so the default limits keep nothing in it.
+    tradeoff: Set too high, it leaves a channel without a sample, and the run is refused.
+    scope: The measurement only, in all three channels. It does not choose which samples change.
+    persistence: Until the window closes. **Reset** and another target return it to its default.
+  - name: Upper Limit
+    kind: spinbox
+    default: "0.100000"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 6}
+    effect: Sets the highest sample that counts as background. Lower leaves stars and nebula out. Higher keeps more of a background that sits high. A sample equal to the limit is kept.
+    range: The slider moves in thousandths. It must lie above the background of every channel, or that channel is measured on its darkest samples only.
+    tradeoff: Too high lets stars and bright structure into the median. Too low cuts a channel's background, or leaves it without a sample.
+    scope: The measurement only, in all three channels.
+    persistence: Until the window closes. **Reset** and another target return it to its default.
+  - name: Region of interest
+    kind: check
+    default: "Off"
+    effect: On, measures the rectangle that **Left**, **Top**, **Width** and **Height** give, in pixels of the reference. Off, measures the whole reference.
+    range: Ticking it sets the rectangle to the whole reference. Unticking it returns the four boxes to 0 and stops **From Selection**. Choosing another reference while it is ticked sets the rectangle to the whole new reference.
+    tradeoff: A small rectangle of clean sky keeps stars and nebula out, and holds fewer samples.
+    scope: The reference only. OK changes the whole target whatever the rectangle.
+    persistence: Until the window closes. **Reset** and another target untick it.
+  - name: Left
+    kind: spinbox
+    default: "0"
+    widget: {min: 0, max: 99, step: 1}
+    effect: Sets the rectangle's left edge. Higher moves it right.
+    range: The 99 the box opens with becomes the reference's width less 1 when you tick **Region of interest**. The maximum of **Width** follows, as the reference's width less **Left**.
+    enabled: With **Region of interest** ticked.
+    scope: The measurement. While **From Selection** is on, a change moves the rectangle on the reference's view.
+    persistence: Until the window closes. **Reset** and unticking **Region of interest** return it to 0.
+  - name: Top
+    kind: spinbox
+    default: "0"
+    widget: {min: 0, max: 99, step: 1}
+    effect: Sets the rectangle's top edge. Higher moves it down.
+    range: The 99 the box opens with becomes the reference's height less 1 when you tick **Region of interest**. The maximum of **Height** follows, as the reference's height less **Top**.
+    enabled: With **Region of interest** ticked.
+    scope: The measurement. While **From Selection** is on, a change moves the rectangle on the reference's view.
+    persistence: Until the window closes. **Reset** and unticking **Region of interest** return it to 0.
+  - name: Width
+    kind: spinbox
+    default: "0"
+    widget: {min: 0, max: 99, step: 1}
+    effect: Sets the rectangle's width. A narrow rectangle holds fewer samples.
+    range: Ticking **Region of interest** sets it, and its maximum, to the reference's width. OK refuses 0 and a rectangle that leaves the reference.
+    enabled: With **Region of interest** ticked.
+    persistence: Until the window closes. **Reset** and unticking **Region of interest** return it to 0.
+  - name: Height
+    kind: spinbox
+    default: "0"
+    widget: {min: 0, max: 99, step: 1}
+    effect: Sets the rectangle's height. A short rectangle holds fewer samples.
+    range: Ticking **Region of interest** sets it, and its maximum, to the reference's height. OK refuses 0 and a rectangle that leaves the reference.
+    enabled: With **Region of interest** ticked.
+    persistence: Until the window closes. **Reset** and unticking **Region of interest** return it to 0.
+  - name: From Selection
+    kind: button
+    default: "Off"
+    effect: On, lets you draw the rectangle on the reference's view. Drag a rectangle there, or move the one drawn, and the four boxes follow. Off stops drawing and keeps the rectangle.
+    range: Turning it on clears the four boxes until you drag. Turning it off while **Width** or **Height** is 0 returns the rectangle to the whole reference.
+    enabled: With **Region of interest** ticked. Choosing another reference stops it.
+    tradeoff: It places the rectangle and changes no sample.
+    scope: The reference's view. The target's view is drawn on only when it is the reference.
+    persistence: "**Reset**, unticking **Region of interest** and closing the window stop it."
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open RGB image or sequence]
+    effect: Chooses the image or sequence OK replaces. Choosing another one returns every other control to its default.
+    tradeoff: The image chosen here is the one replaced.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Measures the reference and changes the whole image, or every frame of the sequence. The window closes once the view shows the result.
+    enabled: At once, whatever the values. While the run works, OK, **Cancel** and **Reset** are disabled. The other controls stay editable, and a change does not reach the run.
+    tradeoff: The run holds floating-point working copies of the reference and of the image. A single image shows no progress window, and its run cannot be stopped once it starts. A sequence needs the disk space of a second copy.
+    scope: Every channel, through the mask on the view. Every frame of a sequence, whatever frames its player has selected, debayered first, by the method the sequence states, when the view debayers them.
+    persistence: "The image and its history keep the result, as the step **Background Neutralization** with the text `Reference image '<name>' (ROI X:<x>, Y:<y>, W:<width>, H:<height>)`. The name is the target's own when it is its own reference, and the rectangle is the whole reference while **Region of interest** is off. The limits are not recorded."
+    note: "A refused or failed run leaves the window open, and the image and its history as they were. A failure shows \"Error running background neutralization\" with \"An error occurred when executing the background neutralization process:\" and the reason, and writes them to the log. While another run holds a sequence, the busy message comes under the title Background Neutralization and nothing starts. When the history cannot keep the image, it says so once in a message titled \"Image History\"."
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Closes the window without changing the image.
+    enabled: Disabled while a run works.
+    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run goes on, on a sequence until the progress window's **Cancel** stops it.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Reference image** to `<--TARGET IMAGE-->` and both limits to their defaults, unticks **Region of interest**, returns its boxes to 0 and stops **From Selection**.
+    range: It leaves **Target Image** as it is.
+    enabled: Disabled while a run works.
+```
 
-### Conceptual pipeline
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: "Shows the share of the frames done, under the title **Background Neutralization** and the text `Executing background neutralization to sequence <name>`."
+    enabled: Only while OK works on a sequence. A single image has no progress window.
+    tradeoff: The new sequence is written to a temporary file, which needs its disk space until the run ends.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the run, before the next frame at the latest, without a message. The sequence stays as it was, with no history step, and the temporary file is removed.
+```
 
-1. On **OK**, on the GUI thread: read the reference selector, the limits and the
-   ROI; refuse a missing reference or an ROI that is empty or not wholly inside
-   the reference; take the reference's image as it is at that moment and the
-   view's enabled mask. The worker reads only these.
-2. Read the reference as fractions of full scale - an unsigned integer as a
-   fraction of its largest value, a signed one counted from its smallest, in a
-   Float32 working copy, Float64 for Float64 and the two 32-bit integers.
-3. For each of red, green and blue, keep the samples inside the rectangle that
-   are finite, that the image's validity rule admits, and that lie within the
-   closed interval `[Lower, Upper]`, and take their exact median.
-4. Average the three medians into one shared level, and give each channel the
-   offset that moves its median onto it.
-5. Add each channel's offset to every sample of the target the image's validity
-   admits, hold the result to `[0, 1]`, and bring it back to the target's own
-   representation to the nearest value. Weigh it by the view mask when one is
-   enabled.
-6. For a still image the result is an edit of the view: Image History records
-   the step before the view shows it. For a sequence, every frame is processed
-   with the same offsets; see Inputs, outputs, and metadata.
+## How it works
 
-### Model and equations
+1. **OK** reads the reference, the limits, the rectangle and the view's mask. A change made afterwards does not reach
+   the run.
+2. In each channel of the reference, inside the rectangle, the samples that are finite, valid under the image's
+   [validity rule](../../reference/glossary.md#validity-rule) and between the two limits, both included, are kept.
+   Samples are read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale). The exact median
+   of the kept samples is the channel's background level.
+3. The mean of the three levels is the shared level. Each channel's offset is the shared level less its own.
+4. Each valid sample of the target gets its channel's offset, is held between 0 and 1, and is written back in the
+   image's pixel type, rounded to the nearest value. The work is done in single precision, or double for a 64-bit
+   floating-point or 32-bit integer image. A mask on the view then blends the result with the original.
+5. The result replaces the target with one history step. Its header, acquisition data,
+   [plate solution](../../reference/glossary.md#plate-solution) and
+   [processing state](../../reference/glossary.md#processing-state) are kept, and its
+   [lineage](../../reference/glossary.md#lineage) gains an entry with the detail
+   `background neutralization: gains 1.000000, 1.000000, 1.000000; offsets <red>, <green>, <blue>`.
 
-Let `S_c` be the samples of reference channel `c` inside the rectangle that are
-finite, admitted by the image's validity, and satisfy
+### Model
 
-\[
-L \le x \le U.
-\]
+A channel's background level is the median of its kept samples: the middle one, or the mean of the two middle ones
+for an even count. With \(m_R\), \(m_G\) and \(m_B\) the three levels, the shared level is their mean:
 
-Let `m_c` be the exact median of `S_c` - the middle sample, or the mean of the
-two middle samples for an even count. The shared level is
+\[ L = \frac{m_R + m_G + m_B}{3} \tag{1} \]
 
-\[
-G=\frac{m_R+m_G+m_B}{3},
-\]
+A sample \(x_c\) of channel \(c\), between 0 and 1, then becomes
 
-and every normalized target sample becomes
+\[ x'_c = \min\bigl(1,\ \max(0,\ x_c + L - m_c)\bigr) \tag{2} \]
 
-\[
-O_c=\operatorname{clip}_{[0,1]}\left(I_c+G-m_c\right).
-\]
+When the image is its own reference and nothing is held at 0 or 1, each channel's level lands exactly on \(L\). With a
+separate reference, its offsets are applied to the target unchanged, whatever the target's own levels.
 
-When the target is its own reference and nothing clips, each channel's median
-within the limits moves exactly onto `G`. With a separate reference its offsets
-are applied unchanged to the target.
+### Boundaries
 
-An enabled view mask `M`, normalized to `[0,1]`, weighs the result:
+- A channel left without a kept sample is refused before anything changes, with "No green sample of the background
+  reference lies between the limits 0 and 0.1; widen the limits or choose another reference", naming the channel and
+  the limits.
+- A ticked **Region of interest** that is empty or leaves the reference is refused with "The background ROI must be
+  fully inside the reference image and have a non-zero size.", and nothing starts. A reference view that holds no
+  image when you press **OK** is refused with "The selected background reference image is no longer available."
+- Every result is held between 0 and 1: a negative offset can clip the darkest background at 0 and a positive one
+  star cores at 1. A floating-point sample above 1 is cut to 1 even where the offset is 0.
+- A pixel that the image's validity rule rejects is left as it was.
+- A single image's run has no progress window and cannot be stopped once it starts.
 
-\[
-O' = (1-M)\,I + M\,O,
-\]
+### Worked example
 
-and an inverted mask swaps the weights.
+An RGB image composed with Channel Composition from the night's red, green and blue
+[masters](../../reference/glossary.md#master), with its **Linear Match** off, keeps each filter's own sky. Image
+Statistics gives its channels medians of 0.0277, 0.0800 and 0.1031, so its background is blue-green. With the default
+limits, blue is measured on the 3 % of its samples below 0.1: its level reads 0.0997, and after **OK** blue stays
+0.0034 above the other two.
 
-### Boundary and failure behavior
+Set **Upper Limit** to 0.2 and leave the rest. The levels are then 0.0277, 0.0800 and 0.1031, equation (1) gives a
+shared level of 0.0702, and equation (2) adds 0.0426 to red, -0.0097 to green and -0.0328 to blue. After **OK** every
+channel's median is 0.0702, and the history step reads `Reference image '<name>' (ROI X:0, Y:0, W:7246, H:5429)`. On
+the master the other pages use, whose channels were already matched, the offsets are below 0.00001 and nothing
+visible changes.
 
-- The limits are a closed interval: a sample equal to either limit is kept.
-  The dialog does not prevent Lower Limit from exceeding Upper Limit; such a
-  range keeps nothing.
-- A channel with no kept sample - every sample outside the limits, non-finite,
-  rejected by the image's validity, or outside the rectangle - is refused
-  before anything changes. The run reports **Error running background
-  neutralization** with the text `An error occurred when executing the
-  background neutralization process:` followed by, for example, `No green
-  sample of the background reference lies between the limits 0 and 0.1; widen
-  the limits or choose another reference`, writes the same to the log, leaves
-  the image and its history as they were, and keeps the window open.
-- An enabled ROI must have a positive Width and Height and lie wholly inside
-  the reference; otherwise the window shows **The background ROI must be fully
-  inside the reference image and have a non-zero size.** and starts nothing.
-- The transform is one constant per channel. It cannot correct spatial
-  gradients, vignetting, local colour structure, or multiplicative response.
-- Results are held to `[0, 1]`: a negative offset can clip shadows at `0`,
-  and a positive offset can clip highlights at full scale.
-- An engine refusal, such as memory the session cannot provide, is reported
-  under the same title with its reason, and nothing changes.
-- A still run cannot be stopped once it starts. If another run already holds a
-  sequence view, the view's busy warning titled **Background Neutralization**
-  is shown and nothing starts. If Image History cannot keep the image the step
-  replaces, the history says so once, in a message titled **Image History**,
-  and the image and its history are left as they were.
+```figure
+images:
+  - image: ../../assets/images/processes/color-calibration/background-neutralization-before.webp
+    alt: The whole composed frame before Background Neutralization, the sky a strong blue-green under the nebula's clouds.
+    label: Before
+  - image: ../../assets/images/processes/color-calibration/background-neutralization-after.webp
+    alt: The whole frame after Background Neutralization, the sky a neutral dark gray under the same clouds.
+    label: After
+caption: >-
+  The composed image before and after OK with Upper Limit at 0.2. Both are the whole frame stretched afterwards by
+  Histogram Transformation with Shadows 0.06 and Midtones 0.03, and shown in the Linear display mode.
+```
 
-## Parameter interactions and starting points
+## Starting points
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| ROI + limits | Clean-sky ROI; `0.0`–`0.1`; inspect channel statistics before and after | Residual background cast because bright structure dominates or the range misses part of the background | Shadows or highlights clip, or the whole image receives an offset from a tiny or coloured patch | Correct gradients, place the ROI, raise Lower above invalid borders, then adjust Upper |
-| Separate reference + target | Prefer the target itself; use a separate reference only from the same acquisition and processing state | Target remains biased because the reference's backgrounds do not match it | A new cast from transferring unrelated offsets | Verify matching calibration, filter and gradient state before choosing a separate reference |
-| View mask + neutralization | Run unmasked; enable a soft mask only for an intentional local blend | The mask is dark, so little correction appears | A hard mask edge produces a local colour discontinuity | Establish the reference settings first, then enable, soften or invert the view mask |
-| Background Neutralization + Color Calibration | Gradient removal → neutralize additive offsets → calibrate channel gains → stretch | Background or white balance remains biased | Repeated passes clip data or chase one correction with another | Fix gradients first, neutralize once, apply gain or colour calibration, then recheck statistics |
-
-## Inputs, outputs, and metadata
-
-- The target and the reference are three-channel RGB images. The reference is
-  never modified; while the run reads it, it is read under a lease of the
-  run's own.
-- **OK** replaces one target still or sequence. Dimensions, channel layout and
-  sample representation (any of the eight) are kept; every sample is worked as
-  a fraction of full scale, held to `[0, 1]`, and brought back to the nearest
-  value of the representation. Samples the image's validity rejects are left
-  as they were.
-- The result keeps the image's description, validity, acquisition record, plate
-  solution, header cards and meaning. No processing state is stated. The
-  image's lineage records `an::applyColorCalibration` with the detail
-  `background neutralization: gains 1.000000, 1.000000, 1.000000; offsets
-  <red>, <green>, <blue>`.
-- On a still image the result is one **Background Neutralization** Image
-  History step described as
-  `Reference image '<name>' (ROI X:<x>, Y:<y>, W:<width>, H:<height>)`. The
-  name is the target's own name when the reference is the target, and the
-  rectangle is the whole reference when **Region of interest** is off. The
-  limits are not written into the description.
-- On a sequence, Background Neutralization takes the view for the run, reads
-  every frame - every one, whatever the player has selected - applies the same
-  offsets to each, writes the frames into a new temporary sequence of the same
-  container, publishes it whole, and shows it in the view as one Image History
-  step. The progress window reads `Executing background neutralization to
-  sequence <name>`. A run that fails or is cancelled leaves the sequence as it
-  was and nothing in the temporary directory.
-
-## Performance
-
-The measurement reads the reference once into a floating working copy and marks
-the samples it keeps; the apply makes a floating working copy of the target and
-the result in the target's representation. A still run keeps the source image
-for Image History beside the result. A sequence additionally needs the
-temporary output sequence; work and disk use scale with frame count and
-dimensions. The process has no result preview, so prototype on a duplicate or
-a representative still.
-
-## Worked example
-
-- Input condition and settings: a linear RGB master after gradient correction,
-  used as its own reference; ROI over clean sky; Lower `0.0`; Upper `0.1`; no
-  view mask. Suppose the medians within the limits are red `0.050`, green
-  `0.060` and blue `0.070`.
-- Expected checkpoint: the shared level is `0.060`; the offsets are red
-  `+0.010`, green `0.000` and blue `−0.010`. A pixel `(0.200, 0.300, 0.050)`
-  becomes `(0.210, 0.300, 0.040)`; a blue sample of `0.005` becomes `0`. The
-  history step names the target and the ROI.
-- Inspect at 100%/statistics/history: compare the channel background medians,
-  shadow clipping, and the history step.
-- Limitations: focused synthetic tests prove the measurement, the offsets, the
-  clamp and the step text; this is not evidence of real-data neutrality,
-  timing, or memory.
-
-## Warnings and limitations
-
-- **OK** replaces the target and there is no result preview.
-- Use linear data. A nonlinear stretch changes the meaning of an additive
-  offset per channel.
-- Correct spatial gradients first. The process applies one constant per
-  channel.
-- Limits that leave any channel without a kept sample stop the run with an
-  error naming that channel; the dialog does not prevent Lower Limit from
-  exceeding Upper Limit.
-- A signed integer image reads its zero code near `0.5`, so the default limits
-  usually keep nothing in it.
-- A separate reference transfers its offsets; it does not adapt them to the
-  target.
-- The view mask controls only how the result is blended, not what is measured.
-- The limits are not written into the history description.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| **The selected background reference image is no longer available.** | The selected reference view holds no image when **OK** is pressed; a closed reference instead returns the selector to `<--TARGET IMAGE-->` | Choose an open RGB reference |
-| **The background ROI must be fully inside the reference image and have a non-zero size.** | The enabled ROI is empty or overhangs the reference | Turn ROI off for the whole image, use **From Selection**, or correct the fields |
-| **Error running background neutralization** with `No <channel> sample of the background reference lies between the limits <L> and <U>; widen the limits or choose another reference` | That channel of the reference, inside the ROI, has no finite valid sample with `L ≤ x ≤ U`, or Lower exceeds Upper; nothing changes | Widen the limits, restore Lower ≤ Upper, move the ROI, or choose a reference whose background lies within the limits |
-| **Error running background neutralization** with another reason | The engine refused the run, for example for memory | Read the message and the log, free memory, and retry |
-| A signed integer image is refused with the default limits | Its background reads near `0.5` of full scale | Set the limits around the background as the image reads it |
-| Result is clipped | The offsets are large or the reference does not match the target | Undo; choose a clean, matching reference; inspect clipping |
-| Background cast remains | A spatial gradient remains, the ROI or reference is contaminated, or the channel balance is multiplicative | Correct gradients; choose a clean target ROI; then use Color Calibration, PCC or SPCC for gains |
-| An **Image History** error, and nothing is applied | Image History could not keep the image the step replaces; it says so once | Free memory and run again |
-| Busy warning titled **Background Neutralization** | Another run holds the sequence view | Wait for it to finish, then run again |
-| Sequence does not change after Cancel | A stopped run publishes nothing | Run again |
-| Closing during a run does not stop it | A title-bar close hides the window until the run lands | Use the sequence progress **Cancel**, or wait for a still run |
+| An image composed from mono masters | `<--TARGET IMAGE-->`, **Upper Limit** above the brightest channel's median | Check each channel's median in Image Statistics after **OK**. |
+| Nebula fills most of the frame | **Region of interest** over the darkest clean sky | Lower **Upper Limit** below the faint nebula inside the rectangle. |
+| Black borders after registration | **Lower Limit** just above the borders' level | Crop the borders first when you can. |
+| A correction in one part of the image | The settings above, with the mask off | Enable a soft mask, check its edges, then press **OK**. |
 
-## Related workflow steps
+## When it goes wrong
 
-Run [Background Extraction](../background-extraction/background-extraction.md)
-or [Auto Gradient Removal](../background-extraction/auto-gradient-removal.md)
-before neutralization. Follow with [Color Calibration](color-calibration.md),
-[Photometric Color Calibration](photometric-cc.md), or [Spectrophotometric Color
-Calibration](spectrophotometric-cc.md) for multiplicative channel balance.
-Stretch only after the linear colour workflow, for example with
-[Histogram Transformation](../stretching/histogram-transformation.md).
+!!! warning "OK changes the image without a preview"
+    The window shows no result before **OK**, and the step replaces the image. Read the channels' medians first, and
+    use the image's history to return to the image before the step.
+
+"Error running background neutralization", with "No red sample of the background reference lies between the limits"
+:   **Cause.** That channel has no finite, valid sample between the limits inside the rectangle, or **Lower Limit** is
+    above **Upper Limit**.
+:   **Fix.** Widen the limits around the channel's median, move the rectangle, or choose another reference.
+
+One channel still sits above the other two after OK
+:   **Cause.** Its background lies above **Upper Limit**, so it was measured on its darkest samples only.
+:   **Fix.** Undo the step, raise **Upper Limit** above that channel's median, and press **OK** again.
+
+"The background ROI must be fully inside the reference image and have a non-zero size."
+:   **Cause.** **Region of interest** is ticked, and its rectangle is empty or reaches past the reference.
+:   **Fix.** Untick it to measure the whole reference, or draw the rectangle again with **From Selection**.
+
+"The selected background reference image is no longer available."
+:   **Cause.** The view chosen in **Reference image** held no image when you pressed **OK**.
+:   **Fix.** Choose an open RGB image, or `<--TARGET IMAGE-->`, and press **OK** again.
+
+The background is neutral, but the nebula's colors are wrong
+:   **Cause.** The window adds an offset to each channel and changes no gain.
+:   **Fix.** Balance the gains next, with Color Calibration, Photometric Color Calibration or Spectrophotometric Color
+    Calibration.
+
+A cast remains in a corner or along one side
+:   **Cause.** The cast is a gradient, and one constant per channel cannot follow it.
+:   **Fix.** Undo the step, remove the gradient with Background Extraction or Auto Gradient Removal, then neutralize.
+
+Star cores or the darkest sky are clipped after OK
+:   **Cause.** The offsets pushed samples past 0 or 1, or the reference does not match the target.
+:   **Fix.** Undo the step, measure the image itself or a clean rectangle of it, and check for samples above 1 first.
+
+A signed integer image is refused with the default limits
+:   **Cause.** Its zero code reads near 0.5, above **Upper Limit**.
+:   **Fix.** Read its medians in Image Statistics and set both limits around them.
+
+## Related
+
+- [Background Extraction](../background-extraction/background-extraction.md) and
+  [Auto Gradient Removal](../background-extraction/auto-gradient-removal.md), which remove the gradients first.
+- [Color Calibration](color-calibration.md), [Photometric Color Calibration](photometric-cc.md) and
+  [Spectrophotometric Color Calibration](spectrophotometric-cc.md), which balance the channels' gains after.
+- [Linear Match](linear-match.md), which matches each channel's level and spread to another image's.
+- [Channel Composition](../color-composition/channel-composition.md), which composes an RGB image from mono masters.
+- [Image Statistics](../../interface/image-statistics.md), to read each channel's median before and after.
+- [Process Windows](../../interface/process-windows.md), for what every process window shares.

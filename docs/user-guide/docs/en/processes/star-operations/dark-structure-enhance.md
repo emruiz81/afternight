@@ -3,344 +3,344 @@ kind: process
 stage: finish
 menu: Process > Details > Dark Structure Enhance
 summary: >-
-  Darkens the structures that are darker than their surroundings, such as dust lanes, through a mask it builds from
-  the image.
+  Darkens the places that are darker than their large-scale surroundings, such as dust lanes and dark nebulae, through
+  a mask it builds from the image with a starlet transform.
+data_in: nonlinear
 data_out: nonlinear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Dark Structure Enhance window is open on it yet, and no window that
+    needs the image for itself is open on it.
+  inputs: One grayscale or RGB image or sequence, of any pixel type, and an optional mask of the image's size on its view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, channels and pixel type are kept. With Create mask image
+    on, an Apply to a single image also opens the mask it used as a new image.
+  state: A stretched image, mono or RGB, whose dust lanes or dark nebulae should stand out more.
+derived: false
+rewritten: true
 ---
 # Dark Structure Enhance
 
-## Purpose and expected result
+Dark Structure Enhance makes the dark structures of a picture darker: dust lanes, dark nebulae and the gaps between
+bright clouds. It measures where the image is darker than its own smooth surroundings, with two smoothings of the
+[starlet transform](../../reference/glossary.md#starlet-transform), and turns that measurement into a
+[mask](../../reference/glossary.md#mask). Then it darkens the image through the mask with a
+[midtones transfer function](../../reference/glossary.md#midtones-transfer-function). It sharpens no bright detail and
+detects no stars.
 
-Dark Structure Enhance builds a grayscale mask of the places darker than their
-own multiscale surroundings, applies a darkening midtones transfer through that
-mask, and can open the mask as a separate image. It is most useful late in
-nonlinear processing for emphasizing dust lanes and dark nebular structure. It
-does not sharpen bright detail, detect stars, or perform local deconvolution.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the darkened one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear. **Create mask image** also opens
+the mask as an image of its own.
 
-At the defaults, the process compares the selected channel or component with a
-large-scale starlet smoothing of itself, rescales and denoises the difference
-into a mask, maps Amount `0.40` to midtones `0.70`, and applies one masked pass.
-**Apply** replaces the selected still, or every frame of the selected sequence,
-only after the whole run succeeds. On a still, **Create mask image** also opens
-the mask the enhancement used as a Float32 grayscale image named
-`<target> - DarkStructureEnhance Mask` beside the target.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Details > Dark Structure Enhance**. The window is titled **DarkStructureEnhance** followed by the target's name in angle brackets |
-| Enabled when | An image or sequence is active. Without one the launch reports an error; it is refused with a warning when this process is already attached to the image or an attached process holds the image to itself |
-| Input | Selected still or every sequence frame, in any integer or floating representation; RGB/Grayscale or one selected RGB/derived component |
-| Recommended state | Nonlinear, already stretched image; start on CIE L* or RGB and protect stars/noise with an active target mask if needed |
-| Main output | Replaces the selected still in place, or writes every frame to a temporary sequence that replaces the selected sequence only on success; geometry, representation, and channel layout are preserved; the result is recorded nonlinear |
-| Internal mask | Float32 grayscale dark-structure mask. RGB averages the three channels' measurements equally into one mask; a selected component builds it from that component alone. Generated mask Preview shows it on a color target repeated over the three channels |
-| Optional mask output | Still Apply only. Preview, snapshots, and sequence Apply never publish the separate mask even when checked |
-| Active target mask | Supported as a second, outer mask after Dark Structure Enhance. In Generated mask mode it also blends the mask preview with the target; disable it to inspect the internal mask alone |
-| Preview | On by default with a centered `800 x 800` Preview area, clipped to the image. Processed image or Generated mask modes, display autostretch, snapshots, and original/result switching are available; the Processed image Preview is what Apply writes |
-| Sequence support | Every frame is processed as Apply processes a still image of it, into a temporary sequence that replaces the selected sequence only on success; the view's auto-debayer setting and Cancel apply |
-| External dependencies | None; bundled AfterNight engine only |
+```figure
+image: ../../assets/images/processes/star-operations/dark-structure-enhance.webp
+alt: >-
+  The DarkStructureEnhance window. On the left, the Layers to Remove, Amount and Iterations boxes with their sliders,
+  the Scaling Function and Preview Mode lists, then Target Image and Channel at RGB. Near the bottom, the Preview box
+  ticked and Create mask image unticked. On the right, the preview shows a red nebula crossed by dark lanes on a gray
+  background, and a framed area in the middle shows the darkened result. Reset, Close and Apply run along the bottom.
+caption: >-
+  Dark Structure Enhance on a stretched master at its defaults, with its preview area in the middle.
+pins:
+  - {n: 2, x: 2.0, y: 47.1}
+  - {n: 3, x: 2.0, y: 37.8}
+  - {n: 4, x: 2.0, y: 20.1}
+  - {n: 5, x: 2.0, y: 29.0}
+  - {n: 6, x: 34.5, y: 40.0}
+  - {n: 7, x: 90.6, y: 96.0}
+```
 
 ## Before you start
 
-1. Work on a duplicate or ensure the target can be restored from history;
-   Apply is destructive.
-2. Prefer a nonlinear target. The operation applies a nonlinear midtones
-   transfer and is designed to deepen already visible dark structures.
-3. Disable the target's active mask before examining **Generated mask**. The
-   active mask is applied outside this process and mixes the diagnostic preview
-   with the target.
-4. Layers to Remove runs from `7` to `10`, the deepest smoothing the engine's
-   starlet transform holds.
-5. Make the final check on a full-frame preview. The default area is faster,
-   but its starlet border context and both extreme-based rescales differ from
-   full Apply.
-6. For a sequence, budget temporary disk space and note that **Create mask
-   image** has no sequence output.
+- [Stretch](../../reference/glossary.md#stretch) the image first. The darkening is a curve made for a picture whose
+  dark structures already show.
+- **Apply** replaces the image. Its history keeps the step before, and this window has no inverse.
+- Correct gradients first. A slope in the background can read as a broad dark structure.
+- A mask on the view blends the result with the original afterwards, as a second mask.
+- On a sequence, every frame gets the same settings and a mask built from its own samples, and the mask on the view
+  is used for every frame. **Create mask image** opens nothing, and the run needs the disk space of a second copy.
 
-## Procedure
+## Steps
 
-1. Activate the target and open **Process > Details > Dark Structure Enhance**.
-2. Confirm **Target Image** and choose **RGB**, **CIE L* (Lightness)**, or another
-   component. CIE L* is a conservative color-preserving starting point.
-3. Choose **Generated mask** in Preview Mode. Temporarily disable any active
-   target mask, then inspect whether bright mask values follow the intended dark
-   lanes instead of background gradients, star surroundings, or noise.
-4. Tune **Layers to Remove** first, between `7` and `10`, then **Scaling
-   Function**. More layers move the comparison smoothing to coarser scales;
-   5x5 B3 Spline is smoother and more expensive than 3x3 Linear Interpolation.
-5. Return Preview Mode to **Processed image**. Start with Amount `0.40` and one
-   Iteration. Inspect the dark lanes, background, bright-star surroundings, and
-   color at 100%.
-6. Increase Amount or Iterations one at a time. Amount changes the transfer
-   curve; Iterations reapplies that curve through the same fixed mask.
-7. Disable **Preview area** for the final whole-frame check. Re-enable the target
-   active mask if it should constrain the committed effect.
-8. Optionally check **Create mask image**, then Apply. Verify the target
-   history, clipping, and, on a still, the separate mask's name and content.
+1. **Open the window.** Make the stretched image active and choose **Process > Details > Dark Structure Enhance**.
+   The window is titled DarkStructureEnhance, and the preview shows the result inside a framed area in the middle.
+2. **Choose what to measure.** Leave **Channel** at **RGB**, or choose **CIE L* (Lightness)** to darken the
+   lightness alone and keep the colors closer.
+3. **Look at the mask.** Set **Preview Mode** to **Generated mask**, with the view's mask off. The dust lanes should
+   be brighter than the plain background, and the star cores dark.
+4. **Set the scale.** Change **Layers to Remove** until the mask follows the dark lanes rather than background
+   slopes, star surroundings or noise. Then try the other **Scaling Function**.
+5. **Set the strength.** Return **Preview Mode** to **Processed image** and adjust **Amount**. Change **Iterations**
+   only after it.
+6. **Check the whole image.** Untick [**Preview area**](../../reference/glossary.md#preview-area) in the preview's
+   toolbar, or in the menu at its end. Zoom to 100 % on the dark lanes and the stars beside them, and press
+   ++space++ to compare.
+7. **Apply.** Tick **Create mask image** to keep the mask, then choose **Apply**. The dust lanes are darker, the
+   history lists **DarkStructureEnhance**, and the mask opens beside the image when you asked for it.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Layers to Remove | Integer starlet depth | `8` | None | `7`–`10`, step `1`; `10` is the deepest smoothing the engine's starlet transform holds | Moves the comparison smoothing to coarser dyadic scales as it rises | Always affects the internal mask; does not alter the transfer curve; disabled during Apply | Higher values cost more smoothing passes but no more memory, and can broaden selection or become border-dominated on small crops | Internal mask for Preview/Apply; all selected source channels | Captured per run; Reset/success restore `8`; not kept between openings |
-| Scaling Function | Starlet kernel selector | **5x5 B3 Spline** | None | **3x3 Linear Interpolation**, **5x5 B3 Spline** | Chooses `[1,2,1]/4` or `[1,4,6,4,1]/16` for the fixed six-scale and selected-depth smoothings | The mask denoise always uses 3x3 Linear regardless; disabled during Apply | B3 is smoother/wider and performs more taps; Linear can retain harder boundaries | Internal mask only | Captured; Reset/success restore B3 |
-| Amount | Midtones strength | `0.40` | None | `0.00`–`0.99`; step `0.01`; maps to midtones `m=0.5+0.5 Amount` | `0` is identity; higher values darken in-mask midtones more strongly | Does not affect the generated mask although it reruns the preview; disabled during Apply | High values crush dark detail; mask cost is paid even at zero | Processed result only; selected Channel | Captured; Reset/success restore `0.40` |
-| Iterations | Masked transfer pass count | `1` | None | `1`–`10`; step `1` | Reapplies the same curve to the evolving result through the same fixed mask | Does not rebuild or change the mask; disabled during Apply | Effect and transfer/blend cost grow with count; high values can posterize or crush shadows | Processed result; selected Channel | Captured; Reset/success restore `1` |
-| Preview Mode | Selector | **Processed image** | None | Processed image, Generated mask | Chooses what the preview computes and shows | Enabled only while Preview is checked; disabled during Apply; Apply always enhances the target | Generated mask builds the mask only, as a Float32 grayscale image - repeated over the three channels of a color target - and skips the iterations | Preview and snapshot only | Window lifetime; Reset/success restore Processed image |
-| Target Image | Image/sequence selector | Attached active view | None | Open image or sequence | Changes source, active mask, Channel list, Apply destination, and sequence target | Active target required to launch; disabled during Apply | Wrong target is destructively replaced | Preview/Apply/mask publication | Reset unchanged |
-| Channel | Process-component selector | **RGB** for color; disabled **Grayscale** for grayscale | None | RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue/Saturation/Lightness, HSV Hue/Saturation/Value, YCbCr Luma/Blue Chroma/Red Chroma | RGB builds one mask from the equal channel average and darkens every channel through it; another choice extracts that component in the unit interval, processes it alone, and puts it back | Color target required for components; disabled during Apply | Lightness/luma reduce color shifts; hue/chroma processing can be unstable or clip on reconstruction | Preview/Apply/internal mask; still/sequence; named in the history step | Reset/success leave selection unchanged |
-| Preview | Checkbox | On | None | Off/On | Creates/destroys the asynchronous preview | Preview Mode enabled only when on; disabled during Apply | Each preview run works on a copy of the target or of the Preview area; a burst of changes collapses into one run with the latest values, and Apply cancels a preview in progress | Current still/displayed frame; active-mask aware | Reset/success leave state unchanged |
-| Create mask image | Checkbox | Off | None | Off/On | After a successful still Apply, opens the internal mask as `<target> - DarkStructureEnhance Mask` beside the target | Ignored for Preview, snapshots, and sequence Apply; disabled during Apply | Adds one full-size Float32 mask image; target processing is unchanged | Still Apply auxiliary output only | Captured; Reset/success turn it off |
-| Preview pane | Image viewer | Selected mode; centered `800 x 800` area | Execution autostretch supported | Pan/scroll and actions below | Shows the post-active-mask result Apply would write, or the mask | Preview required | Holds source/result/display buffers and the run's working images | Preview only | Preview lifetime |
-| Fit To Window | Preview action | Fitted initially | None | Click or **Ctrl+Shift+F** | Fits whole image | Preview required | Resampling can hide fine mask/noise artifacts | Display only | Viewer lifetime |
-| Zoom In | Preview action | Current scale | None | Click; `1.25x` relative zoom | Enlarges detail around the viewport center | Preview required | Less spatial context | Display only | Viewer lifetime |
-| Zoom Out | Preview action | Current scale | None | Click; `0.8x` relative zoom | Shows more context | Preview required | Less pixel detail | Display only | Viewer lifetime |
-| Zoom 100% | Preview action | Current scale | None | Click; absolute scale `1.0` | Shows one image pixel per display pixel | Preview required | Best for noise, mask edges, clipping, and color artifacts | Display only | Viewer lifetime |
-| View Channel | Preview selector | Follows the shown image's channels | None | Stored/derived RGB and color-space display components, or Grayscale | Changes display component only | Separate from process Channel | Helps reveal color shifts | Display only | Viewer lifetime |
-| Display Mode | Preview selector | Follows the target view (Linear or Autostretch) | None | Linear, Autostretch | Changes visualization only | Autostretch enables settings | Stretch can conceal shadow clipping or exaggerate mask noise | Display only | Preview-view state |
-| Autostretch Settings | Preview dialog action | Disabled in Linear mode | Shared values load when opened | Opens display controls; Apply Stretch hidden | Tunes preview display | Autostretch mode only | Does not change target/mask samples | Display only | Viewer-scoped |
-| Switch image | Preview action | Current result/mask shown | None | Click, **Space**, right-click, or **Ctrl+Shift+O** | Toggles to original target | Preview required | In Generated mask mode, compares mask/original rather than processed/original | Display only | Preview lifetime |
-| Preview area | Preview checkbox/overlay | On with a centered `800 x 800` area, clipped to the image | None | Off/On; move/resize | Runs the Preview over the selected area only and shows that result over the rest of the image as it was; in Generated mask mode the mask is shown inside the area and the image around it | Preview required; disabled during Apply; Apply always uses the full image | Faster and lower memory; inside the area the result is what Apply makes of an image of that area, whose crop-local extremes and borders do not match full Apply | Preview/snapshot only; active mask cropped consistently | Preview lifetime |
-| Take snapshot | Preview action | No snapshot | None | Click or **Ctrl+Shift+K** | Runs the current Preview Mode again and opens `<target> - DarkStructureEnhance - SNAPSHOT`; with Preview area on, the snapshot is the composite the Preview showed | Preview required; disabled during Apply | A Processed image snapshot keeps the source's metadata and is not recorded nonlinear; a Generated mask snapshot is the Float32 mask, grayscale or repeated over a color target's three channels | New still; target unchanged; no Create-mask side output | Each click creates a view |
-| Active target mask | Existing target-view mask | Target state | None | Enabled/disabled and normal/inverted in target controls | Outer blend between original source and complete Dark Structure result | Ordinary process masking remains enabled; in Generated mask mode it blends the mask preview with the target | Useful protection, but can obscure internal-mask diagnosis; fixed mask is reused for sequence frames | After internal mask/transfer; Preview/Apply/snapshot; still/sequence | Target-view state; Reset unchanged |
-| Apply | Dialog action | Enabled while idle | None | Click | Processes the full still in place, or every frame into a temporary replacement sequence | Requests the target lock; during the run Target, Channel, every process setting, Preview, Preview Mode, Create mask image, Apply, Reset, Close, and the Preview pane's snapshot and area actions are disabled | Mask build plus iterations; destructive, but the target changes only when the run succeeds | Full target; selected Channel; active mask; still/sequence | Adds one history step, records the result nonlinear, then resets parameters/Preview Mode/Create mask; keeps Target/Channel/Preview |
-| Reset | Dialog action | Enabled while idle | None | Click | Restores `8`, B3, `0.40`, `1`, Processed image, and Create mask off | Leaves Target, Channel, Preview, active mask, and preview toolbar/area unchanged; disabled during Apply | Checked Preview schedules another run | Configuration only | Immediate; also runs after a successful Apply |
-| Close | Dialog action | Enabled while idle | None | Click | Closes without another Apply | Disabled during Apply; closing the window while a run is in progress hides it at once, and it closes when the run has landed | Nothing waits on the GUI thread | Dialog/execution | Nothing is stored between openings |
-| Progress / Cancel | Progress dialog with Cancel | Created for still and sequence Apply | None | Cancel | Shows activity rather than a percentage; a sequence also reports its frames; Cancel stops the run and publishes nothing | Apply only | The engine checks for Cancel at stage, layer, iteration, and row-block boundaries | Still/sequence; a cancelled sequence's temporary file is removed; no mask image | Per run |
+**Target Image**, **Channel**, **Preview**, the preview pane, **Close** and the progress window work as in every
+process window: see [Process Windows](../../interface/process-windows.md). The entries below hold what is particular to
+this window, which has no histogram.
 
-## How the algorithm works
+```controls
+window: DarkStructureEnhance
+controls:
+  - name: Layers to Remove
+    kind: spinbox
+    default: "8"
+    widget: {min: 7, max: 10, step: 1}
+    effect: Sets how coarse the smooth surroundings are that the image is compared with. Higher compares with a smoother picture and selects broader structures. Lower selects narrower ones.
+    range: Whole layers. 10 is the deepest smoothing the transform holds, with taps 512 pixels apart.
+    enabled: Disabled while Apply runs.
+    tradeoff: Each layer more costs two more smoothing passes over each channel, and no more memory. On a small preview area a high value reaches far past the area's edges, and the mask is ruled by them.
+    scope: The mask only, in the preview and in Apply, from every channel the run reads. It does not change the curve.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Scaling Function
+    kind: combo
+    default: 5x5 B3 Spline
+    options: [3x3 Linear Interpolation, 5x5 B3 Spline]
+    effect: Chooses the kernel of the two smoothings the mask is measured with. **5x5 B3 Spline** smooths more widely and softly. **3x3 Linear Interpolation** keeps harder edges.
+    range: "The kernels are `[1, 2, 1] / 4` and `[1, 4, 6, 4, 1] / 16`, applied along the rows and then along the columns. The cleaning of the mask always uses the linear one."
+    enabled: Disabled while Apply runs.
+    tradeoff: The B3 spline reads five samples in each pass where the linear kernel reads three, so it costs more.
+    scope: The mask only.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to **5x5 B3 Spline**.
+  - name: Amount
+    kind: spinbox
+    default: "0.40"
+    widget: {min: 0, max: 0.99, step: 0.01, decimals: 2}
+    effect: Sets how strongly the masked places are darkened. Higher darkens their midtones more. At 0 the curve changes nothing.
+    range: It sets the curve's midtones balance to 0.5 plus half the value, so the default gives 0.70 and the whole range darkens.
+    enabled: Disabled while Apply runs.
+    tradeoff: A high value crushes the detail inside the dark structures. At 0 the mask is still built, and its cost paid.
+    scope: The darkening, on what **Channel** selects. It does not change the mask, although a **Generated mask** preview is computed again when it changes.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Iterations
+    kind: spinbox
+    default: "1"
+    widget: {min: 1, max: 10, step: 1}
+    effect: Sets how many times the curve is applied through the mask. Each pass darkens the result of the one before again.
+    range: The mask is built once, before the first pass, and is the same for every pass.
+    enabled: Disabled while Apply runs.
+    tradeoff: Each pass adds a curve and a blend over every channel. A few passes crush the shadows quickly and can show steps between tones.
+    scope: The darkening, on what **Channel** selects. It does not change the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Preview Mode
+    kind: combo
+    default: Processed image
+    options: [Processed image, Generated mask]
+    effect: Chooses what the preview shows. **Processed image** is what Apply writes. **Generated mask** is the mask the darkening goes through, white where it darkens fully and black where it leaves the image alone.
+    range: The mask is a 32-bit floating-point grayscale image, shown over the three channels of a color image. It is built without the passes of **Iterations**.
+    enabled: While **Preview** is on. Disabled while Apply runs.
+    tradeoff: A mask on the target's view blends the mask preview with the image, as it blends a result. Turn the view's mask off to read the mask alone.
+    scope: The preview and **Take snapshot** only. Apply always darkens the image. In **Generated mask**, switching to the original compares the mask with the image, and a preview area shows the mask inside the area and the image around it.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to **Processed image**.
+    note: A snapshot in **Generated mask** is that mask, recorded as nonlinear with the operation `dark-structure-mask`. A snapshot in **Processed image** keeps the target's record and is not recorded as nonlinear. Neither opens a mask image.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
+    persistence: Until the window closes. **Reset** leaves it.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses what is measured and darkened. **RGB** builds one mask from the three channels, averaged with equal weights, and darkens each channel through it. Any other choice builds the mask from that channel or component alone and darkens it alone.
+    enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
+    tradeoff: A lightness or a luma component changes the colors least. With **RGB** the three channels share one mask, which can shift colors. A hue or chroma component can jump, or leave the range on its way back to RGB.
+    scope: The mask, the preview and Apply, on images and sequences. The history step names the choice.
+    persistence: Until the window closes. **Reset** leaves it. A finished Apply or another target returns it to **RGB**.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the preview beside the controls. Off removes it and disables **Preview Mode**.
+    enabled: Disabled while Apply runs.
+    tradeoff: Inside a preview area the mask is measured on the area alone. Its smoothings reach the area's reflected edges and its rescalings use the area's own extremes, so the result there can differ a lot from what Apply writes.
+    scope: "The window only. The preview opens with a preview area of 800 by 800 pixels in the middle of the image, labelled \"Preview: DarkStructureEnhance\", and its toolbar offers **Display Mode**."
+    persistence: Until the window closes. **Reset** leaves it.
+  - name: Create mask image
+    kind: check
+    default: "Off"
+    effect: On, a finished Apply also opens the mask it darkened through, as a new grayscale image named `<target> - DarkStructureEnhance Mask` beside the target.
+    range: "The mask is 32-bit floating point, of the target's size. Its history starts with `DarkStructureEnhance: mask created from '<target>'`."
+    enabled: Disabled while Apply runs. It counts only for an Apply to a single image. The preview, a snapshot and an Apply to a sequence open no mask image.
+    tradeoff: One more full-size image in memory. The darkening is the same either way.
+    scope: The new image keeps the target's acquisition data, plate solution and lineage. It keeps no header card but its processing state, which is nonlinear with the operation `dark-structure-mask`.
+    persistence: Until the window closes. **Reset** and a finished Apply turn it off.
+    note: When the mask cannot be opened, the window warns "Mask output was not available."
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Layers to Remove**, **Scaling Function**, **Amount**, **Iterations**, **Preview Mode** and **Create mask image** to their defaults, and one preview follows.
+    range: It leaves **Target Image**, **Channel**, **Preview**, the mask on the view and the preview area as they are.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Builds the mask of the whole image, or of each frame of the sequence, darkens through it, and then returns the window's values to their defaults.
+    enabled: From the moment the window opens, since the defaults darken. While the run works it is disabled, with every control of the window, **Preview** and **Preview Mode** included, and the preview's snapshot and area.
+    tradeoff: The run holds a copy of the target, a floating-point copy of an integer image, the working image the darkening writes, and the mask image when you asked for one. A progress window opens for a single image too, and its bar shows that the run works, not a percentage.
+    scope: The whole image, never limited by a preview area, with the mask on the view blended afterwards.
+    persistence: "The history step is **DarkStructureEnhance** and reads, for example, `Layers: 8, Scaling: 5x5 B3 Spline, Amount: 0.40 (midtones 0.70), Iterations: 1`. On a color image, a run on one channel or component adds ` in channel: ` and its name, as in `in channel: CIE L* (Lightness)`."
+```
 
-### Conceptual pipeline
+## How it works
 
-1. Read the target, or the channel or color component **Channel** names, in
-   normalized units: an unsigned integer divided by its largest code, a signed
-   integer counted from its smallest code to its largest, and a floating sample
-   as it is. Integer images are worked on in a Float32 copy (Float64 for 32-bit
-   integers). **RGB** keeps all three channels; a selected component is
-   extracted by the shared channel selector and put back afterwards.
-2. Set aside every sample that holds no number (not-a-number or an infinity)
-   and any sample the image's own validity marks as meaningless. Such a sample
-   is read as zero while the mask is measured and is written back exactly as it
-   was.
-3. For each channel, remove the six finest dyadic starlet scales with the
-   selected **Scaling Function**, then remove the **Layers to Remove** finest
-   scales from that smoothing. Subtract the channel from the result: the
-   difference is positive where the channel is darker than its smooth
-   surroundings and negative where it is brighter.
-4. Average the channels' differences equally into one plane and rescale it to
-   `[0,1]` by its own finite extremes.
-5. Denoise the mask with a fixed three-layer 3x3-linear starlet: discard its
-   finest layer, soft-threshold the next at three noise deviations five times,
-   keep the residual, then rescale to `[0,1]` by the extremes again.
-6. Build one midtones transfer from Amount. For each Iteration, apply it to the
-   whole channel, blend the darker result through the fixed mask, and hold the
-   blend to `[0,1]`.
-7. Narrow the result back to the source representation at the nearest code,
-   apply any active target mask as an outer blend, and publish only after
-   success.
+1. Each sample is read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale), an integer
+   image in a floating-point copy. **Channel** hands over the three channels, one of them or one component.
+2. For each channel, two starlet smoothings make a smooth version of it, and the difference says where the channel
+   lies below its surroundings. The channels' differences are averaged into one plane.
+3. The plane is rescaled from 0 to 1 by its own extremes, cleaned of its finest noise and rescaled again: that is the
+   mask.
+4. A curve made from **Amount** is applied to each channel and blended with it through the mask, as many times as
+   **Iterations** says. Each blend is held between 0 and 1.
+5. The result is written back in the image's pixel type, rounded to the nearest value, and the view's mask blends it
+   with the original. The header, the [plate solution](../../reference/glossary.md#plate-solution) and the
+   acquisition data are kept. A saved file records `ANLIN` as `nonlinear`, `ANASRC` as `process` and `ANOP` as
+   `dark-structure-enhance`, no linear encoding is stated any more, and the
+   [lineage](../../reference/glossary.md#lineage) gains an entry with the layers, kernel, midtones and iterations.
 
-### Starlet mask model
+### Model
 
-Let `F_c` be channel `c` of the normalized selected source, with set-aside
-samples read as zero. Write `S_k(X)` for the residual of a `k`-detail-layer
-undecimated dyadic starlet of `X`: `k` successive smoothings whose taps are
-spaced `1, 2, 4, ..., 2^(k-1)` pixels apart. The fixed small-scale smoothing and
-the selected large-scale comparison are
+Write \(F_c\) for channel \(c\), with the samples set aside read as 0, and \(S_k(X)\) for a plane \(X\) without its
+\(k\) finest starlet layers: \(k\) smoothings in a row, whose taps lie 1, 2, 4 and up to \(2^{k-1}\) pixels apart.
+With \(N\) the value of **Layers to Remove** and \(C\) the number of channels read, the measurement is
 
-`B_c = S_6(F_c)` and `L_c = S_N(B_c)`,
+\[ Q = \frac{1}{C} \sum_{c=1}^{C} \Bigl( S_N\bigl(S_6(F_c)\bigr) - F_c \Bigr) \tag{1} \]
 
-where `N` is Layers to Remove. The dark-structure measurement is the signed
-average
+\(Q\) is positive where the image is darker than its surroundings. It is an average of the channels, not a perceptual
+luminance. With \(Q_{\min}\) and \(Q_{\max}\) its lowest and highest finite values, the first mask is
 
-`Q = ((L_1 - F_1) + ... + (L_C - F_C)) / C`
+\[ A_0 = \frac{Q - Q_{\min}}{Q_{\max} - Q_{\min}} \tag{2} \]
 
-over the `C` channels the run reads; it is not perceptual luminance. The first
-mask is `A_0 = rescale_minmax(Q)`. Because `Q` is not clipped at zero, the place
-darkest relative to its surroundings maps to one, the brightest relative to its
-surroundings (usually a star core) maps to zero, and a place equal to its
-smooth surroundings lands in between, at `-min(Q) / (max(Q) - min(Q))`.
+The place darkest against its surroundings gets 1, the brightest, usually a star core, gets 0, and a place equal to
+its surroundings lands at \(-Q_{\min}/(Q_{\max} - Q_{\min})\). So a few bright stars can leave the plain background
+high in the mask. The mask is then split into two layers and a residual with the linear kernel. The finest layer is
+dropped. The next is shrunk toward 0, five times, by three times its noise: 1.4826 times its
+[median absolute deviation](../../reference/glossary.md#median-absolute-deviation) about its median. The rest is
+added back, rescaled by equation (2) and held between 0 and 1: that is the mask \(A\).
 
-The denoise decomposes `A_0` into two detail layers and a residual with the
-3x3 Linear kernel. The finest layer is discarded. The second is soft-thresholded
-five times at `t = 3 x 1.4826 x MAD`, where `MAD` is its median absolute
-deviation around its own median. The two remaining layers are added back and a
-second extreme-based rescale, clamped to `[0,1]`, produces the final mask `A`.
-Non-finite values are ignored when finding extremes and written as zero. If the
-finite range of either rescale is no wider than `1e-7`, the mask becomes
-entirely black and the image is left as it was, apart from the clamp described
-below.
+With \(a\) the value of **Amount**, the midtones balance \(m\) and the curve \(T\) of a sample \(x\) are
 
-Both selectable kernels are separable. Linear is `[0.25, 0.50, 0.25]`; B3
-Spline is `[1,4,6,4,1]/16`. Out-of-frame access reflects about the edge pixel
-without repeating it, which matters most for small Preview areas and high layer
-counts. The multiscale transform holds at most twelve layers, its residual
-included, and spaces taps at most `512` pixels apart. `N = 10` reaches exactly
-that spacing; `N = 11` would need `1024` and `N = 12` thirteen layers, so the
-dialog stops at `10`.
+\[ m = 0.5 + 0.5\,a, \qquad T(x) = \frac{(m - 1)\,x}{(2m - 1)\,x - m} \tag{3} \]
 
-### Midtones and blend equations
+\(T\) keeps 0 and 1, and with \(m\) above 0.5 lowers every value between. With \(W_k\) the channel after \(k\)
+passes, \(W_0\) the channel itself, each pass gives
 
-Amount `a` maps to midtones parameter
+\[ W_{k+1} = \min\Bigl(1,\ \max\bigl(0,\ (1 - A)\,W_k + A\,T(W_k)\bigr)\Bigr) \tag{4} \]
 
-`m = 0.5 + 0.5a`,
+### Boundaries
 
-held to single precision. For a normalized sample `x` strictly between zero and
-one, the transfer is
+- A sample that holds no number, or that the image marks as invalid, is read as 0 for the mask and written back as
+  it was. The extremes of equation (2) leave such values out.
+- When the range of either rescaling is no wider than \(10^{-7}\), the mask is black and the image keeps its values,
+  apart from the hold of equation (4). That hold applies where the mask is 0 too, so a floating-point sample outside
+  0 to 1 moves to the nearer end, even with **Amount** at 0.
+- The darkening is computed in single precision. 8-bit and 16-bit integer and 32-bit floating-point images lose
+  nothing to it. 64-bit floating-point and 32-bit integer images keep only single precision, even where the mask is
+  black. An integer result is rounded to the nearest value, a tie to the even one.
+- Beyond the edge of the image, or of a preview area, the smoothings reflect the image about its edge pixel without
+  repeating it. The transform holds at most twelve layers, with taps at most 512 pixels apart, so **Layers to
+  Remove** stops at 10: 11 would need taps 1,024 pixels apart.
 
-`T_m(x) = ((m-1)x) / ((2m-1)x - m)`.
+### Worked example
 
-Endpoints map to themselves. `m=0.5` is identity; the dialog produces
-`0.5 <= m <= 0.995`, so increasing Amount darkens intermediate samples.
+The picture above shows the window at its defaults, with **Preview area** off, on the linear Carina
+[master](../../reference/glossary.md#master) after Histogram Transformation with **Shadows** and **Midtones** at
+0.02, which leaves the background near 0.28. **Amount** at 0.40 gives \(m = 0.70\) by equation (3). One pass takes
+0.20 to 0.097, 0.50 to 0.30, 0.80 to 0.63 and the background's 0.28 to 0.14. By equation (4) a sample of 0.50 stays
+0.50 where the mask is 0, becomes 0.40 where it is 0.5 and 0.30 where it is 1. A second pass there takes 0.30 to
+0.155. With **Amount** at 0 every sample inside 0 to 1 keeps its value, but the mask is still built.
 
-With internal mask `A`, each iteration is
+```figure
+images:
+  - image: ../../assets/images/processes/star-operations/dark-structure-enhance-before.webp
+    alt: >-
+      A crop of the nebula at full resolution before the process: bright red and white clouds crossed by brown dust
+      lanes, with many stars on a gray background.
+    label: Before
+  - image: ../../assets/images/processes/star-operations/dark-structure-enhance-after.webp
+    alt: >-
+      The same crop after the process: the dust lanes and the darker gaps between the clouds are deeper and stand out
+      more, while the bright clouds and the stars keep their brightness.
+    label: After
+caption: >-
+  A crop at 100 % of the middle of the stretched Carina master before and after Apply at the defaults. Both are shown
+  in the Linear display mode, without a display stretch.
+```
 
-`W_(k+1) = clamp(W_k(1-A) + T_m(W_k)A, 0, 1)`.
+## Starting points
 
-The clamp applies everywhere, including where the mask is zero, so a floating
-sample outside `[0,1]` moves to the nearer end even where nothing is darkened.
-The mask is built once from the source and does not change between iterations.
-If an ordinary active target mask `M` is enabled, the framework then computes
-`O = F(1-M) + W M`, replacing `M` with `1-M` when inverted.
-
-## Inputs, outputs, and metadata
-
-The result is written in place at the source's geometry, representation, and
-channel layout; integer results are narrowed to the nearest code, ties to even.
-The engine computes in single precision (Float32) whatever the representation.
-An 8- or 16-bit integer or a Float32 image loses nothing to that, but a Float64
-or 32-bit integer image keeps only single-precision accuracy, also where the
-mask is zero. A sample that holds no number is left exactly as it was and takes
-no part in the darkening.
-
-The result keeps the target's astrometric solution, its acquisition record, and
-every card the process does not own. Its processing-state cards record it as
-nonlinear, assigned by a process, under the operation name
-`dark-structure-enhance`; it claims no linear encoding; and its
-lineage gains an entry naming `an::enhanceImageDarkStructures` with the layers,
-kernel, midtones, and iterations. The history step is named
-**DarkStructureEnhance** and described, for example, as
-`Layers: 7, Scaling: 5x5 B3 Spline, Amount: 0.80 (midtones 0.90), Iterations: 2`.
-On a color image, a run on one channel or component appends ` in channel: ` and
-the selector's label, such as `in channel: CIE L* (Lightness)`.
-
-The mask image that **Create mask image** opens is a Float32 grayscale image at
-the target's size, named `<target> - DarkStructureEnhance Mask`, whose first
-history step reads `DarkStructureEnhance: mask created from '<target>'`. It
-keeps the target's acquisition record, astrometric solution and lineage; its
-processing-state cards mark it nonlinear as `dark-structure-mask`, and it
-carries no other card. A Generated mask snapshot is the same kind of Float32
-mask, also marked `dark-structure-mask` - on a color target repeated over its
-three channels; a Processed image snapshot keeps the source's metadata and is
-not recorded as nonlinear.
-
-## Parameter interactions and starting points
-
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Dust lanes on color image | CIE L*, Layers `8`, B3, Amount `0.40`, Iterations `1` | Mask/result barely separates lanes | Crushed cores and unnatural black channels | Channel -> mask Layers -> Amount -> Iterations |
-| Narrow dark filaments | Generated mask, Layers `7`, Linear or B3 comparison | Filament absent from mask | Fine noise/star rims dominate | Layers -> Scaling -> outer mask |
-| Broad dark nebula | Generated mask, Layers `9..10`, B3 | Only small knots selected | Gradient/background becomes the structure | Layers first; inspect full frame before Amount |
-| Stronger effect | Hold mask fixed, raise Amount slightly | Lanes still shallow | One-pass shadow compression/posterization | Amount before Iterations |
-| Protected stars/background | Validate pure internal mask, then enable normal target mask | Unwanted areas still darken | Protection excludes desired lanes | Internal mask -> target mask geometry/polarity -> Amount |
-
-## Worked example
-
-At Amount `0.40`, `m=0.70`. For one iteration, `T(0.20)=0.0968`,
-`T(0.50)=0.30`, and `T(0.80)=0.6316` approximately. At source `x=0.50`,
-mask `A=0` leaves `0.50`, `A=0.5` yields `0.40`, and `A=1` yields `0.30`.
-Amount `0` leaves all in-range samples unchanged even though the mask is still
-built. A second full-mask pass takes the `0.30` result to about `0.155`.
-
-For an astronomical acceptance check:
-
-- inspect Generated mask with the active target mask disabled;
-- compare area and full-frame masks near crop/frame edges;
-- verify intended dark lanes are brighter in the mask than the background,
-  and check how bright the plain background is in the mask;
-- compare Processed image/original at 100% for black clipping and star rims;
-- inspect RGB channels after RGB processing or color reconstruction; and
-- on still Apply, verify the optional mask is a Float32 grayscale image and the
-  target result retains its representation and geometry.
-
-## Performance
-
-Mask creation smooths each channel the run reads twice, through six layers for
-the fixed stage and Layers to Remove for the comparison, with two separable
-passes per layer; it then denoises the one mask plane through a three-layer
-transform. B3 uses five taps per pass versus three for Linear. Each Iteration
-adds one transfer and one blend pass per channel; the mask is not rebuilt
-inside the loop. RGB costs about three times one component.
-
-Memory does not grow with Layers to Remove or with the channel count: the engine
-works one channel at a time in three single-precision working planes, a mask
-plane, and the three-layer mask decomposition. Around it the window holds the
-run's copy of the target, a floating working copy of an integer image, the
-working image the enhancement writes into, and, with Create mask image checked,
-the mask image. A run the session's memory budget refuses publishes nothing and
-reports an error that names the memory budget.
-
-The implementation runs on the operation's threads. The engine checks for
-Cancel at stage, layer, iteration, and row-block boundaries. Apply uses a
-progress dialog that shows activity rather than a percentage. A sequence is
-written to a temporary file that replaces the selected sequence only when every
-frame has succeeded and is removed otherwise; a still is changed only when its
-run succeeds.
-
-Preview area lowers pixel and memory cost but is not a final-quality proxy:
-starlet borders and both extreme-based rescales are computed on the crop.
-Disable it before Apply decisions. No approved-data production timing or
-peak-memory measurement has been made.
-
-## Warnings and limitations
-
-- The actual route is **Process > Details**, not Sharpening or Star Processing.
-- Generated mask is relative to the global extremes of a signed difference, not
-  an absolute or percentile-robust threshold. Bright stars set its low end, so
-  a background that equals its surroundings can take a substantial mask value
-  and be darkened, and one outlier can compress most mask values. Inspect the
-  full-frame mask before Apply.
-- Amount and Iterations do not affect the mask, although changing them reruns a
-  Generated mask Preview.
-- Preview area uses crop-local multiscale context and extremes; it can differ
-  substantially from full Apply.
-- An enabled active target mask mixes the Generated mask Preview with the
-  image. Disable it to inspect the internal mask alone.
-- Create mask image publishes only after still Apply; it is ignored for
-  sequences and snapshots, and the mask image carries none of the target's
-  header cards except its processing state (it keeps the target's acquisition
-  record and astrometric solution).
-- A Float64 or 32-bit integer image keeps only single-precision accuracy, and
-  floating samples outside `[0,1]` are clamped wherever the process runs.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Nothing changes | Amount `0`, black/constant mask, active mask protection, or wrong Channel | Inspect pure Generated mask; restore defaults and check active mask/channel |
-| Whole background darkens | Layer depth selects a broad gradient, or bright stars push the plain background high in the extreme-based mask | Reduce Layers; correct gradients first; inspect the full-frame mask; protect regions with an active target mask |
-| Area preview differs after Apply | Crop-local extremes and starlet borders | Turn Preview area off for the final check |
-| Generated mask looks like the target outside a region | The active target mask outer-blended the mask preview | Disable the target mask while inspecting Generated mask |
-| Higher Amount does not change Generated mask | Amount affects the transfer only | Switch to Processed image to judge Amount |
-| Iterations crush shadows quickly | Same darkening curve repeats through fixed mask | Return to one iteration and lower Amount |
-| Color shifts | RGB channels are darkened through one shared mask, or a component is reconstructed | Prefer CIE L*/luma and inspect channels |
-| No separate mask after sequence Apply or a snapshot | Mask publication is still-Apply only | Apply to a representative still, or take a Generated mask snapshot |
-| Apply reports an error naming the memory budget | The session cannot hold the run's working images | Close images you no longer need, or work on a smaller image or one component |
-| Cancel takes a moment | The engine stops at its next stage, layer, iteration, or row-block boundary | Wait; reduce area/layers while tuning |
+| Dust lanes in a color image | **CIE L* (Lightness)** and the defaults | **Layers to Remove** with the mask shown, then **Amount**, then **Iterations**. Lanes that barely separate want more **Amount**, black cores or a black channel less. |
+| Narrow dark filaments | **Generated mask**, **Layers to Remove** at 7 | A filament missing from the mask: the other **Scaling Function**. Noise or star rims in it: a mask on the view. |
+| A broad dark nebula | **Generated mask**, **Layers to Remove** at 9 or 10, **5x5 B3 Spline** | Only small knots selected: more layers. The background selected: fewer. Check the whole mask before **Amount**. |
+| Stars or background to protect | The mask alone, the view's mask off | Turn the view's mask on and check its shape and inversion until only the right places darken, then **Amount**. |
 
-## Related workflow steps
+## When it goes wrong
 
-- [Multiscale Linear Transform](../multiscale/multiscale-linear.md) — general
-  scale-layer processing; Dark Structure Enhance uses a fixed native starlet
-  pipeline instead of exposing layer controls.
-- [Local Contrast Enhancement](../sharpening/local-contrast-enhancement.md) —
-  high-radius residual contrast rather than a dark-only mask plus midtones
-  transfer.
-- [Local Histogram Equalization](../sharpening/local-histogram-equalization.md)
-  — neighborhood-CDF contrast with different halo/noise behavior.
-- [Range Selection](../analysis/range-selection.md) — intensity-driven range
-  selection when multiscale dark-structure detection is not wanted.
-- [Mask Drawing](../masking/mask-drawing.md) — manually refine or protect
-  regions with an ordinary active target mask.
-- [Glossary](../../reference/glossary.md) — starlet, MTF, mask, clipping, and
-  nonlinear-image terminology.
+!!! warning "Read the mask with the view's mask off"
+    A mask on the target's view blends the **Generated mask** preview with the image, which then shows outside the
+    masked region. Turn the view's mask off to judge the mask, and on again before Apply if it should limit the
+    result.
+
+!!! warning "A preview area is not what Apply computes"
+    The mask is measured on the area alone, with its own extremes and reflected edges. Untick **Preview area** for
+    the last check.
+
+Nothing changes
+:   **Cause.** **Amount** is 0, the mask is black, the view's mask protects the place, or **Channel** names another
+    channel.
+:   **Fix.** Look at the mask with the view's mask off, press **Reset**, and check **Channel**.
+
+The whole background darkens
+:   **Cause.** The layers select a broad gradient, or bright stars set the mask's low end and leave the background
+    high in it.
+:   **Fix.** Lower **Layers to Remove**, remove the gradient first, or protect the background with a mask on the view.
+
+The mask does not change when Amount changes
+:   **Cause.** **Amount** and **Iterations** change the curve, not the mask.
+:   **Fix.** Judge them with **Preview Mode** at **Processed image**.
+
+The shadows turn black after a few iterations
+:   **Cause.** Each pass applies the same curve again through the same mask.
+:   **Fix.** Return to one pass and lower **Amount**.
+
+The colors shift
+:   **Cause.** With **RGB** the channels are darkened through one mask, or a component was converted back to RGB.
+:   **Fix.** Choose **CIE L* (Lightness)** or **YCbCr Luma**, and check each channel with **View Channel**.
+
+No mask image opens
+:   **Cause.** It opens only after an Apply to a single image, not after a sequence or a snapshot.
+:   **Fix.** Apply to one image of the set, or take a snapshot in **Generated mask**.
+
+"An error occurred when running the process:" names the memory budget
+:   **Cause.** The memory limit cannot hold the copies the run needs, and nothing was written.
+:   **Fix.** Close images you no longer need, or work on a smaller image or on one component.
+
+**Cancel** takes a moment
+:   **Cause.** The run stops at its next stage, layer, pass or band of rows.
+:   **Fix.** Wait. While you adjust, keep the preview area small and the layers few.
+
+## Related
+
+- [Histogram Transformation](../stretching/histogram-transformation.md), for the stretch that comes first.
+- [Multiscale Linear Transform](../multiscale/multiscale-linear.md), to work on the starlet layers themselves, with
+  controls for each layer.
+- [Local Contrast Enhancement](../sharpening/local-contrast-enhancement.md) and
+  [Local Histogram Equalization](../sharpening/local-histogram-equalization.md), which raise contrast in bright and
+  dark places alike.
+- [Range Selection](../analysis/range-selection.md), for a mask chosen by brightness rather than by structure.
+- [Mask Drawing](../masking/mask-drawing.md) and [Masks](../../interface/masks.md), to draw and attach a mask that
+  protects stars or background.
+- [Process Windows](../../interface/process-windows.md), for the preview, its toolbar, the progress window and what
+  every process window shares.

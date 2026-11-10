@@ -3,272 +3,368 @@ kind: process
 stage: any
 menu: Process > Geometry > Crop
 summary: >-
-  Cuts an image, or every frame of a sequence, to a rectangle, to remove stacking borders or isolate a region.
+  Cuts an image, or every frame of a sequence, to a rectangle you type or draw on its view, to remove stacking borders
+  or frame a region without resampling a single pixel.
 data_in: either
+data_out: either
+destructive: true
+preview: none
+sequences: true
+masks: none
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active and no other process window is open on it. Crop needs the image to itself,
+    so no other window opens on it while Crop is open.
+  inputs: One image or sequence of any pixel type and any number of channels, a raw color-filter mosaic included.
+  outputs: >-
+    The same view, replaced, with one history step: the rectangle, every sample in it unchanged. No file, preset or
+    report is written.
+  state: >-
+    Any image, linear or not: a stacked master whose edges registration left ragged, or a finished picture to frame
+    for export.
+derived: false
+rewritten: true
 ---
 # Crop
 
-## Purpose and expected result
+Crop cuts an image to a rectangle. You type the rectangle's top-left corner and its size, or draw it on the image's
+view, where a frame shows the part that stays. Every sample inside the rectangle is kept exactly as it was: nothing is
+interpolated.
 
-Crop replaces one image, or every frame of a sequence, with the rectangular
-pixel region defined by a zero-based top-left position and a width and height.
-Use it to remove stacking borders, isolate a region, or reduce later memory and
-runtime without interpolating the retained samples.
+**OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), with the rectangle,
+adds one step to its [history](../../reference/glossary.md#history) and closes the window. The
+[pixel type](../../reference/glossary.md#pixel-type) and the channels are kept, and a
+[plate solution](../../reference/glossary.md#plate-solution) moves with the pixels, so the cut image needs no new
+plate solve.
 
-The result has the selected dimensions, the same sample representation and
-channel layout, and exactly the source samples inside the rectangle. Crop keeps
-the image's acquisition record and meaning, and carries a plate solution its
-header cards state with the pixels: the reference pixel moves by the crop's
-origin, so every retained pixel still points where it pointed and no new plate
-solve is needed. The frame's observing context - its optics, site, pointing,
-camera settings, filter, object, frame type and date - and the light it holds,
-its `EXPTIME`, `TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE` cards as it
-states them, stay among its header cards; the other header cards read from
-the file are dropped.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Geometry > Crop** |
-| Enabled when | An image or sequence is active, Crop is not already attached to it, and no other process is attached because Crop requires exclusive access |
-| Inputs | One open still or sequence of any of the eight sample representations and any channel layout, a colour-filter-array mosaic included; the rectangle must lie inside the current frame |
-| Outputs | Replaces the target with the selected rectangle as one Image History step; a sequence is written whole into a new sequence of the same container (another video container is written as Matroska), which the view then shows |
-| Recommended image state | Any linear or nonlinear state; for registered stacks, choose one common rectangle before downstream geometry-sensitive work |
-| Preview support | No processed preview; the image viewer shows and moves the crop rectangle before OK |
-| Sequence support | Yes: every frame, whatever frames the player has selected, with one rectangle; progress and Cancel are shown |
-| Mask support | No; an active image mask is not applied |
-| External dependencies | None |
+```figure
+image: ../../assets/images/processes/geometry/crop.webp
+alt: >-
+  The Crop window. On the left, the Pos X, Pos Y, Width and Height boxes at 1623, 1214, 4000 and 3000. On the right,
+  the Current Size field at 450.19 MB, the New Size field at 137.33 MB and the New Selection button. Under them the
+  Target Image box names the master, and Reset, OK and Close run along the bottom.
+caption: >-
+  Crop on the linear Carina master with a rectangle of 4000 by 3000 pixels at its middle: New Size shows what the
+  result will hold.
+pins:
+  - {n: 2, x: 17.5, y: 34.0}
+  - {n: 3, x: 17.8, y: 53.5}
+  - {n: 4, x: 61.0, y: 54.0}
+  - {n: 5, x: 60.5, y: 43.5}
+  - {n: 6, x: 37.0, y: 91.5}
+```
 
 ## Before you start
 
-- Duplicate irreplaceable data or confirm that Image History provides the
-  recovery you need. **OK** replaces the target rather than creating a new view;
-  the step can be undone.
-- Coordinates are zero-based: `(0,0)` is the top-left source pixel. The selected
-  rectangle is `[X, X+Width)` by `[Y, Y+Height)`.
-- Use the same valid rectangle for every sequence frame. The process does not
-  find per-frame borders or align frames.
-- A colour-filter-array mosaic can be cropped at any position. Crop asks nothing:
-  the result states the filter arrangement that starts at the new origin, so an
-  odd X or Y turns RGGB into GRBG, GBRG or BGGR and the image says so.
-- Crop carries a plate solution with the pixels. The retained pixels have not
-  moved on the sky, and the solution stated in the image's header cards is
-  shifted by the crop's origin, with the card naming the solver beside it.
-- If the sequence viewer demosaics the frames it shows, the frames are
-  demosaiced before they are cropped, and the new sequence holds colour frames.
+- **OK** replaces the image rather than making a new one. Its history keeps the step before: duplicate an image you
+  could not load again.
+- Crop needs the image to itself. Close the other process windows open on it first, and expect no other window to
+  open on it while Crop is open.
+- Every channel is cut, and a [mask](../../reference/glossary.md#mask) on the view is not used.
+- On a sequence, every frame is cut to the same rectangle, whatever frames its player has selected. Crop finds no
+  border and aligns nothing: register the frames first.
+- A [CFA](../../reference/glossary.md#cfa) mosaic is cut as the mosaic it is, without a question, and keeps every
+  filter under its sample.
+- When a sequence's view [debayers](../../reference/glossary.md#debayer) its frames, they are debayered before they
+  are cut, and the new sequence holds color frames.
 
-## Procedure
+## Steps
 
-1. Select the target and open **Process > Geometry > Crop**. Confirm **Target
-   Image** and the original **Current Size** estimate.
-2. Enter **Pos X**, **Pos Y**, **Width**, and **Height**, or select **New
-   Selection** and drag a rectangle in the image viewer. Confirm that the overlay
-   encloses the intended pixels and **New Size** updates.
-3. Select **OK**. The rectangle is read from the dialog at that moment; changing
-   a field afterwards does not reach the run. A still is cropped on a worker
-   without a progress window; a sequence shows progress and **Cancel**.
-4. Success closes the Crop window and adds a `Crop` Image History step whose
-   description is `Cropped area : X: <x> Y: <y> W:<width> H:<height>`.
-5. Confirm the new dimensions. For a solved image, the astrometry overlay and
-   coordinate readout use the carried solution; no new plate solve is needed.
+1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Geometry > Crop**. A frame around the whole image appears on its view, and **OK** stays disabled while
+   the rectangle is the whole image.
+2. **Place the corner.** Type **Pos X** and **Pos Y**, the pixels to cut from the left and from the top. The frame on
+   the view moves with them.
+3. **Set the size.** Type **Width** and **Height**. Each one stops at what is left of the image beyond the corner.
+4. **Or draw the rectangle.** Choose **New Selection** and drag a rectangle on the view. The four boxes follow it, and
+   once you release the button you can still move the frame or drag its edges.
+5. **Check the result's size.** **New Size** gives the memory the result will hold, beside **Current Size**.
+6. **Crop.** Choose **OK**. The window closes, the view shows the cut image, and its history lists **Crop** with the
+   rectangle.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Pos X | Integer, pixels | `0` | None | `0..source width`; step `1`; Width is limited to `source width - X` | Moves the left edge right as it increases | Changing it tightens Width's maximum and moves the overlay | No interpolation; discarded left pixels cannot contribute later | Rectangle/OK; all channels; still/sequence | Window lifetime; Reset/target change returns `0` |
-| Pos Y | Integer, pixels | `0` | None | `0..source height`; step `1`; Height is limited to `source height - Y` | Moves the top edge down as it increases | Changing it tightens Height's maximum and moves the overlay | No interpolation; discarded top pixels cannot contribute later | Rectangle/OK; all channels; still/sequence | Window lifetime; Reset/target change returns `0` |
-| Width | Integer, pixels | Source width | None | `0..source width - X`; step `1`; OK requires greater than `0` | Changes output width from the fixed left edge | Updates overlay, New Size, and OK state | Runtime/output memory scale linearly with width | Rectangle/OK; all channels; still/sequence | Window lifetime; Reset/target change uses full width |
-| Height | Integer, pixels | Source height | None | `0..source height - Y`; step `1`; OK requires greater than `0` | Changes output height from the fixed top edge | Updates overlay, New Size, and OK state | Runtime/output memory scale linearly with height | Rectangle/OK; all channels; still/sequence | Window lifetime; Reset/target change uses full height |
-| Current Size: | Read-only estimate, MB/GB | Current target bytes; multiplied by frame count for a sequence | None | Two decimal places; switches to GB above 1024 MB | Reports approximate stored sample volume before crop | Recomputed on image/target update | Excludes temporary overhead and codec compression | Information only; still/sequence | Recomputed |
-| New Size: | Read-only estimate, MB/GB | Same as Current Size for the full-frame rectangle | None | `Width × Height × channels × bytes per sample`; multiplied by sequence frame count | Reports approximate output sample volume | Recomputed from Width/Height | Excludes the source kept for history, metadata, temporary sequence storage, and codec compression | Information only; still/sequence | Recomputed |
-| New Selection | Checkable button and image-view drag | Unchecked | None | Click, then drag a rectangle; click again to cancel | Clears fields while drawing, then transfers the rectangle to all four fields | Uses the attached target viewer; one-click move is enabled after selection | Faster than transcribing coordinates; pixels are not processed yet | Rectangle only; still/current sequence frame | Window lifetime; Reset cancels it |
-| Target Image | Image/sequence selector | Attached active target | None | Any open target supported by the generic image-process list | Reattaches Crop and resets the rectangle to that target's full dimensions | Crop has exclusive access on its attached target | A wrong target will be cropped | Rectangle/OK; all channels; still/sequence | Target lifecycle; Reset does not change target |
-| OK | Dialog action | Disabled for the full image and for zero Width/Height | None | Enabled only for a nonempty rectangle different from the full image | Reads the rectangle and starts the crop on a worker | OK/Close/Reset disable while it runs; the fields stay editable but no longer reach the run | Keeps the source for Image History; a sequence adds a temporary output sequence | Apply; all channels; mask not applied; still/sequence | Success closes window and records history |
-| Reset | Dialog action | Enabled | None | One action | Cancels New Selection and restores the full-frame rectangle | Disabled during execution | No pixel change | Setup only; still/sequence | Immediate; no saved settings exist |
-| Close | Dialog action | Enabled | None | Button or title-bar close | Closes without starting a new crop | Button disables during execution; a title-bar close while a run is in flight hides the window, which closes once the run has landed; it does not stop the run | Nothing waits on the GUI thread | Dialog only | No settings saved |
-| Cancel | Sequence-progress action | Not requested | None | Available only while a sequence is running | Stops the run between frames | The progress window belongs to the run, not to the Crop window | A stopped run leaves the sequence as it was, writes nothing into Image History and leaves no temporary sequence behind; nothing is reported | Apply; sequence only | Per run |
+The rectangle is counted in the image's own pixels from its top-left pixel, which is at 0, 0. What every process
+window shares is on [Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: Crop
+controls:
+  - name: Pos X
+    kind: spinbox
+    default: "0"
+    widget: {min: 0, step: 1}
+    effect: Places the rectangle's left edge, in pixels from the image's left edge. Higher cuts more from the left.
+    range: Up to the image's width. **Width** cannot reach past the image's right edge from it.
+    tradeoff: The columns left of it are gone from the result, and no later step can use them.
+    scope: OK, on every channel and every frame of a sequence.
+    persistence: Until the window closes. **Reset** and another target return it to 0.
+  - name: Pos Y
+    kind: spinbox
+    default: "0"
+    widget: {min: 0, step: 1}
+    effect: Places the rectangle's top edge, in pixels from the image's top edge. Higher cuts more from the top.
+    range: Up to the image's height. **Height** cannot reach past the image's bottom edge from it.
+    tradeoff: The rows above it are gone from the result, and no later step can use them.
+    scope: OK, on every channel and every frame of a sequence.
+    persistence: Until the window closes. **Reset** and another target return it to 0.
+  - name: Width
+    kind: spinbox
+    default: The image's width
+    widget: {min: 0, step: 1}
+    effect: Sets the result's width, from the left edge **Pos X** places.
+    range: Up to the image's width less **Pos X**. OK is disabled at 0.
+    tradeoff: The result's memory, and the time of every later step, grow with its area.
+    scope: OK, on every channel and every frame of a sequence.
+    persistence: Until the window closes. **Reset** and another target return it to the image's width.
+  - name: Height
+    kind: spinbox
+    default: The image's height
+    widget: {min: 0, step: 1}
+    effect: Sets the result's height, from the top edge **Pos Y** places.
+    range: Up to the image's height less **Pos Y**. OK is disabled at 0.
+    tradeoff: The result's memory, and the time of every later step, grow with its area.
+    scope: OK, on every channel and every frame of a sequence.
+    persistence: Until the window closes. **Reset** and another target return it to the image's height.
+  - name: Current Size
+    kind: readout
+    default: The image's size in memory
+    effect: Gives the memory the image's samples hold now, for all the frames of a sequence together.
+    range: In MB with two decimals, and in GB above 1024 MB.
+    tradeoff: It counts the samples only, not the working memory of a run or the compression of a file.
+    scope: Counted again when the image changes or another target is chosen.
+  - name: New Size
+    kind: readout
+    default: The image's size in memory
+    effect: Gives the memory the result's samples will hold, which is **Width** times **Height** times the channels times the bytes of one sample, for every frame of a sequence.
+    range: In MB with two decimals, and in GB above 1024 MB.
+    tradeoff: It leaves out the image the history keeps beside the result, the temporary sequence a sequence needs, the header and the compression of a file.
+    scope: Counted again with every change of the rectangle.
+  - name: New Selection
+    kind: button
+    default: "Off"
+    effect: Lets you draw the rectangle on the view. Choose it, then drag on the image. The four boxes read 0 until you press the mouse button, and follow the rectangle as you drag.
+    range: Choosing it again before you drag cancels the drawing and returns the rectangle to the whole image.
+    scope: The frame on the view and the four boxes. Nothing is cut until OK. On a sequence you draw on the frame the view shows.
+    persistence: It turns itself off when the drag ends. **Reset** cancels a drawing.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence OK cuts. Choosing another one moves the frame to it and returns the rectangle to the whole of that image.
+    tradeoff: The image chosen here is the one replaced.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Reads the rectangle and cuts the image, or every frame of the sequence. The window closes once the view shows the result.
+    enabled: When **Width** and **Height** are above 0 and the rectangle is not the whole image. Its tooltip says why it is disabled - "Crop width and height must be greater than zero." or "The crop region matches the full image. Adjust the region to enable."
+    tradeoff: The history keeps the image as it was beside the result, so the run needs the memory of both. A sequence needs the disk space of the cut copy.
+    scope: The whole image, on every channel, without the mask. A change made to a box after you press it does not reach the run.
+    persistence: "The image and its history keep the result, as the step **Crop** with the text `Cropped area : X: <x> Y: <y> W:<width> H:<height>`."
+    note: OK, **Close** and **Reset** are disabled while the run works, and the four boxes stay editable. A single image shows no progress window, and its run cannot be stopped once it starts. A run that fails leaves the window open.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window without cutting, and the frame leaves the view.
+    enabled: Disabled while a run works.
+    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run is not stopped, on a sequence either.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Cancels a drawing begun with **New Selection** and returns the rectangle to the whole image.
+    range: It leaves **Target Image** as it is.
+    enabled: Disabled while a run works.
+```
 
-### Conceptual pipeline
+```controls
+window: The frame on the view
+controls:
+  - name: Crop frame
+    kind: readout
+    default: Around the whole image
+    effect: Shows the rectangle on the image's view, as an amber dashed frame, and follows the four boxes.
+    scope: The view only. It changes no sample.
+  - name: Drag inside the frame
+    kind: action
+    default: ""
+    effect: Moves the frame without changing its size. **Pos X** and **Pos Y** follow.
+    range: The frame stays inside the image.
+  - name: Drag an edge or a corner
+    kind: action
+    default: ""
+    effect: Moves that edge, or the two edges of that corner. The pointer changes shape within three screen pixels of an edge.
+  - name: Click outside the frame
+    kind: action
+    default: ""
+    effect: Centers the frame on the point you click, as far as the image allows.
+  - name: Drag with New Selection on
+    kind: action
+    default: ""
+    effect: Draws a new rectangle from the point where you press the button to the point where you release it.
+    note: While the Crop window is open, holding the left button does not open the view's lens.
+```
 
-1. On **OK**, read X, Y, Width and Height from the dialog on the GUI thread.
-   The worker reads only that value.
-2. Plan the crop against the image's description. The engine refuses an empty
-   rectangle and one that begins outside the image or overhangs its right or
-   bottom edge.
-3. Copy every retained sample of every channel, unchanged, into a new image of
-   the same representation. For a mosaic, restate the filter arrangement at the
-   new origin.
-4. Restate the metadata under the geometry policy below and record the change in
-   the image's lineage as `an::transformImageGeometry`, detail `Crop`.
-5. For a still image, the result is an edit of the view: Image History records
-   the step before the view shows it. For a sequence, see Inputs, outputs, and
-   metadata.
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: "Shows the share of the frames done, from 0 to 100 percent, under the title **Crop** and the text `Executing crop to sequence <name>`."
+    enabled: Shown only while OK works on a sequence. A single image has no progress window.
+    tradeoff: The cut sequence is written to a temporary file, which needs its disk space until the run ends.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the run, before the next frame at the latest. The sequence stays as it was, with no history step, and the temporary file is removed.
+    note: Closing the Crop window does not stop the run.
+```
 
-### Model and equations
+## How it works
 
-For source sample plane `I`, crop origin `(x0,y0)`, and output coordinates
-`0 <= x < W`, `0 <= y < H`, each channel is copied exactly:
+1. **OK** reads the four boxes, and the run works on that rectangle away from the window.
+2. The run refuses a rectangle that holds no pixel, starts outside the image or reaches past its edge.
+3. Every sample of every channel inside the rectangle is copied, unchanged, into a new image of the same pixel type.
+   A mosaic states the [Bayer pattern](../../reference/glossary.md#bayer-pattern) that starts at its new corner.
+4. The header follows the rule of every geometry change, which Resize, Rotate, Integer Resample, CFA Integer
+   Resample and **Image > Fast Geometry** share. The acquisition record and the image's meaning stay. Of the
+   [header cards](../../reference/glossary.md#header-card), the plate solution and the frame's observing context
+   stay, as the model lists. The [processing state](../../reference/glossary.md#processing-state) cards go with the
+   rest: a record that the image is linear, or that a [stretch](../../reference/glossary.md#stretch) made it
+   nonlinear, is lost, unless the image's meaning states it, as a camera file's does. A decision on how to write the
+   image is withdrawn, and the [lineage](../../reference/glossary.md#lineage) records the change under the process's
+   name.
+5. The cut image replaces the target with one history step. On a sequence, every frame is cut and written into a new
+   [temporary sequence](../../reference/glossary.md#temporary-sequence), which is published whole and shown in the
+   view on the frame it showed.
 
-`O_c(x,y) = I_c(x+x0, y+y0)`.
+### Model
 
-There is no kernel, interpolation, averaging, fill region, clipping, or
-representation change. Floating-point `NaN` and positive/negative infinity values
-are copied unchanged with every other retained sample.
+Let \(X\) and \(Y\) be **Pos X** and **Pos Y**, and \(W\) and \(H\) be **Width** and **Height**. A sample \(I_c\) of
+channel \(c\) of the image becomes the sample \(O_c\) of the result, for \(0 \le x < W\) and \(0 \le y < H\):
 
-For a two-by-two mosaic the filter at output `(x,y)` is the filter at source
-`(x+x0, y+y0)`: the result's arrangement is the source's shifted by the origin,
-reduced over its two-pixel repeat. A six-by-six tabulated arrangement is carried
-the same way over its six-pixel repeat.
+\[ O_c(x, y) = I_c(x + X,\ y + Y) \tag{1} \]
 
-Cropping does not alter per-pixel signal, noise, or SNR. It removes all signal
-and noise outside the rectangle; an object's integrated flux is unchanged only
-if its complete measured aperture and background region remain inside.
+The result holds the columns \(X\) to \(X + W - 1\) and the rows \(Y\) to \(Y + H - 1\). There is no kernel, no
+average, no fill and no clipping, and a sample that is not a number, or an infinity, is copied as it is. Crop changes
+no sample's signal or noise. An object's total [flux](../../reference/glossary.md#flux) is unchanged only when its
+whole aperture and the background around it stay inside the rectangle.
 
-### Boundary and failure behavior
+On a mosaic, the filter at \((x, y)\) of the result is the filter at \((x + X, y + Y)\) of the image. An odd
+**Pos X** turns RGGB into GRBG, an odd **Pos Y** into GBRG, and both into BGGR. The six-by-six table of an X-Trans
+sensor is carried the same way, over its six-pixel repeat.
 
-The UI prevents Width/Height from extending beyond the current target and keeps
-OK disabled for a zero or unchanged full-frame rectangle. The engine refuses an
-empty or out-of-bounds rectangle and a result it cannot allocate; Crop then
-reports **Error running crop** with the text `An error occurred when executing the
-crop process:` followed by the reason, writes the same to the log, leaves the
-image and its history as they were, and keeps the window open.
+A plate solution the header cards state is carried with its reference pixel moved by \((-X, -Y)\), so every pixel
+points where it pointed. Its scale, its orientation and its distortion are kept, with the `PLTSOLVR` card that names
+the solver. The other cards that stay are those of the frame's observing context:
 
-No fill pixels are created. Crop has no mask path and no processed preview. A
-still crop cannot be stopped once it starts. If another run already holds a
-sequence view, Crop shows the view's busy warning titled **Crop** and starts
-nothing. If Image History cannot keep the image the crop replaces, the history
-says so once, in a message titled **Image History**, Crop says nothing more, and
-the image and its history are left as they were.
+- the telescope and optics: `TELESCOP`, `LENSMODE`, `FOCALLEN`, `FOCRATIO`, `APTDIA`, `APTAREA`, `XPIXSZ`, `YPIXSZ`,
+  `XBINNING`, `YBINNING` and `EGAIN`;
+- the site: `SITELAT`, `SITELONG` and `SITEELEV`, and their other spellings;
+- where the mount pointed: `RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJCTROT`, `OBJRA`, `OBJDEC`, `TELRA`, `TELDEC`,
+  `CENTALT`, `CENTAZ`, `AIRMASS` and `PIERSIDE`;
+- the camera and its settings: `CAMERAID`, `CAMMAKE`, `INSTRUME`, `SET-TEMP`, `CCD-TEMP`, `GAIN` or `ISOSPEED`,
+  `OFFSET` and `USBLIMIT`;
+- the filter wheel and the focuser: `FWHEEL`, `FOCNAME`, `FOCPOS`, `FOCUSPOS`, `FOCUSSZ`, `FOCTEMP` and `FOCUSTEM`;
+- `FILTER`, `OBJECT`, `IMAGETYP`, `SWCREATE`, `DATE-OBS`, `DATE-LOC`, and `EXPOSURE` when the frame states no
+  `EXPTIME`;
+- the light the frame holds, as it states it: `EXPTIME`, `TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE`, a stacked
+  [master](../../reference/glossary.md#master)'s whole integration and frame count.
 
-## Parameter interactions and starting points
+For a camera file, what its [EXIF](../../reference/glossary.md#exif) states - exposure, ISO speed, camera, lens,
+software, sensor temperature, focal length, aperture, pixel size, dates and GPS position - is written as those cards.
+Every other card read from the file is dropped. The acquisition record is written into the file when the image is
+saved.
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Registered stack borders | Start at the first column/row valid across the complete stack and end before the opposite invalid border | Residual black/registration edge remains | Useful field or target halo is removed | Inspect all four borders, set X/Y, then Width/Height |
-| CFA crop | Any rectangle; even X and Y keep the original arrangement name | Extra border remains by one or two pixels | An odd Width or Height leaves an incomplete two-by-two cell at the right or bottom edge | Choose the origin first, then the size; check the stated arrangement afterwards |
-| Solved image | Retain the science field and use the smallest necessary offset | Excess blank area remains | Field needed later, such as reference stars for a fresh plate solve, is lost | Choose geometry, crop, then confirm the carried solution on the overlay |
+### Boundaries
 
-## Inputs, outputs, and metadata
+- A rectangle the run refuses, or a result it has no memory for, is reported as "Error running crop" and in the log.
+  The image, its history and the window stay as they were.
+- Every sample of the result comes from a sample of the image, so the image's
+  [validity rule](../../reference/glossary.md#validity-rule) is kept, and a mask of valid samples is cut with them.
+- A sequence keeps its container, and its frames are stored as the container stores frames:
+  [SER](../../reference/glossary.md#ser) at 8 or 16 unsigned bits, AVI and the video containers at 8 bits, and a video
+  at an even width and height, so the odd last column or row of a video frame is dropped. A video in a container
+  AfterNight does not write becomes Matroska.
+- When the history cannot keep the image as it was, it says so once in a message titled "Image History", and the
+  image is not cut.
 
-Crop modifies the attached target and keeps its sample representation (any of
-the eight), channel layout and colour-filter arrangement, restated at the new
-origin.
+### Worked example
 
-One policy decides what a geometry change does to an image's metadata, shared by
-Crop, Resize, Rotate, both integer resamples and the **Image > Fast Geometry**
-turns and mirrors:
+The linear Carina master is 7246 by 5429 pixels, shown in the view's
+[Autostretch](../../reference/glossary.md#autostretch) display. With **Pos X** at 1623,
+**Pos Y** at 1214, **Width** at 4000 and **Height** at 3000, the frame sits at the middle of the field, and
+**New Size** reads 137.33 MB against the 450.19 MB of **Current Size**. By equation (1), pixel (2000, 1500) of the
+result is pixel (3623, 2714) of the master, with the same value. After **OK** the image is 4000 by 3000 pixels and its
+history reads `Cropped area : X: 1623 Y: 1214 W:4000 H:3000`.
 
-- the acquisition record (camera, exposure, filter, object, dates and the rest)
-  and the image's meaning (colour, numeric domain, transfer function, processing
-  state) are kept, and the writer writes the acquisition record when the image
-  is saved;
-- a plate solution stated in the image's header cards is carried by a crop, a
-  resize and an integer resample, moved with the pixels, together with the
-  `PLTSOLVR` card naming its solver; a rotation, a filter-array integer resample
-  and the turns and mirrors drop it;
-- the frame's observing context is kept, as FITS cards: the telescope and
-  optics (`TELESCOP`, `LENSMODE`, `FOCALLEN`, `FOCRATIO`, `APTDIA`, `APTAREA`,
-  `XPIXSZ`, `YPIXSZ`, `XBINNING`, `YBINNING`, `EGAIN`), the site (`SITELAT`,
-  `SITELONG`, `SITEELEV` and their other spellings), where the mount pointed
-  (`RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJCTROT`, `OBJRA`, `OBJDEC`, `TELRA`,
-  `TELDEC`, `CENTALT`, `CENTAZ`, `AIRMASS`, `PIERSIDE`), the camera and its
-  settings (`CAMERAID`, `CAMMAKE`, `INSTRUME`, `SET-TEMP`, `CCD-TEMP`, `GAIN`
-  or `ISOSPEED`, `OFFSET`, `USBLIMIT`), the filter wheel and focuser
-  (`FWHEEL`, `FOCNAME`, `FOCPOS`, `FOCUSPOS`, `FOCUSSZ`, `FOCTEMP`,
-  `FOCUSTEM`), `FILTER`, `OBJECT`, `IMAGETYP`, `SWCREATE`, `DATE-OBS`,
-  `DATE-LOC` and, when the frame states no `EXPTIME`, `EXPOSURE`; so is the
-  light the frame holds, its `EXPTIME`, `TOTEXP`, `LIVETIME`, `STACKCNT` and
-  `NCOMBINE` cards as it states them, for a stacked master its whole
-  integration and frame count. For a camera file,
-  the facts its Exif states - the exposure, ISO speed, camera, lens, software,
-  sensor temperature, focal length and aperture, pixel size, dates and GPS
-  position - are written as those cards. A step that rescales the frame
-  divides `XPIXSZ` and `YPIXSZ` by its scale along each axis - a resize by its
-  own scale on each axis, an integer resample by its exact factor - so the
-  plate scale the optics imply is still the result's;
-- every other header card read from the file (FITS cards, Exif) is dropped;
-- an output decision made for the image is withdrawn;
-- the lineage records `an::transformImageGeometry` with the process name.
+```figure
+images:
+  - image: ../../assets/images/processes/geometry/crop-before.webp
+    alt: The whole master as the view shows it, with Crop's amber dashed frame, divided in thirds, around the middle of the field.
+    label: Before
+  - image: ../../assets/images/processes/geometry/crop-after.webp
+    alt: The cut image, the part of the nebula the frame held, filling the view.
+    label: After
+caption: >-
+  The Carina master before and after OK with a rectangle of 4000 by 3000 pixels at its middle. Both are the whole
+  frame in the view's Autostretch display.
+```
 
-For Crop the solution's reference pixel moves by `(-X, -Y)`; its scale and
-orientation, and any distortion model, are unchanged. The same move is applied to
-every frame of a sequence; the new sequence keeps what its container stores.
+## Starting points
 
-Validity: Crop writes every result sample from a source sample, so the image's
-validity rule is kept; an explicit validity mask is cropped with the samples.
-
-On a still image the result is one `Crop` Image History step. On a sequence,
-Crop takes the view for the run, reads every frame of the sequence - every one,
-whatever the player has selected, and demosaiced when the view demosaics them,
-by the method the sequence states from the one RAW
-[Demosaic Algorithm](../../interface/settings-dialog.md#raw-images-settings)
-setting - writes each cropped frame into a new temporary sequence of the same
-container (a video in a container the product does not write becomes Matroska),
-publishes it whole, and shows it in the view, on the frame the view showed, as one
-Image History step. Each frame is stored as its container stores frames: SER at 8
-or 16 unsigned bits, AVI and video at 8 bits, and video at an even width and
-height, so an odd last column or row of a cropped video frame is dropped. A run
-that fails or is cancelled leaves the sequence as it was and nothing in the
-temporary directory. No other file, report, or auxiliary view is written.
-
-## Performance
-
-Work is proportional to `Width × Height × channels × bytes-per-sample` and is a
-copy of stored values. A still crop keeps the source image for Image History
-beside the result. A sequence additionally needs the temporary output sequence;
-the estimates shown in the dialog exclude that overhead and any codec behavior.
-
-## Worked example
-
-- Input condition and settings: a `1024×768` solved image, crop
-  `X=100`, `Y=200`, `Width=824`, `Height=568`.
-- Expected checkpoint: output dimensions are `824×568`; original pixel
-  `(600,500)` becomes `(500,300)` with exactly the same sample value and points
-  at the same sky position; the acquisition record is unchanged, the plate
-  solution's reference pixel has moved by `(-100,-200)`, and the history step
-  reads `Cropped area : X: 100 Y: 200 W:824 H:568`.
-- Inspect at 100%/statistics/history: compare a retained pixel value, the
-  dimensions, the `Crop` history step, and the astrometry state.
-- Limitations: focused synthetic tests prove copying, the step text and the
-  metadata policy; this is not evidence of real-data framing quality, timing, or
-  memory.
-
-## Warnings and limitations
-
-- Apply replaces the target; Crop does not create a duplicate.
-- Active masks and channel selections do not limit the crop.
-- The same rectangle is applied to every sequence frame without registration or
-  per-frame validity analysis.
-- Only the plate solution, the card naming its solver and the frame's observing
-  context and integration cards survive among the header cards; any other card
-  read from the file is dropped.
-- A still crop has no Cancel; closing the window during a run hides it until the
-  run lands but does not stop it.
-- Crop preserves retained samples but can remove flux or background area needed
-  by later photometry, stacking normalization, or noise measurement.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| OK is disabled | Rectangle is empty or identical to the full target | Set nonzero Width/Height and change at least one edge |
-| Width or Height will not increase | Maximum is the remaining extent after Pos X/Pos Y | Reduce the corresponding position or choose a smaller output |
-| A cropped mosaic reports a different Bayer pattern | X or Y was odd; the result states the arrangement that starts at the new origin | Expected; the filters stay under their samples |
-| **Error running crop** | The engine refused the rectangle or could not allocate the result | Read the message and the log, reset, enter an in-bounds rectangle, free memory, and retry |
-| An **Image History** error, and the crop is not applied | Image History could not keep the image the crop replaces; it says so once and nothing changes | Free memory and run Crop again |
-| Astrometry overlay disappears after Crop | The image's header cards stated no plate solution, so there was none to carry | Plate-solve the cropped image |
-| Busy warning titled **Crop** | Another run holds the sequence view | Wait for it to finish, then run again |
-| Sequence does not change after Cancel | A stopped run publishes nothing | Run again with the intended rectangle |
+| A stack whose edges registration left ragged | **Pos X** and **Pos Y** at the first column and row that every frame covers | **Width** and **Height** to end before the opposite edges. Check all four edges at 100 %. |
+| A raw mosaic | Even **Pos X** and **Pos Y**, which keep the pattern's name | Even **Width** and **Height**, so no incomplete two-by-two cell is left at the right or bottom edge. |
+| A plate-solved image | The smallest cut that removes what you must | Keep stars enough for a new plate solve later, and check the carried solution on the overlay. |
 
-## Related workflow steps
+## When it goes wrong
 
-Crop registered/calibrated frames to a common valid footprint before
-[Image Stacking](../stacking-integration/image-stacking.md), or crop an integrated
-master before expensive filters. Use [Resize](resize.md) for a sampled dimension
-change and [Rotate](rotate.md) for arbitrary orientation. Restore coordinates
-with [Plate Solving](../registration-alignment/plate-solving.md) after a
-rotation, a turn or a mirror, which drop the solution.
+!!! warning "What you cut is gone for this image"
+    A later step may need what the rectangle leaves out: background for gradient removal, stars for a plate solve,
+    an object's whole aperture for photometry. Crop last what you can, and use the history to return to the uncut
+    image.
+
+**OK** stays disabled
+:   **Cause.** **Width** or **Height** is 0, or the rectangle is the whole image.
+:   **Fix.** Move at least one edge inside the image. The button's tooltip says which case it is.
+
+**Width** or **Height** will not go higher
+:   **Cause.** Each one stops at what is left of the image beyond **Pos X** or **Pos Y**.
+:   **Fix.** Lower **Pos X** or **Pos Y** first, or choose a smaller rectangle.
+
+The cut mosaic states another Bayer pattern
+:   **Cause.** **Pos X** or **Pos Y** was odd, and the pattern is stated from the new corner.
+:   **Fix.** Nothing is wrong: the filters are still under their samples. Use even values to keep the pattern's name.
+
+"Error running crop"
+:   **Cause.** The run refused the rectangle, or found no memory for the result.
+:   **Fix.** Read the reason after "An error occurred when executing the crop process:", press **Reset**, set a
+    rectangle inside the image, free memory, and choose **OK** again.
+
+An "Image History" error, and the image is not cut
+:   **Cause.** The history could not keep the image as it was before the cut.
+:   **Fix.** Close images you do not need, or raise the memory limit on the **Processing** page of the settings, and
+    choose **OK** again.
+
+The astrometry overlay is gone after the crop
+:   **Cause.** The image's header cards stated no plate solution, so there was none to carry.
+:   **Fix.** Plate-solve the cut image.
+
+"Another process is executing for this sequence, please cancel that job first before running this process"
+:   **Cause.** Another run holds the sequence, and Crop started nothing.
+:   **Fix.** Wait for that run to end, or cancel it, then choose **OK** again.
+
+## Related
+
+- [Image Stacking](../stacking-integration/image-stacking.md), to stack registered frames that one rectangle cuts to
+  their common area, or to cut the master it makes before slow filters.
+- [Resize](resize.md), [Rotate](rotate.md) and [Integer Resample](integer-resample.md), the other geometry changes,
+  which share Crop's rules for the header.
+- [Plate Solving](../registration-alignment/plate-solving.md), to solve again after a change that drops the solution.
+- [Image Viewer](../../interface/image-viewer.md), for the look of the frame and the view's own gestures.
+- [Image History](../../interface/image-history.md), to undo the crop.
+- [Process Windows](../../interface/process-windows.md), for what every process window shares.
