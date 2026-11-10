@@ -1,7 +1,7 @@
 # The Image Integration report
 
-How a run of `ImageIntegrationProcess` reports itself: when a report is written, what it is built from, how its values
-are printed, and the runs its suites are held to. The code is under
+How a run of `ImageIntegrationProcess` reports itself: when a report is written, what it is built from, the model
+a report is stated in, how its values are printed, and the runs its suites are held to. The code is under
 `src/AfterNightProcesses/processes/ImageIntegration/reporting/`, the archive that calls it in
 `workflow/WorkflowArchiver.cpp`, and the suites in `src/AfterNightTests/Test_ImageIntegration/reporting/`.
 
@@ -57,6 +57,138 @@ Facts worth knowing before changing what a report states:
 - **A calibration master the run did not make has no result either**, unless the user supplied it: a supplied
   master is its group's `existingMaster` and has a result naming the user's file.
 
+## The report model
+
+`reporting/ReportModel.h` holds everything a report states as plain structures, and
+`buildReportModel(inputs, sources)` (`ReportModelBuilder.h`) fills one from a run. No run writes anything from it yet:
+the Markdown report above is still what a run writes, and the model is built beside it by the suites. It exists
+first because of what the Markdown cannot give:
+
+- **One structure, filled once.** A report used to exist only as text. Its suites could assert nothing but
+  substrings, its timings had to be substituted into finished text, and a second output would have meant a second
+  pass over that text. The model is filled once from the run's records; a document, the stored model and the suites
+  all read it.
+- **The model is a document of its own.** `ReportModelJson` writes it as the JSON a run's archive is to keep as
+  `workflow_report.json`, under the format number `kReportSchema`. A later run can then compare itself with an
+  earlier one without reading an image again, a newer application can write an older run's report again, and a
+  suite asserts on structure instead of bytes.
+- **Settings belong to groups.** The manifest holds a `StackingSettings` per calibration group and per integration
+  group, a `RegistrationSettings` per registration group and a `CalibrationSettings` per light; only the
+  execution, the plate solve and the colour combination are stated once. The model holds them the same way - on
+  each `ReportCalibrationMaster`, `ReportRegistrationGroup` and `ReportMaster`, with `ReportRun::settings` for the
+  rest - so "the same for every group" is something a writer finds, never something the model assumes.
+- **No figure comes from the log.** The Markdown reads three figures out of the run's log by regular expression,
+  and a change to a log line silently changed the report: the line two of them need is no longer logged. The model
+  carries the log as text (`ReportRun::log`) and reads it for nothing. `ReportModelBuilder.NoFigureIsTakenFromTheLog`
+  builds every scenario with its log, with another and with none, and holds the three models equal but for the
+  log; the three parsers stay in `WorkflowReportBuilderHelpers.h`, which only the Markdown units include.
+
+### What the model holds
+
+| Structure | Holds |
+| --- | --- |
+| `ReportModel` | `reportSchema`, `run`, `issues`, `targets`, `masters`, `calibrationMasters`, `lightGroups`, `registrationGroups`, `stages`, `decisions`, `comparison`, `history`, `notStated` |
+| `ReportRun` | How the run ended and that in one sentence; the title, process and profile; the targets; mode, scope and the groups an incremental run found changed; the masters by what became of them; lights and exposure; warnings and errors counted; the executor's interval with the preparation and executor phases when timed; the counters when collected; the session's notes; nights, lights by filter, equipment, what the lights' headers state; the application's version, the execution, when and where it was archived, the host; the archive's and the manifest's formats; the three fingerprints; the output folder; the settings stated once; the log |
+| `ReportMaster` | One per master the run planned, a combined colour image among them: key, anchor, preview folder, name, target, filter, kind, state; file, size and whether the archive kept a copy; lights and exposures; the calibration masters its lights take; registration group; the solution's origin; stacking and drizzle in a line each; time and finalization phases; what one read measured, per channel, and the headline figures taken from it; the stack's record; its picture and maps; its own settings; how its lights were weighed; its lights |
+| `ReportFrame` | One per light of a master's group, in the order of the group's lights: file, exposure, whether its registration succeeded and what it recorded, the weight the stack gave it, its quality score and its share of the stack |
+| `ReportCalibrationMaster` | Kind, key, anchor, file, what became of it (`Made`, `Reused`, `Supplied`, `Failed`), the frames it is stacked from, the masters a flat is calibrated with, its stacking settings |
+| `ReportLightGroup` | A group of lights the user marked as calibrated already |
+| `ReportRegistrationGroup` | Key, anchor, lights and how many registered, the reference and who chose it, the transform and the kinds the registration recorded, the alignment's correction counts, the comet fits, the catalog sources kept for the colour calibration, its settings, the masters it serves |
+| `ReportStage` | A stage as the run timed it: name, state, the run's own status word, time, the groups it works on |
+| `ReportDecision` | A setting the application decided: what, for which group, what was asked, what it resolved to, why |
+| `ReportTarget` | A target's lights, exposure, filters, masters and the mean of what its masters measured |
+| `ReportComparison` | The run's totals beside those of the most recent earlier run of the folder that completed |
+
+The builder states today what the Markdown report states. The model also defines what the Markdown has no word
+for, which nothing fills yet: a light's state and the reason for it, its capture time, shift and normalization
+coefficients; the issues; a master's sample distribution, full-scale picture and baseline; a calibration master's
+level, noise and picture; the lights grouped by the calibration they share; the engine's memory, the cache's figures
+and what was written to disk; the runs of the folder; and what the report could not state.
+
+### What the builder reads through
+
+`ReportSources.h` holds one interface per thing a report reads outside the manifest and the result, so a suite can
+stand in for any of them:
+
+| Source | Answers |
+| --- | --- |
+| `IReportMetrics` | A registration group's latest settings version, its lights' metrics and noise at a version, the comet fits and the matched catalog sources |
+| `IReportHeaders` | A file's header, read without its pixels |
+| `IReportImages` | One read of an image, measured per channel |
+| `IReportFiles` | Whether a file is there, its size, when it changed, a text file's contents |
+| `IReportHost` | The time, the time zone and the platform |
+
+`ProductionReportSources` holds the product's implementations: the metrics database opened once and closed with the
+object, headers probed and images measured in the engine session it is given, the host's files and clock. **The
+caller names the metrics database**, not the builder: a model of the run being committed reads the output folder's,
+and a model of a run read later must read that run's own snapshot, since the output folder's holds today's metrics.
+The builder asks for each image and each header once however many facts need it (`ReportBuild`); a case counts the
+reads.
+
+### How it is built
+
+`buildReportModel` calls one function per area, in an order that matters: the lights and the settings are stated on
+the masters and the groups, and the run's rollups read what the masters measured.
+
+| Unit (`reporting/facts/`) | States |
+| --- | --- |
+| `MasterFacts.cpp` | The masters: state, file, measurement, stack, maps, pictures |
+| `FrameFacts.cpp` | Each master's lights and how they were weighed |
+| `CalibrationFacts.cpp` | The calibration masters and the pre-calibrated groups |
+| `RegistrationFacts.cpp` | The registration groups |
+| `SettingsFacts.cpp` | Every group's settings, the run's own, and the decisions |
+| `RunFacts.cpp` | The run: outcome, totals, stages, timings, counters, nights, equipment, headers, provenance, targets |
+| `ComparisonFacts.cpp` | The totals of this run and of the earlier one |
+
+`facts/ReportFacts.h` is private to the reporting units. It declares those functions and every function that reads
+a fact out of a run's records - an exposure breakdown, a target's name, a transform's name, a light's weight, the
+fingerprint. The Markdown builder calls the same ones: a function that reads a fact has one home, and
+`WorkflowReportBuilderHelpers.h` keeps only what prints. The fingerprint is `computeReproducibilityFingerprint` in
+`RunFacts.cpp`, which both reports state.
+
+Rules the builder keeps:
+
+- **A value that is not stated is absent, never a zero.** A master that was not measured has no statistics; a run
+  that timed no phase has no phases, while a phase that took no time is a zero; a group the alignment did not
+  report has no correction count, while one it reported with none has a zero; when no light's header could be read,
+  what the headers state is absent rather than "none of them states it".
+- **A master's state comes from the result, and from the file where there is none.** A result that succeeded is
+  `Made`, one that did not is `Failed`. A planned group with no result is `Reused` when the run completed and its
+  file is there, and otherwise `NotReached`, or `Cancelled` in a run the user stopped: a run that stopped cannot be
+  said to have reused a master it may never have reached.
+- **A result that is no group of the manifest is a master of its own.** The combined colour image is keyed by
+  `combinedRgbGroupKey` of its registration group; it has a file, a measurement and no lights of its own.
+- **The outcome is one of five.** A run the user stopped is `Cancelled`. A run that failed is `Partial` when it
+  made a master, since those are kept, and `Failed` otherwise. A run that completed is `Partial` when a group
+  failed inside it, `CompletedWithWarnings` when it warned, and `Completed` otherwise.
+- **The lights are in the order of the group's lights.** The stack's records are in the stack's own order, so a
+  weight is matched to its light by the light's identity, never by its place. A recorded weight is shown relative
+  to the heaviest light, and a photometric one at its mean of one. A stack that recorded none is weighed as its
+  settings imply, in the session the sources carry.
+- **Anchors and folders are not derived from each other.** A master's `slug` comes from `ReportSlugs`; a
+  registration group's and a calibration master's are made from the key with their kind before it, since their keys
+  may be spelled as a group of lights is. A master's `previewFolder` is the name the archiver gives the folder it
+  writes, hash and all.
+- **The words are the report's own.** Names of settings, of counters and of outcomes go through
+  `QCoreApplication::translate` under the context `ImageIntegrationReport`. No translation ships: a report reads in
+  English.
+
+Where the model and the Markdown differ, the model is the one that follows the records. The Markdown counts every
+group with no result as reused, a run that stopped included, and counts a combined colour image among the masters
+made but not among the groups; and it prints "n/a" for the figures it reads from the log.
+
+### The stored document
+
+`ReportModelJson::toJson` and `fromJson` write and read the model field for field: each structure's fields are
+named once, in one function a writer and a reader both walk, so the two cannot disagree about a field.
+
+- A value that is not stated is left out, and reads back as not stated; a stated zero is written.
+- A key the reader does not know is ignored, so a field added later does not break a reader of the same format.
+- A document of a newer format is refused by name: `fromJson` returns no model and a `ReportNotStated` saying which
+  format it met and which it reads. A document that states no format is refused the same way.
+- A number that is not finite is written as text, since JSON has no form for it; a time is written with its offset
+  from UTC, to the millisecond; an enumerator is written by name.
+
 ## How a value is printed
 
 `ReportFormat.h` is the one unit that turns a value into text for a report. A figure, a count, a duration, a size, a
@@ -101,6 +233,15 @@ output its suite holds to the character.
 
 - `test_workflow_report_builder.cpp` - the report's sections, figures and previews, asserted on the Markdown.
 - `ReportFormatTest.cpp` - every form of the table above, with its edges.
+- `ReportModelBuilderTest.cpp` - what the model states of the run, the masters, the calibration and the
+  registration.
+- `ReportSettingsFactsTest.cpp` - each group's settings, the ones of a mode, and the decisions.
+- `ReportFrameFactsTest.cpp` - a master's lights and their weights.
+- `ReportComparisonTest.cpp` - a run beside the earlier runs of its folder.
+- `ReportModelJsonTest.cpp` - the stored document: every scenario's model and one with every kind of value survive
+  it, and what a reader refuses and ignores.
+- `ReportModelParityTest.cpp` - the model beside the Markdown of the same run, figure by figure, for every
+  scenario. It goes when the Markdown report does.
 - `ReportScenariosTest.cpp` - the scenarios themselves: each holds what it says it holds, is archived by the
   product's archiver, and builds a report.
 
@@ -110,7 +251,8 @@ database through the product's `RegistrationMetricsWriter`, the earlier runs of 
 `WorkflowArchiver` - and returns its manifest, its result, the archive's context, the session to read it in and the
 figures it was built to hold (`ReportScenarioFacts`). `archiveScenarioRun` commits the scenario's own run as the
 executor does. The same header holds the file helpers the report's suites share: the session, the master and light
-writers, the bare metrics table and an archived run's manifest.
+writers, the bare metrics table and an archived run's manifest. `ReportModelTestSupport.h` builds a
+scenario's model through the product's sources and looks a master, a block or a row up by name.
 
 | Scenario | The run | What it is for |
 | --- | --- | --- |
