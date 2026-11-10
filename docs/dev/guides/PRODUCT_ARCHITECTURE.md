@@ -1079,7 +1079,10 @@ statistics with `readViewImage` and the
 engine's statistics, header facts with `probeImage` and weights through `deriveStackWeights`
 (`core/StackWeightingInputs.h`), the measurement and request the stack uses, all in the `EngineSession*` it is given,
 and is exported on the thread pool; previews are `generateBoundedPreview` - the largest-sample shrink presented
-through `presentForView`. Every weighting's dashboard preview shows the weights the stack applies, and the stack and
+through `presentForView`. When a report is written, what it reads, how its values are printed
+(`reporting/ReportFormat.h`) and the runs its suites build are in
+[IMAGE_INTEGRATION_REPORT.md](../IMAGE_INTEGRATION_REPORT.md). Every weighting's dashboard preview shows the
+weights the stack applies, and the stack and
 the preview state the group's floor as the photometric raw floor. Every question and settings dialog of the
 integration and Lite opens with `open()`; the shared file pickers (`app/FileDialogUtils.h`) and `QMenu::exec` context
 menus stay blocking: the pickers are the product's shared wrappers, which run their dialog's own loop, so a

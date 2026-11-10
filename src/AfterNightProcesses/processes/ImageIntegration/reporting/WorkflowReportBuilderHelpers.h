@@ -12,6 +12,7 @@
  */
 #pragma once
 
+#include "ReportFormat.h"
 #include "WorkflowReportBuilder.h"
 #include "WorkflowReportSectionBuilders.h"
 
@@ -95,84 +96,9 @@
 
 namespace
 {
-[[nodiscard]] bool looksLikeResolution(const QString& part)
-{
-    const int xPos = part.indexOf(QLatin1Char('x'));
-    if (xPos <= 0 || xPos >= part.length() - 1)
-    {
-        return false;
-    }
-    for (int i = 0; i < xPos; ++i)
-    {
-        if (!part[i].isDigit())
-            return false;
-    }
-    for (int i = xPos + 1; i < part.length(); ++i)
-    {
-        if (!part[i].isDigit())
-            return false;
-    }
-    return true;
-}
-
-[[nodiscard]] QString friendlyResolution(const QString& res)
-{
-    return QString(res).replace(QLatin1Char('x'), QStringLiteral(" \u00D7 "));
-}
-
-[[nodiscard]] QString friendlyGroupKey(const QString& rawKey)
-{
-    const QString trimmed = rawKey.trimmed();
-    if (trimmed.isEmpty())
-    {
-        return {};
-    }
-
-    const auto parsed = GroupKey::fromString(trimmed);
-    if (!parsed.has_value())
-    {
-        return trimmed;
-    }
-
-    const QString compact = parsed->toCompactString().trimmed();
-    if (compact.isEmpty())
-    {
-        return trimmed;
-    }
-
-    const QStringList parts = compact.split(QLatin1Char('|'));
-    if (parts.size() <= 1)
-    {
-        return looksLikeResolution(compact) ? friendlyResolution(compact) : compact;
-    }
-
-    QString resolution;
-    QStringList otherParts;
-    for (const auto& part : parts)
-    {
-        const QString p = part.trimmed();
-        if (resolution.isEmpty() && looksLikeResolution(p))
-        {
-            resolution = friendlyResolution(p);
-        }
-        else
-        {
-            otherParts << p;
-        }
-    }
-
-    if (otherParts.isEmpty())
-    {
-        return resolution;
-    }
-
-    QString display = otherParts.join(QStringLiteral(" \u2014 "));
-    if (!resolution.isEmpty())
-    {
-        display += QStringLiteral(" (%1)").arg(resolution);
-    }
-    return display;
-}
+// How a group key is printed is the report format's, shared with the units that do not include this header.
+using ImageIntegration::Reporting::friendlyGroupKey;
+using ImageIntegration::Reporting::friendlyResolution;
 
 [[nodiscard]] bool isAutoToken(const QString& value)
 {
