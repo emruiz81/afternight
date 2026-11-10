@@ -656,7 +656,7 @@ mkdocs build -f docs/user-guide/mkdocs.yml --strict
 - Edit Markdown files under `docs/user-guide/docs/en/`
 - Add new pages to the `nav:` section in `docs/user-guide/mkdocs.yml`, each opening with front matter ("Page metadata" in `docs/dev/USER_GUIDE_AUTHORING.md`)
 - Place images in `docs/user-guide/docs/en/assets/images/`
-- Follow the page templates under `docs/user-guide/templates/` and the authoring rules in `docs/dev/USER_GUIDE_AUTHORING.md`
+- Follow the page templates under `docs/user-guide/templates/`, the style guide in `docs/dev/USER_GUIDE_STYLE.md` and the authoring rules in `docs/dev/USER_GUIDE_AUTHORING.md`
 - Commit real images only with matching entries in `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md`
 
 ### CI

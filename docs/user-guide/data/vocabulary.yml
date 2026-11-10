@@ -1,0 +1,53 @@
+# The words a page of the guide does not use, which rule R9 of build/scripts/tools/check_user_guide.py holds.
+#
+# A page is for a person processing an image. What proves a sentence true - a source file, a test, a review record -
+# belongs in the repository and in the pull request, and the application the reader has is the one the page
+# describes, so the page neither cites its proof nor dates itself. docs/dev/USER_GUIDE_STYLE.md says what to write
+# instead.
+#
+# Each pattern is a regular expression, matched without regard to case against what a page says: its prose, its
+# summary and the other sentences of its front matter, the facets of its `controls` blocks and the captions and
+# alternative texts of its `figure` blocks. Fenced code, math and link addresses are not read. A code span is read
+# only by a pattern that states `code: true`: a function name in a code span may be what the reader types, and a
+# source file's name is a citation however it is set.
+
+forbidden:
+  proof:
+    why: >-
+      what proves a sentence belongs in the repository and the pull request; state the rule, or the reason for it
+    patterns:
+      - '\bevidence\b'
+      - '\bverif(y|ied|ication)\b'
+      - '\bvalidat(e|ed|ion)\b'
+      - '\bMode [SAEBGCP]\b'
+      - 'source-derived'
+      - 'focused tests?'
+      - 'reviewed revision'
+      - 'dirty reviewed'
+      - 'page-defined'
+      - '\bauthoritative\b'
+      - 'typed execution snapshot'
+      - '\bchecked \d{4}-\d{2}-\d{2}\b'
+  tooling:
+    why: >-
+      a reader cannot use the name of a function, a source file or a test; say what the application does
+    patterns:
+      - '\w+\(\)'
+      - {pattern: '\b\w+\.(cpp|h|hpp)\b', code: true}
+      - {pattern: '\bTest_\w+', code: true}
+      - {pattern: '[\w:]*::[\w:]*', code: true}
+      - {pattern: 'MEDIA_SLOT', code: true}
+  dating:
+    why: >-
+      the guide describes the version it ships with; say what the application does, without dating or hedging it
+    patterns:
+      - '\bcurrent(ly)? (behavior|application|build|code|implementation)\b'
+      - 'does not (promise|establish|prove)'
+
+# What a page may say all the same, each with its reason: a label the application shows that holds one of the
+# words, written as the page writes it. `text` allows the forbidden words inside it, on `page` only.
+#
+#   - page: processes/calibration/image-calibration.md
+#     text: "**Validate masters**"
+#     reason: The button's label.
+allow: []
