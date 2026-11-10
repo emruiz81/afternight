@@ -265,6 +265,59 @@ TEST(ImageViewFilesTest, AMosaicIsKeptAsRecordedOrDemosaicedByTheMethodAsked)
     EXPECT_EQ(notMosaic.status().code(), an::ErrorCode::IncompatibleArguments);
 }
 
+// A floating mosaic read from FITS states no full scale, and its white level - every threshold of the demosaic is a
+// fraction of it - was its brightest sample. A light calibrated by a flat whose dark border columns read nearly zero
+// holds samples in the hundreds of thousands there, and against that white level the whole frame read as next to
+// nothing: RCD's estimate of green at the red and blue sites collapsed, and the light was shown purple. A mosaic whose
+// samples lie mostly inside zero to one is a fraction of full scale whatever its brightest sample, and one whose
+// samples lie above one keeps its brightest sample for its white level.
+TEST(ImageViewFilesTest, AFloatingMosaicKeepsItsColoursWhateverItsBrightestSample)
+{
+    std::optional<an::tests::viewer::TestSessionProvider> provider = openFileProvider(2u);
+    ASSERT_TRUE(provider.has_value());
+    const auto& session = provider->engineSession();
+    const std::optional<an::CfaDescriptor> rggb = an::CfaDescriptor::create(an::CfaPattern::Rggb, 0u, 0u);
+    ASSERT_TRUE(rggb.has_value());
+    constexpr double kRed = 0.020;
+    constexpr double kGreen = 0.035;
+    constexpr double kBlue = 0.022;
+    struct Scene
+    {
+        const char* name;
+        double scale;
+        float brightest;
+    };
+    for (const Scene scene : {Scene{"fractions of full scale with one blown sample", 1.0, 938916.0f},
+                              Scene{"sensor codes", 50000.0, 60000.0f}})
+    {
+        SCOPED_TRACE(scene.name);
+        std::optional<an::consumer::ImageAsset> mosaic = makeAsset<float>(
+            session, 32u, 32u, Channels::Grey,
+            [&](std::uint32_t x, std::uint32_t y, std::uint32_t) {
+                if (x == 0u && y == 1u)
+                {
+                    return scene.brightest;
+                }
+                const bool evenRow = y % 2u == 0u;
+                const bool evenColumn = x % 2u == 0u;
+                const double level = evenRow && evenColumn ? kRed : (!evenRow && !evenColumn ? kBlue : kGreen);
+                return static_cast<float>(level * scene.scale);
+            },
+            an::NumericDomain::PhysicalScaled, *rggb);
+        ASSERT_TRUE(mosaic.has_value());
+
+        const an::Result<an::consumer::ImageAsset> colour =
+            an::ui::demosaicViewImage(session, *mosaic, an::DemosaicMethod::Rcd, {});
+        ASSERT_TRUE(colour.hasValue()) << describe(colour.status());
+        // Away from the blown sample, each colour is estimated where its filter is not: green at a red and a blue
+        // site, red and blue at a green one.
+        EXPECT_NEAR(floatAt(*colour, 16u, 16u, 1u), kGreen * scene.scale, 0.02 * kGreen * scene.scale);
+        EXPECT_NEAR(floatAt(*colour, 17u, 17u, 1u), kGreen * scene.scale, 0.02 * kGreen * scene.scale);
+        EXPECT_NEAR(floatAt(*colour, 17u, 16u, 0u), kRed * scene.scale, 0.02 * kRed * scene.scale);
+        EXPECT_NEAR(floatAt(*colour, 17u, 16u, 2u), kBlue * scene.scale, 0.02 * kBlue * scene.scale);
+    }
+}
+
 // Every method the product offers is written for a two-by-two Bayer block, and every read and demosaic of the view
 // asked the engine for it over an X-Trans mosaic too, which the engine refuses, so no X-Trans image was ever shown in
 // colour. Each entry point demosaics one by the asked method's tabulated counterpart: the two fast estimates by the
