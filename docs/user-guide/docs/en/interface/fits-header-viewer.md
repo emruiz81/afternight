@@ -1,357 +1,287 @@
 ---
 kind: interface
 summary: >-
-  Read-only views of an image's FITS header records, its EXIF data and its astrometric solution.
+  Three windows show what an image's file stated: FITS Header lists its header cards, EXIF Viewer its camera fields,
+  and Astrometry Info sums up its plate solution. None of them changes anything.
+menu:
+  - Image > Information > FITS Header
+  - Image > Information > EXIF Viewer
+  - Image > Information > Astrometry Info
+rewritten: true
 ---
 # FITS Header, EXIF, And Astrometry Metadata
 
-![FITS Header table with key, value, and comment columns showing representative celestial WCS records](../assets/images/interface/fits-header-viewer.png)
+Three windows show what an image carries beside its pixels. **FITS Header** lists its
+[header cards](../reference/glossary.md#header-card) as the file stated them, **EXIF Viewer** the fields a camera or a
+raster file wrote, and **Astrometry Info** sums up its [plate solution](../reference/glossary.md#plate-solution). They
+read what AfterNight keeps in memory, which the file's reader stored when it opened the file. None of them edits a
+card, a field, the pixels or the [history](../reference/glossary.md#history), and none of them marks the image as
+changed. For the image's size and format, open [Image and Sequence Summary](image-summary.md) instead.
 
-*The read-only table exposes stored FITS records directly. This solved example
-contains a celestial WCS but no accepted SIP coefficient set.*
+```figure
+owed: true
+image: ../assets/images/interface/fits-header-viewer.webp
+alt: >-
+  The FITS Header Viewer window. Under the title bar, the heading FITS Header and a line about keyword, value and
+  comment records. A card titled Header Keywords holds a table with the columns Key, Value and Comment: SIMPLE, T and C#
+  FITS on the first row, then BITPIX 16, NAXIS 2, NAXIS1 5544, NAXIS2 3684, BZERO 32768, EXTEND, IMAGETYP with the
+  quoted value LIGHT, EXPOSURE 180.0 with its comment in seconds, and more rows below. Close stands at the bottom
+  right.
+caption: >-
+  The FITS header of a raw NGC 253 light frame, as the file states it.
+pins:
+  - {n: 1, x: 63.0, y: 3.0}
+  - {n: 2, x: 14.0, y: 29.0}
+  - {n: 3, x: 33.0, y: 29.0}
+  - {n: 4, x: 65.0, y: 29.0}
+  - {n: 5, x: 81.0, y: 93.5}
+```
 
-![Astrometry Info summary showing an available solution, field center, scale, rotation, projection, and SIP status](../assets/images/interface/astrometry-info.png)
+## What you see
 
-*Astrometry Info interprets the active image's solution in reader-friendly
-fields; **SIP distortion: None** records the selected file's actual metadata
-state.*
+1. **The title.** It names the view, as `FITS Header Viewer <M42>`.
+2. **Key.** Each card's keyword, in the order the file states them.
+3. **Value.** The value as the file stores it. A string keeps its quotes, as `'LIGHT'`.
+4. **Comment.** The text after the value's slash.
+5. **Close.** Closes the window.
 
-## Purpose, audience, prerequisites, and expected result
+## What you can do
 
-These three read-only tools inspect different layers of the active image's
-in-memory metadata:
+### Read the FITS header
 
-- **FITS Header** shows parsed FITS cards as keyword, value, and comment rows.
-- **EXIF Viewer** shows camera-oriented EXIF tags that AfterNight retained for
-  display.
-- **Astrometry Info** interprets celestial WCS and SIP cards as a compact
-  solution summary.
+1. Make the view active. For a [sequence](../reference/glossary.md#sequence), pause the player on the frame you want.
+2. Choose **Image > Information > FITS Header**, choose **FITS Header** on the view's toolbar, or press
+   ++ctrl+shift+h++ over the view.
+3. Scroll the table, and drag a heading's edge to widen a column. Click a row to mark it while you compare.
 
-Use them to diagnose acquisition metadata, check a plate-solve handoff, or
-inspect a reopened output. You need an active image; FITS Header and EXIF Viewer
-also require the image to carry at least one card of the corresponding kind. The expected
-result is an inspection window only. None of these tools edits pixels, metadata,
-history, files, or the pending-save state.
+On the NGC 253 [light frame](../reference/glossary.md#light-frame), the table opens on `SIMPLE`, `BITPIX` 16 and
+`NAXIS` 2, and `DATE-LOC` and `DATE-OBS` lie a few rows down. On a solved image, look for the
+[WCS](../reference/glossary.md#wcs) cards - `CTYPE1` and `CTYPE2`, `CRPIX1` and `CRPIX2`, `CRVAL1` and `CRVAL2`, the
+`CD` or `PC` and `CDELT` matrix - and any `A` and `B` or `AP` and `BP` cards of [SIP](../reference/glossary.md#sip)
+distortion. Then compare them with **Astrometry Info**.
 
-[Image and Sequence Summary](image-summary.md) owns the fixed common image/file/
-sequence report. [Image Statistics](image-statistics.md) and
-[Histogram Analysis](image-histogram.md) own pixel measurements. This page does
-not reproduce those field inventories, and
-[Astrometry Overlays](astrometry-overlays.md) owns overlay rendering and catalog
-behavior.
+### Read the camera's EXIF fields
 
-## Reachability and availability
+Choose **Image > Information > EXIF Viewer**, **EXIF Viewer** on the toolbar, or press ++ctrl+shift+x++. The window
+lists the image's [EXIF](../reference/glossary.md#exif) record, one row for each field: its **Tag**, its **Value** and
+its full **Key**, such as `Exif.Photo.ExposureTime`. The window is offered only for a JPEG, TIFF, PNG or camera
+[RAW](../reference/glossary.md#raw) file that stated a field it shows.
 
-| Item | Current behavior |
-| --- | --- |
-| Path | **Image > Information > FITS Header**, **EXIF Viewer**, or **Astrometry Info**. Standard image-view toolbars expose the same three labels. Focused-view shortcuts are `Ctrl+Shift+H`, `Ctrl+Shift+X`, and `Ctrl+Shift+P`. |
-| Enabled/visible when | FITS Header requires at least one FITS card among the image's header cards. EXIF Viewer requires at least one EXIF field the window shows a row for: an `Exif.` field of a JPEG, TIFF, PNG or camera-RAW file that the window does not hide. A container's own entries alone, such as a PNG's bit depth or a JPEG comment, do not enable it. When the view refreshes its actions while an edit holds the image, both are disabled until the next update. Main-menu Astrometry Info requires any active image and can show an unsolved state. Toolbar Astrometry Info is visible only for stills and enabled only when the view has parsed WCS; it is hidden for sequences. |
-| Supported inputs/state | Still images and the current decoded frame of a sequence. FITS-style metadata can also originate from XISF or processing; availability does not prove the current file extension. Masks, selections, display channel, zoom, autostretch, overlays, and pixel statistics do not affect the metadata shown. |
-| Outputs/side effects | Modeless read-only dialogs. FITS/EXIF allow one selected row; Astrometry labels allow mouse text selection. There is no report file, table export, table copy action, metadata edit, or history entry. |
-| Persistence | None. Window geometry, column widths, selection, and scroll position are dialog-local and are not stored. |
-| External dependencies | None at inspection time: the engine's FITS (OpenFITS), XISF (OpenXISF) and EXIF (Exiv2) readers stored the cards when the file was opened, and the solution is read by the engine's own WCS card reader. Opening these panels uses no network, catalog, solver, or external executable. |
+### Read the plate solution
 
-The menu and toolbar gates are independent. In particular, the main-menu
-Astrometry action deliberately remains enabled for an unsolved active image so
-the panel can report **No astrometric solution**, while its image-toolbar action
-requires parsed WCS.
+Choose **Image > Information > Astrometry Info**, **Astrometry Info** on the toolbar, or press ++ctrl+shift+p++. A
+line says whether the image has a solution, and eleven fields sum it up.
 
-## Before you start
+```figure
+owed: true
+image: ../assets/images/interface/fits-header-viewer-astrometry-info.webp
+alt: >-
+  The Astrometry Info window. Under its heading and a line of description, the words Astrometric solution available,
+  then a card of eleven rows: Field center RA 10:44:30.67, Field center Dec -59:53:31.7, CRVAL RA 10:44:30.67, CRVAL Dec
+  -59:53:31.7, Image scale 1.095 arcsec/px, Rotation 107.7° (N through E), Field of view 132.22′ × 99.16′, Projection
+  RA---TAN-SIP / DEC--TAN-SIP, Equinox ICRS, SIP distortion A/B 4/4, 14 coeffs, and Solver Unknown. Close stands at the
+  bottom right.
+caption: >-
+  Astrometry Info for the plate-solved Carina master.
+```
 
-- Activate the exact view or pause on the exact sequence frame to inspect.
-  FITS and EXIF dialogs stay attached to their originating view. Astrometry Info
-  follows the application's active image while it remains open.
-- Reopen a saved output before treating these panels as file verification. They
-  read current in-memory metadata and do not reread the file on every refresh.
-- Treat camera, observer, object, location, and time fields as potentially
-  private and as claims from the source file, not independently measured facts.
-- For WCS interpretation, distinguish the image-center sky coordinate from the
-  WCS reference coordinate. They need not be equal.
+**Field center RA** and **Field center Dec** say where the middle of the image points, and **CRVAL RA** and **CRVAL
+Dec** where the solution's reference pixel points. The two differ unless the reference pixel is the middle, as it is
+on the Carina [master](../reference/glossary.md#master). The window follows the
+[active image](../reference/glossary.md#active-image): choose another view and it describes that one.
 
-## Procedure
+### Keep the metadata when you save
 
-1. Activate the target view. If it is a sequence, pause on the frame whose
-   metadata you want to inspect.
-2. Open [Image and Sequence Summary](image-summary.md) first when you need common
-   dimensions, pixel type, file identity, frame count, or FPS. It is intentionally
-   not a full metadata dump.
-3. Open **Image > Information > FITS Header**. Confirm the title names the
-   intended view, then inspect the original row order and the **Key**, **Value**,
-   and **Comment** columns. Resize columns or scroll as needed.
-4. For a solved image, locate `CTYPE1/2`, `CRPIX1/2`, `CRVAL1/2`, the CD or
-   PC/CDELT matrix, and any `A`/`B` or `AP`/`BP` SIP cards. Then open
-   **Astrometry Info** and compare its interpreted fields with those raw cards.
-5. Open **EXIF Viewer** when enabled. Read **Tag**, **Value**, and **Key**
-   together; the **Key** column is the field's full EXIF key, such as
-   `Exif.Photo.ExposureTime`. The table is for reading, not a machine-readable
-   export.
-6. If the image changes, wait for the normal image load/update notification.
-   The panels refresh automatically; there is no **Refresh** button. A rename
-   updates each window title.
-7. To verify preservation, save in the intended format, reopen the output, and
-   inspect again. Use [Saving And Exporting](saving-and-exporting.md) and
-   [File Formats](../reference/file-formats.md) for the authoritative
-   format-specific preservation contract.
+A [FITS](../reference/glossary.md#fits) or [XISF](../reference/glossary.md#xisf) save writes the cards back, and a
+TIFF, PNG or JPEG save carries the EXIF fields while **Embed EXIF** is on. Each format keeps a different part, so open
+the saved file again and read its header before you delete the original. [File Formats](../reference/file-formats.md)
+says what each format keeps.
 
-## Complete control and action reference
+Inside AfterNight, **Image > Actions > Duplicate** copies every card and field into a new image that has never been a
+file. An image combined from several, by Image Blend, LRGB Combination or another combining process, keeps the first
+source's pointing and solution cards, the earliest source's observation start, and any other card only when every
+source states it alike. Its `EXPTIME` and `TOTEXP` state the sources' distinct exposures added up, in place of theirs.
+A change of geometry adjusts the solution or removes it, as its own page says.
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Image > Information > FITS Header** | Main-menu action | Disabled | Click | Opens FITS Header for the active view. | Enabled only when the current image has at least one FITS card. Opening a dialog disables this main-menu action for that originating active view until a FITS dialog closes. | Inspection only. | Active image/current frame | None |
-| **FITS Header** | Standard-view toolbar action | Disabled without FITS cards | Click | Opens the same FITS dialog for that view. | Standard view only; follows that view's current image metadata. The local toolbar action is not disabled by an already-open dialog. | More than one FITS dialog can be opened for one view. | Originating view | None |
-| `Ctrl+Shift+H` | Focused-view shortcut | Advertised by FITS toolbar tooltip | Key press | Opens FITS Header. | The reviewed shortcut calls the dialog directly and does not check the action's enabled state. | On metadata without FITS cards it can open an empty dialog; repeated use can open duplicates. | Focused standard view | None |
-| **Key / Value / Comment** | Read-only three-column table | Source order; no selection | The image's FITS cards | Displays the keyword, the stored value text - a string value with its quotes - and the comment text of every FITS card the image was read with - a FITS file's, or the FITS keywords an XISF file carries. A string continued over `CONTINUE` cards is one row holding the whole value. | All rows are presented; the viewer does not group HDUs. A file with no FITS card shows an empty table. | Values/comments can be long; row order may include structural and repeated cards. | Originating image/current frame | Dialog lifetime |
-| FITS row selection | Single whole-row selection | None | One row | Highlights one row for visual comparison. | Cell editing is disabled. | There is no built-in table copy/export command. | FITS table | Dialog lifetime |
-| FITS column resize/scroll | Header drag and scroll gestures | Interactive columns; last column stretches | Normal platform table interaction | Reveals long values and navigates rows. | Sorting is not enabled; clicking a heading does not reorder rows. | Presentation only. | FITS table | Dialog lifetime |
-| FITS automatic refresh | Image listener action | Initial calculation on open | Image loaded/updated | Clears and rebuilds rows from the originating view's current image, an empty table when it states no FITS card. | No manual refresh control. Asked while an edit holds the image, the window keeps what it shows and rebuilds at the next update; it never waits for the edit. | None. | Originating view | None |
-| FITS title refresh | Image listener action | `FITS Header Viewer <view>` | View rename | Updates only the window title. | Does not reread a file. | None. | Dialog title | None |
-| FITS **Close** | Default primary button/window close | Available | Click, Enter, or close window | Closes the dialog and re-enables the originating view's main-menu FITS action. | Always available. | If duplicate dialogs exist, closing either can re-enable the main action while another remains open. | This dialog | None |
-| **Image > Information > EXIF Viewer** | Main-menu action | Disabled | Click | Opens EXIF Viewer for the active view. | Enabled only when the current image carries at least one EXIF field the window shows, from a JPEG, TIFF, PNG or camera-RAW file - the rule the window's rows read. Opening disables this main-menu action for the originating active view until an EXIF dialog closes. | Inspection only. | Active image/current frame | None |
-| **EXIF Viewer** | Standard-view toolbar action | Disabled without EXIF entries | Click | Opens the same EXIF dialog for that view. | Standard view only. The local toolbar action is not disabled by an already-open dialog. | More than one EXIF dialog can be opened for one view. | Originating view | None |
-| `Ctrl+Shift+X` | Focused-view shortcut | Advertised by EXIF toolbar tooltip | Key press | Opens EXIF Viewer. | The reviewed shortcut does not check the action's enabled state. | On metadata without EXIF it can open an empty dialog; repeated use can open duplicates. | Focused standard view | None |
-| **Tag / Value / Key** | Read-only three-column table | The order the file stated the fields in; no selection | The image's EXIF fields | Shows the field's name - the last part of its key - its value as the EXIF library renders it, and its full key. A value longer than one stored card is shown whole. | Fields of a JPEG, TIFF, PNG or camera-RAW file. The maker note, the interoperability fields, the strip offsets, the subfile type, the embedded XMP, IPTC and Photoshop blocks, the colour profile and the thumbnail are omitted; an embedded XMP packet is not even read. | This is a human-readable view, not a lossless EXIF serializer. | Originating image/current frame | Dialog lifetime |
-| EXIF row selection | Single whole-row selection | None | One row | Highlights one row. | Cell editing is disabled. | There is no built-in table copy/export command. | EXIF table | Dialog lifetime |
-| EXIF column resize/scroll | Header drag and scroll gestures | Interactive columns; last column stretches | Normal platform table interaction | Reveals long values and navigates rows. | Sorting is not enabled. Rows follow the order the file stated its fields in, not alphabetical order of the **Tag** label. | Presentation only. | EXIF table | Dialog lifetime |
-| EXIF automatic refresh | Image listener action | Initial calculation on open | Image loaded/updated | Clears and rebuilds the rows from the originating view's current image, an empty table when it states no EXIF field. | No manual refresh control. Asked while an edit holds the image, the window keeps what it shows and rebuilds at the next update; it never waits for the edit. | Current-frame changes replace the table. | Originating view | None |
-| EXIF title refresh | Image listener action | `EXIF Header Viewer <view>` | View rename | Updates only the window title. | Does not reread a file. | None. | Dialog title | None |
-| EXIF **Close** | Default primary button/window close | Available | Click, Enter, or close window | Closes the dialog and re-enables the originating view's main-menu EXIF action. | Always available. | Duplicate-dialog re-enable limitation matches FITS. | This dialog | None |
-| **Image > Information > Astrometry Info** | Main-menu action | Disabled without active image | Click | Opens the astrometric summary for the active image. | WCS is optional; an unsolved image shows an explicit unsolved state. Main-menu source permits a sequence current frame. | Inspection only. | Active image/current frame | None |
-| **Astrometry Info** | Standard-view toolbar action | Visible but disabled for unsolved still | Click | Opens or raises the originating view's existing Astrometry panel. | Hidden for sequences; enabled only when that still has parsed WCS. | The open panel then follows active-view changes rather than remaining fixed to the launch image. | Current active image | None |
-| `Ctrl+Shift+P` | Focused-view shortcut | Advertised by Astrometry tooltip | Key press | Opens/raises Astrometry Info. | Honors the toolbar action's visible and enabled state. | No effect on an unsolved still or sequence toolbar context. | Focused standard view | None |
-| Status | Read-only message | **No active image**, **No astrometric solution**, or **Astrometric solution available** | Derived state | Distinguishes absent image, failed/no celestial WCS, and parsed WCS. | Does not expose the card reader's detailed refusal. | A valid status does not certify solve accuracy. | Active image | Runtime |
-| **Field center RA** | Selectable read-only angle | `-` | Sexagesimal hours `HH:MM:SS.ss` | Converts the geometric image-center pixel through WCS; RA is normalized to 24 hours. | Requires valid celestial WCS and a projectable center. | Can differ from CRVAL RA. | Active image | Runtime |
-| **Field center Dec** | Selectable read-only angle | `-` | Signed sexagesimal degrees `±DD:MM:SS.s` | Converts the geometric image-center pixel through WCS. | Requires valid celestial WCS and a projectable center. | Can differ from CRVAL Dec. | Active image | Runtime |
-| **CRVAL RA** | Selectable read-only angle | `-` | Sexagesimal hours `HH:MM:SS.ss` | Formats the right ascension of the solution's reference point. | Requires valid celestial WCS/reference axes. | It is the world coordinate at the reference pixel, not necessarily field center. | Active image | Runtime |
-| **CRVAL Dec** | Selectable read-only angle | `-` | Signed sexagesimal degrees `±DD:MM:SS.s` | Formats the declination of the solution's reference point. | Requires valid celestial WCS/reference axes. | It is not necessarily field center. | Active image | Runtime |
-| **Image scale** | Selectable read-only scale | `-` | Arcseconds/pixel, three decimals | The side of a square pixel covering the same solid angle as the solution's pixel, from its CD matrix or the PC/CDELT equivalent. | Requires valid WCS and positive finite scale. | One displayed scalar does not describe anisotropic/skewed scale on both axes. | Active image WCS | Runtime |
-| **Rotation** | Selectable read-only angle | `-` | Degrees, one decimal, **N through E** | The solution's orientation: the direction of celestial north, measured from increasing y toward decreasing x. | Requires valid WCS and finite result. | Does not report uncertainty or parity separately. | Active image WCS | Runtime |
-| **Field of view** | Selectable read-only angular size | `-` | Arcminutes, two decimals, width x height | The solution's field of view across the image's width and height. | Requires positive finite derived dimensions. | Rectangular scale estimate, not a sampled spherical footprint or overlay viewport. | Whole active image | Runtime |
-| **Projection** | Selectable read-only text | `-` | `RA---TAN / DEC--TAN`, with `-SIP` when the solution carries a polynomial | The projection the solution is written with. | Requires a valid solution. | Describes the solution as read, not the stored strings. | Active image metadata | Runtime |
-| **Equinox** | Selectable read-only FITS text | `-` | Numeric value formatted as `Jyyyy.y`, otherwise sanitized text; the reference frame when no equinox is stated | Shows `EQUINOX`, or `RADESYS` - `ICRS` for a solution AfterNight wrote - when the header states no equinox. | Can appear without valid complete WCS. | Does not transform coordinates to another epoch. | Active image metadata | Runtime |
-| **SIP distortion** | Selectable read-only model summary | **None** | Forward `A/B`, inverse `AP/BP`, polynomial orders, and count of coefficients whose magnitude exceeds `1e-12` | Summarizes the solution's SIP model, tied to its reference pixel. | Read with the solution: the projection codes carry `-SIP` exactly when polynomial cards are present, `A` and `B` (or `AP` and `BP`) come in pairs, every order is from 2 through 6 and every coefficient a number within its order; a missing coefficient is zero. A header that breaks any of these shows no solution at all. | Reports model presence/order/count, not maximum distortion, solve residual, or correction quality. | Active image WCS | Runtime |
-| **Solver** | Selectable read-only FITS text | **Unknown** | Sanitized `PLTSOLVR` value | Identifies the writer recorded by AfterNight's plate-solve path. | Can appear without a valid complete WCS; external solved files often omit this project-specific card. | **Unknown** does not mean unsolved. | Active image metadata | Runtime |
-| Astrometry automatic refresh/retarget | App/image listener action | Launch image | Active view change; image load/update | Reattaches to the current active view, updates title/status, reparses metadata, and replaces all fields. | No manual refresh button. Rename changes the title. While an edit holds the image, **Equinox** and **Solver** read as unknown until its next update. | The inspected target can change simply by focusing another image. | Current active view | None |
-| Astrometry **Close** | Secondary button/window close | Available | Click or close window | Closes the panel. | The panel belongs to the view it was opened from, so repeat launch through that same view raises it. After focus moves, the open panel retargets, but launch through the newly active view can create a second panel, which belongs to that view. | No metadata change. | This dialog | None |
+## Controls
 
-## Behavior and state model
+### FITS Header
 
-### FITS rows and EXIF rows
+```controls
+window: FITS Header
+controls:
+  - name: Title
+    kind: readout
+    default: ""
+    effect: Names the view the table belongs to, as `FITS Header Viewer <M42>`, and follows a rename.
+    enabled: The menu entry and the button are enabled while the image carries at least one FITS card, whatever the file's extension. While a window is open, that view's menu entry is disabled until a FITS Header window of it closes. The button is not, so each press opens another window. ++ctrl+shift+h++ opens a window even when the entries are disabled, then empty.
+    tradeoff: While an edit holds the image, the view may find no card and disable the entries until the edit is done. With two windows open, closing either enables the menu entry again.
+    persistence: Nothing of the window is kept, neither the column widths nor the row marked.
+    note: The window stays open beside your work, and closes with its view. None of the three windows reads the pixels, a catalog or the network.
+  - name: Key, Value and Comment
+    kind: readout
+    default: ""
+    effect: One row for each card, in the file's order, with no sorting and no separator between header units. A string continued over `CONTINUE` cards is one row with the whole value. `HISTORY` and `COMMENT` cards are rows like the others, and a card with a blank keyword is not shown. A `HISTORY` card is a line of the file's header, not a step of the image's history.
+    range: A FITS file gives the cards of the image it opened. An image inside an extension adds the primary header's cards it does not restate, apart from the structural ones, and all its `HISTORY` and `COMMENT` cards. An XISF file gives the FITS keywords it carries, and a process can add or update cards too. An image holds at most 8,192 cards of at most 4,096 bytes each.
+    enabled: A row can be marked, never edited. A click on a heading does not sort. The last column stretches with the window.
+    tradeoff: It is a table of the cards, not the 80-character records of the file. It has no search, filter, copy or export. The cards are what the file claims, and can be stale, wrong or private, such as an observer's name or the site's latitude and longitude.
+    scope: The view the window was opened from, and the frame it shows.
+    persistence: Built again when the view's image loads or changes, a new frame among them, and empty when the image carries no FITS card. A long header rebuilds slowly, so pause a playing sequence or close the window when you do not need it. While an edit holds the image, the window keeps what it shows until the edit is done; it never waits for it. There is no refresh button.
+    note: The processing-state cards AfterNight writes, such as `ANLIN`, are quoted strings. Writing one replaces the first card of its keyword, in its place and with its comment, and removes the later ones. A long value, such as a color-calibration record's, is saved over `CONTINUE` cards and shows as one row.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window and enables the view's **FITS Header** menu entry again.
+    range: ++enter++ and the window's own close button do the same.
+```
 
-A FITS read keeps the header cards of the image it decodes - the first image
-HDU, empty primary HDUs and tables skipped - with the primary header's cards that
-an image extension inherits. The viewer lists them in that order, without
-sorting or HDU separators. Each row holds the keyword, the value text as stored
-and the comment; blank cards are not shown, a string continued over `CONTINUE`
-cards is one row holding the whole value, and `HISTORY` and `COMMENT` cards are
-ordinary rows. It is not a byte-for-byte 80-character card display. Processing
-can also create or update FITS-style cards, and XISF can supply compatible FITS
-keywords, so the panel's gate is metadata presence rather than filename type.
-The processing-state cards AfterNight writes are quoted FITS strings, with a
-later duplicate of a keyword removed; a long colour-calibration value continues
-over `CONTINUE` cards and appears as one whole row.
+### EXIF Viewer
 
-EXIF load uses Exiv2. The engine keeps each field as the text the library
-renders, under its fully qualified EXIF key and in the order the file states the
-fields, with the field's EXIF type beside it; a field longer than one stored
-card continues in the next, and the viewer shows it whole. The viewer shows the
-key's last part as the tag, the value and the full key; it does not show the
-library's description of a field, which the engine does not keep. MakerNote,
-interoperability, strip-offset, XML/IPTC/resource/profile entries and the
-thumbnail are hidden. An embedded XMP packet (`Exif.Image.XMLPacket`) is removed
-before the EXIF library reads the record, so it is never shown and a later
-raster save does not carry it. The other fields are written back by a later
-raster save when Embed EXIF is on; the table itself is not that serializer.
+```controls
+window: EXIF Viewer
+controls:
+  - name: Title
+    kind: readout
+    default: ""
+    effect: Names the view, as `EXIF Header Viewer <M42>`, and follows a rename. The heading inside reads **EXIF Metadata**.
+    enabled: The menu entry and the button are enabled while the image carries an EXIF field the window shows, from a JPEG, TIFF, PNG or camera raw file. A container's own entries, such as a PNG's bit depth or a JPEG comment, do not count. While a window is open, its menu entry is disabled and its button is not, as for FITS Header. ++ctrl+shift+x++ opens a window even when the entries are disabled, then empty.
+    range: A camera raw file in a TIFF structure - NEF, DNG, ARW, PEF, SRW, CR2, ORF, RW2 - gives its fields, and a RAF file those of its embedded preview. A CR3, CRW, MRW or X3F file gives none.
+    persistence: Nothing of the window is kept.
+  - name: Tag, Value and Key
+    kind: readout
+    default: ""
+    effect: One row for each field, in the order the file stated them. **Tag** is the last part of the key, **Value** the value as the Exiv2 library renders it, and **Key** the full key, such as `Exif.Photo.ExposureTime`.
+    range: A value longer than one card is shown whole. The window leaves out the maker note, the interoperability fields, the strip offsets, the subfile type, the embedded IPTC and Photoshop blocks, the color profile, the thumbnail and a field without a name.
+    tradeoff: It is a table to read, not a copy of the record. It does not show the library's description of a field, and has no sorting, copy or export. A field missing here may still be in the file.
+    scope: The view the window was opened from, and the frame it shows.
+    persistence: Built again as the FITS Header table is, and empty when the image carries no EXIF field.
+    note: An embedded XMP packet is removed before the fields are read, so it is never shown and a later save does not carry it. The other fields are written back by a TIFF, PNG or JPEG save while **Embed EXIF** is on; a field the library cannot write is skipped.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window and enables the view's **EXIF Viewer** menu entry again.
+    range: ++enter++ and the window's own close button do the same.
+```
 
-Both table dialogs listen for image-load and image-update events on their
-originating view and rebuild on the GUI thread, reading the image under a lease
-that never waits; asked while an edit holds the image they keep what they show
-until the next update. Sequence playback can therefore
-replace rows with the current frame's metadata. They do not follow the globally
-active view. Astrometry Info instead listens for active-view changes and
-reattaches its image listener, so its fields can change when focus moves.
-Ownership does not move with the displayed target: each panel belongs to the
-view it was opened from. Consequently, a panel launched from view A can follow
-focus to view B while a new launch through B creates another panel. Repeating
-the launch through either owner raises only that owner's panel.
+### Astrometry Info
 
-### WCS and SIP interpretation
+```controls
+window: Astrometry Info
+controls:
+  - name: Status
+    kind: readout
+    default: No astrometric solution
+    effect: Reads "Astrometric solution available", "No astrometric solution" or, with no image active, "No active image".
+    enabled: The menu entry is enabled for any image, a sequence's frame among them, so it can show an unsolved one. The toolbar button shows for a still image and is enabled when it is solved. ++ctrl+shift+p++ works when the button does and is not in the toolbar's **More** menu.
+    tradeoff: '"No astrometric solution" does not say which card is missing or wrong, and "Astrometric solution available" says nothing of how good the solution is.'
+    scope: The active image. The window follows the active view, and its title names it, as `Astrometry Info <M42>`.
+    persistence: There is one window for each view. Asking again through the view it was opened from brings that window forward; asking through another view opens a second one. It closes with the view it was opened from.
+    note: The solution is read from the FITS cards by the one reader the overlays and Plate Solve use, and needs the ICRS and a tangent-plane projection. A header that states the J2000 equinox and no frame is taken as the ICRS. FK5 or any other frame, another equinox without `RADESYS = 'ICRS'`, another projection, a missing, malformed or repeated keyword and a singular matrix all leave no solution.
+  - name: Field center RA and Field center Dec
+    kind: readout
+    default: "-"
+    effect: Where the middle of the image points, in hours, minutes and seconds to a hundredth, and in signed degrees, minutes and seconds to a tenth.
+    range: The right ascension runs from 0 to 24 hours. Each value is rounded once, so 10h 29m 59.996s shows as `10:30:00.00`, never as 60 seconds.
+    note: The middle is half the width and half the height, with the first pixel's center at 0.5, projected through the solution.
+  - name: CRVAL RA and CRVAL Dec
+    kind: readout
+    default: "-"
+    effect: Where the solution's reference pixel points, in the same format.
+    note: It is the middle of the image only when the reference pixel is.
+  - name: Image scale
+    kind: readout
+    default: "-"
+    effect: The side of a square pixel that covers the same sky as the solution's pixel, in arcseconds per pixel to three decimals.
+    tradeoff: One number cannot describe a solution whose two axes have different scales.
+    note: The scale, the rotation and the field of view come from the solution's matrix - the `CD` cards, or `PC` with `CDELT`, or `CDELT` with `CROTA2` - not from cards of their own.
+  - name: Rotation
+    kind: readout
+    default: "-"
+    effect: Which way celestial north points, at the reference pixel, from the direction of increasing y toward decreasing x, to a tenth of a degree, as `107.7° (N through E)`.
+    tradeoff: It gives neither an uncertainty nor whether the image is mirrored.
+  - name: Field of view
+    kind: readout
+    default: "-"
+    effect: The sky across the image's width and height, in arcminutes to two decimals.
+    tradeoff: A linear estimate from each axis's scale. It ignores the projection's curvature and the distortion.
+  - name: Projection
+    kind: readout
+    default: "-"
+    effect: Reads `RA---TAN / DEC--TAN`, or `RA---TAN-SIP / DEC--TAN-SIP` when the solution carries a distortion polynomial.
+  - name: Equinox
+    kind: readout
+    default: "-"
+    effect: The `EQUINOX` card as a year, such as `J2000.0`, or its text. Without one, the `RADESYS` frame, which reads `ICRS` for a solution AfterNight wrote, or `-` when neither is stated.
+    enabled: Shown even when the image has no solution.
+    tradeoff: It converts no coordinate to another epoch.
+  - name: SIP distortion
+    kind: readout
+    default: None
+    effect: The orders of the forward `A`/`B` and inverse `AP`/`BP` polynomials, and how many coefficients are larger than `1e-12` in size, as `A/B 4/4, 14 coeffs`.
+    range: A polynomial is read with the solution. The projection must end in `-SIP` exactly when polynomial cards are present, `A` comes with `B` and `AP` with `BP`, every order lies from 2 to 6 and every coefficient within its order. A missing coefficient is 0. A header that breaks a rule shows no solution at all.
+    tradeoff: It says nothing of how far the distortion moves a pixel, nor of the solve's residuals. Higher-order coefficients smaller than the limit are not counted, though they can still move a corner by pixels.
+    note: '**None** means no polynomial this reader accepts, not that the header has no distortion cards.'
+  - name: Solver
+    kind: readout
+    default: Unknown
+    effect: The `PLTSOLVR` card, which AfterNight's plate solve writes.
+    enabled: Shown even when the image has no solution.
+    tradeoff: '**Unknown** does not mean unsolved: files solved elsewhere seldom carry the card.'
+    note: A solution AfterNight writes states `RADESYS = 'ICRS'` and no `EQUINOX`, each number as the shortest decimal that reads back the same, and none of the solver's comments.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window.
+    note: The window is refreshed when the image loads or changes, and when another view becomes active. While an edit holds the image, **Equinox** and **Solver** read as unknown until it is done. Every label and value can be selected with the mouse.
+```
 
-Astrometry Info shows the solution the view read from the image's FITS cards
-through one card reader - the same one the overlays and Plate Solve use - with
-`EQUINOX` (or the reference frame) and `PLTSOLVR` text beside it. The reader
-takes a header that states the J2000 equinox and no frame - what astrometry.net
-and ASTAP write - as the ICRS, and refuses FK5 or any other frame. **No
-astrometric solution** means the cards state no solution the reader accepts; it
-does not reveal which card was missing or invalid. A solution AfterNight writes
-states `RADESYS = 'ICRS'` and no `EQUINOX`, every number as the shortest decimal
-that reads back as itself, the solver's name as `PLTSOLVR` and none of the
-solver's comments, so **Equinox** shows `ICRS` for it.
+## When it goes wrong
 
-For a valid solution, field center is the projection of the image's center,
-`(width / 2, height / 2)` measured with the first pixel's center at
-`(0.5, 0.5)`. CRVAL is the solution's reference point. Scale, rotation, and
-field of view are the solution's own figures, derived from its CD matrix (or its
-PC/CDELT equivalent) rather than stored fields. A coordinate is rounded once and
-the rounding carries into every field: a field centre of 10h 29m 59.996s shows
-as `10:30:00.00`, never as sixty seconds.
+**FITS Header** is greyed
+:   **Cause.** The image carries no FITS card, or an edit held it while the view refreshed its toolbar.
+:   **Fix.** Wait for the edit to finish, or open the image from a FITS or XISF file.
 
-The SIP summary is intentionally compact. The polynomial is read with the
-solution: orders from 2 through 6, `A` with `B` and `AP` with `BP`, projection
-codes ending in `-SIP` exactly when polynomial cards are present, and every
-coefficient a number within its order; a missing coefficient is zero. The
-summary counts nonzero coefficients for display.
-**None** means no model accepted by this parser, not proof that the raw header
-has no distortion-related text. See
-[Astrometry Overlays](astrometry-overlays.md) for the forward-model requirement
-of the distortion-map layer and [Plate Solving](../processes/registration-alignment/plate-solving.md)
-for how a solution is created.
+**EXIF Viewer** is greyed
+:   **Cause.** The image carries no EXIF field the window shows: none, only hidden ones, or a raw format whose EXIF
+    AfterNight does not read.
+:   **Fix.** Open the camera's own JPEG, TIFF or raw file, in a format the window reads.
 
-### Refresh and metadata preservation
+A shortcut opens an empty window
+:   **Cause.** ++ctrl+shift+h++ and ++ctrl+shift+x++ open their windows even when the image has nothing to show.
+:   **Fix.** Close it, and trust the menu entry's state.
 
-All three tools are observers: opening, selecting, resizing, scrolling, or
-closing them never mutates metadata. **Image > Actions > Duplicate** takes a snapshot of
-the image - its samples and every metadata object, the header cards and EXIF
-fields among them - into a new image that has never been a file; focused tests
-verify that the WCS, solver and projection survive two such duplicate
-generations. An image a combination makes - a blend, LRGB or channel
-combination - carries the exposure once, as the integration of the distinct
-acquisitions it combines summed, with the sources' `EXPOSURE`/`EXPTIME` cards
-replaced by its own `EXPTIME` and `TOTEXP`; it keeps the first source's
-pointing cards and the earliest source's observation start, and the airmass, a
-shared filter and every other card only when every source states it.
+"No astrometric solution" although the header has WCS cards
+:   **Cause.** The reader refused the cards: a frame other than the ICRS, a missing, malformed or repeated keyword,
+    polynomial cards that disagree with the projection, or a singular matrix.
+:   **Fix.** Read `CTYPE`, `CRPIX`, `CRVAL`, `RADESYS`, `EQUINOX`, the matrix and the polynomial cards in FITS Header,
+    and solve the image again with Plate Solve.
 
-That in-memory rule is not a universal file-format guarantee. A FITS save writes
-the image's cards with the structural cards generated from the output and the
-solution written as the engine's card bridge writes it; XISF carries FITS-style
-keywords. JPEG/TIFF/PNG EXIF embedding is optional and format-filtered, and an
-EXIF field the metadata library cannot write is skipped while the others are
-written. Geometry-changing operations adjust or strip the solution as their own
-implementation requires. Therefore, use
-[Saving And Exporting](saving-and-exporting.md) and
-[File Formats](../reference/file-formats.md) as the authority, then reopen the
-actual output for verification.
+The Astrometry Info fields changed by themselves
+:   **Cause.** The window follows the active view, and another view became active.
+:   **Fix.** Click the view you want, and check its name in the window's title.
 
-## Inputs, outputs, and metadata
+A saved and reopened file lost some cards or fields
+:   **Cause.** The format keeps only part of them, **Embed EXIF** was off, or the library could not write a field.
+:   **Fix.** Keep the original, and save in FITS or XISF to keep every card.
 
-| Tool | Input | Visible output | Source modification | Durable output |
-| --- | --- | --- | --- | --- |
-| FITS Header | Current image/frame's FITS header cards | Read-only keyword/value/comment table | None | None |
-| EXIF Viewer | Current image/frame's EXIF fields from a JPEG, TIFF, PNG or camera-RAW file, after load-time and viewer filters | Read-only tag/value/key table | None | None |
-| Astrometry Info | Current active image/frame's FITS cards, read by the engine's WCS card reader with its SIP polynomial | Status plus 11 selectable summary values | None | None |
+## Related
 
-The panels do not display pixel statistics, processing history as a structured
-timeline, Image Summary's filesystem/sequence fields, XMP/IPTC as separate
-tables, or astrometry overlay/catalog state. A FITS **HISTORY** card may appear
-as an ordinary header row; that is not the same surface as
-[Image History](image-history.md).
-
-## Performance and responsiveness
-
-FITS and EXIF refresh work is proportional to the number of retained metadata
-entries and rebuilds the table on the UI thread. Astrometry refresh formats the
-solution the view already read and a fixed 11-field report. None of
-the panels scans pixels, iterates an entire sequence, queries catalogs, or uses
-the network.
-
-Pause fast sequence playback if repeated current-frame metadata rebuilds are
-unhelpful. Very large EXIF/FITS collections can make table rebuilding or layout
-slower; close the dialog when not inspecting it. An image holds at most 8,192
-metadata cards of at most 4,096 bytes each; a longer EXIF value is carried over
-several cards and shown whole.
-
-## Worked example
-
-- Starting state, actions, settings, checkpoints, result, and limitations: The
-  focused formatter fixture builds 640 x 480 metadata with `RA---TAN-SIP` /
-  `DEC--TAN-SIP`, CRVAL `187.5` / `-45.5`, a `0.0005` degree/pixel CD scale,
-  `EQUINOX=2000.0`, `PLTSOLVR='ASTAP'`, order-2 forward SIP, and two nonzero
-  coefficients. The expected panel reports **Astrometric solution available**,
-  CRVAL `12:30:00.00` / `-45:30:00.0`, projection without FITS quotes,
-  `J2000.0`, an arcsec/pixel scale, field-of-view and rotation units,
-  **ASTAP**, and **A/B 2/2, 2 coeffs**; the figures are the solution's own:
-  **1.800 arcsec/px**, a rotation of `0.0°` and a field of view starting
-  `19.20′`. The unsolved fixture reports **No astrometric solution**. A
-  two-generation duplicate fixture - two snapshots in turn - retains the
-  solution, solver, and projection. This predicts
-  deterministic fields; the source-derived example does not claim a live
-  astronomical solve, table layout, clipboard round trip, or solve accuracy.
-
-## Warnings and limitations
-
-- Metadata is descriptive, not trusted validation. A source can contain stale,
-  inconsistent, private, or incorrect cards/tags.
-- FITS Header shows the decoded image's cards, with the primary header's
-  inherited ones, without an HDU-name/index column and does not show exact raw
-  80-character card bytes.
-- EXIF Viewer deliberately omits large/binary/resource records and shows each
-  field's tag - the last part of its key - beside the full key, not the EXIF
-  library's description.
-- FITS/EXIF tables have no sorting, search, filter, copy, export, or manual
-  refresh action. Selecting a row does not create clipboard text.
-- Their focused-view shortcuts do not honor availability or already-open state;
-  empty or duplicate dialogs are possible. Astrometry's shortcut does honor its
-  toolbar gate.
-- An open Astrometry panel follows focus, but ownership remains with the view
-  that launched it. Launching from another active view can therefore create a
-  second panel already showing the same current image.
-- An image that states no FITS card or EXIF field empties the open table; asked
-  while an edit holds the image, the window keeps what it showed until the next
-  update, so a table can briefly describe the image before the edit.
-- An image whose only EXIF fields are ones the window hides - the maker note,
-  the thumbnail, the colour profile or an embedded XMP, IPTC or Photoshop block -
-  does not enable the **EXIF Viewer** action, since the window would show no row.
-- Astrometry Info exposes no parse diagnostics, residual/error estimate, parity,
-  per-axis scales, or SIP displacement magnitude. A formatted solution is not a
-  quality certificate.
-- Field center and CRVAL describe different locations. SIP model presence and
-  an overlay's forward-model usability are also different questions.
-- Saving or converting to another format can rewrite, subset, or discard
-  metadata. Reopen important outputs before deleting their source/master.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| **FITS Header** is disabled | The current image carries no FITS card, or the view refreshed its actions while an edit held the image. This is a metadata gate, not an extension check. | Activate an image with retained FITS-style metadata, or wait for the edit; reopen a FITS/XISF output when verifying disk preservation. |
-| **EXIF Viewer** is disabled | The current image carries no EXIF field the window shows: the source stated no EXIF, only fields the window hides, or only the container's own entries; the source is a camera RAW whose EXIF AfterNight does not read - CR3, CRW, MRW or X3F; or the view refreshed its actions while an edit held the image. | Select a camera-originated image with retained EXIF; inspect the source format contract. |
-| A shortcut opens an empty FITS/EXIF window | `Ctrl+Shift+H` and `Ctrl+Shift+X` call their dialogs without checking action availability. | Close it and use the enabled menu/toolbar state as the reliable gate. |
-| Clicking FITS/EXIF column headings does not sort | Sorting is not enabled. | Inspect source order; use an external FITS/EXIF tool when sorting/search/export is required. |
-| FITS/EXIF rows did not change while an edit ran | The window never waits for an edit; it keeps the rows it showed until the edit lands. | Wait for the edit to finish; the table rebuilds on the image's update. |
-| An expected EXIF tag is absent | It has no tag name, is a structural field the reader skips, is an embedded XMP packet, or is one of the filtered MakerNote/interoperability/offset/XML/IPTC/resource/profile entries. | Use a dedicated metadata utility on the original file; do not infer the tag was never present. |
-| Astrometry menu opens but toolbar action is disabled/missing | Main menu requires any image; toolbar requires WCS and is hidden for sequences. | Use the menu to inspect the unsolved state, or plate-solve a still before using the toolbar action. |
-| **No astrometric solution** appears although WCS-like cards exist | The card reader refused the header: a missing, malformed or duplicated keyword, SIP cards that disagree with the projection codes, a singular matrix, or a frame other than the ICRS - FK5 stated, or an equinox other than J2000 and no frame. | Inspect `CTYPE`, `CRPIX`, `CRVAL`, `RADESYS`, `EQUINOX`, the CD or PC/CDELT cards and the SIP cards in FITS Header; rerun Plate Solve when appropriate. |
-| **SIP distortion** says **None** although SIP cards are visible | The cards are other polynomial keywords than `A`, `B`, `AP` and `BP` with their orders; a header whose SIP cards the reader cannot take shows no solution rather than **None**. | Inspect the raw SIP cards and the projection codes. |
-| **Solver** says **Unknown** on a solved image | The project-specific `PLTSOLVR` card is absent or empty. | Treat WCS validity separately; use source provenance or rerun a documented solve if solver identity matters. |
-| Astrometry fields change while the panel stays open | Astrometry Info follows the application's active image. | Refocus the intended view and confirm its name in the panel title. |
-| More than one Astrometry Info panel shows the same active image | Each launching view owns one panel pointer, while every open panel follows the globally active view. Launching through a newly focused view can create another panel. | Close redundant panels; repeat launch through the same owner only raises its existing panel. |
-| Reopened output lost some metadata | The chosen codec/save path does not preserve every metadata family, Embed EXIF was off, or an EXIF field the metadata library could not write was skipped. | Keep the master, consult File Formats, choose FITS/XISF where appropriate, and verify the reopened file. |
-
-## Related workflow steps
-
-- Start with [Image and Sequence Summary](image-summary.md) for identity,
-  dimensions, pixel representation, common acquisition fields, and native
-  sequence totals; use these panels only for detailed metadata.
-- Use [Plate Solving](../processes/registration-alignment/plate-solving.md) to
-  create or replace WCS/SIP metadata, then inspect the raw and interpreted
-  handoff here.
-- Use [Astrometry Overlays](astrometry-overlays.md) to render the coordinate
-  grid, catalogs, detected stars, and forward-SIP map. This page reports the
-  metadata model but does not own overlay state.
-- Use [Saving And Exporting](saving-and-exporting.md) and
-  [File Formats](../reference/file-formats.md) to choose a preservation path;
-  reopen and inspect the output before discarding the source.
-- Use [Image Statistics](image-statistics.md) and
-  [Histogram Analysis](image-histogram.md) for pixel evidence rather than
-  metadata claims.
+- [Image and Sequence Summary](image-summary.md), for the size, format and acquisition facts of an image or a
+  sequence.
+- [Plate Solving](../processes/registration-alignment/plate-solving.md), to find or replace an image's solution.
+- [Astrometry Overlays](astrometry-overlays.md), to draw the grid, the catalog objects and the stars of a solution.
+- [Saving And Exporting](saving-and-exporting.md), for the formats and the **Embed EXIF** setting.
+- [File Formats](../reference/file-formats.md), for what each format keeps of the cards and fields.
+- [Image Statistics](image-statistics.md), for what the pixels measure rather than what the file claims.
 
 ## Credits
 
-- The IAU FITS Working Group's [FITS Standard 4.0](https://fits.gsfc.nasa.gov/fits_standard.html)
-  defines FITS cards, keywords, values, and comments.
-- NASA/HEASARC's [FITS WCS papers and resources](https://fits.gsfc.nasa.gov/fits_wcs.html)
-  links the approved world/celestial-coordinate papers used to interpret WCS.
+- The IAU FITS Working Group's [FITS Standard 4.0](https://fits.gsfc.nasa.gov/fits_standard.html) defines header
+  cards, keywords, values and comments.
+- NASA/HEASARC's [FITS WCS papers and resources](https://fits.gsfc.nasa.gov/fits_wcs.html) collect the
+  world-coordinate conventions the solution is read with.
 - Shupe and Hook's registered [SIP convention 1.0](https://fits.gsfc.nasa.gov/registry/sip/SIP_distortion_v1_0.pdf)
-  defines the forward `A`/`B` and inverse `AP`/`BP` distortion families.
-- CIPA's [Exif standards list](https://www.cipa.jp/e/std/std-sec.html) identifies
-  the current Exif specification; AfterNight's actual visible subset is governed
-  by its Exiv2 loader and viewer filters, not by every possible Exif tag.
+  defines the forward `A`/`B` and inverse `AP`/`BP` distortion polynomials.
+- CIPA's [Exif standards list](https://www.cipa.jp/e/std/std-sec.html) names the Exif specification the camera
+  fields follow.
+- The [Exiv2](https://exiv2.org) library, under the GPL-2.0-or-later, reads the EXIF fields this window shows.

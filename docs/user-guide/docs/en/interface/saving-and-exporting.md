@@ -1,377 +1,387 @@
 ---
 kind: interface
 summary: >-
-  Save images and export images and sequences for delivery, with their format, codec and stretch options.
+  Save as writes the active image or sequence to a file whose extension chooses the format. Export Sequence writes a
+  sequence as SER, AVI, MP4 or WebM, debayered, stretched or resized if you ask.
+menu:
+  - File > Save as...
+  - Image > Sequence > Export...
+rewritten: true
 ---
-# Saving And Exporting
+# Saving and Exporting
 
-![Export Sequence dialog configured for MP4 and H.264 with CFA debayering, autostretch, resize, dimensions, and fit mode](../assets/images/interface/saving-and-exporting.png)
+**File > Save as...** writes the [active image](../reference/glossary.md#active-image) or
+[sequence](../reference/glossary.md#sequence) to a file you name. The extension you type chooses the format, and only
+the image is written, never what the view merely shows. **Image > Sequence > Export...** writes a sequence again for
+sharing, as [SER](../reference/glossary.md#ser), uncompressed AVI, MP4 or WebM, with its frames debayered, stretched
+or resized if you ask. Both write a file whole or not at all, and replace an existing file only once the new one is
+complete. [Supported Formats](../getting-started/supported-formats.md) compares what each format keeps.
 
-*Sequence Export exposes codec-dependent delivery settings together with CFA,
-display-stretch, and resize choices before any output is written.*
+```figure
+owed: true
+image: ../assets/images/interface/saving-and-exporting.webp
+alt: >-
+  The Export Sequence dialog. In a dark card: Output Format reading MP4 and Codec reading h264 on the first row; Output
+  File Name ending in saturn.mp4, a button with three dots and FPS at 34.26 on the second; Autostretch and Debayer CFA,
+  both ticked, on the third. Below, the Resize group, unticked, with a box reading Preserve Ratio, two greyed boxes at
+  448 and a greyed box reading Fit. Reset at the bottom left, OK and Cancel at the bottom right.
+caption: >-
+  Export Sequence for a 16-bit SER video of Saturn, set to write a debayered and stretched H.264 video.
+pins:
+  - {n: 1, x: 4.0, y: 25.7}
+  - {n: 2, x: 4.0, y: 34.0}
+  - {n: 3, x: 95.0, y: 34.0}
+  - {n: 4, x: 4.0, y: 41.7}
+  - {n: 5, x: 8.0, y: 48.0}
+  - {n: 6, x: 52.0, y: 89.0}
+```
 
-## Purpose, audience, prerequisites, and expected result
+## What you see
 
-Saving writes the active still image or sequence to a user-selected path.
-Sequence Export instead renders every decoded frame into a chosen delivery
-format and can change frame rate, displayed intensity, and geometry. Use saving
-for a faithful processing copy in a compatible format; use Export for a
-deliberately transformed SER, raw AVI, MP4, or WebM handoff.
+1. **Output Format and Codec.** The kind of file the export writes, and the coding of a video.
+2. **Output File Name.** The file the export writes, which the **...** button chooses.
+3. **FPS.** The frame rate written into an AVI or a video.
+4. **Autostretch and Debayer CFA.** Two changes to every frame: the
+   [display stretch](../reference/glossary.md#display-stretch) of the sequence's view, and color from a mosaic.
+5. **Resize.** A new size for every frame, with its preset and how a frame fills it.
+6. **Reset, OK and Cancel.** They return the size to the frame's own, start the export, and close the dialog.
 
-After a successful save, the destination is added to recent files and, when the
-view still shows what was written, its pending-changes marker is cleared and the
-view takes the new file as its source. An edit made while the save ran keeps the
-changes pending, because the view no longer shows what is in the file.
-AfterNight performs no automatic readback or checksum verification. After a successful sequence export, a success message
-appears and the export dialog closes; the active sequence and its pending state
-are unchanged.
+## What you can do
 
-## Reachability and availability
+### Save an image
 
-| Item | Current behavior |
-| --- | --- |
-| Path | **File > Save as...** or its toolbar icon; **Image > Actions > Save File...**; sequence-only **Image > Sequence > Export...**. |
-| Enabled/visible when | Both save actions require an active view containing an image. Export requires an active sequence view. There is no separate plain **Save** action that writes back without prompting. |
-| Supported inputs/state | Save handles a still image, native SER, AfterNight image list, or FFmpeg-backed sequence according to the active view. Export handles any active sequence whose frames can be decoded. Masks and display overlays are not composited into still saves. |
-| Outputs/side effects | Save creates or replaces one still file, one SER/video file, or an `.anseq` plus its sibling frame directory. Export creates one SER, raw AVI, MP4, or WebM file. Successful save adds the destination to recent files and, when the view still shows what was written, clears its pending-change marker. |
-| Persistence | Save starts in the shared last-open directory and uses **General > Default Save Format** for a still's initial filter/suffix. Export remembers format, codec, resolution mode, and a separate last directory; it does not remember FPS, autostretch, resize enablement, fill mode, dimensions, or output name. |
-| External dependencies | Built-in still/SER/image-list codecs; bundled FFmpeg with the software encoders libx264, libx265 and libvpx-vp9 for video input and H.264/H.265/VP9 output. No network or catalog is required. |
+1. Click the image's view, then choose **File > Save as...**, ++ctrl+shift+s++, the save button of the toolbar or
+   **Image > Actions > Save File...**. All four do the same: no command writes back to the file without asking.
+2. The window proposes the view's name in the folder you last opened from or saved to. Type the name with the
+   extension of the format you want: `.fits`, `.xisf`, `.tif`, `.png` or `.jpg` for
+   [FITS](../reference/glossary.md#fits), [XISF](../reference/glossary.md#xisf), TIFF, PNG or JPEG.
+3. Choose **Save**. A **Save File** window follows the write, and you can go on working meanwhile.
+4. When it closes, the file is written. The view takes it as its own file and loses the asterisk of unsaved work,
+   unless you changed the image while it was written.
 
-## Before you start
+The [Autostretch](../reference/glossary.md#autostretch) display, the channel shown, the zoom, overlays and
+[masks](../reference/glossary.md#mask) are never written. To keep a stretch, apply it with a process first. The
+options of each format are on the **Export** page of [Settings](settings-dialog.md).
 
-- Keep an astronomy-native FITS or XISF master before creating an 8-bit or
-  lossy delivery copy. PNG converts signed, 32-bit integer, and floating data
-  to unsigned 16-bit; JPEG converts every non-8-bit image to unsigned 8-bit.
-- Save a colour filter array mosaic as FITS, XISF, or TIFF, which record the
-  filter array, or demosaic it first. PNG and JPEG cannot record one, and the
-  save refuses them before anything is written. An X-Trans (Fujifilm) mosaic is
-  kept by XISF and TIFF only: FITS states one two-by-two pattern, so a FITS save
-  of one is refused too, the message naming XISF and TIFF.
-- Check the active image's pixel type, linear state, geometry, and metadata.
-  Saving writes underlying image data, not the viewer's autostretch, selected
-  display channel, zoom, grid, star overlay, or mask overlay.
-- A still save is written whole or not at all: the file is written beside the
-  destination and moved into place only when it is complete, so a failed or
-  stopped save leaves an existing destination as it was.
-- For an image-list sequence, reserve space for both the `.anseq` file and a
-  sibling `<name>-frames` directory containing FITS frames.
-- Saving a video sequence decodes and re-encodes every frame at 8 bits; it is
-  not a file copy. A video read from `.mpg` or `.mpeg` cannot be saved under
-  that suffix, because AfterNight writes no MPEG program stream; choose `.mp4`,
-  `.mkv`, `.webm` or `.avi`, or use **Image > Sequence > Export...**.
+### Save a sequence
 
-## Procedure
+Choose the same commands with a sequence's view active. The window proposes the sequence's own type: `.ser`, `.anseq`,
+or the video's extension. Every frame is read from the sequence's file and written into the container the extension
+names, so another extension converts the sequence.
 
-### Save a still image
-
-1. Activate the image to save. Choose **File > Save as...**, press the Save
-   toolbar icon, or choose **Image > Actions > Save File...**. All three routes
-   run the same workflow; `Ctrl+Shift+S` is assigned to **Save as...**.
-2. Confirm the proposed view name and folder. Select TIFF, FITS, PNG, XISF, or
-   JPEG and give the file the matching extension. If an extension and selected
-   filter disagree, the extension chooses the engine codec.
-3. If the destination exists, review the file dialog's overwrite confirmation.
-   Accepting it permits replacement; AfterNight does not create a backup.
-4. Confirm the dialog. A **Save File** progress window appears while a worker
-   writes the image as it was when you confirmed, with the Export settings as
-   they were then. You can keep working meanwhile.
-5. Treat completion as an encode result, not a round-trip guarantee. Reopen the
-   destination, confirm dimensions/channels/pixel type in Image Summary, and
-   inspect FITS/XISF metadata with the relevant metadata viewer before deleting
-   a master or source file.
-
-### Save a sequence copy
-
-1. Activate a sequence and use either save path. The dialog offers the current
-   family's suffix: SER `.ser`, image list `.anseq`, and a video its own
-   container suffix. The save reads every frame from the sequence's file and
-   writes it into the container the chosen path names - `.ser`, `.anseq`,
-   `.avi`, `.mp4` (or `.mov`, written as MP4), `.mkv` or `.webm` - so a path
-   with another of those suffixes converts the sequence.
-2. Every frame is written as its file holds it, whatever the view shows: a
-   mosaic stays a mosaic in SER and in an image list's frames, and is written as
-   its grey samples to AVI or video. Demosaic through a process first if colour
-   frames are wanted.
-3. Select a new destination and confirm. A copy is written privately and
-   published only when its last frame is in, so a failed or cancelled copy
-   leaves nothing. Image-list copies write each frame as a FITS file with its
-   header cards, in the first frame's representation, in its `<name>-frames`
-   directory.
-4. Reopen the result and check family, frame count, geometry, pixel type, FPS,
-   and first/last frame. A SER header has no frame-rate field: a SER AfterNight
-   writes keeps each frame's exposure start in its timestamp trailer, and a
-   reopened SER plays at the rate those timestamps give, rounded to a whole 1 to
-   60 frames per second - 1 frame per second when its frames state no exposure
-   start. For `.anseq`, also confirm that the
-   sibling frame directory was created and remains beside the list file.
+A frame is written as the file holds it, whatever the view shows. A mosaic stays a mosaic in SER and in an image list,
+and is written as its gray samples in AVI or a video. [Debayer](../reference/glossary.md#debayer) the sequence with a
+process first for color frames, or use **Debayer CFA** of the export.
 
 ### Export a sequence
 
-1. Activate a sequence and choose **Image > Sequence > Export...**.
-2. Choose **Output Format**. Use SER for a high-fidelity native sequence, **AVI
-   (RAW)** for uncompressed 8-bit DIB frames, or MP4 with H.264/H.265/WEBM
-   (VP9) for delivery. **Codec** is enabled only for MP4.
-3. Choose `...` beside **Output File Name**. The selected format/codec normalizes
-   the destination to `.ser`, `.avi`, `.mp4`, or `.webm`; the destination field
-   is read-only and **OK** remains disabled until a path is chosen.
-4. Set **FPS**. This changes playback timing only; it does not interpolate,
-   duplicate, or remove frames.
-5. For a CFA source, leave **Debayer CFA** off to preserve mosaic samples - a
-   SER keeps the mosaic, AVI and video store its samples as grey - or turn it on
-   to demosaic every exported frame to RGB by the sequence's demosaic method. The
-   option is hidden for a non-CFA source.
-6. Leave **Autostretch** off for data preservation. Turn it on only for a
-   display-ready export: it applies the source view's current autostretch
-   parameters and optional saturation/brightness/contrast to every frame.
-7. Leave **Resize** off to request source geometry. When it is on, choose a
-   resolution and review the resulting width/height plus the fill rule. A video
-   frame's odd width or height is cropped by one column or row even when Resize
-   is off.
-8. Choose **OK** and watch **Exporting Sequence...**. The configuration controls
-   remain locked while the worker uses the submitted settings snapshot. The
-   progress dialog's Cancel stops the export, and nothing is written: an export
-   is published only when its last frame is in. Closing the window during an
-   export stops it, and the window closes when the stop lands. On success,
-   AfterNight reports **Sequence exported successfully!** and closes the dialog;
-   a failure shows **Export Sequence Error** with the reason and keeps the
-   dialog open.
-9. Reopen or inspect the file externally. Check container/codec, frame count,
-   geometry, FPS, first/last frame, and whether expected stretch/letterbox/crop
-   choices are visible. Export success does not perform that readback.
+1. Make the sequence's view active and choose **Image > Sequence > Export...**.
+2. Choose the **Output Format** and, for MP4, the **Codec**.
+3. Choose **...** and name the file. **OK** becomes available.
+4. Set **FPS**. Turn on **Debayer CFA**, **Autostretch** or **Resize** only for a copy to watch, not to process.
+5. Choose **OK**. A progress window follows the frames, then "Sequence exported successfully!" appears and the dialog
+   closes.
 
-## Complete control and action reference
+The sequence in the view, and its unsaved state, do not change.
 
-### Save actions and file dialog
+### Check what you wrote
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Save as... | Menu/toolbar action; `Ctrl+Shift+S` | Disabled without an active image | One active still or sequence view | Opens the standard save dialog and writes the active data. | Same handler as **Save File...**; there is no write-back-without-prompt action. | Successful save clears pending changes and makes the new file the view's source, when the view still shows what was written. | Active view | Last directory is shared and persisted. |
-| Save File... | **Image > Actions** action | Disabled without active image content | Same as Save as | Runs exactly the same save workflow. | Enabled with the Image Actions menu. | Same output and pending-state effects as Save as. | Active view | Same shared last directory. |
-| File name and destination | Save-file dialog | Active view name in the last-open directory | Writable path; still extension must be FITS/XISF/TIFF/PNG/JPEG; sequence suffix should match current family | Selects output and engine codec/family. | Sequence filters depend on current family. The dialog's all-formats entry is not a promise that cross-family renaming converts data. | Existing destinations are replaced only once the new file is complete. | One output | Selected directory becomes the next shared open/save directory. |
-| File type filter | Selector | Still: **General > Default Save Format** (TIFF on a clean profile); sequence: family-specific | Still: TIFF, FITS, PNG, XISF, JPEG. Sequence: SER, `.anseq`, or the source video's recognized container suffix. | Supplies the default suffix and narrows file choices. | Video save preserves `.avi`, `.mp4`, `.mpg`, `.mpeg`, `.mov`, `.mkv`, or `.webm`; an unrecognized source suffix falls back to `.mp4`. The actual filename extension controls still-codec dispatch. RAW is never offered for still save. | A display format may convert precision or discard astronomy metadata. | One output | Still default persists as `general/defaultSaveFormat`; current filter selection itself is dialog-local. |
-| Confirm/Save | Dialog action | — | Valid selected path | Starts background save and shows progress. | A still write may finish before a stop is observed; a stopped still write leaves nothing. Sequence copy checks cancellation where implemented. A mosaic is refused for PNG and JPEG, and an X-Trans mosaic for FITS too, before anything is written. | Adds successful destination to recent files and clears pending state when the view still shows what was written. | Active view | The new file becomes the view's source. |
-| Cancel | Dialog/progress action | — | Click/close | Before start, writes nothing. During a sequence copy or export, stops it; nothing is published. | A cancelled save is only logged; it does not add a recent file or clear the active view's pending-change marker. A still write may finish before the cancellation check. | A failed or cancelled write leaves an existing destination as it was and nothing beside it. | Current operation | None. |
+AfterNight does not open a file again to check it. Before you delete a [master](../reference/glossary.md#master) or a
+source, open the file you wrote. Read its size, channels and [pixel type](../reference/glossary.md#pixel-type) in the
+status bar and [Image Summary](image-summary.md), and its [header cards](../reference/glossary.md#header-card) in the
+FITS Header window. For a sequence, check the frame count, the rate and the first and last frames, and for a list,
+that its frames folder is beside it.
 
-### Sequence Export dialog
+## Controls
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Output Format | Selector | SER on first use; last saved value later | SER; AVI (RAW); MP4 | Creates the destination writer and adjusts suffix/filter behavior. | Changes **Codec** enablement and rewrites an already selected filename's suffix. | SER keeps 8-bit frames at 8 bits and writes every other at 16; raw AVI converts to 8-bit; MP4/WebM are delivery encodings. | Whole export | Stored in process setting `__EXPORT_SEQUENCE__` on dialog close. |
-| Codec | Selector | h264 on first use; last saved value later | h264; h265; WEBM | Selects H.264 MP4, H.265 MP4, or VP9 WebM encoding. | Enabled only when Output Format is MP4; ignored for SER/AVI. | Video encoding is lossy and drops astronomy metadata/history. | Whole export | Stored on dialog close. |
-| Output File Name / ... | Read-only path and browse action | Empty | `.ser`, `.avi`, `.mp4`, or `.webm` selected by current output mode | Chooses destination and enables OK. | Manual typing is unavailable; OK stays disabled until browse returns a path. | Existing file replacement is confirmed by the file dialog; no backup/readback follows. | One output | Directory stored under `__EXPORT_SEQUENCE_CONTROL__`; filename not persisted. |
-| FPS | Decimal frames/second | Source sequence FPS (1.0 when it states none), clamped to control range | 1.0-60.0; step 0.3 | Sets the destination playback rate. | Values outside the UI range clamp when loaded. | Timing changes without frame interpolation. AVI and video store the exact fraction asked; a SER stores no frame rate of its own, only each frame's exposure start in its trailer. | Whole export | Not persisted. |
-| Debayer CFA | Checkbox | Off | Off/On | Off preserves CFA mosaic frames; on requests demosaiced RGB frames. | Visible and enabled only when the source sequence reports CFA data. | Demosaicing changes channel layout and pixel values and cannot reconstruct the original mosaic from the export. | Every exported frame | Not persisted. |
-| Autostretch | Checkbox | Off | Off/On | Stretches every frame as Apply Stretch does, through the presentation the view shows, with the source view's current shadows clipping, target background, linked-channel, neutralization, calibration, saturation and brightness/contrast settings. | Export-only; the normal save path never applies viewer autostretch. | Permanently changes exported pixels and adds per-frame CPU cost; it is not reversible from the output. | Every exported frame | Not persisted. |
-| Resize | Checkable group | Off | Off/On | Enables output geometry controls; off requests source dimensions. | A video still crops an odd width or height by one column or row with Resize off. | Resampling changes pixels/WCS applicability and costs CPU/memory. | Every exported frame | Enablement not persisted. |
-| Resolution | Selector | Preserve Ratio on first use; last saved value later | Preserve Ratio; Free Ratio; Full HD; 4K; 8K | Selects source-linked dimensions or nominal preset dimensions (1920 x 1080, 3840 x 2160, 7680 x 4320). | Width/height controls range from 4 to twice the source dimension or to 7680 (width) / 4320 (height), whichever is larger, so a preset is never clamped. A video only crops an odd width or height by one. | Upsampling cannot add source detail. | Resize target | Selector persists; dimensions do not. |
-| Width / Height | Integer pixels | Source width/height | 4 through twice the corresponding source dimension, or 7680 / 4320 when that is larger | Defines target canvas. In Preserve Ratio, editing one recalculates the other from source aspect. | Disabled for Full HD/4K/8K; enabled for Preserve/Free Ratio. | A video frame's odd width or height is cropped by one column or row. | Resize target | Not persisted. |
-| Fill mode | Selector | Fit | Fit; Fill; Stretch; Center | Chooses Lanczos4 scaling/canvas behavior for preset targets. | Enabled only for Full HD/4K/8K. Preserve/Free Ratio keep the current Fit value internally. | Fit letterboxes; Fill crops; Stretch distorts aspect; Center adds black canvas and can crop content larger than target. | Every resized frame | Not persisted. |
-| Reset | Button | — | Click action | Restores Preserve Ratio, source width/height, and Resize off. | Does not reset format, codec, FPS, autostretch, output path, or fill mode. | A previously chosen path remains active. | Current dialog | Persisted selectors remain until dialog close writes current values. |
-| OK | Button | Disabled until output path exists | Valid chosen path | Snapshots the selected path, format, codec, FPS, CFA/autostretch/resize settings, dimensions, and fill mode, then starts a worker with percentage progress. | Configuration controls and the dialog button box are disabled until cancellation, failure, or completion. The dialog remains open after cancellation/failure and closes after success. | Full-sequence decode/transform/write; a failed or cancelled export leaves nothing at the destination. | Whole sequence | Format/codec/resolution are saved when the dialog later closes. |
-| Cancel / window close | Dialog action | Enabled before export | Click/close | Closes without starting a new export. While an export runs, closing the window stops it and the window closes when the stop lands; cancellation is also available from the progress dialog. | Closing the configuration dialog before/after a run stores format, codec, and resolution. | Does not remove an earlier completed output. | Current dialog | Stores the three selectors. |
+### Export Sequence
 
-## Behavior and state model
+```controls
+window: Export Sequence
+controls:
+  - name: Output Format
+    kind: combo
+    default: SER
+    options: [SER, AVI (RAW), MP4]
+    effect: "**SER** writes a SER file, **AVI (RAW)** an uncompressed AVI, and **MP4** a compressed video in the coding **Codec** names."
+    range: SER keeps 8-bit frames in 8 bits and stores every other pixel type as 16-bit unsigned integers, a mosaic as a mosaic, and each frame's exposure start. AVI and the videos store 8-bit frames, a mosaic as its gray samples. Only gray, mosaic and color frames can be written.
+    tradeoff: SER suits a sequence you will process further. AVI keeps every 8-bit sample but is large. A video is small and plays almost anywhere, but loses detail. No format keeps the image history, and AVI and the videos keep no astronomical metadata.
+    persistence: The dialog opens on the format, codec and **Resolution** it last closed with, kept between sessions among the process settings as `__EXPORT_SEQUENCE__`. SER on a new profile.
+    note: AfterNight writes SER and AVI itself, and FFmpeg writes MP4 and WebM. None of them uses the network.
+  - name: Codec
+    kind: combo
+    default: h264
+    options: [h264, h265, WEBM]
+    effect: "**h264** and **h265** write an MP4 file coded in H.264 or H.265, and **WEBM** a WebM file coded in VP9."
+    enabled: With **Output Format** at **MP4**.
+    range: A change of format or codec changes the extension of a file already named to `.ser`, `.avi`, `.mp4` or `.webm`.
+    tradeoff: All three lose detail, and coding takes processor time for every frame. The encoders, x264, x265 and libvpx, work on one thread at one fixed quality, and code color through the BT.709 matrix at limited range.
+  - name: Output File Name
+    kind: field
+    default: ""
+    effect: Shows the file the export writes. It cannot be typed into.
+    enabled: "**OK** stays disabled until it names a file."
+    persistence: The name is not kept for the next export.
+  - name: "..."
+    kind: button
+    default: ""
+    effect: Opens **Save Sequence...** to choose the file, with the extension of the format chosen. The file window asks before it replaces a file.
+    persistence: It opens in the folder of the file named already, else in the folder an export chose last, kept between sessions as `__EXPORT_SEQUENCE_CONTROL__`.
+  - name: FPS
+    kind: spinbox
+    default: The sequence's rate
+    widget: {min: 1, max: 60, step: 0.3, decimals: 2}
+    effect: Sets the rate written into an AVI or a video. Frames are written as they are, none added, removed or merged.
+    range: It opens at the rate the sequence states, held between 1 and 60, or at 1 when it states none. AVI and the videos store the exact fraction, a whole rate or thousandths.
+    persistence: Not kept. A SER has no field for a rate and keeps each frame's exposure start instead, so this rate does not reach it.
+  - name: Autostretch
+    kind: check
+    default: "Off"
+    effect: Stretches every frame as **Apply Stretch** does, with the Autostretch settings of the sequence's view as they were when the dialog opened, their saturation, brightness and contrast included. Each frame is measured for its own stretch.
+    scope: Every frame, after **Debayer CFA** and before **Resize**. A save never stretches.
+    tradeoff: The file holds stretched samples, for watching and not for measuring. Measuring every frame adds time.
+    persistence: Off each time the dialog opens.
+  - name: Debayer CFA
+    kind: check
+    default: "Off"
+    effect: Debayers every mosaic frame, by the demosaic method of the sequence's view, so that the file holds color frames.
+    enabled: Shown only when the sequence's frames are a mosaic.
+    tradeoff: The file then holds three channels in place of the mosaic, which cannot be had back from it. Off, a SER keeps the mosaic, and AVI and the videos store its samples as gray.
+    persistence: Off each time the dialog opens.
+  - name: Resize
+    kind: check
+    default: "Off"
+    effect: Resizes every frame to **Width** and **Height** with a Lanczos-4 kernel. Off keeps the frames' own size.
+    range: A video needs an even width and height. An odd last column or row is cut away, keeping the top left, with **Resize** on or off.
+    tradeoff: Resizing adds time and memory for every frame. Enlarging adds no detail, and a resized frame no longer fits its plate solution.
+    persistence: Off each time the dialog opens.
+  - name: Resolution
+    kind: combo
+    default: Preserve Ratio
+    options: [Preserve Ratio, Free Ratio, Full HD, 4K, 8K]
+    effect: "**Preserve Ratio** keeps **Width** and **Height** in the frame's proportion, **Free Ratio** sets them apart, and **Full HD**, **4K** and **8K** ask for 1920 x 1080, 3840 x 2160 and 7680 x 4320."
+    range: Choosing **Preserve Ratio** or **Free Ratio** returns **Width** and **Height** to the frame's size.
+    enabled: With **Resize** on.
+    persistence: Kept with the format and the codec.
+  - name: Width
+    kind: spinbox
+    default: The frame's width
+    widget: {min: 4, step: 1}
+    effect: Sets the width of the frames written. At **Preserve Ratio**, **Height** follows.
+    range: Up to twice the frame's width, or 7680 when that is more, so that no preset is cut.
+    enabled: With **Resize** on, at **Preserve Ratio** or **Free Ratio**.
+  - name: Height
+    kind: spinbox
+    default: The frame's height
+    widget: {min: 4, step: 1}
+    effect: Sets the height of the frames written. At **Preserve Ratio**, **Width** follows.
+    range: Up to twice the frame's height, or 4320 when that is more.
+    enabled: With **Resize** on, at **Preserve Ratio** or **Free Ratio**.
+  - name: Fill mode
+    kind: combo
+    default: Fit
+    options: [Fit, Fill, Stretch, Center]
+    effect: "Places each frame in the size asked. **Fit** scales it to fit inside and pads the rest with black, **Fill** scales it to cover the whole and crops what overflows, **Stretch** scales width and height apart, and **Center** keeps the frame's size and centers it, padded or cropped."
+    enabled: With **Full HD**, **4K** or **8K**. At **Preserve Ratio** or **Free Ratio** it is disabled but still applies as it reads, so a **Free Ratio** of another proportion is padded with black under **Fit**.
+    tradeoff: "**Fit** leaves black bars, **Fill** and **Center** can crop, and **Stretch** distorts."
+    persistence: Not kept for the next export.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Resolution** to **Preserve Ratio**, **Width** and **Height** to the frame's size, and turns **Resize** off.
+    range: It leaves the format, the codec, the file, **FPS**, **Autostretch**, **Debayer CFA** and **Fill mode** as they are.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Exports every frame of the sequence, read from its file, then debayered, stretched and resized as asked. A progress window follows the frames, and the dialog's controls are disabled while it works.
+    range: On success, "Sequence exported successfully!" appears and the dialog closes. On failure, "Export Sequence Error" gives "Could not export sequence:" and the reason, and the dialog stays open.
+    tradeoff: The time grows with the frames, their size and each change asked, and an uncompressed AVI can be very large. Try a short part made with Extract Sequence first.
+    persistence: The file appears at its name only when its last frame is written. A stopped or failed export leaves nothing there, and an earlier file of that name as it was.
+    note: An AVI that would need more index room than its writer reserves is refused, not continued in a second file. A frame the encoder refuses fails the export with its reason.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Closes the dialog without writing.
+    range: While an export works, closing the dialog stops it, and the dialog closes when the export has ended.
+    persistence: Closing the dialog in any way keeps the format, the codec and **Resolution**.
+```
 
-### Save dispatch and precision
+```controls
+window: Exporting Sequence...
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: Reads "Exporting sequence '<path>'..." and runs from 0 to 100 percent, a step for each frame written.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the export before the next frame. Nothing is written, and the Export Sequence dialog stays open with its settings, without a message.
+```
 
-Saving and Sequence Export write through the engine's output transaction and
-sinks. The standard still path decides, when the save is confirmed, how the
-image is written: the representation each container below holds nearest the
-image's own, the compression the Export settings give, and the metadata it
-carries. When the image's representation is not one the container holds, a copy
-is converted at corresponding full scales in double precision to the nearest
-value, ties to even, as the processes and the command-line tool round; floating
-data in physical units is converted as a fraction of full scale, as the viewer
-shows it. Codec selection is extension-based and case-insensitive; the
-file-dialog filter does not override a conflicting extension.
+### Save as
 
-| Output | Pixel/sample behavior | Compression |
-| --- | --- | --- |
-| FITS | Writes supported signed/unsigned 8/16/32-bit integer and 32/64-bit floating samples through matching fixed-width FITS sample types. Signed 8-bit and full-range unsigned 32-bit round trips are regression-tested. RGB is stored as three planes. A Bayer mosaic keeps its pattern; an X-Trans mosaic is refused. A 64-bit integer FITS file whose stored values exceed 2^53 is refused when it is opened. | No user-facing FITS compression in this path. The stored `export/fitsFloatFormat` preference is not consumed. |
-| XISF | Preserves unsigned 8/16/32-bit and float 32/64-bit samples. A signed image is written as the unsigned representation of its own width. | None (the default), or lossless zlib, LZ4, LZ4-HC or Zstandard, with the bytes of each sample shuffled unless that is turned off, and an optional SHA-256 checksum, as **Settings > Export** gives them. Zstandard is read only by readers of Revision 1 of the XISF specification. |
-| TIFF | Writes and reloads the active sample bit width and unsigned/signed/floating sample format, including signed 8-bit. The payload is divided into strips of about a quarter of a megabyte. | None, lossless LZW, lossless ZIP/Deflate, or JPEG. JPEG applies only to 8-bit TIFF; higher-depth input is written with LZW, and the session console says so. |
-| PNG | Preserves unsigned 8/16-bit samples. Signed 8/16-bit data converts to matching unsigned depth; 32-bit integer and floating data converts to unsigned 16-bit. A colour filter array mosaic is refused. | Lossless DEFLATE level 0-9; level affects size/time, not decoded pixels. |
-| JPEG | Converts all data to unsigned 8-bit grayscale or RGB before encoding. A colour filter array mosaic is refused. | Lossy JPEG quality 1-100. |
+```controls
+window: Save as
+controls:
+  - name: File name
+    kind: field
+    default: The view's name
+    effect: Names the file. Its extension decides the format, in upper or lower case, whatever the file type shows.
+    range: For an image, `.fit`, `.fits` or `.fts`, `.xisf`, `.tif` or `.tiff`, `.png`, and `.jpg`, `.jpeg` or `.jpe`. For a sequence, `.ser`, `.anseq`, `.avi`, `.mp4`, `.mov`, `.mkv` or `.webm`. Any other extension is refused before anything is written.
+    persistence: The folder becomes the one the next open and save start in, kept between sessions.
+    note: The window is titled `Save image <name> as...`, also for a sequence. It is your system's file window unless **Use system file browser** is off in the Interface settings.
+  - name: File type
+    kind: combo
+    default: "TIFF files (*.tif *.tiff)"
+    options: ["All supported formats (*.png *.jpg *.jpeg *.tif *.tiff *.fit *.fits *.xisf)", "PNG files (*.png)", "JPEG files (*.jpg *.jpeg)", "TIFF files (*.tif *.tiff)", "FITS files (*.fit *.fits)", "XISF files (*.xisf)"]
+    effect: Chooses the format the window proposes and the files it lists. For an image, it opens on the **Default Save Format** of the General settings, TIFF on a new profile.
+    range: A sequence gets its own type alone - `SER sequence (*.ser)`, `AfterNight sequence (*.anseq)`, or `Video sequence` with the video's extension, `.mp4` for an extension AfterNight does not know - beside all the sequence types together. No camera raw type is offered.
+    tradeoff: It does not decide the format, the extension does. A type chosen in the window is forgotten when it closes.
+  - name: Save
+    kind: button
+    default: ""
+    effect: Starts the save in the background, behind a **Save File** window, and you can go on working.
+    enabled: The save commands are disabled while no image or sequence view is active. Reached without one, a box titled "File save error" says "No selected image to save".
+    range: What is written is decided now - the image as it is, with the **Settings > Export** options as they are. A later edit or setting reaches only the next save. A mosaic is refused for a format that cannot state its filter pattern, before anything is written.
+    tradeoff: The window asks before it replaces a file. Replacing keeps no backup.
+    persistence: A file written joins the recent files. When the view still shows what was written, it takes the file as its own and loses its asterisk. An edit made meanwhile keeps the asterisk, because the view no longer shows what is in the file.
+    note: A format that does not hold the image's pixel type gets a converted copy, computed in double precision at the same share of full scale and rounded to the nearest code, ties to even. An image of physical values in floating point is converted as the fraction of full scale the viewer shows.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Closes the window. Nothing is written.
+```
 
-Saving does not flatten a display stretch. If the image itself was stretched by
-a process, those changed pixels are saved; if only viewer Autostretch is on,
-the original underlying samples are saved.
+```controls
+window: Save File
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: Reads "Saving image '<name>' to file '<path>'...", with "Saving sequence" for a sequence, over a moving bar.
+    tradeoff: An image is converted, compressed and written whole, and a sequence frame by frame, so a large image or a long sequence takes time and disk.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the save.
+    range: An image may be written whole before the stop is noticed. A stopped or failed save leaves nothing at the destination, and an existing file as it was.
+    persistence: A stopped save shows no message, adds no recent file and leaves the asterisk.
+```
 
-### Metadata and processing history
+### What each format keeps
 
-- FITS and XISF always carry the header cards the image was read with, its
-  world coordinates among them, while the structural keywords are written
-  afresh. A long processing-state string is stored across `CONTINUE` cards.
-  Geometry-changing work drops the cards that no longer describe the image, so
-  a turned or resized image carries no stale WCS.
-- With **Embed EXIF** enabled, a JPEG, TIFF, or PNG carries the image's EXIF
-  record - each format's allowed subset - as part of the same write, so a save
-  that succeeds wrote it. With it disabled, a raster file carries none. The
-  record is not stamped with the time of the write, and a FITS `GAIN` card is not
-  written as the Exif gain-control field.
-- **Embed processing history in FITS header** is kept as a setting and writes
-  nothing: no file carries an image's processing history. Existing FITS
-  HISTORY records the image was read with are carried as its other cards are.
-- Sequence Export does not embed AfterNight image history. SER carries its
-  native sequence/image fields and each frame's exposure start in its timestamp
-  trailer; an image list's frames carry their header cards; raw AVI/MP4/WebM
-  are display containers and
-  should not be treated as astronomy-metadata archives.
+```controls
+window: What each format keeps
+controls:
+  - name: FITS
+    kind: action
+    default: ""
+    effect: Writes every pixel type at the FITS sample type of its width, color as three planes, and a Bayer mosaic with its pattern. An X-Trans mosaic is refused.
+    range: The header cards the image was read with are written back, its world coordinates and HISTORY cards among them. The structural cards are written new, and a long processing state is continued over `CONTINUE` cards. A turn or a resize has already dropped the cards that no longer fit, so no stale coordinates are written.
+    tradeoff: No compression is offered.
+    note: The value `export/fitsFloatFormat`, which the settings keep, is not read.
+  - name: XISF
+    kind: action
+    default: ""
+    effect: Writes 8, 16 and 32-bit unsigned integers and 32 and 64-bit floating point, a signed image as the unsigned integers of its width, and Bayer and X-Trans mosaics.
+    range: The header cards and the XISF properties are written back, each property with its type. The compression, byte shuffling and checksum are those of **Settings > Export**, none by default.
+  - name: TIFF
+    kind: action
+    default: ""
+    effect: Writes every pixel type with its kind, signed 8-bit included, and Bayer and X-Trans mosaics, in strips of about a quarter of a megabyte.
+    range: Uncompressed, or LZW, ZIP/Deflate or JPEG as **Settings > Export** says. JPEG is used only for 8-bit samples. A deeper image is written with LZW, and the Session Console says so.
+  - name: PNG
+    kind: action
+    default: ""
+    effect: Writes 8 and 16-bit unsigned integers. A signed 8 or 16-bit image is written as unsigned of its width, and every wider type as 16-bit.
+    range: Its compression level, from 0 to 9, changes the size and the time, never the pixels. A mosaic is refused.
+  - name: JPEG
+    kind: action
+    default: ""
+    effect: Writes 8-bit gray or color, compressed with loss, at the quality of **Settings > Export**.
+    range: Every other pixel type is converted to 8 bits. A mosaic is refused.
+  - name: SER
+    kind: action
+    default: ""
+    effect: Writes the frames of a sequence as its file holds them, 8-bit frames in 8 bits and every other type as 16-bit unsigned integers. A mosaic stays a mosaic.
+    range: Each frame's exposure start goes into the timestamp trailer, as unknown for a frame that states none. A SER has no field for a rate. Opened again, it plays at the rate the timestamps give, or at 1 frame per second when they give none, as for frames that came from a video.
+  - name: Image list
+    kind: action
+    default: ""
+    effect: Writes an `.anseq` list and a folder beside it, `<name>-frames`, with each frame as a FITS file, `<name>-0.fits`, `<name>-1.fits` and so on, carrying its header cards.
+    range: Every frame takes the first frame's pixel type, so a frame of another type is converted to it. The list names its frames from its own folder, so the list and its frames folder move together. It states the first frame's size and the rate.
+    tradeoff: One file a frame takes disk space and time. Keep the list and the folder as one.
+  - name: AVI
+    kind: action
+    default: ""
+    effect: Writes uncompressed 8-bit frames, gray through a gray palette or 24-bit color, stored the right way up, with the rate as an exact fraction.
+    range: A deeper frame is converted to 8 bits, and a mosaic is written as its gray samples.
+  - name: MP4, MOV and MKV
+    kind: action
+    default: ""
+    effect: Writes 8-bit frames coded in H.264, in an MP4 container for `.mp4` and `.mov` and in a Matroska one for `.mkv`. A save of a video is never a copy of its file.
+    range: The width and the height are made even, and a mosaic is written as its gray samples. Sound is never written.
+  - name: WebM
+    kind: action
+    default: ""
+    effect: Writes 8-bit frames coded in VP9.
+    range: As MP4. AfterNight writes no MPG or MPEG file, so a video read from one is saved under another extension.
+```
 
-### Sequence save versus export
+## When it goes wrong
 
-Save reads every frame from the sequence's file and writes it, as the file holds
-it, through the writer of the container the chosen path names: SER (8-bit
-frames at 8 bits, every other at 16, each frame's exposure start in the
-timestamp trailer), an image list (each frame a FITS file with its header cards
-in the first frame's representation, beside a new `.anseq`), uncompressed AVI,
-or MP4,
-Matroska or WebM by the software encoder (8-bit frames, a mosaic as its grey
-samples). A `.mov` path is written as an MP4 container; `.mpg` and `.mpeg` are
-not written. Every container is written privately and published only when the
-last frame is in.
+"Could NOT save file" with "the product writes FITS, XISF, TIFF, PNG and JPEG files only"
+:   **Cause.** The file name of an image has no extension AfterNight writes.
+:   **Fix.** Save again with `.fits`, `.xisf`, `.tif`, `.png` or `.jpg` at the end of the name.
 
-Export reads every frame from the sequence's file, demosaics it when asked,
-stretches it, resizes it and writes it privately, publishing the file only when
-the last frame is in. Autostretch runs before resize. Resize uses Lanczos4; Fit
-scales inside a black canvas, Fill scales then center-crops, Stretch changes
-aspect ratio, and Center places unscaled data on a black canvas. A video frame's
-odd width or height is cropped by one column or row, and H.264 and H.265 are
-encoded by the software encoders, VP9 into WebM. Colour frames are encoded
-through the BT.709 matrix, and AVI and video frames are stored upright. An AVI
-that would need more index sections than its writer reserves is refused rather
-than continued in a second file.
+"no sequence container the product writes is named by" and the path
+:   **Cause.** A sequence was saved under an extension AfterNight does not write, such as `.mpg` or `.mpeg`, which the
+    window proposes for a video read from one.
+:   **Fix.** Save it as `.ser`, `.anseq`, `.avi`, `.mp4`, `.mkv` or `.webm`, or export it.
 
-## Inputs, outputs, and metadata
+"a colour filter array mosaic cannot be written as PNG or JPEG", or "an X-Trans mosaic cannot be written as FITS, PNG or JPEG"
+:   **Cause.** The image is a mosaic not yet debayered, and the format cannot state its filter pattern.
+:   **Fix.** Save a Bayer mosaic as FITS, XISF or TIFF and an X-Trans mosaic as XISF or TIFF, or debayer it first.
 
-| Operation | Input | Output/naming | Metadata/history | Overwrite and recovery |
-| --- | --- | --- | --- | --- |
-| Save still | Active underlying image | One extension-selected file, proposed name is the view's unique name | Format behavior above; no display overlays/stretch; successful save clears pending state | File dialog confirms replacement. Written beside the destination and moved into place only when complete; reopen and verify. |
-| Save SER | Active SER | New `.ser`; every frame rewritten as the file holds it, a mosaic kept | Native SER fields; each frame's exposure start in the timestamp trailer, an unknown entry for a frame that states none; no frame-rate field; no image-history embedding | Published whole or not at all; a failed or cancelled copy leaves nothing. |
-| Save Image List | Active `.anseq` | New `.anseq` plus `<name>-frames` FITS directory | First frame supplies sequence metadata; frames are rewritten as FITS with their header cards, in the first frame's representation | Treat list and directory as one artifact. A failed copy leaves nothing. |
-| Save FFmpeg video | Active video sequence | Frames decoded and written to the container the path names: uncompressed AVI, or MP4 (also for `.mov`), Matroska or WebM by the software encoder; `.mpg`/`.mpeg` are refused | Frames re-encoded at 8 bits; no astronomy metadata | Published whole or not at all. |
-| Export SER | Decoded whole sequence | Selected `.ser` | Supported native SER frame layout; each exported frame's exposure start in the timestamp trailer, an unknown entry for a frame that states none; no frame-rate field; no AfterNight image history | Published whole or not at all; a failed or cancelled export leaves nothing. |
-| Export AVI (RAW) | Decoded whole sequence | Selected `.avi` with raw DIB frames | Converts frames to unsigned 8-bit; the exact FPS fraction | Large uncompressed output; no astronomy metadata archive. |
-| Export MP4/WebM | Decoded whole sequence | H.264/H.265 `.mp4` or VP9 `.webm` | Delivery video, the exact FPS fraction, every frame including the last; astronomy metadata/history not preserved | Lossy; inspect actual output. |
+The view keeps its asterisk after a save
+:   **Cause.** The image changed while it was written, so the file holds the image as it was before the change.
+:   **Fix.** Save again once the edit is done.
 
-## Performance and responsiveness
+"Export Sequence Error" with "Could not export sequence:" and a reason
+:   **Cause.** A frame could not be read, converted or coded, or the file could not be written. Nothing was written.
+:   **Fix.** Correct what the reason names, often the free space or a frame a video encoder refuses, and choose **OK**
+    again.
 
-Still save runs on a worker while a progress dialog is shown, from the image as
-it was when the save was confirmed. FITS, TIFF, PNG, JPEG, and XISF encode the
-whole image; a conversion, compression and metadata work add CPU and disk time.
-You can keep working, edit, or close the view meanwhile: the file holds what was
-confirmed, and an edit made in the meantime keeps the view's changes pending.
+An exported video is one pixel narrower, or has black bars
+:   **Cause.** A video stores an even width and height, and **Fit** pads a frame of another proportion with black.
+:   **Fix.** Keep the frame's proportion with **Preserve Ratio**, or choose **Fill** or **Stretch** for a preset, with
+    an even width and height. Export again to a new file.
 
-Sequence copy/export scales with frame count, decoded pixels, channels, and
-destination encoding. Every sequence save decodes and rewrites each frame, one
-admitted step at a time. Image-list save writes one FITS file per frame. The
-video encoder runs on one thread. Autostretch measures each frame as the view does; resize
-adds Lanczos4 work and temporary images; raw AVI can be very large; H.264/H.265/
-VP9 trade CPU for smaller delivery files. Use a short representative sequence
-and a new output path before committing a long export.
+## Related
 
-## Worked example
-
-- Starting state, actions, settings, checkpoints, result, and limitations: for
-  a floating-point RGB processing master, keep **General > Default Save
-  Format** at TIFF or choose FITS/XISF explicitly, then save to a new name.
-  Reopen it and verify geometry, three channels, floating sample type for
-  FITS/TIFF/XISF, and required astronomy metadata. For a delivery copy, choose
-  PNG only after accepting unsigned-16 conversion, or JPEG only after accepting
-  unsigned-8 conversion and lossy quality 95. For a sequence delivery, choose
-  Export, retain source FPS, leave Autostretch/Resize off for a control export,
-  and verify frame count, dimensions, FPS, and boundary frames after writing.
-  Focused tests cover codec round trips, FITS overwrite/header behavior, XISF
-  header behavior, invalid extensions, the mosaic refusal, whole-or-nothing
-  publication, and each export container's frame rate and geometry. This example
-  does not claim a measured compression ratio, external-player compatibility,
-  EXIF round trip, or visual equivalence for lossy output.
-
-## Warnings and limitations
-
-- **No plain Save/write-back exists.** Every standard save opens a destination
-  dialog. Save as and Save File are aliases.
-- **Successful save clears the pending marker only when the view still shows
-  what was written,** and then makes the new file the view's source.
-- **A still save is whole or absent.** A failed or stopped write leaves an
-  existing destination as it was and no partial file beside it.
-- **Saving a video re-encodes it.** Every frame is decoded and written again at
-  8 bits through the software encoder; `.mpg` and `.mpeg` cannot be written.
-  Keep the original.
-- A selected filter cannot force a codec. The final extension controls still
-  dispatch; missing or unsupported extensions fail.
-- TIFF JPEG compression becomes LZW for non-8-bit samples, as the session
-  console says. PNG and JPEG perform the precision conversions listed above.
-  XISF writes a signed image as the unsigned representation of its width.
-- A colour filter array mosaic cannot be saved as PNG or JPEG, and an X-Trans
-  mosaic cannot be saved as FITS either.
-- A SER file stores no frame rate of its own: reopened, it plays at the rate its
-  frames' timestamps give, and at 1 frame per second when they state none - a
-  SER exported from a video, for one, whose frames carry no exposure start.
-- An image list's frames are written in the first frame's representation; a
-  frame of a deeper one is narrowed to it.
-- **Embed processing history** writes nothing; keep provenance separately.
-- Viewer autostretch, masks, overlays, selected display channel, zoom, and
-  annotations are not included in still saves. Sequence Export Autostretch is
-  different: it permanently transforms exported pixels.
-- Sequence Export resolution presets can be clamped by the UI range, and a video
-  frame's odd width or height is cropped by one. Inspect the dimensions of the
-  actual output.
-- A sequence export or copy that fails or is cancelled leaves nothing at its
-  destination; a frame the encoder refuses fails the export with its error.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| Save actions are disabled | No active view contains image data. | Activate an image/sequence view and retry. |
-| `No selected image to save` | The action reached FileManager without a current active view. | Select the intended view; wait for it to finish opening. |
-| **File save error**: `the product writes FITS, XISF, TIFF, PNG and JPEG files only` | The still filename has no recognized output extension or a mismatched unsupported suffix. | Choose `.fit/.fits/.fts`, `.xisf`, `.tif/.tiff`, `.png`, `.jpg/.jpeg/.jpe`; use the matching filter. |
-| **File save error**: `no sequence container the product writes is named by ...` | A sequence was saved to a suffix AfterNight does not write, such as `.mpg` or `.mpeg`. | Save to `.ser`, `.anseq`, `.avi`, `.mp4`, `.mkv` or `.webm`. |
-| `a colour filter array mosaic cannot be written as PNG or JPEG, which cannot state its filter array; write it as FITS, XISF or TIFF, or demosaic it first` | The active image is an undemosaiced mosaic. | Save as FITS, XISF, or TIFF, or demosaic the image first. |
-| `an X-Trans mosaic cannot be written as FITS, PNG or JPEG, none of which can state its six-by-six filter array; write it as XISF or TIFF, or demosaic it first` | The active image is an undemosaiced X-Trans mosaic. | Save as XISF or TIFF, or demosaic the image first. |
-| TIFF is larger/different than expected | Compression setting differs, or JPEG was requested for non-8-bit input and LZW was written instead. | Inspect pixel depth and Export settings; use None/LZW/ZIP for lossless work. |
-| Processing history is absent from saved FITS | No file carries processing history; the setting writes nothing. | Preserve provenance separately and inspect existing FITS HISTORY. |
-| EXIF is absent although enabled | The format-specific allowed set excluded it, or the image carried none. | Verify with EXIF viewer; keep the source/master metadata and use FITS/XISF for astronomy fields. |
-| Exported MP4 dimensions differ | A video stores even sizes, so an odd width or height was cropped by one. | Choose even dimensions and verify output geometry. |
-| A reopened SER plays at 1 FPS | A SER has no frame-rate field, and its frames' timestamps give no rate: its frames stated no exposure start, as a video's do not, or fewer than two distinct ones. | Keep the rate with the file's notes, or export AVI/video, which store it. |
-| Exported result is stretched/cropped/letterboxed | Autostretch or Resize was enabled; fill mode defines scaling/canvas behavior. | Reset Resize, turn Autostretch off, or deliberately choose Fit/Fill/Stretch/Center and retry to a new file. |
-
-## Related workflow steps
-
-- Use [Sequences](sequences.md) to create, inspect, extract, or convert the
-  active sequence before deciding between a same-family save and export.
-- Use [Supported Formats](../getting-started/supported-formats.md) for a concise
-  input/output matrix and [File Formats](../reference/file-formats.md) for the
-  authoritative precision, compression, and metadata reference.
-- Configure still defaults under [Settings](settings-dialog.md), then verify
-  the actual output rather than inferring it from a preference.
-- Inspect [Image Summary](image-summary.md) and
-  [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md) after
-  reopening an important output.
-- Continue to [Extract Sequence](../processes/utility/extract-sequence.md) when
-  only an inclusive frame range should be written or processed.
+- [Supported Formats](../getting-started/supported-formats.md), to choose the format for a master, a copy or a video.
+- [File Formats](../reference/file-formats.md), for each format's precision, compression and metadata in depth.
+- [Sequences](sequences.md), to open, make and convert the sequences you save and export.
+- [Settings](settings-dialog.md), for **Default Save Format** and the options of the **Export** page.
+- [Image Summary](image-summary.md), to read the size and pixel type of a file you wrote.
+- [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md), to read the header a save wrote.
 
 ## Credits
 
-- [FITS Standard 4.0](https://fits.gsfc.nasa.gov/fits_standard.html), official
-  IAU FITS Working Group reference.
-- [XISF 1.0
-  Specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html),
-  PixInsight's primary format specification.
-- [TIFF 6.0 specification
-  index](https://libtiff.gitlab.io/libtiff/specification/index.html) and
-  [TIFF/JPEG Technical Note
-  2](https://libtiff.gitlab.io/libtiff/specification/technote2.html), primary
-  LibTIFF-hosted references.
-- [PNG Specification, Second
-  Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html), primary
-  format specification.
-- [Independent JPEG Group](https://ijg.org/) and [JPEG Still Picture Compression
-  Standard](https://www.ijg.org/files/Wallace.JPEG.pdf), primary
-  implementation/technical references.
-- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html),
-  primary libavformat documentation.
-- [SER format description, version
-  3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf), primary format
-  description.
+- [FITS Standard 4.0](https://fits.gsfc.nasa.gov/fits_standard.html), by the IAU FITS Working Group.
+- [XISF 1.0 Specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html), by Pleiades
+  Astrophoto.
+- [TIFF 6.0 specification](https://libtiff.gitlab.io/libtiff/specification/index.html) and
+  [TIFF/JPEG Technical Note 2](https://libtiff.gitlab.io/libtiff/specification/technote2.html), as LibTIFF hosts them.
+- [PNG Specification, Second Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html).
+- [Independent JPEG Group](https://ijg.org/) and the
+  [JPEG Still Picture Compression Standard](https://www.ijg.org/files/Wallace.JPEG.pdf).
+- [SER format description, version 3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf), for the SER container and
+  its timestamp trailer.
+- [FFmpeg](https://ffmpeg.org), by the FFmpeg developers, under the GNU LGPL 2.1 or later and, as built with its GPL
+  encoders, the GNU GPL 2 or later, writes the MP4, Matroska and WebM files, as the
+  [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html) describes them.
+- [x264](https://code.videolan.org/videolan/x264) and [x265](https://bitbucket.org/multicoreware/x265_git/), by their
+  project authors, under GPL-2.0-or-later, code H.264 and H.265, and
+  [libvpx](https://chromium.googlesource.com/webm/libvpx/), by the WebM project authors, under BSD-3-Clause, codes VP9.
