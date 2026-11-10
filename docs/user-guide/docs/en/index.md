@@ -1,7 +1,7 @@
 ---
 kind: home
 hero:
-  accent: Documentation
+  accent: finish
   lede: >-
     AfterNight gathers the pieces of a deep-sky processing session into one application workspace: calibration
     frames, registration, stacking, color work, stretching, masks, process windows, logs, history, automation, and
@@ -48,7 +48,7 @@ popular:
   - reference/file-formats.md
   - reference/troubleshooting.md
 ---
-# AfterNight Documentation
+# Process, refine and finish your astronomical images
 
 ## Purpose, audience, prerequisites, and expected result
 
@@ -89,26 +89,6 @@ behavior matters. This guide covers 1.0.1. Keep a writable output folder and
 copies of acquisition data before following any processing workflow; individual
 pages identify their additional disk, catalog, model, or external-tool needs.
 
-<div class="an-hero" markdown>
-<div class="an-hero__lead" markdown>
-<p class="an-kicker">AfterNight 1.0.1 user guide</p>
-
-## Process, refine, and finish your astronomical images
-
-AfterNight gathers the pieces of a deep-sky processing session into one
-application workspace: calibration frames, registration, stacking, color work,
-stretching, masks, process windows, logs, history, automation, and extensions.
-</div>
-
-<div class="an-hero__visual" markdown>
-![Fresh-profile AfterNight Dashboard with onboarding, start cards, quick actions, and an image drop zone](assets/images/interface/hero-screenshot.png){ .an-hero__screenshot }
-
-*Start from the fresh-profile Dashboard to open images, begin an integration,
-or review the guided first steps.*
-</div>
-
-<div class="an-hero__body" markdown>
-<div class="an-hero__body-copy" markdown>
 Use this guide in the same order you work. Start with installation and first
 launch when the application is new, use the interface pages to find your way
 around the workspace, then jump into a workflow or process reference when you
@@ -117,95 +97,39 @@ need the next processing step.
 Process pages focus on what is visible in the app: required inputs, important
 controls, expected outputs, where files are written, and what to check when a
 result looks wrong.
-</div>
-
-<div class="an-hero__body-actions" markdown>
-<div class="an-hero__actions" markdown>
-[Install AfterNight](getting-started/installation.md){ .md-button .md-button--primary }
-[Run the quick start](getting-started/quick-start.md){ .md-button }
-</div>
-
-<div class="an-hero__meta" markdown>
-[Deep-sky workflows](workflows/broadband-imaging.md){ .an-hero__link }
-[Process reference](processes/index.md){ .an-hero__link }
-[Interface guide](interface/overview.md){ .an-hero__link }
-</div>
-</div>
-</div>
-</div>
 
 ## Procedure
 
 ### Choose your path
 
-<div class="an-card-grid" markdown>
-
-<a class="an-card an-card--teal" href="getting-started/installation.html">
-<span class="an-card__icon">GET</span>
-<span class="an-card__eyebrow">First session</span>
-<strong>Install and launch</strong>
-<span>Set up the right build for your platform, open AfterNight, and confirm the expected runtime pieces are present.</span>
-</a>
-
-<a class="an-card an-card--indigo" href="interface/overview.html">
-<span class="an-card__icon">UI</span>
-<span class="an-card__eyebrow">Workspace map</span>
-<strong>Learn the interface</strong>
-<span>Get oriented around the dashboard, image viewer, docking panels, process windows, logs, masks, history, and statistics.</span>
-</a>
-
-<a class="an-card an-card--rose" href="processes/stacking-integration/image-integration.html">
-<span class="an-card__icon">INT</span>
-<span class="an-card__eyebrow">Deep-sky pipeline</span>
-<strong>Run Image Integration</strong>
-<span>Use the flagship workflow for calibration, registration, normalization, stacking, drizzle, and final reporting.</span>
-</a>
-
-<a class="an-card an-card--gold" href="processes/index.html">
-<span class="an-card__icon">CAT</span>
-<span class="an-card__eyebrow">Process catalog</span>
-<strong>Find the next tool</strong>
-<span>Browse every built-in process by category and decide where it belongs in the processing chain.</span>
-</a>
-
-<a class="an-card an-card--violet" href="extensions/using-extensions.html">
-<span class="an-card__icon">EXT</span>
-<span class="an-card__eyebrow">Extensibility</span>
-<strong>Add extensions</strong>
-<span>Understand the bundled Python runtime, the separate extension host processes, package discovery, and extension-driven process windows.</span>
-</a>
-
-</div>
+- [Install and launch](getting-started/installation.md): set up the right build for your platform, open AfterNight,
+  and confirm the expected runtime pieces are present.
+- [Learn the interface](interface/overview.md): get oriented around the dashboard, image viewer, docking panels,
+  process windows, logs, masks, history, and statistics.
+- [Run Image Integration](processes/stacking-integration/image-integration.md): use the flagship workflow for
+  calibration, registration, normalization, stacking, drizzle, and final reporting.
+- [Find the next tool](processes/index.md): browse every built-in process by the stage of the processing where it
+  belongs.
+- [Add extensions](extensions/using-extensions.md): understand the bundled Python runtime, the separate extension host
+  processes, package discovery, and extension-driven process windows.
 
 ### Key capabilities
 
-<div class="an-feature-grid" markdown>
-
-<div class="an-feature" markdown>
-### 🌌 Astronomy images and sequences
+#### Astronomy images and sequences
 Open astronomy and interchange images, camera RAW input, native sequences, and
 supported FFmpeg-backed video streams. Begin with [Supported
 Formats](getting-started/supported-formats.md); use [File
 Formats](reference/file-formats.md) as the single authority for exact read,
 write, precision, compression, sequence, and metadata behavior.
-</div>
 
-<div class="an-feature" markdown>
-### 🔭 Precision Registration & Astrometry
+#### Precision Registration & Astrometry
 Align images with sub-pixel accuracy. AfterNight features automatic star detection, projective geometric transforms, and full support for **SIP** (Simple Imaging Polynomial) distortion correction. Resolve celestial coordinates using **Plate Solving** to enable WCS-aware alignment and color calibration.
-</div>
 
-<div class="an-feature" markdown>
-### ⚙️ Flagship Image Integration
+#### Flagship Image Integration
 Automate your pre-processing pipeline from raw frames to master stacks. The flagship **Image Integration** workflow handles dark optimization, cosmetic correction, flat normalization, registration, outlier rejection stacking, and high-resolution **Drizzle**. Track progress with interactive steps and detailed HTML reports.
-</div>
 
-<div class="an-feature" markdown>
-### 🎨 Non-Linear Finishing & Compositing
+#### Non-Linear Finishing & Compositing
 Sculpt the visible image after stretching with contrast, color, star, mask, and compositing tools. Shape details with phase-appropriate noise reduction, sharpening, deconvolution, **Pixel Math**, and custom **Masks** so finishing edits stay targeted.
-</div>
-
-</div>
 
 ## Behavior and state model
 
@@ -219,34 +143,22 @@ During this phase, pixel values remain directly proportional to the physical pho
 ### The Non-Linear Phase (Post-processing)
 After the image is stretched with Histogram, GHT, or other tone tools, the data is no longer linear and the goal shifts toward visible detail, contrast, color, stars, and export. Noise reduction and deconvolution can still be useful here, but they are handled with tools and settings intended for non-linear data.
 
-<div class="an-flow-diagram" role="group" aria-label="Typical deep-sky processing flow" markdown>
+Linear phase:
 
-<div class="an-flow-row" markdown>
-<strong class="an-flow-row__label">Linear phase</strong>
-<ol class="an-flow-steps an-flow-steps--linear">
-<li class="an-flow-step">Calibration</li>
-<li class="an-flow-step">Registration</li>
-<li class="an-flow-step">Stacking & Drizzle</li>
-<li class="an-flow-step">Background Extraction</li>
-<li class="an-flow-step">Color Calibration</li>
-<li class="an-flow-step">Linear Denoise / Deconvolution</li>
-</ol>
-</div>
+1. Calibration
+2. Registration
+3. Stacking & Drizzle
+4. Background Extraction
+5. Color Calibration
+6. Linear Denoise / Deconvolution
 
-<div class="an-flow-handoff">Stretching handoff</div>
+The stretch hands the image over to the non-linear phase:
 
-<div class="an-flow-row" markdown>
-<strong class="an-flow-row__label">Non-linear phase</strong>
-<ol class="an-flow-steps an-flow-steps--nonlinear">
-<li class="an-flow-step">Stretching</li>
-<li class="an-flow-step">Curves & Contrast</li>
-<li class="an-flow-step">Non-linear Denoise</li>
-<li class="an-flow-step">Sharpen / Deconvolution</li>
-<li class="an-flow-step">Stars & Export</li>
-</ol>
-</div>
-
-</div>
+1. Stretching
+2. Curves & Contrast
+3. Non-linear Denoise
+4. Sharpen / Deconvolution
+5. Stars & Export
 
 The guide is organized around that flow. If you are new to the application, start with [Quick Start Tutorial](getting-started/quick-start.md). If you already know the data you need to process, jump directly to the [Process Catalog](processes/index.md).
 

@@ -5,8 +5,8 @@
 > **Source of truth:** for the site, the configuration, templates, records and scripts this document names; for what
 > a page says, the product's current source and tests.
 
-The user guide is a MkDocs Material site written in Markdown. It is built from a locked toolchain, works when opened
-from disk, ships inside the installers and is published to GitHub Pages with each release. This document states the
+The user guide is a MkDocs site in a theme of its own, written in Markdown. It is built from a locked toolchain,
+works when opened from disk, ships inside the installers and is published to GitHub Pages with each release. This document states the
 rules a change to the guide follows: where its parts live, how it is built and shipped, how a page's claims are
 verified, what a complete page contains, how it is written and how its media is handled.
 
@@ -41,18 +41,16 @@ verified, what a complete page contains, how it is written and how its media is 
 
 | Path | Holds |
 | --- | --- |
-| `docs/user-guide/mkdocs.yml` | The site: theme, plugins, Markdown extensions, local scripts and the `nav:` tree. |
+| `docs/user-guide/mkdocs.yml` | The site: the theme's keys, the hook file, the one plugin, the Markdown extensions, the local runtimes and the `nav:` tree. |
 | `docs/user-guide/requirements.in` | The direct pins of the documentation toolchain. |
 | `docs/user-guide/requirements.txt` | The resolved lock, with hashes, generated from `requirements.in`. |
 | `docs/user-guide/docs/en/` | The English pages; `mkdocs.yml` names this directory `docs_dir`. |
 | `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)). |
-| `docs/user-guide/mkdocs.theme.yml` | The guide in its own theme: `mkdocs.yml` inherited, with the theme, its hooks and their plugins; it builds into `site-theme/` ([The guide's own theme](#the-guides-own-theme)). |
-| `docs/user-guide/hooks/` | The theme's MkDocs hooks - `guide_hooks.py` (the events), `guide_fences.py` (the `controls` and `figure` blocks), `guide_html.py` (the passes over each page's HTML) and `guide_search.py` (the search index) - and `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the hooks and `check_user_guide.py` share; their tests beside them. |
+| `docs/user-guide/hooks/` | The theme's MkDocs hooks - `guide_hooks.py` (the events, and the only file `mkdocs.yml` names), `guide_fences.py` (the `controls` and `figure` blocks), `guide_html.py` (the passes over each page's HTML) and `guide_search.py` (the search index) - and `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the hooks and `check_user_guide.py` share; their tests beside them. |
 | `docs/user-guide/hooks/fixtures/components/` | A small made-up guide that shows every page kind and component of the theme. The hooks' tests build it strictly, and it is the site to look at while changing the theme ([Components and blocks](#components-and-blocks)). |
 | `docs/user-guide/theme/` | The theme: `main.html`, `base.html`, `404.html`, a layout per page kind in `layouts/`, the shared parts in `partials/`, and under `assets/guide/` its CSS (`tokens.css` a copy of the website's), JavaScript, fonts and the vendored lunr. |
 | `docs/user-guide/docs/en/assets/images/` | Committed screenshots and example images. |
-| `docs/user-guide/docs/en/assets/javascripts/` | The vendored MathJax runtime with its fonts and configuration, the Mermaid runtime, and the polyfills the site loads locally. |
-| `docs/user-guide/docs/en/stylesheets/extra.css` | The site's style overrides. |
+| `docs/user-guide/docs/en/assets/javascripts/` | The vendored MathJax runtime with its fonts and configuration, and the Mermaid runtime with its initializer. |
 | `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` | The provenance of every committed image and retained diagram, and the offline runtime policy. |
 | `docs/user-guide/templates/` | The four page templates. |
 | `docs/user-guide/DOCUMENTATION_COMPLETION_TRACKER.md` | One row per navigated page with its states and evidence, the state model and the phase ledger. |
@@ -60,7 +58,6 @@ verified, what a complete page contains, how it is written and how its media is 
 | `docs/user-guide/CONTENT_VERIFICATION_PREREQUISITES.md` | The evidence modes, and the data, tools, catalogs and platforms a verification needs. |
 | `docs/user-guide/audits/` | The audit's configuration and baseline, the media contract and retained validation evidence; its `README.md` explains the audit. |
 | `docs/user-guide/site/` | The built site. Git ignores it, as it ignores the helpers' environment in `docs/user-guide/.venv/`. |
-| `docs/user-guide/site-theme/` | The site built in the guide's own theme, which Git ignores too. |
 
 ## Building
 
@@ -75,24 +72,26 @@ build\scripts\msvc\build_user_guide_docs.bat
 build/scripts/linux/build_user_guide_docs.sh
 ```
 
-With the argument `theme` the helpers build the guide in its own theme instead, from `mkdocs.theme.yml` into
-`docs/user-guide/site-theme/`.
-
 The direct commands work in any environment that has the lock installed:
 
 ```bash
 pip install --require-hashes -r docs/user-guide/requirements.txt
 mkdocs build -f docs/user-guide/mkdocs.yml --strict
-mkdocs build -f docs/user-guide/mkdocs.theme.yml --strict
-mkdocs serve -f docs/user-guide/mkdocs.theme.yml
+mkdocs serve -f docs/user-guide/mkdocs.yml
 ```
 
-- The strict build is the gate every change passes. It turns each warning, such as a link to a missing page or
-  anchor, into a failure. It proves the site's structure, not what a page says.
+- The strict build is the gate every change passes. It turns each warning into a failure: a link to a missing page
+  or anchor, a page left out of the nav (`validation` in `mkdocs.yml` raises all three to warnings), front matter
+  that does not fit its schema, a `controls` or `figure` block that cannot be drawn. It proves the site's structure,
+  not what a page says.
+- `AFTERNIGHT_GUIDE_VERSION` names the version the build states in its footer and on its home page. A release sets
+  it; without it the guide says it was built from the development line.
 - A new page is listed under `nav:` in `mkdocs.yml` and opens with front matter ([Page metadata](#page-metadata));
   `check_user_guide.py` holds both.
-- The toolchain changes in `requirements.in`. Regenerate the lock with pip-tools, run the strict build, and commit
-  both files together; the lock is never edited by hand:
+- The toolchain is four direct pins in `requirements.in`: MkDocs, pinned exactly because MkDocs 2.x loads neither
+  this theme nor its hooks; the lightbox plugin; the PyMdown extensions; and Pygments, which colors code and which
+  nothing else requires. It changes there. Regenerate the lock with pip-tools, run the strict build, and commit both
+  files together; the lock is never edited by hand:
 
   ```bash
   python -m piptools compile --generate-hashes --output-file docs/user-guide/requirements.txt docs/user-guide/requirements.in
@@ -148,14 +147,18 @@ data_out: nonlinear
 
 ## The guide's own theme
 
-The guide is moving off MkDocs Material to a theme of its own that wears the website's look. Until it switches, the
-theme is built beside the Material site: `mkdocs.theme.yml` inherits `mkdocs.yml` and builds into `site-theme/`, so
-the site the installers bundle does not change. `docs.yml` builds both strictly.
+The guide is drawn by a theme of its own that wears the website's look: the templates and assets under
+`docs/user-guide/theme/`, the hooks under `hooks/` and the data under `data/`. It replaced MkDocs Material, which is
+no longer installed.
 
-- **MkDocs 1.6.1, a custom theme.** `theme.name: null` with `custom_dir: theme`; the Markdown, the strict build, the
-  lock, the workflows, the installers' paths and Help's entry point all stay as they are. Material for MkDocs is in
-  maintenance mode, and its layout fights the design. MkDocs 2.x loads neither a 1.x theme nor hooks, so MkDocs is
-  pinned exactly; the hooks stay small, plain Python, so a later move costs little.
+- **MkDocs 1.6.1, a custom theme.** `theme.name: null` with `custom_dir: theme`; with no named theme MkDocs reads no
+  `mkdocs_theme.yml`, so the theme's keys are in `mkdocs.yml`. Material for MkDocs is in maintenance mode, and its
+  layout fought the design. MkDocs 2.x loads neither a 1.x theme nor hooks, so MkDocs is pinned exactly; the hooks
+  stay small, plain Python, so a later move costs little.
+- **One hook file, one plugin.** `mkdocs.yml` names `hooks/guide_hooks.py` alone: MkDocs puts a hook's folder on the
+  import path while it loads it, so the file imports its siblings and registers the `controls` and `figure` blocks
+  itself, and the build needs no `PYTHONPATH`. The only plugin is the lightbox; naming `plugins:` at all is what
+  keeps MkDocs' own search plugin out.
 - **A layout per kind.** `main.html` extends `layouts/<kind>.html` (workflows share the tutorial layout); the page's
   front matter picks it. Interface and reference pages render the plain anatomy: left navigation, breadcrumbs, the
   page head (the H1, lifted out of the content, with the summary and the chips), the lead, the body, the table of
@@ -193,8 +196,7 @@ the site the installers bundle does not change. `docs.yml` builds both strictly.
 ### Components and blocks
 
 A page is plain Markdown. The theme draws some of it as components, found by where it sits, so that a page stays
-readable as text and Material ignores all of it. `guide_html.dress_sections` does this by the words of each `##`
-heading:
+readable as text. `guide_html.dress_sections` does this by the words of each `##` heading:
 
 | Where | Markdown | Drawn as |
 | --- | --- | --- |
@@ -289,7 +291,7 @@ that is not beside it). It loads neither MathJax nor Mermaid, which are checked 
 
   ```yaml
   hero:
-    accent: Documentation        # words of the H1 drawn in the accent color; optional
+    accent: finish               # words of the H1 drawn in the accent color; optional
     lede: One or two sentences under the title.
     actions:                     # one to three; the first is the main one
       - {label: Run the quick start, page: getting-started/quick-start.md}
@@ -309,18 +311,27 @@ that is not beside it). It loads neither MathJax nor Mermaid, which are checked 
   `###` steps of the first tutorial in the nav that states `stages`, and is left out while that tutorial has none.
 - **The search** holds the summary of a page drawn from data, not a body the page does not show.
 - **Diagrams follow the theme.** `mermaid-init.js` gives Mermaid the theme's tokens as its colors and draws each
-  diagram again, from the source it kept, when the toggle dispatches `an-themechange`. On a page without the tokens
-  - the Material site - it does what it did.
+  diagram again, from the source it kept, when the toggle dispatches `an-themechange`.
 - **Code is dark in both themes**, like the application's console, so the highlighter has one set of colors.
 
 ## Offline site, packaging and publication
 
 The installers bundle the built site, and it works opened from disk without a network:
 
-- Every script, style and font the site uses is local. `theme.font: false` keeps web fonts out, MathJax and Mermaid
-  are vendored under `assets/javascripts/` and listed in `extra_javascript`, the `offline` plugin builds the site for
-  file access, and `use_directory_urls: false` makes every link name its `.html` file. Do not add a CDN script, a
-  remote font or a network fallback, and do not enable `navigation.instant`, which needs a server.
+- Every script, style, font, image and data file the site uses is inside it. The theme's own are under
+  `theme/assets/guide/`, which MkDocs copies to the site's `assets/guide/`, apart from the docs' `assets/images` and
+  `assets/javascripts`; MathJax and Mermaid are vendored under `assets/javascripts/` and listed in
+  `extra_javascript`. Do not add a CDN script, a remote font or a network fallback: rule R1 of `check_user_guide.py`
+  refuses a reference that leaves the site, and the render tool a request that does.
+- Nothing the site does needs a server. A page opened from disk can neither `fetch()` a file nor start a worker nor
+  load a module script, so data reaches a page as a plain script - the search index is one - and the theme's scripts
+  are plain scripts. `localStorage` is read and written inside `try`: a browser may keep none for a local file, and
+  the theme then follows the system's color scheme.
+- `use_directory_urls: false` makes every link name its `.html` file, since a folder opened from disk has no index.
+  The page-relative paths of the `figure` blocks depend on it too.
+- `404.html` is the one page that does not work from disk: MkDocs writes its references from the site's root, for the
+  web server that shows it at any address. R1 resolves them from the root, and the render tool serves the page over
+  the loopback address when it is named.
 - MathJax's fonts and font data are vendored with it, under `assets/javascripts/mathjax/fonts/`, and
   `assets/javascripts/mathjax/mathjax-config.js`, listed before MathJax, points it at them. MathJax otherwise fetches
   them from jsDelivr, and an equation opened offline renders with wrong glyphs. The configuration also turns semantic
@@ -328,9 +339,11 @@ The installers bundle the built site, and it works opened from disk without a ne
   assistive MathML gives screen readers each equation instead. The fonts are updated with MathJax, to the font
   package version its release names, as their `MEDIA_PROVENANCE.md` row says.
 - A `mermaid` fence renders through the project's local initializer: `mkdocs.yml` gives the fence the `an-mermaid`
-  class, so Material's network-loaded renderer is never used.
-- `.github/workflows/docs.yml` builds the site strictly from the lock and uploads it as the
-  `afternight-documentation-html` artifact. It runs on pull requests that touch the guide, this document, `README.md`,
+  class, and `mermaid-init.js` draws it with the vendored runtime.
+- `.github/workflows/docs.yml` builds the site strictly from the lock, runs the hooks' tests and the check's, holds the
+  pages and the built site with `check_user_guide.py --site`, and uploads the site as the
+  `afternight-documentation-html` artifact. Called by a release it builds with `AFTERNIGHT_GUIDE_VERSION` set to the
+  release's version. It runs on pull requests that touch the guide, this document, `README.md`,
   `AGENTS.md`, the documentation, release and platform workflows, the installers, or the application's menus and help
   entry point.
 - `.github/workflows/release.yml` calls the documentation workflow once per release, which then uploads the site to
@@ -502,7 +515,7 @@ can be `Content complete` while required media is still missing, and it is fully
 - Write a keyboard shortcut as a code span with `+` between keys, as the binding defines it: `Ctrl+Shift+S`.
 - Define a technical term where it is first used and add it to `docs/user-guide/docs/en/reference/glossary.md`.
 - Write math as LaTeX, `\( ... \)` inline and `\[ ... \]` for display; the vendored MathJax renders it.
-- Use Material admonitions for asides: `!!! note` for supplementary information, `!!! tip` for practical advice,
+- Use admonitions for asides: `!!! note` for supplementary information, `!!! tip` for practical advice,
   `!!! warning` for a common mistake or risk, `!!! danger` for behavior that can silently give a wrong result or lose
   work.
 - Link related processes and workflows with relative links to their `.md` files, which the strict build checks.
@@ -606,10 +619,10 @@ Run from the repository root:
 
 | Command | Checks |
 | --- | --- |
-| `build\scripts\msvc\build_user_guide_docs.bat`, `build/scripts/linux/build_user_guide_docs.sh` | The strict build from the lock; with `theme`, the guide in its own theme. |
-| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the hooks' `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths and images, and what the built site references; `docs.yml` runs all three after the strict build, and the check again on `site-theme/`. |
+| `build\scripts\msvc\build_user_guide_docs.bat`, `build/scripts/linux/build_user_guide_docs.sh` | The strict build from the lock. |
+| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the hooks' `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths and images, and what the built site references; `docs.yml` runs all three after the strict build. |
 | `python build/scripts/tools/check_user_guide.py --tokens <the website's assets/css/tokens.css>` | That the theme's tokens are still the website's (R16), where the website's sources are at hand; not in CI. |
-| `node build/scripts/render_user_guide.cjs --offline`, and `--site docs/user-guide/site-theme` for the theme | What a reader sees in the copy the installers bundle; the script's header gives its setup, which keeps its Node packages and browsers outside the repository. |
+| `node build/scripts/render_user_guide.cjs --offline` | What a reader sees in the copy the installers bundle; the script's header gives its setup, which keeps its Node packages and browsers outside the repository. |
 
 `check_user_guide.py` reads the guide through `guide_model.py`, which needs PyYAML, so it runs with the documentation
 toolchain's Python: `docs\user-guide\.venv\Scripts\python` on Windows and `docs/user-guide/.venv/bin/python` on

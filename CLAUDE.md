@@ -388,5 +388,5 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
 symbolication, extension host modes, ImageIntegration artifact validation, SPCC and catalog maintenance, provenance
 notes, user-guide authoring). The engine's guides and the product guide are in
 `docs/dev/guides/`, which also hold each area's design reasons. End-user docs live in
-`docs/user-guide/` (MkDocs Material) and build with `build\scripts\msvc\build_user_guide_docs.bat` or the platform
-equivalent.
+`docs/user-guide/` (MkDocs with the guide's own theme) and build with
+`build\scripts\msvc\build_user_guide_docs.bat` or the platform equivalent.

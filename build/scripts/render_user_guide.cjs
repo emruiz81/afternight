@@ -85,14 +85,6 @@ const SEARCH_UIS = [
     resultTitle: '#guide-search-results [role="option"] b',
     group: '#guide-search-results [role="group"]',
     groupTitle: ".group"
-  },
-  {
-    theme: "material",
-    open: 'label[for="__search"]',
-    input: "input.md-search__input",
-    result: ".md-search-result__item",
-    resultLink: ".md-search-result__item a",
-    resultTitle: ".md-search-result__item h1, .md-search-result__item h2"
   }
 ];
 
