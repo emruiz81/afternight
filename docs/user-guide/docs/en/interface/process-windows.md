@@ -89,7 +89,8 @@ choose it. A process an extension adds is disabled in the menu instead, with the
 
 ### Apply to a sequence
 
-1. Make the sequence the target. To process only some frames, select them in its player first.
+1. Make the sequence the target. Every frame is processed; to work on some of them, make a sequence of those
+   frames first with [Extract Sequence](../processes/utility/extract-sequence.md).
 2. Choose **Apply**. A progress window follows the frames.
 3. The sequence in the view is replaced when every frame is done. **Cancel** stops the run and keeps the original.
 

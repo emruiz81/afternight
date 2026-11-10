@@ -416,8 +416,8 @@ an XISF image of the 0 to 1 range open as fractions of full scale. Changing the 
 
 ### ONNX
 
-Open Neural Network Exchange, a file format for trained neural network models. DeepSNR's models are ONNX files, run
-on the platforms ONNX Runtime supports.
+Open Neural Network Exchange, a file format for trained neural network models. DeepSNR's models and StarNet2's model
+are ONNX files, run on the platforms ONNX Runtime supports.
 
 ### OSC
 
