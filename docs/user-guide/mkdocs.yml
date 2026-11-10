@@ -124,6 +124,7 @@ nav:
       - Overview: processes/index.md
       - Calibration:
           - Image Calibration: processes/calibration/image-calibration.md
+          - Image Calibration Reference: processes/calibration/image-calibration-reference.md
           - Cosmetic Correction: processes/calibration/cosmetic-correction.md
           - Debayer: processes/calibration/debayer.md
           - Split CFA: processes/calibration/split-cfa.md
@@ -131,12 +132,15 @@ nav:
           - CFA Integer Resample: processes/calibration/cfa-integer-resample.md
       - Registration & Alignment:
           - Image Registration: processes/registration-alignment/image-registration.md
+          - Image Registration Reference: processes/registration-alignment/image-registration-reference.md
           - Plate Solving: processes/registration-alignment/plate-solving.md
           - Star Profiler: processes/registration-alignment/star-profiler.md
       - Stacking & Integration:
           - Image Integration: processes/stacking-integration/image-integration.md
+          - Image Integration Reference: processes/stacking-integration/image-integration-reference.md
           - Image Integration Lite: processes/stacking-integration/image-integration-lite.md
           - Image Stacking: processes/stacking-integration/image-stacking.md
+          - Image Stacking Reference: processes/stacking-integration/image-stacking-reference.md
           - Image List Analyzer: processes/stacking-integration/image-list-analyzer.md
       - Color Calibration:
           - Color Calibration: processes/color-calibration/color-calibration.md

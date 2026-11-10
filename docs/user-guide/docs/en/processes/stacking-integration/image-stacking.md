@@ -3,522 +3,903 @@ kind: process
 stage: stack
 menu: Process > Preprocess > Image Stacking
 summary: >-
-  Normalizes, rejects outliers from and combines two or more calibrated, aligned frames into one floating-point
-  master.
+  Combines a list of frames into one floating-point master for each group of them, with optional normalization,
+  weighting and rejection: the calibration masters, or the stack of calibrated, registered lights.
 data_in: linear
+data_out: linear
+destructive: false
+preview: none
+sequences: false
+masks: none
+external: none
+glance:
+  enabled: >-
+    Always. The window opens without an image and works on the files you list in it.
+  inputs: >-
+    Still image files, grouped by filter and, if you ask, by night and exposure. Within a group every frame has the
+    first frame's size, pixel type, channel count and filter array. No open image, sequence or mask is used.
+  outputs: >-
+    One 32-bit or 64-bit floating-point master for each group, in the folder you choose, with optional rejection maps
+    beside it, each of which can open in a view. The source files are not changed.
+  state: >-
+    Raw bias or dark frames, flat frames calibrated by the bias, or calibrated and registered linear lights.
 derived: true
+rewritten: true
 ---
 # Image Stacking
 
-## Purpose and expected result
+Image Stacking combines a list of files into one [master](../../reference/glossary.md#master) for each group of them:
+a bias, dark or flat master for calibration, or the stack of [light frames](../../reference/glossary.md#light-frame)
+that are already calibrated and registered. It can bring the frames to one level, weigh them, and leave out the
+samples that disagree with the rest by [rejection](../../reference/glossary.md#rejection) before it averages, sums or
+takes the median of what is left. It neither calibrates nor registers.
 
-Image Stacking combines two or more already calibrated, same-geometry still
-images into one floating-point master per generated frame group. It is the
-focused, standalone route for users who already have aligned inputs and do not
-need Image Integration to manage calibration, registration, drizzle, project
-persistence, workflow reports, or artifact history.
+**Stack Images** writes one floating-point file for each group into the folder you choose, with optional rejection
+maps beside it, and can open each in a view. The source files are not changed.
 
-The process can normalize frames, assign global per-frame weights, reject
-outlying pixel samples, group by metadata, and save optional rejection maps. A
-successful run writes one master for each row in **Frame Groups** and can open
-the masters and maps in the workspace. The source frames are not modified.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Preprocess > Image Stacking** |
-| Enabled when | Always available; no active image or sequence is required. **Stack Images** remains disabled until at least one generated group, a nonempty output directory, and a nonempty name template exist, and while a run is in progress. Every rejection method needs at least three frames in the group. |
-| Inputs | A list of supported still-image files. Frames within each group must have the width, height, channel count, and pixel type of the group's first frame. Comet mode additionally requires exact role-qualified registered products in `registration_metrics.db` beside the outputs. |
-| Outputs | One FITS-by-default master per group, plus optional merged or separate low/high rejection maps. Existing destination names receive no confirmation prompt. No workflow report, quality/confidence map, or drizzle product is produced by this window. |
-| Recommended image state | Calibrated, registered, linear frames. The process does not align ordinary inputs. |
-| Preview support | A static preview of the selected source frame only. A CFA source is demosaiced for display by the viewer. There is no stack preview and changing settings does not recompute the preview. |
-| Sequence support | No direct SER/video/sequence input. Extract or export frames to supported still files first. Folder import may add many still files. |
-| Mask support | Not supported. An application mask is not read. In every frame an exact zero - such as the border an alignment leaves where a frame does not reach - and a non-finite (NaN or infinite) sample are treated as missing: neither is combined nor judged by a rejection. |
-| External dependencies | No external executable or network service. Metric weighting and comet mode depend on a compatible `registration_metrics.db` created by AfterNight registration. CPU execution uses the deployed engine and oneTBB. |
+```figure
+image: ../../assets/images/processes/stacking-integration/image-stacking.webp
+alt: >-
+  The Image Stacking window. Under its header, a warning strip that begins Stacking completed with warnings. On the
+  left, the preview of the first bias of NGC 253, black in the Linear display mode, with its statistics: Min 1090,
+  Max 3023, Median 1896. On the right, the Stacking Settings card with Method Average, Normalization None, Weighting None (Equal), a disabled Scale
+  Estimator at IKSS, Comet Mode Stars and the folded Rejection Settings, then the Output card with the Name Template
+  master_bias.fit, the path of the masters folder in Directory, Open after stacking unchecked and the Stack Images
+  button. Across the bottom, the Frames table, showing the first two of the 30 biases, with Current Image 1 and Total
+  Images 30, the Frame Groups
+  section with Filter checked, and the folded Advanced section. Reset and Close at the bottom.
+caption: >-
+  Image Stacking after stacking the 30 biases of NGC 253 into master_bias.fit, with every other value as the window
+  opens.
+pins:
+  - {n: 2, x: 8.0, y: 64.1}
+  - {n: 3, x: 82.1, y: 67.5}
+  - {n: 4, x: 30.8, y: 86.2}
+  - {n: 5, x: 70.5, y: 13.6}
+  - {n: 6, x: 73.5, y: 25.9}
+  - {n: 8, x: 82.1, y: 34.5}
+  - {n: 10, x: 88.9, y: 40.4}
+  - {n: 11, x: 79.1, y: 50.5}
+```
 
 ## Before you start
 
-- Calibrate and register the frames first. The ordinary **Stars** path stacks
-  pixels at their existing coordinates; it does not read transforms or align
-  them.
-- Keep each intended group compatible in geometry, pixel type, and channels.
-  The process validates each generated group at execution time, including the
-  CFA layout: a group that mixes mosaics of different patterns, or mosaics with
-  frames that state no CFA, is refused.
-- Keep inputs linear. Normalization and rejection estimators are designed for
-  the sample relationships in linear data.
-- Decide whether grouping is required. With **Filter** enabled by default,
-  missing filter metadata becomes `Broadband`; it does not prevent stacking.
-- Choose an output location with enough space. Masters use 32-bit float by
-  default; **64-bit** doubles their pixel-storage cost. Rejection maps add one
-  or two more images per group.
-- For FWHM, SNR, or Stars weighting, place the applicable
-  `registration_metrics.db` in the selected output directory. When no frame has
-  usable figures, the stack falls back to equal weights and the banner says why;
-  when only some frames lack them, the banner warns before you stack, naming the
-  first frame without figures, and the stack is refused. **Exposure** weighting
-  reads the frames' headers and needs no database or output directory; its
-  banner says the same before you stack - that no frame states an exposure and
-  equal weights will be used, or, when only some frames state one, which is the
-  first without one, for a stack that is then refused when it starts.
-- **Noise** weighting needs no database: when the stack starts, each frame's
-  background noise is measured from its pixels. When no frame has a measurable
-  noise - flat frames whose rows do not differ, for one - the stack uses equal
-  weights and the message at the end of the run says so; when only some frames
-  have one, the stack is refused with an error that names the group.
-- Preserve backups. Output filenames are deterministic, and the process does
-  not ask before saving to an existing path.
+- Calibrate and register the lights first. The window stacks each pixel where it lies in the files and reads no
+  alignment, so frames that do not line up give a soft or doubled master without a message. Biases, darks and flats
+  need no registration.
+- List frames that belong in one master. Within a group every frame needs the first frame's size,
+  [pixel type](../../reference/glossary.md#pixel-type), channel count and [CFA](../../reference/glossary.md#cfa)
+  layout, or the group is refused. Exposure, gain, offset and temperature are shown, not compared.
+- Stack linear frames. Normalization and rejection read the frames' levels and spread as the sensor recorded them.
+- Keep the masters of a color camera as mosaics: Image Calibration needs a bias, dark or flat master with the lights'
+  [Bayer pattern](../../reference/glossary.md#bayer-pattern). Leave **Debayer CFA** off for them.
+- Choose a folder with room for every master and map. A file of the same name there is replaced without a question.
+- **FWHM**, **SNR** and **Stars** weighting, and **Comet** mode, read the `registration_metrics.db` that Image
+  Registration writes in its output folder. Choose that folder as the output.
 
-## Procedure
+## Steps
 
-1. Open **Process > Preprocess > Image Stacking**. The process can open with no
-   active document.
-2. Select **Add Files**, or select **Add Folder** and set the recursive, frame
-   type, and optional exact filter-name criteria. File headers are read in the
-   background; when an import does not add every file, the window reports how
-   many it added, passed over (already listed or kept out by the filter) and
-   could not read, with the first error. Confirm that the
-   **Frames** table shows the expected files and metadata.
-3. Select rows to inspect their static preview. Sorting or using Move Up/Down
-   changes the visible list only. Group generation deterministically reorders
-   frames by filter, session, exposure, and path; the first frame in that
-   generated group becomes the engine reference for global normalization and
-   reference-derived metadata. This window does not expose manual reference
-   selection.
-4. Set **Method**, **Normalization**, **Weighting**, and **Comet Mode**. If
-   **Local** is selected, open **Configure Local Normalization...** and accept
-   the settings.
-5. For **Average**, expand **Rejection Settings**, select a rejection method,
-   and set its two dynamic parameters. Enable rejection maps while tuning if
-   the method supports rejection.
-6. Choose grouping toggles. Confirm every intended output in **Frame Groups**;
-   this table is the execution plan, not an editable list.
-7. Set **Name Template** and **Directory**. Confirm that the resolved **Output
-   Name** values are unique and use a supported suffix.
-8. Set output precision, exposure metadata, memory limit, and post-stack CFA
-   debayering as needed.
-9. Select **Stack Images**. The groups are stacked in the background, so the
-   window does not freeze; a progress dialog reports the current group and can
-   request cancellation. Controls changed after launch affect a later run,
-   because the active run uses a launch-time settings snapshot.
-10. Verify every expected master and rejection map on disk. If **Open after
-    stacking** is enabled, inspect the opened images at 100% and compare their
-    statistics and rejection maps with the input set.
+1. **Open the window.** Choose **Process > Preprocess > Image Stacking**. It needs no open image, and it opens with
+   the values and the list it had when it last closed.
+2. **List the frames.** Choose **Add Files** and select the frames, or **Add Folder** to take a folder's files by
+   frame type and filter. The rows appear in date order, and the selected file shows in the preview.
+3. **Check the list.** Compare **Size**, **Exposure**, **CFA** and **Depth** down the rows, and remove every file
+   that does not belong. The order of the rows changes nothing in the stack.
+4. **Check the grouping.** Under **Frame Groups**, leave **Filter** on to make one master for each filter. Turn on
+   **Session** or **Exposure** only to make a master for each night or each exposure.
+5. **Choose the combination.** Keep **Method** at **Average**, which takes a rejection and weights. Choose
+   **Median** for a few frames, and the other methods only for their special uses.
+6. **Set the rejection.** Open **Rejection Settings**. Keep **Winsorized Sigma Clipping** as it is for three frames
+   or more, and lower **Sigma High** only when trails or [hot pixels](../../reference/glossary.md#hot-pixel)
+   remain.
+7. **Bring the frames to one level.** Leave **Normalization** at **None** for biases and darks. Choose
+   **Multiplicative** for flats of different brightness, **Additive With Scaling** for lights, and **Weighting** for
+   lights of uneven quality.
+8. **Name the output.** Type the file name in **Name Template**, with `$filter` where each group's filter goes. Its
+   extension chooses the format.
+9. **Choose the folder.** Choose **Browse** and pick a folder. Its path appears in **Directory**.
+10. **Choose what the run keeps.** Turn **Open after stacking** off to write the files only. Check **64-bit** and
+    **Sum exposure times** only when you need them.
+11. **Stack.** Choose **Stack Images**. A progress window names each group as it is stacked, and the window stays
+    usable meanwhile.
+12. **Check the result.** The progress window closes, and the Session Console lists `Image Stacking: saved` with the
+    path of each file. Open the master at 100 % and compare its level and noise with a single frame's.
 
-## Complete parameter and action reference
+## Controls
 
-### Frames, preview, and folder import
+What every process window shares, such as the message strip and the window's size, is in
+[Process Windows](../../interface/process-windows.md). This window keeps its values and its list of files for the
+next window. Its preview is a still preview, whose toolbar and mouse work as in the
+[Image Viewer](../../interface/image-viewer.md).
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Add Files | File-picker action | No files | Last picker directory may be remembered by the application | Supported image-codec files; duplicate paths are skipped | Reads file headers in the background; the window stays responsive | Disabled while a stack runs | Metadata loading costs I/O; unreadable files do not stop the others, and when an import does not add every file the window reports how many it added, passed over (already listed or kept out by the filter) and could not read, with the first error | Still-file list and selected-frame preview | The frame list is saved with the window's settings and imported again, in the order it was saved, when they are restored; picker path uses application path memory |
-| Add Folder | Folder-picker and options action | No folder | Last folder is remembered under the stacking import context | Existing directory, then the options below | Scans supported files asynchronously | Disabled while a stack runs | Recursive scans can be I/O-heavy | Still-file list only | Folder path uses application path memory; options are per invocation |
-| Include subfolders (recursive) | Checkbox | On | None | On/off | Includes or excludes descendant directories | Add Folder options only | Broader scans take longer and may mix sessions | Folder import | Per invocation |
-| Frame Type | Selector | All | None | All, Light, Dark, Flat, Bias, Dark Flat | Filters by the type text the cards state: Light needs LIGHT; Dark needs DARK and not FLAT; Flat needs FLAT and not DARK; Dark Flat needs both; Bias accepts BIAS or OFFSET. A file whose cards state no type counts as LIGHT | Add Folder options only | Prevents unintended calibration-frame mixing when metadata is reliable | Folder import | Per invocation |
-| Filter Name | Text | Empty | None | Case-insensitive exact match after trimming; example `Ha` | Empty accepts all filters; text restricts import | Add Folder options only | Incorrect or missing metadata can yield an empty result | Folder import | Per invocation |
-| Frames table | Sortable selection table | Empty; ordered by Date ascending | None | File, Date, Size, Filter, ISO/Gain, Offset, Exposure, CFA, Depth | Selecting changes the static preview; supported headers sort the visible source list | Populated after import; Size is display-only rather than a sort key | Generated groups are independently reordered by filter, session, exposure, and path, so table sorting does not select the engine reference | Source list and preview only | Paths saved with the window's settings |
-| Remove Selected / Remove | Button/context action | Disabled | None | One or more selected rows | Removes paths from this window, not disk | Enabled with rows/selection | No source data loss | List and later apply | Not serialized |
-| Move Up / Move Down | Buttons/context actions | Disabled | None | Selected row within list bounds | Reorders the visible source list | Enabled only when movement is possible | Does not select the engine reference because group generation applies its own deterministic order | List and preview only | Not serialized |
-| Delete From Disk | Context action | No | None | Selected row plus confirmation | Removes the row, then permanently deletes its file | Row context menu only | Destructive; a failed deletion is reported with **Could not delete '...' from the disk.** after the row is removed | Source file and list | Not serialized |
-| Clear All | Button | Disabled | None | All current rows | Clears frames, groups, preview, and counts, and stops files still being read: none of them is added afterwards | Enabled when rows exist | Does not delete source files | List and preview | Not serialized |
-| Current Image / Total Images | Read-only counters | `0` / `0` | None | Derived integers | Reports selected 1-based row and list size | Always visible | No processing effect | Preview/list | Not persisted |
-| Image Preview toolbar | Static-view actions | Fit requested on first image | Shared viewer display state may apply | Viewer zoom, pan, display channel, and autostretch actions | Changes display only; CFA input is demosaiced for this preview | Available after a preview loads | Display stretch is not pixel data and does not predict the stack | Preview only; no mask/apply | Viewer-scoped, not stacking settings |
+### Stacking Settings
 
-### Combination, normalization, weighting, and rejection
+```controls
+window: Stacking Settings
+controls:
+  - name: Method
+    kind: combo
+    default: Average
+    options: [Average, Sum, Maximum, Minimum, Median, Auto-Adaptive Weighted Average]
+    effect: Chooses how the samples of a pixel become its value. **Average** takes their mean, after the rejection and with the weights. **Sum** adds them. **Maximum** and **Minimum** keep the largest or the smallest. **Median** takes their exact median. **Auto-Adaptive Weighted Average** weighs each sample by its distance from the running mean, in five passes.
+    range: Only **Average** takes a rejection and weights. Any other method disables **Rejection Settings** and ignores **Weighting**. **Sum** divides every sum by the largest, so the brightest pixel is 1, and writes the sums as they are, with a warning, when none is positive.
+    tradeoff: "**Median**, **Auto-Adaptive Weighted Average** and every rejection hold the samples of every frame for a band of rows at once, which costs memory and time. **Maximum** and **Minimum** keep the extremes, trails and hot pixels among them. **Sum** keeps the ratios between pixels, not the totals: the integration time is in **Sum exposure times**."
+    scope: Every channel of every group.
+    persistence: Kept for the next window. **Reset** returns it to **Average**.
+    note: "The auto-adaptive mean is made for samples between 0 and 1. The tooltip names each method's use, such as \"Median: robust to outliers but lower SNR.\""
+  - name: Normalization
+    kind: combo
+    default: None
+    options: [None, Additive, Multiplicative, Additive With Scaling, Multiplicative With Scaling, Local]
+    effect: Brings each frame to the group's first frame before the samples are combined. **None** combines them as they are. **Additive** adds an offset so that the medians agree, **Multiplicative** multiplies so that they agree, and the two **With Scaling** modes first match the spread that **Scale Estimator** measures. **Local** fits a smooth surface to each frame instead, set in **Configure Local Normalization...**.
+    range: The first frame is the first of the group in the order of filter, session, exposure and file path, whatever the order of the list. A multiplicative mode is refused when that frame's median is zero.
+    tradeoff: Each mode measures every frame once more, and **Local** fits a grid besides. A mode that does not suit the frames changes the background and the contrast between them.
+    scope: Each channel of each frame, before the rejection judges it. Exact zeros and samples that are not numbers are left out of the measures.
+    persistence: Kept for the next window. **Reset** returns it to **None**.
+  - name: Weighting
+    kind: combo
+    default: None (Equal)
+    options: [None (Equal), FWHM, Noise, SNR, Stars, Exposure]
+    effect: Gives each frame a weight in the average. **None (Equal)** weighs every frame alike. **FWHM**, **SNR** and **Stars** read the figures Image Registration recorded for each frame. **Noise** measures each frame's background noise when the stack starts and weighs it by one over its square. **Exposure** weighs each frame by the exposure its header states.
+    range: Only **Average** reads it, with or without a rejection, and **Comet** mode stacks with equal weights. When no frame has the figure, the stack uses equal weights and says why. When only some frames have it, the stack is refused.
+    tradeoff: "**Noise** reads every frame once more before the stack. **FWHM**, **SNR** and **Stars** find their figures only in the `registration_metrics.db` of **Directory**."
+    scope: One weight for each frame, the same in every channel.
+    persistence: Kept for the next window. **Reset** returns it to **None (Equal)**.
+    note: "**FWHM**, **Noise** and **Stars** are the weights Image Integration offers as Weighted FWHM, Noise and Number of stars. **SNR** and **Exposure** are this window's own. The tooltip says of **Noise** \"weight by each frame's measured background noise.\""
+  - name: Scale Estimator
+    kind: combo
+    default: IKSS
+    options: [IKSS, MAD]
+    effect: Chooses how the two **With Scaling** modes measure a frame's spread. **IKSS** takes a robust spread of the samples within six deviations of the median. **MAD** takes the [median absolute deviation](../../reference/glossary.md#median-absolute-deviation).
+    enabled: With **Additive With Scaling** or **Multiplicative With Scaling** only, since no other mode reads it.
+    tradeoff: "**IKSS** resists stars and defects better and takes longer. **MAD** is faster."
+    persistence: Kept for the next window. **Reset** returns it to **IKSS**.
+  - name: Comet Mode
+    kind: combo
+    default: Stars
+    options: [Stars, Comet]
+    effect: "**Stars** stacks the listed files. **Comet** stacks, for each listed file, the copy aligned on the comet that Image Registration's comet registration wrote, as `registration_metrics.db` in **Directory** names it."
+    enabled: Disabled while a run works.
+    tradeoff: "**Comet** stacks with equal weights. It refuses the stack when the database has no active comet run that names a copy for every frame, rather than stack the files themselves."
+    persistence: Kept for the next window. **Reset** returns it to **Stars**.
+  - name: Weighting warning
+    kind: readout
+    default: ""
+    effect: Says before you stack that the weighting chosen cannot weigh the frames, such as "Registration metrics were not found in this output directory, so FWHM weighting is falling back to equal weights.", or which frame lacks its figure.
+    enabled: Shown for **FWHM**, **SNR** and **Stars** once a folder is chosen, and for **Exposure** at once, when a frame lacks the figure. **Noise** says so only when the run ends.
+  - name: Configure Local Normalization...
+    kind: button
+    default: ""
+    effect: Opens **Local Normalization Settings**, where the grid and estimators of the local fit are set.
+    enabled: Shown only with **Normalization** at **Local**, under the note "Local normalization works best with aligned/registered frames.".
+    tradeoff: A finer grid follows more of each frame's background and can print its noise into the stack.
+    persistence: The values you accept are kept for the next window. **Reset** returns them to the **Standard (Grid 4)** preset.
+  - name: Rejection Method
+    kind: combo
+    default: Winsorized Sigma Clipping
+    options: [None, Sigma Clipping, MAD Clipping, Median Sigma, Winsorized Sigma Clipping, Percentile, GESDT, Linear Fit]
+    effect: Chooses which samples **Average** leaves out. The four sigma methods leave out the samples too far from the median in deviations, **Linear Fit** those too far from a line through the sorted samples, **Percentile** those too far from the median in fractions of it, and **GESDT** the extremes a statistical test singles out. **None** keeps every sample.
+    range: Every method but **None** needs three frames or more in a group, and a smaller group is refused when the stack starts. Choosing a method sets the two numbers below to its own defaults.
+    enabled: Under **Rejection Settings**, which opens folded, with **Method** at **Average** only.
+    tradeoff: Every method holds all the samples of a band of rows, and some iterate. Thresholds set too low leave out real signal, too high leave trails and hot pixels.
+    scope: Each pixel of each channel, after the normalization.
+    persistence: Kept for the next window. **Reset** returns it to **Winsorized Sigma Clipping**.
+  - name: Sigma Low
+    kind: spinbox
+    default: "3.000"
+    widget: {min: 0.001, max: 1000, step: 0.1, decimals: 3}
+    effect: Sets how far below the centre a sample may lie and stay. Lower leaves out more dark samples, higher fewer.
+    range: "Its label and meaning follow **Rejection Method**, in deviations for the sigma methods. It reads **Linear Low**, in residuals of the line, for **Linear Fit**, set to 5 when you choose it. It reads **Low Fraction of Median** for **Percentile**, set to 0.2, which means 20 % of the median and not a percentile. It reads **ESD Outliers** for **GESDT**, the largest share of samples tested, set to 0.30 and kept below 1."
+    enabled: With a rejection other than **None**.
+    tradeoff: Too low removes dark real signal and leaves too few samples. Too high leaves dark defects, such as cold pixels.
+    persistence: Kept for the next window. **Reset** returns it to its default.
+  - name: Sigma High
+    kind: spinbox
+    default: "3.000"
+    widget: {min: 0.001, max: 1000, step: 0.1, decimals: 3}
+    effect: Sets how far above the centre a sample may lie and stay. Lower leaves out more bright samples, higher fewer.
+    range: "**Linear High** for **Linear Fit**, set to 4. **High Fraction of Median** for **Percentile**, set to 0.1. **ESD Significance** for **GESDT**, the test's significance, set to 0.05 and kept below 1."
+    enabled: With a rejection other than **None**.
+    tradeoff: Too low removes star cores and bright signal. Too high leaves satellite trails, cosmic rays and hot pixels.
+    persistence: Kept for the next window. **Reset** returns it to its default.
+  - name: Save rejection maps
+    kind: check
+    default: "Off"
+    effect: Writes, beside each master, a map of the share of the group's frames left out at each pixel and channel, from 0 to 1.
+    enabled: With **Method** at **Average** and a rejection other than **None**.
+    tradeoff: One or two more files of the master's size, in 32-bit floating point, and more memory while the run works.
+    scope: Every group. A map shows how often samples were left out, not that a frame is bad, so compare it with the frames.
+    persistence: Kept for the next window. **Reset** turns it off.
+  - name: Merge rejection maps
+    kind: check
+    default: "On"
+    effect: On writes one map, `<master>_rej_l+h`, of the samples left out below and above. Off writes two, `_rej_l` and `_rej_h`, which keep the side.
+    enabled: With **Save rejection maps** checked.
+    persistence: Kept for the next window. **Reset** turns it on.
+  - name: Rejection maps
+    kind: readout
+    default: Rejection maps are disabled.
+    effect: Says where the first group's maps go, as "Rejection maps:" and their path, with `_rej_[l|h]` when they are not merged.
+    enabled: With **Save rejection maps** checked, it reads "Choose an output directory to save rejection maps." until **Directory** holds a folder, and "Rejection maps will be written next to the stacked outputs." until the list holds a file.
+```
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Method | Selector | Average | Restored from process JSON when available | Average, Sum, Maximum, Minimum, Median, Auto-Adaptive Weighted Average | Chooses the per-pixel combiner; rejection is a submode of Average | Rejection controls are enabled only for Average | Median and auto-adaptive need per-pixel sample sets; extrema emphasize special features/artifacts | Apply, every channel; no preview/mask | `params.stackMethod`; Reset -> Average |
-| Normalization | Selector | None | Restored from process JSON | None, Additive, Multiplicative, Additive With Scaling, Multiplicative With Scaling, Local | Matches frames to reference statistics or a spatial model before combination | Local shows its banner/configure action; the With Scaling modes enable Scale Estimator | Statistics and local models add work; unsuitable normalization changes background/contrast relationships | Apply, per channel or linked RGB in local mode | `params.normalizationMode`; Reset -> None |
-| Weighting | Selector | None (Equal) | Restored from process JSON | None (Equal), FWHM, Noise, SNR, Stars, Exposure | Gives higher influence to better/larger-weight frames, by the engine's weight sources - **FWHM**, **Noise** and **Stars** are the sources Image Integration offers as Weighted FWHM, Noise and Number of stars; **SNR** and **Exposure** exist only here | The standalone policy honors weighting only for Average with or without rejection. FWHM/SNR/Stars read `registration_metrics.db` in the output directory and Exposure reads each frame's header, and each shows the banner; Noise measures each frame's background noise from its pixels when the stack starts, and its tooltip reads "Noise: weight by each frame's measured background noise."; comet mode clears weights | When no frame has usable figures the stack uses equal weights (the banner says why for FWHM/SNR/Stars/Exposure, the end-of-run message for Noise); when only some frames lack them the stack is refused | Apply, global per-frame weights; no preview/mask | `params.weighting`; Reset -> None (Equal) |
-| Scale Estimator | Selector | IKSS | Restored from process JSON | IKSS, MAD | Chooses the dispersion estimator for the With Scaling modes | Enabled for either With Scaling mode; disabled otherwise, Local included, since no other mode reads it | IKSS is more robust and slower; MAD is faster | Apply, per channel | `params.scaleEstimator`; Reset -> IKSS |
-| Comet Mode | Selector | Stars | Restored from process JSON | Stars, Comet | Stars consumes listed paths; Comet resolves exact `comet_aligned` registered products for every source frame | Comet requires an output-directory `registration_metrics.db`, an active exact registration state, and all role-qualified outputs; disabled while a stack runs | Comet disables weighting; missing/stale state fails rather than silently using ordinary frames | Apply to each group | `params.cometStackingMode`; Reset -> Stars |
-| Configure Local Normalization... | Dialog action | Hidden | Local settings restored from process JSON | See Local Normalization table | Edits the shared local-normalization settings; Cancel discards dialog changes | Visible only when Normalization = Local | Fine grids/local scale increase computation and can imprint noise | Apply only; no preview | `params.localNormalization`; Reset restores Standard defaults |
-| Rejection Method | Selector | Winsorized Sigma Clipping | Restored from process JSON | None, Sigma Clipping, MAD Clipping, Median Sigma, Winsorized Sigma Clipping, Percentile, GESDT, Linear Fit | For Average, replaces the plain-average engine method with the selected rejection method | Rejection section enabled only for Average; parameters/maps disabled for None. Every method except None needs at least three frames in the group | Robust methods add iterative statistics/sorting; aggressive rejection reduces effective samples | Apply, per pixel/channel; no mask | `params.rejectionMethod`; Reset -> Winsorized Sigma Clipping |
-| Sigma Low / Sigma High | Two numeric sigma thresholds | 3.0 / 3.0 | Restored values are retained until rejection-method changes reset them | UI 0.001–1000.000, step 0.1; every rejection needs a positive threshold | Lower values reject more low/high samples | Average plus sigma, MAD, Median Sigma, or Winsorized method | Too low removes valid signal; too high leaves outliers | Apply, per pixel/channel | `params.sigmaLow`, `params.sigmaHigh`; method selection -> 3/3 |
-| Linear Low / Linear High | Two deviation multipliers | 5.0 / 4.0 when Linear Fit is newly selected | Stored values load, but changing into Linear Fit applies its defaults | UI 0.001–1000.000, step 0.1 | Lower values reject smaller deviations from the sorted-sample fitted line | Average + Linear Fit | Better suited to larger stacks; still preserves at least a small retained population | Apply, per pixel/channel | Same sigma keys; method selection -> 5/4 |
-| Low Fraction of Median / High Fraction of Median | Two median-relative fractions | 0.2 / 0.1 when Percentile is newly selected, the engine's defaults | Stored values load, but changing into Percentile applies its defaults | UI 0.001–1000.000; the engine consumes positive fractions: `0.2` means a 20% median-relative deviation, not the 20th percentile | Lower fractions reject values closer to the median | Average + Percentile | The broad UI range is not engine-clamped; values above 1 are unusually permissive. This is not rank-percentile trimming | Apply, per pixel/channel | Same sigma keys; method selection -> 0.2/0.1 |
-| ESD Outliers / ESD Significance | Fraction / alpha | 0.30 / 0.05 when GESDT is newly selected | Stored values load, but changing into GESDT applies its defaults | UI 0.001–0.999 while GESDT is selected, because the engine accepts each only strictly between 0 and 1 | First sets maximum tested outlier count; second sets the test significance | Average + GESDT; at least 3 frames | Intended for larger approximately normal sample sets | Apply, per pixel/channel | Same sigma keys; method selection -> 0.30/0.05 |
-| Save rejection maps | Checkbox | Off | Restored from process JSON | On/off | Requests rejection-frequency maps | Enabled only for Average with a non-None rejection method | Adds compute, memory, and one/two output files | Apply, per pixel/channel | `params.createRejectionMaps`; Reset -> off |
-| Merge rejection maps | Checkbox | On but disabled until maps are enabled | Restored from process JSON | On/off | On writes one low+high map; off writes separate low and high maps | Save rejection maps must be enabled and supported | One merged map is compact; separate maps preserve outlier direction | Apply/output | `params.mergeRejectionMaps`; Reset -> on |
+### Output
 
-### Grouping, output, resources, and window actions
+```controls
+window: Output
+controls:
+  - name: Name Template
+    kind: field
+    default: stacked_$filter.fit
+    effect: Names each group's master. `$filter` becomes the group's filter, `$session` its date, as `2023-10-10`, `$exposure` its exposure, as `180s`, and `$group` the group's name. With frames of the filter L, the default gives `stacked_L.fit`.
+    range: "`.fit`, `.fits` or `.fts` writes FITS, `.tif` or `.tiff` TIFF, `.xisf` XISF, `.png` PNG and `.jpg` or `.jpeg` JPEG. Any other extension, or none, becomes `.fit`. Spaces and characters a file name cannot hold become underscores, and doubled, leading and trailing underscores are removed. A group without a filter puts `group` in place of `$filter`, so the default gives `stacked_group.fit`, whatever the tooltip says."
+    enabled: Empty, it holds **Stack Images** back.
+    tradeoff: A PNG or JPEG file holds no floating-point samples and no mosaic, so the run stacks and then fails to write. A file of the same name in the folder is replaced without a question.
+    scope: Every group. When two groups would get one name, whatever its case, the second gets its group's name added, then a number.
+    persistence: Kept for the next window. **Reset** returns it to its default.
+  - name: Directory
+    kind: readout
+    default: ""
+    effect: Shows the folder the masters and maps are written to, which is also where **FWHM**, **SNR**, **Stars** and **Comet** read `registration_metrics.db`. It cannot be typed in.
+    range: A missing folder is created when the run writes.
+    persistence: Kept for the next window. **Reset** leaves it as it is.
+  - name: Browse
+    kind: button
+    default: ""
+    effect: Opens a folder dialog to choose **Directory**.
+    range: It starts in the folder shown, else in the folder of the first listed file.
+    tradeoff: Choosing another folder can change what the weighting finds, and the warning above says so.
+  - name: 64-bit
+    kind: check
+    default: "Off"
+    effect: Writes each master in 64-bit floating point. Off writes 32-bit, whatever the frames' own pixel type.
+    tradeoff: Doubles the master on disk and in memory. It cannot add precision the frames did not have. Rejection maps stay 32-bit.
+    persistence: Kept for the next window. **Reset** turns it off.
+  - name: Open after stacking
+    kind: check
+    default: "On"
+    effect: Opens each file the run writes in a view of its own, named after the file and fitted to it, the master first and then its maps. Off writes the files only.
+    tradeoff: Many groups and maps open many views, which take memory. It changes nothing on disk.
+    persistence: Kept for the next window. **Reset** turns it on.
+    note: The history of a master's view starts with a step such as "Stacked image created from 30 frame(s) using Average".
+  - name: Sum exposure times
+    kind: check
+    default: "Off"
+    effect: "On writes the sum of the frames' exposures as the master's `EXPTIME`, a frame that states none counted at the first frame's. Off writes the first frame's exposure."
+    range: No `EXPTIME` is written when the frames state no exposure.
+    tradeoff: It changes the header only, not a sample.
+    persistence: Kept for the next window. **Reset** turns it off.
+  - name: Stack Images
+    kind: button
+    default: ""
+    effect: Stacks every group in turn, in the background, and writes its maps and then its master into **Directory**.
+    range: It takes the list, the groups and the values as they are when you press it, and a change made during the run does not reach it. Pressed while headers are still being read, or while the weighting warning is being worked out, it does nothing.
+    enabled: Once the list holds a file, **Directory** a folder and **Name Template** a name. Disabled while a run works, with **Add Files**, **Add Folder**, **Comet Mode** and **Reset**. The other controls stay enabled, and the list cannot be changed.
+    tradeoff: Its time grows with the pixels, the frames and the channels. A group that fails stops the groups after it, and the files of the groups before it stay.
+    note: A run that ends with something to say shows "Stacking completed with warnings." in the strip under the header, each warning after its group's name, eight at most. A run that ends well says nothing more.
+```
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Filter | Group-by checkbox | On | Restored from process JSON | On/off | Creates separate groups by normalized filter metadata; empty/`-`/`N/A` becomes Broadband | Frame Groups rebuilds immediately | Avoids mixing filters; unreliable metadata can misgroup | Group plan/apply | `params.groupByFilter`; Reset -> on |
-| Session | Group-by checkbox | Off | Restored from process JSON | On/off | Groups by parsed capture date, file modification date, or parent-folder fallback | Frame Groups rebuilds immediately | Separates nights but can over-split inconsistent dates | Group plan/apply | `params.groupBySession`; Reset -> off |
-| Exposure | Group-by checkbox | Off | Restored from process JSON | On/off | Groups around each group's evolving representative exposure | Enables Tolerance | Useful for mixed exposures; may create many small groups that cannot take a rejection | Group plan/apply | `params.groupByExposure`; Reset -> off |
-| Tolerance | Percent spin box | 5.0% | Restored from process JSON | 0.0–100.0%, 0.1 display precision | Larger values merge a wider relative exposure difference, measured against the larger of frame and representative exposure | Enabled only when Exposure is on | Too high mixes materially different exposures; too low fragments groups | Group plan/apply | `params.exposureTolerancePercent`; Reset -> 5% |
-| Frame Groups table | Read-only plan | Derived | None | Group, Frames, Filter, Session, Total Exposure, Output Name | Shows exactly which independent stacks and names will run | Rebuilt from frames/grouping/template | Each group's frames must be compatible, and a rejection needs at least three of them | Apply plan | Not serialized; regenerated |
-| Name Template | Text | `stacked_$filter.fit` | Restored from process JSON | Text plus `$filter` (empty for Broadband), `$session`, `$exposure`, `$group`; a suffix other than a FITS, TIFF, PNG, JPEG, or XISF one, or none, becomes `.fit`; unsafe filename characters are sanitized | Expands per group; case-insensitive collisions receive a group suffix and then a numeric suffix | Nonempty text required for Stack Images | A supported extension selects the codec; deterministic names may replace existing files without a prompt | Output files | `params.outputTemplate`; Reset -> default |
-| Directory | Read-only path | Empty | Restored from process JSON | Chosen with Browse | Chooses masters, maps, and the location searched for `registration_metrics.db` | Nonempty required for Stack Images; created on run if missing | Must hold all outputs; registration database placement affects metric/comet modes | Output/apply | `params.outputDirectory`; **Reset does not clear it** |
-| Browse | Directory-picker action | No selection | Starts from current path or, when empty, the first listed frame's directory | Existing directory picker | Updates Directory, the output plan, and the weighting banner | Always available | No processing effect until run | Output setup | Updates Directory persistence |
-| 64-bit | Checkbox | Off | Restored from process JSON | Off = 32-bit float, on = 64-bit float engine output | Increases stored calculation/output precision | Independent | Approximately doubles master pixel storage and relevant working memory; source precision is not restored | Apply/output, all channels | `params.process64Bits`; Reset -> off |
-| Open after stacking | Checkbox | On | Restored from process JSON | On/off | Opens each saved master and map in workspace order | Independent | Many groups/maps create many views; no effect on saved pixels | Post-apply UI | `params.openAfterStack`; Reset -> on |
-| Sum exposure times | Checkbox | Off | Restored from process JSON | On/off | Off writes the reference frame's exposure as `EXPTIME`; on writes the sum of the frames' exposures, a frame stating no exposure counted at the reference's | Independent | Changes metadata, not pixels | Output metadata | `params.sumExposureTimes`; Reset -> off |
-| Limit Memory Usage | Checkable group | On | Restored from process JSON | On/off | Caps the stack's working set at Max Memory; off states no limit of the window's own | Independent | Lower peak memory can increase I/O/compute; memory outside the stack's working set is not counted | Apply resource policy | `params.limitMemoryUsage`; Reset -> on |
-| Max Memory | Integer MB | 1024 MB | Restored from process JSON | 256–8184 MB, integer | Higher values permit larger tiles/in-memory work | Limit Memory Usage must be on | Too low increases tiling overhead | Apply resource policy | `params.maxMemoryMBValue`; Reset -> 1024 MB |
-| Debayer CFA | Checkable group | Off | Restored from process JSON | On/off | If the completed master is still CFA, demosaics the master **after** stacking | Has effect only on CFA output | This is not per-frame pre-stack debayering; leave off for mono or already RGB inputs | Post-stack output | `params.debayerEnabled`; Reset -> off |
-| Pattern | Selector | Auto | Restored from process JSON | Auto, RGGB, BGGR, GBRG, GRBG | Supplies CFA pattern to post-stack demosaic; Auto uses the pattern the image states | Debayer CFA must be on and result must be CFA | Wrong override causes color artifacts | Post-stack output | `params.cfaPattern`; Reset -> Auto |
-| Method (Debayer CFA) | Selector | RCD | Restored from process JSON | Bilinear, VNG4, AHD, AMaZE, LMMSE, RCD; DCB, HPHD, and IGV are not offered | Selects post-stack demosaic algorithm | Debayer CFA must be on and result must be CFA | Higher-cost methods can improve interpolation but cannot recover information already lost or misregistered | Post-stack output | `params.debayerMethod`; Reset -> RCD |
-| Stack Images | Primary action | Disabled with empty plan | None | Requires nonempty frames/groups/directory/template; every group needs compatible frames, and at least three with a rejection | Snapshots settings and stacks each group sequentially in the background | Disabled during a run | Completed earlier groups remain if a later group fails/cancels; no file is left partly written | Full apply | No direct persistence |
-| Progress Cancel | Progress-dialog action | Available during run | None | Cancellation request | Stops the engine/current group and prevents later groups from starting | Execution only | Already saved groups remain; no file is left partly written | Current run | Not persisted |
-| Reset | Dialog button | Available | None | One action | Restores process controls and local-normalization defaults, but retains frames and current output directory | Disabled while a stack runs | Does not undo files | Future runs/UI | Writes defaults when later serialized |
-| Close | Dialog button | Available | None | One action/Escape/window close | Stops any import or stacking in progress and closes at once without waiting for background work | Available during stacking | Completed group outputs remain; the stopped group leaves no partial file | Window only | Settings are stored on close; normal process-settings lifecycle applies |
+### Frames
+
+```controls
+window: Frames
+controls:
+  - name: Frames
+    kind: readout
+    default: ""
+    effect: Lists the files to stack, one row each, under File, Date, Size, Filter, ISO/Gain, Offset, Exposure, CFA and Depth, read from each file's header. Choosing a row shows its file in the preview.
+    range: Filter, ISO/Gain, Offset and Exposure read `-` when the header states none, and Exposure is in seconds. CFA reads Yes for a mosaic. Depth reads 8 bit, 16 bit, 32 bit int, 32 bit float or 64 bit float. Date is the creation time the header states, else the start of the exposure, else the time the file last changed, in UTC.
+    enabled: The list is neither reordered nor changed while a run works.
+    tradeoff: The order of the rows decides nothing. The groups sort their frames by filter, session, exposure and file path, and the first of each group is the one the others are normalized to.
+    persistence: The list opens ordered by Date, oldest first. Clicking a column's title orders by it, newest or largest first, and again the other way. Size orders nothing. The list and its order are kept for the next window, and its files are read again when it opens.
+    note: The full path of a file is its tooltip. Right-click a row for the row menu.
+  - name: Add Files
+    kind: button
+    default: ""
+    effect: Opens a file dialog for one or several still image files, and adds them to the list while their headers are read in the background.
+    range: FITS, XISF, TIFF, PNG, JPEG and camera RAW files. A SER file, a video or another sequence is not offered, so extract its frames to still files first. A file already listed is passed over. A file that cannot be read is left out, and the others are added.
+    enabled: Disabled while a run works.
+    tradeoff: Many headers take time to read, and the window stays usable meanwhile. When not every file is added, the window says how many it added, passed over and could not read, with the first reason.
+    persistence: The dialog starts in the folder you last added from.
+  - name: Add Folder
+    kind: button
+    default: ""
+    effect: Opens a folder dialog, then **Add Folder Options**, and adds the folder's image files that pass the options, as **Add Files** adds them.
+    range: The same file types as **Add Files**. The folder is listed in the background.
+    enabled: Disabled while a run works.
+    tradeoff: A folder with its subfolders can bring in other frame types or another night. Check the list before you stack.
+    persistence: The folder dialog starts in the folder you last added from. The options start afresh each time.
+  - name: Remove Selected
+    kind: button
+    default: ""
+    effect: Removes the selected rows from the list. The files stay on disk.
+    enabled: While the list holds a file. It does nothing while a run works.
+  - name: Move frame up
+    kind: button
+    default: ""
+    effect: Moves the selected row one place up.
+    enabled: When the selected row can move up. It does nothing while a run works.
+    tradeoff: It changes the list only, not the stack or which frame comes first in a group.
+  - name: Move frame down
+    kind: button
+    default: ""
+    effect: Moves the selected row one place down.
+    enabled: When the selected row can move down. It does nothing while a run works.
+  - name: Current Image
+    kind: readout
+    default: "0"
+    effect: Shows the number of the selected row, counted from 1, or 0 when none is selected.
+  - name: Total Images
+    kind: readout
+    default: "0"
+    effect: Shows how many files the list holds.
+  - name: Clear All
+    kind: button
+    default: ""
+    effect: Empties the list and the preview, and stops the files still being read, none of which is added afterwards.
+    enabled: While the list holds a file. It does nothing while a run works.
+    tradeoff: The files stay on disk.
+```
+
+### Frame Groups
+
+```controls
+window: Frame Groups
+controls:
+  - name: Filter
+    kind: check
+    default: "On"
+    effect: Makes a group, and a master, for each filter the frames' headers state. Off puts every filter together.
+    range: A frame whose filter is empty, `-` or `N/A` belongs to the group `Broadband`, which is stacked like any other.
+    tradeoff: A header that spells one filter two ways makes two groups.
+    scope: The groups are made again at once.
+    persistence: Kept for the next window. **Reset** turns it on.
+  - name: Session
+    kind: check
+    default: "Off"
+    effect: Makes a group for each night, by the date in UTC on which each frame was taken.
+    range: A frame whose header states no time takes the date its file last changed, else the name of its folder.
+    tradeoff: Frames of one night that cross midnight in UTC, or whose dates are wrong, split into two groups.
+    persistence: Kept for the next window. **Reset** turns it off.
+  - name: Exposure
+    kind: check
+    default: "Off"
+    effect: Makes a group for each exposure, with frames within **Tolerance** of the group's mean exposure together.
+    tradeoff: Many exposures make many small groups, and a group of fewer than three frames cannot take a rejection.
+    persistence: Kept for the next window. **Reset** turns it off.
+  - name: Tolerance
+    kind: spinbox
+    default: "5.0"
+    widget: {min: 0, max: 100, step: 1, decimals: 1}
+    effect: Sets how far, in percent of the longer of the two, a frame's exposure may differ from the group's mean exposure and join it. Higher merges more exposures, lower splits them.
+    range: A frame that states no exposure joins only a group of frames that state none.
+    enabled: With **Exposure** checked.
+    tradeoff: Too high mixes exposures that differ in signal, too low splits one exposure that varies slightly.
+    persistence: Kept for the next window. **Reset** returns it to its default.
+  - name: Frame Groups
+    kind: readout
+    default: ""
+    effect: Lists the stacks the run will make, one row each, under Group, Frames, Filter, Session, Total Exposure and Output Name. It cannot be edited.
+    range: The group's name joins its filter, date and exposure, or reads All Frames with every key off. Filter and Session read Mixed when the group holds several. Total Exposure is the sum of the frames' exposures, in seconds, or `-`.
+    enabled: The window gives the table no height of its own, so its rows do not show. The run stacks every group all the same.
+    scope: It is made again when the list, a key, **Tolerance** or **Name Template** changes.
+```
+
+### Advanced
+
+```controls
+window: Advanced
+controls:
+  - name: Limit Memory Usage
+    kind: check
+    default: "On"
+    effect: Holds the stack's working memory under **Max Memory**. Off leaves only the application's own memory limit.
+    enabled: Under **Advanced**, which opens folded.
+    tradeoff: A stack that does not fit is read in bands of rows, each file once for every band, and the run then ends with a warning that says so. Memory outside the stack, such as the files being decoded and the views, is not counted.
+    persistence: Kept for the next window. **Reset** turns it on.
+  - name: Max Memory
+    kind: spinbox
+    default: "1024"
+    widget: {min: 256, max: 8184, step: 1}
+    effect: Sets the most memory the stack may hold, in megabytes. Higher reads each file fewer times, lower more.
+    range: A limit too small for the master and one frame is refused, with the sizes it needed.
+    enabled: With **Limit Memory Usage** checked.
+    tradeoff: A rejection or a median holds every frame's samples for its band of rows, about 0.67 MB a row for 30 frames 5544 pixels wide.
+    persistence: Kept for the next window. **Reset** returns it to its default.
+  - name: Debayer CFA
+    kind: check
+    default: "Off"
+    effect: Debayers a master that is still a mosaic after it is stacked, so it is written in color. It does not debayer the frames before the stack.
+    range: It changes nothing for frames that are not mosaics.
+    tradeoff: A debayered master no longer calibrates a mosaic, and frames registered without regard to their filter array make a master no debayer repairs.
+    persistence: Kept for the next window. **Reset** turns it off.
+  - name: Pattern
+    kind: combo
+    default: Auto
+    options: [Auto, RGGB, BGGR, GBRG, GRBG]
+    effect: Chooses the filter array the debayer reads. **Auto** takes the one the frames state.
+    enabled: With **Debayer CFA** checked.
+    tradeoff: A wrong pattern gives wrong colors. A two-by-two pattern over an X-Trans mosaic is refused before anything is written.
+    persistence: Kept for the next window. **Reset** returns it to **Auto**.
+  - name: Method
+    kind: combo
+    default: RCD
+    options: [Bilinear, VNG4, AHD, AMaZE, LMMSE, RCD]
+    effect: Chooses the debayer method, as [Debayer](../calibration/debayer.md) describes them.
+    enabled: With **Debayer CFA** checked.
+    tradeoff: "**AMaZE** and **LMMSE** take the longest. No method brings back detail the stack lost."
+    persistence: Kept for the next window. A method the window does not offer opens as **RCD**. **Reset** returns it to **RCD**.
+    range: DCB, HPHD and IGV are not offered here.
+    note: A color pixel estimated from a pixel no frame reached is marked invalid.
+```
+
+### Reset and Close
+
+```controls
+window: Image Stacking
+controls:
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window and keeps its values and its list for the next window.
+    range: ++esc++ and the window's own close button do the same.
+    enabled: Also while a run works. Closing then stops the run and the files being read, and the window closes at once.
+    tradeoff: The files of the groups already stacked stay. The group in progress leaves no file.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns the stacking settings, the local normalization settings, the grouping, the output options, the memory and the debayer to their defaults.
+    range: It leaves the list, the preview and **Directory** as they are.
+    enabled: Disabled while a run works.
+    tradeoff: No file is touched.
+```
+
+### The image preview
+
+```controls
+window: The image preview
+controls:
+  - name: Picture
+    kind: readout
+    default: ""
+    effect: Shows the file of the selected row as it is recorded. A mosaic is debayered in color by the fast method, without a question. It never shows the stack.
+    enabled: Empty until the list holds a file. A file that cannot be read shows nothing and is reported.
+    persistence: Nothing of the preview is kept for the next window.
+    note: The wheel zooms, a middle-button drag pans, and holding the left button opens the lens, as in an image view.
+  - name: Fit To Window
+    kind: toolbutton
+    default: ""
+    effect: Fits the whole picture into the preview, as each newly chosen file is fitted.
+  - name: Zoom In
+    kind: toolbutton
+    default: ""
+    effect: Shows the picture larger, as in an image view.
+  - name: Zoom Out
+    kind: toolbutton
+    default: ""
+    effect: Shows the picture smaller, as in an image view.
+  - name: Zoom 100%
+    kind: toolbutton
+    default: ""
+    effect: Shows one sample of the file on one pixel of the screen.
+  - name: View Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, The other display channels of an image's view]
+    effect: Chooses the channel or component the preview displays.
+    enabled: Empty without a picture. A grayscale file shows a disabled **Grayscale**.
+  - name: Display Mode
+    kind: combo
+    default: Linear
+    options: [Linear, Autostretch]
+    effect: Shows the samples as they are, or stretched for the screen.
+    scope: The preview only. A stretched picture is not what the run reads.
+  - name: Autostretch Settings
+    kind: toolbutton
+    default: ""
+    effect: Opens the settings of the display stretch.
+    enabled: With **Display Mode** at **Autostretch**.
+  - name: Show statistics
+    kind: toolbutton
+    default: "On"
+    effect: Shows or hides the overlay of the picture's minimum, maximum, mean, median and standard deviation.
+```
+
+### Add Folder Options
+
+```controls
+window: Add Folder Options
+controls:
+  - name: Include subfolders (recursive)
+    kind: check
+    default: "On"
+    effect: Adds the files of the folder's subfolders too. Off adds only the folder's own.
+    tradeoff: A wide tree takes longer to list and can mix nights and frame types.
+  - name: Frame Type
+    kind: combo
+    default: All
+    options: [All, Light, Dark, Flat, Bias, Dark Flat]
+    effect: Adds only the files whose header states that frame type. **All** adds every file.
+    range: "**Light** takes a type naming LIGHT, **Dark** one naming DARK and not FLAT, **Flat** one naming FLAT and not DARK, **Dark Flat** one naming both, and **Bias** one naming BIAS or OFFSET. A file that states no type counts as a light."
+    tradeoff: A header without its type, or with an unusual one, can be left out or let in.
+  - name: Filter Name
+    kind: field
+    default: ""
+    effect: Adds only the files whose filter has this name, compared without regard to case or to spaces at its ends. Empty adds every filter.
+    tradeoff: A file whose header states no filter, or spells it otherwise, is left out.
+    note: The empty field suggests names such as Ha, L, R, G and B.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Lists the folder with these options and adds what passes.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Adds nothing.
+```
+
+### The row menu
+
+```controls
+window: The row menu
+controls:
+  - name: Move Up
+    kind: action
+    default: ""
+    effect: Moves the row one place up.
+    enabled: Unless the row is the first. The menu is not offered while a run works.
+  - name: Move Down
+    kind: action
+    default: ""
+    effect: Moves the row one place down.
+    enabled: Unless the row is the last.
+  - name: Remove
+    kind: action
+    default: ""
+    effect: Removes the selected rows from the list. The files stay on disk.
+  - name: Delete From Disk
+    kind: action
+    default: ""
+    effect: Asks "This will delete the selected file from the disk permanently. Are you sure you want to proceed?", then removes the row and deletes its file.
+    range: The file of the row you clicked only.
+    tradeoff: The file is gone for good. When it cannot be deleted, the row is gone all the same and the window says "Could not delete" with the path.
+```
 
 ### Local Normalization Settings
 
-The dialog opens only from **Normalization = Local**. **OK** commits values to
-the parent process; **Cancel** discards the dialog edit. Selecting any individual
-value changes the preset label to **Custom**.
+```controls
+window: Local Normalization Settings
+controls:
+  - name: Note
+    kind: readout
+    default: ""
+    effect: Reads "This stack fits each frame's local surfaces and scale against its reference frame" and says that the reference strategy, the evaluation, the PSF flux scale and the hot-pixel and noise filters, which Image Integration offers in this dialog, do not apply here.
+  - name: Preset
+    kind: combo
+    default: Standard (Grid 4)
+    options: [Quick (Grid 2), Standard (Grid 4), Fine (Grid 8), Custom]
+    effect: Sets **Grid Size** to 2, 4 or 8 and the other values to their defaults. A change of any value reads **Custom**.
+    tradeoff: A finer grid follows the frame more closely and prints more of its noise.
+  - name: Grid Size
+    kind: spinbox
+    default: "4"
+    widget: {min: 1, max: 32}
+    effect: Sets how many cells divide each side of the frame. Higher follows smaller changes of the background, lower only broad ones.
+    range: The fit has one node more than cells on each side, which the label beside it counts, as "(5x5 = 25 nodes)".
+    tradeoff: More cells cost more work and can print structure and noise into the stack.
+  - name: Interpolation
+    kind: combo
+    default: Bicubic
+    options: [Bilinear, Bicubic]
+    effect: Chooses how the surface is drawn between the nodes.
+    tradeoff: "**Bicubic** is smoother and takes longer. **Bilinear** can show the edges of the cells."
+  - name: BG Smoothing
+    kind: spinbox
+    default: "1"
+    widget: {min: 0, max: 10}
+    effect: Smooths the background nodes over this many neighbours. 0 does not smooth.
+    tradeoff: More smoothing calms noisy nodes and misses small changes.
+  - name: Mode
+    kind: combo
+    default: Linked RGB
+    options: [Linked RGB, Per-Channel]
+    effect: "**Linked RGB** finds one scale for the three channels, **Per-Channel** one for each."
+    tradeoff: "**Linked RGB** keeps the colors steadier. **Per-Channel** can suit narrowband and changes the ratios between the channels."
+  - name: Low Clip
+    kind: spinbox
+    default: "0.000045"
+    widget: {min: 0, max: 1, step: 0.00001, decimals: 6}
+    effect: Replaces samples below this value with the local background estimate, to prevent artifacts.
+    tradeoff: Too high replaces faint real signal.
+  - name: High Clip
+    kind: spinbox
+    default: "0.850"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 3}
+    effect: Leaves samples above this value out of the local measures, to keep saturated stars out.
+    tradeoff: Too low leaves out much of the signal, too high lets saturation in.
+  - name: Enable Advanced Options
+    kind: check
+    default: "Off"
+    effect: Enables the options below. It changes no value itself.
+    persistence: It opens off each time.
+  - name: Estimator
+    kind: combo
+    default: Sigma Clipped Median
+    options: [Percentile, Sigma Clipped Median, Sigma Clipped Mode]
+    effect: Chooses how each node's background is measured.
+    enabled: With **Enable Advanced Options** checked.
+    tradeoff: The sigma-clipped estimators resist bright structure and take longer.
+  - name: Percentile
+    kind: spinbox
+    default: "0.250"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 3}
+    effect: Sets the share of samples below the background with **Estimator** at **Percentile**. Lower follows the darker background.
+    enabled: With **Estimator** at **Percentile**.
+  - name: Sigma Clip K
+    kind: spinbox
+    default: "3.00"
+    widget: {min: 0.1, max: 10, step: 0.1, decimals: 2}
+    effect: Sets the clipping threshold of the sigma-clipped estimators, in deviations. Lower clips more.
+    range: The stack reads a value below 0.5 as 0.5.
+    enabled: With a sigma-clipped **Estimator**.
+  - name: Sigma Iterations
+    kind: spinbox
+    default: "3"
+    widget: {min: 1, max: 20}
+    effect: Sets how many times the clipping repeats at most.
+    range: The stack reads a value above 10 as 10.
+    enabled: With a sigma-clipped **Estimator**.
+    tradeoff: More passes cost more and can steady a node a star spoils.
+  - name: Use local scale k(x,y)
+    kind: check
+    default: "Off"
+    effect: Fits a scale that varies over the frame, besides the background, to follow a transparency that changes across it.
+    enabled: With **Enable Advanced Options** checked.
+    tradeoff: The dialog marks it experimental. It can correct uneven transparency or print noise into the stack.
+  - name: Smoothing
+    kind: spinbox
+    default: "1"
+    widget: {min: 0, max: 10}
+    effect: Smooths the scale's grid over this many neighbours.
+    enabled: With **Use local scale k(x,y)** checked.
+    tradeoff: More smoothing prints less noise and follows the frame less.
+  - name: Reset to Defaults
+    kind: button
+    default: ""
+    effect: Returns every value to the **Standard (Grid 4)** preset.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Closes the dialog and keeps the values it opened with.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Keeps the values for the stack. Nothing is computed until **Stack Images**.
+    persistence: The window keeps the values this dialog shows for the next window, and none of the ones it hides.
+```
 
-Image Stacking fits each frame against the reference frame. It applies the grid
-size, grid interpolation, background estimator with its percentile and sigma
-clipping, BG Smoothing, Low Clip and High Clip, scale mode, and the local scale
-with its smoothing, and the dialog offers and the window saves only those. The
-dialog is Image Integration's, which also offers the reference strategy, the
-evaluation that ranks references, the scale evaluation method with its PSF
-settings, and Hot Pixel Radius and Noise Reduction; Image Stacking reads none
-of them, so its dialog hides them, says so in a note at its top, and its
-settings do not keep them.
+### Stacking progress
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Preset | Selector | Standard (Grid 4) | Exact restored values derive Quick/Standard/Fine or Custom | Quick (Grid 2), Standard (Grid 4), Fine (Grid 8), Custom | Applies grid 2/4/8; shared remaining defaults stay robust | Dialog only | Finer grids are more adaptive and more prone to noise imprinting | Apply only | Derived label; underlying values serialized |
-| Grid Size | Integer cells/axis | 4 | Restored | 1–32; engine clamps to its supported maximum | Larger creates `(g+1)^2` model nodes | Always enabled in dialog | More local correction and cost; excessive values can imprint structure/noise | Apply | `gridSize` |
-| Interpolation | Selector | Bicubic | Restored | Bilinear, Bicubic | Interpolates background/scale grids | Always enabled | Bicubic is smoother/costlier; bilinear can show transitions | Apply | `gridInterpolation` |
-| BG Smoothing | Integer radius | 1 | Restored | 0–10; 0 disables | Smooths background grid nodes | Always enabled | More smoothing suppresses noisy nodes but can miss local changes | Apply | `backgroundSmoothingRadius` |
-| Mode | Selector | Linked RGB | Restored | Linked RGB, Per-Channel | Linked uses a common scale; Per-Channel fits channels independently | Color behavior only | Linked is more color-stable; per-channel can suit narrowband but alter ratios | Apply/channel | `scaleMode` |
-| Low Clip | Normalized float | 0.000045 | Restored | 0–1, step 0.00001 | Values below threshold use local background estimate | Always enabled | Too high can replace faint valid signal | Apply | `lowClip` |
-| High Clip | Normalized float | 0.85 | Restored | 0–1, step 0.01 | Excludes bright samples from local statistics | Always enabled | Too low excludes too much signal; too high admits saturation | Apply | `highClip` |
-| Enable Advanced Options | Checkbox | Off | This presentation toggle is not serialized | On/off | Enables advanced controls; it does not itself alter engine parameters | Dialog only | Exposes controls that can destabilize a good default model | Dialog/apply settings | Per dialog opening |
-| Estimator | Selector | Sigma Clipped Median | Restored | Percentile, Sigma Clipped Median, Sigma Clipped Mode | Estimates each background node | Advanced on | Robust estimators add work and resist bright structure | Apply | `backgroundEstimator` |
-| Percentile | Fraction | 0.25 | Restored | 0–1, step 0.01 | Chooses background percentile | Advanced on + Percentile estimator | Low values follow darker background; extremes can bias nodes | Apply | `backgroundPercentile` |
-| Sigma Clip K | Sigma | 3.0 | Restored | 0.1–10.0, step 0.1 | Sets node-estimator clipping threshold | Advanced on + sigma estimator | Lower is more aggressive | Apply | `sigmaClipK` |
-| Sigma Iterations | Integer | 3 | Restored | 1–20 | Caps node-estimator rejection iterations | Advanced on + sigma estimator | More iterations cost more and may stabilize contaminated nodes | Apply | `sigmaClipIterations` |
-| Use local scale k(x,y) | Checkbox | Off | Restored | On/off | Enables spatially varying scale instead of only local offset/global scale | Advanced on | Experimental; can correct spatial transparency changes or imprint noise | Apply | `localScaleEnabled` |
-| Smoothing | Integer radius | 1 | Restored | 0–10 | Smooths local-scale grid | Advanced on + local scale enabled | More smoothing reduces noise imprinting but weakens local response | Apply | `localScaleSmoothingRadius` |
-| Reset to Defaults / Cancel / OK | Dialog actions | Standard defaults / discard / accept | None | One action each | Reset restores all values; Cancel discards this opening; OK commits | Dialog only | No pixel work occurs until Stack Images | Settings only | OK values serialize with parent process |
+```controls
+window: Stacking progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: Names the group being stacked, as "Stacking group 'Broadband' (30 frames), 1 of 1", and moves from 0 to 100 percent over all the groups.
+    enabled: Shown while a run works, under the title Image Stacking.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Asks the run to stop. The text reads "Canceling execution..." and the button is disabled.
+    range: The group in progress stops at its next stop point and leaves no file. No later group starts.
+    persistence: The files of the groups already stacked stay. A stopped run ends without a message.
+```
 
-## How the algorithm works
+## How it works
 
-### Conceptual pipeline
+1. **Stack Images** takes the list and the values as they stand. The files are sorted by filter, session, exposure
+   and path, grouped by the keys of **Group by**, and each group gets its file name.
+2. Each group's headers are read, and every frame is held to the first frame's size, pixel type, channels and filter
+   array. **Comet** mode first replaces each file with its copy aligned on the comet.
+3. The frames are read as [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale). An exact
+   zero, such as the border a registration leaves, and a sample that is not a number mean nothing in every frame.
+   Each frame is normalized to the group's first frame and given its weight.
+4. At each pixel and channel, the samples that mean something are judged by the rejection and combined by
+   **Method** into a 32-bit or 64-bit floating-point master. A mosaic master is debayered when **Debayer CFA** asks.
+5. The maps and then the master are written whole into **Directory**, and opened when **Open after stacking** asks.
+   The next group follows.
 
-1. The process loads metadata, removes duplicate paths, and deterministically
-   sorts grouping descriptors by filter, session, exposure, and path.
-2. It creates groups from enabled metadata keys and expands/sanitizes a unique
-   output name for each group.
-3. At launch it snapshots settings. Comet mode may replace listed files with
-   exact role-qualified registered products. Each group's frames are probed and
-   held to the first frame's dimensions, pixel type, and channels; a group whose
-   frames differ in size or colour depth is refused, and the message names the
-   group. Every frame is read as fractions of its representation's full scale.
-4. Optional global normalization maps each frame toward reference statistics;
-   local normalization fits each frame against the reference frame. Optional
-   weights are computed by the engine's weight sources, the ones Image Integration uses for Weighted FWHM, Noise and Number of stars (SNR and Exposure exist only here); for **Noise** each frame's background noise is first measured from its pixels.
-5. At every pixel/channel, the selected combination operates on the samples
-   that mean something - in every frame an exact zero and a non-finite sample
-   are left out, so they are neither combined nor judged by a rejection;
-   Average can first reject outliers. Tiled and non-tiled paths implement the
-   same result contract.
-6. The engine builds a 32- or 64-bit floating-point master carrying the first
-   frame's metadata as the stack changes it. The standalone process optionally
-   post-debayers a CFA master, saves it, then saves requested rejection maps.
-   Pixels the stack left without a sample are zero and marked invalid; after a
-   post-stack debayer, every colour pixel whose estimate reads one of them is
-   marked invalid instead.
+### Model
 
-### Model and equations
+For one pixel of one channel, let \(x_i\) be the sample of frame \(i\) of a group. With **Normalization** at
+**Additive With Scaling**, each frame is first brought to the group's first frame \(r\). With \(l\) the median of a
+frame and \(s\) its spread by **Scale Estimator**:
 
-For accepted samples \(x_i\), plain Average uses
+\[ x_i' = \frac{s_r}{s_i}\,\bigl(x_i - l_i\bigr) + l_r \tag{1} \]
 
-\[
-\bar{x}=\frac{1}{N}\sum_{i=1}^{N}x_i.
-\]
+The other modes are in [Image Stacking Reference](image-stacking-reference.md). A sigma method then judges the
+samples. With \(m\) the median and \(\sigma\) the standard deviation of the samples still kept, \(k_L\) the value of
+**Sigma Low** and \(k_H\) that of **Sigma High**, a sample is left out when
 
-With explicit nonnegative weights \(w_i\), Average and its rejection variants
-use the accepted sample/weight association:
+\[ x_i < m - k_L\,\sigma \quad \text{or} \quad x_i > m + k_H\,\sigma \tag{2} \]
 
-\[
-\bar{x}_w=\frac{\sum_i w_i x_i}{\sum_i w_i}.
-\]
+The test is repeated on what is left until it leaves out nothing more. **Winsorized Sigma Clipping** takes
+\(\sigma\) from a copy of the samples held within \(m \pm 1.5\,\sigma\) and multiplied by 1.134, again and again
+until it moves by less than 0.0005 of itself.
 
-The weights come from the engine's weight sources, the ones
-[Image Integration](image-integration.md) uses for Weighted FWHM, Noise and Number of stars (**SNR** and **Exposure** exist only here): **FWHM**,
-**SNR**, and **Stars** read each frame's figures from `registration_metrics.db`
-in the output directory and **Exposure** reads each frame's exposure. **Noise**
-measures each frame's background noise \(\sigma_i\) when the stack starts - the
-mean over its channels of the engine's row first-difference estimate, over the
-samples as its file stores them - and weighs it \(w_i = 1/\sigma_i^2\), in every
-channel. If no frame has a measurable noise the stack uses equal weights and
-the message at the end of the run says so; if only some do, the stack is
-refused. If no frame has usable figures (the database is missing, nothing was
-measured, or every exposure is zero), the stack uses equal weights and the
-banner says why. If only some frames lack figures, the stack is refused, naming
-the first frame without figures - the banner warns before you stack; no frame
-is given zero weight.
+With \(S\) the samples kept and \(w_i\) the weight of frame \(i\), which is 1 under **None (Equal)**, **Average**
+writes
 
-Global normalization is applied per channel against reference index 0: the
-first frame after deterministic group ordering by filter, session, exposure,
-and path. The Frames table order does not control this reference. Let
-\(p\) be a pixel, \(l\) a robust location, and \(s\) a robust scale:
+\[ \bar{x} = \frac{\sum_{i \in S} w_i\,x_i}{\sum_{i \in S} w_i} \tag{3} \]
 
-| Mode | Transform |
-| --- | --- |
-| Additive | \(p'=p+(l_r-l_i)\) |
-| Multiplicative | \(p'=p(l_r/l_i)\), with neutral fallback when \(l_i=0\) |
-| Additive With Scaling | \(p'=p(s_r/s_i)+l_r-(s_r/s_i)l_i\) |
-| Multiplicative With Scaling | \(p'=p(s_r/s_i)(l_r/l_i)\) with neutral invalid denominators |
+When \(n\) samples of equal weight carry independent noise of one deviation \(\sigma_1\), the average's noise is
 
-IKSS uses its robust location and scale; MAD uses median and median absolute
-deviation; both are computed exactly from the frame's samples. Frames are read as fractions of full scale and normalized values may
-remain below 0 or above 1. No combination clamps its result to the unit
-interval, so a master can hold values above 1 - where hot pixels or star cores
-average above full scale - and below 0.
+\[ \sigma_{\bar{x}} = \frac{\sigma_1}{\sqrt{n}} \tag{4} \]
 
-Combination behavior is exact:
+so four frames halve the noise. What every frame shares, such as the fixed pattern of a bias, is not divided: it is
+what a master keeps. Nothing clips the result, so a master can hold values below 0 and above 1.
 
-- **Sum** adds the samples, then divides every sum by the largest one so the
-  brightest element is exactly 1; a stack with no positive peak is written as
-  summed, unnormalized. The engine reports a warning for that case, which the
-  window shows when the run ends and logs. It preserves relative ratios but not the
-  absolute accumulated pixel sum. The standalone policy does not expose
-  weighted Sum.
-- **Maximum/Minimum** take extrema of the samples that mean something; an
-  exact zero is left out like any missing sample.
-- **Median** returns the exact per-pixel median.
-- **Auto-Adaptive Weighted Average** runs five DeepSkyStacker-derived robust
-  weighting iterations over every column's samples scaled by 65535. A column
-  whose scaled samples spread by five units or less, or that holds fewer than
-  three samples, takes their plain mean; a column whose largest sample is not
-  positive is combined like any other. It ignores the Weighting selector.
-- **Sigma Clipping** iteratively rejects deviations from the median using
-  standard deviation; **MAD Clipping** substitutes MAD.
-- **Median Sigma** replaces rejected values with the current median until
-  stable rather than removing them.
-- **Winsorized Sigma Clipping** repeatedly clamps a working copy to
-  median ± 1.5 sigma, applies the 1.134 correction, converges at a 0.0005
-  tolerance, then rejects from the original sample set.
-- **Linear Fit** sorts samples, fits a line against sample rank, and iteratively
-  rejects deviations scaled by mean absolute residual.
-- **Percentile** names the method, not its rule: it rejects when deviation from
-  the median exceeds `median × low/high fraction`; it is not quantile trimming.
-- **GESDT** performs Rosner's multiple-outlier ESD test using Student-t critical
-  values and backward confirmation, testing up to `ceil(N × outlier_fraction)`
-  candidates and stopping below three active samples.
+### Boundaries
 
-Rejection maps store rejected-frame fractions per pixel/channel, each a 32-bit
-float fraction of the group's frames, held at 1. The merged file carries
-low+high. The standalone UI does not request the engine's structured
-quality report, coverage map, variance map, SNR-gain map, weight-sum map,
-spatial rejection-cluster report, or automatic re-stack excluding flagged
-frames.
+- Every rejection needs three frames or more in a group. A group of two with a rejection is refused when the stack
+  starts.
+- A group whose frames differ in size, pixel type, channel count or filter array is refused, the message naming the
+  group. So is a mosaic beside a frame that states none.
+- An exact zero and a sample that is not a number are neither combined nor judged in any frame, so a real sample of
+  exactly zero is left out too. A pixel no frame reaches is written as 0 and marked invalid.
+- No alignment is read. Frames that do not line up stack without a message into a soft or doubled master.
+- A stop, or closing the window, keeps the files of the groups already stacked. The group in progress leaves no
+  file, and a group that fails stops the ones after it.
 
-### Feature boundary: HDR, overlap normalization, and drizzle
+### Worked example
 
-These shared-engine capabilities are deliberately not controls in this
-standalone window:
+The frames are the [calibration frames](../../reference/glossary.md#calibration-frame) of one night of NGC 253 from
+a QHY183C color camera: 30 [bias frames](../../reference/glossary.md#bias-frame), 20
+[dark frames](../../reference/glossary.md#dark-frame) of 180 s and 40
+[flat frames](../../reference/glossary.md#flat-frame). All are 16-bit [FITS](../../reference/glossary.md#fits) mosaics
+of 5544 by 3684 pixels with `BAYERPAT = 'RGGB'`, and none states a filter. They make the masters that
+[Image Calibration](../calibration/image-calibration.md) takes.
 
-- **HDR exposure merge** is an Image Integration feature; Image Stacking
-  cannot enable it.
-- **Overlap normalization** is represented in the shared workflow model but is
-  not mapped into standalone engine parameters or UI. The listed frames must
-  already occupy one common geometry; this process does not mosaic or feather
-  panels.
-- **Drizzle** requires registration transforms and exposes scale, pixel
-  fraction, kernels, CFA-aware mapping, canvas modes, SIP correction, and trim
-  offsets through Image Integration. The standalone execution runs an ordinary
-  stack and cannot produce drizzle output.
+Open the window and choose **Add Files** with the 30 biases. They form one group, `Broadband`. Type
+`master_bias.fit` in **Name Template**, choose **Browse** and a folder `masters`, turn **Open after stacking** off,
+and keep every other value. **Stack Images** writes `master_bias.fit`, a 32-bit mosaic of about 82 MB, whose
+`EXPTIME` is the first bias's 0.00025 s. The Session Console's line `Image Stacking: finished in` gives the run's
+time.
 
-Do not infer any of these features from the shared engine. Use
-[Image Integration](image-integration.md) for their exposed workflow.
+With **Max Memory** at its default, the 30 frames do not fit at once, so the window reads them in bands of rows. The
+strip under the header then reads "Stacking completed with warnings." with "Whole-frame reads are multiplied by the
+tile count". The master is the same either way. With **Max Memory** at 4096, each file of these three stacks is read
+once.
 
-### Boundary and failure behavior
+In the middle 1,100 by 820 pixels, one bias has a median of 0.0291 and a standard deviation of 0.00047, which is 31
+[sensor codes](../../reference/glossary.md#sensor-code). Equation (4) predicts \(0.00047/\sqrt{30} = 0.000086\) for
+the master. Its deviation there is 0.000099, about 6.5 codes, and the rest is the pattern every bias repeats, about
+3.3 codes. The master's median is 0.02935. The rejection leaves out about 0.7 % of the samples: with **Save
+rejection maps** on, the merged map's mean there is about 0.007.
 
-- Every rejection method needs at least three frames in the group; a smaller
-  group with a rejection is refused when the stack starts.
-- A group whose frames differ in size, colour depth (pixel type or channel
-  count) or CFA layout (pattern, or mosaic beside non-mosaic) is refused, and
-  the message names the group.
-- Comet mode needs a `registration_metrics.db` with a matching comet run in the
-  output directory; without it the stack is refused with a message.
-- Ordinary stacking does not apply registration transforms. Misalignment can
-  complete successfully and still produce a soft or doubled result.
-- An Average with **Noise** weighting over a group only some of whose frames
-  have a measurable background noise is refused when the stack starts, with an
-  error that names the group; a group none of whose frames has one is stacked
-  with equal weights, with a warning.
-- What the weights and the engine warn of each group's stack - equal weights
-  used, a **Sum** written unnormalized - is shown when the run ends, as
-  **Stacking completed with warnings.** followed by each warning prefixed with
-  its group (the first eight; the rest are in the log), and each is logged as it
-  is given. A run that is stopped shows none.
-- An exact zero, such as the border a registration leaves where a frame does
-  not reach, and a non-finite (NaN or infinite) sample, such as a calibration
-  leaves where its flat was zero, mean nothing in every frame, whatever the
-  method: neither is averaged, ranked or judged by a rejection, so a rejection
-  map does not count it, and the pixel is combined from the other frames. A
-  genuinely black sample of exactly zero is left out too. A pixel no frame
-  reaches is written as zero and marked invalid.
-- A frame that cannot be read stops its group with an error naming the frame;
-  the group is not stacked from the frames that could be read.
-- Cancelling, or closing the window, stops the run. Completed group files are
-  retained, and no file is left partly written. Errors stop the remaining
-  groups and show **Error stacking images**.
-- The process snapshots settings and groups before the worker begins, but most
-  editable controls remain enabled. Mid-run edits do not change the active run.
+Then choose **Clear All**, add the 20 darks, type `master_dark.fit` and stack them the same way. Its median is about
+0.0295, of which the bias holds 0.02935. Calibrate the 40 flats by the master bias in Image Calibration, into a
+folder `flats_cal`, and stack those 40 files into `master_flat.fit`. They come in two exposures, 0.39 s and 4.35 s,
+at about 0.49 and 0.41 in the middle. Choose **Normalization** **Multiplicative**, so that each is brought to the
+level of the first, a 0.39 s flat, before the rejection judges it.
 
-## Parameter interactions and starting points
+To compare, open the first bias and `master_bias.fit`, and answer **No** when each asks whether to
+[debayer](../../reference/glossary.md#debayer) it. Apply [Histogram Transformation](../stretching/histogram-transformation.md)
+to each with **Shadows** at 0.0270 and **Highlights** at 0.0320, so that both are spread over one range, and show both
+at 100 % in the middle.
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Deep-sky lights | Average + Winsorized Sigma Clipping, 3/3, Additive With Scaling, IKSS | Trails/hot pixels remain; backgrounds differ | Valid faint signal is absent from maps/master; too few retained samples | Verify alignment -> normalization -> inspect maps -> adjust high then low threshold |
-| Small stack | Median or Average with no/very cautious rejection; fewer than three frames refuse any rejection | Transients remain | Statistical rejection becomes unstable or removes too much | Add frames first; prefer Median before aggressive thresholds |
-| Mixed transparency/seeing | Average + a source-backed weight mode | Poor frames influence result equally | The stack is refused when only some frames lack figures | Verify metrics warning -> Equal baseline -> chosen weighting -> compare statistics |
-| Uneven spatial backgrounds | Global scaling first; Local Standard only if needed | Residual frame-to-frame background structure | Local grid imprints noise or source structure | Global mode -> Local Standard -> inspect grid size -> only then advanced/local scale |
-| Mixed filters/sessions/exposures | Filter on; Session/Exposure only when separate masters are intended | Incompatible data mix in one master | Groups too small for the chosen rejection fail | Verify metadata -> enable one grouping key at a time -> inspect Frames count per group |
-| CFA source masters | Keep Debayer CFA off unless all inputs share the same registered CFA sampling | Output remains a CFA mosaic | Wrong pattern/interpolation creates color artifacts; post-stack demosaic cannot fix bad registration | Confirm CFA/type -> stack -> only then enable correct Pattern/Method if required |
-| Large project | 32-bit, Limit Memory on at 1024 MB; no maps for first timing pass | Memory pressure or allocation failure | Excessive tiling overhead | Plain group prototype -> tune memory -> add rejection maps -> consider 64-bit last |
+```figure
+images:
+  - image: ../../assets/images/processes/stacking-integration/image-stacking-before.webp
+    alt: >-
+      One bias at 100 percent, a dark gray covered with coarse grain from pixel to pixel and a few single white
+      pixels.
+    label: Before
+  - image: ../../assets/images/processes/stacking-integration/image-stacking-after.webp
+    alt: >-
+      The master bias at 100 percent, a lighter, even gray almost free of grain, with a few single light and dark
+      pixels left.
+    label: After
+caption: >-
+  One bias of NGC 253 and the master of 30, the middle of the frame at 100 % in the Linear display mode, both after
+  one Histogram Transformation from 0.0270 to 0.0320.
+```
 
-## Inputs, outputs, and metadata
+## Starting points
 
-One output master is written for each generated group. A template without a
-FITS, TIFF, PNG, JPEG, or XISF extension becomes FITS (`.fit`). `$filter`
-(empty for Broadband), `$session`, `$exposure`, and `$group` are expanded,
-unsafe filename characters are sanitized, repeated and edge underscores are
-trimmed, and duplicate case-folded names gain a group/numeric suffix.
-
-The master has the input width, height, and channel count, unless optional
-post-stack CFA demosaic converts one CFA channel to RGB. It is 32-bit float by
-default or 64-bit float with **64-bit**, whatever the inputs' type. Pixels the
-stack left without a sample are zero and marked invalid. A post-stack debayer
-carries that mark through: a colour pixel is marked invalid when the demosaic's
-estimate of it reads a pixel the stack left without a sample.
-
-The stack's `EXPTIME` is the reference frame's exposure, or, with **Sum exposure
-times**, the sum of the frames' exposures, a frame stating no exposure counted
-at the reference's; no card is written when no frame states one. The rest of
-the master's metadata is the first frame's (in group order) as the engine's
-stack changes it.
-
-Merged maps are named `<master>_rej_l+h.<ext>`; separate maps use `_rej_l` and
-`_rej_h`. Each map is a 32-bit float fraction of the group's frames. No report, manifest, quality map, log file, temporary calibrated file,
-or drizzle file is part of the standalone output contract. Processing messages
-go to AfterNight's normal log/console.
-
-## Performance
-
-Runtime scales with pixels × frames × channels. Median, rejection methods,
-auto-adaptive weighting, IKSS statistics, and local normalization add work. Rejection and median paths need per-pixel sample storage;
-maps add output buffers. Multiple groups repeat loading and analysis.
-
-With **Limit Memory Usage**, the engine selects tiles within the budget where
-the algorithm supports tiling and can reduce a request above available memory.
-The limit is not a whole-process hard ceiling: metadata, reference statistics,
-local-normalization models, output buffers, codecs, and UI views also consume
-memory. Start with one representative group, 32-bit output, equal weights, and
-no maps; add expensive options after the baseline succeeds.
-
-## Worked example
-
-- Input condition/provenance and settings: at least two same-size, same-type,
-  registered linear synthetic/still frames with valid `L` filter metadata;
-  Filter on, other grouping off, `stacked_$filter.fit`, Average, None
-  normalization, None (Equal) weighting, and Rejection Method None.
-- Expected checkpoint: **Frame Groups** contains one `L` group named
-  `stacked_L.fit`; **Stack Images** writes one 32-bit floating-point master.
-- Inspect at 100%/statistics/history: verify alignment was preserved, no group
-  was omitted, the output remains linear, and metadata/exposure matches the
-  chosen policy. A later rejection run should be evaluated with its map rather
-  than by assuming every bright map feature is unwanted.
-- Limitations: this predicts contract behavior only. It does not claim a visual
-  improvement, execution time, production-scale memory bound, or compatibility
-  with unreviewed third-party data.
-
-## Warnings and limitations
-
-- The standalone process is not an aligner, calibrator, sequence stacker,
-  drizzle front end, mosaic stitcher, HDR front end, or workflow reporter.
-- Sum normalizes the accumulated master to a peak of 1. Use the exposure
-  metadata policy for total integration time; do not interpret Sum pixels as
-  unnormalized accumulated flux.
-- Average's Percentile fields use fractions despite their broad 0.001–1000 UI
-  range. Treat values above 1 as outside the meaningful engine domain.
-- Metric weighting searches the **output** directory for
-  `registration_metrics.db`; selecting a different output directory can cause
-  a fallback even when registration metrics exist elsewhere.
-- Partial metric coverage refuses the stack, naming the first frame without
-  figures, rather than estimating or zero-weighting those frames. When no frame
-  has usable figures the stack falls back to equal weights.
-- **Noise** weighting reads every frame's pixels once more before the stack,
-  which adds a pass over the group's files, and it refuses a group only some of
-  whose frames have a measurable noise.
-- A Sum with no positive peak is written unnormalized; the window says so when
-  the run ends.
-- Local normalization fits each frame against the reference frame and offers
-  none of Image Integration's reference analysis: no reference strategy,
-  evaluation, scale evaluation method, PSF settings, Hot Pixel Radius or Noise
-  Reduction.
-- **Debayer CFA** runs after stacking, not before it. Inputs must still be
-  registered compatibly at the CFA sampling level.
-- Rejection maps describe rejected sample frequency, not proof that a frame or
-  structure is bad. Inspect the source frames.
-- Source files are safe under normal Remove/Clear actions, but **Delete From
-  Disk** is intentionally irreversible after confirmation.
-- Existing outputs can be replaced without an overwrite confirmation. Verify
-  destination names before running.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| **Missing output directory** | Directory is empty when Stack Images is invoked | Select Browse; verify write access and free space |
-| **No groups to stack** / Stack Images disabled | No frames, no generated groups, empty directory, or empty template | Add frames and inspect Frame Groups; restore a nonempty template/path |
-| **Group '...': frames with mismatched dimensions** / **... mismatched color depth** / **... mismatched filter arrays** | Width/height, pixel type/channel count, or CFA pattern (or mosaic beside non-mosaic) differs inside that group | Resample/convert upstream or split into compatible groups |
-| Weighting warning; result uses equal weights | No frame has usable figures: the metrics database is missing or unreadable, nothing was measured, or every exposure is zero; the banner says which before you stack | Put the correct database in Directory, re-register, choose Exposure where appropriate, or use Equal |
-| Stack refused because a frame has no figures | Only some frames lack FWHM/SNR/Stars/Exposure figures; the banner warns before stacking, naming the first such frame | Re-run registration for those frames with the database in Directory, add the exposure to their headers, remove them, or use Equal |
-| Error about missing measurements with **Noise** weighting | Only some of the group's frames have a measurable background noise | Remove or replace the frames with no noise to measure (for example flat or constant frames), or choose another weighting |
-| **Stacking completed with warnings.** | The weights or the engine warned of a group's stack: equal weights used, or a **Sum** written unnormalized | Read each group's warning; the log holds every one |
-| Standalone comet stacking requires an active exact run | Database missing, or its state hashes, role products, reference, or per-frame outputs do not match a comet run | Complete comet registration and keep exact products/database together; otherwise select Stars |
-| **... RejectionNeedsMoreFrames** | A group with a rejection method has fewer than three frames | Add frames, merge groups, or select Rejection Method None |
-| Satellite trails or hot pixels remain | No rejection, thresholds too permissive, or too few samples | Enable supported rejection, inspect maps, then lower the relevant threshold cautiously |
-| Master is soft/doubled | Ordinary inputs were not aligned | Register upstream; this process cannot correct transforms |
-| Unexpected group/output name | Missing/inconsistent filter/date/exposure metadata or template collision sanitization | Inspect Frames and Frame Groups; correct metadata upstream or simplify grouping/template |
-| Wrong colors after Debayer CFA | Incorrect pattern, unsuitable post-stack demosaic, or incompatible CFA registration | Verify CFA pattern and register CFA data consistently; otherwise debayer before registration/stacking |
-| Error after earlier groups succeeded | Later group validation/load/save failed, or cancellation was requested; no file is left partly written | Keep/verify completed outputs, correct the failing group, and rerun; remove stale outputs deliberately |
+| Bias or dark frames | **Average** with **Winsorized Sigma Clipping**, **Normalization** at **None** | **Max Memory** up for many frames. |
+| Flat frames calibrated by the bias | **Normalization** at **Multiplicative** | Keep each filter in its own group with **Filter** on. |
+| Calibrated, registered lights | **Additive With Scaling**, **IKSS** and **Winsorized Sigma Clipping** | **Save rejection maps** on, then **Sigma High** down if trails remain. A weighting once the registration's figures are at hand. |
+| Fewer than ten frames | **Median**, or **Average** with **None** for two frames | More frames before tighter thresholds. |
 
-## Related workflow steps
+## When it goes wrong
 
-- First [calibrate](../calibration/image-calibration.md) the inputs when they
-  are not already calibrated.
-- Use [Image Registration](../registration-alignment/image-registration.md)
-  before this process when ordinary frames are not already aligned.
-- Use [Image Integration](image-integration.md) when you need managed
-  calibration/registration, overlap/canvas behavior, drizzle, HDR, quality
-  reports/maps, spatial rejection analysis, workflow history, or reports.
-- Use [Image Integration Lite](image-integration-lite.md) for its fixed,
-  single-target guided workflow rather than exposing these controls.
-- Inspect results with [Image Statistics](../../interface/image-statistics.md),
-  [Histogram Analysis](../../interface/image-histogram.md), and
-  [Image Summary](../../interface/image-summary.md).
-- Continue with linear background/color processing before nonlinear stretching.
+!!! danger "Files are replaced without a question"
+    A master or map whose name is already in **Directory** is replaced, and every name follows from **Name
+    Template**. Give each kind of master its own name, and keep the files you need elsewhere.
+
+!!! warning "Misaligned frames stack without a message"
+    The window reads no registration. Lights that do not line up give soft or doubled stars, and the run reports
+    nothing. Register them with Image Registration first.
+
+!!! warning "A debayered master does not calibrate a mosaic"
+    With **Debayer CFA** on, a bias, dark or flat master is written in color, and Image Calibration refuses it beside
+    mosaic lights. Stack calibration masters with **Debayer CFA** off.
+
+**Stack Images** stays disabled
+:   **Cause.** The list is empty, **Directory** holds no folder or **Name Template** is empty, or a run works.
+:   **Fix.** Add the frames, choose **Browse** and a folder, and type a name.
+
+"Stacking completed with warnings." with "Whole-frame reads are multiplied by the tile count"
+:   **Cause.** The stack needed more memory than **Max Memory**, so each file was read once for each band of rows.
+:   **Fix.** Nothing is wrong with the master. Raise **Max Memory** under **Advanced** to make the next run faster.
+
+"Stacking completed with warnings." with "Sum not normalized"
+:   **Cause.** No pixel's sum was positive, so **Sum** wrote the sums as they are.
+:   **Fix.** Check that the frames hold signal above zero, or choose **Average**.
+
+"Registration metrics were not found in this output directory, so FWHM weighting is falling back to equal weights."
+:   **Cause.** **Directory** holds no `registration_metrics.db`, or the frames have no figures in it.
+:   **Fix.** Choose Image Registration's output folder as **Directory**, or choose **None (Equal)** or **Exposure**.
+
+"Error stacking images" with "on some frames and not on frame"
+:   **Cause.** Only some frames have the figure the weighting reads: an exposure, a registration's figures or a
+    measurable noise.
+:   **Fix.** Remove the frames the weighting warning names, add their figures, or choose **None (Equal)**.
+
+"Error stacking images" with "RejectionNeedsMoreFrames"
+:   **Cause.** A group with a rejection holds fewer than three frames.
+:   **Fix.** Add frames, turn a grouping key off, or set **Rejection Method** to **None**.
+
+"Error stacking images" with "frames with mismatched dimensions", "mismatched color depth" or "mismatched filter arrays"
+:   **Cause.** The group the message names mixes sizes, pixel types, channel counts or filter arrays.
+:   **Fix.** Remove the odd frames, or give them a group of their own.
+
+"Error stacking images" with "Standalone comet stacking requires"
+:   **Cause.** **Comet** mode found no active comet run in the `registration_metrics.db` of **Directory**.
+:   **Fix.** Run the comet registration and choose its output folder, or set **Comet Mode** to **Stars**.
+
+"Some files were skipped"
+:   **Cause.** Files could not be read when they were added, and the list holds only the others.
+:   **Fix.** Read the first reason in the message and the Session Console, then add the corrected files again.
+
+Satellite trails or hot pixels remain in the master
+:   **Cause.** No rejection, thresholds set too high, or too few frames for the rejection to judge.
+:   **Fix.** Use **Average** with a rejection, save the rejection maps, and lower **Sigma High** a step at a time.
+
+More groups, or other file names, than you expected
+:   **Cause.** The frames' filter, date or exposure differ from what you thought, or two groups had one name.
+:   **Fix.** Compare **Filter**, **Date** and **Exposure** in the list, and turn the grouping keys you do not need off.
+
+## Related
+
+- [Image Calibration](../calibration/image-calibration.md), which takes the bias, dark and flat masters this window
+  makes.
+- [Image Registration](../registration-alignment/image-registration.md), to align lights before the stack and to
+  record the figures that **FWHM**, **SNR** and **Stars** read.
+- [Image Integration](image-integration.md) and [Image Integration Lite](image-integration-lite.md), which calibrate,
+  register and stack in one run, with [drizzle](../../reference/glossary.md#drizzle) and reports.
+- [Image Stacking Reference](image-stacking-reference.md), for every rejection, normalization and weighting rule, the
+  names and files a run writes, the memory, and every message.
+- [Image Statistics](../../interface/image-statistics.md), for the level and noise of a master and of a frame.
+- [Process Windows](../../interface/process-windows.md), for what every process window shares.
 
 ## Credits
 
-- Fruchter, A. S. and Hook, R. N., [*Drizzle: A Method for the Linear
-  Reconstruction of Undersampled Images*](https://arxiv.org/abs/astro-ph/9808087).
-  This is background for the engine capability that is explicitly unavailable
-  in this standalone window.
-- Rosner, B., [*Percentage Points for a Generalized ESD Many-Outlier
-  Procedure*](https://doi.org/10.1080/00401706.1983.10487848), Technometrics 25
-  (1983), 165–172.
-- Upstream reference: [Siril stacking
-  documentation](https://siril.readthedocs.io/en/stable/preprocessing/stacking.html)
-  for the normalization and rejection concepts the engine follows.
-- The auto-adaptive weighted mean is adapted from
-  [DeepSkyStacker](https://github.com/deepskystacker/DSS)'s routine, by David C.
-  Partridge with Michael A. Covington and Simon C. Smith, under the BSD 3-Clause
-  License of Luc Coiffier and the DeepSkyStacker contributors, whose notice
-  **About > About AfterNight** reproduces.
+- The auto-adaptive weighted average is adapted from `AutoAdaptiveWeightedAverage` of
+  [DeepSkyStacker](https://github.com/deepskystacker/DSS), by David C. Partridge with Michael A. Covington and Simon
+  C. Smith, after the 1989 lectures of Peter B. Stetson on stellar photometry with CCDs. It is distributed under the
+  BSD 3-Clause License of Luc Coiffier and the DeepSkyStacker contributors, whose notice **About > About AfterNight**
+  reproduces.
+- The rejection methods follow the rules of the [Siril stacking
+  documentation](https://siril.readthedocs.io/en/stable/preprocessing/stacking.html).
+- B. Rosner, [Percentage Points for a Generalized ESD Many-Outlier
+  Procedure](https://doi.org/10.1080/00401706.1983.10487848), Technometrics 25 (1983), 165-172, the test **GESDT**
+  runs.
+- The critical values of **GESDT** come from the Student-t distribution of the
+  [GNU Scientific Library](https://www.gnu.org/software/gsl/), under the GPL-3.0-or-later.
+- The deviation of **MAD Clipping** is found with a histogram search after a method of Ingo Weyrich, re-derived
+  without its text.

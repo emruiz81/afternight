@@ -51,7 +51,13 @@ A window is captured as it opens unless -Set says what to do in it first:
                              `<control>?<path>` presses a button that opens the system's file or folder dialog,
                              answers the dialog with the path and waits for what is then loaded. `<control>!`
                              presses a button that starts a run and waits, up to -RunTimeoutSeconds, until the
-                             button is enabled again.
+                             button is enabled again. `<control>^<reply>` presses a button and answers the message
+                             it then shows - the first new window that holds a button of that name - with that
+                             button. `%wait=<title>` waits, up to -RunTimeoutSeconds, for a message whose title
+                             starts with <title> and answers it with OK; one titled Failed stops the capture.
+                             `%shot=<name>` saves a picture of the main window as <name>.png while the window is
+                             still open: what a window draws over the image - Star Profiler v2's stars - is there
+                             only then.
   -List                      prints the controls of each window it captures - type, object name and name - which is
                              what -Set can name.
   -Prepare "<menu path>|<control>=<value>[;...]"
@@ -757,36 +763,69 @@ public sealed class AnScreenshots
     /// by the name it shows. Null when the window has none.
     public AutomationElement Control(IntPtr window, string name)
     {
+        // A window with tabs holds a control of one name on each - Image Integration's Add Folder on every source
+        // tab - so the one shown wins; of the controls named by what they show, a tab wins.
         AutomationElement root = AutomationElement.FromHandle(window);
-        AutomationElement shown = null;
+        AutomationElement hiddenObject = null, tab = null, shown = null, hiddenShown = null;
         foreach (AutomationElement element in root.FindAll(TreeScope.Descendants, Condition.TrueCondition))
         {
             try
             {
-                if (ObjectName(element) == name) return element;
-                if (shown == null && element.Current.Name == name && element.Current.ControlType != ControlType.Text) shown = element;
+                bool offscreen = element.Current.IsOffscreen;
+                if (ObjectName(element) == name)
+                {
+                    if (!offscreen) return element;
+                    if (hiddenObject == null) hiddenObject = element;
+                    continue;
+                }
+                if (element.Current.Name != name || element.Current.ControlType == ControlType.Text) continue;
+                if (element.Current.ControlType == ControlType.TabItem && !offscreen) { if (tab == null) tab = element; }
+                else if (!offscreen) { if (shown == null) shown = element; }
+                else if (hiddenShown == null) hiddenShown = element;
             }
             catch (ElementNotAvailableException) { }
         }
-        return shown;
+        return hiddenObject ?? tab ?? shown ?? hiddenShown;
     }
 
     /// Presses a control on a thread of its own, as Choose does a menu item: a button may open a modal dialog.
     public Task Press(IntPtr window, string name)
     {
+        // A control a tab just shown builds - Image Integration's Workflow sub-tabs - is given time to appear.
         AutomationElement control = Control(window, name);
+        Stopwatch appearing = Stopwatch.StartNew();
+        while (control == null && appearing.ElapsedMilliseconds < 10000)
+        {
+            CheckAlive();
+            Thread.Sleep(500);
+            control = Control(window, name);
+        }
         if (control == null) throw new InvalidOperationException("the window has no control '" + name + "'");
         if (!IsEnabled(control)) throw new InvalidOperationException("'" + name + "' is disabled");
-        return Task.Run(delegate
+        bool isTab = control.Current.ControlType == ControlType.TabItem;
+        Task pressing = Task.Run(delegate
         {
             object pattern;
             try
             {
                 if (control.TryGetCurrentPattern(InvokePattern.Pattern, out pattern)) ((InvokePattern)pattern).Invoke();
                 else if (control.TryGetCurrentPattern(TogglePattern.Pattern, out pattern)) ((TogglePattern)pattern).Toggle();
+                else if (control.TryGetCurrentPattern(SelectionItemPattern.Pattern, out pattern)) ((SelectionItemPattern)pattern).Select();
+                // A tab is pressed when its page is shown: the window may still be busy with what came before -
+                // Image Integration fills its frame list after an import - and the next control looked up would be
+                // the one of the page that was shown.
+                if (isTab && control.TryGetCurrentPattern(SelectionItemPattern.Pattern, out pattern))
+                {
+                    Stopwatch selecting = Stopwatch.StartNew();
+                    while (!((SelectionItemPattern)pattern).Current.IsSelected && selecting.ElapsedMilliseconds < 15000)
+                        Thread.Sleep(100);
+                }
             }
             catch (Exception) { }
         });
+        // A tab opens no dialog, so its press is waited for; a button's may open a modal one and is not.
+        if (isTab) pressing.Wait(20000);
+        return pressing;
     }
 
     /// Puts every scroll bar of the main window at the middle of its range, so a view zoomed past its window shows
@@ -1125,7 +1164,13 @@ function Read-Changes([string[]]$given, [string]$option) {
     foreach ($one in @($given | ForEach-Object { $_ -split ';' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
         $at = $one.IndexOf('=')
         if ($at -eq 0) { throw "$option takes ""<control>=<value>"", ""<control>@<x>,<y>"", ""<control>?<path>"", ""<control>!"" or ""<control>"", not ""$one""" }
-        if ($one -match '^([^=?@!^]+)\^(.+)$') {
+        if ($one -match '^%wait=(.+)$') {
+            $read.Add(@{ control = '%wait'; value = $null; awaited = $Matches[1].Trim() })
+        }
+        elseif ($one -match '^%shot=(.+)$') {
+            $read.Add(@{ control = '%shot'; value = $null; shot = $Matches[1].Trim() })
+        }
+        elseif ($one -match '^([^=?@!^]+)\^(.+)$') {
             $read.Add(@{ control = $Matches[1].Trim(); value = $null; reply = $Matches[2].Trim() })
         }
         elseif ($one -match '^([^=?@!]+)\?(.+)$') {
@@ -1378,17 +1423,60 @@ try {
             $shots.SettledPicture($window.Handle, $SettleSeconds * 1000, [ref]$rested).Dispose()
             $focused = $shots.Focused()
             foreach ($change in $shot.changes) {
-                if ($change.ContainsKey('reply')) {
+                if ($change.ContainsKey('shot')) {
+                    # The main window as it is now, the window still open over it.
+                    $moved = $false
+                    $pointer = $shots.MovePointerOut($mainHandle, [ref]$moved)
+                    try {
+                        $rested = $false
+                        $picture = $shots.SettledPicture($mainHandle, $SettleSeconds * 1000, [ref]$rested)
+                    }
+                    finally {
+                        if ($moved) { $shots.PutPointerBack($pointer) }
+                    }
+                    $file = Join-Path $Output ($change.shot + '.png')
+                    $picture.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
+                    $shots.Note("saved $file, $($picture.Width) x $($picture.Height)")
+                    $picture.Dispose()
+                }
+                elseif ($change.ContainsKey('awaited')) {
+                    # A run that ends with a message - Image Integration's "Complete" - is waited for, up to
+                    # -RunTimeoutSeconds, and the message answered with OK; a message of failure stops the capture.
+                    $known = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
+                    foreach ($shown in $shots.Windows()) { [void]$known.Add($shown.Handle) }
+                    $ended = $null
+                    $asked = [System.Diagnostics.Stopwatch]::StartNew()
+                    while (-not $ended -and $asked.ElapsedMilliseconds -lt ($RunTimeoutSeconds * 1000)) {
+                        $shots.CheckAlive()
+                        foreach ($shown in $shots.Windows()) {
+                            if (-not $shown.Title -or $shown.Handle -eq $window.Handle) { continue }
+                            if ($shown.Title.StartsWith($change.awaited) -or $shown.Title.StartsWith('Failed') -or $shown.Title.StartsWith('Completed with Errors')) { $ended = $shown; break }
+                        }
+                        if (-not $ended) { Start-Sleep -Milliseconds 1000 }
+                    }
+                    if (-not $ended) { throw "no '$($change.awaited)' came within -RunTimeoutSeconds" }
+                    Start-Sleep -Milliseconds 800
+                    $shots.Note("'$($ended.Title)' shown after $([int]$asked.Elapsed.TotalSeconds) s")
+                    if (-not $ended.Title.StartsWith($change.awaited)) { throw "the run ended with '$($ended.Title)'" }
+                    if ($shots.Control($ended.Handle, 'OK')) { [void]$shots.Press($ended.Handle, 'OK') } else { $shots.PostKey($ended.Handle, 0x0D) }
+                    Start-Sleep -Milliseconds 1000
+                }
+                elseif ($change.ContainsKey('reply')) {
                     # The button opens a message box that asks; it is answered with the button of that name.
                     $known = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
                     foreach ($shown in $shots.Windows()) { [void]$known.Add($shown.Handle) }
                     [void]$shots.Press($window.Handle, $change.control)
+                    # A window that only says it is preparing - Image Integration's execution plan - comes first: the
+                    # box is the first new window that holds a button of that name.
                     $box = $null
                     $asked = [System.Diagnostics.Stopwatch]::StartNew()
-                    while (-not $box -and $asked.ElapsedMilliseconds -lt 20000) {
+                    while (-not $box -and $asked.ElapsedMilliseconds -lt ($OpenTimeoutSeconds * 1000)) {
                         $shots.CheckAlive()
-                        $box = $shots.NewWindow($known)
-                        if (-not $box) { Start-Sleep -Milliseconds 200 }
+                        foreach ($shown in $shots.Windows()) {
+                            if ($known.Contains($shown.Handle) -or -not $shown.Title -or -not [AnScreenshots]::IsWorkWindowClass($shown.ClassName)) { continue }
+                            try { if ($shots.Control($shown.Handle, $change.reply)) { $box = $shown; break } } catch { }
+                        }
+                        if (-not $box) { Start-Sleep -Milliseconds 300 }
                     }
                     if (-not $box) { throw "$($change.control) opened no message to answer" }
                     Start-Sleep -Milliseconds 500
