@@ -668,6 +668,20 @@ IntegrationDataModel* ImageIntegrationProcess::model() const noexcept
     return m_model.get();
 }
 
+void ImageIntegrationProcess::refreshAfterRun()
+{
+    // The tabs read the output directory's registration records only when something moves them; a run writes them
+    // without moving anything.
+    if (m_registrationTab)
+    {
+        m_registrationTab->refreshAll();
+    }
+    if (m_stackingTab)
+    {
+        m_stackingTab->refreshAll();
+    }
+}
+
 void ImageIntegrationProcess::setProjectName(const QString& name)
 {
     if (m_projectManager)
@@ -1983,7 +1997,12 @@ void ImageIntegrationProcess::setupUIConnections()
             const QPointer<ImageIntegrationProcess> self(this);
             const bool launched =
                 executionController.runAsyncValidated(archivedManifest, [self](const WorkflowExecutor::Result&) {
-                    if (self && self->m_summaryTab)
+                    if (!self)
+                    {
+                        return;
+                    }
+                    self->refreshAfterRun();
+                    if (self->m_summaryTab)
                     {
                         self->m_summaryTab->refreshAll();
                     }
@@ -3452,7 +3471,12 @@ void ImageIntegrationProcess::onExecute()
                     (void)executionController.runAsyncPrevalidated(
                         manifest,
                         [self, manifest, openIntegratedFiles](const WorkflowExecutor::Result& result) {
-                            if (!self || !result.success)
+                            if (!self)
+                            {
+                                return;
+                            }
+                            self->refreshAfterRun();
+                            if (!result.success)
                             {
                                 return;
                             }
@@ -3604,11 +3628,7 @@ void ImageIntegrationProcess::onRunIntegrationForGroup(const QString& integratio
                                     openPlan.skipIntegrationGroupKeys, openPlan.extraOutputFiles);
                             }
 
-                            // After single group run, refresh registration metrics if registration happened.
-                            if (self->m_registrationTab)
-                            {
-                                self->m_registrationTab->refreshAll();
-                            }
+                            self->refreshAfterRun();
                         },
                         preparation_timing, std::move(preparation_snapshot));
                 });
@@ -3705,10 +3725,7 @@ void ImageIntegrationProcess::finishRegistrationOnlyRun(const bool success)
         m_summaryTab->setLastSuccessfulRun(QDateTime::currentDateTimeUtc(), lightCount, m_model->outputDirectory());
     }
 
-    if (m_registrationTab)
-    {
-        m_registrationTab->refreshAll();
-    }
+    refreshAfterRun();
 }
 
 void ImageIntegrationProcess::onRunRegistrationForGroup(const QString& registrationGroupKey)

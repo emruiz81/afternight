@@ -162,6 +162,39 @@ TEST_F(ImageIntegrationProcessTest, RegistrationOnlyUpdatesAutoReferenceWithoutF
               allGroups.indexOf(QStringLiteral("finishRegistrationOnlyRun")));
 }
 
+// Every run - the whole workflow, one integration group, a re-run from a run's archive and a registration alone - ends
+// by reading again the records it wrote: the Stacking tab's Frame Quality panel otherwise went on saying that the
+// figures were not available until the window was opened again.
+TEST_F(ImageIntegrationProcessTest, EveryRunEndsByReadingAgainWhatItWrote)
+{
+    const QString source = readRepoSourceFile(
+        QStringLiteral("src/AfterNightProcesses/processes/ImageIntegration/ImageIntegrationProcess.cpp"));
+    ASSERT_FALSE(source.isEmpty());
+    const QString refresh = QStringLiteral("refreshAfterRun()");
+
+    const QString whole = functionSource(source, QStringLiteral("void ImageIntegrationProcess::onExecute()"),
+                                         QStringLiteral("void ImageIntegrationProcess::onRunIntegrationForGroup"));
+    ASSERT_FALSE(whole.isEmpty());
+    EXPECT_TRUE(whole.contains(refresh)) << "the whole workflow's run";
+
+    const QString group =
+        functionSource(source, QStringLiteral("void ImageIntegrationProcess::onRunIntegrationForGroup"),
+                       QStringLiteral("applyAutoReferenceFromMetricsDb(IntegrationDataModel& model"));
+    ASSERT_FALSE(group.isEmpty());
+    EXPECT_TRUE(group.contains(refresh)) << "one integration group's run";
+
+    const QString rerun =
+        functionSource(source, QStringLiteral("runAsyncValidated(archivedManifest"), QStringLiteral("if (!launched"));
+    ASSERT_FALSE(rerun.isEmpty());
+    EXPECT_TRUE(rerun.contains(refresh)) << "a re-run from a run's archive";
+
+    const QString registration =
+        functionSource(source, QStringLiteral("void ImageIntegrationProcess::finishRegistrationOnlyRun"),
+                       QStringLiteral("void ImageIntegrationProcess::onRunRegistrationForGroup"));
+    ASSERT_FALSE(registration.isEmpty());
+    EXPECT_TRUE(registration.contains(refresh)) << "a registration alone";
+}
+
 TEST_F(ImageIntegrationProcessTest, TabWidgetCanNavigateProgrammatically)
 {
     QTabWidget tabs;

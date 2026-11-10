@@ -105,6 +105,11 @@ public:
     [[nodiscard]] QString currentProjectPath() const;
     [[nodiscard]] QStringList recentProjects() const;
 
+    /// Reads again what a run wrote into the output directory: the Registration tab's figures and the Stacking tab's
+    /// groups and Frame Quality panel. Every run calls it when it ends, whatever its outcome, since a run that fails
+    /// partway may already have written registration records.
+    void refreshAfterRun();
+
 private:
     static constexpr int kFrameTabCount = 4;
     static constexpr int kLogicalTabCount = 8;

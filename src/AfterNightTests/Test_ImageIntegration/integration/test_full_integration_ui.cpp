@@ -4,8 +4,8 @@
 /// @file
 /// The integration window as a whole, under the application context the suite lends it: its nested tabs and action
 /// bar, a plan preparation dismissed before it finishes, the warning a regroup shows and hides, the report exported
-/// from a run's archive - built on the thread pool in the context's engine session - and the badge that summarizes the
-/// workflow's issues.
+/// from a run's archive - built on the thread pool in the context's engine session - the Frame Quality panel reading
+/// the records a run wrote, and the badge that summarizes the workflow's issues.
 
 #include <gtest/gtest.h>
 #include <QtTest/QSignalSpy>
@@ -20,6 +20,7 @@
 #include <QPushButton>
 #include <QProgressDialog>
 #include <QTabWidget>
+#include <QTableWidget>
 #include <QCheckBox>
 #include <QLabel>
 #include <QLineEdit>
@@ -41,8 +42,11 @@
 #include "processes/ImageIntegration/ImageIntegrationProcess.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/model/FrameId.h"
+#include "processes/ImageIntegration/model/RegistrationGroupEngine.h"
+#include "processes/ImageIntegration/tabs/StackingTab.h"
 #include "processes/ImageIntegration/tabs/SummaryTab.h"
 #include "processes/ImageIntegration/widgets/FrameTreeView.h"
+#include "processes/core/RegistrationMetricsWriter.h"
 #include "processes/ImageIntegration/workflow/WorkflowManifest.h"
 #include "processes/ImageIntegration/workflow/stages/RegistrationMetricsSchema.h"
 
@@ -573,6 +577,82 @@ TEST_F(FullIntegrationUiTest, ARerunOfAManifestOfAnotherFormatIsRefused)
         QCoreApplication::processEvents();
     }
     EXPECT_FALSE(QFileInfo::exists(QDir(output_dir).filePath(QStringLiteral("registration_metrics.db"))));
+}
+
+// A run writes its lights' registration records, and the Stacking tab's Frame Quality panel read them only when
+// something else moved it - a group chosen, a setting changed - so after a run it went on saying that the figures were
+// not available until the window was opened again. What every run ends with reads them again.
+TEST_F(FullIntegrationUiTest, TheStackingTabsFrameQualityReadsTheRecordsARunWrote)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    IntegrationDataModel* model = process->model();
+    ASSERT_NE(model, nullptr);
+    model->setOutputDirectory(temp_dir.path());
+    const QStringList paths{QStringLiteral("C:/images/L_001.fit"), QStringLiteral("C:/images/L_002.fit")};
+    model->addFrames(FrameType::Light,
+                     {createTestFrame(paths[0], FrameType::Light), createTestFrame(paths[1], FrameType::Light)});
+    const auto settle = []() {
+        QElapsedTimer elapsed;
+        elapsed.start();
+        while (elapsed.elapsed() < 500)
+        {
+            QApplication::processEvents();
+        }
+    };
+    settle();
+    ASSERT_FALSE(model->registrationGroups().empty());
+    auto* stacking = process->findChild<StackingTab*>();
+    ASSERT_NE(stacking, nullptr);
+    auto* quality = stacking->findChild<QTableWidget*>(QStringLiteral("qualityTable"));
+    ASSERT_NE(quality, nullptr);
+    const auto showsStars = [quality](const QString& stars) {
+        for (int row = 0; row < quality->rowCount(); ++row)
+        {
+            for (int column = 0; column < quality->columnCount(); ++column)
+            {
+                const QTableWidgetItem* item = quality->item(row, column);
+                if (item != nullptr && item->text() == stars)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+    ASSERT_FALSE(showsStars(QStringLiteral("321")));
+
+    // The records a run writes, after the panel last read them.
+    const QString groupKey =
+        RegistrationGroupEngine::toMachineGroupKey(model->registrationGroups().begin()->first).toString();
+    {
+        an::ui::RegistrationMetricsWriter writer(
+            QDir(temp_dir.path()).filePath(QStringLiteral("registration_metrics.db")),
+            QStringLiteral("FrameQualityAfterRunSeedWriter"));
+        QString error;
+        ASSERT_TRUE(writer.initialize(&error)) << error.toStdString();
+        int stars = 321;
+        for (const QString& path : paths)
+        {
+            an::ui::RegistrationMetricRecord metric;
+            metric.frameId = FrameId(path);
+            metric.groupKey = groupKey;
+            metric.settingsVersion = 0;
+            metric.metrics.stars = stars++;
+            metric.metrics.fwhm = 2.5;
+            metric.metrics.snr = 40.0;
+            metric.metrics.eccentricity = 0.3;
+            metric.metrics.succeeded = true;
+            ASSERT_TRUE(writer.upsertMetric(metric, &error)) << error.toStdString();
+        }
+    }
+    settle();
+    EXPECT_FALSE(showsStars(QStringLiteral("321"))) << "nothing but a run's end reads the records again here";
+
+    process->refreshAfterRun();
+    settle();
+    EXPECT_TRUE(showsStars(QStringLiteral("321")));
+    EXPECT_TRUE(showsStars(QStringLiteral("322")));
 }
 
 TEST_F(FullIntegrationUiTest, WorkflowParentBadgeShowsSummary)
