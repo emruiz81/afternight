@@ -264,7 +264,6 @@ measure time or memory.
 
 ## Worked example
 
-- Evidence mode: Source-and-equation-derived.
 - Input condition/provenance and settings: finite normalized color still,
   Lightness on, `L=0.20`, `U=0.60`, Fuzziness `0.20`, Smoothness `0`,
   Screening off, Invert off.
@@ -306,17 +305,17 @@ measure time or memory.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Range Selection is absent under Sensor Calibration | The current menu route is Mask Generation; registry category metadata uses the sensor-calibration key | Use **Process > Mask Generation > Range Selection** | `AfterNightAppUiBuilder` menu composition and registry built-in |
-| Link Range Limits is disabled | Limits are exactly the full `[0,1]` interval | Move either limit inward, then check Link | `checkLinkRangeLimits()` |
-| The target's enabled mask has no effect on the result | Range Selection makes a mask of its own and applies no mask of the target | Expected; combine the result with another mask afterward, for example in Pixel Math, if you need both | `RangeSelectionProcess` constructor and `MasksProcessCase` |
-| **Error executing the process** naming the memory budget | The engine could not allocate the run's working images | Close other images or lower the image size, then retry | `MasksEngineRefusalTest` |
-| Preview area shows grayscale around the area | With Lightness on a color target, the area shows the grayscale mask and the image around it is shown as its luminance | Expected; uncheck Preview area to see the whole mask | `buildProcessCompositeBase()` |
-| Fuzziness does not soften an equal-limit range | With Lower=Upper the ramp width is zero, so the hard selection applies | Widen the interval before increasing Fuzziness | `rangeSelectImage()` ramp calculation |
-| Mask lacks the target's FITS header cards | With Lightness on a color target, the mask is a new image that carries only the processing-state cards | Treat the mask as a generated auxiliary image; its acquisition record and plate solution are kept | `extractLightness()` and `derivedImageMetadata()` |
-| Screening result is dim instead of white | Screening writes `xw`, not `w` | Turn Screening off for a conventional white plateau | `RangeSelectionRequest::screening` |
-| A single pixel is white in an inverted mask | That source sample held no number, so it was not selected and Invert complemented its zero | Sanitize the source first if the pixel matters | `executeTypedProcessImpl()` and `skippingNonFinite()` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Range Selection is absent under Sensor Calibration | The current menu route is Mask Generation; registry category metadata uses the sensor-calibration key | Use **Process > Mask Generation > Range Selection** |
+| Link Range Limits is disabled | Limits are exactly the full `[0,1]` interval | Move either limit inward, then check Link |
+| The target's enabled mask has no effect on the result | Range Selection makes a mask of its own and applies no mask of the target | Expected; combine the result with another mask afterward, for example in Pixel Math, if you need both |
+| **Error executing the process** naming the memory budget | The engine could not allocate the run's working images | Close other images or lower the image size, then retry |
+| Preview area shows grayscale around the area | With Lightness on a color target, the area shows the grayscale mask and the image around it is shown as its luminance | Expected; uncheck Preview area to see the whole mask |
+| Fuzziness does not soften an equal-limit range | With Lower=Upper the ramp width is zero, so the hard selection applies | Widen the interval before increasing Fuzziness |
+| Mask lacks the target's FITS header cards | With Lightness on a color target, the mask is a new image that carries only the processing-state cards | Treat the mask as a generated auxiliary image; its acquisition record and plate solution are kept |
+| Screening result is dim instead of white | Screening writes `xw`, not `w` | Turn Screening off for a conventional white plateau |
+| A single pixel is white in an inverted mask | That source sample held no number, so it was not selected and Invert complemented its zero | Sanitize the source first if the pixel matters |
 
 ## Related workflow steps
 
@@ -327,11 +326,3 @@ inspect the generated image. Use [Pixel Math](../pixel-math/pixel-math.md) when
 you need an explicit custom selection equation. Apply morphology or blur only
 after verifying that Fuzziness and Smoothness do not already provide the needed
 transition.
-
-## References and provenance
-
-This page documents AfterNight's current range-selection engine operation,
-process framework, and focused tests. Its equations
-are implementation contracts; no external thresholding standard is claimed. The
-captured behavior records, which `MasksRecordTest` reproduces through the
-window, are its numerical regression check.

@@ -214,8 +214,6 @@ Apply, to get further independent draws when evaluating statistical behavior.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-test-derived; not executed on approved
-  astronomical data.
 - **Input condition and settings:** Constant finite mono image at `0.5`, Gaussian,
   Mean `0`, Var `0.002`, no mask.
 - **Expected checkpoint:** A generated result differs from the constant source,
@@ -247,16 +245,16 @@ Apply, to get further independent draws when evaluating statistical behavior.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Apply does not match a Preview area | The area is drawn on its own | Compare a full-frame preview with Apply | Coordinate-keyed draws |
-| A second Apply adds different noise | The dialog draws a new seed after each completed Apply | Expected; a completed Apply's seed cannot be reused, so duplicate the noisy result when identical noise is needed elsewhere | `executeProcessCompletedImpl()` |
-| Mean/Var appears enabled but has no effect | Stale control enablement after switching to an impulse mode; the generator ignores the values | Use only the mode-consumed controls in this page; Reset before changing modes if clarity is needed | `updateEnabledActions()` and process parameter routing |
-| LocalVar looks like uniform-strength Gaussian noise | LocalVar is Gaussian noise of constant variance `0.01` | Use Gaussian for a tunable uniform variance; use another tool for a spatial variance map | Process parameter routing |
-| RGB salt/pepper contains colored pixels | Replacement decisions are drawn for every channel sample independently | Select a luminance/component channel if impulses should share one reconstructed plane | Per-sample draws; Channel dispatcher |
-| Highlights/shadows flatten | Generated values are clipped to full scale before type conversion/mask blend | Reduce Mean/Var/Amount and work on a duplicate | Full-scale clip |
-| Result is unchanged | Gaussian/Speckle Var `0` with Mean `0`, impulse Amount `0`, or mask protection | Check mode-consumed values and mask/inversion | Distribution equations; shared mask blend |
-| An error is reported | Invalid data or insufficient memory | Verify target data; retry on a duplicate | Process error path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Apply does not match a Preview area | The area is drawn on its own | Compare a full-frame preview with Apply |
+| A second Apply adds different noise | The dialog draws a new seed after each completed Apply | Expected; a completed Apply's seed cannot be reused, so duplicate the noisy result when identical noise is needed elsewhere |
+| Mean/Var appears enabled but has no effect | Stale control enablement after switching to an impulse mode; the generator ignores the values | Use only the mode-consumed controls in this page; Reset before changing modes if clarity is needed |
+| LocalVar looks like uniform-strength Gaussian noise | LocalVar is Gaussian noise of constant variance `0.01` | Use Gaussian for a tunable uniform variance; use another tool for a spatial variance map |
+| RGB salt/pepper contains colored pixels | Replacement decisions are drawn for every channel sample independently | Select a luminance/component channel if impulses should share one reconstructed plane |
+| Highlights/shadows flatten | Generated values are clipped to full scale before type conversion/mask blend | Reduce Mean/Var/Amount and work on a duplicate |
+| Result is unchanged | Gaussian/Speckle Var `0` with Mean `0`, impulse Amount `0`, or mask protection | Check mode-consumed values and mask/inversion |
+| An error is reported | Invalid data or insufficient memory | Verify target data; retry on a duplicate |
 
 ## Related workflow steps
 
@@ -269,7 +267,6 @@ to compare or revert destructive Apply. Save test fixtures through
 [Saving and Exporting](../../interface/saving-and-exporting.md), noting that this
 process does not preserve its seed for later recreation.
 
-## References and provenance
+## Credits
 
 - [scikit-image 0.26.0 `random_noise`](https://scikit-image.org/docs/stable/api/skimage.util.html#skimage.util.random_noise) — the noise modes and parameters whose distributions the engine's generator follows; this process does not use scikit-image or Python.
-- AfterNight source and focused tests — authoritative for menu/controls, exact parameter routing, fixed LocalVar behavior, the held seed, type/channel/mask/metadata/history behavior, and sequences.

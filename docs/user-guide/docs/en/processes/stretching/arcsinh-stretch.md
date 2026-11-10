@@ -342,7 +342,7 @@ the black-point control is not disabled by a zero stretch factor.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Corrective action |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | **Apply** is disabled | Both **Stretch Factor** and **Black Point** are `0`, so the transform is the identity. | Increase either numeric control. |
 | Faint background structure disappears | **Black Point** is above that signal. | Reduce it toward `0`; use a mask if only part of the image needs suppression. |
@@ -371,15 +371,9 @@ the black-point control is not disabled by a zero stretch factor.
 - Perform [Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md)
   before the main nonlinear stretch.
 
-## References and provenance
+## Credits
 
-- AfterNight source and focused tests are the source
-  of truth for the current UI, formulas, precision, masks, metadata, history,
-  and sequence lifecycle.
-- [W3C WCAG 2.2: relative luminance](https://www.w3.org/TR/WCAG22/#dfn-relative-luminance)
-  records the standard `0.2126`, `0.7152`, and `0.0722` linear-light RGB
-  coefficients used by the checked luminance mode. AfterNight's direct use on
-  stored samples and all process-specific behavior come from project source.
-- The numerical example was independently evaluated from the source equation on
-  2026-07-13. It is analytical evidence only; output-quality, masked-image, and
-  production-timing review await approved data.
+- [W3C WCAG 2.2: relative
+  luminance](https://www.w3.org/TR/WCAG22/#dfn-relative-luminance) records the
+  standard `0.2126`, `0.7152`, and `0.0722` linear-light RGB coefficients used
+  by the checked luminance mode.

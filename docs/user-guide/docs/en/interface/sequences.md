@@ -242,7 +242,6 @@ overwrites the original opened sequence or original New Sequence source files.
 
 ## Worked example
 
-- Evidence mode: Executed with approved project-owned data.
 - Starting state, actions, settings, checkpoints, result, and limitations:
   three same-size copies of the project-owned 512x512 RGB documentation logo at
   `docs/user-guide/docs/en/assets/images/interface/logo.png` (each SHA-256
@@ -290,20 +289,20 @@ overwrites the original opened sequence or original New Sequence source files.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| `Ctrl+N` does nothing | Dashboard text advertises it, but `actionNew_Sequence` has no shortcut. | Use **File > New Sequence...** or dashboard **New sequence**. | UI builder; dashboard onboarding source; current GUI. |
-| Apply stays disabled | The list has fewer than two rows. | Add at least two unique supported still-image paths. | `NewSequenceControl::tableUpdated()`. |
-| **Some images in the list have different size** | Width or height differs from the first frame. | Resize/crop the sources to identical geometry before creating the sequence. | New Sequence validation; `ImageListProcessHelpers.h`. |
-| **Some images in the list have different color depth** | Pixel type or channel count differs. | Convert frames to one sample type and mono/RGB channel layout first. | New Sequence validation; `ImageListProcessHelpers.h`. |
-| **Could NOT load image ...** | Metadata or image decoding failed; the add loop stops on the first failure. | Remove/convert the unreadable file, then add the remaining files again. | `NewSequenceControl::addItemsJob()`. |
-| An `.anseq` opens but a frame fails later | The XML references a missing/unreadable still image. | Restore the referenced paths or rebuild the sequence list. | `readImageListManifest`; `createImageListSource`; `openSequenceSource`. |
-| An `.anseq` does not open | The manifest is malformed: a version other than 1, nesting deeper than 4,096 elements, or a frame path that is not UTF-8, holds a NUL or is too long. | Rebuild the list with **File > New Sequence...**. | `readImageListManifest`. |
-| Recognized video will not open | Container suffix passed the filter, but the container or decoder is outside the engine's admitted lists, or FFmpeg could not open/probe/decode the stream. | Verify the file externally; transcode a copy to a simpler supported stream (for example H.264 in MP4) or SER, retaining the original. | `FileManager.h` video suffixes; `createFfmpegSource`; `FfmpegInput.cpp` admission lists. |
-| A SER plays at 1 FPS and the status bar shows `0.00 fps` | A SER has no frame-rate field, and its timestamp trailer names fewer than two distinct instants - none at all for a SER converted from a video, whose frames state no exposure start. | Step frames manually, or convert to Image List and set the rate when making a new sequence. | `SequenceContainers.cpp` (`serTimestampRate`); `SequencePlayerControl.cpp`; `SequencePlayerTest.PlaybackStartsAtTheRateTheSerStates`. |
-| Player is slow or appears to skip display updates | Decode/random seek, frame size, FPS, or view rendering exceeds the display interval; queued requests coalesce. | Pause, step frames, reduce view cost, or convert to SER/Image List for inspection. | `SequencePlayerControl.cpp`; FFmpeg source index and seek. |
-| Conversion progress closes but the type does not change | Conversion failed before the destination could replace the active sequence; a **Convert sequence type** message says why and the log records it. | Check the message and log, free temp space, source frame readability, and destination-format compatibility; retry on a copy. | `NonInteractiveProcesses.cpp` (`convertContainer`, `reportFailure`). |
-| Extract/convert says the sequence is busy | Another process holds the view's processing lock. | Wait for it to finish or cancel that process, then retry. | `ImageViewControl::tryRequestLockForProcessing()`. |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `Ctrl+N` does nothing | Dashboard text advertises it, but `actionNew_Sequence` has no shortcut. | Use **File > New Sequence...** or dashboard **New sequence**. |
+| Apply stays disabled | The list has fewer than two rows. | Add at least two unique supported still-image paths. |
+| **Some images in the list have different size** | Width or height differs from the first frame. | Resize/crop the sources to identical geometry before creating the sequence. |
+| **Some images in the list have different color depth** | Pixel type or channel count differs. | Convert frames to one sample type and mono/RGB channel layout first. |
+| **Could NOT load image ...** | Metadata or image decoding failed; the add loop stops on the first failure. | Remove/convert the unreadable file, then add the remaining files again. |
+| An `.anseq` opens but a frame fails later | The XML references a missing/unreadable still image. | Restore the referenced paths or rebuild the sequence list. |
+| An `.anseq` does not open | The manifest is malformed: a version other than 1, nesting deeper than 4,096 elements, or a frame path that is not UTF-8, holds a NUL or is too long. | Rebuild the list with **File > New Sequence...**. |
+| Recognized video will not open | Container suffix passed the filter, but the container or decoder is outside the engine's admitted lists, or FFmpeg could not open/probe/decode the stream. | Verify the file externally; transcode a copy to a simpler supported stream (for example H.264 in MP4) or SER, retaining the original. |
+| A SER plays at 1 FPS and the status bar shows `0.00 fps` | A SER has no frame-rate field, and its timestamp trailer names fewer than two distinct instants - none at all for a SER converted from a video, whose frames state no exposure start. | Step frames manually, or convert to Image List and set the rate when making a new sequence. |
+| Player is slow or appears to skip display updates | Decode/random seek, frame size, FPS, or view rendering exceeds the display interval; queued requests coalesce. | Pause, step frames, reduce view cost, or convert to SER/Image List for inspection. |
+| Conversion progress closes but the type does not change | Conversion failed before the destination could replace the active sequence; a **Convert sequence type** message says why and the log records it. | Check the message and log, free temp space, source frame readability, and destination-format compatibility; retry on a copy. |
+| Extract/convert says the sequence is busy | Another process holds the view's processing lock. | Wait for it to finish or cancel that process, then retry. |
 
 ## Related workflow steps
 
@@ -320,10 +319,10 @@ overwrites the original opened sequence or original New Sequence source files.
   Use [Saving And Exporting](saving-and-exporting.md) for complete save/export
   semantics and output verification.
 
-## References and provenance
+## Credits
 
-- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html), current
-  upstream libavformat muxer/demuxer documentation, accessed 2026-07-11.
-- [SER format description, version 3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf),
-  primary format description, accessed 2026-07-11.
-- AfterNight source and focused tests.
+- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html),
+  current upstream libavformat muxer/demuxer documentation.
+- [SER format description, version
+  3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf), primary format
+  description.

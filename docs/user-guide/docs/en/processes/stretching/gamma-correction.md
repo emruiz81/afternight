@@ -255,8 +255,6 @@ graph cost. No production timing was measured.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-calculator-derived; not executed on
-  project-owned astronomical data.
 - **Input:** normalized samples `[0, 0.25, 0.5, 0.75, 1]` in RGB or Grayscale.
 - **Gamma `2`:** direct Apply uses square root and gives approximately
   `[0, 0.5, 0.707107, 0.866025, 1]`; midtones brighten.
@@ -294,17 +292,17 @@ graph cost. No production timing was measured.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Gamma above `1` brightens instead of darkens | The gamma program encodes with exponent `1/gamma` | This is current behavior; use below `1` to darken | `buildGammaProgram` with `GammaDirection::Encode`; `GammaCorrectionProcess::executeTypedProcessIteration` |
-| Apply is disabled | Gamma is exactly `1.0`, the identity | Choose a non-identity value | `GammaCorrectionProcess::settingsUpdatedImpl` |
-| RGB saturation/color changes | Same nonlinear power is applied independently to stored R/G/B | Use a smaller change or evaluate a lightness/value mode on a duplicate | `executeTypedProcessUsingChannels`; `applyProcessChannelScope` |
-| Hue changes abruptly near wrap | Hue is handed over as a fraction of a turn and powered linearly even though physical hue wraps | Avoid Hue Gamma; use a dedicated hue tool | `ChannelScope.h` component units; `applyProcessChannelScope` |
-| A floating image has values outside `[0,1]` after a component mode | The powered component is converted back to RGB without clamping a floating result | Use a smaller change or a stored-channel mode | `applyProcessChannelScope`; `ChannelScope.h` recomposition |
-| A later step treats the result as nonlinear | Apply records `ANLIN` `nonlinear` and `ANOP` `gamma-correction` on the result | Expected; run steps that need linear data first, or undo the step in Image History | `process_utils::recordNonlinearResult` |
-| Apply fails with an error naming the memory budget | The session's memory budget cannot hold the run's copy of the target | Close other images, work on a smaller image, or raise the memory limit on the Processing settings page (it takes effect at the next start); the target is unchanged | `ImageRTPreviewControl::finishRun` |
-| A cancelled sequence does not replace the target | The sequence run writes a temporary sequence and publishes it only when every frame succeeded; Cancel stops the run and leaves no output | This is expected; restart Apply when ready | `ImageRTPreviewControl::runOverSequence` |
-| Next operation is identity/RGB after Apply | Successful commit invokes Reset | Expected; re-enter Gamma and Channel | `resetSettingsAsync`; `GammaCorrectionProcess::resetSettings` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Gamma above `1` brightens instead of darkens | The gamma program encodes with exponent `1/gamma` | This is current behavior; use below `1` to darken |
+| Apply is disabled | Gamma is exactly `1.0`, the identity | Choose a non-identity value |
+| RGB saturation/color changes | Same nonlinear power is applied independently to stored R/G/B | Use a smaller change or evaluate a lightness/value mode on a duplicate |
+| Hue changes abruptly near wrap | Hue is handed over as a fraction of a turn and powered linearly even though physical hue wraps | Avoid Hue Gamma; use a dedicated hue tool |
+| A floating image has values outside `[0,1]` after a component mode | The powered component is converted back to RGB without clamping a floating result | Use a smaller change or a stored-channel mode |
+| A later step treats the result as nonlinear | Apply records `ANLIN` `nonlinear` and `ANOP` `gamma-correction` on the result | Expected; run steps that need linear data first, or undo the step in Image History |
+| Apply fails with an error naming the memory budget | The session's memory budget cannot hold the run's copy of the target | Close other images, work on a smaller image, or raise the memory limit on the Processing settings page (it takes effect at the next start); the target is unchanged |
+| A cancelled sequence does not replace the target | The sequence run writes a temporary sequence and publishes it only when every frame succeeded; Cancel stops the run and leaves no output | This is expected; restart Apply when ready |
+| Next operation is identity/RGB after Apply | Successful commit invokes Reset | Expected; re-enter Gamma and Channel |
 
 ## Related workflow steps
 
@@ -321,10 +319,3 @@ its displayed value is not calibrated in standard stops. Continue with
 [Curves Transformation](curves-transformation.md) for deliberate finishing and
 verify [Image History](../../interface/image-history.md),
 [Image Statistics](../../interface/image-statistics.md), and critical metadata.
-
-## References and provenance
-
-- AfterNight project source — authoritative for the
-  inverse-exponent power law, preview/Apply paths, channel conversions,
-  masks, history, metadata/state behavior, and temporary replacement-sequence
-  workflow.

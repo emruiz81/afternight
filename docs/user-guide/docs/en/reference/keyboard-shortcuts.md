@@ -258,8 +258,6 @@ Shortcut use does not make those operations cheaper or synchronous.
 
 ## Worked lookup example
 
-- Evidence mode: Source-and-test-derived; the focused tests were last run on
-  the Windows MSVC test build.
 - Question: Why does `Ctrl+O` add calibration/light frames instead of opening a
   normal image picker?
 - Lookup: The main **File > Open** action owns `Ctrl+O` in the main window.
@@ -302,18 +300,18 @@ Shortcut use does not make those operations cheaper or synchronous.
 
 ## Troubleshooting
 
-| Symptom/question | Verified interpretation or cause | Resolution/next page | Evidence source |
-| --- | --- | --- | --- |
-| A shortcut does nothing | Wrong active window/focus, disabled action, missing image/model state, or desktop interception | Focus the named control and try the equivalent visible action; see [Toolbar & Menus](../interface/toolbar-and-menus.md) | Action scope/state and direct-handler sources |
-| `Ctrl+O` adds frames | Image Integration owns that key while its window is active | Activate the main window for normal Open; see [Image Integration](../processes/stacking-integration/image-integration.md) | Main UI builder and Image Integration menu source/tests |
-| Dashboard `Ctrl+N` does nothing | The onboarding hint is stale; New Sequence has no shortcut | Use the New Sequence card or **File > New Sequence...** | Dashboard onboarding and main UI-builder sources |
-| `Ctrl+F` searches the wrong surface | Dashboard, Session Console, and Image Integration each define a local search command | Activate the intended window/tab first | Dashboard, Log Viewer, and Frame Source Tab sources |
-| `Delete` excludes quality rows instead of removing source frames, or does nothing in the quality table | Registration's focused quality table owns the local exclusion command; when the last used source tab still holds a selection, Remove Selected is also enabled and Qt treats `Delete` as ambiguous, so neither fires | Focus the intended frame-source tree, clear the hidden source selection, or use the named button/menu action | Registration Tab and Image Integration action-state sources |
-| `Escape` does not close a process | A focused frame tree consumes it to clear selection, or another child consumes it | Check selection/focus, then use the process close control | Frame Tree and top-level process handlers |
-| `Ctrl+1`–`Ctrl+5` switches tabs instead of overlays | Image Integration is the active window | Focus a solved standard image canvas to control astrometry layers | Image Integration actions and image-view handler |
-| Mask Drawing redo is not `Ctrl+Y` on Linux | It uses Qt's platform-standard primary Redo sequence | Use `Ctrl+Shift+Z` on KDE/GNOME or the Redo control | Qt `QKeySequence` and Mask Drawing source |
-| Image Integration `Ctrl+Z`/`Ctrl+Y` does nothing | The help rows and removal-confirmation `Ctrl+Z` promise are stale; no shortcut is assigned | Use **Edit > Undo/Redo** | Image Integration menu/help/confirmation sources and QAction's no-default-shortcut contract |
-| `Space` behaves unexpectedly | It activates a focused button or Summary issue card, peeks in RT Preview, or plays/pauses Blink according to context | Confirm focus and use the visible action if needed | Direct key-handler sources |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| A shortcut does nothing | Wrong active window/focus, disabled action, missing image/model state, or desktop interception | Focus the named control and try the equivalent visible action; see [Toolbar & Menus](../interface/toolbar-and-menus.md) |
+| `Ctrl+O` adds frames | Image Integration owns that key while its window is active | Activate the main window for normal Open; see [Image Integration](../processes/stacking-integration/image-integration.md) |
+| Dashboard `Ctrl+N` does nothing | The onboarding hint is stale; New Sequence has no shortcut | Use the New Sequence card or **File > New Sequence...** |
+| `Ctrl+F` searches the wrong surface | Dashboard, Session Console, and Image Integration each define a local search command | Activate the intended window/tab first |
+| `Delete` excludes quality rows instead of removing source frames, or does nothing in the quality table | Registration's focused quality table owns the local exclusion command; when the last used source tab still holds a selection, Remove Selected is also enabled and Qt treats `Delete` as ambiguous, so neither fires | Focus the intended frame-source tree, clear the hidden source selection, or use the named button/menu action |
+| `Escape` does not close a process | A focused frame tree consumes it to clear selection, or another child consumes it | Check selection/focus, then use the process close control |
+| `Ctrl+1`–`Ctrl+5` switches tabs instead of overlays | Image Integration is the active window | Focus a solved standard image canvas to control astrometry layers |
+| Mask Drawing redo is not `Ctrl+Y` on Linux | It uses Qt's platform-standard primary Redo sequence | Use `Ctrl+Shift+Z` on KDE/GNOME or the Redo control |
+| Image Integration `Ctrl+Z`/`Ctrl+Y` does nothing | The help rows and removal-confirmation `Ctrl+Z` promise are stale; no shortcut is assigned | Use **Edit > Undo/Redo** |
+| `Space` behaves unexpectedly | It activates a focused button or Summary issue card, peeks in RT Preview, or plays/pauses Blink according to context | Confirm focus and use the visible action if needed |
 
 ## Related pages
 
@@ -333,17 +331,12 @@ Shortcut use does not make those operations cheaper or synchronous.
 - [Troubleshooting And Diagnostics](troubleshooting.md) routes shortcut and
   focus symptoms back to this authoritative inventory and its scope rules.
 
-## References and provenance
+## Credits
 
-- AfterNight source and focused tests, re-read 2026-10-18.
 - [Qt 6 QKeySequence](https://doc.qt.io/qt-6/qkeysequence.html), including
-  platform `StandardKey` mappings and keyboard-layout notes, reviewed
-  2026-07-20 for the project-pinned Qt 6.10.3 behavior family.
+  platform `StandardKey` mappings and keyboard-layout notes for the
+  project-pinned Qt 6.10.3 behavior family.
 - [Qt 6 QAction](https://doc.qt.io/qt-6/qaction.html), including the default
-  `WindowShortcut` context and the absence of a default shortcut, rechecked
-  2026-07-20.
+  `WindowShortcut` context and the absence of a default shortcut.
 - [Qt 6 QShortcut](https://doc.qt.io/qt-6/qshortcut.html), including shortcut
-  contexts, activation, ambiguity, and auto-repeat behavior, rechecked
-  2026-07-20.
-
-<!-- Media is intentionally Not needed; this reference is more reliable as searchable text. -->
+  contexts, activation, ambiguity, and auto-repeat behavior.

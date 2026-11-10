@@ -1,14 +1,5 @@
 # <Process name>
 
-<!-- Frozen template: UG-00, 2026-07-10. Keep every heading and field. -->
-
-<!--
-A page renders no authoring evidence. Record its owner, source-review date, reviewed revision, dirty reviewed
-sources, source files and tests, UI reachability, parameter, algorithm and example coverage, content state,
-technical and user review, media state and last strict build in its row of
-docs/user-guide/DOCUMENTATION_COMPLETION_TRACKER.md.
--->
-
 ## Purpose and expected result
 
 State the purpose, audience, prerequisites, and observable result. Distinguish
@@ -88,7 +79,6 @@ safe prototypes.
 
 ## Worked example
 
-- Evidence mode: <Executed with project-owned data / Source-and-test-derived>.
 - Input condition/provenance and settings: <record>.
 - Expected checkpoint: <verified observation only>.
 - Inspect at 100%/statistics/history: <record>.
@@ -101,18 +91,16 @@ precision, resources, dependencies, unsupported states, and known limits.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| <symptom> | <cause> | <action> | <source/test> |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| <symptom> | <cause> | <action> |
 
 ## Related workflow steps
 
 Explain and link preceding/following steps and their handoff state.
 
-## References and provenance
+## Credits
 
-List primary papers, standards, upstream documentation, licenses, and project
-provenance actually used.
-
-<!-- Media authoring: use only the canonical manifest. For missing retained media,
-place a compact MEDIA_SLOT with its stable Media ID and no capture instructions. -->
+Credit what the page owes: the upstream work a derived process is computed with, its authors and its licence, and
+the primary papers, standards and upstream documentation behind the explanation, each with a link. A derived
+process requires the section; leave it out when there is nothing to credit.

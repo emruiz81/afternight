@@ -168,8 +168,6 @@ the chosen batch was accidental.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; no approved onboarding image was
-  opened.
 - Starting state: AfterNight 1.0.1, a fresh or known profile, and one backed-up
   small local still listed as readable in File Formats.
 - Actions: verify the identity-bar version; confirm/write-test the temporary
@@ -201,15 +199,15 @@ the chosen batch was accidental.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| The welcome/onboarding panel is absent | The profile has at least one recent file, so startup selects the recent grid. | Use **Open file**; clear recents only if you intentionally want an empty list. | `MainDashboard.cpp` |
-| `Ctrl+N` does nothing | The empty-state hint is stale and `actionNew_Sequence` has no shortcut. | Use **New sequence** or **File > New Sequence...**. | `DashboardOnboardingPanel.cpp`; `AfterNightAppUiBuilder.h` |
-| `Ctrl+F` does not focus search | Search controls are hidden when there are no recents. | Open a supported file successfully first; use `Ctrl+F` only when the recent row is visible. | `MainDashboard.cpp` |
-| Dropping a folder/URL does nothing | Drag acceptance requires a local URL and FileManager retains only recognized file suffixes. | Drop local files, or use **Open file** and consult Supported Formats. | `MainDashboard.cpp`; `FileManager.cpp`; `FileDialogUtils.h` |
-| File Open closes without a view | Decode/open failed or was cancelled; a suffix match alone does not prove content support. | Preserve the logged error, retry one known small file, and verify the actual stream/codec in File Formats. | `FileWorkflowRunner.cpp` |
-| Settings refuses the temporary location | The directory cannot be created or is not writable. | Choose a writable local directory with adequate headroom, then save Settings again. | `GeneralSettingsPage.cpp` |
-| A RAW file differs from expected | The Raw Images white balance, auto-rotate, and Demosaic Algorithm settings published when the open was asked for decide the opened representation; an X-Trans RAW is demosaiced by the setting's X-Trans counterpart (the fast X-Trans estimate for Bilinear, three-pass Markesteijn for every other method). | Review Raw Images settings and use Debayer explicitly when CFA control matters. | `FilePolicies.cpp`; `DemosaicTextMaps.h`; `FileWorkflowRunner.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The welcome/onboarding panel is absent | The profile has at least one recent file, so startup selects the recent grid. | Use **Open file**; clear recents only if you intentionally want an empty list. |
+| `Ctrl+N` does nothing | The empty-state hint is stale and `actionNew_Sequence` has no shortcut. | Use **New sequence** or **File > New Sequence...**. |
+| `Ctrl+F` does not focus search | Search controls are hidden when there are no recents. | Open a supported file successfully first; use `Ctrl+F` only when the recent row is visible. |
+| Dropping a folder/URL does nothing | Drag acceptance requires a local URL and FileManager retains only recognized file suffixes. | Drop local files, or use **Open file** and consult Supported Formats. |
+| File Open closes without a view | Decode/open failed or was cancelled; a suffix match alone does not prove content support. | Preserve the logged error, retry one known small file, and verify the actual stream/codec in File Formats. |
+| Settings refuses the temporary location | The directory cannot be created or is not writable. | Choose a writable local directory with adequate headroom, then save Settings again. |
+| A RAW file differs from expected | The Raw Images white balance, auto-rotate, and Demosaic Algorithm settings published when the open was asked for decide the opened representation; an X-Trans RAW is demosaiced by the setting's X-Trans counterpart (the fast X-Trans estimate for Bilinear, three-pass Markesteijn for every other method). | Review Raw Images settings and use Debayer explicitly when CFA control matters. |
 
 ## Related workflow steps
 
@@ -219,20 +217,3 @@ authoritative File Formats link. Once the state transitions above pass, follow
 [Quick Start](quick-start.md). The complete dashboard and processing-workspace
 surfaces are covered by [Dashboard](../interface/dashboard.md) and [Interface
 Overview](../interface/overview.md).
-
-## References and provenance
-
-- Startup/dashboard wiring: `UiBootstrapCoordinator.cpp`,
-  `WindowLayoutCoordinator.cpp`, and view-control/creation coordinators.
-- Empty-state labels/actions: `DashboardOnboardingPanel.cpp`.
-- Identity/quick actions and persistence: `DashboardIdentityBar.cpp`,
-  `DashboardToolbar.cpp`, `DashboardPreferences.h`, and `MainDashboard.cpp`.
-- File/open/drop behavior: `FileDialogUtils.h`, `FileManager.cpp`, and
-  `FileWorkflowRunner.cpp`.
-- Default first-session settings: `SettingsDefaults.h`, `FilePolicies.h`
-  (`RawOpenSettings`), `DemosaicTextMaps.h`, and the reviewed Settings
-  implementation/page.
-- Version: `kProductVersion` in `ApplicationSession.h`, read through
-  `productVersion()` in `EngineVersionReport.cpp`.
-- Focused state/wiring coverage: the file-workflow, dashboard, settings,
-  version-dialog, and application-menu tests.

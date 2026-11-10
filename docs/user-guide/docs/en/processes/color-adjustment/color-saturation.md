@@ -239,8 +239,6 @@ timing or peak memory was measured.
 
 ## Worked example
 
-- **Evidence mode:** Source/equation-derived; not executed on project-owned
-  astronomical data.
 - **Input checkpoint:** a normalized red pixel has HSL `(0°,1,0.5)` and falls
   inside both Global and Pink-Red / Red-Orange.
 - **Amount `-0.50`, cutoff below `0.5`:** saturation becomes `0.5`; the same
@@ -280,17 +278,17 @@ timing or peak memory was measured.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Menu action is disabled or process closes | Target is not RGB | Convert/debayer intentionally, or use an RGB target | `ActionStateCoordinator::setEnableImageColorActions`; `ColorSaturationProcess::isViewControlSupported` |
-| **Error executing the process** reporting `the colour saturation needs an image of red, green and blue` | The image an Apply reached is not exactly RGB (grayscale, or color with alpha) | Use an RGB target; for a sequence, make every frame RGB | `ColorSaturationProcess::executeTypedProcessImpl` |
-| Result is unchanged | Amount is `0`, selected hue excludes the pixels, or cutoff is at/above their lightness | Check Global with factor `0`, then restore selective settings one at a time | `an::enhanceImageSaturation` |
-| Faint target color is not adjusted | Background cutoff is too high | Lower Background factor and protect background with a suitable mask instead | `an::deriveSaturationEnhancementBackground` |
-| Cyan selection seems broader or duplicates another choice | Cyan `170..200°` lies inside Yellow-Green / Green-Cyan `61..200°` | Choose the narrower Cyan option intentionally; compare with Global | `ColorSaturationProcess::hueRange` |
-| A hue near a named boundary is unchanged | Fractional hue lies in a one-degree gap between hard intervals | Use Global or the wider overlapping range; verify at modest Amount | `an::enhanceImageSaturation` inclusive hue tests |
-| Preview area and full Apply differ | Outside the area the Preview shows the image as it was; inside it, the area takes the whole image's cutoff and shows what Apply writes there | Turn Preview area off and compare full Preview before Apply | `ColorSaturationProcess::executeTypedProcessImpl` (the whole target's background for a run over a Preview area) |
-| Saturated colors flatten or halos/noise intensify | `s(1+Amount)` reached the `1` clamp | Reduce Amount or use a better mask | `an::enhanceImageSaturation` saturation clamp |
-| A cancelled sequence left the target unchanged | Cancel stops the run; nothing is published | Apply again when ready | `ImageRTPreviewControl::finishRun`; sequence run |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Menu action is disabled or process closes | Target is not RGB | Convert/debayer intentionally, or use an RGB target |
+| **Error executing the process** reporting `the colour saturation needs an image of red, green and blue` | The image an Apply reached is not exactly RGB (grayscale, or color with alpha) | Use an RGB target; for a sequence, make every frame RGB |
+| Result is unchanged | Amount is `0`, selected hue excludes the pixels, or cutoff is at/above their lightness | Check Global with factor `0`, then restore selective settings one at a time |
+| Faint target color is not adjusted | Background cutoff is too high | Lower Background factor and protect background with a suitable mask instead |
+| Cyan selection seems broader or duplicates another choice | Cyan `170..200°` lies inside Yellow-Green / Green-Cyan `61..200°` | Choose the narrower Cyan option intentionally; compare with Global |
+| A hue near a named boundary is unchanged | Fractional hue lies in a one-degree gap between hard intervals | Use Global or the wider overlapping range; verify at modest Amount |
+| Preview area and full Apply differ | Outside the area the Preview shows the image as it was; inside it, the area takes the whole image's cutoff and shows what Apply writes there | Turn Preview area off and compare full Preview before Apply |
+| Saturated colors flatten or halos/noise intensify | `s(1+Amount)` reached the `1` clamp | Reduce Amount or use a better mask |
+| A cancelled sequence left the target unchanged | Cancel stops the run; nothing is published | Apply again when ready |
 
 ## Related workflow steps
 
@@ -303,14 +301,6 @@ L*/chroma coordinates with its documented gamut/hue limits, and
 the intended tonal or channel-local control. Verify [Image History](../../interface/image-history.md)
 and [Image Statistics](../../interface/image-statistics.md) after Apply.
 
-## References and provenance
+## Credits
 
-- [W3C CSS Color 4: HSL colors and conversion](https://www.w3.org/TR/css-color-4/#the-hsl-notation) describes the ordinary sRGB-oriented HSL model and its perceptual limitations. AfterNight's exact hard hue bands, cutoff, multiplier, and execution behavior come from the project source.
-- AfterNight project source is authoritative for the green-channel exact-median-plus-sigma cutoff, the whole-image cutoff a Preview area takes, metadata/state/history, masks, and temporary sequence workflow.
-- The dialog's histogram plot is drawn by
-  `src/AfterNightControls/widgets/HistogramWidget.cpp` from counts
-  `src/AfterNightControls/widgets/HistogramComputation.cpp` makes through the
-  engine's
-  `src/AfterNightEngine/include/AfterNightEngine/Algorithms/Statistics/Histogram.h`,
-  which places a sample by exact interval arithmetic, so a whole code on a bin
-  boundary lands in its own bin.
+- [W3C CSS Color 4: HSL colors and conversion](https://www.w3.org/TR/css-color-4/#the-hsl-notation) describes the ordinary sRGB-oriented HSL model and its perceptual limitations.

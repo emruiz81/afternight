@@ -233,8 +233,6 @@ No timing is claimed on this page.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived (`ColorToolsUnitsTest.ALinearMatchMeasuresNoZero`);
-  not run on approved astronomical data.
 - Input condition and settings: a `32×2` floating-point RGB target whose first
   row holds `1/64` to `32/64` and whose second row is zero; a reference of the
   same size whose first row is `2 × target + 0.05` and whose second row is
@@ -269,18 +267,18 @@ No timing is claimed on this page.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **OK** is disabled | **Reference Image** is `<--NO IMAGE-->`: none chosen, the chosen view was closed, or the target was changed | Choose a reference | `ColorToolsCase.ALinearMatchOffersTheViewsOfTheTargetsChannelCount` |
-| The desired reference is not listed | It has another number of channels, or it is the target | Choose another target or reference; size and representation need not match | `ColorToolsCase.ALinearMatchOffersTheViewsOfTheTargetsChannelCount` |
-| `A channel of the image ... between the limits <low> and <high> ...` | The limits keep no sample of some channel | Widen the limits, make **Reject low** no higher than **Reject high**, or choose another reference | `ColorToolsCase.ALinearMatchWhoseLimitsKeepNothingIsRefused` |
-| `The selected reference image is no longer available.` | The reference view was closed before **OK** was pressed | Choose another reference and run again | `LinearMatchProcess::executeLinearMatch` |
-| **Error running linear match** | The engine refused the run, for example a channel-count mismatch over a sequence or an allocation | Read the message and the log, then run again | `ColorToolsWindowTest.ARunTheEngineRefusesSaysWhyAndChangesNothing` |
-| The result differs after resizing or cropping one image | One size pairs positions; different sizes measure each image on its own | Choose the intended mode deliberately | `ColorToolsCase.ALinearMatchToAnotherSizeMeasuresEachImageOnItsOwn` |
-| Values below zero or above full scale | The match is not clamped | Use a better-matched reference or limits; an integer result saturates | `matchLinearly` |
-| The mask had no effect | Linear Match does not apply a view mask | Apply globally, or use a process that supports masks | `ColorToolsWindowTest.TheViewsMaskWeighsTheResult` |
-| The sequence does not change after Cancel | A stopped run publishes nothing | Run again | `ColorToolsWindowTest.AStoppedRunPublishesNothing` |
-| Busy warning titled **Linear Match** | Another run holds the sequence view | Wait for it to finish, then run again | `runInPlace` busy path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **OK** is disabled | **Reference Image** is `<--NO IMAGE-->`: none chosen, the chosen view was closed, or the target was changed | Choose a reference |
+| The desired reference is not listed | It has another number of channels, or it is the target | Choose another target or reference; size and representation need not match |
+| `A channel of the image ... between the limits <low> and <high> ...` | The limits keep no sample of some channel | Widen the limits, make **Reject low** no higher than **Reject high**, or choose another reference |
+| `The selected reference image is no longer available.` | The reference view was closed before **OK** was pressed | Choose another reference and run again |
+| **Error running linear match** | The engine refused the run, for example a channel-count mismatch over a sequence or an allocation | Read the message and the log, then run again |
+| The result differs after resizing or cropping one image | One size pairs positions; different sizes measure each image on its own | Choose the intended mode deliberately |
+| Values below zero or above full scale | The match is not clamped | Use a better-matched reference or limits; an integer result saturates |
+| The mask had no effect | Linear Match does not apply a view mask | Apply globally, or use a process that supports masks |
+| The sequence does not change after Cancel | A stopped run publishes nothing | Run again |
+| Busy warning titled **Linear Match** | Another run holds the sequence view | Wait for it to finish, then run again |
 
 ## Related workflow steps
 
@@ -300,10 +298,3 @@ balance rather than reference level and spread. [LRGB Combination](../color-comp
 and [NBRGB Combination](../color-composition/nbrgb-combination.md) have their own
 combination-specific normalization; avoid normalizing twice without checking
 their behavior.
-
-## References and provenance
-
-- The AfterNight Linear Match process, the colour tools' shared support, the
-  engine's global normalization and the focused tests
-  are the implementation sources.
-- No external library is used by Linear Match.

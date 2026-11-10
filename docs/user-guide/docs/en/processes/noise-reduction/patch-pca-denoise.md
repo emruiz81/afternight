@@ -309,26 +309,25 @@ I/O.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Check or correction | Evidence |
-| --- | --- | --- | --- |
-| Dialog starts at `4/7/11/7`, not `1.8/7/8/7` | Live constructor overwrites builder values | Use the live values; Reset returns them too | Process constructor and `initialize()` |
-| Large black spots or a grid appear | Spatial Sampling leaves zero-weight pixels | Reduce Spatial Sampling; enlarge support carefully; inspect the full frame at 100% | Vendored aggregation and weight floor |
-| Fine stars disappear abruptly | Strength threshold retains too few PCA components | Lower Strength and compare under the same stretch | Vendored cutoff loop |
-| Increasing Lookup Size changes structure rather than finding better matches | Every lookup position is included | Reduce Lookup Size around mixed structures; it is not a similarity-ranked group | Vendored lookup loops |
-| Runtime jumps after a modest Patch Size change | Matrix dimension is Patch Size squared and eigensolve is dense | Return toward `7`; tune on Preview area | Vendored matrix/eigen path |
-| Colors shift | Per-channel PCA decisions or a component conversion round trip | Compare RGB and a deliberate luminance component on a duplicate; inspect View Channel | G'MIC channel loop and shared Channel path |
-| Negative highlights or values above one are clipped | The G'MIC result is held to `[0,1]` | Normalize a working copy before denoising | `GmicProcessSupport.cpp` |
-| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged | `GmicProcessSupport.cpp` |
-| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another denoiser | `GmicProcessSupport.cpp` |
-| Preview differs from Apply | Preview area, mask, target/channel, or display stretch changed | Match all controls and use one Display Mode; Apply always processes the full target | Shared preview/process path |
-| Cancel appears delayed | G'MIC has not reached an abort check inside costly work | Wait for the current operation; use smaller patches/lookup or a smaller Preview area next time | G'MIC adapter abort flag |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Dialog starts at `4/7/11/7`, not `1.8/7/8/7` | Live constructor overwrites builder values | Use the live values; Reset returns them too |
+| Large black spots or a grid appear | Spatial Sampling leaves zero-weight pixels | Reduce Spatial Sampling; enlarge support carefully; inspect the full frame at 100% |
+| Fine stars disappear abruptly | Strength threshold retains too few PCA components | Lower Strength and compare under the same stretch |
+| Increasing Lookup Size changes structure rather than finding better matches | Every lookup position is included | Reduce Lookup Size around mixed structures; it is not a similarity-ranked group |
+| Runtime jumps after a modest Patch Size change | Matrix dimension is Patch Size squared and eigensolve is dense | Return toward `7`; tune on Preview area |
+| Colors shift | Per-channel PCA decisions or a component conversion round trip | Compare RGB and a deliberate luminance component on a duplicate; inspect View Channel |
+| Negative highlights or values above one are clipped | The G'MIC result is held to `[0,1]` | Normalize a working copy before denoising |
+| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged |
+| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another denoiser |
+| Preview differs from Apply | Preview area, mask, target/channel, or display stretch changed | Match all controls and use one Display Mode; Apply always processes the full target |
+| Cancel appears delayed | G'MIC has not reached an abort check inside costly work | Wait for the current operation; use smaller patches/lookup or a smaller Preview area next time |
 
-## References and provenance
+## Credits
 
 - [G'MIC `denoise_patchpca` reference](https://www.gmic.eu/reference/denoise_patchpca.html)
   lists the command's four arguments and upstream omitted-argument defaults.
-  AfterNight bundles G'MIC 3.5.4 and explicitly supplies all arguments, so the
-  vendored `gmic_stdlib.gmic` remains the behavioral source of truth.
+  AfterNight bundles G'MIC 3.5.4 and supplies all four arguments itself.
 - [G'MIC mathematical expressions](https://gmic.eu/reference/mathematical_expressions.html)
   defines image median `ic`, matrix `eig()`, and the parallel `*` evaluation used
   by the bundled command.

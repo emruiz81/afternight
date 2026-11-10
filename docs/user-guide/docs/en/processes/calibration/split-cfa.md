@@ -215,7 +215,6 @@ budget disk for up to four new sequences.
 
 ## Worked example
 
-- Evidence mode: Source-and-focused-test-derived.
 - Input condition/provenance and settings: a small 16-bit RGGB mosaic in a view
   named `target`, split with each method; the same mosaic cropped one column in;
   a 32-bit float grey image with no filter array.
@@ -245,17 +244,17 @@ budget disk for up to four new sequences.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Split CFA target absent | View is not shown as a one-channel mosaic. | Open undebayered data and correct CFA metadata. | `isViewControlSupported()` |
-| `the image states no colour filter array` | The image states no Bayer pattern. | Reopen with correct RAW/CFA metadata; do not guess if the pattern is unknown. | `checkBayerMosaic` |
-| `the XTrans filter array is not a two-by-two arrangement...` | The mosaic is X-Trans. | Split CFA takes apart only a two-by-two mosaic. Use Debayer with **From metadata**, which demosaics an X-Trans mosaic by the chosen method's X-Trans counterpart. | `checkBayerMosaic`; `GeometryUnits.OnlyATwoByTwoMosaicIsTakenApart`; `GeometryUnits.DebayerReadsAnXTransArrayFromTheImageAndRefusesANamedBayerPatternOverIt` |
-| `an image whose valid samples are stated in a mask cannot be split` | The mosaic carries a validity mask. | Use a mosaic without one. | `splitMosaicPlanes`; `GeometryProcessCase.AMosaicWhoseValidityIsAMaskIsRefusedByName` |
-| `... cannot have a narrowband channel extracted` | **Extract Ha**, **Extract Green** or **Extract Ha/OIII** on a mosaic that states some sample invalid, by a validity rule or a mask. | Use a mosaic that states every sample valid. | `refuseUnlessAllValid`; `GeometryProcessCase.AMosaicWhoseValidityIsAMaskIsRefusedByName` |
-| Ha/OIII Resampling is disabled | Method is not **Extract Ha/OIII**. | Select that method if the acquisition supports it. | Method dependency handler |
-| Output loses last row/column | Source dimension is odd. | Crop intentionally to even dimensions before splitting and account for the offset. | engine block split |
-| Output has no astrometric solution | No output states a solution or keeps the mosaic's world-coordinate cards, which describe the mosaic's grid. | Plate-solve the derived output. | operation effects; `GeometryProcessCase.SplitAndMergeCfaCarryNoWorldCoordinateCards` |
-| The busy warning | Another run holds the sequence. | Wait for it to land and run again. | `runToNewViews` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Split CFA target absent | View is not shown as a one-channel mosaic. | Open undebayered data and correct CFA metadata. |
+| `the image states no colour filter array` | The image states no Bayer pattern. | Reopen with correct RAW/CFA metadata; do not guess if the pattern is unknown. |
+| `the XTrans filter array is not a two-by-two arrangement...` | The mosaic is X-Trans. | Split CFA takes apart only a two-by-two mosaic. Use Debayer with **From metadata**, which demosaics an X-Trans mosaic by the chosen method's X-Trans counterpart. |
+| `an image whose valid samples are stated in a mask cannot be split` | The mosaic carries a validity mask. | Use a mosaic without one. |
+| `... cannot have a narrowband channel extracted` | **Extract Ha**, **Extract Green** or **Extract Ha/OIII** on a mosaic that states some sample invalid, by a validity rule or a mask. | Use a mosaic that states every sample valid. |
+| Ha/OIII Resampling is disabled | Method is not **Extract Ha/OIII**. | Select that method if the acquisition supports it. |
+| Output loses last row/column | Source dimension is odd. | Crop intentionally to even dimensions before splitting and account for the offset. |
+| Output has no astrometric solution | No output states a solution or keeps the mosaic's world-coordinate cards, which describe the mosaic's grid. | Plate-solve the derived output. |
+| The busy warning | Another run holds the sequence. | Wait for it to land and run again. |
 
 ## Related workflow steps
 
@@ -265,10 +264,3 @@ integer geometry change, [Debayer](debayer.md) for full-color reconstruction,
 and [Merge CFA](merge-cfa.md) only for the four positional planes. Derived Ha/OIII
 masters can feed narrowband composition only after their assumptions and geometry
 are validated.
-
-## References and provenance
-
-- Bayer pattern names and extraction behavior are defined by AfterNight's image
-  engine and the support unit.
-- The Lanczos definition used when matching Ha/OIII dimensions is stated in the
-  engine's narrowband extraction header.

@@ -241,7 +241,6 @@ network or preview cache is involved, and no timing is claimed here.
 
 ## Worked example
 
-- Evidence mode: source-and-test-derived; not run on approved astronomical data.
 - Input condition and settings: one pixel of a Float32 image,
   `(R,G,B) = (0.20, 0.60, 0.40)`, Preserve Lightness cleared, no view mask.
 - Expected checkpoint: Average Neutral gives `G' = 0.30`; Maximum Neutral gives
@@ -277,19 +276,19 @@ network or preview cache is involved, and no timing is claimed here.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| The target is not offered, or the menu action is disabled | The view does not show a three-channel RGB image | Select an open RGB still or sequence | `showsRgbImage`; `ColorToolsUnitsTest.AnImageATooDoesNotReadIsRefused` |
-| Amount is disabled | **Average Neutral** or **Maximum Neutral** is selected; neither reads Amount | Choose **Maximum Mask** or **Additive Mask** | `ColorToolsCase.ScnrOffersTheAmountToTheMaskMethodsAndStaysOpen` |
-| Amount `0` still changes something | The mask methods leave green as it was at `0`, but Preserve Lightness's round trip and the hold to `[0,1]` can move samples | Clear Preserve Lightness for an identity check | Engine equations |
-| Legitimate green disappears | A ceiling or mask method suppressed real green; the mask methods do not require green to dominate | Undo; try Additive Mask with a lower Amount, or a view mask | SCNR equations |
-| Red or blue changed | Preserve Lightness rebuilt the pixel from its original L\* and the suppressed colour | Undo; compare with Preserve Lightness cleared | Engine source |
-| **Error running SCNR** | The engine refused memory, the mask did not fit, or a frame was not RGB | Read the message and the log, free memory or fix the mask, and run again | `ColorToolsWindowTest.ARunTheEngineRefusesSaysWhyAndChangesNothing` |
-| The mask had no or the wrong effect | The mask was disabled, inverted, or changed after Apply was pressed | Check the mask before Apply | `ColorToolsWindowTest.TheViewsMaskWeighsTheResult` |
-| A setting changed during the run had no effect | The dialog is read when Apply is pressed | Run again with the new setting | `ColorToolsWindowTest.ARunReadsTheDialogAsItWasWhenApplyWasPressed` |
-| History cannot reproduce the result | The step omits Amount and the mask | Note Amount and the mask before Apply | `ColorToolsCase.TheHistoryStepsDescribeWhatRan` |
-| Busy warning titled **SCNR** | Another run holds the sequence view | Wait for it to finish, then run again | `runInPlace` busy path |
-| Sequence does not change after Cancel | A stopped run publishes nothing | Run again | `ColorToolsWindowTest.AStoppedRunPublishesNothing` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The target is not offered, or the menu action is disabled | The view does not show a three-channel RGB image | Select an open RGB still or sequence |
+| Amount is disabled | **Average Neutral** or **Maximum Neutral** is selected; neither reads Amount | Choose **Maximum Mask** or **Additive Mask** |
+| Amount `0` still changes something | The mask methods leave green as it was at `0`, but Preserve Lightness's round trip and the hold to `[0,1]` can move samples | Clear Preserve Lightness for an identity check |
+| Legitimate green disappears | A ceiling or mask method suppressed real green; the mask methods do not require green to dominate | Undo; try Additive Mask with a lower Amount, or a view mask |
+| Red or blue changed | Preserve Lightness rebuilt the pixel from its original L\* and the suppressed colour | Undo; compare with Preserve Lightness cleared |
+| **Error running SCNR** | The engine refused memory, the mask did not fit, or a frame was not RGB | Read the message and the log, free memory or fix the mask, and run again |
+| The mask had no or the wrong effect | The mask was disabled, inverted, or changed after Apply was pressed | Check the mask before Apply |
+| A setting changed during the run had no effect | The dialog is read when Apply is pressed | Run again with the new setting |
+| History cannot reproduce the result | The step omits Amount and the mask | Note Amount and the mask before Apply |
+| Busy warning titled **SCNR** | Another run holds the sequence view | Wait for it to finish, then run again |
+| Sequence does not change after Cancel | A stopped run publishes nothing | Run again |
 
 ## Related workflow steps
 
@@ -307,15 +306,13 @@ establish the intended nonlinear display state, and
 adjustments. A view mask can localize SCNR, but SCNR itself does not generate a
 cast mask.
 
-## References and provenance
+## Credits
 
-- The AfterNight SCNR window, the shared colour-tool support, the engine's
-  chromatic-noise reduction and the focused tests
-  are authoritative for the four methods, the fixed green channel, the hold to
-  the unit interval, the metadata, the mask and the execution behavior.
-- International Color Consortium, [How to interpret the sRGB color space](https://www.color.org/sRGB.pdf),
-  checked 2026-07-13. Context for the sRGB transfer and D65 white used by
-  Preserve Lightness; AfterNight does not perform an ICC profile conversion here.
-- CIE, [CIE 1976 L*a*b* Colour Space](https://cie.co.at/publications/colorimetry-part-4-cie-1976-lab-colour-space-1),
-  checked 2026-07-13. Context for `L*`, `a*`, `b*`; the SCNR protection methods
-  are AfterNight implementation formulas, not CIE standard operations.
+- International Color Consortium, [How to interpret the sRGB color
+  space](https://www.color.org/sRGB.pdf). Context for the sRGB transfer and D65
+  white used by Preserve Lightness; AfterNight does not perform an ICC profile
+  conversion here.
+- CIE, [CIE 1976 L*a*b* Colour
+  Space](https://cie.co.at/publications/colorimetry-part-4-cie-1976-lab-colour-space-1).
+  Context for `L*`, `a*`, `b*`; the SCNR protection methods are AfterNight
+  implementation formulas, not CIE standard operations.

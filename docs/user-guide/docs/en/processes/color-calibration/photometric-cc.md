@@ -371,8 +371,6 @@ measured for this page.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; no approved astronomical target was
-  executed.
 - Input condition/provenance and settings: a synthetic 512x384 linear Float32
   RGB field of 60 Gaussian stars with Gaia BP-RP colors from `-0.3` to `2.1`,
   rendered through the color model with red multiplied by `1.25` and blue by
@@ -431,23 +429,23 @@ measured for this page.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| “Photometric color calibration only supports RGB images.” | The target is not three-channel RGB. | Select an open RGB image. | Target checks; `WhatTheWindowOffersFollowsTheTarget` (grey case). |
-| “Photometric color calibration is not applicable to narrowband data.” | The filter-name heuristic recognized a narrowband, dual-band, or tri-band filter. | Use a broadband RGB target; correct demonstrably wrong filter metadata outside PCC. | Engine heuristic; `WhatTheWindowOffersFollowsTheTarget`. |
-| “The image is not plate-solved. A valid WCS solution is required for photometric calibration.” / **Apply** disabled | No plate solution could be read from the target's WCS cards. | Choose **Plate Solve...**, validate the solve, then return to PCC. | Target checks; `WhatTheWindowOffersFollowsTheTarget`. |
-| “Photometric color calibration requires linear data; this image is marked nonlinear.” | The image's meaning, description, or `ANLIN` card marks it nonlinear, as a stretch records. | Calibrate the linear image: undo the stretch through Image History or reopen the linear master. The window has no override. | Target checks; `WhatTheWindowOffersFollowsTheTarget`. |
-| “The Gaia DR3 catalog is not configured or not found. Configure it in the Plate Solving settings page.” | The configured directory is missing, malformed, incompletely installed, or in a layout this version does not read. | Choose **Configure Gaia Catalog...** and select/install a complete chunk catalog in Plate Solving settings. | Gaia settings source; `WhatTheWindowOffersFollowsTheTarget`. |
-| “The PCC background ROI must be fully inside the target image and have a non-zero size.” | Width or Height is zero, or the rectangle extends outside the target. | Re-enable ROI for a fresh full-frame rectangle or redraw **From Selection** completely inside the image. | Process source. |
-| “Another process is executing for this image, please cancel that job first before running this process” | Another edit or process holds the target. | Let it finish or cancel it, then Apply again. | View/process source. |
-| Error “...a channel yielded no star to calibrate on” | Detection found no star in one channel. | Verify focus, channel balance, and broadband RGB; an empty or very faint channel cannot be calibrated. | Engine source. |
-| Error “...no green star matched a catalog entry with a magnitude” or “...the Gaia catalog holds no star in the region” | The plate solution is wrong, the catalog does not cover the field, or **Magnitude limit** is too bright for the field. | Verify the plate solve and catalog coverage, then cautiously deepen the G limit. | Engine/catalog source. |
-| Error “...fewer usable colour samples than the fit needs” | Fewer than 10 matched stars had red and blue companions within 3 pixels and finite positive fluxes. | Verify WCS/overlay and channel registration, then cautiously deepen G limit; change match radius only if WCS accuracy supports it. | `ARunTheCatalogCannotSupportSaysWhyAndChangesNothing`. |
-| Status says “Calibrated with the neutral color default for most stars.” / many yellow circles | At most half the usable samples had finite BP-RP; missing colors used `C=0`. | Verify the configured Gaia catalog pack contains BP/RP for this field and prefer a run dominated by green circles. | Fit/overlay source. |
-| Background remains colored or becomes worse | Neutralization was off, or global/ROI samples were contaminated. | Undo; correct gradients/borders, choose a clean representative ROI, and compare with/without neutralization. | `TheBackgroundRegionIsWhereTheSkyIsMeasured`. |
-| Stars/shadows clip after Apply | Gain-plus-offset result left `[0,1]` of full scale; every sample type is held there. | Undo; inspect reported gains/matches, fix input/WCS/ROI, normalize a float image, and avoid repeated PCC passes. | Apply source; `PhotometricWindowTest` (every sample type). |
-| “Calibration finished, but its result was not applied: the target image was closed or changed, or its history could not record the step.” | The work succeeded, but the target closed or changed, or Image History did not record the step, before the result could be shown. | Select the target again and repeat Apply. | Process/view source. |
-| A result appeared although the window was closed | The run's work had finished before Close; it is still shown and recorded. | Inspect Image History and undo if the result is unwanted. | Process close source; `AStoppedRunPublishesNothing`. |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| “Photometric color calibration only supports RGB images.” | The target is not three-channel RGB. | Select an open RGB image. |
+| “Photometric color calibration is not applicable to narrowband data.” | The filter-name heuristic recognized a narrowband, dual-band, or tri-band filter. | Use a broadband RGB target; correct demonstrably wrong filter metadata outside PCC. |
+| “The image is not plate-solved. A valid WCS solution is required for photometric calibration.” / **Apply** disabled | No plate solution could be read from the target's WCS cards. | Choose **Plate Solve...**, validate the solve, then return to PCC. |
+| “Photometric color calibration requires linear data; this image is marked nonlinear.” | The image's meaning, description, or `ANLIN` card marks it nonlinear, as a stretch records. | Calibrate the linear image: undo the stretch through Image History or reopen the linear master. The window has no override. |
+| “The Gaia DR3 catalog is not configured or not found. Configure it in the Plate Solving settings page.” | The configured directory is missing, malformed, incompletely installed, or in a layout this version does not read. | Choose **Configure Gaia Catalog...** and select/install a complete chunk catalog in Plate Solving settings. |
+| “The PCC background ROI must be fully inside the target image and have a non-zero size.” | Width or Height is zero, or the rectangle extends outside the target. | Re-enable ROI for a fresh full-frame rectangle or redraw **From Selection** completely inside the image. |
+| “Another process is executing for this image, please cancel that job first before running this process” | Another edit or process holds the target. | Let it finish or cancel it, then Apply again. |
+| Error “...a channel yielded no star to calibrate on” | Detection found no star in one channel. | Verify focus, channel balance, and broadband RGB; an empty or very faint channel cannot be calibrated. |
+| Error “...no green star matched a catalog entry with a magnitude” or “...the Gaia catalog holds no star in the region” | The plate solution is wrong, the catalog does not cover the field, or **Magnitude limit** is too bright for the field. | Verify the plate solve and catalog coverage, then cautiously deepen the G limit. |
+| Error “...fewer usable colour samples than the fit needs” | Fewer than 10 matched stars had red and blue companions within 3 pixels and finite positive fluxes. | Verify WCS/overlay and channel registration, then cautiously deepen G limit; change match radius only if WCS accuracy supports it. |
+| Status says “Calibrated with the neutral color default for most stars.” / many yellow circles | At most half the usable samples had finite BP-RP; missing colors used `C=0`. | Verify the configured Gaia catalog pack contains BP/RP for this field and prefer a run dominated by green circles. |
+| Background remains colored or becomes worse | Neutralization was off, or global/ROI samples were contaminated. | Undo; correct gradients/borders, choose a clean representative ROI, and compare with/without neutralization. |
+| Stars/shadows clip after Apply | Gain-plus-offset result left `[0,1]` of full scale; every sample type is held there. | Undo; inspect reported gains/matches, fix input/WCS/ROI, normalize a float image, and avoid repeated PCC passes. |
+| “Calibration finished, but its result was not applied: the target image was closed or changed, or its history could not record the step.” | The work succeeded, but the target closed or changed, or Image History did not record the step, before the result could be shown. | Select the target again and repeat Apply. |
+| A result appeared although the window was closed | The run's work had finished before Close; it is still shown and recorded. | Inspect Image History and undo if the result is unwanted. |
 
 ## Related workflow steps
 
@@ -466,14 +464,12 @@ for an offset-only correction, or
 aware Gaia XP workflow with stronger input/readiness/diagnostic gates. Do not
 run PCC and SPCC sequentially on the same finished target.
 
-## References and provenance
+## Credits
 
-- AfterNight implementation and focused test files;
-  algorithm version `pcc-gaia-bp-rp-v1` is the authoritative current project
-  provenance.
-- ESA/Gaia/DPAC, [Gaia DR3 Photometric System and G/BP/RP passbands](https://www.cosmos.esa.int/web/gaia/dr3-passbands),
-  checked 2026-07-13. This defines the Gaia band identities; it does not define
-  AfterNight's exponential PCC response approximation.
-- ESA/Gaia/DPAC, [Gaia Data Release 3 documentation](https://gea.esac.esa.int/archive/documentation/GDR3/),
-  checked 2026-07-13. Used for Gaia DR3 catalog and J2016.0 reference-epoch
-  context.
+- ESA/Gaia/DPAC, [Gaia DR3 Photometric System and G/BP/RP
+  passbands](https://www.cosmos.esa.int/web/gaia/dr3-passbands). This defines
+  the Gaia band identities; it does not define AfterNight's exponential PCC
+  response approximation.
+- ESA/Gaia/DPAC, [Gaia Data Release 3
+  documentation](https://gea.esac.esa.int/archive/documentation/GDR3/). Used for
+  Gaia DR3 catalog and J2016.0 reference-epoch context.

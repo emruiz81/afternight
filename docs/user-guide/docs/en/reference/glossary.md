@@ -326,7 +326,6 @@ behavior from an abbreviation alone.
 
 ## Worked lookup example
 
-- Evidence mode: Source-and-test-derived.
 - Question: “Is MTF `0.5` a stretch, and does Exposure Correction use exposure
   stops?”
 - Lookup: **Midtones transfer function (MTF)** defines `0.5` as the identity
@@ -359,14 +358,14 @@ behavior from an abbreviation alone.
 
 ## Troubleshooting
 
-| Symptom/question | Verified interpretation or cause | Resolution/next page | Evidence source |
-| --- | --- | --- | --- |
-| A process menu category seems out of workflow order | Menu placement and workflow role are different concepts | Use the [Process Catalog](../processes/index.md) timing matrix, then the destination page | registry/menu sources; completed pages |
-| Preview and Apply differ | Preview can use a copied target, ROI, cache, or approximation; it runs with the parameters held when it was requested | Read [Process Windows](../interface/process-windows.md) and the process's preview limitations | process framework and destination page |
-| “Linear” output looks inconsistent with prior work | The recorded marker may be preserved/stale or the data was already nonlinear | Review history and the process page's output/state contract | processing-state definitions and completed pages |
-| A color component is not what its name suggested | HSL/HSV/HSI/CIE/YCbCr components have different models and encodings | Use the exact color-model definition and the source process page | color-conversion/process pages |
-| A mask appears visible but has no processing effect | Show/rendering state is separate from mask enablement and blend polarity | Read [Masks](../interface/masks.md) and the **Mask** definition | mask source/tests and Masks page |
-| An abbreviation is not present | It may be a page-local control, external product term, or unsupported concept | Search the full guide, then use the authoritative destination/reference page | guide navigation/source inventories |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| A process menu category seems out of workflow order | Menu placement and workflow role are different concepts | Use the [Process Catalog](../processes/index.md) timing matrix, then the destination page |
+| Preview and Apply differ | Preview can use a copied target, ROI, cache, or approximation; it runs with the parameters held when it was requested | Read [Process Windows](../interface/process-windows.md) and the process's preview limitations |
+| “Linear” output looks inconsistent with prior work | The recorded marker may be preserved/stale or the data was already nonlinear | Review history and the process page's output/state contract |
+| A color component is not what its name suggested | HSL/HSV/HSI/CIE/YCbCr components have different models and encodings | Use the exact color-model definition and the source process page |
+| A mask appears visible but has no processing effect | Show/rendering state is separate from mask enablement and blend polarity | Read [Masks](../interface/masks.md) and the **Mask** definition |
+| An abbreviation is not present | It may be a page-local control, external product term, or unsupported concept | Search the full guide, then use the authoritative destination/reference page |
 
 ## Related pages
 
@@ -385,47 +384,3 @@ behavior from an abbreviation alone.
 - [Troubleshooting And Diagnostics](troubleshooting.md) — symptom routing and
   the distinction between System Information, console text, file logs, workflow
   reports, and crash dumps.
-
-## References and provenance
-
-- `src/AfterNightControls/app/ProcessRegistry.h`,
-  `src/AfterNightControls/app/ProcessRegistry.cpp`, and
-  `src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp` establish launch
-  modes, availability, guards, and internal registry categories.
-- `src/AfterNightControls/app/AfterNightAppUiBuilder.h`,
-  `src/AfterNightControls/app/MenuActionManager.cpp`,
-  `src/AfterNightControls/app/ActionStateCoordinator.cpp`, and
-  `src/AfterNightApp/app/AfterNightApp.cpp` establish exact built-in menu
-  placement, action binding/state, and recent/favorite recording/persistence.
-- `src/AfterNightEngine/include/AfterNightEngine/IO/ProcessingStateCards.h`,
-  `src/AfterNightProcesses/processes/ProcessMetadataUtils.h`, and
-  `src/AfterNightProcesses/processes/PointwiseProcessUtils.h` establish the
-  processing-state cards, how linearity is read, and how a process records a
-  nonlinear result; `src/AfterNightTests/Test_EngineImage/ProcessingStateCardsTest.cpp`
-  holds the cards and their FITS/XISF round trips.
-- `src/AfterNightEngine/include/AfterNightEngine/Image/SampleType.h`,
-  `src/AfterNightEngine/include/AfterNightEngine/Image/ChannelSemantics.h`,
-  `src/AfterNightEngine/include/AfterNightEngine/Image/ValidityDescriptor.h`,
-  `src/AfterNightEngine/include/AfterNightEngine/Image/Provenance.h`, and
-  `src/AfterNightEngine/include/AfterNightEngine/IO/FitsCodec.h` establish
-  the eight sample types, the numeric domains, the validity rules, the lineage,
-  and the 64-bit FITS reading; `src/AfterNightControls/widgets/ViewPresentation.cpp`
-  and `src/AfterNightProcesses/processes/StretchProcessSupport.h` establish how
-  the viewer and the processes read every domain as fractions of full scale.
-- `src/AfterNightTests/Test_ProcessesShared/ProcessRegistryTest.cpp`,
-  `src/AfterNightTests/Test_ProcessFramework/test_process_registry_rules.cpp`,
-  `src/AfterNightTests/Test_AfterNightApp/ApplicationMenuTest.cpp`, and
-  `src/AfterNightTests/Test_AfterNightApp/test_process_menu_state.cpp`
-  establish the focused descriptor/menu/state evidence cited above.
-- Completed Image Viewer, Process Windows, Masks, Image History, Session Console,
-  and metadata pages establish current application concepts.
-- [Using Extensions](../extensions/using-extensions.md) and
-  [Extension Marketplace](../extensions/extension-marketplace.md), together with
-  their recorded manager, host, environment, protocol, and focused-test sources,
-  establish the synchronized extension terminology.
-- Primary papers, standards, and upstream documentation remain cited on the
-  specific process/reference page where they materially support a definition;
-  this glossary does not duplicate those bibliographies.
-- The complete glossary and diagnostic cross-reference were re-reviewed on
-  2026-10-18, after their reconciliation on 2026-07-20; exact validation is
-  retained in the guide's validation record.

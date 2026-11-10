@@ -265,7 +265,6 @@ responsive.
 
 ## Worked example
 
-- Evidence mode: Source-and-synthetic-test-derived.
 - Input and settings: a plate-solved field of round Gaussian stars planted at
   stated engine pixel coordinates over a speckled sky, with a local Gaia catalog
   of those stars.
@@ -293,16 +292,16 @@ responsive.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| No stars detected | Threshold too high, v1's size window excludes every star, or the chosen v2 plane is weak. | Reset, verify the plane, start at defaults, then lower the threshold or widen the size window. | `FirstProfilerWindowTest.TheSizeWindowAndTheThresholdHoldTheStars` |
-| `Error running Star Profiler` | The detector refused the image - a frame too small to search, or a v2 amplitude or roundness range whose maximum is below its minimum. | Use a larger image or correct the range. | `ADetectionTheEngineRefusesSaysWhyAndChangesNothing` |
-| Many hot pixels or noise detections | Threshold or size too permissive, or Relax checks on. | Raise the threshold; v1 raise Min Size; v2 disable Relax and inspect amplitude and FWHM. | Detector rejection rules |
-| RA/Dec show `-` | The image's header states no plate solution. | Plate solve the image and detect again. | `SecondProfilerWindowTest.AnUnsolvedImageIsProfiledWithoutWorldCoordinates` |
-| Gaia fields absent from a saved v2 profile | The image states no plate solution, or the local catalog is not configured, not ready or not readable; a catalog that cannot be read is logged with the reason. | Configure a local Gaia catalog, verify the solution, and detect again. | `StarProfilerUnitsTest.WithoutACatalogTheStarsAreStillPlaced` |
-| `Load Star Profile` refusal | Wrong generation, malformed JSON, unsupported schema or a missing v2 field. | Open it in the matching window; restore an unedited profile. | `AProfileOfTheOtherGenerationIsRefused`, `ARefusedReadLeavesTheRunningDetection` |
-| Loaded overlays do not align | Profiles carry positions but no image identity. | Load against the original image, or detect again. | Persistence source |
-| Mask too small with `% Pixel Increase 0.5` | The value is a `0.5×` multiplier. | Increase toward `1.0` and/or add Pixel Increase. | Mask creator source |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| No stars detected | Threshold too high, v1's size window excludes every star, or the chosen v2 plane is weak. | Reset, verify the plane, start at defaults, then lower the threshold or widen the size window. |
+| `Error running Star Profiler` | The detector refused the image - a frame too small to search, or a v2 amplitude or roundness range whose maximum is below its minimum. | Use a larger image or correct the range. |
+| Many hot pixels or noise detections | Threshold or size too permissive, or Relax checks on. | Raise the threshold; v1 raise Min Size; v2 disable Relax and inspect amplitude and FWHM. |
+| RA/Dec show `-` | The image's header states no plate solution. | Plate solve the image and detect again. |
+| Gaia fields absent from a saved v2 profile | The image states no plate solution, or the local catalog is not configured, not ready or not readable; a catalog that cannot be read is logged with the reason. | Configure a local Gaia catalog, verify the solution, and detect again. |
+| `Load Star Profile` refusal | Wrong generation, malformed JSON, unsupported schema or a missing v2 field. | Open it in the matching window; restore an unedited profile. |
+| Loaded overlays do not align | Profiles carry positions but no image identity. | Load against the original image, or detect again. |
+| Mask too small with `% Pixel Increase 0.5` | The value is a `0.5×` multiplier. | Increase toward `1.0` and/or add Pixel Increase. |
 
 ## Related workflow steps
 
@@ -313,13 +312,12 @@ direct mask workflow see [Star Mask](../star-operations/star-mask.md). Use
 [Image Registration](image-registration.md) for transforming images rather than
 measuring detections.
 
-## References and provenance
+## Credits
 
-- The fitted detector's candidate scan and fit derive from the Siril star finder
-  and PSF implementation, by Francois Meyer and team free-astro
-  (GPL-3.0-or-later).
-- The radial profiles of the generated masks are adapted from DeepSkyStacker's
-  star-mask shapes, under the BSD 3-Clause License of Luc Coiffier and the
-  DeepSkyStacker contributors; **Help > About AfterNight** credits both works.
-- The world coordinates use the image's plate solution and the catalog matches
-  the installed local Gaia DR3 catalog.
+- The fitted detector's candidate scan and fit derive from
+  [Siril](https://gitlab.com/free-astro/siril)'s star finder and PSF
+  implementation, by Francois Meyer and team free-astro (GPL-3.0-or-later).
+- The radial profiles of the generated masks are adapted from
+  [DeepSkyStacker](https://github.com/deepskystacker/DSS)'s star-mask shapes, under
+  the BSD 3-Clause License of Luc Coiffier and the DeepSkyStacker contributors;
+  **About > About AfterNight** credits both works.

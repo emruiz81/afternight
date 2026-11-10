@@ -9,8 +9,6 @@ data_out: nonlinear
 ---
 # Curves Transformation
 
-<!-- MEDIA_SLOT: UG-MEDIA-055 -->
-
 ## Purpose and expected result
 
 Curves Transformation is a point-controlled remapping tool for deliberate tone
@@ -289,8 +287,6 @@ change processing cost or precision.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-test-derived; not executed on project-owned
-  astronomical data.
 - **Input condition/provenance and settings:** A color-calibrated nonlinear RGB
   image. Select **Channel: CIE L* (Lightness)** and **Interpolation: Steffen**.
   Keep endpoints `(0,0)`/`(1,1)`, add a broad midtone point slightly above the
@@ -341,18 +337,18 @@ change processing cost or precision.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Apply** is disabled | The curve is the exact two-endpoint identity | Add or move a point; use Reset when no change is intended | `CurvesTransformationProcess::settingsUpdatedImpl`; `CurvesWidget::splineIsIdentity` |
-| Selected Akima/Steffen looks like another spline | The current implementation substitutes Cubic below five points; any two-point curve is Linear | Add enough well-spaced points or choose the effective method explicitly | `ToneCurveModel::effectiveInterpolation` |
-| Curve overshoots or flattens against black/white | Cubic/Akima interpolation crossed `[0,1]`, then output clamped | Remove close points, reduce curvature, or use Steffen, Monotone Cubic, or Linear | `evaluateCurve`; `buildCurveProgram` |
-| Saturated colors shift after an RGB curve | The same nonlinear function changes each channel value independently, not by a common ratio | Use a gentler curve or compare a lightness/value component | `CurvesTransformationProcess::executeTypedProcessImpl` |
-| Hue changes abruptly around one color | Hue is encoded on a linear `0..1` axis even though physical hue wraps | Avoid crossing the wrap boundary; prefer a localized color tool | `ChannelScope.h`; `applyProcessChannelScope` |
-| Preview and Apply differ | Preview and Apply run one curve plan, so a difference comes from a changed mask, target, or display setting, a preview still on its way, or a point not yet let go, whose preview shows the image reduced to the view | Compare identical mask/display state, wait for the current preview, and inspect statistics after Apply | `curvesProgramFor`; shared RT preview/mask path |
-| History cannot reproduce the result | The step description stores Channel and Interpolation only | Record node values externally or preserve a duplicate result | `CurvesTransformationProcess::executeTypedProcessImpl` |
-| Sequence remains unchanged after Cancel | Cancellation intentionally removes temporary output before replacement | Retry with final settings; keep enough temporary disk space | `ImageRTPreviewControl::runOverSequence` |
-| The next curve is identity/RGB after Apply | Successful still and sequence commits call the process reset path | This is expected; rebuild the curve and reselect the intended channel | Shared `resetSettingsAsync()` and `CurvesTransformationProcess::resetSettings` |
-| A CFA sequence becomes RGB after Apply | Automatic sequence CFA debayer was enabled, so the reader decoded each mosaic frame to RGB before Curves ran | Disable automatic sequence debayer when preserving a one-channel CFA representation is required; do not stretch CFA mosaics as grayscale | Shared sequence executor, demosaic, and concrete sequence readers |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Apply** is disabled | The curve is the exact two-endpoint identity | Add or move a point; use Reset when no change is intended |
+| Selected Akima/Steffen looks like another spline | The current implementation substitutes Cubic below five points; any two-point curve is Linear | Add enough well-spaced points or choose the effective method explicitly |
+| Curve overshoots or flattens against black/white | Cubic/Akima interpolation crossed `[0,1]`, then output clamped | Remove close points, reduce curvature, or use Steffen, Monotone Cubic, or Linear |
+| Saturated colors shift after an RGB curve | The same nonlinear function changes each channel value independently, not by a common ratio | Use a gentler curve or compare a lightness/value component |
+| Hue changes abruptly around one color | Hue is encoded on a linear `0..1` axis even though physical hue wraps | Avoid crossing the wrap boundary; prefer a localized color tool |
+| Preview and Apply differ | Preview and Apply run one curve plan, so a difference comes from a changed mask, target, or display setting, a preview still on its way, or a point not yet let go, whose preview shows the image reduced to the view | Compare identical mask/display state, wait for the current preview, and inspect statistics after Apply |
+| History cannot reproduce the result | The step description stores Channel and Interpolation only | Record node values externally or preserve a duplicate result |
+| Sequence remains unchanged after Cancel | Cancellation intentionally removes temporary output before replacement | Retry with final settings; keep enough temporary disk space |
+| The next curve is identity/RGB after Apply | Successful still and sequence commits call the process reset path | This is expected; rebuild the curve and reselect the intended channel |
+| A CFA sequence becomes RGB after Apply | Automatic sequence CFA debayer was enabled, so the reader decoded each mosaic frame to RGB before Curves ran | Disable automatic sequence debayer when preserving a one-channel CFA representation is required; do not stretch CFA mosaics as grayscale |
 
 ## Related workflow steps
 
@@ -367,7 +363,6 @@ intentional tone/color finishing. Continue with
 reduction, and sharpening while monitoring [Image History](../../interface/image-history.md)
 and [Image Statistics](../../interface/image-statistics.md).
 
-## References and provenance
+## Credits
 
 - [GNU Scientific Library 2.8: Interpolation](https://www.gnu.org/software/gsl/doc/html/interp.html) — the definitions of the Linear, natural Cubic, Akima, and monotonic Steffen interpolants and their point requirements. AfterNight implements the same rules itself and does not use the library.
-- AfterNight project source — authoritative for editor gestures, interpolation fallbacks, the shared preview/Apply curve plan, color-component paths, masks, sequences, history, and the processing-state record.

@@ -86,6 +86,8 @@ _FENCE = re.compile(r'^\s*(`{3,}|~{3,})')
 _FENCE_LANGUAGE = re.compile(r'\s*\{?\s*\.?([A-Za-z0-9_+-]*)')
 _ATX_H1 = re.compile(r'^ {0,3}#(?:[ \t]+|$)')
 _HTML_H1 = re.compile(r'<h1[\s>]', re.IGNORECASE)
+_ATX_SECTION = re.compile(r'^ {0,3}(#{1,2})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$')
+_HTML_COMMENT = re.compile(r'<!--.*?-->', re.DOTALL)
 _MARKDOWN_IMAGE = re.compile(
     r'!\[(?:[^\]\\]|\\.)*\]\(\s*(?:<([^>]*)>|([^)\s]+))(?:\s+(?:"[^"]*"|\'[^\']*\'))?\s*\)')
 _HTML_IMAGE = re.compile(r'<img\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|\'([^\']*)\')', re.IGNORECASE)
@@ -430,6 +432,29 @@ def h1_lines(body, first_line=1):
         if _ATX_H1.match(line) or _HTML_H1.search(line):
             lines.append(number + first_line - 1)
     return lines
+
+
+def section(body, title, first_line=1):
+    """(line of the heading, text) of the first `## <title>` section of a page body, outside code, or None when the
+    page has none. The text runs to the next heading of the first or second level, without HTML comments and the blank
+    lines around it, so a section that says nothing has an empty text."""
+    lines = body.split('\n')
+    start = None
+    end = len(lines)
+    for number, line in _outside_code(body):
+        heading = _ATX_SECTION.match(line)
+        if not heading:
+            continue
+        if start is not None:
+            end = number - 1
+            break
+        # The title is compared as written: `_outside_code` blanks code spans, and a title may hold one.
+        written = _ATX_SECTION.match(lines[number - 1])
+        if len(heading.group(1)) == 2 and written and written.group(2) == title:
+            start = number
+    if start is None:
+        return None
+    return start + first_line - 1, _HTML_COMMENT.sub('', '\n'.join(lines[start:end])).strip()
 
 
 def image_references(body, first_line=1):

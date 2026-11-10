@@ -247,8 +247,6 @@ quality measurements.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-equation-derived; not executed on approved
-  astronomical data.
 - **Input condition and settings:** A finite normalized nonlinear image with
   smooth background and one broad transition; Radius `80`, Weight `0.5`, both
   tone levels `1`, Amount `1`.
@@ -282,19 +280,19 @@ quality measurements.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Result is unchanged | Weight `0`, Amount `0`, tone gains `0`, protective mask, or scale mismatch | Check Weight/Amount/mask first; choose Radius for visible feature scale | LCE and blend equations |
-| Bright/dark halos surround stars | High-radius residual plus Weight/tone gains | Reduce Weight first, then Radius; lower only the offending tone branch | Bundled `fx_LCE` pipeline |
-| Colored rims appear | RGB path processes color channels through the local residual model | Compare CIE Y/L*; reduce Weight/Amount | Shared Channel dispatcher |
-| Background becomes coarse | The residual boosts noise at selected scales | Denoise first; reduce Weight; protect smooth background with a feathered mask | Residual equation |
-| Preview differs from Apply | Preview area, Channel, mask/inversion, or display conditions changed | Match controls; disable Preview area for final check | Shared preview/Apply paths |
-| Histogram clips although low Amount looks mild | G'MIC clips before final Amount blend | Reduce Weight/tone levels; Amount cannot restore clipped detail | Pipeline order |
-| Edge behavior differs near frame boundary | G'MIC Gaussian uses its default Neumann boundary condition | Judge away from border or crop/plan boundary handling before LCE | Official G'MIC blur contract |
-| Cancel waits | Current G'MIC command has not reached an abort check | Wait; tune on a smaller area or radius | G'MIC adapter abort flag |
-| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged | `GmicProcessSupport.cpp` |
-| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another contrast process | `GmicProcessSupport.cpp` |
-| A G'MIC error is reported | G'MIC failure, invalid data, or memory exhaustion | Verify finite normalized data and memory; retry on a duplicate | Process error path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Result is unchanged | Weight `0`, Amount `0`, tone gains `0`, protective mask, or scale mismatch | Check Weight/Amount/mask first; choose Radius for visible feature scale |
+| Bright/dark halos surround stars | High-radius residual plus Weight/tone gains | Reduce Weight first, then Radius; lower only the offending tone branch |
+| Colored rims appear | RGB path processes color channels through the local residual model | Compare CIE Y/L*; reduce Weight/Amount |
+| Background becomes coarse | The residual boosts noise at selected scales | Denoise first; reduce Weight; protect smooth background with a feathered mask |
+| Preview differs from Apply | Preview area, Channel, mask/inversion, or display conditions changed | Match controls; disable Preview area for final check |
+| Histogram clips although low Amount looks mild | G'MIC clips before final Amount blend | Reduce Weight/tone levels; Amount cannot restore clipped detail |
+| Edge behavior differs near frame boundary | G'MIC Gaussian uses its default Neumann boundary condition | Judge away from border or crop/plan boundary handling before LCE |
+| Cancel waits | Current G'MIC command has not reached an abort check | Wait; tune on a smaller area or radius |
+| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged |
+| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another contrast process |
+| A G'MIC error is reported | G'MIC failure, invalid data, or memory exhaustion | Verify finite normalized data and memory; retry on a duplicate |
 
 ## Related workflow steps
 
@@ -305,19 +303,14 @@ for neighborhood-CDF equalization, and [CLAHE](clahe.md) for tiled
 contrast-limited equalization. Use [Image History](../../interface/image-history.md)
 to revert Apply and [Masks](../../interface/masks.md) to protect smooth regions.
 
-## References and provenance
+## Credits
 
 - [G'MIC `blur` reference](https://gmic.eu/reference/blur.html) — official
-  standard-deviation, Gaussian/Deriche, and boundary-condition command contract;
-  accessed 2026-07-14 and applied to bundled G'MIC 3.5.4 semantics.
+  standard-deviation, Gaussian/Deriche, and boundary-condition command contract,
+  as the bundled G'MIC 3.5.4 applies it.
 - [G'MIC `apply_channels` reference](https://gmic.eu/reference/apply_channels.html)
   — official channel working-range and selection semantics used by bundled
-  `fx_LCE`; accessed 2026-07-14.
-- The repository's `scripts/arto_huotari.gmic` credits Arto Huotari and
-  PhotoComiX and notes original unsharp-mask code by David Tschumperlé; the
-  process carries its `fx_LCE` and `_fx_LCE` definitions in
-  `GmicProcessSupport.cpp`, which is authoritative for the shipped
-  fixed-zero-threshold residual/tone pipeline.
-- AfterNight sources and tests are authoritative for
-  the menu, live controls, Weight/Amount split, G'MIC hand-off, channels, masks,
-  metadata/history, preview, sequence, and cancellation behavior.
+  `fx_LCE`.
+- The filter is `fx_LCE` of the G'MIC script `arto_huotari.gmic`, which credits
+  Arto Huotari and PhotoComiX and notes original unsharp-mask code by David
+  Tschumperlé.

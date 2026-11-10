@@ -6,13 +6,6 @@ summary: >-
 ---
 # Annotate Image
 
-<!--
-A page renders no authoring evidence. Record its owner, source-review date, reviewed revision, dirty reviewed
-sources, source files and tests, UI reachability, parameter, algorithm and example coverage, content state,
-technical and user review, media state and last strict build in its row of
-docs/user-guide/DOCUMENTATION_COMPLETION_TRACKER.md.
--->
-
 ## Purpose, audience, prerequisites, and expected result
 
 **Annotate Image** makes a picture of a plate-solved image with its deep-sky
@@ -226,7 +219,6 @@ smaller **Size** is faster and lighter.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived, with a project-owned solved image.
 - Starting state: a 7246 x 5429 RGB composite of the Carina Nebula, plate solved
   at 1.10″ a pixel, shown with the view's automatic stretch.
 - Actions: open **Annotate Image**, keep **Standard**, type a credit, choose
@@ -250,7 +242,7 @@ smaller **Size** is faster and lighter.
   catalogues (Sharpless, Barnard, Collinder, Trumpler...) are not included.
   Catalogue sizes and position angles are approximations, and some Caldwell
   rows have the provenance limitation recorded in
-  [Astrometry Overlays](astrometry-overlays.md#references-and-provenance).
+  [Astrometry Overlays](astrometry-overlays.md#credits).
 - Star positions are J2000 without proper motion; they are drawn where the
   catalogue puts them.
 - In a crowded field some labels are left out rather than overlapped. Lower the
@@ -261,17 +253,17 @@ smaller **Size** is faster and lighter.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| The **Annotate Image** button is missing, or the menu entry is disabled. | The view is a sequence, or its image has no WCS the engine reads. | Plate solve the image, or open a solved file. | Window and menu tests |
-| *The image states no astrometric solution. Plate solve it first.* | The image lost its WCS while the window was open. | Plate solve it again; the window starts over. | Window tests |
-| *The catalogues could not be read: ...* | The bundled catalogue resource could not be read. | Reinstall AfterNight. | Window source |
-| *A JPEG file cannot keep transparency: choose a PNG or TIFF file.* | **Background** is **Transparent** and the file chosen is JPEG. | Choose a PNG or TIFF file, or the image background. | Window tests |
-| *Choose a PNG, JPEG or TIFF file.* | The file chosen has another extension. | Choose a `.png`, `.jpg` or `.tif` file. | Window source |
-| *The image is being changed; try again once it is shown.* | A process was writing the image when the picture was asked for. | Wait for the view to update and export again. | Window source |
-| *The picture could not be made: ...* | The engine refused a step - memory, the file, the format. The message names it. | Choose a smaller **Size** or another folder, and try again. | Window source |
-| Some objects are marked but not labelled. | Their labels found no room. | Lower **Label size**, turn on leader lines, or choose less detail. | Layout tests |
-| Stars are ringed but not named. | **Mark the stars left unnamed** marks the stars **Star labels** does not name. | Choose **Every star, by number when unnamed**, or turn the marking off. | Scene tests |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The **Annotate Image** button is missing, or the menu entry is disabled. | The view is a sequence, or its image has no WCS the engine reads. | Plate solve the image, or open a solved file. |
+| *The image states no astrometric solution. Plate solve it first.* | The image lost its WCS while the window was open. | Plate solve it again; the window starts over. |
+| *The catalogues could not be read: ...* | The bundled catalogue resource could not be read. | Reinstall AfterNight. |
+| *A JPEG file cannot keep transparency: choose a PNG or TIFF file.* | **Background** is **Transparent** and the file chosen is JPEG. | Choose a PNG or TIFF file, or the image background. |
+| *Choose a PNG, JPEG or TIFF file.* | The file chosen has another extension. | Choose a `.png`, `.jpg` or `.tif` file. |
+| *The image is being changed; try again once it is shown.* | A process was writing the image when the picture was asked for. | Wait for the view to update and export again. |
+| *The picture could not be made: ...* | The engine refused a step - memory, the file, the format. The message names it. | Choose a smaller **Size** or another folder, and try again. |
+| Some objects are marked but not labelled. | Their labels found no room. | Lower **Label size**, turn on leader lines, or choose less detail. |
+| Stars are ringed but not named. | **Mark the stars left unnamed** marks the stars **Star labels** does not name. | Choose **Every star, by number when unnamed**, or turn the marking off. |
 
 ## Related workflow steps
 
@@ -282,7 +274,7 @@ smaller **Size** is faster and lighter.
 - After: [Saving & Exporting](saving-and-exporting.md) saves an opened picture in
   any format, and the [Image Viewer](image-viewer.md) shows it.
 
-## References and provenance
+## Credits
 
 - NASA/HEASARC, [FITS World Coordinate System papers and resources](https://fits.gsfc.nasa.gov/fits_wcs.html),
   for the tangent-plane projection through which every position is drawn.
@@ -292,4 +284,3 @@ smaller **Size** is faster and lighter.
 - Astronexus, [HYG Database 4.2](https://www.astronexus.com/projects/hyg),
   source of the bundled bright-star subset - the 83,479 stars to visual
   magnitude 9 - under CC BY-SA 4.0.
-- The drawing, label placement and palettes are AfterNight's own.

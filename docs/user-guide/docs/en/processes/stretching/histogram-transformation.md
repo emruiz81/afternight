@@ -10,8 +10,6 @@ data_out: nonlinear
 ---
 # Histogram Transformation
 
-<!-- MEDIA_SLOT: UG-MEDIA-054 -->
-
 ## Purpose and expected result
 
 Histogram Transformation permanently maps normalized image samples through a
@@ -301,7 +299,6 @@ transform.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; no astronomy image was executed.
 - Input condition/provenance and settings: one normalized RGB pixel with
   `R=0.50`, `G=0.25`, `B=0.75`; **Channel=Red**, `S=0.10`, `m=0.40`, `H=0.90`.
 - Expected checkpoint: only red is transformed. Its rescaled value is
@@ -349,18 +346,18 @@ transform.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Auto preview is stretched while S/M/H still show `0/0.5/1` | Auto-stretch retains linked/unlinked mode in the execution snapshot but does not publish derived numeric values to the manual controls | This is expected. Verify the preview, record linked/unlinked mode, then Apply; use manual values when exact numeric repeatability is required | Auto handlers, typed parameters, and `getParams()` |
-| Auto-stretch is no longer pending | A manual Shadows/Midtones/Highlights or Channel edit, Reset, or successful Apply clears the retained Auto mode | Click the intended Auto-stretch action again and verify the refreshed preview before Apply | Manual handlers and `clearAutoStretchState()` |
-| Clipped percentage seems three times too small for Red/Green/Blue | Numerator covers the selected channel but denominator is width × height × all RGB channels | Use Image Statistics or multiply only for informal interpretation; do not use the UI field as an exact measurement | `showClippedInfo()` and `clippedByScreenTransfer()` |
-| Clipped readout changed after Plot resolution | The Clipped fields count bins at the selected resolution, and a resolution change recounts the source and recomputes them | Compare readouts at one resolution; use Image Statistics for exact counts | `on_plotResolution_currentTextChanged()`, `recountOriginal()`, and `clippedByScreenTransfer()` |
-| Histogram still shows all RGB lines while Channel is Red | Plot display channels follow RT preview display mode, not the process Channel selector | Change preview display-channel mode for inspection; keep Channel set to the intended processing scope | `onImageDisplayChannelChanged()` and Channel handler |
-| Selecting Absolute scales hides relative channel strength | Selected state actually enables local per-channel normalization | Clear **Absolute scales** to use one maximum across displayed channels | Toolbar connection and HistogramWidget normalization |
-| Shadows/Highlights produce a nearly binary image, or the preview reports "midtones parameters must be finite unit values with ordered endpoints" | Endpoints are equal or Midtones is at `0`/`1`; with Shadows above Highlights the engine refuses the transfer. Spin boxes do not enforce a safe interval | Reset; restore `S < H` and an interior Midtones value | MTF endpoint branches, the engine's endpoint check, and UI ranges |
-| Preview is slow | Full-image asynchronous transform, histogram rebuild, high bin count, mask blend, and large plot buffers all add work | Clear Preview while editing, return to 256 bins, reset plot zoom, then re-enable for a final check | Process preview scheduling and histogram implementation |
-| Color balance shifts | A single channel was processed or unlinked auto was used for inspection | Undo; use RGB/manual shared settings or a dedicated color-calibration process before stretching | Channel flags and unlinked autostretch engine path |
-| Sequence cancellation takes time | Cancellation is cooperative: the framework checks before each frame and the engine once per chunk of rows, so the current chunk, frame read, or frame write finishes first | Wait for the current checkpoint. The normal cancel path removes the temporary output | `ImageRTPreviewControl::runOverSequence` and the engine's `parallelFor` checkpoints |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Auto preview is stretched while S/M/H still show `0/0.5/1` | Auto-stretch retains linked/unlinked mode in the execution snapshot but does not publish derived numeric values to the manual controls | This is expected. Verify the preview, record linked/unlinked mode, then Apply; use manual values when exact numeric repeatability is required |
+| Auto-stretch is no longer pending | A manual Shadows/Midtones/Highlights or Channel edit, Reset, or successful Apply clears the retained Auto mode | Click the intended Auto-stretch action again and verify the refreshed preview before Apply |
+| Clipped percentage seems three times too small for Red/Green/Blue | Numerator covers the selected channel but denominator is width × height × all RGB channels | Use Image Statistics or multiply only for informal interpretation; do not use the UI field as an exact measurement |
+| Clipped readout changed after Plot resolution | The Clipped fields count bins at the selected resolution, and a resolution change recounts the source and recomputes them | Compare readouts at one resolution; use Image Statistics for exact counts |
+| Histogram still shows all RGB lines while Channel is Red | Plot display channels follow RT preview display mode, not the process Channel selector | Change preview display-channel mode for inspection; keep Channel set to the intended processing scope |
+| Selecting Absolute scales hides relative channel strength | Selected state actually enables local per-channel normalization | Clear **Absolute scales** to use one maximum across displayed channels |
+| Shadows/Highlights produce a nearly binary image, or the preview reports "midtones parameters must be finite unit values with ordered endpoints" | Endpoints are equal or Midtones is at `0`/`1`; with Shadows above Highlights the engine refuses the transfer. Spin boxes do not enforce a safe interval | Reset; restore `S < H` and an interior Midtones value |
+| Preview is slow | Full-image asynchronous transform, histogram rebuild, high bin count, mask blend, and large plot buffers all add work | Clear Preview while editing, return to 256 bins, reset plot zoom, then re-enable for a final check |
+| Color balance shifts | A single channel was processed or unlinked auto was used for inspection | Undo; use RGB/manual shared settings or a dedicated color-calibration process before stretching |
+| Sequence cancellation takes time | Cancellation is cooperative: the framework checks before each frame and the engine once per chunk of rows, so the current chunk, frame read, or frame write finishes first | Wait for the current checkpoint. The normal cancel path removes the temporary output |
 
 ## Related workflow steps
 
@@ -379,15 +376,12 @@ point-controlled tone or color refinement is needed.
 The broader order is summarized in [Broadband Imaging](../../workflows/broadband-imaging.md)
 and [Narrowband Imaging](../../workflows/narrowband-imaging.md).
 
-## References and provenance
+## Credits
 
-- AfterNight source and focused tests are authoritative for every current behavior and limitation
-  on this page.
 - The official [XISF 1.0 specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html)
-  documents display functions and an adaptive display-function algorithm. It was
-  checked as primary background for MTF/STF terminology; this page does not claim
-  that AfterNight implements the whole specification.
+  documents display functions and an adaptive display-function algorithm. It is
+  background for the MTF and STF terms; AfterNight does not implement the whole
+  specification.
 - A [PixInsight staff explanation of the midtones transfer function](https://pixinsight.com/forum/index.php?threads/after-doing-luminance-levels-transform-the-image-is-monochrome.741/)
   describes normalized endpoints, the `{m, 0.5}` control point, rational
-  interpolation, and the identity at `m=0.5`. AfterNight's equation was verified
-  directly from its engine source.
+  interpolation, and the identity at `m=0.5`.

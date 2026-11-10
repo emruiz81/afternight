@@ -307,15 +307,15 @@ master was executed for this example.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Check or correction | Evidence |
-| --- | --- | --- | --- |
-| Weight behaves differently after changing Algorithm | Opposite upstream weight conventions and UI remapping | Return to the solver's starting point and retune; do not transfer numerical expectations | Process mapping plus scikit-image API |
-| Exact Bregman Weight `1` is weaker than `0.999` | Endpoint guard sends `1` instead of the limiting near-zero value | Step back below `1` and compare; record the exact UI value | `TotalVariationDenoiseProcess.cpp` |
-| Isotropic cannot be changed | Chambolle is selected | Switch to Bregman to compare isotropic/anisotropic TV; Chambolle ignores this control | Process |
-| A large frame takes long at a high Max Iterations | Each iteration is a full-image pass per channel | Watch the progress; Cancel stops at the next iteration; tune on a smaller Preview area or raise Epsilon | Engine solver |
-| Edge pixels differ more than the center | Solver boundary condition | Compare Bregman/Chambolle and avoid judging on a crop boundary | Engine solver boundary |
-| Preview differs from Apply | Preview area, mask, target/channel, or display stretch changed | Match all controls and use one Display Mode; Apply always processes the full target | Shared preview/process path |
-| Colors shift or terrace differently | Independent RGB solves or derived-component round trip | Reduce Weight; compare RGB and a deliberate component on a duplicate | Per-channel solve |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Weight behaves differently after changing Algorithm | Opposite upstream weight conventions and UI remapping | Return to the solver's starting point and retune; do not transfer numerical expectations |
+| Exact Bregman Weight `1` is weaker than `0.999` | Endpoint guard sends `1` instead of the limiting near-zero value | Step back below `1` and compare; record the exact UI value |
+| Isotropic cannot be changed | Chambolle is selected | Switch to Bregman to compare isotropic/anisotropic TV; Chambolle ignores this control |
+| A large frame takes long at a high Max Iterations | Each iteration is a full-image pass per channel | Watch the progress; Cancel stops at the next iteration; tune on a smaller Preview area or raise Epsilon |
+| Edge pixels differ more than the center | Solver boundary condition | Compare Bregman/Chambolle and avoid judging on a crop boundary |
+| Preview differs from Apply | Preview area, mask, target/channel, or display stretch changed | Match all controls and use one Display Mode; Apply always processes the full target |
+| Colors shift or terrace differently | Independent RGB solves or derived-component round trip | Reduce Weight; compare RGB and a deliberate component on a duplicate |
 
 ## Related workflow steps
 
@@ -333,20 +333,19 @@ master was executed for this example.
   and active-mask controls.
 - Terms used here are defined in the [Glossary](../../reference/glossary.md).
 
-## References and provenance
+## Credits
 
-- AfterNight process, engine solver, shared RT-preview/channel/mask/sequence
-  framework, and focused tests.
-- [scikit-image 0.26.0 restoration source](https://github.com/scikit-image/scikit-image/blob/v0.26.0/src/skimage/restoration/_denoise.py)
-  and [compiled TV-Bregman source](https://github.com/scikit-image/scikit-image/blob/v0.26.0/src/skimage/restoration/_denoise_cy.pyx),
-  checked 2026-07-13 for objectives, mappings, solver loops, channel handling,
-  convergence, and boundaries. The engine's Chambolle iteration reproduces it,
-  and its split-Bregman route reaches the same minimum.
-- [scikit-image restoration API](https://scikit-image.org/docs/stable/api/skimage.restoration.html),
-  checked 2026-07-13 for public parameter semantics and algorithm references.
-- Tom Goldstein and Stanley Osher,
-  [The Split Bregman Method for L1-Regularized Problems](https://ww3.math.ucla.edu/camreport/cam08-29.pdf),
-  checked 2026-07-13.
-- Antonin Chambolle,
-  [An Algorithm for Total Variation Minimization and Applications](https://www.math.ucla.edu/~lvese/285j.1.09f/Chambolle.pdf),
-  checked 2026-07-13.
+- [scikit-image 0.26.0 restoration
+  source](https://github.com/scikit-image/scikit-image/blob/v0.26.0/src/skimage/restoration/_denoise.py)
+  and [compiled TV-Bregman
+  source](https://github.com/scikit-image/scikit-image/blob/v0.26.0/src/skimage/restoration/_denoise_cy.pyx)
+  for objectives, mappings, solver loops, channel handling, convergence, and
+  boundaries. The engine's Chambolle iteration reproduces it, and its
+  split-Bregman route reaches the same minimum.
+- [scikit-image restoration
+  API](https://scikit-image.org/docs/stable/api/skimage.restoration.html) for
+  public parameter semantics and algorithm references.
+- Tom Goldstein and Stanley Osher, [The Split Bregman Method for L1-Regularized
+  Problems](https://ww3.math.ucla.edu/camreport/cam08-29.pdf).
+- Antonin Chambolle, [An Algorithm for Total Variation Minimization and
+  Applications](https://www.math.ucla.edu/~lvese/285j.1.09f/Chambolle.pdf).

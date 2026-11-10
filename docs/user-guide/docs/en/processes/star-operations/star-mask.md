@@ -10,8 +10,6 @@ derived: true
 ---
 # Star Mask
 
-<!-- MEDIA_SLOT: UG-MEDIA-079 -->
-
 ## Purpose and expected result
 
 Star Mask finds the stars of one image, or of every sequence frame, with
@@ -279,7 +277,6 @@ before Apply. No production timing or peak memory was measured.
 
 ## Worked example
 
-- Evidence mode: Source-and-synthetic-test-derived.
 - Input and settings: A synthetic linear grayscale Float32 field of planted
   stars, wide enough for the search, at the dialog defaults: Radius `5`,
   Threshold `1.00`, Gaussian, Shaped Areas, `0.50` Percent Increase, `0` Pixel
@@ -317,23 +314,23 @@ before Apply. No production timing or peak memory was measured.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Process is disabled or does not open | No active image/sequence, duplicate attached process, or exclusive attached process | Activate the intended view and close conflicting process windows | `launchSingleImageProcess`; registry descriptor |
-| Error message includes `the searched rectangle is too small for the search radius`, at Preview or Apply | The picture, or the Preview area, is not more than `4 x Radius + 8` pixels wide and tall | Lower Radius, enlarge the Preview area, or uncheck it; nothing was made | `an::planStarDetection` |
-| Error message includes `the amplitude window's upper bound is at or above its lower bound` | Amplitude Range Maximum is below its Minimum | Raise Maximum or lower Minimum | `an::planStarDetection` |
-| Error message includes `the largest roundness lies within the unit interval and at or above the smallest` | Roundness Range Maximum is below Roundness Threshold | Raise Maximum or lower Roundness Threshold | `an::planStarDetection` |
-| Error message includes `the size window is finite, not negative and ordered` | Min Size is above Max Size with Shaped Areas on | Correct the size bounds | `an::paintShapedStarMask` |
-| Error at Preview or Apply on a camera mosaic | The image is a filter-array mosaic that has not been demosaiced | Demosaic first, or enable sequence auto-debayer | `an::StarFrameView::create`; `an::planStarDetection` |
-| No stars appear | Threshold too high, Radius unsuitable, optional ranges reject all fits, or the searched plane is weak | Reset; check green versus Use Lightness; tune detection before size/growth; disable optional ranges | Process and detector sources |
-| Many hot pixels/noise peaks appear | Threshold/size rejection is too permissive or Relax PSF Checks admits poor candidates | Raise Threshold; use shaped Min Size; disable Relax; inspect on the same display stretch | Detector rejection source |
-| Moffat detects far fewer stars | Fits fail or beta falls below Minimum Beta | Return to Gaussian; use Moffat only for diagnosed wings and tune Convergence/beta carefully | `an::detectStars` rejection reasons |
-| Mask is too small at Percent Increase `0.50` | `0.50` is a half-radius multiplier, not a 50% addition | Increase toward `1.0` and/or add Pixel Increase | `an::paintShapedStarMask` |
-| Min/Max Size changes do nothing | Shaped Areas is unchecked | Re-enable Shaped Areas or accept that solid ellipses ignore shaped controls | `StarMaskProcess::executeTypedProcessImpl` |
-| Shaped mask loses elongation | Shaped masks use the larger FWHM as a circular radius | Use solid ellipses to retain fitted ratio/angle, or use a later morphology workflow | `an::paintShapedStarMask` |
-| Preview differs from final output | Preview area is searched on its own, or the display mode differs from the full-frame comparison | Uncheck Preview area, match Linear/Autostretch settings, and recheck at 100% | `ImageRTPreviewControl` preview path |
-| Error names the memory budget | The session cannot hold the run's copies of the image and the mask | Close other images or work on a smaller crop; nothing was made | `process_utils::normalizedCopyOf`; `process_utils::createDerivedImage` |
-| The mask has no OBJECT, filter, or exposure cards | A mask carries only the processing-state cards of its target's header | Expected; the acquisition record and astrometric solution are kept | `process_utils::derivedImageMetadata` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Process is disabled or does not open | No active image/sequence, duplicate attached process, or exclusive attached process | Activate the intended view and close conflicting process windows |
+| Error message includes `the searched rectangle is too small for the search radius`, at Preview or Apply | The picture, or the Preview area, is not more than `4 x Radius + 8` pixels wide and tall | Lower Radius, enlarge the Preview area, or uncheck it; nothing was made |
+| Error message includes `the amplitude window's upper bound is at or above its lower bound` | Amplitude Range Maximum is below its Minimum | Raise Maximum or lower Minimum |
+| Error message includes `the largest roundness lies within the unit interval and at or above the smallest` | Roundness Range Maximum is below Roundness Threshold | Raise Maximum or lower Roundness Threshold |
+| Error message includes `the size window is finite, not negative and ordered` | Min Size is above Max Size with Shaped Areas on | Correct the size bounds |
+| Error at Preview or Apply on a camera mosaic | The image is a filter-array mosaic that has not been demosaiced | Demosaic first, or enable sequence auto-debayer |
+| No stars appear | Threshold too high, Radius unsuitable, optional ranges reject all fits, or the searched plane is weak | Reset; check green versus Use Lightness; tune detection before size/growth; disable optional ranges |
+| Many hot pixels/noise peaks appear | Threshold/size rejection is too permissive or Relax PSF Checks admits poor candidates | Raise Threshold; use shaped Min Size; disable Relax; inspect on the same display stretch |
+| Moffat detects far fewer stars | Fits fail or beta falls below Minimum Beta | Return to Gaussian; use Moffat only for diagnosed wings and tune Convergence/beta carefully |
+| Mask is too small at Percent Increase `0.50` | `0.50` is a half-radius multiplier, not a 50% addition | Increase toward `1.0` and/or add Pixel Increase |
+| Min/Max Size changes do nothing | Shaped Areas is unchecked | Re-enable Shaped Areas or accept that solid ellipses ignore shaped controls |
+| Shaped mask loses elongation | Shaped masks use the larger FWHM as a circular radius | Use solid ellipses to retain fitted ratio/angle, or use a later morphology workflow |
+| Preview differs from final output | Preview area is searched on its own, or the display mode differs from the full-frame comparison | Uncheck Preview area, match Linear/Autostretch settings, and recheck at 100% |
+| Error names the memory budget | The session cannot hold the run's copies of the image and the mask | Close other images or work on a smaller crop; nothing was made |
+| The mask has no OBJECT, filter, or exposure cards | A mask carries only the processing-state cards of its target's header | Expected; the acquisition record and astrometric solution are kept |
 
 ## Related workflow steps
 
@@ -344,19 +341,15 @@ Assign the output through [Masks](../../interface/masks.md), refine it with
 use it to guide [Star Reduction](star-reduction.md). For neural star separation
 instead of profile detection, use [Starnet++](starnet.md).
 
-## References and provenance
+## Credits
 
-- The fitted-PSF detector is adapted from Siril's star finder and PSF fit, by
+- The fitted-PSF detector is adapted from
+  [Siril](https://gitlab.com/free-astro/siril)'s star finder and PSF fit, by
   Francois Meyer and team free-astro (GPL-3.0-or-later), and extended by
   AfterNight.
 - The six Star Shape profiles, their reach of three radii and the largest value
-  kept where stars overlap are adapted from DeepSkyStacker's star-mask shapes,
-  under the BSD 3-Clause License of Luc Coiffier and the DeepSkyStacker
-  contributors. **Help > About AfterNight** credits both works and reproduces
-  that licence's notice.
-- AfterNight project source is authoritative for
-  the detection plane, the threshold, the rejection windows, the size and growth
-  rules, the solid-ellipse rule, representation/metadata/state behavior, and the
-  Preview and sequence workflow.
-- The generated mask is intended for AfterNight's standard image-mask system;
-  see [Masks](../../interface/masks.md) for assignment and blend direction.
+  kept where stars overlap are adapted from
+  [DeepSkyStacker](https://github.com/deepskystacker/DSS)'s star-mask shapes, under
+  the BSD 3-Clause License of Luc Coiffier and the DeepSkyStacker contributors.
+  **About > About AfterNight** credits both works and reproduces that licence's
+  notice.

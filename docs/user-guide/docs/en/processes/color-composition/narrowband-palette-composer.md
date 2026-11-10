@@ -41,7 +41,7 @@ editor.
 | Preview support | Automatic Palette Grid and Single Preview, built on a worker under an operation of their own once the inputs are chosen - the latest request wins and nothing older is shown; all 12 palettes at full resolution as 8-bit display conversions; no standard viewer/histogram/autostretch toolbar |
 | Sequence support | Not supported by any source selector; no target sequence is needed to open the top-level window |
 | Mask support | Not supported; the process explicitly disables ordinary target masking |
-| External dependencies | No runtime tool, Python environment, model, catalog, or network service; SetiAstro lineage is recorded under [References and provenance](#references-and-provenance) |
+| External dependencies | No runtime tool, Python environment, model, catalog, or network service; SetiAstro lineage is recorded under [Credits](#credits) |
 
 ## Before you start
 
@@ -303,8 +303,6 @@ instead of stepping through many spin values. No approved dataset was timed.
 
 ## Worked example
 
-- **Evidence mode:** Source- and focused-test-derived; not executed on
-  project-owned astronomical data.
 - **Prepared samples:** Ha `H=0.20`, OIII `O=0.40`, SII `S=0.80`; Input
   autostretch off; intensities all `100%`.
 - **SHO matrix:** Raw RGB is `(S,H,O)=(0.80,0.20,0.40)`.
@@ -342,7 +340,7 @@ instead of stepping through many spin values. No approved dataset was timed.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Window opens with empty selectors | This top-level process does not auto-select an active view | Choose sources explicitly; open supported mono/RGB stills if lists are empty |
 | Apply is disabled | Synthesized inputs lack OIII or lack both Ha and SII | Select OIII plus Ha/SII, or use OSC1/OSC2 to synthesize the roles |
@@ -378,12 +376,11 @@ instead of stepping through many spin values. No approved dataset was timed.
 - [Glossary](../../reference/glossary.md) — SHO, HOO, palette, linear/nonlinear,
   autostretch, clipping, and normalization terminology.
 
-## References and provenance
+## Credits
 
-- AfterNight source and focused tests.
-- `docs/dev/NARROWBAND_PALETTE_COMPOSER_PROVENANCE.md` records the reviewed
-  SetiAstro SASPro source snapshot and hashes, Franklin Marek attribution, and
-  GPL-3.0 license. AfterNight implements the behavior with native C++ engine and
-  Qt controls; Python runtime objects, PyQt widgets, icons, and the upstream SASPro
-  UI assets are not included.
-- The same attribution and port boundary are exposed in **About > Licenses**.
+- The palettes are adapted from the narrowband palette workflow of
+  [Seti Astro Suite Pro](https://github.com/setiastro/setiastrosuitepro), by
+  Franklin Marek, under GPL-3.0. AfterNight implements them in its own engine
+  and controls; Python runtime objects, PyQt widgets, icons, and the upstream
+  SASPro UI assets are not included.
+- The licence page of **About > About AfterNight** carries the same credit.

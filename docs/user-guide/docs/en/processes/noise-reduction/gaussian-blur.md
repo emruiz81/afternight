@@ -287,18 +287,18 @@ universal error bound.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Check or correction | Evidence |
-| --- | --- | --- | --- |
-| Gaussian Blur appears under two menus | The same QAction is intentionally added to Details and Filters | Use either route; both launch the same process | `AfterNightAppUiBuilder.h` |
-| A small positive Sigma changes little in the preview while the slider is held | At a reduced view the held preview blurs by Sigma divided by the reduction | Release the slider, view at 100%, or use **Take snapshot** | Interactive frames over the reduced image |
-| Edges and stars soften too much | Gaussian has no range/edge protection | Reduce Sigma, use a mask, or compare Bilateral/TV/Wavelet denoise | Linear Gaussian |
-| Border differs from the interior | The image is mirrored at its edges, so border pixels average reflected structure | Inspect the full frame and reduce Sigma or pad/crop in a controlled external workflow | Reflecting border |
-| The preview changes when the slider is released | The held preview is the blur of the reduced image or of the shown part; the settled preview is the whole image's | Expected; the settled preview is what Apply writes | Preview frames |
-| Channel returns to RGB after Apply/Reset | Process Reset explicitly restores RGB for RGB targets | Re-select the intended component for the next run | `resetSettings()` |
-| Preview differs from Apply by more than that | Preview area, mask, target/channel, or display stretch changed | Match all controls and one Display Mode; Apply always processes the full target | Shared preview/process path |
-| Apply is slow at a large Sigma | Above `32` the blur is composed of several exact passes | Watch the progress; reduce Sigma or work on a binned copy for very broad support layers | Composed exact passes |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Gaussian Blur appears under two menus | The same QAction is intentionally added to Details and Filters | Use either route; both launch the same process |
+| A small positive Sigma changes little in the preview while the slider is held | At a reduced view the held preview blurs by Sigma divided by the reduction | Release the slider, view at 100%, or use **Take snapshot** |
+| Edges and stars soften too much | Gaussian has no range/edge protection | Reduce Sigma, use a mask, or compare Bilateral/TV/Wavelet denoise |
+| Border differs from the interior | The image is mirrored at its edges, so border pixels average reflected structure | Inspect the full frame and reduce Sigma or pad/crop in a controlled external workflow |
+| The preview changes when the slider is released | The held preview is the blur of the reduced image or of the shown part; the settled preview is the whole image's | Expected; the settled preview is what Apply writes |
+| Channel returns to RGB after Apply/Reset | Process Reset explicitly restores RGB for RGB targets | Re-select the intended component for the next run |
+| Preview differs from Apply by more than that | Preview area, mask, target/channel, or display stretch changed | Match all controls and one Display Mode; Apply always processes the full target |
+| Apply is slow at a large Sigma | Above `32` the blur is composed of several exact passes | Watch the progress; reduce Sigma or work on a binned copy for very broad support layers |
 
-## References and provenance
+## Credits
 
 - [Kovesi, “Fast Almost-Gaussian Filtering,” DICTA 2010](https://www.peterkovesi.com/papers/FastGaussianSmoothing.pdf)
   is the primary reference for selecting repeated box widths to approximate a
@@ -308,9 +308,6 @@ universal error bound.
 - [Basile Fraboni's FastGaussianBlur implementation](https://github.com/bfraboni/FastGaussianBlur)
   is the MIT-licensed implementation whose fixed three passes and mirror policy
   the engine's approximation keeps.
-- AfterNight's engine Gaussian (sampled taps out to four standard deviations,
-  renormalized, separable, with a reflecting border) is authoritative for what
-  Apply writes.
 
 ## Related workflow steps
 

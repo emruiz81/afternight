@@ -76,15 +76,10 @@ from, under which licence, and which files carry its notice ("Credit for derived
 
 ### The user guide
 
-- [USER_GUIDE_AUTHORING.md](USER_GUIDE_AUTHORING.md) - how the user guide is built and written: its architecture and
-  packaging, the page templates and the content rules, and what makes a page complete.
-- [USER_GUIDE_SCREENSHOT_TRIAGE.md](USER_GUIDE_SCREENSHOT_TRIAGE.md) - the media triage that
-  `build/scripts/validate_user_guide_media.ps1` reads.
-- [../user-guide/DOCUMENTATION_COMPLETION_TRACKER.md](../user-guide/DOCUMENTATION_COMPLETION_TRACKER.md),
-  [../user-guide/SCREENSHOT_REQUEST_MANIFEST.md](../user-guide/SCREENSHOT_REQUEST_MANIFEST.md),
-  [../user-guide/CONTENT_VERIFICATION_PREREQUISITES.md](../user-guide/CONTENT_VERIFICATION_PREREQUISITES.md) and
-  the page templates under [../user-guide/templates/](../user-guide/templates/) - the page status, the capture brief,
-  the verification prerequisites and the templates the audit tooling reads.
+- [USER_GUIDE_AUTHORING.md](USER_GUIDE_AUTHORING.md) - how the user guide is built and written: its theme, hooks,
+  data and packaging, the page metadata, the content rules, what makes a page complete, and the checks that hold
+  it.
+- The page templates under [../user-guide/templates/](../user-guide/templates/).
 
 ## Inputs the tools read
 

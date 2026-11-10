@@ -208,10 +208,9 @@ Do not press **Apply Stretch** in this reversible inspection example.
 - Mirroring or turning an image removes its plate solution and every header card but the frame's observing context and integration cards; plate-solve it again for astrometry.
 - This page does not claim exact spacing, appearance, or cross-platform equivalence.
 
-
 ## Troubleshooting
 
-| Symptom | Likely cause | What to do |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Linear image appears almost black | Unstretched linear signal | Select **Autostretch** for inspection; use a documented stretching process for permanent output. |
 | Autostretch Settings is disabled | Display Mode is Linear | Select **Autostretch** first. |
@@ -233,7 +232,3 @@ Do not press **Apply Stretch** in this reversible inspection example.
 - [Masks](masks.md) — mask assignment, visibility, inversion, and process modulation.
 - [Image History](image-history.md) — stored steps, lineage, and restoration.
 - [Settings](settings-dialog.md) — global image-view defaults.
-
-## References and provenance
-
-This page is derived from AfterNight's source and its focused tests, among them the viewer, presentation and file-open sources; `Test_ControlsViewer` holds the viewer's requests, presentations and file steps, and `Test_ImageViewControl` its zoom clamps/defaults/overflow, channel-display strategies, status-coordinate formatting, static-preview state synchronization, mask-channel rendering and Apply Stretch. Those tests do not validate an approved astronomical image, perceived gradient quality, runtime layout, production performance, or cross-platform rendering; such claims remain unmade.

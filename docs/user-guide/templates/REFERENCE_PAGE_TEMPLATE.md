@@ -1,17 +1,5 @@
 # <Reference topic>
 
-<!--
-Frozen template: UG-00, 2026-07-10. A reference is authoritative only for the
-scope and revision policy stated below. Keep every heading and field.
--->
-
-<!--
-A page renders no authoring evidence. Record its owner, source-review date, reviewed revision, dirty reviewed
-sources, source files and tests, UI reachability, parameter, algorithm and example coverage, content state,
-technical and user review, media state and last strict build in its row of
-docs/user-guide/DOCUMENTATION_COMPLETION_TRACKER.md.
--->
-
 ## Purpose, scope, audience, prerequisites, expected result, and authority
 
 State authority, exclusions, users, prerequisites, expected lookup result, and
@@ -54,7 +42,6 @@ costs that affect interpretation.
 
 ## Worked lookup example
 
-- Evidence mode: <Executed with project-owned data / Source-and-test-derived>.
 - Question, lookup path, verified conclusion, and revision/platform/data
   limitation: <record>.
 
@@ -66,18 +53,16 @@ stale-version risks.
 
 ## Troubleshooting
 
-| Symptom/question | Verified interpretation or cause | Resolution/next page | Evidence source |
-| --- | --- | --- | --- |
-| <item> | <meaning> | <action/link> | <source/test/standard> |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| <item> | <meaning> | <action/link> |
 
 ## Related pages
 
 Explain preceding/following workflow uses without duplicating another authority.
 
-## References and provenance
+## Credits
 
-Cite primary standards, upstream documentation, licenses, and project source.
-Record dates/versions for changeable external material.
-
-<!-- Keep media independent from content/review states and use only the canonical
-manifest. Missing retained media uses a compact MEDIA_SLOT with its stable ID. -->
+Credit what the page owes: the upstream work a derived process is computed with, its authors and its licence, and
+the primary papers, standards and upstream documentation behind the explanation, each with a link. A derived
+process requires the section; leave it out when there is nothing to credit.

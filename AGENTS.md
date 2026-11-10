@@ -468,7 +468,7 @@ Beside the file:
   (`AboutDialog::getLicenseText`, `src/AfterNightControls/controls/AboutDialog.cpp`): it is a derived work of the
   upstream work by its authors, the copyright line, the licence, and that it is distributed under that licence.
   Extend `Test_ControlsDialogs`' `TheLicenceCreditsEachDerivedProcessAndDescribesTheOriginalOneAsItIsNow` for it.
-  Its user-guide page's references section names the upstream work and author as well.
+  Its user-guide page names the upstream work, its authors and its licence under `## Credits` as well.
 - A process window built on derived logic credits the upstream work in its header too.
 - Original code that resembles a known project says that it is original and what it does not include
   (`docs/dev/NBRGB_COMBINATION_PROVENANCE.md` and the About dialog's NBRGB paragraph), and keeps saying only what
@@ -658,7 +658,6 @@ mkdocs build -f docs/user-guide/mkdocs.yml --strict
 - Place images in `docs/user-guide/docs/en/assets/images/`
 - Follow the page templates under `docs/user-guide/templates/` and the authoring rules in `docs/dev/USER_GUIDE_AUTHORING.md`
 - Commit real images only with matching entries in `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md`
-- The completion tracker, the screenshot request manifest and the guide's audit scripts are frozen while the guide is rebuilt (#37): do not update or run them; `docs/dev/USER_GUIDE_AUTHORING.md` names the checks that hold the guide meanwhile
 
 ### CI
 - A workflow that calls one reusable workflow more than once must key their concurrency groups apart. A reusable workflow inherits its caller's context, so two calls in one run see the same `github.workflow` and the same ref; with `cancel-in-progress` they share a group and the second cancels the first, taking the job that waited on it. The run then reports `cancelled` rather than `failure`, with no failing step anywhere, so the missing half reads as somebody pressing stop. `cache-linux.yml` and `cache-windows.yml` take a `variant` input for this; pass whatever distinguishes the calls. When a workflow runs several modes of one job, check that every mode reported rather than that nothing failed

@@ -172,7 +172,6 @@ doubled-dimension sequence. Test a few frames first.
 
 ## Worked example
 
-- Evidence mode: Focused window tests.
 - Input condition/provenance and settings: a 16-bit RGGB mosaic is split into
   four planes, opened as views `cfa0` to `cfa3`, and merged under RGGB; one plane
   converted to 32-bit float is merged under BGGR; a plane of another size and a
@@ -200,17 +199,17 @@ doubled-dimension sequence. Test a few frames first.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| OK remains disabled | One or more selectors reads `<--NO IMAGE-->`. | Select four open grayscale views. | `validateSelectedImages()` |
-| `All the selected images must be either sequences or images` | Mixed still/sequence inputs. | Use four stills or four sequences. | Execute validation |
-| `All the selected sequences must have the same number of frames` | Frame counts differ. | Recreate planes from the same source/range. | Execute validation |
-| `All the images must have the same size` / `All the sequences must have the same size` | Current dimensions differ. | Apply identical crop/resample or use original split planes. | Execute validation |
-| `the four planes must have one width and height` | A later sequence frame differs in size. | Recreate the plane sequences from one source. | `joinMosaicPlanes` |
-| `an image whose valid samples are stated in a mask cannot be merged` | A plane carries a validity mask. | Use planes without one. | `joinMosaicPlanes` |
-| Debayer colors are wrong | Wrong pattern or color-based rather than positional selector order. | Restore CFA0–3 positional order and original Bayer pattern. | Interleave/pattern source |
-| Output has no astrometric solution | The merge states no solution and drops CFA0's world-coordinate cards. | Plate-solve the output. | join metadata effect; `GeometryProcessCase.SplitAndMergeCfaCarryNoWorldCoordinateCards` |
-| `Missing images to assemble the CFA` | A selected view closed, or no longer shows an image, when OK was pressed. | Select four open grayscale views again. | Execute validation; `GeometryProcessCase.MergeCfaWithAPlaneMissingSaysSo` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| OK remains disabled | One or more selectors reads `<--NO IMAGE-->`. | Select four open grayscale views. |
+| `All the selected images must be either sequences or images` | Mixed still/sequence inputs. | Use four stills or four sequences. |
+| `All the selected sequences must have the same number of frames` | Frame counts differ. | Recreate planes from the same source/range. |
+| `All the images must have the same size` / `All the sequences must have the same size` | Current dimensions differ. | Apply identical crop/resample or use original split planes. |
+| `the four planes must have one width and height` | A later sequence frame differs in size. | Recreate the plane sequences from one source. |
+| `an image whose valid samples are stated in a mask cannot be merged` | A plane carries a validity mask. | Use planes without one. |
+| Debayer colors are wrong | Wrong pattern or color-based rather than positional selector order. | Restore CFA0–3 positional order and original Bayer pattern. |
+| Output has no astrometric solution | The merge states no solution and drops CFA0's world-coordinate cards. | Plate-solve the output. |
+| `Missing images to assemble the CFA` | A selected view closed, or no longer shows an image, when OK was pressed. | Select four open grayscale views again. |
 
 ## Related workflow steps
 
@@ -219,9 +218,3 @@ Create positional inputs with [Split CFA](split-cfa.md). Use
 CFA-preserving size change is required, and [Debayer](debayer.md) after merge to
 validate pattern interpretation. For ordinary calibration, retain the original
 mosaic instead of a split/merge round trip.
-
-## References and provenance
-
-- AfterNight's image engine defines the positional join; the window cases verify
-  exact round trips for stills and sequences.
-- Current UI validation/output behavior comes from AfterNight's source; no external CFA engine is used.
