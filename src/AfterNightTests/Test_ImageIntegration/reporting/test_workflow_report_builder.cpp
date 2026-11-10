@@ -36,6 +36,7 @@
 #include <vector>
 
 #include "Test_ImageIntegration/ImportSession.h"
+#include "Test_ImageIntegration/reporting/ReportScenarios.h"
 #include "Test_ImageIntegration/workflow/StackWeightRules.h"
 #include "fixtures/common/FixtureFits.h"
 #include "fixtures/common/IntegrationFrameFiles.h"
@@ -57,6 +58,9 @@
 #include <AfterNightEngine/Core/Version.h>
 
 using namespace ImageIntegration::Reporting;
+using namespace an::tests::integration::report;
+using an::tests::fixtures::FixtureCard;
+using an::tests::fixtures::FixtureChannels;
 
 TEST(WorkflowReportBuilder, PrefersReportPreviewsOverThumbnailsWhenPresent)
 {
@@ -170,333 +174,6 @@ TEST(WorkflowReportBuilder, SuccessfulOutputNotRetainedIsReportedWithoutFailure)
     EXPECT_TRUE(QString::fromUtf8(htmlFile.readAll())
                     .contains(QStringLiteral("Scientific output succeeded, but its history copy was not retained")));
 }
-namespace
-{
-int countOccurrences(const QString& haystack, const QString& needle)
-{
-    if (needle.isEmpty())
-    {
-        return 0;
-    }
-
-    int count = 0;
-    int from = 0;
-    while (true)
-    {
-        from = haystack.indexOf(needle, from);
-        if (from < 0)
-        {
-            break;
-        }
-        ++count;
-        from += needle.size();
-    }
-    return count;
-}
-
-using an::tests::fixtures::FixtureCard;
-using an::tests::fixtures::FixtureCardKind;
-using an::tests::fixtures::FixtureChannels;
-
-/// A sample of a written image, a fraction of full scale, by position and channel.
-using SampleRule = std::function<double(std::uint32_t, std::uint32_t, std::uint32_t)>;
-
-/// A card whose value is text.
-FixtureCard textCard(const std::string& keyword, const QString& value)
-{
-    return FixtureCard{keyword, value.toStdString(), {}, FixtureCardKind::Text};
-}
-
-/// Writes a Float32 image by the neutral FITS writer: every sample `level`, or what the rule states, and the cards.
-bool writeFloatImage(const QString& path, int width, int height, FixtureChannels channels, double level,
-                     const SampleRule& rule, std::vector<FixtureCard> cards)
-{
-    an::tests::fixtures::FixtureImage image;
-    // A description takes plain letters, digits, dots, hyphens and underscores; the file keeps its own name.
-    for (const QChar character : QFileInfo(path).completeBaseName())
-    {
-        const char16_t unit = character.unicode();
-        const bool plain = (unit >= u'a' && unit <= u'z') || (unit >= u'A' && unit <= u'Z') ||
-                           (unit >= u'0' && unit <= u'9') || unit == u'.' || unit == u'-' || unit == u'_';
-        image.name.push_back(plain ? static_cast<char>(unit) : '_');
-    }
-    image.width = static_cast<std::uint32_t>(width);
-    image.height = static_cast<std::uint32_t>(height);
-    image.channels = channels;
-    image.sampleType = an::tests::fixtures::FixtureSampleType::Float32;
-    image.pattern = an::tests::fixtures::FixturePattern::Constant;
-    an::tests::fixtures::FixtureChannelLevels levels;
-    levels.base = level;
-    image.levels.assign(an::tests::fixtures::channelCountOf(channels), levels);
-    image.cards = std::move(cards);
-
-    std::string error;
-    std::optional<an::tests::fixtures::FixtureSamples> samples = an::tests::fixtures::materializeFixture(image, error);
-    EXPECT_TRUE(samples.has_value()) << error;
-    if (!samples.has_value())
-    {
-        return false;
-    }
-    if (rule)
-    {
-        for (std::uint32_t channel = 0u; channel < samples->channelCount(); ++channel)
-        {
-            for (std::uint32_t y = 0u; y < image.height; ++y)
-            {
-                for (std::uint32_t x = 0u; x < image.width; ++x)
-                {
-                    samples->setValue(x, y, channel, static_cast<double>(static_cast<float>(rule(x, y, channel))));
-                }
-            }
-        }
-    }
-    const bool written =
-        an::tests::fixtures::writeFixtureFits(image, *samples, std::filesystem::path(path.toStdWString()), error);
-    EXPECT_TRUE(written) << error;
-    return written;
-}
-
-/// The cards a capture program writes for a camera's ISO speed or gain setting, its offset and the target, followed by
-/// the telescope and the site where they are given.
-std::vector<FixtureCard> equipmentCards(const an::tests::fixtures::AcquisitionFacts& facts, const QString& telescope,
-                                        const QString& siteLat, const QString& siteLong)
-{
-    std::vector<FixtureCard> cards = an::tests::fixtures::acquisitionCards(facts);
-    if (!telescope.trimmed().isEmpty())
-    {
-        cards.push_back(textCard("TELESCOP", telescope));
-    }
-    if (!siteLat.trimmed().isEmpty())
-    {
-        cards.push_back(textCard("SITELAT", siteLat));
-    }
-    if (!siteLong.trimmed().isEmpty())
-    {
-        cards.push_back(textCard("SITELONG", siteLong));
-    }
-    return cards;
-}
-
-QString writeMasterWithEquipmentMetadata(const QString& path, int width, int height, const QString& camera,
-                                         const QString& telescope, bool isIso, int isoOrGain, int offset,
-                                         const QString& siteLat, const QString& siteLong, const QString& objectName)
-{
-    an::tests::fixtures::AcquisitionFacts facts;
-    facts.kind = {};
-    facts.instrument = camera.toStdString();
-    facts.object = objectName.toStdString();
-    if (isIso)
-    {
-        facts.isoSpeed = isoOrGain;
-    }
-    else
-    {
-        facts.gain = isoOrGain;
-    }
-    facts.offset = offset;
-    EXPECT_TRUE(writeFloatImage(path, width, height, FixtureChannels::Mono, 0.25, {},
-                                equipmentCards(facts, telescope, siteLat, siteLong)));
-    return path;
-}
-
-QString writeNoisyMaster(const QString& path, int width, int height, float baseLevel = 0.25f)
-{
-    // Simple deterministic pattern to ensure the background noise is not zero.
-    const SampleRule pattern = [baseLevel](std::uint32_t x, std::uint32_t y, std::uint32_t) {
-        const float dx = static_cast<float>(x % 7u) * 0.001f;
-        const float dy = static_cast<float>(y % 5u) * 0.001f;
-        const float checker = ((x ^ y) & 1u) ? 0.002f : -0.002f;
-        return static_cast<double>(baseLevel + dx + dy + checker);
-    };
-    EXPECT_TRUE(writeFloatImage(path, width, height, FixtureChannels::Mono, baseLevel, pattern,
-                                {textCard("OBJECT", QStringLiteral("M83"))}));
-    return path;
-}
-
-QString writeRgbMaster(const QString& path, int width, int height)
-{
-    const SampleRule pattern = [](std::uint32_t x, std::uint32_t y, std::uint32_t channel) {
-        constexpr float channelBase[3] = {0.18f, 0.24f, 0.31f};
-        const float offset = static_cast<float>((x + y) % 5u) * 0.004f;
-        return static_cast<double>(channelBase[channel] + offset);
-    };
-    EXPECT_TRUE(
-        writeFloatImage(path, width, height, FixtureChannels::Rgb, 0.0, pattern,
-                        {textCard("OBJECT", QStringLiteral("M83 RGB")), textCard("FILTER", QStringLiteral("RGB"))}));
-    return path;
-}
-
-QString writeLightFrameWithMetadata(const QString& path, const std::optional<double>& exposureSeconds,
-                                    const std::optional<int>& isoOrGain, bool isoMode, const std::optional<int>& offset,
-                                    const QString& objectName, const QString& telescope, const QString& siteLat,
-                                    const QString& siteLong)
-{
-    an::tests::fixtures::AcquisitionFacts facts;
-    if (exposureSeconds.has_value() && *exposureSeconds > 0.0)
-    {
-        facts.exposureSeconds = *exposureSeconds;
-    }
-    if (isoOrGain.has_value())
-    {
-        if (isoMode)
-        {
-            facts.isoSpeed = *isoOrGain;
-        }
-        else
-        {
-            facts.gain = *isoOrGain;
-        }
-    }
-    if (offset.has_value())
-    {
-        facts.offset = *offset;
-    }
-    facts.object = objectName.trimmed().toStdString();
-    EXPECT_TRUE(writeFloatImage(path, 16, 10, FixtureChannels::Mono, 0.2, {},
-                                equipmentCards(facts, telescope, siteLat, siteLong)));
-    return path;
-}
-
-/// The engine session a case's report reads its images and headers in; fails the case when it cannot be opened.
-std::optional<an::consumer::EngineSession> openReportSession()
-{
-    an::Result<an::consumer::EngineSession> session = an::tests::integration::openImportSession();
-    EXPECT_TRUE(session.hasValue()) << session.status().message();
-    if (!session.hasValue())
-    {
-        return std::nullopt;
-    }
-    return std::move(session).value();
-}
-
-bool writeRegistrationMetricsDb(const QString& dbPath, const QString& groupKey, int settingsVersion,
-                                const QList<QJsonObject>& rows)
-{
-    const QString connectionName =
-        QStringLiteral("ReportTestDb_%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
-    {
-        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), connectionName);
-        db.setDatabaseName(dbPath);
-        if (!db.open())
-        {
-            QSqlDatabase::removeDatabase(connectionName);
-            return false;
-        }
-
-        QSqlQuery createQuery(db);
-        if (!createQuery.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS registration_metrics ("
-                                             "frame_id TEXT NOT NULL,"
-                                             "group_key TEXT NOT NULL,"
-                                             "settings_version INTEGER NOT NULL,"
-                                             "stars INTEGER NOT NULL,"
-                                             "fwhm REAL NOT NULL,"
-                                             "snr REAL NOT NULL,"
-                                             "eccentricity REAL NOT NULL,"
-                                             "photometric_zero_point REAL NOT NULL DEFAULT 0.0,"
-                                             "zero_point_scatter REAL NOT NULL DEFAULT 0.0,"
-                                             "astrometric_rms_pixels REAL NOT NULL DEFAULT 0.0,"
-                                             "astrometric_rms_arcsec REAL NOT NULL DEFAULT 0.0,"
-                                             "limiting_magnitude REAL NOT NULL DEFAULT 0.0,"
-                                             "catalog_matched_stars INTEGER NOT NULL DEFAULT 0,"
-                                             "succeeded INTEGER NOT NULL,"
-                                             "output_path TEXT,"
-                                             "transform_json TEXT,"
-                                             "updated_at INTEGER NOT NULL,"
-                                             "PRIMARY KEY (frame_id, group_key, settings_version))")))
-        {
-            db.close();
-            QSqlDatabase::removeDatabase(connectionName);
-            return false;
-        }
-
-        QSqlQuery insertQuery(db);
-        if (!insertQuery.prepare(
-                QStringLiteral("INSERT OR REPLACE INTO registration_metrics "
-                               "(frame_id, group_key, settings_version, stars, fwhm, snr, eccentricity, "
-                               "photometric_zero_point, zero_point_scatter, astrometric_rms_pixels, "
-                               "astrometric_rms_arcsec, limiting_magnitude, catalog_matched_stars, "
-                               "succeeded, output_path, transform_json, updated_at) "
-                               "VALUES (:frame_id, :group_key, :settings_version, :stars, :fwhm, :snr, :eccentricity, "
-                               ":photometric_zero_point, :zero_point_scatter, :astrometric_rms_pixels, "
-                               ":astrometric_rms_arcsec, :limiting_magnitude, :catalog_matched_stars, "
-                               ":succeeded, :output_path, :transform_json, :updated_at)")))
-        {
-            db.close();
-            QSqlDatabase::removeDatabase(connectionName);
-            return false;
-        }
-
-        qint64 ts = 1;
-        for (const auto& row : rows)
-        {
-            insertQuery.bindValue(QStringLiteral(":frame_id"), row.value(QStringLiteral("frame_id")).toString());
-            insertQuery.bindValue(QStringLiteral(":group_key"), groupKey);
-            insertQuery.bindValue(QStringLiteral(":settings_version"), settingsVersion);
-            insertQuery.bindValue(QStringLiteral(":stars"), row.value(QStringLiteral("stars")).toInt());
-            insertQuery.bindValue(QStringLiteral(":fwhm"), row.value(QStringLiteral("fwhm")).toDouble());
-            insertQuery.bindValue(QStringLiteral(":snr"), row.value(QStringLiteral("snr")).toDouble());
-            insertQuery.bindValue(QStringLiteral(":eccentricity"),
-                                  row.value(QStringLiteral("eccentricity")).toDouble());
-            insertQuery.bindValue(QStringLiteral(":photometric_zero_point"),
-                                  row.contains(QStringLiteral("photometric_zero_point"))
-                                      ? row.value(QStringLiteral("photometric_zero_point")).toDouble()
-                                      : 0.0);
-            insertQuery.bindValue(QStringLiteral(":zero_point_scatter"),
-                                  row.contains(QStringLiteral("zero_point_scatter"))
-                                      ? row.value(QStringLiteral("zero_point_scatter")).toDouble()
-                                      : 0.0);
-            insertQuery.bindValue(QStringLiteral(":astrometric_rms_pixels"),
-                                  row.contains(QStringLiteral("astrometric_rms_pixels"))
-                                      ? row.value(QStringLiteral("astrometric_rms_pixels")).toDouble()
-                                      : 0.0);
-            insertQuery.bindValue(QStringLiteral(":astrometric_rms_arcsec"),
-                                  row.contains(QStringLiteral("astrometric_rms_arcsec"))
-                                      ? row.value(QStringLiteral("astrometric_rms_arcsec")).toDouble()
-                                      : 0.0);
-            insertQuery.bindValue(QStringLiteral(":limiting_magnitude"),
-                                  row.contains(QStringLiteral("limiting_magnitude"))
-                                      ? row.value(QStringLiteral("limiting_magnitude")).toDouble()
-                                      : 0.0);
-            insertQuery.bindValue(QStringLiteral(":catalog_matched_stars"),
-                                  row.contains(QStringLiteral("catalog_matched_stars"))
-                                      ? row.value(QStringLiteral("catalog_matched_stars")).toInt()
-                                      : 0);
-            insertQuery.bindValue(QStringLiteral(":succeeded"),
-                                  row.value(QStringLiteral("succeeded")).toBool() ? 1 : 0);
-            insertQuery.bindValue(QStringLiteral(":output_path"), row.value(QStringLiteral("output_path")).toString());
-            insertQuery.bindValue(QStringLiteral(":transform_json"),
-                                  row.value(QStringLiteral("transform_json")).toString(QStringLiteral("{}")));
-            insertQuery.bindValue(QStringLiteral(":updated_at"), ts++);
-            if (!insertQuery.exec())
-            {
-                db.close();
-                QSqlDatabase::removeDatabase(connectionName);
-                return false;
-            }
-        }
-
-        db.close();
-    }
-    QSqlDatabase::removeDatabase(connectionName);
-    return true;
-}
-
-an::MatchedSourceReference makeSpccHandoffReference(std::uint64_t sourceId, double separationArcsec, double residualPx)
-{
-    an::MatchedSourceReference reference;
-    reference.sourceIdentifier = sourceId;
-    reference.astrometricCatalogFamilyId = "gaia_dr3";
-    reference.astrometricCatalogManifestId = "gaia-dr3-main-2026-05";
-    reference.spectrumCatalogFamilyId = "spcc_gaia_dr3_xp_sampled";
-    reference.spectrumCatalogManifestId = "spcc-gaia-dr3-xp-sampled-m31-region-20260510";
-    reference.wcsSolutionId = "iip-wcs-solution-42";
-    reference.observationEpoch = "2025.25";
-    reference.properMotionModelVersion = "gaia-dr3-pm-v1";
-    reference.separationArcseconds = separationArcsec;
-    reference.residualPixels = residualPx;
-    return reference;
-}
-} // namespace
 
 TEST(WorkflowReportBuilder, GeneratesBasicReport)
 {
@@ -2823,22 +2500,14 @@ TEST(WorkflowReportBuilder, ShowsComparedToPreviousRunDeltasWhenHistoryHasSucces
                             FrameId(QStringLiteral("/tmp/prev_light_2.fit"))};
     previousManifest.integrationGroups.push_back(prevGroup);
 
-    QJsonObject previousRoot;
-    previousRoot.insert(QStringLiteral("overallResult"), QStringLiteral("success"));
-    previousRoot.insert(QStringLiteral("manifest"), previousManifest.toJson());
     QJsonArray previousGroupResults;
     QJsonObject prevResult;
     prevResult.insert(QStringLiteral("groupKey"), QStringLiteral("PrevGroup"));
     prevResult.insert(QStringLiteral("result"), QStringLiteral("success"));
     prevResult.insert(QStringLiteral("outputBytes"), 2000);
     previousGroupResults.append(prevResult);
-    previousRoot.insert(QStringLiteral("integrationGroupResults"), previousGroupResults);
-
-    QFile previousManifestFile(
-        outputRoot.filePath(QStringLiteral("history/20260210_010000_prev/workflow_manifest.json")));
-    ASSERT_TRUE(previousManifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
-    previousManifestFile.write(QJsonDocument(previousRoot).toJson(QJsonDocument::Indented));
-    previousManifestFile.close();
+    ASSERT_TRUE(writeArchivedRunManifest(outputRoot.filePath(QStringLiteral("history/20260210_010000_prev")),
+                                         previousManifest, QStringLiteral("success"), previousGroupResults));
 
     WorkflowManifest currentManifest;
     currentManifest.outputDirectory = outputRoot.path();
