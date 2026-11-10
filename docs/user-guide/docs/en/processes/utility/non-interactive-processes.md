@@ -572,7 +572,10 @@ controls:
     effect: >-
       Opens the frame the view shows as a new still image, named `<name> - FRAME_<n>` with the number the player
       shows. Its history starts with `Frame <n> extracted from sequence '<name>'`.
-    scope: The pixels, the pixel type and the metadata of the frame are copied. The sequence is not changed.
+    scope: >-
+      The frame is copied as the view shows it - debayered when the view debayers its frames - with its pixel type and
+      metadata. The sequence is not changed.
+    note: A failure is reported in a message box titled **Extract Frame** and in the log.
   - name: Extract Sequence
     kind: action
     default: ""
