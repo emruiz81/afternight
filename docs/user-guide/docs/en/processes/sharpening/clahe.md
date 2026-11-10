@@ -252,7 +252,7 @@ mask. These are exact source-derived checkpoints, not a visual-quality claim.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Corrective action | Verification |
+| Symptom | Cause | Fix | Check |
 | --- | --- | --- | --- |
 | Background becomes grainy | Contrast Limit, Grid Size, or Amount too high | Reduce Contrast Limit first, then Amount; use fewer tiles; denoise earlier | Inspect smooth background at 100% |
 | Blocks, seams, or mottling appear | Neighboring tile LUTs differ strongly | Reduce Grid Size/Contrast Limit; include several boundaries in preview | Toggle original/result at full-frame and 100% |
@@ -271,15 +271,12 @@ Enhancement](local-contrast-enhancement.md) for a high-radius residual model.
 Use [Masks](../../interface/masks.md) to protect smooth background and [Image
 History](../../interface/image-history.md) to compare or revert Apply.
 
-## References and provenance
+## Credits
 
-- [OpenCV 4.12.0 `cv::CLAHE` class reference](https://docs.opencv.org/4.12.0/d6/db6/classcv_1_1CLAHE.html)
-  — the clip-limit and tile-grid contract of OpenCV's implementation; accessed
-  2026-07-14.
-- [OpenCV 4.12.0 CLAHE implementation](https://github.com/opencv/opencv/blob/4.12.0/modules/imgproc/src/clahe.cpp)
+- [OpenCV 4.12.0 `cv::CLAHE` class
+  reference](https://docs.opencv.org/4.12.0/d6/db6/classcv_1_1CLAHE.html) — the
+  clip-limit and tile-grid contract of OpenCV's implementation.
+- [OpenCV 4.12.0 CLAHE
+  implementation](https://github.com/opencv/opencv/blob/4.12.0/modules/imgproc/src/clahe.cpp)
   — the tile padding, histogram sizes, normalized cap, redistribution, CDF LUT,
-  and bilinear interpolation the engine's equalization is compared with;
-  accessed 2026-07-14.
-- AfterNight sources/tests are authoritative for the
-  shipped controls, engine equalization, Lab composition, channels,
-  Amount/masks, metadata/state/history, preview, and sequence behavior.
+  and bilinear interpolation the engine's equalization is compared with.

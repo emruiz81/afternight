@@ -134,7 +134,6 @@ dialog. Close the tool when you no longer need continuously updated statistics.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations:
   `StatisticsReportTest` measures a five-pixel 16-bit row holding 0, 1, 30000,
   65534 and 65535. With **Unclipped** on, **Count (px)** is 5; with it off the two
@@ -159,13 +158,13 @@ dialog. Close the tool when you no longer need continuously updated statistics.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Statistics is disabled | No active image exists, or this view already owns an open Statistics dialog. | Activate a loaded view, or close the existing dialog for that view. | `ActionStateCoordinator.cpp`; `ImageStatisticsControl.cpp` |
-| Count rises when **Unclipped** is enabled | Finite values `<= 0` and `>= 1` are restored to the population; non-finite samples remain excluded. | Compare **Count (%)**, **Min**, **Max**, and Histogram clipping; leave **Unclipped** off when endpoints should not influence the report. | `ImageStatisticsReport.cpp`; `ImageStatisticsControl.cpp` |
-| Mean and median differ strongly | The distribution is asymmetric or contains bright/dark structure and outliers. | Inspect [Histogram Analysis](image-histogram.md) and compare channels before assuming a defect. | `ImageStatisticsReport.cpp`; `StatisticsReportTest.cpp` |
-| **BG Noise** is unexpectedly high | Horizontal structure, gradients, stars, or correlated noise contribute to adjacent-pixel differences. | Compare similar background regions with other analysis tools; do not interpret this full-frame number as a calibrated sensor-noise measurement. | `AdvancedStatistics.h`; `ImageStatisticsReport.cpp` |
-| A sequence value changes during playback | Statistics follows the current decoded frame and refreshes on image updates. | Pause on the frame you want to inspect. | `ImageStatisticsControl.cpp`; `ImageViewControl.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Statistics is disabled | No active image exists, or this view already owns an open Statistics dialog. | Activate a loaded view, or close the existing dialog for that view. |
+| Count rises when **Unclipped** is enabled | Finite values `<= 0` and `>= 1` are restored to the population; non-finite samples remain excluded. | Compare **Count (%)**, **Min**, **Max**, and Histogram clipping; leave **Unclipped** off when endpoints should not influence the report. |
+| Mean and median differ strongly | The distribution is asymmetric or contains bright/dark structure and outliers. | Inspect [Histogram Analysis](image-histogram.md) and compare channels before assuming a defect. |
+| **BG Noise** is unexpectedly high | Horizontal structure, gradients, stars, or correlated noise contribute to adjacent-pixel differences. | Compare similar background regions with other analysis tools; do not interpret this full-frame number as a calibrated sensor-noise measurement. |
+| A sequence value changes during playback | Statistics follows the current decoded frame and refreshes on image updates. | Pause on the frame you want to inspect. |
 
 ## Related workflow steps
 
@@ -177,19 +176,3 @@ dialog. Close the tool when you no longer need continuously updated statistics.
   file before comparing statistics when you need to verify codec precision.
 - Continue to [Histogram Transformation](../processes/stretching/histogram-transformation.md)
   only after distinguishing measurement from display stretch.
-
-## References and provenance
-
-- AfterNight's estimators are the engine's basic and advanced statistics; the
-  window's selection, range and scaling are implemented in
-  `ImageStatisticsReport.cpp` and its refresh in `ImageStatisticsControl.cpp`.
-  `Test_ControlsStatistics` holds them to statistics computed in the suite over
-  every standard fixture.
-- `StatisticsReportTest.cpp` and `StatisticsWindowTest.cpp` in
-  `Test_ControlsStatistics` cover every pixel type, grey and colour, endpoint
-  filtering, the image's own validity, background noise, the range scaling, and
-  the window's refresh and latest-result rule; `BasicStatisticsTest.cpp` and
-  `AdvancedStatisticsTest.cpp` in `Test_EngineImageOps` hold the engine's
-  estimators, including identical results at every thread count.
-- No external runtime, catalog, network service, or external algorithm package
-  is used by this tool.

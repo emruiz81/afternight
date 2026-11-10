@@ -201,7 +201,6 @@ and are not implied by this landing page.
 
 ## Worked example
 
-- Evidence mode: Source-and-documentation-derived.
 - Starting state: AfterNight 1.0.1 is installed and no image is open.
 - Actions: open **Help > User Guide**, choose **Run the quick start**, follow
   the OSC or mono branch, then use the linked saving page to verify an output.
@@ -225,11 +224,11 @@ and are not implied by this landing page.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Help > User Guide** opens the online guide | No readable bundled candidate was opened and online fallback is allowed. | Use the online guide, or install/build the bundled documentation artifact. | `DialogOrchestrationCoordinator.cpp`; packaging scripts |
-| “The offline AfterNight User Guide could not be opened, and online fallback is disabled by policy.” | No bundled candidate opened and `AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE` disables fallback. | Restore the packaged `{app}/docs/index.html` on Windows or `usr/share/doc/AfterNight/index.html` inside the AppImage on Linux, then retry. | `DialogOrchestrationCoordinator.h/.cpp`; focused test |
-| A capability or label differs from the application | The page may describe another version. | Check the application version, then use the current process/reference page and report the mismatch. | `ApplicationSession.h`; `EngineVersionReport.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Help > User Guide** opens the online guide | No readable bundled candidate was opened and online fallback is allowed. | Use the online guide, or install/build the bundled documentation artifact. |
+| “The offline AfterNight User Guide could not be opened, and online fallback is disabled by policy.” | No bundled candidate opened and `AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE` disables fallback. | Restore the packaged `{app}/docs/index.html` on Windows or `usr/share/doc/AfterNight/index.html` inside the AppImage on Linux, then retry. |
+| A capability or label differs from the application | The page may describe another version. | Check the application version, then use the current process/reference page and report the mismatch. |
 
 ## Related workflow steps
 
@@ -240,18 +239,3 @@ Start](getting-started/quick-start.md). After the tutorial, choose a complete
 Catalog](processes/index.md). Verify final output choices in [Saving and
 Exporting](interface/saving-and-exporting.md) and [File
 Formats](reference/file-formats.md).
-
-## References and provenance
-
-- Version: the application states its own version, `kProductVersion` in
-  `src/AfterNightApp/app/ApplicationSession.h` (1.0.1), which `main.cpp`
-  sets as the application version and `productVersion()` in
-  `src/AfterNightControls/controls/EngineVersionReport.cpp` gives the About
-  dialog and the dashboard; the Windows installer definitions and the Linux
-  AppImage packaging identify the same 1.0.1.
-- Platforms and application scope: `README.md`, installer scripts, and the
-  current build playbooks.
-- Reachability: `AfterNightAppUiBuilder.h`,
-  `DialogOrchestrationCoordinator.h/.cpp`, and the focused Help-resolution test.
-- Capability destinations: `ProcessRegistryBuiltins.cpp`, the Process Catalog,
-  and the authoritative File Formats reference.

@@ -283,7 +283,6 @@ legend—not the raw on-screen arrow length.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations: The
   focused tests construct a 1000 by 800 synthetic TAN WCS centered on M 31,
   verify that the bundled catalog finds M 31, and verify that its catalog center
@@ -331,18 +330,18 @@ legend—not the raw on-screen arrow length.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Show Astrometry** is absent | The active view is a sequence, has no image, or its metadata does not parse as celestial WCS (for example a non-`TAN` projection, or a header that states FK5). | Activate a still image; inspect Astrometry Info/FITS headers; run Plate Solve and write WCS. | `ImageViewControl::updateImageActions`; `readImageWcsSolution`; `parseWcsCards` |
-| **Astrometry Settings** is visible but disabled | The WCS is valid, but the master switch is off. | Turn on **Show Astrometry** or press `Ctrl+Shift+W`. | Image-view action wiring |
-| Grid appears but no catalog objects | The relevant catalog layer is off, the level of detail names none of the field's objects, no bundled entries intersect the visible WCS footprint, or the bundled resource failed to load. | Enable one catalog layer, choose a fuller level, pan to a known field, and inspect the Session Console for the one-time catalog warning. | Catalog display modules and catalog-load service |
-| A small object is named only when the view is zoomed in | The smallest object a level names is a share of the part of the image the view shows. | Zoom in, or choose **Detailed** or **Complete**, which name smaller objects. | Catalog overlay tests |
-| Star Labels stop getting denser at **Complete** | The bundled bright-star subset was generated through visual magnitude 9, which the complete level names in full. | This is expected; choose a lower level for fewer star labels. | `bright_star_catalog.csv`; generator; bright-star query test |
-| Some stars of a rich field have no label | Its label found no room beside it or on a leader line - the room went to a named or brighter star - and a star without a label is not drawn. | Zoom in: the stars spread apart and more of them are labelled. | Bright-star label tests |
-| Detected Stars is checked but no ellipses appear | The view holds no detected stars: opening a pre-solved file does not launch post-solve detection, any later edit of the image clears them, a mosaic is not detected, and a detection that found nothing or failed (see the Session Console) draws nothing. | Run Plate Solve in AfterNight to detect the stars again (demosaic a mosaic first), or use the grid/catalog layers. | `runPostPlateSolveStarDetection`; `detectViewOverlayStars` |
-| SIP map is checked but empty | WCS has no valid forward SIP `A`/`B` model, only inverse coefficients, zero displacement, or no visible vectors. | Inspect SIP status/header cards. A valid ordinary WCS can still drive the other layers. | `parseWcsCards`; `SipDistortion::hasForwardModel`; distortion-map tests |
-| SIP arrows look much larger than the reported distortion | Display arrows are normalized and clamped for visibility. | Read **SIP distortion max _n_ px**; use direction/color for relative interpretation. | `DistortionMapDisplayModule::onDraw` |
-| Labels shift or redraw while panning/zooming | Grid spacing follows the visible field, and catalogue labels are laid out again on a worker when the zoom changes - not when panning; the previous layout is drawn at the new zoom until the new one lands. | Let the layout land; choose a lower level of detail or turn a label layer off for a lighter layout. | Overlay cache keys and display modules |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Show Astrometry** is absent | The active view is a sequence, has no image, or its metadata does not parse as celestial WCS (for example a non-`TAN` projection, or a header that states FK5). | Activate a still image; inspect Astrometry Info/FITS headers; run Plate Solve and write WCS. |
+| **Astrometry Settings** is visible but disabled | The WCS is valid, but the master switch is off. | Turn on **Show Astrometry** or press `Ctrl+Shift+W`. |
+| Grid appears but no catalog objects | The relevant catalog layer is off, the level of detail names none of the field's objects, no bundled entries intersect the visible WCS footprint, or the bundled resource failed to load. | Enable one catalog layer, choose a fuller level, pan to a known field, and inspect the Session Console for the one-time catalog warning. |
+| A small object is named only when the view is zoomed in | The smallest object a level names is a share of the part of the image the view shows. | Zoom in, or choose **Detailed** or **Complete**, which name smaller objects. |
+| Star Labels stop getting denser at **Complete** | The bundled bright-star subset was generated through visual magnitude 9, which the complete level names in full. | This is expected; choose a lower level for fewer star labels. |
+| Some stars of a rich field have no label | Its label found no room beside it or on a leader line - the room went to a named or brighter star - and a star without a label is not drawn. | Zoom in: the stars spread apart and more of them are labelled. |
+| Detected Stars is checked but no ellipses appear | The view holds no detected stars: opening a pre-solved file does not launch post-solve detection, any later edit of the image clears them, a mosaic is not detected, and a detection that found nothing or failed (see the Session Console) draws nothing. | Run Plate Solve in AfterNight to detect the stars again (demosaic a mosaic first), or use the grid/catalog layers. |
+| SIP map is checked but empty | WCS has no valid forward SIP `A`/`B` model, only inverse coefficients, zero displacement, or no visible vectors. | Inspect SIP status/header cards. A valid ordinary WCS can still drive the other layers. |
+| SIP arrows look much larger than the reported distortion | Display arrows are normalized and clamped for visibility. | Read **SIP distortion max _n_ px**; use direction/color for relative interpretation. |
+| Labels shift or redraw while panning/zooming | Grid spacing follows the visible field, and catalogue labels are laid out again on a worker when the zoom changes - not when panning; the previous layout is drawn at the new zoom until the new one lands. | Let the layout land; choose a lower level of detail or turn a label layer off for a lighter layout. |
 
 ## Related workflow steps
 
@@ -362,7 +361,7 @@ legend—not the raw on-screen arrow length.
   [Image Registration](../processes/registration-alignment/image-registration.md)
   or color-calibration work.
 
-## References and provenance
+## Credits
 
 - NASA/HEASARC, [FITS World Coordinate System papers and resources](https://fits.gsfc.nasa.gov/fits_wcs.html),
   including Greisen & Calabretta (2002) and Calabretta & Greisen (2002).
@@ -375,11 +374,5 @@ legend—not the raw on-screen arrow length.
 - CDS/VizieR, [NGC 2000.0 catalog VII/118](https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118),
   the primary catalog input named by AfterNight's deep-sky generator; Messier
   aliases, common names, and selected extents are project-maintained additions.
-- The bundled Caldwell rows were added directly by the project. No upstream
-  dataset or license is recorded for those numeric rows, and
-  `tools/generate_deep_sky_catalog.py` does not currently reproduce them; this
-  is a documented provenance limit.
 - Astronexus, [HYG Database 4.2](https://www.astronexus.com/projects/hyg),
   source of the bundled bright-star subset under CC BY-SA 4.0.
-- Project implementation and generators are the
-  authority for AfterNight-specific defaults, filters, drawing, and persistence.

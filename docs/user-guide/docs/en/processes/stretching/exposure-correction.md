@@ -249,8 +249,6 @@ figure is claimed.
 
 ## Worked example
 
-- **Evidence mode:** Source-, focused-test-, and calculator-derived; not executed
-  on project-owned astronomical data.
 - **Positive setting:** With Exposure `+1`, the current multiplier is `1.2`, not
   `2`. Inputs `[0.25, 0.50, 0.90]` become `[0.30, 0.60, 1.00]`; the last raw
   value is `1.08` and clips. The equivalent unclipped change is about
@@ -294,17 +292,17 @@ figure is claimed.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| `+1` does not look one stop brighter | Current multiplier is `1+1/5=1.2`, not `2^1=2` | Use the current formula, which the tooltip states, and judge highlights; do not read the value as stops | `ExposureCorrectionProcess::exposureFactor`; worked calculator reproduction |
-| A small negative value brightens | Negative branch is `1.02+e/5`; it exceeds one for `-0.10<e<0` | Use `e<-0.10` for darkening and verify the actual multiplier | `ExposureCorrectionProcess::exposureFactor` |
-| Exposure `-0.10` runs but changes no pixel in `[0,1]` | It is a second mathematical identity, while Apply is disabled only at exact `0.0`; floating samples outside `[0,1]` are still clamped, and the result is still recorded as nonlinear with a history step | Reset to `0`; avoid committing `-0.10` | `ExposureCorrectionProcess::exposureFactor`; `ExposureCorrectionProcess::settingsUpdatedImpl` |
-| Highlights become flat white or change color | Multiply result is clamped to one; RGB channels can reach the clamp at different inputs | Reduce Exposure or create headroom before scaling | `buildScaleBiasProgram` clamp; `ExposureCorrectionProcess::executeTypedProcessIteration` |
-| A floating image has values outside `[0,1]` after a component mode | Only the component is clamped; it is converted back to RGB without clamping a floating result | Use a smaller change or a stored-channel mode | `applyProcessChannelScope`; `ChannelScope.h` recomposition |
-| A later step treats the result as nonlinear | Apply records `ANLIN` `nonlinear` and `ANOP` `exposure-correction` on the result, even without clipping | Expected; run steps that need a recorded linear state first, or undo the step in Image History | `process_utils::recordNonlinearResult` |
-| Apply fails with an error naming the memory budget | The session's memory budget cannot hold the run's copy of the target | Close other images, work on a smaller image, or raise the memory limit on the Processing settings page (it takes effect at the next start); the target is unchanged | `ImageRTPreviewControl::finishRun` |
-| A cancelled sequence does not replace the target | The sequence run writes a temporary sequence and publishes it only when every frame succeeded; Cancel stops the run and leaves no output | This is expected; restart Apply when ready | `ImageRTPreviewControl::runOverSequence` |
-| Apply resets the controls | Shared successful-commit path calls Exposure Reset | This is expected; re-enter settings for another still | `resetSettingsAsync`; `ExposureCorrectionProcess::resetSettings` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `+1` does not look one stop brighter | Current multiplier is `1+1/5=1.2`, not `2^1=2` | Use the current formula, which the tooltip states, and judge highlights; do not read the value as stops |
+| A small negative value brightens | Negative branch is `1.02+e/5`; it exceeds one for `-0.10<e<0` | Use `e<-0.10` for darkening and verify the actual multiplier |
+| Exposure `-0.10` runs but changes no pixel in `[0,1]` | It is a second mathematical identity, while Apply is disabled only at exact `0.0`; floating samples outside `[0,1]` are still clamped, and the result is still recorded as nonlinear with a history step | Reset to `0`; avoid committing `-0.10` |
+| Highlights become flat white or change color | Multiply result is clamped to one; RGB channels can reach the clamp at different inputs | Reduce Exposure or create headroom before scaling |
+| A floating image has values outside `[0,1]` after a component mode | Only the component is clamped; it is converted back to RGB without clamping a floating result | Use a smaller change or a stored-channel mode |
+| A later step treats the result as nonlinear | Apply records `ANLIN` `nonlinear` and `ANOP` `exposure-correction` on the result, even without clipping | Expected; run steps that need a recorded linear state first, or undo the step in Image History |
+| Apply fails with an error naming the memory budget | The session's memory budget cannot hold the run's copy of the target | Close other images, work on a smaller image, or raise the memory limit on the Processing settings page (it takes effect at the next start); the target is unchanged |
+| A cancelled sequence does not replace the target | The sequence run writes a temporary sequence and publishes it only when every frame succeeded; Cancel stops the run and leaves no output | This is expected; restart Apply when ready |
+| Apply resets the controls | Shared successful-commit path calls Exposure Reset | This is expected; re-enter settings for another still |
 
 ## Related workflow steps
 
@@ -317,13 +315,3 @@ histogram to measure highlight headroom. Compare
 [Adjust Brightness/Contrast](../color-adjustment/adjust-brightness-contrast.md)
 for an encoded-value brightness/contrast control. Monitor
 [Image History](../../interface/image-history.md) after Apply.
-
-## References and provenance
-
-- AfterNight project source — authoritative for the
-  current piecewise multiplier, clamp, controls, channel conversion, masks,
-  metadata/state behavior, history, display-only execution autostretch, and the
-  temporary replacement-sequence workflow.
-- The standard photographic stop relation `m=2^s` is used only as the comparison
-  definition needed to interpret the current UI; AfterNight does not implement
-  that equation here.

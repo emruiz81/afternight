@@ -247,7 +247,6 @@ control.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations:
   Begin with a disposable standard still containing Initial state plus two
   processing steps. Open Image History; current row is the last step. Select the
@@ -296,23 +295,23 @@ control.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Edit > Image History** is disabled | No active standard view/tracker | Activate a standard still or sequence view. RT/static previews do not own history | `ActionStateCoordinator::updateActiveImageHistory`; `ImageViewControl::initialize` |
-| **No selected image to show history from** | Coordinator was invoked without an active view | Activate the intended standard view and reopen | `ImageOperationsCoordinator::imageHistory` |
-| Preview says **Preview unavailable for this step.** | Snapshot is absent or could not be written, the snapshot could not be read, the sequence frame could not be read, or sequence has zero frames | Keep source open, verify temporary/sequence files and free space, inspect Session Console, then Refresh once | `ImageHistoryControl::updateSelectedStepPreview`; `ImageHistoryTracker::stepReader` |
-| **History Clone: Unable to clone the selected history step.** | The step's snapshot or frame could not be read | Do not close source; verify temp/sequence availability and retry another retained step; inspect Session Console | `ImageHistoryControl::cloneSelectedStep` |
-| **Could NOT jump to the selected history step. Error message: ...** | The step's snapshot or sequence frame could not be read, or the view could not show it | Preserve current view, inspect Session Console and storage, then try Clone From Step if its snapshot remains readable | `ImageHistoryTracker::jumpToStep`; `ImageHistoryTracker::reportFailure` |
-| **Could NOT remove the selected history step. Error message: ...** | Restoring the previous state before removing the active row failed | Leave the row intact, inspect Session Console/storage, and save work before retrying | `ImageHistoryTracker::removeStep`; restore-before-erase contract tests |
-| **Could NOT undo the last step. Error message: ...** or **Could NOT redo the next step. Error message: ...** | The snapshot of the step to restore could not be written or read; the view and the current row did not change | Keep the view open, check temporary storage and free space, and save the current state before continuing | `ImageHistoryTracker::undoStep`; `ImageHistoryTracker::redoStep`; `test_image_history_safety.cpp` |
-| **Could NOT keep the snapshot of step '_name_' of '_view_'; undo and redo cannot restore that step. Error message: ...** | The background writer could not save the step's snapshot, usually for lack of temporary storage | Free temporary storage; save the current state if it matters, because that step cannot be restored | `ImageHistoryBackupQueue.cpp`; `ImageHistoryTracker.cpp` |
-| **Could NOT apply '_name_', because ... Error message: ...** | An edit of the view - a mirror, a rotation, **Apply Stretch** - was refused before anything changed: the state it replaces, its result or the sequence frame it changes could not be kept for undo, or a restore was still on its way | Nothing was applied; free temporary storage, wait for the restore, and apply again | `ImageHistoryTracker::editPreparation`; `ImageHistoryTracker::registerEditBeforePublishing` |
-| **Save History Log: Unable to write the history log file.** | Selected path could not be opened writable | Choose a writable local destination and check permissions/free space | `ImageHistoryControl::saveHistoryLog` |
-| Earlier/later arrow is disabled | Current index is already at that boundary | Select/preview any row, or use the available direction; arrows operate from current state, not selected row | `previousStep`; `nextStep`; `updateNavigationButtons` |
-| A later branch disappeared | A new step was registered while current index was earlier than latest | It cannot be recovered from this tracker; use a saved clone/file. Clone before branching next time | `ImageHistoryTracker::annotateNewStep` |
-| Oldest states disappeared | The rolling history exceeded 20 total retained states | Recover from a saved image/clone if available; history rollover is not reversible | `ImageHistoryTracker::annotateNewStep`; `m_MaxSteps = 20` |
-| Inherited rows are absent | View has no propagated lineage or the eye toggle is off | Use a view created from another standard view and enable the lineage toggle | `ViewCreationCoordinator::propagateLineage`; `ImageHistoryControl::refillData` |
-| Restore changed pixels but not mask/display/zoom | Those are view-only states outside snapshot scope | Reapply the intended display mode, zoom, and mask configuration manually | `ImageHistoryTracker::finishRestore`; `ImageViewControl::replaceImage` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Edit > Image History** is disabled | No active standard view/tracker | Activate a standard still or sequence view. RT/static previews do not own history |
+| **No selected image to show history from** | Coordinator was invoked without an active view | Activate the intended standard view and reopen |
+| Preview says **Preview unavailable for this step.** | Snapshot is absent or could not be written, the snapshot could not be read, the sequence frame could not be read, or sequence has zero frames | Keep source open, verify temporary/sequence files and free space, inspect Session Console, then Refresh once |
+| **History Clone: Unable to clone the selected history step.** | The step's snapshot or frame could not be read | Do not close source; verify temp/sequence availability and retry another retained step; inspect Session Console |
+| **Could NOT jump to the selected history step. Error message: ...** | The step's snapshot or sequence frame could not be read, or the view could not show it | Preserve current view, inspect Session Console and storage, then try Clone From Step if its snapshot remains readable |
+| **Could NOT remove the selected history step. Error message: ...** | Restoring the previous state before removing the active row failed | Leave the row intact, inspect Session Console/storage, and save work before retrying |
+| **Could NOT undo the last step. Error message: ...** or **Could NOT redo the next step. Error message: ...** | The snapshot of the step to restore could not be written or read; the view and the current row did not change | Keep the view open, check temporary storage and free space, and save the current state before continuing |
+| **Could NOT keep the snapshot of step '_name_' of '_view_'; undo and redo cannot restore that step. Error message: ...** | The background writer could not save the step's snapshot, usually for lack of temporary storage | Free temporary storage; save the current state if it matters, because that step cannot be restored |
+| **Could NOT apply '_name_', because ... Error message: ...** | An edit of the view - a mirror, a rotation, **Apply Stretch** - was refused before anything changed: the state it replaces, its result or the sequence frame it changes could not be kept for undo, or a restore was still on its way | Nothing was applied; free temporary storage, wait for the restore, and apply again |
+| **Save History Log: Unable to write the history log file.** | Selected path could not be opened writable | Choose a writable local destination and check permissions/free space |
+| Earlier/later arrow is disabled | Current index is already at that boundary | Select/preview any row, or use the available direction; arrows operate from current state, not selected row |
+| A later branch disappeared | A new step was registered while current index was earlier than latest | It cannot be recovered from this tracker; use a saved clone/file. Clone before branching next time |
+| Oldest states disappeared | The rolling history exceeded 20 total retained states | Recover from a saved image/clone if available; history rollover is not reversible |
+| Inherited rows are absent | View has no propagated lineage or the eye toggle is off | Use a view created from another standard view and enable the lineage toggle |
+| Restore changed pixels but not mask/display/zoom | Those are view-only states outside snapshot scope | Reapply the intended display mode, zoom, and mask configuration manually |
 
 ## Related workflow steps
 
@@ -326,11 +325,3 @@ control.
   selecting or cloning the state you intend to keep.
 - [Session Console](log-viewer.md) contains snapshot/restore diagnostics when a
   preview, clone, jump, remove, or save action fails.
-
-## References and provenance
-
-- AfterNight view/history control, tracker, lineage, engine snapshot, metadata,
-  application wiring, and focused tests are the
-  authoritative implementation provenance for this page.
-- No external algorithm or file-format standard is required for the history
-  state model documented here.

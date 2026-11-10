@@ -9,8 +9,6 @@ derived: true
 ---
 # Profiled Starmask Recombination
 
-<!-- MEDIA_SLOT: UG-MEDIA-084 -->
-
 ## Purpose and expected result
 
 Profiled Starmask Recombination adds a stars-only image to a matching starless
@@ -348,17 +346,17 @@ taken when it is pressed, so a later change reaches the next run only.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix | Evidence basis |
-| --- | --- | --- | --- |
-| Every star returns | No/empty profile or a failed load at execution creates no mask; an inverted black mask also selects the full sum | Reload a valid profile, confirm Current Stars > 0, Preview with Invert Selection off, and inspect the mask effect | Process source |
-| No stars return in shaped mode | Effective shaped radius is zero and Invert Selection is off, producing a black mask | Raise % Pixel Increase or Pixel Increase; preview the mask before OK | Shaped-mask and blend source |
-| Overlay/mask misses stars | Profile came from different geometry or branches were cropped/resampled | Use the profile and pair from the same unchanged registered image | Mask raster source |
-| **the star image does not have the starless image's size and channels** | Width, height, or channel count differs | Match all three properties; do not rely on selectors | `ProfiledStarmaskRecombinationProcess::executeTypedProcessImpl` |
-| **Load Star Profile** reports an error | The file is not a readable `.anspv1`/`.anspv2` profile; the list is now empty | Load a valid profile; a run without one performs the full addition | `process_utils::readProfileStars` |
-| Dark rims or colored borders | Tighten Edges too high, or the zero border at each row's ends | Reduce Tighten Edges; inspect 100% frame borders and channels | `an::recombineStarMask` |
-| Shaped v2 mask looks round | Shaped mode uses max FWHM as a circular radius | Use Binary Areas to preserve fitted axis ratio/angle | Profiler mask source |
-| Percent `0.50` makes masks smaller | It multiplies radius by one half | Raise toward `1.00` and/or add Pixel Increase | Mask equation/source |
-| Result is held at one in bright cores | The pair includes an integer or normalized image, so both are read as fractions of full scale and the sum is held at one | Expected for such a pair; two floating-point images read from files keep their sum above one; reduce the stars layer upstream if needed | `process_utils::recombinationReading` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Every star returns | No/empty profile or a failed load at execution creates no mask; an inverted black mask also selects the full sum | Reload a valid profile, confirm Current Stars > 0, Preview with Invert Selection off, and inspect the mask effect |
+| No stars return in shaped mode | Effective shaped radius is zero and Invert Selection is off, producing a black mask | Raise % Pixel Increase or Pixel Increase; preview the mask before OK |
+| Overlay/mask misses stars | Profile came from different geometry or branches were cropped/resampled | Use the profile and pair from the same unchanged registered image |
+| **the star image does not have the starless image's size and channels** | Width, height, or channel count differs | Match all three properties; do not rely on selectors |
+| **Load Star Profile** reports an error | The file is not a readable `.anspv1`/`.anspv2` profile; the list is now empty | Load a valid profile; a run without one performs the full addition |
+| Dark rims or colored borders | Tighten Edges too high, or the zero border at each row's ends | Reduce Tighten Edges; inspect 100% frame borders and channels |
+| Shaped v2 mask looks round | Shaped mode uses max FWHM as a circular radius | Use Binary Areas to preserve fitted axis ratio/angle |
+| Percent `0.50` makes masks smaller | It multiplies radius by one half | Raise toward `1.00` and/or add Pixel Increase |
+| Result is held at one in bright cores | The pair includes an integer or normalized image, so both are read as fractions of full scale and the sum is held at one | Expected for such a pair; two floating-point images read from files keep their sum above one; reduce the stars layer upstream if needed |
 
 ## Related workflow steps
 
@@ -373,16 +371,9 @@ taken when it is pressed, so a later change reaches the next run only.
 - [Glossary](../../reference/glossary.md) — image-state, profile, mask, and
   clipping terminology.
 
-## References and provenance
+## Credits
 
 - The shaped profile masks use the engine's star-mask shapes, adapted from
-  DeepSkyStacker's star-mask shapes under the BSD 3-Clause License of Luc
-  Coiffier and the DeepSkyStacker contributors, whose licence notice
-  **Help > About AfterNight** reproduces with its credit.
-
-This page is source-first (**S**) with focused synthetic/unit validation. The
-menu, registry, UI builders, profile/filter lifecycle, v1/v2 mask creators,
-edge filter, add/blend kernels, and preview framework were traced.
-AfterNight was not launched. No approved
-astronomical profile/pair or sequence was processed; visual quality, real
-profile correspondence, production timing, and peak memory remain unverified.
+  [DeepSkyStacker](https://github.com/deepskystacker/DSS)'s star-mask shapes under
+  the BSD 3-Clause License of Luc Coiffier and the DeepSkyStacker contributors,
+  whose licence notice **About > About AfterNight** reproduces with its credit.

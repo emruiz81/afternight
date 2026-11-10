@@ -295,7 +295,8 @@ class CleanGuideTests(GuideCase):
     def test_a_complete_guide_passes_and_reports_what_it_read(self):
         code, output = self.run_main()
         self.assertEqual(code, 0, output)
-        for rule in ('R2 front matter', 'R3 nav and H1', 'R4 menu parity', 'R5 images'):
+        for rule in ('R2 front matter', 'R3 nav and H1', 'R4 menu parity', 'R5 images',
+                     'R6 credits of derived pages'):
             self.assertIn('%s: 0 error(s), 0 warning(s)' % rule, output)
         self.assertIn('5 pages: 1 home, 3 process, 1 reference', output)
         self.assertIn('process pages by stage: stretch 1, finish 1, any 1; 0 derived', output)
@@ -438,6 +439,42 @@ class ImageRuleTests(GuideCase):
         self.write('README.md', '# Repository\n\n![Spare](docs/user-guide/docs/en/assets/images/spare.webp)\n')
         code, output = self.run_main()
         self.assertIn('R5 images: 0 error(s), 0 warning(s)', output)
+
+
+class CreditsRuleTests(GuideCase):
+    DERIVED = PAGES['processes/curves.md'].replace('summary: Reshapes tone.\n', 'summary: Reshapes tone.\n'
+                                                                              'derived: true\n')
+
+    def test_a_derived_page_with_credits_passes(self):
+        self.page('processes/curves.md', self.DERIVED + '\n## Credits\n\n- [The upstream work](https://example.org/), '
+                  'by its authors, under GPL-3.0-or-later.\n')
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('R6 credits of derived pages: 0 error(s), 0 warning(s)', output)
+        self.assertIn('finish 1, any 1; 1 derived', output)
+
+    def test_a_derived_page_without_a_credits_section_fails_where_it_says_it_is_derived(self):
+        self.page('processes/curves.md', self.DERIVED + '\n## Related\n\n- Another page.\n')
+        self.assertEqual(self.assertOneFinding('R6', 'processes/curves.md', 6, '`derived: true`',
+                                               'no `## Credits` section'), 1)
+
+    def test_an_empty_credits_section_fails_on_its_heading(self):
+        self.page('processes/curves.md', self.DERIVED + '\n## Credits\n\n<!-- to be written -->\n\n## Related\n\n'
+                  '- Another page.\n')
+        self.assertOneFinding('R6', 'processes/curves.md', 10, '`## Credits` section is empty')
+
+    def test_a_credits_heading_inside_a_code_block_is_no_section(self):
+        self.page('processes/curves.md', self.DERIVED + '\n```markdown\n## Credits\n\n- An example.\n```\n')
+        self.assertOneFinding('R6', 'processes/curves.md', 6, 'no `## Credits` section')
+
+    def test_a_page_that_is_not_derived_needs_no_credits(self):
+        code, found = self.findings('R6')
+        self.assertEqual((code, found), (0, []))
+
+    def test_page_holds_the_rule_on_the_page_named(self):
+        self.page('processes/curves.md', self.DERIVED)
+        code, found = self.findings('R6', '--page', 'processes/curves.md')
+        self.assertEqual((code, len(found)), (1, 1), found)
 
 
 class SelectionTests(GuideCase):

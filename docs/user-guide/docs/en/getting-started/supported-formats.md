@@ -5,10 +5,6 @@ summary: >-
 ---
 # Supported Formats
 
-Source and focused tests establish the
-routes and decision boundaries used here. No current-platform codec readiness,
-interoperability, output quality, or production performance is claimed.
-
 ## Purpose, audience, prerequisites, and expected result
 
 Use this page to decide what kind of file to open and what kind of artifact to
@@ -175,7 +171,6 @@ ratio, or cross-application interoperability result.
 
 ## Worked example
 
-- Evidence mode: **Source-and-test-derived**.
 - Starting state, actions, settings, checkpoints, result, and limitations:
 
 Suppose a Quick Start integration is open and you need both a processing master
@@ -218,15 +213,15 @@ actual size, fidelity, metadata interoperability, or visual result is claimed.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| A file appears in the chooser but does not open | The suffix passed the first filter/dispatch gate, but content, camera variant (a four-colour CMYG or CYGM sensor), stream, or deployed decoder is unsupported/damaged | Check the exact authority row; preserve the source and test a verified copy/transcode when appropriate | `FileManager.cpp`; `ImageViewFiles.cpp`; `CodecIO.h`; `SequenceContainers.cpp` |
-| Save does not offer camera RAW | RAW is input-only | Save a processing master as FITS/XISF/TIFF and retain the RAW source | `FilePolicies.cpp`; `RawCodec.h` |
-| Reopened output has different precision or channels | The chosen codec/export path converted an unsupported input representation | Use the authority matrix to select a retaining master format; repeat to a new path and verify | `ImageViewFiles.cpp`; `FileSaveTest.cpp`; engine codec tests |
-| Saved image does not include the visible stretch/overlay | Standard save writes underlying pixels, not viewer display state | Apply the intended pixel process, or use an explicit delivery/export workflow | `FileWorkflowRunner.cpp`; `ImageViewControl.cpp` |
-| Sequence Export action is unavailable | The active context is not a sequence | Activate/open a sequence view, then use **Image > Sequence > Export...** | menu/action wiring; `ExportSequenceControl.cpp` |
-| Sequence Save is refused for the chosen path | The path names a container the product does not write (for example `.mpg` or `.mpeg`) | Choose SER, AVI, `.anseq`, MP4/MOV, MKV, or WebM, or use Sequence Export to a new path | `SequenceContainers.cpp`; `SequenceCompanions.cpp`; `FileSaveTest.cpp` |
-| Output cannot be trusted after cancellation/failure | The write/export did not reach a verified success state | Preserve source, discard or quarantine the partial destination, inspect the error, then retry to a new path | `FileWorkflowRunner.cpp`; `OutputTransaction.h`; `ExportSequenceWindowTest.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| A file appears in the chooser but does not open | The suffix passed the first filter/dispatch gate, but content, camera variant (a four-colour CMYG or CYGM sensor), stream, or deployed decoder is unsupported/damaged | Check the exact authority row; preserve the source and test a verified copy/transcode when appropriate |
+| Save does not offer camera RAW | RAW is input-only | Save a processing master as FITS/XISF/TIFF and retain the RAW source |
+| Reopened output has different precision or channels | The chosen codec/export path converted an unsupported input representation | Use the authority matrix to select a retaining master format; repeat to a new path and verify |
+| Saved image does not include the visible stretch/overlay | Standard save writes underlying pixels, not viewer display state | Apply the intended pixel process, or use an explicit delivery/export workflow |
+| Sequence Export action is unavailable | The active context is not a sequence | Activate/open a sequence view, then use **Image > Sequence > Export...** |
+| Sequence Save is refused for the chosen path | The path names a container the product does not write (for example `.mpg` or `.mpeg`) | Choose SER, AVI, `.anseq`, MP4/MOV, MKV, or WebM, or use Sequence Export to a new path |
+| Output cannot be trusted after cancellation/failure | The write/export did not reach a verified success state | Preserve source, discard or quarantine the partial destination, inspect the error, then retry to a new path |
 
 ## Related workflow steps
 
@@ -239,14 +234,3 @@ Use [File Formats](../reference/file-formats.md) for every detailed compatibilit
 decision. [Sequences](../interface/sequences.md), [Settings](../interface/settings-dialog.md),
 and [System Requirements](../reference/system-requirements.md) explain the
 related application state, global preferences, and deployed-environment needs.
-
-## References and provenance
-
-- The current source and focused tests establish the
-  beginner decision path and current routing.
-- [File Formats](../reference/file-formats.md) is the single detailed authority
-  and retains the codec/standard provenance, exact capability matrix, and known
-  limitations.
-- [Saving And Exporting](../interface/saving-and-exporting.md) is the authoritative
-  action-level workflow for standard save and Sequence Export.
-- No separate external format/codec contract is asserted on this page.

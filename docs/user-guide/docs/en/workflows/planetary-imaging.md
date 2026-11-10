@@ -6,7 +6,6 @@ summary: >-
 ---
 # Planetary Imaging
 
-
 Planetary imaging is a lucky-imaging workflow: capture many short exposures, keep the best frames, stack them to beat seeing noise, then sharpen the integrated result. The AfterNight toolset currently covers sequence loading, extraction/conversion, image-list analysis, stacking-oriented processing, sharpening, and finishing. It is not a dedicated planetary capture suite, so use this page as a practical processing path rather than a camera-control guide.
 
 Use this workflow for:
@@ -96,7 +95,7 @@ Use finishing processes conservatively:
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Stacked planet is smeared | Poor alignment, too many weak frames, or rotation during capture | Select fewer frames or align externally before stacking |
 | Limb has bright/dark halos | Sharpening radius or strength is too high | Reduce sharpening, use multiscale edits, and inspect at 100 percent |

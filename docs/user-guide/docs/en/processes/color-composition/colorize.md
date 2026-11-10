@@ -342,34 +342,30 @@ that channel-wise behavior is not intended.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Check or correction | Evidence |
-| --- | --- | --- | --- |
-| Colorize is not under Process > Color | The current menu is named **Color Spaces** | Use **Process > Color Spaces > Colorize** | `AfterNightAppUiBuilder.h`; `ProcessRegistryBuiltins.cpp` |
-| Selected Hue is not the measured RGB hue | RGB target is using channel-wise no-lightness path | Enable Use lightness or provide a mono structural plane | `an::colorizeImage` three-channel path |
-| Bright HSI result clips or loses structure | Sector formula exceeded `[0,1]` and final clamp flattened channels | Reduce Saturation or use HSV | `an::colorizeImage` with `ColorizationModel::Hsi` |
-| HSV float result contains out-of-range samples | Float/double source was outside the normalized range; HSV adds no final clamp | Sanitize/rescale a duplicate before Colorize | `an::colorizeImage` with `ColorizationModel::Hsv` |
-| NaN or infinite pixels remain in the result | A non-finite pixel is not colorized: it is left as it was, or carries its intensity into all three channels | Repair non-finite samples on a duplicate before Colorize | `ColorizeProcess::executeTypedProcessImpl`; `process_utils::skippingNonFinite` |
-| Use lightness is disabled | Current target image is grayscale or carries an alpha channel | This is expected; grayscale is already the shared scalar source, and an image with alpha is refused at Apply | `ColorizeProcess::onImageUpdated`; `ColorizeProcess::onViewControlChanged` |
-| Use lightness result differs between two images with the same samples | One image's color space says linear RGB, so its RGB is read as linear; the other is read as sRGB-encoded | Check the image's color space | `processChannelScopeRequest` in `ProcessExecution.cpp` |
-| Preview looks almost black | Colorize preview is fixed Linear | Inspect histogram; use an appropriate upstream/display workflow without assuming pixels are zero | No execution autostretch in `ColorizeProcess` |
-| Error message includes `the colorization needs a grey image or an image of red, green and blue` | The target, or a decoded sequence frame, has an alpha channel or another channel layout | Remove the alpha channel first, or extract one plane and colorize it; the target was not changed | `ColorizeProcess::executeTypedProcessImpl` |
-| Reset did not clear Use lightness | Colorize reset omits that checkbox | Uncheck it manually before the next run | `ColorizeProcess::resetSettings` |
-| History cannot reproduce the result | Method and Use lightness are omitted from step description | Read them from the result's lineage, or record them separately | `ColorizeProcess::describeTypedProcessStep`; `process_utils::recordNonlinearResult` |
-| Method, Use lightness, or Preview stay enabled during Apply | They are not part of the window's control locking | The run uses the captured values; change them after it finishes | `ColorizeProcess::enableProcessControlsImpl` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Colorize is not under Process > Color | The current menu is named **Color Spaces** | Use **Process > Color Spaces > Colorize** |
+| Selected Hue is not the measured RGB hue | RGB target is using channel-wise no-lightness path | Enable Use lightness or provide a mono structural plane |
+| Bright HSI result clips or loses structure | Sector formula exceeded `[0,1]` and final clamp flattened channels | Reduce Saturation or use HSV |
+| HSV float result contains out-of-range samples | Float/double source was outside the normalized range; HSV adds no final clamp | Sanitize/rescale a duplicate before Colorize |
+| NaN or infinite pixels remain in the result | A non-finite pixel is not colorized: it is left as it was, or carries its intensity into all three channels | Repair non-finite samples on a duplicate before Colorize |
+| Use lightness is disabled | Current target image is grayscale or carries an alpha channel | This is expected; grayscale is already the shared scalar source, and an image with alpha is refused at Apply |
+| Use lightness result differs between two images with the same samples | One image's color space says linear RGB, so its RGB is read as linear; the other is read as sRGB-encoded | Check the image's color space |
+| Preview looks almost black | Colorize preview is fixed Linear | Inspect histogram; use an appropriate upstream/display workflow without assuming pixels are zero |
+| Error message includes `the colorization needs a grey image or an image of red, green and blue` | The target, or a decoded sequence frame, has an alpha channel or another channel layout | Remove the alpha channel first, or extract one plane and colorize it; the target was not changed |
+| Reset did not clear Use lightness | Colorize reset omits that checkbox | Uncheck it manually before the next run |
+| History cannot reproduce the result | Method and Use lightness are omitted from step description | Read them from the result's lineage, or record them separately |
+| Method, Use lightness, or Preview stay enabled during Apply | They are not part of the window's control locking | The run uses the captured values; change them after it finishes |
 
-## References and provenance
+## Credits
 
-- Alvy Ray Smith, [“Color Gamut Transform Pairs”](https://alvyray.com/Papers/CG/color78.pdf),
-  SIGGRAPH 1978, describes the hexcone HSV transform family. AfterNight's
-  `an::colorizeImage` sector code is authoritative for the exact implementation.
+- Alvy Ray Smith, [“Color Gamut Transform
+  Pairs”](https://alvyray.com/Papers/CG/color78.pdf), SIGGRAPH 1978, describes
+  the hexcone HSV transform family.
 - International Color Consortium, [How to interpret the sRGB color space](https://www.color.org/sRGB.pdf),
   documents the sRGB transfer and D65 RGB/XYZ basis used by AfterNight's CIE L*
   conversion for an image not recorded as linear RGB. AfterNight does not
   inspect or apply an embedded ICC profile here.
-- `ColorAdjustment.h` (`an::colorizeImage`), `ChannelScope.h`,
-  `PointwiseProcessUtils.cpp`, and `ColorizeProcess.cpp` are the authoritative
-  sources for the HSV and HSI equations, clamp policy, RGB channel-wise mapping,
-  CIE L* reading, sample units, metadata record, and UI execution behavior.
 
 ## Related workflow steps
 

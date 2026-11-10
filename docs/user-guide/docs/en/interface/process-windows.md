@@ -191,10 +191,9 @@ This walkthrough proves the shared typed/RT state transitions from source and fo
 - Top-level workflows and extension process windows can use specialized controls and execution pipelines; apply this shared contract only where the page says it is used.
 - This page does not claim exact appearance, sizing, or cross-platform equivalence.
 
-
 ## Troubleshooting
 
-| Symptom | Likely cause | What to do |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Process action is disabled or launch is refused | No active eligible image, wrong still/sequence/channel type, duplicate process, or exclusive-access conflict | Activate a supported target and read the process page/launch warning. |
 | Window title shows the wrong target | Active view changed after launch or Target was changed | Use the process **Target** selector if available; otherwise close and relaunch from the intended active view. |
@@ -220,7 +219,3 @@ This walkthrough proves the shared typed/RT state transitions from source and fo
 - [Sequences](sequences.md) — sequence containers, playback, temporary output, and export.
 - [Settings](settings-dialog.md) — process-window geometry preference and broader application settings.
 - [Session Console](log-viewer.md) — inspect process warnings, errors, and timing messages.
-
-## References and provenance
-
-This page is derived from AfterNight's source and its focused tests. In each deployed MSVC Release and Debug configuration, focused tests passed 16/16 for preview throttling/cancellation/exclusivity/autostretch/area/guards, 14/14 for shared image-process type/lifecycle/channel/error/close/title contracts, and 10/10 for typed parameters and geometry/persistence (40/40 total per configuration). These tests establish the shared typed/RT contracts, not the behavior of every custom process. They do not execute an approved astronomical target, every registered process, a long production sequence, runtime visual/layout behavior, or cross-platform cancellation; those claims remain unmade.

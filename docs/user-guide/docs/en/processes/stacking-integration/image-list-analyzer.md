@@ -10,8 +10,6 @@ derived: true
 ---
 # Image List Analyzer
 
-Source and focused tests establish the behaviors claimed below. Actual rendered layout, representative playback/export performance, output compatibility in external players, and capture evidence remain unclaimed.
-
 ## Purpose and expected result
 
 ![Image List Analyzer with a selected frame, metadata, histogram, optimization status, and populated table](../../assets/images/processes/stacking-integration/image-list-analyzer.png)
@@ -220,7 +218,7 @@ For real data, verify the export's frame count, first/last frame, geometry, chan
 
 ## Troubleshooting
 
-| Symptom | Source-backed cause | Action |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Expected folder files are absent | Unsupported extension, recursion off, type/filter metadata mismatch, duplicate path, missing/empty/truncated/unreadable file | Retry without filters, inspect headers/extensions, and read the **Some files were skipped** or **Some files were passed over** notification and the log |
 | A Light filter excluded a valid frame | Unknown/mislabeled frame type did not match the requested metadata text | Import with Frame Type All and inspect the row; Analyzer cannot edit metadata |
@@ -244,8 +242,9 @@ For real data, verify the export's frame count, first/last frame, geometry, chan
 - Use [Extract Sequence](../utility/extract-sequence.md) to turn a source sequence into still frames.
 - Check [File Formats](../../reference/file-formats.md) before choosing a scientific or delivery container.
 
-## References and provenance
+## Credits
 
-- Current Analyzer behavior is defined by `ImageListAnalyzerProcess`, `ImageListProcessHelpers`, `WorkflowToolFiles`, the generic `TableWidget`, and the engine's image-list manifest and frame source at the revision recorded above.
-- Shared preview/player and export behavior comes from `ImageViewControl`, `SequencePlayerControl`, and `ExportSequenceControl`; [Saving and Exporting](../../interface/saving-and-exporting.md) records their broader source/test contract.
-- No external quality-ranking method or paper applies because the current Analyzer implements no quality score.
+- CFA frames are demosaiced for display and export by methods adapted from RawTherapee's
+  demosaic code as [librtprocess](https://github.com/CarVac/librtprocess)
+  packages it, under GPL-3.0-or-later.
+  **About > About AfterNight** credits that work.

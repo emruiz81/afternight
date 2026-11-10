@@ -266,7 +266,6 @@ memory, compressed file size, or execution time.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; not executed on approved astronomical data.
 - Input and settings: a solved `6000×4000` image, Keep aspect ratio checked,
   Width Target Px `3000`, Auto.
 - Expected checkpoint: Height becomes `2000`, Auto chooses Pixel Area Relation,
@@ -306,17 +305,17 @@ memory, compressed file size, or execution time.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| OK is disabled | Both Target Px values equal current geometry | Change at least one axis | `ResizeProcess::checkChangesPending()` |
-| Linked dimension is off by one | Percentage-to-integer conversion and source aspect do not divide exactly | Enter the exact required Target Px; accept the nearest integer aspect or unlock deliberately | Resize value handlers |
-| **Resize CFA** question | Target is a mosaic the view does not demosaic | Choose No, then Debayer or use CFA Integer Resample | `ResizeProcess::executeImageResize()`; `GeometryProcessCase.AMosaicIsReadAsGreyOnlyWhenThePersonSaysSo` |
-| Fine detail looks blocky | Nearest enlargement or excessive scale | Compare Bilinear, Bicubic, or Lanczos4 and avoid unnecessary enlargement | interpolation mapping |
-| Output contains `NaN` | Source `NaN` samples under a rule that counts every sample valid took part in the interpolation | Repair non-finite samples before Resize and rerun from the original | sampling policy |
-| Dark rims replaced by smoother values or clipped peaks | The dark-ringing guard replaced a ring with its guide, or the result was held to its range | Compare Bilinear/Area, reduce scale, and work from an unclipped source | `GeometryUnits.ANormalizedFloatingResultIsHeldToTheUnitInterval` |
-| Astrometry overlay disappears after resize | The image's header cards stated no plate solution, so there was none to carry | Plate-solve the resized image | `GeometryProcessCase.AStillImagesSolutionFollowsACropAResizeAndAResampleAndNotARotation` |
-| **Error running resize** | The engine refused the request or could not allocate the result | Read the message and the log, choose supported dimensions, free memory, and retry | `GeometryInPlaceWindowTest.ARunTheEngineRefusesSaysWhyAndChangesNothing` |
-| An **Image History** error, and the resize is not applied | Image History could not keep the image the resize replaces; it says so once, Resize says nothing more, and nothing changes | Free memory and run Resize again | `GeometryProcessCase.AnEditTheHistoryCannotKeepIsSaidOnceAndChangesNothing` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| OK is disabled | Both Target Px values equal current geometry | Change at least one axis |
+| Linked dimension is off by one | Percentage-to-integer conversion and source aspect do not divide exactly | Enter the exact required Target Px; accept the nearest integer aspect or unlock deliberately |
+| **Resize CFA** question | Target is a mosaic the view does not demosaic | Choose No, then Debayer or use CFA Integer Resample |
+| Fine detail looks blocky | Nearest enlargement or excessive scale | Compare Bilinear, Bicubic, or Lanczos4 and avoid unnecessary enlargement |
+| Output contains `NaN` | Source `NaN` samples under a rule that counts every sample valid took part in the interpolation | Repair non-finite samples before Resize and rerun from the original |
+| Dark rims replaced by smoother values or clipped peaks | The dark-ringing guard replaced a ring with its guide, or the result was held to its range | Compare Bilinear/Area, reduce scale, and work from an unclipped source |
+| Astrometry overlay disappears after resize | The image's header cards stated no plate solution, so there was none to carry | Plate-solve the resized image |
+| **Error running resize** | The engine refused the request or could not allocate the result | Read the message and the log, choose supported dimensions, free memory, and retry |
+| An **Image History** error, and the resize is not applied | Image History could not keep the image the resize replaces; it says so once, Resize says nothing more, and nothing changes | Free memory and run Resize again |
 
 ## Related workflow steps
 
@@ -327,10 +326,3 @@ integer operations, use
 [CFA Integer Resample](../calibration/cfa-integer-resample.md). Resize carries a
 plate solution; [Plate Solving](../registration-alignment/plate-solving.md)
 restores one after a rotation or a filter-array resample.
-
-## References and provenance
-
-- AfterNight Resize process, the shared geometry support, the engine's
-  geometry and sampling-kernel definitions, the sequence companions, and the
-  focused tests.
-- No external library is used by Resize.

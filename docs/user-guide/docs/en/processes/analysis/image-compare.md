@@ -8,8 +8,6 @@ data_in: either
 ---
 # Image Compare
 
-<!-- MEDIA_SLOT: UG-MEDIA-097 -->
-
 ## Purpose and expected result
 
 Image Compare is a non-destructive inspection window for comparing two open
@@ -200,7 +198,6 @@ measurement was made.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Input condition/provenance and settings: two open, already registered images
   with equal dimensions; Image 1 active; Image 2 selected; Linear display;
   Toggle followed by Horizontal split at `0.5`; 256-bin histograms.
@@ -231,15 +228,15 @@ measurement was made.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| The second image is absent | Image 2 must be another open view with exactly equal width and height | Resize/crop/register beforehand, or choose an equal-size view | `ImageCompareProcess::isViewControlSupportedCustom()` |
-| Split mode shows only Image 1 | Image 2 is **No image**, closed, or became incompatible | Select a valid Image 2; reopen/recreate it if needed | selector lifecycle and `updateSplitOverlayImage()` |
-| Brightness agrees in Autostretch but histograms do not | Each image is stretched from its own statistics; histograms use raw stored data | Switch to Linear for absolute-intensity interpretation | `buildComparisonDisplayImage()` and histogram image getters |
-| Channel peaks look equally tall unexpectedly | Checked **Absolute scales** activates per-channel peak normalization | Uncheck it for one shared vertical count scale | `HistogramWidget::setLocalChannelNormalization()` and drawing paths |
-| Features jump while toggling | Images share dimensions but are not registered to the same coordinates | Register the pair; confirm crop/origin and distortion handling | selector validates dimensions only |
-| No result appears after closing | **Close** creates nothing; only **Take snapshot** creates an auxiliary still | Use **Take snapshot** before closing for an Image 1 copy, or use Pixel Math/Image Blend for a derived comparison result | Close-only dialog and snapshot identity implementation |
-| Snapshot does not contain the split or Image 2 | Snapshot executes the Image Compare identity operation on Image 1; it is not a screen capture | Use an external screen-capture workflow for the visual split, or Pixel Math for a derived image | `onRTTakeSnapshot()` and `executeTypedProcessImpl()` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The second image is absent | Image 2 must be another open view with exactly equal width and height | Resize/crop/register beforehand, or choose an equal-size view |
+| Split mode shows only Image 1 | Image 2 is **No image**, closed, or became incompatible | Select a valid Image 2; reopen/recreate it if needed |
+| Brightness agrees in Autostretch but histograms do not | Each image is stretched from its own statistics; histograms use raw stored data | Switch to Linear for absolute-intensity interpretation |
+| Channel peaks look equally tall unexpectedly | Checked **Absolute scales** activates per-channel peak normalization | Uncheck it for one shared vertical count scale |
+| Features jump while toggling | Images share dimensions but are not registered to the same coordinates | Register the pair; confirm crop/origin and distortion handling |
+| No result appears after closing | **Close** creates nothing; only **Take snapshot** creates an auxiliary still | Use **Take snapshot** before closing for an Image 1 copy, or use Pixel Math/Image Blend for a derived comparison result |
+| Snapshot does not contain the split or Image 2 | Snapshot executes the Image Compare identity operation on Image 1; it is not a screen capture | Use an external screen-capture workflow for the visual split, or Pixel Math for a derived image |
 
 ## Related workflow steps
 
@@ -250,8 +247,3 @@ a difference or other expression, and [Image Viewer](../../interface/image-viewe
 to understand display channel, zoom, and stretch behavior. In a mosaic workflow,
 comparison can reveal seam or registration differences but does not correct
 them.
-
-## References and provenance
-
-This page describes the current AfterNight implementation and focused tests. Image Compare uses no external comparison algorithm
-or library metric.

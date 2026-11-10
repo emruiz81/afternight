@@ -10,8 +10,6 @@ derived: true
 ---
 # DeepSNR
 
-<!-- MEDIA_SLOT: UG-MEDIA-070 -->
-
 ## Purpose and expected result
 
 DeepSNR sends the selected image through the separately installed DeepSNR
@@ -305,8 +303,6 @@ or noise compatibility across the full field.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived with native Windows CLI readiness
-  evidence, not an approved-data GUI execution.
 - Input condition/provenance and settings: The current AfterNight source and
   tests define pre-stretch Off, an empty **Weights** path, and stride `480`,
   which produces `--input`, `--output`, and `--stride 480`, plus
@@ -370,28 +366,28 @@ or noise compatibility across the full field.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| `DeepSNR executable path is empty.` | No global executable path is saved. | Click **Configure**, choose **Settings > External Tools > DeepSNR**, select the CLI executable, and Apply/OK. | `DeepSNRCliTools.cpp`; `ExternalToolsSettingsPage.cpp` |
-| `DeepSNR executable was not found.` or `DeepSNR path is not executable.` | The saved path is missing or fails the platform executable check. | Restore the installed/portable package, select its actual executable, and keep runtime files in the documented layout. | `DeepSNRCliTools.cpp`; upstream installer layout |
-| `Could not detect DeepSNR version. DeepSNR 1.2.0 or newer is required.` | Machine-info was unsupported or invalid and the bounded `--version` fallback failed or produced no parseable version. | For 1.2.3+, run `deepsnr --machine-info`; for older supported versions, run `--version`. Restore a current complete package if both readiness paths fail. | `parseMachineInfoText`; `readVersionOutput`; `checkExecutable` |
-| `DeepSNR <version> detected. DeepSNR 1.2.0 or newer is required.` | The parsed version is below the supported CLI contract. | Install a current 1.2.x or newer CLI package and update the settings path. | `minimumSupportedVersion` in `DeepSNRCliTools.cpp` |
-| `DeepSNR requires input images at least 512x512 pixels.` under **Error running DeepSNR** | Width or height is below the CLI processing window; the run refused before writing anything. | Use a larger image or choose another denoiser; do not upscale solely to bypass the validation. | `runExternalTool` in `ExternalToolSupport.cpp`; `DeepSnrWindowTest.AnImageBelowTheFloorIsRefusedByName` |
-| `DeepSNR supports grayscale and RGB images only.` | The image has neither one nor three channels. | Remove alpha/unsupported channels or create a supported grayscale/RGB working copy. | `runExternalTool`; `ExternalToolsUnitsTest.ARunIsRefusedBeforeAnythingIsWritten` |
-| `DeepSNR takes a grey or colour picture, not a colour filter array mosaic; demosaic the image first` | The image is a colour filter array mosaic. | Demosaic the image, then run DeepSNR on the result. | `runExternalTool`; `ExternalToolsUnitsTest.ARunIsRefusedBeforeAnythingIsWritten` |
-| `Could NOT set temporary dir for DeepSNR execution` | The configured/system temporary root cannot create the per-run directory. | Check the General temporary-files location, permissions, and free space, then retry. | `runExternalTool`; `ensureTempDirPathOrSystemTemp` |
-| `Could not start the DeepSNR process. Check the DeepSNR executable path in the configuration settings.` | The executable passed the readiness check but could not be started at execution time. | Recheck the path, permissions, package-local DLLs/runtime files, and security software. | `runProgram` `FailedToStart` branch; `ExternalToolsUnitsTest.EveryWayTheProgramCanFailIsSaid` |
-| `DeepSNR process crashed. Check the DeepSNR executable path in the configuration settings.` | The external process terminated abnormally. | Restore matching executable/runtime/weights from one package; remove unsupported manual runtime substitutions; retry with default weights. | `runProgram` `Crashed` branch; upstream package README |
-| `DeepSNR exited with code <n>.` followed by CLI text | The CLI returned a nonzero code, commonly due to weights, input, runtime, or backend errors. | Read the appended CLI output or machine-progress error message; clear custom weights, verify package files, free space, and supported input. | Nonzero-exit branch and collected CLI output; `ExternalToolsWindowTest.AFailedProgramIsSaidUnderTheWindowsTitle` |
-| `the tool wrote no image file` or `the tool's image is <w>x<h> with <c> channels where the image is ...` | The program exited with code 0 but left no output, or an output of another size. | Verify the package and weights; the answer must be the input's size and channel count. | `readAnswer`; `ExternalToolsUnitsTest.EveryWayTheProgramCanFailIsSaid` |
-| An engine refusal naming a sample that is not finite | A NaN or infinity sits in a pixel the image's validity rule admits. | Mark such pixels invalid or replace them before running. | `prepareExternalToolHandoff` in `ExternalToolHandoff.h` |
-| Output loads but looks tiled | The default overlap may be insufficient for this image, or the model may be unsuitable; exact merge behavior is upstream-private. | Undo, keep weights fixed, compare stride 480 with **Conservative (256)**, and inspect the same locations. Do not assume smaller is always better. | Fixed 512-window/stride contract; process presets |
-| Output has an unexpected tonal scale after pre-stretch | **Pre-Stretch linear image** was enabled for nonlinear data, or model changes prevented an exact inverse round trip. | Undo, confirm the source is linear, and compare a duplicate with pre-stretch disabled using the same display stretch. | `ExternalToolHandoff.h`; `ExternalToolsWindowTest.ThePreStretchIsInvertedOnTheWayBack` |
-| Walking noise or banding remains | Upstream guidance says correlated noise behaves like structure and is a poor model match. | Correct acquisition/calibration/integration issues or use a process designed for the pattern. | DeepSNR input guidance |
-| Every frame of the sequence changed, or the run took one program run per frame | A sequence target is denoised frame by frame and replaced as one history step. | Expected. Undo the step, extract the intended frame, and run DeepSNR on it. | `runInPlace` in `GeometryProcessSupport.cpp`; `ExternalToolsWindowTest.ASequenceIsRunFrameByFrame` |
-| A busy warning titled `DeepSNR <target>` and nothing runs | Another run already holds the sequence view. | Wait for that run to land, then press **OK** again. | `runInPlace` lock branch |
-| Cancel closes the progress window without a result or message | Cancellation kills the subprocess and publishes nothing. | This is expected. Rerun when ready; use a larger stride if runtime prompted cancellation. | `runProgram` stop branch; `ExternalToolsWindowTest.AStoppedRunPublishesNothing` |
-| Closing the process window did not stop the run | Closing hides the window until the run lands; only the progress window's **Cancel** stops it. | Use **Cancel** on the progress window. | `ImageProcessControl::closeEvent`; `DeepSNRProcess::finishRun` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `DeepSNR executable path is empty.` | No global executable path is saved. | Click **Configure**, choose **Settings > External Tools > DeepSNR**, select the CLI executable, and Apply/OK. |
+| `DeepSNR executable was not found.` or `DeepSNR path is not executable.` | The saved path is missing or fails the platform executable check. | Restore the installed/portable package, select its actual executable, and keep runtime files in the documented layout. |
+| `Could not detect DeepSNR version. DeepSNR 1.2.0 or newer is required.` | Machine-info was unsupported or invalid and the bounded `--version` fallback failed or produced no parseable version. | For 1.2.3+, run `deepsnr --machine-info`; for older supported versions, run `--version`. Restore a current complete package if both readiness paths fail. |
+| `DeepSNR <version> detected. DeepSNR 1.2.0 or newer is required.` | The parsed version is below the supported CLI contract. | Install a current 1.2.x or newer CLI package and update the settings path. |
+| `DeepSNR requires input images at least 512x512 pixels.` under **Error running DeepSNR** | Width or height is below the CLI processing window; the run refused before writing anything. | Use a larger image or choose another denoiser; do not upscale solely to bypass the validation. |
+| `DeepSNR supports grayscale and RGB images only.` | The image has neither one nor three channels. | Remove alpha/unsupported channels or create a supported grayscale/RGB working copy. |
+| `DeepSNR takes a grey or colour picture, not a colour filter array mosaic; demosaic the image first` | The image is a colour filter array mosaic. | Demosaic the image, then run DeepSNR on the result. |
+| `Could NOT set temporary dir for DeepSNR execution` | The configured/system temporary root cannot create the per-run directory. | Check the General temporary-files location, permissions, and free space, then retry. |
+| `Could not start the DeepSNR process. Check the DeepSNR executable path in the configuration settings.` | The executable passed the readiness check but could not be started at execution time. | Recheck the path, permissions, package-local DLLs/runtime files, and security software. |
+| `DeepSNR process crashed. Check the DeepSNR executable path in the configuration settings.` | The external process terminated abnormally. | Restore matching executable/runtime/weights from one package; remove unsupported manual runtime substitutions; retry with default weights. |
+| `DeepSNR exited with code <n>.` followed by CLI text | The CLI returned a nonzero code, commonly due to weights, input, runtime, or backend errors. | Read the appended CLI output or machine-progress error message; clear custom weights, verify package files, free space, and supported input. |
+| `the tool wrote no image file` or `the tool's image is <w>x<h> with <c> channels where the image is ...` | The program exited with code 0 but left no output, or an output of another size. | Verify the package and weights; the answer must be the input's size and channel count. |
+| An engine refusal naming a sample that is not finite | A NaN or infinity sits in a pixel the image's validity rule admits. | Mark such pixels invalid or replace them before running. |
+| Output loads but looks tiled | The default overlap may be insufficient for this image, or the model may be unsuitable; exact merge behavior is upstream-private. | Undo, keep weights fixed, compare stride 480 with **Conservative (256)**, and inspect the same locations. Do not assume smaller is always better. |
+| Output has an unexpected tonal scale after pre-stretch | **Pre-Stretch linear image** was enabled for nonlinear data, or model changes prevented an exact inverse round trip. | Undo, confirm the source is linear, and compare a duplicate with pre-stretch disabled using the same display stretch. |
+| Walking noise or banding remains | Upstream guidance says correlated noise behaves like structure and is a poor model match. | Correct acquisition/calibration/integration issues or use a process designed for the pattern. |
+| Every frame of the sequence changed, or the run took one program run per frame | A sequence target is denoised frame by frame and replaced as one history step. | Expected. Undo the step, extract the intended frame, and run DeepSNR on it. |
+| A busy warning titled `DeepSNR <target>` and nothing runs | Another run already holds the sequence view. | Wait for that run to land, then press **OK** again. |
+| Cancel closes the progress window without a result or message | Cancellation kills the subprocess and publishes nothing. | This is expected. Rerun when ready; use a larger stride if runtime prompted cancellation. |
+| Closing the process window did not stop the run | Closing hides the window until the run lands; only the progress window's **Cancel** stops it. | Use **Cancel** on the progress window. |
 
 ## Related workflow steps
 
@@ -412,7 +408,7 @@ target, history, and cancellation behavior, see
 [Process Windows](../../interface/process-windows.md) and
 [Image History](../../interface/image-history.md).
 
-## References and provenance
+## Credits
 
 - [DeepSNR command-line reference](https://starnetastro.com/documentation/deepsnr/command-line-tool/)
   documents the current options, inputs, outputs, model selection, 512-pixel
@@ -423,25 +419,11 @@ target, history, and cancellation behavior, see
 - [Current DeepSNR CLI releases](https://starnetastro.com/cli-tools/deepsnr/)
   and [CLI installer locations](https://starnetastro.com/documentation/cli-installers/)
   document current platform versions, hashes, runtimes, and installed paths.
-- DeepSNR 1.2.3's `LICENSE.txt` is the controlling reviewed license
-  artifact. It identifies Mikita (Nikita) Misiura as copyright holder and says
-  the architecture is based on NAFNet. Its SHA-256 is
-  `7902179E9EF668C314A53882387D0F601E072882B62F2B983F2A95D74D2B3193`.
-- The reviewed Windows 1.2.3-0119 archive has SHA-256
-  `98B3F366375DA82388850CFB110306EA14FDE90EF3ACA1B4C273978BD3D6AE06`.
-  Its file SHA-256 values are: `deepsnr.exe`
-  `624975D63A27F96AD174097916F8291C571282263A6242DBCFA7F1FA162DF126`,
-  `README.txt`
-  `DC32555F75F1D5C6A9D750C75A54725BE4733D669BA8A38BE09A120020D83AF2`,
-  model v1 `556B8D9AD9EC53BA5DE3DBE789AD627B0E2A2D777D52B5163ACAAFDE264EAD7C`,
-  and model v2
-  `CF5A129D235AF02B5C5980680B1A4A35ECBCCB81EAF3DE1AB51C68F92019F5FA`.
 - DeepSNR cites the
   [official NAFNet implementation](https://github.com/megvii-research/NAFNet)
   and Chen et al.,
   [Simple Baselines for Image Restoration](https://arxiv.org/abs/2204.04676),
   ECCV 2022. These explain the architecture family, not DeepSNR's private
   weights or training behavior.
-- AfterNight integration behavior was verified against the exact source and
-  tests. Recommendations are labeled as guidance;
-  no unexecuted visual or quantitative result is presented as fact.
+- DeepSNR is by Mikita (Nikita) Misiura, whom its licence file names as the
+  copyright holder; the file says the architecture is based on NAFNet.

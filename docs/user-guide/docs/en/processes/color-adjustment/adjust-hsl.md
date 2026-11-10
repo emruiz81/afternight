@@ -188,8 +188,6 @@ timing or peak memory was measured.
 
 ## Worked example
 
-- **Evidence mode:** Source/equation-derived; not executed on project-owned
-  astronomical data.
 - **Input:** normalized red `(1,0,0)`, whose HSL is `(0°,1,0.5)`.
 - **Hue `+120`:** wraps to `120°` and reconstructs green `(0,1,0)`.
 - **Saturation `-50`:** uses multiplier `0.5`, producing HSL saturation `0.5`.
@@ -217,18 +215,18 @@ timing or peak memory was measured.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Menu action is disabled or process closes | Target is not a color image | Convert/debayer intentionally, or use an RGB target | `ActionStateCoordinator::setEnableImageColorActions`; `AdjustHSLProcess::isViewControlSupported` |
-| Apply is disabled | Hue, Saturation, and Lightness are all `0` | Set any nonzero value | `AdjustHSLProcess::settingsUpdatedImpl` |
-| Small positive Saturation looks unexpectedly strong | Positive mapping is `1+S/25` | Use smaller positive values; `+5` is already `1.2x` | `AdjustHSLProcess::hslAdjustment` |
-| Hue rotation does nothing in gray areas | Zero-saturation HSL hue is powerless | This is expected; change saturation only if color is intended | `an::adjustImageHsl` (RGB-to-HSL conversion) |
-| Error message includes `the HSL adjustment needs an image of red, green and blue` | The target, or a decoded sequence frame, is not three-channel RGB (grayscale, or color with alpha) | Supply RGB images or frames, or configure valid CFA auto-debayering; the target was not changed | `AdjustHSLProcess::executeTypedProcessImpl` |
-| Output clips toward white or black | Additive Lightness clamps to `0..1`; saturation and the RGB result also clamp | Reduce Lightness/Saturation and start again from duplicate | `an::adjustImageHsl` |
-| Pixels holding NaN are unchanged | Non-finite pixels are left as they were | Repair or replace them upstream if needed | `process_utils::skippingNonFinite` |
-| Snapshot carries no nonlinear record | Snapshots are Preview results and are not recorded | Apply on a duplicate for an archival result | `AdjustHSLProcess::executeTypedProcessImpl`; `process_utils::recordNonlinearResult` |
-| Error names the memory budget | The session cannot hold the run's copies of the image | Close other images or work on a smaller crop; nothing was changed | `process_utils::openNormalizedDestination` |
-| Sequence Cancel leaves the sequence as it was | Cancel stops the run between frames or inside the engine operation, and the target is replaced only when every frame succeeds | Expected; Apply again when ready | `ImageRTPreviewControl::runOverSequence`; `an::adjustImageHsl` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Menu action is disabled or process closes | Target is not a color image | Convert/debayer intentionally, or use an RGB target |
+| Apply is disabled | Hue, Saturation, and Lightness are all `0` | Set any nonzero value |
+| Small positive Saturation looks unexpectedly strong | Positive mapping is `1+S/25` | Use smaller positive values; `+5` is already `1.2x` |
+| Hue rotation does nothing in gray areas | Zero-saturation HSL hue is powerless | This is expected; change saturation only if color is intended |
+| Error message includes `the HSL adjustment needs an image of red, green and blue` | The target, or a decoded sequence frame, is not three-channel RGB (grayscale, or color with alpha) | Supply RGB images or frames, or configure valid CFA auto-debayering; the target was not changed |
+| Output clips toward white or black | Additive Lightness clamps to `0..1`; saturation and the RGB result also clamp | Reduce Lightness/Saturation and start again from duplicate |
+| Pixels holding NaN are unchanged | Non-finite pixels are left as they were | Repair or replace them upstream if needed |
+| Snapshot carries no nonlinear record | Snapshots are Preview results and are not recorded | Apply on a duplicate for an archival result |
+| Error names the memory budget | The session cannot hold the run's copies of the image | Close other images or work on a smaller crop; nothing was changed |
+| Sequence Cancel leaves the sequence as it was | Cancel stops the run between frames or inside the engine operation, and the target is replaced only when every frame succeeds | Expected; Apply again when ready |
 
 ## Related workflow steps
 
@@ -244,7 +242,6 @@ work rather than treating HSL Lightness as a substitute. Verify
 [Image History](../../interface/image-history.md) and
 [Image Statistics](../../interface/image-statistics.md) after Apply.
 
-## References and provenance
+## Credits
 
-- [W3C CSS Color 4: HSL colors and conversion](https://www.w3.org/TR/css-color-4/#the-hsl-notation) describes the ordinary sRGB-oriented HSL model, circular hue, and its perceptual limitations. AfterNight's exact parameter mappings and Preview behavior come from the project source.
-- AfterNight project source is authoritative for the asymmetric Saturation mapping, additive Lightness, representation/metadata/state behavior, masks, Preview and Preview-area behavior, and temporary sequence workflow.
+- [W3C CSS Color 4: HSL colors and conversion](https://www.w3.org/TR/css-color-4/#the-hsl-notation) describes the ordinary sRGB-oriented HSL model, circular hue, and its perceptual limitations.

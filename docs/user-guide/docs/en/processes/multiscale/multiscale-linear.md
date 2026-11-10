@@ -10,8 +10,6 @@ data_out: linear
 ---
 # Multiscale Linear Transform
 
-<!-- MEDIA_SLOT: UG-MEDIA-103 -->
-
 ## Purpose and expected result
 
 Multiscale Linear Transform separates an image into detail layers plus a coarse
@@ -402,7 +400,6 @@ this page.
 
 ## Worked example
 
-- Evidence mode: source/equation-derived; no astronomical data was run.
 - Start with a normalized constant grayscale field `c_0 = 0.25`, either
   algorithm, any supported spacing, every layer enabled, Bias `0`, and all
   optional groups off. Every detail is zero because each kernel sums to one and
@@ -448,22 +445,22 @@ this page.
 
 ## Troubleshooting
 
-| Symptom/question | Verified interpretation or cause | Resolution/next page | Evidence source |
-| --- | --- | --- | --- |
-| Error says the deepest layer needs a Gaussian radius or a tap spacing above the stated maximum | The Detail Layers, spacing, and Linear Scale ask for a layer deeper than the transform can build | Use fewer Detail Layers, Linear spacing, or a smaller Linear Scale | `planMultiscaleTransform` in `MultiscaleTransform.cpp`; `process_utils::multiscale::planTransform` |
-| Layer preview is flat gray or black | Bias `0` gives zero visualization gain; All Changes centers zero at gray and sign-only modes clamp to black | Change Bias slightly for diagnosis, or return to Processed Image for real output | `process_utils::multiscale::previewLayerInPlace` |
-| Scaling Function has no effect | The Multiscale Linear Transform builds a Gaussian from the scale and ignores the Starlet kernel selector | Choose Starlet Transform when a listed scaling function is required | `MultiscaleExecution.cpp` smoothing; UI algorithm-state update |
-| Result is much stronger than the Bias number suggests | Positive bias maps to `1+6b`, or `1+8b` on the Multiscale Linear Transform's first detail | Start near zero; compare at 100%; reduce global Amount | `process_utils::multiscale::layerWeight` |
-| Linear Mask changes nothing | It weights only per-layer NR/k-Sigma; neither may be enabled | Enable the intended thresholding stage, or use the target active mask for whole-result protection | `process_utils::multiscale::transformInPlace` mask/threshold order |
-| Noise reduction is unexpectedly strong | Per-layer NR and k-Sigma run sequentially; Iterations repeat shrinkage; Linear Mask may be inverted | Disable one threshold stage, restore Iterations 1, inspect Preview Mask and inversion | `process_utils::multiscale::transformInPlace` |
-| Reset Layer gives Amount 0.5 instead of startup 1.0 | The per-layer reset path assigns `0.5`; full Reset/live initialization assigns `1.0` | Set the intended value explicitly; use full Reset for startup defaults | `MultiscaleLinearProcess.cpp` reset paths |
-| Hyperbolic white becomes darker | `f(1)=1/(1+b)`; this implementation does not normalize the endpoint back to 1 | Compare None/Log10/ln or follow with intentional DRE | `process_utils::multiscale::transformInPlace` residual transfer |
-| Deringing map does not explain every final correction | Maps contain only layer-stage corrections, not the post-reconstruction pass | Treat maps as diagnostics, not an exact final-difference image | `process_utils::multiscale::transformInPlace` deringing stages |
-| A deringing map is entirely black | Both maps are made on a still Apply whenever Deringing and Output Deringing Maps are enabled; a zero corresponding strength produces a zero map | Raise the relevant Dark/Bright strength if that correction is intended; do not expect maps from Preview/snapshot/sequence | `MultiscaleLinearProcess::executeTypedProcessIteration` |
-| Active mask and Preview Mask disagree, or Preview Mask resembles the source | Preview Mask selects the internal intensity mask first, then global Amount and the target mask blend original pixels back into the display | Set Amount to `1`, disable the active target mask for the diagnostic, then restore the intended settings before Processed Image/Apply | `MultiscaleLinearProcess::executeTypedProcessIteration`; shared run blend in `ImageRTPreviewControl.cpp` |
-| Error mentions the memory budget | The decomposition and its working planes do not fit the session's memory budget | Use fewer Detail Layers, a single channel or component, or raise the processing memory limit | `MasksWindowTest` refusal case; `MultiscaleExecution.cpp` allocation |
-| Cancel takes time | Cancellation is observed between and within engine passes; the current pass may finish first | Wait for cleanup; reduce layers/support/iterations before retrying | `ProgressDialogControl.h`; shared run landing in `ImageRTPreviewControl.cpp` |
-| Image History cannot reproduce the result | It omits per-layer settings and global Amount | Record the layer table and inspector values separately | `multiscale_detail::describeTransform` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Error says the deepest layer needs a Gaussian radius or a tap spacing above the stated maximum | The Detail Layers, spacing, and Linear Scale ask for a layer deeper than the transform can build | Use fewer Detail Layers, Linear spacing, or a smaller Linear Scale |
+| Layer preview is flat gray or black | Bias `0` gives zero visualization gain; All Changes centers zero at gray and sign-only modes clamp to black | Change Bias slightly for diagnosis, or return to Processed Image for real output |
+| Scaling Function has no effect | The Multiscale Linear Transform builds a Gaussian from the scale and ignores the Starlet kernel selector | Choose Starlet Transform when a listed scaling function is required |
+| Result is much stronger than the Bias number suggests | Positive bias maps to `1+6b`, or `1+8b` on the Multiscale Linear Transform's first detail | Start near zero; compare at 100%; reduce global Amount |
+| Linear Mask changes nothing | It weights only per-layer NR/k-Sigma; neither may be enabled | Enable the intended thresholding stage, or use the target active mask for whole-result protection |
+| Noise reduction is unexpectedly strong | Per-layer NR and k-Sigma run sequentially; Iterations repeat shrinkage; Linear Mask may be inverted | Disable one threshold stage, restore Iterations 1, inspect Preview Mask and inversion |
+| Reset Layer gives Amount 0.5 instead of startup 1.0 | The per-layer reset path assigns `0.5`; full Reset/live initialization assigns `1.0` | Set the intended value explicitly; use full Reset for startup defaults |
+| Hyperbolic white becomes darker | `f(1)=1/(1+b)`; this implementation does not normalize the endpoint back to 1 | Compare None/Log10/ln or follow with intentional DRE |
+| Deringing map does not explain every final correction | Maps contain only layer-stage corrections, not the post-reconstruction pass | Treat maps as diagnostics, not an exact final-difference image |
+| A deringing map is entirely black | Both maps are made on a still Apply whenever Deringing and Output Deringing Maps are enabled; a zero corresponding strength produces a zero map | Raise the relevant Dark/Bright strength if that correction is intended; do not expect maps from Preview/snapshot/sequence |
+| Active mask and Preview Mask disagree, or Preview Mask resembles the source | Preview Mask selects the internal intensity mask first, then global Amount and the target mask blend original pixels back into the display | Set Amount to `1`, disable the active target mask for the diagnostic, then restore the intended settings before Processed Image/Apply |
+| Error mentions the memory budget | The decomposition and its working planes do not fit the session's memory budget | Use fewer Detail Layers, a single channel or component, or raise the processing memory limit |
+| Cancel takes time | Cancellation is observed between and within engine passes; the current pass may finish first | Wait for cleanup; reduce layers/support/iterations before retrying |
+| Image History cannot reproduce the result | It omits per-layer settings and global Amount | Record the layer table and inspector values separately |
 
 ## Related workflow steps
 
@@ -475,11 +472,3 @@ this page.
   dedicated page for deliberate display stretching after linear processing.
 - [Masks](../../interface/masks.md) explains the target active mask that blends
   the complete process result.
-
-## References and provenance
-
-- The AfterNight process, its layer composition, the shared preview/Apply
-  framework, the engine transform, and the focused tests are the authority for this page.
-- Algorithm names here describe AfterNight's current implementation. They do
-  not claim parameter or output compatibility with another application's tool
-  of a similar name.

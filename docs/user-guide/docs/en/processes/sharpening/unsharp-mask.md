@@ -241,8 +241,6 @@ and the final output size.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-equation-derived; not executed on approved
-  astronomical data.
 - **Input condition and settings:** A finite normalized image with one narrow
   star-like transition and smooth background; Radius `1`, Amount `1`, RGB or one
   deliberate luminance component.
@@ -273,16 +271,16 @@ and the final output size.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Colored rims appear around stars | RGB applies the scalar model independently to R, G, and B | Compare CIE Y/L* or another deliberate luminance component; reduce Amount | Per-channel filter; shared Channel dispatcher |
-| Bright/dark halos surround edges | Radius sets halo scale and positive Amount adds the residual | Reduce Amount first; then reduce Radius and inspect full-frame context | Unsharp equation and UI ranges |
-| Result is unchanged | Radius `0`, Amount `0`, mask protection, or clipping may remove the visible effect | Check Radius/Amount, mask/inversion, process Channel, and one fixed display mode | Equation; shared mask blend |
-| Amount `-1` looks blurred | This exact endpoint cancels the source term and leaves the Gaussian blur | Use a positive Amount for sharpening or move negative Amount toward `0` for weaker smoothing | `U=(1+a)I-aB` |
-| Noise becomes coarse or crunchy | Fine residual and noise are amplified together | Denoise first; reduce Amount/Radius; protect smooth background with a mask | Linear residual model |
-| Preview differs from Apply | Preview area, target/channel, mask, or display stretch changed | Match all controls and display state; uncheck Preview area for the final check | Shared preview/full execution paths |
-| Negative background samples become `0` | The result is held to full scale, `[0,1]` for a float image | Offset or rescale the image into `[0,1]` before sharpening | Full-scale clamp |
-| An error is reported | Invalid runtime data or insufficient memory | Verify target data and available memory; retry on a duplicate | Process error path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Colored rims appear around stars | RGB applies the scalar model independently to R, G, and B | Compare CIE Y/L* or another deliberate luminance component; reduce Amount |
+| Bright/dark halos surround edges | Radius sets halo scale and positive Amount adds the residual | Reduce Amount first; then reduce Radius and inspect full-frame context |
+| Result is unchanged | Radius `0`, Amount `0`, mask protection, or clipping may remove the visible effect | Check Radius/Amount, mask/inversion, process Channel, and one fixed display mode |
+| Amount `-1` looks blurred | This exact endpoint cancels the source term and leaves the Gaussian blur | Use a positive Amount for sharpening or move negative Amount toward `0` for weaker smoothing |
+| Noise becomes coarse or crunchy | Fine residual and noise are amplified together | Denoise first; reduce Amount/Radius; protect smooth background with a mask |
+| Preview differs from Apply | Preview area, target/channel, mask, or display stretch changed | Match all controls and display state; uncheck Preview area for the final check |
+| Negative background samples become `0` | The result is held to full scale, `[0,1]` for a float image | Offset or rescale the image into `[0,1]` before sharpening |
+| An error is reported | Invalid runtime data or insufficient memory | Verify target data and available memory; retry on a duplicate |
 
 ## Related workflow steps
 
@@ -295,8 +293,7 @@ Use [Image History](../../interface/image-history.md) to compare/revert Apply an
 [Saving and Exporting](../../interface/saving-and-exporting.md) only after the
 final output scale has been checked.
 
-## References and provenance
+## Credits
 
 - [scikit-image 0.26.0: `unsharp_mask`](https://scikit-image.org/docs/stable/api/skimage.filters.html#skimage.filters.unsharp_mask) — official equation, parameter endpoints, and channel warning of the filter the engine reproduces.
-- [scikit-image: image data types and ranges](https://scikit-image.org/docs/stable/user_guide/data_types.html) — official float/range and conversion context; AfterNight's clip range is documented above from current source.
-- AfterNight project sources — authoritative for the live menu, controls, engine detail filter, clipping, masks, metadata/history, preview, sequences, and cancellation behavior.
+- [scikit-image: image data types and ranges](https://scikit-image.org/docs/stable/user_guide/data_types.html) — official float/range and conversion context.

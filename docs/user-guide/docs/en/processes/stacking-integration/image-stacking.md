@@ -423,8 +423,6 @@ no maps; add expensive options after the baseline succeeds.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; no approved astrophotography dataset
-  or visual quality result was used.
 - Input condition/provenance and settings: at least two same-size, same-type,
   registered linear synthetic/still frames with valid `L` filter metadata;
   Filter on, other grouping off, `stacked_$filter.fit`, Average, None
@@ -474,22 +472,22 @@ no maps; add expensive options after the baseline succeeds.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Missing output directory** | Directory is empty when Stack Images is invoked | Select Browse; verify write access and free space | Launch validation source |
-| **No groups to stack** / Stack Images disabled | No frames, no generated groups, empty directory, or empty template | Add frames and inspect Frame Groups; restore a nonempty template/path | Button and launch validation sources |
-| **Group '...': frames with mismatched dimensions** / **... mismatched color depth** / **... mismatched filter arrays** | Width/height, pixel type/channel count, or CFA pattern (or mosaic beside non-mosaic) differs inside that group | Resample/convert upstream or split into compatible groups | Standalone group validation |
-| Weighting warning; result uses equal weights | No frame has usable figures: the metrics database is missing or unreadable, nothing was measured, or every exposure is zero; the banner says which before you stack | Put the correct database in Directory, re-register, choose Exposure where appropriate, or use Equal | Standalone weighting helpers/tests; `StackingTest.TheWeightingBannerSaysBeforeTheRunWhichFramesStateNoExposure` |
-| Stack refused because a frame has no figures | Only some frames lack FWHM/SNR/Stars/Exposure figures; the banner warns before stacking, naming the first such frame | Re-run registration for those frames with the database in Directory, add the exposure to their headers, remove them, or use Equal | Partial-metric warning path/test |
-| Error about missing measurements with **Noise** weighting | Only some of the group's frames have a measurable background noise | Remove or replace the frames with no noise to measure (for example flat or constant frames), or choose another weighting | `StandaloneStackingUtils.cpp` (`standaloneNoiseWeights`); `StackingTest.NoiseWeightsAreEachFramesNoiseOrEqualWeightsWhenNoFrameHasOne` |
-| **Stacking completed with warnings.** | The weights or the engine warned of a group's stack: equal weights used, or a **Sum** written unnormalized | Read each group's warning; the log holds every one | `ImageStackingProcess.cpp`; `StackingTest.AStackSaysWhatTheEngineWarnedAndLogsIt` |
-| Standalone comet stacking requires an active exact run | Database missing, or its state hashes, role products, reference, or per-frame outputs do not match a comet run | Complete comet registration and keep exact products/database together; otherwise select Stars | Transform-role resolver/tests |
-| **... RejectionNeedsMoreFrames** | A group with a rejection method has fewer than three frames | Add frames, merge groups, or select Rejection Method None | Engine stack model |
-| Satellite trails or hot pixels remain | No rejection, thresholds too permissive, or too few samples | Enable supported rejection, inspect maps, then lower the relevant threshold cautiously | Rejection algorithm/artifact tests |
-| Master is soft/doubled | Ordinary inputs were not aligned | Register upstream; this process cannot correct transforms | Standalone execution path |
-| Unexpected group/output name | Missing/inconsistent filter/date/exposure metadata or template collision sanitization | Inspect Frames and Frame Groups; correct metadata upstream or simplify grouping/template | Grouping helpers/tests |
-| Wrong colors after Debayer CFA | Incorrect pattern, unsuitable post-stack demosaic, or incompatible CFA registration | Verify CFA pattern and register CFA data consistently; otherwise debayer before registration/stacking | Post-stack demosaic source |
-| Error after earlier groups succeeded | Later group validation/load/save failed, or cancellation was requested; no file is left partly written | Keep/verify completed outputs, correct the failing group, and rerun; remove stale outputs deliberately | Sequential group worker/error path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Missing output directory** | Directory is empty when Stack Images is invoked | Select Browse; verify write access and free space |
+| **No groups to stack** / Stack Images disabled | No frames, no generated groups, empty directory, or empty template | Add frames and inspect Frame Groups; restore a nonempty template/path |
+| **Group '...': frames with mismatched dimensions** / **... mismatched color depth** / **... mismatched filter arrays** | Width/height, pixel type/channel count, or CFA pattern (or mosaic beside non-mosaic) differs inside that group | Resample/convert upstream or split into compatible groups |
+| Weighting warning; result uses equal weights | No frame has usable figures: the metrics database is missing or unreadable, nothing was measured, or every exposure is zero; the banner says which before you stack | Put the correct database in Directory, re-register, choose Exposure where appropriate, or use Equal |
+| Stack refused because a frame has no figures | Only some frames lack FWHM/SNR/Stars/Exposure figures; the banner warns before stacking, naming the first such frame | Re-run registration for those frames with the database in Directory, add the exposure to their headers, remove them, or use Equal |
+| Error about missing measurements with **Noise** weighting | Only some of the group's frames have a measurable background noise | Remove or replace the frames with no noise to measure (for example flat or constant frames), or choose another weighting |
+| **Stacking completed with warnings.** | The weights or the engine warned of a group's stack: equal weights used, or a **Sum** written unnormalized | Read each group's warning; the log holds every one |
+| Standalone comet stacking requires an active exact run | Database missing, or its state hashes, role products, reference, or per-frame outputs do not match a comet run | Complete comet registration and keep exact products/database together; otherwise select Stars |
+| **... RejectionNeedsMoreFrames** | A group with a rejection method has fewer than three frames | Add frames, merge groups, or select Rejection Method None |
+| Satellite trails or hot pixels remain | No rejection, thresholds too permissive, or too few samples | Enable supported rejection, inspect maps, then lower the relevant threshold cautiously |
+| Master is soft/doubled | Ordinary inputs were not aligned | Register upstream; this process cannot correct transforms |
+| Unexpected group/output name | Missing/inconsistent filter/date/exposure metadata or template collision sanitization | Inspect Frames and Frame Groups; correct metadata upstream or simplify grouping/template |
+| Wrong colors after Debayer CFA | Incorrect pattern, unsuitable post-stack demosaic, or incompatible CFA registration | Verify CFA pattern and register CFA data consistently; otherwise debayer before registration/stacking |
+| Error after earlier groups succeeded | Later group validation/load/save failed, or cancellation was requested; no file is left partly written | Keep/verify completed outputs, correct the failing group, and rerun; remove stale outputs deliberately |
 
 ## Related workflow steps
 
@@ -507,7 +505,7 @@ no maps; add expensive options after the baseline succeeds.
   [Image Summary](../../interface/image-summary.md).
 - Continue with linear background/color processing before nonlinear stretching.
 
-## References and provenance
+## Credits
 
 - Fruchter, A. S. and Hook, R. N., [*Drizzle: A Method for the Linear
   Reconstruction of Undersampled Images*](https://arxiv.org/abs/astro-ph/9808087).
@@ -516,10 +514,11 @@ no maps; add expensive options after the baseline succeeds.
 - Rosner, B., [*Percentage Points for a Generalized ESD Many-Outlier
   Procedure*](https://doi.org/10.1080/00401706.1983.10487848), Technometrics 25
   (1983), 165–172.
-- Upstream reference: [Siril stacking documentation](https://siril.readthedocs.io/en/stable/preprocessing/stacking.html)
-  for the upstream-compatible normalization/rejection concepts identified in
-  engine comments. AfterNight behavior, defaults, ranges, and availability on
-  this page come from AfterNight's source and tests, not from the
-  upstream program's interface.
-- Auto-adaptive combination is adapted from the DeepSkyStacker
-  routine: five iterations over every column's samples scaled by 65535.
+- Upstream reference: [Siril stacking
+  documentation](https://siril.readthedocs.io/en/stable/preprocessing/stacking.html)
+  for the normalization and rejection concepts the engine follows.
+- The auto-adaptive weighted mean is adapted from
+  [DeepSkyStacker](https://github.com/deepskystacker/DSS)'s routine, by David C.
+  Partridge with Michael A. Covington and Simon C. Smith, under the BSD 3-Clause
+  License of Luc Coiffier and the DeepSkyStacker contributors, whose notice
+  **About > About AfterNight** reproduces.

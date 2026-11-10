@@ -11,10 +11,6 @@ summary: >-
 The visible temporary directory is an approved path from the maintainer's
 documentation capture PC.*
 
-
-
-
-
 ![External Tools settings showing supported StarNet2 and DeepSNR installations detected and ready](../assets/images/interface/external-tools-settings.png)
 
 *Detected versions appear directly below their configured executables. The
@@ -531,8 +527,6 @@ inspect the actual saved file rather than relying on an unverified size ratio.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived plus current Windows MSVC Release GUI
-  inspection. No RAW/output data set was executed for this example.
 - Starting state: Open Settings from **Edit > Settings...** with no image open.
 - Actions: On **General**, leave **Default Save Format** at TIFF and verify both
   the temporary directory and Logging **Directory** are writable. On **Raw
@@ -613,49 +607,49 @@ inspect the actual saved file rather than relying on an unverified size ratio.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Settings is not under File | The registered action is in the Edit menu. | Use **Edit > Settings...**, `Ctrl+,`, or a dashboard Settings action. | `AfterNightAppUiBuilder.h`; `MenuActionManager.cpp` |
-| A Processing change made no difference | Thread and memory limits are fixed while AfterNight runs; the page shows a restart notice while a stored limit is not the one in use. | Restart AfterNight. | `ProcessingSettingsPage.cpp`; `ProcessingLimits.cpp` |
-| A preview follows a dragged slider in steps, or a drag keeps the computer busy | **Updates per second while dragging** caps how often the preview updates during a drag. | Raise it to follow the slider more closely, lower it to use less CPU and battery; one more preview runs when you let go. | `ProcessingSettingsPage.cpp`; `ImageRTPreviewControl.cpp` |
-| **Apply** accepted an unusable temporary path | **Apply** calls save directly and does not call `validateSettings()`. | Correct the path, then use **OK** so General can create/check the directory; an already persisted bad value may need replacement first. | `SettingsDialog.cpp`; `GeneralSettingsPage.cpp` |
-| “The temporary files directory does not exist and could not be created: ...” | General **OK** validation could not create the selected non-empty directory. | Choose an existing writable local directory or fix permissions/path availability. | `GeneralSettingsPage.cpp` |
-| “The temporary files directory is not writable: ...” | The validation write-test could not create `.afternight_test_write`. | Choose a writable directory with adequate space. | `GeneralSettingsPage.cpp` |
-| “Invalid JSON file: ...” or “Invalid settings file format.” | Import parsing failed or the JSON root was not an object. | Use a valid object-based AfterNight settings JSON; do not rename arbitrary data to `.json`. | `GeneralSettingsPage.cpp` |
-| “No recognized settings were found in the selected file.” | The object contained none of the recognized settings sections/values. | Export from the current build as a structural reference and review sensitive values before reuse. | `GeneralSettingsPage.cpp` |
-| “Could not write the settings file: ...” | The export destination could not be opened, written completely, or atomically committed. | Check destination permissions and free space, then retry. An existing destination is left intact when the atomic write fails. | `GeneralSettingsPage.h`; `GeneralSettingsPage.cpp` |
-| Imported values did not match after saving | Another settings page was loaded with old visible values and saved after General's pending import values. | Reopen Settings, import from General without visiting other pages, save, close, and reopen to verify. | `SettingsDialog.cpp`; `GeneralSettingsPage.cpp` |
-| Custom R/G/B controls are missing | Raw Images shows the multiplier fields only for Custom white balance. | Set **Mode** to Custom; return to a metadata/decoder mode when manual multipliers are not intended. | `RawImageSettingsPage.cpp` |
-| Changing Raw Images did not alter the open image | White balance, auto-rotate and the demosaic method are used by camera-RAW files read after the change. | Close without overwriting the source, save the setting, and reopen the original supported RAW input. For explicit CFA interpolation, use the Debayer process. | `FilePolicies.cpp`; `ImageViewControl.cpp` |
-| Camera As-Shot behaved like Daylight | Usable camera multipliers are absent from the file. | Inspect source metadata and compare another mode; do not assume every RAW contains usable as-shot multipliers. | `FilePolicies.cpp` |
-| An X-Trans (Fujifilm) RAW looks the same under every Demosaic Algorithm except Bilinear | Over an X-Trans mosaic every listed method other than **Bilinear** runs as three-pass Markesteijn, and **Bilinear** as the fast X-Trans estimate. | Expected; the image's history names the method that ran. | `DemosaicTextMaps.h` (`demosaicMethodForMosaic`); `FilePoliciesTest.AMethodChosenForABayerMosaicBecomesItsTabulatedCounterpartOverAnXTransOne`; `FileOpenTest.AnXTransCameraRawOpensInColour` |
-| Demosaic Algorithm made no difference | The setting is ignored for non-CFA input or when demosaicing is declined. | Accept the demosaic prompt when opening a CFA image, or use the dedicated Debayer process for explicit control. | `FileWorkflowRunner.cpp`; `DemosaicTextMaps.h` |
-| JPEG-compressed TIFF was saved losslessly | JPEG-in-TIFF is restricted to 8-bit samples; other depths are written with LZW. | Confirm the image sample depth and inspect the saved TIFF compression tag. Use explicit LZW/ZIP when lossless output is required. | `FilePolicies.cpp` |
-| FITS has no newly embedded processing HISTORY | No file is written with a processing history. | Treat this as a current limitation and verify provenance separately. | `FilePolicies.cpp`; `ExportSettingsPage.cpp` |
-| Expected EXIF is absent | Embed EXIF is off, or the source stated none. | Inspect the saved metadata and the setting. FITS and XISF always carry the image's header. | `FilePolicies.cpp` |
-| “The log directory does not exist and could not be created: ...” | Logging **OK** validation could not create the selected non-empty path. | Choose an existing writable directory or fix the parent path/permissions, then retry **OK**. | `LoggingSettingsPage.cpp` |
-| “The log directory is not writable: ...” | Logging could not create its `.afternight_log_test` file. | Choose a writable directory with sufficient space. | `LoggingSettingsPage.cpp` |
-| Session Console still shows messages after Minimum Level is Off | The setting filters the rotating file sink; the in-memory ring buffer is separate. | Use the Session Console's own controls for its view, and check the log directory to verify file output. | `Logging.cpp`; `LoggingConfig.cpp` |
-| Logging changes were not retained but no error appeared | The page ignores the boolean result from writing `logging.conf`. | Check permissions on the platform-local AfterNight data directory, reopen Settings, and verify the loaded values. | `LoggingSettingsPage.cpp`; `LoggingConfig.cpp` |
-| An empty log directory reopened as the platform default | The loader substitutes the default path for a stored empty `log_directory`, but the active sink remains the relative `AfterNight.log` location until the page is saved again. | Use **Reset Page**, then **OK**, to persist the platform default deliberately; inspect the current working directory if logs were written while the empty value was active. | `LoggingSettingsPage.cpp`; `LoggingConfig.cpp` |
-| `Could not detect StarNet2 version...` or `Could not detect DeepSNR version...` | The configured program did not answer `--machine-info` or `--version` within the probe budget, or returned no parseable version. | Run the exact executable with `--machine-info` and `--version`, restore a complete current package, and select the executable again. | `StarNetCliTools.cpp`; `DeepSNRCliTools.cpp`; version-parser tests |
-| StarNet2/DeepSNR is still unavailable after saving | The path is empty, missing, not executable, too old, or failed its version check. Settings validation deliberately allows such paths. | Wait for the status, require StarNet2 2.5.3+ or DeepSNR 1.2.0+, then **Apply**/**OK** and reopen the dependent process. | `ExternalToolsSettingsPage.cpp`; `StarnetProcess.cpp`; `DeepSNRProcess.cpp` |
-| **Detect** says it could not auto-detect an installed tool | The executable name/location is outside `PATH` and the implementation's common install directories, or the candidate failed its version gate. | Use **Browse...** to select the actual executable. Do not select a model/runtime library. | `ExternalToolsSettingsPage.cpp`; `PathPickerWidget.cpp`; CLI helper sources |
-| “Gaia catalog not installed” | The resolved selected pack is missing, or no valid current manifest/chunks were found. | Select the correct root/pack, or use **Download Catalog...** with enough disk and network access. | `CatalogsDataSettingsPage.cpp`; `GaiaCatalogSettings.h` |
-| Gaia status reports a catalog this version does not read and asks you to download it again | The selected directory holds a Gaia catalog in a layout this version does not read: tile directories, or a manifest that does not describe chunk storage. | Use **Download Catalog...** / assistant **Verify && Repair** to install a current chunk pack, then save the new root/pack. | `GaiaCatalogSettings.h`; `CatalogDownloadDialog.cpp` |
-| “Gaia catalog manifest was found, but one or more chunk files are missing or incomplete” | A declared chunk is absent or has a wrong size. | Reopen **Download Catalog...** and repair; do not use **Evict** unless you intend to redownload the whole pack. | `GaiaCatalogSettings.h`; `CatalogDownloadService.cpp` |
-| SPCC reports a partial chunk cache | Metadata is usable but not every declared chunk is present. | Stay online for on-demand SPCC acquisition, use **Verify & Repair**/**Download Missing**, or install the full offline catalog. | `SpccCatalogSettings.h`; `CatalogsDataSettingsPage.cpp`; downloader tests |
-| SPCC full download is ready but response profiles are missing | The automatic response-repository install was unavailable, already busy, failed, or its descriptor was not approved/current. Its failure is not surfaced by the page. | Reopen the SPCC process/readiness panel and inspect response-data diagnostics; verify the managed response repository/mirror configuration before retrying the full-catalog action. | `CatalogsDataSettingsPage.cpp`; `SpccResponseSettings.h`; `CatalogDownloadService.cpp` |
-| Catalog download button is disabled | For SPCC, no approved/current descriptor with a usable manifest URL is available; for Gaia, the assistant's **Download** button is disabled for a pack whose manifest URL is unusable. | Select an existing local catalog manually or repair the administrator-managed mirror configuration. | `CatalogsDataSettingsPage.cpp`; `CatalogDownloadDialog.cpp`; descriptor-filter tests |
-| “Catalog download failed: Hugging Face requires authentication...” | The configured manifest/chunk returned HTTP 401/403 and neither supported environment variable supplied a token. | For an authorized private staging mirror only, restart AfterNight with `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN` set. The downloader does not read a cached-token file. Public production descriptors should not require private credentials. | `CatalogDownloadService.cpp`; `SupportsHuggingFaceTokenEnvironmentForPrivateStaging` |
-| A catalog deletion appeared to do nothing | Recursive removal failed, or the chosen resolved pack was already missing. The page has no deletion error dialog. | Check permissions/locks and the exact resolved directory, close processes using it, then retry or remove it with normal filesystem tools after confirming the path. | `CatalogsDataSettingsPage.cpp` |
-| **Default solver** shows “No configured solver” | No ready Gaia pack, executable ASTAP/local path, or non-empty web key passes the minimal configured test. | Configure Catalogs & Data or one Plate Solving backend, then revisit the page. | `PlateSolvingSettingsPage.cpp`; `PlateSolveConfiguration.h` |
-| ASTAP is selectable but solving fails | Settings checks only that the file exists and is executable; the ASTAP version/database and real command were not validated. | Run ASTAP independently, install its compatible star database, confirm it can solve the input, then retry with accurate hints and sufficient timeout. | `PlateSolvingSettingsPage.cpp`; `PlateSolveService.cpp`; ASTAP upstream documentation |
-| Local Astrometry.net is selectable but solving fails | `solve-field` exists, but index files are missing/wrong or **Local index files** is invalid. The page does not validate indexes. | Install matching Astrometry.net indexes, select their directory on a non-Windows build, and test `solve-field` outside AfterNight. | `PlateSolvingSettingsPage.cpp`; `PlateSolveService.cpp`; Astrometry.net upstream documentation |
-| Web solving is enabled but login/upload fails | Any non-empty key enables the backend; syntax/authentication and network access are checked only during a solve. | Verify the key at `nova.astrometry.net`, network/proxy policy, and whether image upload is permitted. Re-enter the key; do not share exported Settings JSON. | `PlateSolveConfiguration.h`; `PlateSolveService.cpp`; Astrometry.net API documentation |
-| Preferred solver changed after reopening | The stored choice was no longer minimally configured, so Settings/runtime selected the first configured fallback. | Restore that backend's catalog/path/key or deliberately choose another enabled backend and save. | `PlateSolvingSettingsPage.cpp`; `PlateSolveConfiguration.h` |
-| OLED cannot be selected | Theme is explicitly Light, for which OLED is disabled. | Choose Dark or Follow System, or use Balanced/Soft/High with Light. | `InterfaceSettingsPage.cpp` |
-| Dock layout did not lock immediately | The preference is consumed at application startup. | Restart AfterNight, or use the current-session layout command separately. | `InterfaceSettingsPage.cpp`; `AppLifecycleCoordinator.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Settings is not under File | The registered action is in the Edit menu. | Use **Edit > Settings...**, `Ctrl+,`, or a dashboard Settings action. |
+| A Processing change made no difference | Thread and memory limits are fixed while AfterNight runs; the page shows a restart notice while a stored limit is not the one in use. | Restart AfterNight. |
+| A preview follows a dragged slider in steps, or a drag keeps the computer busy | **Updates per second while dragging** caps how often the preview updates during a drag. | Raise it to follow the slider more closely, lower it to use less CPU and battery; one more preview runs when you let go. |
+| **Apply** accepted an unusable temporary path | **Apply** calls save directly and does not call `validateSettings()`. | Correct the path, then use **OK** so General can create/check the directory; an already persisted bad value may need replacement first. |
+| “The temporary files directory does not exist and could not be created: ...” | General **OK** validation could not create the selected non-empty directory. | Choose an existing writable local directory or fix permissions/path availability. |
+| “The temporary files directory is not writable: ...” | The validation write-test could not create `.afternight_test_write`. | Choose a writable directory with adequate space. |
+| “Invalid JSON file: ...” or “Invalid settings file format.” | Import parsing failed or the JSON root was not an object. | Use a valid object-based AfterNight settings JSON; do not rename arbitrary data to `.json`. |
+| “No recognized settings were found in the selected file.” | The object contained none of the recognized settings sections/values. | Export from the current build as a structural reference and review sensitive values before reuse. |
+| “Could not write the settings file: ...” | The export destination could not be opened, written completely, or atomically committed. | Check destination permissions and free space, then retry. An existing destination is left intact when the atomic write fails. |
+| Imported values did not match after saving | Another settings page was loaded with old visible values and saved after General's pending import values. | Reopen Settings, import from General without visiting other pages, save, close, and reopen to verify. |
+| Custom R/G/B controls are missing | Raw Images shows the multiplier fields only for Custom white balance. | Set **Mode** to Custom; return to a metadata/decoder mode when manual multipliers are not intended. |
+| Changing Raw Images did not alter the open image | White balance, auto-rotate and the demosaic method are used by camera-RAW files read after the change. | Close without overwriting the source, save the setting, and reopen the original supported RAW input. For explicit CFA interpolation, use the Debayer process. |
+| Camera As-Shot behaved like Daylight | Usable camera multipliers are absent from the file. | Inspect source metadata and compare another mode; do not assume every RAW contains usable as-shot multipliers. |
+| An X-Trans (Fujifilm) RAW looks the same under every Demosaic Algorithm except Bilinear | Over an X-Trans mosaic every listed method other than **Bilinear** runs as three-pass Markesteijn, and **Bilinear** as the fast X-Trans estimate. | Expected; the image's history names the method that ran. |
+| Demosaic Algorithm made no difference | The setting is ignored for non-CFA input or when demosaicing is declined. | Accept the demosaic prompt when opening a CFA image, or use the dedicated Debayer process for explicit control. |
+| JPEG-compressed TIFF was saved losslessly | JPEG-in-TIFF is restricted to 8-bit samples; other depths are written with LZW. | Confirm the image sample depth and inspect the saved TIFF compression tag. Use explicit LZW/ZIP when lossless output is required. |
+| FITS has no newly embedded processing HISTORY | No file is written with a processing history. | Treat this as a current limitation and verify provenance separately. |
+| Expected EXIF is absent | Embed EXIF is off, or the source stated none. | Inspect the saved metadata and the setting. FITS and XISF always carry the image's header. |
+| “The log directory does not exist and could not be created: ...” | Logging **OK** validation could not create the selected non-empty path. | Choose an existing writable directory or fix the parent path/permissions, then retry **OK**. |
+| “The log directory is not writable: ...” | Logging could not create its `.afternight_log_test` file. | Choose a writable directory with sufficient space. |
+| Session Console still shows messages after Minimum Level is Off | The setting filters the rotating file sink; the in-memory ring buffer is separate. | Use the Session Console's own controls for its view, and check the log directory to verify file output. |
+| Logging changes were not retained but no error appeared | The page ignores the boolean result from writing `logging.conf`. | Check permissions on the platform-local AfterNight data directory, reopen Settings, and verify the loaded values. |
+| An empty log directory reopened as the platform default | The loader substitutes the default path for a stored empty `log_directory`, but the active sink remains the relative `AfterNight.log` location until the page is saved again. | Use **Reset Page**, then **OK**, to persist the platform default deliberately; inspect the current working directory if logs were written while the empty value was active. |
+| `Could not detect StarNet2 version...` or `Could not detect DeepSNR version...` | The configured program did not answer `--machine-info` or `--version` within the probe budget, or returned no parseable version. | Run the exact executable with `--machine-info` and `--version`, restore a complete current package, and select the executable again. |
+| StarNet2/DeepSNR is still unavailable after saving | The path is empty, missing, not executable, too old, or failed its version check. Settings validation deliberately allows such paths. | Wait for the status, require StarNet2 2.5.3+ or DeepSNR 1.2.0+, then **Apply**/**OK** and reopen the dependent process. |
+| **Detect** says it could not auto-detect an installed tool | The executable name/location is outside `PATH` and the implementation's common install directories, or the candidate failed its version gate. | Use **Browse...** to select the actual executable. Do not select a model/runtime library. |
+| “Gaia catalog not installed” | The resolved selected pack is missing, or no valid current manifest/chunks were found. | Select the correct root/pack, or use **Download Catalog...** with enough disk and network access. |
+| Gaia status reports a catalog this version does not read and asks you to download it again | The selected directory holds a Gaia catalog in a layout this version does not read: tile directories, or a manifest that does not describe chunk storage. | Use **Download Catalog...** / assistant **Verify && Repair** to install a current chunk pack, then save the new root/pack. |
+| “Gaia catalog manifest was found, but one or more chunk files are missing or incomplete” | A declared chunk is absent or has a wrong size. | Reopen **Download Catalog...** and repair; do not use **Evict** unless you intend to redownload the whole pack. |
+| SPCC reports a partial chunk cache | Metadata is usable but not every declared chunk is present. | Stay online for on-demand SPCC acquisition, use **Verify & Repair**/**Download Missing**, or install the full offline catalog. |
+| SPCC full download is ready but response profiles are missing | The automatic response-repository install was unavailable, already busy, failed, or its descriptor was not approved/current. Its failure is not surfaced by the page. | Reopen the SPCC process/readiness panel and inspect response-data diagnostics; verify the managed response repository/mirror configuration before retrying the full-catalog action. |
+| Catalog download button is disabled | For SPCC, no approved/current descriptor with a usable manifest URL is available; for Gaia, the assistant's **Download** button is disabled for a pack whose manifest URL is unusable. | Select an existing local catalog manually or repair the administrator-managed mirror configuration. |
+| “Catalog download failed: Hugging Face requires authentication...” | The configured manifest/chunk returned HTTP 401/403 and neither supported environment variable supplied a token. | For an authorized private staging mirror only, restart AfterNight with `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN` set. The downloader does not read a cached-token file. Public production descriptors should not require private credentials. |
+| A catalog deletion appeared to do nothing | Recursive removal failed, or the chosen resolved pack was already missing. The page has no deletion error dialog. | Check permissions/locks and the exact resolved directory, close processes using it, then retry or remove it with normal filesystem tools after confirming the path. |
+| **Default solver** shows “No configured solver” | No ready Gaia pack, executable ASTAP/local path, or non-empty web key passes the minimal configured test. | Configure Catalogs & Data or one Plate Solving backend, then revisit the page. |
+| ASTAP is selectable but solving fails | Settings checks only that the file exists and is executable; the ASTAP version/database and real command were not validated. | Run ASTAP independently, install its compatible star database, confirm it can solve the input, then retry with accurate hints and sufficient timeout. |
+| Local Astrometry.net is selectable but solving fails | `solve-field` exists, but index files are missing/wrong or **Local index files** is invalid. The page does not validate indexes. | Install matching Astrometry.net indexes, select their directory on a non-Windows build, and test `solve-field` outside AfterNight. |
+| Web solving is enabled but login/upload fails | Any non-empty key enables the backend; syntax/authentication and network access are checked only during a solve. | Verify the key at `nova.astrometry.net`, network/proxy policy, and whether image upload is permitted. Re-enter the key; do not share exported Settings JSON. |
+| Preferred solver changed after reopening | The stored choice was no longer minimally configured, so Settings/runtime selected the first configured fallback. | Restore that backend's catalog/path/key or deliberately choose another enabled backend and save. |
+| OLED cannot be selected | Theme is explicitly Light, for which OLED is disabled. | Choose Dark or Follow System, or use Balanced/Soft/High with Light. |
+| Dock layout did not lock immediately | The preference is consumed at application startup. | Restart AfterNight, or use the current-session layout command separately. |
 
 ## Related workflow steps
 
@@ -685,66 +679,13 @@ and [Spectrophotometric Color Calibration](../processes/color-calibration/spectr
 Configure the repository/backend here, then perform and verify the image-changing
 operation in the owning process page.
 
-## References and provenance
+## Credits
 
-- Current Settings registration and open path:
-  `src/AfterNightControls/app/DialogOrchestrationCoordinator.cpp`,
-  `src/AfterNightControls/app/AfterNightAppUiBuilder.h`, and
-  `src/AfterNightControls/app/MenuActionManager.cpp`.
-  Dashboard paths are defined by `UiBootstrapCoordinator.cpp`,
-  `MainDashboard.cpp`, `DashboardIdentityBar.cpp`, and `DashboardToolbar.cpp`.
-- Dialog commit, validation, filtering, reset, and lazy-load behavior:
-  `src/AfterNightControls/controls/SettingsDialog.cpp` and
-  `src/AfterNightControls/controls/settings/SettingsPage.cpp`.
-- General, Raw Images, Interface, Export, and Logging labels, ranges, defaults,
-  persistence, validation, and actions: their page implementations plus
-  `SettingsKeys.h`, `SettingsDefaults.h`, `PersistenceCoordinator.cpp`, and
-  `FileWorkflowRunner.cpp`.
-- RAW policy and demosaic handoff: `FilePolicies.cpp` (the published RAW open
-  policy), `ImageViewFiles.cpp` (the view's read, balance and turn),
-  `DemosaicTextMaps.h`, `FileWorkflowRunner.cpp`, the engine's
-  `IO/RawCodec.h` and `IO/CodecIO.h`, and `ProcessCommonUtils.h`.
-- Still-save option consumption and codec constraints: `FilePolicies.cpp` (the
-  export intent), `ImageViewFiles.cpp` (the view's write), and the engine's
-  TIFF, JPEG, PNG, FITS, and XISF codec headers.
-- Logging configuration, startup, runtime sink replacement, and rotation:
-  `LoggingConfig.h`, `LoggingConfig.cpp`, `Logging.cpp`, and
-  `AfterNightApp/main.cpp`.
-- StarNet2/DeepSNR Settings state and process readiness:
-  `ExternalToolsSettingsPage.cpp`, `StarNetCliTools.cpp`,
-  `DeepSNRCliTools.cpp`, `StarlessGeneratorRegistry.cpp`, and the three process
-  implementations listed in **Related workflow steps**. The external CLI
-  package/version matrix was checked against the
-  [StarNet Software command-line tools page](https://starnetastro.com/cli-tools/)
-  on 2026-07-11.
-- Gaia/SPCC resolution, descriptor filtering, integrity status, managed
-  download, repair, cancellation, and deletion: `CatalogsDataSettingsPage.cpp`,
-  `CatalogDownloadDialog.cpp`, `CatalogDownloadService.cpp`,
-  `GaiaCatalogSettings.h`, `SpccCatalogSettings.h`, and
-  `SpccResponseSettings.h`. Gaia-derived data should retain the official
-  [Gaia DR3 credit and citation requirements](https://gea.esac.esa.int/archive/documentation/GDR3/Miscellaneous/sec_credit_and_citation_instructions/).
-- Solver configuration/fallback and runtime consumption:
-  `PlateSolvingSettingsPage.cpp`, `PlateSolveConfiguration.h`,
-  `PlateSolveControl.cpp`, and `PlateSolveService.cpp`. External contracts were
-  checked against the [ASTAP official solver/command-line documentation](https://www.hnsky.org/astap.htm),
+- [StarNet Software command-line tools](https://starnetastro.com/cli-tools/):
+  the StarNet2 and DeepSNR packages and their versions.
+- [Gaia DR3 credit and citation requirements](https://gea.esac.esa.int/archive/documentation/GDR3/Miscellaneous/sec_credit_and_citation_instructions/):
+  the credit that Gaia-derived data keeps.
+- [ASTAP official solver/command-line documentation](https://www.hnsky.org/astap.htm),
   [Astrometry.net local/web usage overview](https://astrometry.net/use.html), and
-  [Nova Astrometry.net API documentation](https://astrometry.net/doc/net/api.html)
-  on 2026-07-11.
-- The runtime consumers and focused tests are AfterNight's own. No
-  external standard or third-party algorithm is needed for this page. Focused
-  evidence includes `RawSettingsTest`, `ProcessingLimitsTest`,
-  `ExportSettingsTest` and `ViewRawPolicyTest` in `Test_ControlsDialogs` for the
-  RAW, Processing and Export pages and the policy a view reads with;
-  `FilePoliciesTest`, `FileSaveTest` and `RawOpenTest` in `Test_ControlsFiles`
-  for the save intent and the RAW open; logging sink replacement in
-  `test_workflow_logging.cpp`; and persisted RAW-mode fallback coverage in
-  `test_app_component_decomposition.cpp`. Empty-log-directory reload behavior
-  remains source/GUI-derived.
-
-- Focused MSVC Release validation on 2026-07-11 used
-  `$env:QT_QPA_PLATFORM='offscreen'; .\bin\msvc\release\Test_ProcessFramework.exe '--gtest_filter=StarNetCliToolsTest.*:DeepSNRCliToolsTest.*'`:
-  PASS, 13 tests from two suites; and
-  `$env:QT_QPA_PLATFORM='offscreen'; .\bin\msvc\release\Test_ImageIntegration.exe '--gtest_filter=GaiaCatalogSettingsTest.*:SpccCatalogSettingsTest.*:SpccResponseSettingsTest.*:CatalogDownloadDialogTest.*:CatalogsDataSettingsPageTest.*:CatalogDownloadService.*:CatalogDownloadServiceTest.*:PlateSolveService.*:WorkflowArchiver.RedactsAstrometryApiKeyFromArchiveAndReports:WorkflowRunStateStore.RedactsAstrometryApiKeyFromPersistedManifest'`:
-  PASS, 103 tests from ten suites. The two CLI suites now hold 17
-  cases, and the `CatalogDownloadService` and `PlateSolveService` suites run in
-  `Test_ControlsAstrometry` rather than `Test_ImageIntegration`.
+  [Nova Astrometry.net API documentation](https://astrometry.net/doc/net/api.html):
+  the external solvers this page configures.

@@ -215,17 +215,17 @@ direction a signed scale calls `-160°`.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Menu disabled/process closes | Target is not a color image | Debayer/convert intentionally or select RGB | `ActionStateCoordinator::setEnableImageColorActions`; `AdjustLChProcess::isViewControlSupported` |
-| Apply disabled | All three values are `0` | Set a nonzero value | `AdjustLChProcess::settingsUpdatedImpl` |
-| Chroma clips unexpectedly | Positive mapping is `1+C/25` and output clips to sRGB | Use smaller values; `+5=1.2x` | `AdjustLChProcess::lchAdjustment`; `an::adjustImageLch` |
-| Hue shifts in nearly gray areas look erratic | Hue is ill-defined near `C*=0` | Reduce Hue/Chroma or protect neutrals | `an::adjustImageLch` (Lab-to-LCh conversion) |
-| Error message includes `the LCh adjustment needs an image of red, green and blue` | The target, or a decoded sequence frame, is not three-channel RGB (grayscale, or color with alpha) | Supply RGB frames/valid auto-debayer; the target was not changed | `AdjustLChProcess::executeTypedProcessImpl` |
-| Pixels holding NaN are unchanged | Non-finite pixels are left as they were | Repair or replace them upstream if needed | `process_utils::skippingNonFinite` |
-| Snapshot carries no nonlinear record | Snapshots are Preview results and are not recorded | Apply on a duplicate for an archival result | `AdjustLChProcess::executeTypedProcessImpl`; `process_utils::recordNonlinearResult` |
-| Error names the memory budget | The session cannot hold the run's copies of the image | Close other images or work on a smaller crop; nothing was changed | `process_utils::openNormalizedDestination` |
-| Sequence Cancel leaves the sequence as it was | Cancel stops the run between frames or inside the engine operation, and the target is replaced only when every frame succeeds | Expected; Apply again when ready | `ImageRTPreviewControl::runOverSequence`; `an::adjustImageLch` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Menu disabled/process closes | Target is not a color image | Debayer/convert intentionally or select RGB |
+| Apply disabled | All three values are `0` | Set a nonzero value |
+| Chroma clips unexpectedly | Positive mapping is `1+C/25` and output clips to sRGB | Use smaller values; `+5=1.2x` |
+| Hue shifts in nearly gray areas look erratic | Hue is ill-defined near `C*=0` | Reduce Hue/Chroma or protect neutrals |
+| Error message includes `the LCh adjustment needs an image of red, green and blue` | The target, or a decoded sequence frame, is not three-channel RGB (grayscale, or color with alpha) | Supply RGB frames/valid auto-debayer; the target was not changed |
+| Pixels holding NaN are unchanged | Non-finite pixels are left as they were | Repair or replace them upstream if needed |
+| Snapshot carries no nonlinear record | Snapshots are Preview results and are not recorded | Apply on a duplicate for an archival result |
+| Error names the memory budget | The session cannot hold the run's copies of the image | Close other images or work on a smaller crop; nothing was changed |
+| Sequence Cancel leaves the sequence as it was | Cancel stops the run between frames or inside the engine operation, and the target is replaced only when every frame succeeds | Expected; Apply again when ready |
 
 ## Related workflow steps
 
@@ -239,8 +239,7 @@ lightness of the stored values, and
 mapping rather than substituting L*. Verify [Image History](../../interface/image-history.md)
 and [Image Statistics](../../interface/image-statistics.md) after Apply.
 
-## References and provenance
+## Credits
 
 - [ICC sRGB characterization](https://www.color.org/sRGB.pdf) defines the sRGB transfer, primaries, and D65 white used by the engine's conversion constants.
 - [CIE Standard Illuminant D65](https://www.cie.co.at/datatable/cie-standard-illuminant-d65) is the daylight reference represented by the engine's XYZ white point.
-- AfterNight source is authoritative for the matrices, Lab/LCh equations, asymmetric Chroma mapping, wrapping Hue, gamut clipping, Preview behavior, and sequence behavior.

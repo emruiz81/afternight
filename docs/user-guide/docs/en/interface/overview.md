@@ -165,7 +165,6 @@ the first input is verified.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state: dashboard, no active image, Session Console closed, and one
   known supported local still available.
 - Actions and checkpoints: use **Open file**; observe **File Open**; on successful
@@ -199,16 +198,16 @@ the first input is verified.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Window** is disabled | The dashboard is the selected central page. | Open a supported image/sequence successfully, or open **View > Session Console**. | `WindowLayoutCoordinator.cpp`; `UiBootstrapCoordinator.cpp` |
-| Image actions remain disabled | No active control/image exists, or the selected action has a more specific type/metadata gate. | Click the intended image view; verify image, color, sequence, metadata, and mask state. | `ActionStateCoordinator.cpp` |
-| A process is disabled or refuses to open | Its registry descriptor requires an active compatible image, has an exclusivity conflict, or is not ready. | Select a compatible view, close conflicting processes, or satisfy the process-specific prerequisite. | `ProcessRegistry.cpp`; `ProcessRegistryBuiltins.cpp`; `ActionStateCoordinator.cpp`; `ProcessLauncherTest.cpp` |
-| Closing the final image does not show the dashboard | The Session Console is still open. | Close **View > Session Console**. | `ViewControlCoordinator.cpp`; `AfterNightApp.cpp` |
-| File Open closes without a new view | The load was cancelled, decoding failed, or view creation failed. | Check the error/console, verify File Formats, and retry one known small local file. | `FileWorkflowRunner.cpp` |
-| **FITS Header** or **EXIF Viewer** is unavailable | The active image lacks the corresponding FITS or EXIF record. | Select an image with that metadata or generate the required record through the documented workflow. | `ActionStateCoordinator.cpp` |
-| Astrometry Info availability differs between the menu and image toolbar | The main-menu action requires only an active image and can report **No astrometric solution**; the toolbar action requires WCS and is hidden for sequences. | Use the main-menu action to inspect the unsolved state, or plate-solve a still before using the toolbar entry. | `ActionStateCoordinator.cpp`; `ImageViewControl.cpp`; `ImageAstrometryInfoFormatter.h`; `test_astrometry_info_formatter.cpp` |
-| The wrong image received a process | Another view was active when the process launched. | Cancel/close the process, focus the correct image, and relaunch. | `ViewControlCoordinator.cpp`; process launch guards |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Window** is disabled | The dashboard is the selected central page. | Open a supported image/sequence successfully, or open **View > Session Console**. |
+| Image actions remain disabled | No active control/image exists, or the selected action has a more specific type/metadata gate. | Click the intended image view; verify image, color, sequence, metadata, and mask state. |
+| A process is disabled or refuses to open | Its registry descriptor requires an active compatible image, has an exclusivity conflict, or is not ready. | Select a compatible view, close conflicting processes, or satisfy the process-specific prerequisite. |
+| Closing the final image does not show the dashboard | The Session Console is still open. | Close **View > Session Console**. |
+| File Open closes without a new view | The load was cancelled, decoding failed, or view creation failed. | Check the error/console, verify File Formats, and retry one known small local file. |
+| **FITS Header** or **EXIF Viewer** is unavailable | The active image lacks the corresponding FITS or EXIF record. | Select an image with that metadata or generate the required record through the documented workflow. |
+| Astrometry Info availability differs between the menu and image toolbar | The main-menu action requires only an active image and can report **No astrometric solution**; the toolbar action requires WCS and is hidden for sequences. | Use the main-menu action to inspect the unsolved state, or plate-solve a still before using the toolbar entry. |
+| The wrong image received a process | Another view was active when the process launched. | Cancel/close the process, focus the correct image, and relaunch. |
 
 ## Related workflow steps
 
@@ -223,12 +222,3 @@ the first input is verified.
   diagnostics and lineage.
 - Use [Saving And Exporting](saving-and-exporting.md) before closing work that
   must survive the session.
-
-## References and provenance
-
-- AfterNight application/UI sources and focused tests.
-- [Dashboard](dashboard.md) owns exhaustive dashboard controls, state, and
-  persistence.
-- [File Formats](../reference/file-formats.md) is the authority for codec,
-  precision, metadata, and sequence compatibility.
-- No external standard is required to describe the application shell.

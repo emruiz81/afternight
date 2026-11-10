@@ -261,7 +261,6 @@ several cards and shown whole.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations: The
   focused formatter fixture builds 640 x 480 metadata with `RA---TAN-SIP` /
   `DEC--TAN-SIP`, CRVAL `187.5` / `-45.5`, a `0.0005` degree/pixel CD scale,
@@ -311,21 +310,21 @@ several cards and shown whole.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **FITS Header** is disabled | The current image carries no FITS card, or the view refreshed its actions while an edit held the image. This is a metadata gate, not an extension check. | Activate an image with retained FITS-style metadata, or wait for the edit; reopen a FITS/XISF output when verifying disk preservation. | `ActionStateCoordinator.cpp`; `ImageViewControl.cpp` |
-| **EXIF Viewer** is disabled | The current image carries no EXIF field the window shows: the source stated no EXIF, only fields the window hides, or only the container's own entries; the source is a camera RAW whose EXIF AfterNight does not read - CR3, CRW, MRW or X3F; or the view refreshed its actions while an edit held the image. | Select a camera-originated image with retained EXIF; inspect the source format contract. | `ActionStateCoordinator.cpp`; `ImageViewControl.cpp`; `common.h` (`statesShownExifField`); `ViewToolsTest.TheExifWindowIsOfferedForAnExifFieldOfEveryRasterContainer`; `RawOpenTest.ACameraFileOpenedThroughTheFileMenuOffersItsExifWindow` |
-| A shortcut opens an empty FITS/EXIF window | `Ctrl+Shift+H` and `Ctrl+Shift+X` call their dialogs without checking action availability. | Close it and use the enabled menu/toolbar state as the reliable gate. | `ImageViewControl.cpp` |
-| Clicking FITS/EXIF column headings does not sort | Sorting is not enabled. | Inspect source order; use an external FITS/EXIF tool when sorting/search/export is required. | FITS/EXIF UI builders and controls |
-| FITS/EXIF rows did not change while an edit ran | The window never waits for an edit; it keeps the rows it showed until the edit lands. | Wait for the edit to finish; the table rebuilds on the image's update. | `ImageFITSHeaderViewerControl.cpp`; `ImageEXIFViewerControl.cpp`; `ImageInspectorContent.cpp` |
-| An expected EXIF tag is absent | It has no tag name, is a structural field the reader skips, is an embedded XMP packet, or is one of the filtered MakerNote/interoperability/offset/XML/IPTC/resource/profile entries. | Use a dedicated metadata utility on the original file; do not infer the tag was never present. | `ExifCards.cpp`; `ImageInspectorContent.cpp` |
-| Astrometry menu opens but toolbar action is disabled/missing | Main menu requires any image; toolbar requires WCS and is hidden for sequences. | Use the menu to inspect the unsolved state, or plate-solve a still before using the toolbar action. | `ActionStateCoordinator.cpp`; `ImageViewControl.cpp` |
-| **No astrometric solution** appears although WCS-like cards exist | The card reader refused the header: a missing, malformed or duplicated keyword, SIP cards that disagree with the projection codes, a singular matrix, or a frame other than the ICRS - FK5 stated, or an equinox other than J2000 and no frame. | Inspect `CTYPE`, `CRPIX`, `CRVAL`, `RADESYS`, `EQUINOX`, the CD or PC/CDELT cards and the SIP cards in FITS Header; rerun Plate Solve when appropriate. | `WcsCards.h`; `PlateSolveTypes.h`; `ImageAstrometryInfoFormatter.h` |
-| **SIP distortion** says **None** although SIP cards are visible | The cards are other polynomial keywords than `A`, `B`, `AP` and `BP` with their orders; a header whose SIP cards the reader cannot take shows no solution rather than **None**. | Inspect the raw SIP cards and the projection codes. | `WcsCards.h`; `ImageAstrometryInfoFormatter.h` |
-| **Solver** says **Unknown** on a solved image | The project-specific `PLTSOLVR` card is absent or empty. | Treat WCS validity separately; use source provenance or rerun a documented solve if solver identity matters. | `ImageAstrometryInfoFormatter.h` |
-| Astrometry fields change while the panel stays open | Astrometry Info follows the application's active image. | Refocus the intended view and confirm its name in the panel title. | `ImageAstrometryInfoControl.cpp` |
-| More than one Astrometry Info panel shows the same active image | Each launching view owns one panel pointer, while every open panel follows the globally active view. Launching through a newly focused view can create another panel. | Close redundant panels; repeat launch through the same owner only raises its existing panel. | `ImageViewControl.cpp`; `ImageAstrometryInfoControl.cpp` |
-| Reopened output lost some metadata | The chosen codec/save path does not preserve every metadata family, Embed EXIF was off, or an EXIF field the metadata library could not write was skipped. | Keep the master, consult File Formats, choose FITS/XISF where appropriate, and verify the reopened file. | FITS/metadata codecs; Saving And Exporting |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **FITS Header** is disabled | The current image carries no FITS card, or the view refreshed its actions while an edit held the image. This is a metadata gate, not an extension check. | Activate an image with retained FITS-style metadata, or wait for the edit; reopen a FITS/XISF output when verifying disk preservation. |
+| **EXIF Viewer** is disabled | The current image carries no EXIF field the window shows: the source stated no EXIF, only fields the window hides, or only the container's own entries; the source is a camera RAW whose EXIF AfterNight does not read - CR3, CRW, MRW or X3F; or the view refreshed its actions while an edit held the image. | Select a camera-originated image with retained EXIF; inspect the source format contract. |
+| A shortcut opens an empty FITS/EXIF window | `Ctrl+Shift+H` and `Ctrl+Shift+X` call their dialogs without checking action availability. | Close it and use the enabled menu/toolbar state as the reliable gate. |
+| Clicking FITS/EXIF column headings does not sort | Sorting is not enabled. | Inspect source order; use an external FITS/EXIF tool when sorting/search/export is required. |
+| FITS/EXIF rows did not change while an edit ran | The window never waits for an edit; it keeps the rows it showed until the edit lands. | Wait for the edit to finish; the table rebuilds on the image's update. |
+| An expected EXIF tag is absent | It has no tag name, is a structural field the reader skips, is an embedded XMP packet, or is one of the filtered MakerNote/interoperability/offset/XML/IPTC/resource/profile entries. | Use a dedicated metadata utility on the original file; do not infer the tag was never present. |
+| Astrometry menu opens but toolbar action is disabled/missing | Main menu requires any image; toolbar requires WCS and is hidden for sequences. | Use the menu to inspect the unsolved state, or plate-solve a still before using the toolbar action. |
+| **No astrometric solution** appears although WCS-like cards exist | The card reader refused the header: a missing, malformed or duplicated keyword, SIP cards that disagree with the projection codes, a singular matrix, or a frame other than the ICRS - FK5 stated, or an equinox other than J2000 and no frame. | Inspect `CTYPE`, `CRPIX`, `CRVAL`, `RADESYS`, `EQUINOX`, the CD or PC/CDELT cards and the SIP cards in FITS Header; rerun Plate Solve when appropriate. |
+| **SIP distortion** says **None** although SIP cards are visible | The cards are other polynomial keywords than `A`, `B`, `AP` and `BP` with their orders; a header whose SIP cards the reader cannot take shows no solution rather than **None**. | Inspect the raw SIP cards and the projection codes. |
+| **Solver** says **Unknown** on a solved image | The project-specific `PLTSOLVR` card is absent or empty. | Treat WCS validity separately; use source provenance or rerun a documented solve if solver identity matters. |
+| Astrometry fields change while the panel stays open | Astrometry Info follows the application's active image. | Refocus the intended view and confirm its name in the panel title. |
+| More than one Astrometry Info panel shows the same active image | Each launching view owns one panel pointer, while every open panel follows the globally active view. Launching through a newly focused view can create another panel. | Close redundant panels; repeat launch through the same owner only raises its existing panel. |
+| Reopened output lost some metadata | The chosen codec/save path does not preserve every metadata family, Embed EXIF was off, or an EXIF field the metadata library could not write was skipped. | Keep the master, consult File Formats, choose FITS/XISF where appropriate, and verify the reopened file. |
 
 ## Related workflow steps
 
@@ -345,7 +344,7 @@ several cards and shown whole.
   [Histogram Analysis](image-histogram.md) for pixel evidence rather than
   metadata claims.
 
-## References and provenance
+## Credits
 
 - The IAU FITS Working Group's [FITS Standard 4.0](https://fits.gsfc.nasa.gov/fits_standard.html)
   defines FITS cards, keywords, values, and comments.
@@ -356,6 +355,3 @@ several cards and shown whole.
 - CIPA's [Exif standards list](https://www.cipa.jp/e/std/std-sec.html) identifies
   the current Exif specification; AfterNight's actual visible subset is governed
   by its Exiv2 loader and viewer filters, not by every possible Exif tag.
-- AfterNight's source and focused tests
-  are authoritative for current reachability, formatting, filtering, refresh,
-  duplicate behavior, codec preservation, and known limitations.

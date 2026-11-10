@@ -233,7 +233,6 @@ memory.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; not run on approved astronomical data.
 - Input/settings: solved `1200×800` still, `Rotation Angle=+90°`,
   Resize image checked, Nearest Neighbor, Crop off.
 - Expected checkpoint: content turns clockwise about the image's centre, the
@@ -266,18 +265,18 @@ memory.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| OK is disabled | Angle is zero and checked Crop does not change geometry | Set a nonzero angle or a changed valid crop | `RotateProcess::checkChangesPending()` |
-| Corners are clipped | Resize image is unchecked | Check Resize image and rerun from the original | `RotationCanvas::Preserve` |
-| Black triangles appear | Taps outside the turned source read black | Crop an inscribed rectangle or retain borders intentionally; no alternate fill exists | `rotationRequest` |
-| Output contains `NaN` | Source `NaN` samples under a rule that counts every sample valid took part in the interpolation | Repair non-finite samples before Rotate and rerun from the original | sampling policy |
-| **Error running rotate** with Crop checked | Crop Width or Height is zero, or the rectangle lies outside the turned canvas | Set a nonzero rectangle inside the canvas | engine crop plan |
-| **Error running rotate** saying a rotation requires square source pixels | The image states a pixel aspect other than one | Rotate an image that states square pixels; a resize keeps the aspect its source states | `planRotation`; `GeometryProcessCase.AnImageResizedToAnySizeCanBeRotated` |
-| **Error running rotate** otherwise | The engine refused the request or could not allocate the result | Read the message and the log, free memory, and retry | `GeometryInPlaceWindowTest.ARunTheEngineRefusesSaysWhyAndChangesNothing` |
-| An **Image History** error, and the rotation is not applied | Image History could not keep the image the rotation replaces; it says so once, Rotate says nothing more, and nothing changes | Free memory and run Rotate again | `GeometryProcessCase.AnEditTheHistoryCannotKeepIsSaidOnceAndChangesNothing` |
-| Astrometry overlay disappears | The geometry policy drops the plate solution of a rotation | Plate-solve the rotated result | `GeometryProcessCase.AStillImagesSolutionFollowsACropAResizeAndAResampleAndNotARotation` |
-| **Rotate CFA** question | Target is a mosaic the view does not demosaic | Choose No and Debayer, or use an exact Image-menu turn when suitable | `RotateProcess::executeImageRotate()`; `GeometryProcessCase.AMosaicIsReadAsGreyOnlyWhenThePersonSaysSo` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| OK is disabled | Angle is zero and checked Crop does not change geometry | Set a nonzero angle or a changed valid crop |
+| Corners are clipped | Resize image is unchecked | Check Resize image and rerun from the original |
+| Black triangles appear | Taps outside the turned source read black | Crop an inscribed rectangle or retain borders intentionally; no alternate fill exists |
+| Output contains `NaN` | Source `NaN` samples under a rule that counts every sample valid took part in the interpolation | Repair non-finite samples before Rotate and rerun from the original |
+| **Error running rotate** with Crop checked | Crop Width or Height is zero, or the rectangle lies outside the turned canvas | Set a nonzero rectangle inside the canvas |
+| **Error running rotate** saying a rotation requires square source pixels | The image states a pixel aspect other than one | Rotate an image that states square pixels; a resize keeps the aspect its source states |
+| **Error running rotate** otherwise | The engine refused the request or could not allocate the result | Read the message and the log, free memory, and retry |
+| An **Image History** error, and the rotation is not applied | Image History could not keep the image the rotation replaces; it says so once, Rotate says nothing more, and nothing changes | Free memory and run Rotate again |
+| Astrometry overlay disappears | The geometry policy drops the plate solution of a rotation | Plate-solve the rotated result |
+| **Rotate CFA** question | Target is a mosaic the view does not demosaic | Choose No and Debayer, or use an exact Image-menu turn when suitable |
 
 ## Related workflow steps
 
@@ -286,10 +285,3 @@ only sampling dimensions change. For arbitrary-angle alignment of a batch, use
 [Image Registration](../registration-alignment/image-registration.md) so transform
 estimation and common geometry are handled together. Re-run
 [Plate Solving](../registration-alignment/plate-solving.md) after Rotate.
-
-## References and provenance
-
-- AfterNight Rotate process, its display preview, the shared geometry support,
-  the engine's geometry and sampling-kernel definitions, the sequence
-  companions, and the focused tests.
-- No external library is used by Rotate.

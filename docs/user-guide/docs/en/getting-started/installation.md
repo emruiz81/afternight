@@ -180,7 +180,6 @@ program directory.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; no installer/AppImage was executed.
 - Starting state: one trusted 1.0.1 release package and no running AfterNight
   process.
 - Actions: install or mark executable, start the complete package, then open
@@ -214,15 +213,15 @@ program directory.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Windows asks to uninstall the same version | The current registry scope contains the same recorded version. | Accept to reinstall, or decline to cancel Setup without proceeding. | `installer/win_installer.iss` |
-| “Uninstaller not found in registry.” | A recorded installation version exists but its uninstall entry cannot be resolved. | Cancel, repair/remove the stale installation record through administrator-approved Windows tools, then retry the intended installer scope. | `installer/win_installer.iss` |
-| Setup reports an uninstallation exit code | The prior registered uninstaller returned nonzero. | Preserve its message/log, resolve the old installation failure, and rerun Setup; do not delete random runtime files. | `installer/win_installer.iss` |
-| Linux reports permission denied | The AppImage lacks its executable bit or the location is mounted `noexec`. | Run `chmod +x` in an executable user-controlled location or follow host policy. | `installer/linux_packager.sh`; filesystem behavior |
-| AppImage starts but a runtime library/plugin is missing | The package is incomplete, corrupted, or incompatible with the host. | Reacquire the complete release asset; do not reconstruct it from individual `bin` files. Record host/package details for support. | `installer/linux_packager.sh`; deploy/package workflow |
-| **Help > User Guide** opens the web | No bundled candidate opened and online fallback is allowed. | For offline use, reinstall a published package containing the docs artifact. | `DialogOrchestrationCoordinator.cpp`; release workflows |
-| Offline Help is missing from a local/manual package | `docs/user-guide/site/` was absent and the local build did not require it. | Build the guide first and rebuild the package, or use online Help. | installer scripts |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Windows asks to uninstall the same version | The current registry scope contains the same recorded version. | Accept to reinstall, or decline to cancel Setup without proceeding. |
+| “Uninstaller not found in registry.” | A recorded installation version exists but its uninstall entry cannot be resolved. | Cancel, repair/remove the stale installation record through administrator-approved Windows tools, then retry the intended installer scope. |
+| Setup reports an uninstallation exit code | The prior registered uninstaller returned nonzero. | Preserve its message/log, resolve the old installation failure, and rerun Setup; do not delete random runtime files. |
+| Linux reports permission denied | The AppImage lacks its executable bit or the location is mounted `noexec`. | Run `chmod +x` in an executable user-controlled location or follow host policy. |
+| AppImage starts but a runtime library/plugin is missing | The package is incomplete, corrupted, or incompatible with the host. | Reacquire the complete release asset; do not reconstruct it from individual `bin` files. Record host/package details for support. |
+| **Help > User Guide** opens the web | No bundled candidate opened and online fallback is allowed. | For offline use, reinstall a published package containing the docs artifact. |
+| Offline Help is missing from a local/manual package | `docs/user-guide/site/` was absent and the local build did not require it. | Build the guide first and rebuild the package, or use online Help. |
 
 ## Related workflow steps
 
@@ -232,14 +231,3 @@ Formats](supported-formats.md) for a beginner choice and [File
 Formats](../reference/file-formats.md) for the authoritative codec/precision
 matrix. Contributors should follow the repository build playbooks rather than
 extending this end-user installation page.
-
-## References and provenance
-
-- Windows package behavior: `installer/win_installer.iss` and
-  `.github/workflows/build-windows.yml`.
-- Linux package behavior: `installer/linux_packager.sh`,
-  `installer/AfterNight.desktop`, and `.github/workflows/build-linux.yml`.
-- Published-release orchestration: `.github/workflows/release.yml`.
-- Bundled-first Help resolution: `DialogOrchestrationCoordinator.h/.cpp` and
-  `DialogOrchestrationCoordinator_OpenHelp_ResolvesBundledUserGuide`.
-- Source-build order and platform shells: `AGENTS.md` and `README.md`.

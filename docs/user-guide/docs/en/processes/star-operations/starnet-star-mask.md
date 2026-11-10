@@ -9,8 +9,6 @@ derived: true
 ---
 # StarNet++ Star Mask
 
-<!-- MEDIA_SLOT: UG-MEDIA-080 -->
-
 ## Purpose and expected result
 
 StarNet++ Star Mask hands the current image, or every frame of the current
@@ -223,8 +221,6 @@ timing, GPU, or peak-memory measurement was made for this revision.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; no approved astronomical image was
-  executed. The focused suite runs the window over a stand-in program.
 - Input/settings: a compatible current master, **Pre-Stretch** chosen according
   to image state, default model, highlight protection on, stride 256, upsample
   off, and native mask cleanup off.
@@ -252,18 +248,18 @@ timing, GPU, or peak-memory measurement was made for this revision.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Processing controls and OK are disabled | Executable path/version/readiness probe failed | Use **Configure** and select official StarNet2 2.5.3+ | `StarNetCliTools.cpp`; process initialization |
-| Binary controls remain disabled | **Lightness** is off | Enable **Lightness**, then **Binary Mask** | checkbox handlers |
-| Binary settings do not change a grayscale result | Native mask has one channel, so the entire Lightness/Binary branch is skipped | Use the native grayscale mask as-is or apply a separate range/mask process afterward | `shapeStarMask` in `ExternalToolSupport.cpp` |
-| `StarNet2 takes a grey or colour picture, not a colour filter array mosaic; demosaic the image first` | The target is a CFA mosaic | [Debayer](../calibration/debayer.md) first, or enable demosaicing on the sequence view | mosaic refusal in `runExternalTool` |
-| `StarNet2 supports grayscale and RGB images only.` | The target has two or four channels | Extract or compose a one- or three-channel image first | channel refusal in `runExternalTool` |
-| `Could not start the StarNet2 process` | The configured executable could not be started | Recheck executable path, permissions, and package files | process error branch |
-| `StarNet2 exited with code ...` | CLI returned nonzero; captured output is included | Read the detail; check dimensions, input/model/runtime compatibility, and disk space | process exit validation; upstream CLI contract |
-| `the tool wrote no mask file` or `the tool's mask is ... where the image is ...` | StarNet2 ended normally without a mask, or wrote one of another size | Check the package's runtime files and model, and that the input size is supported | answer check in `runExternalTool` |
-| Run stops silently with no new view | **Cancel** was pressed on the progress window | Run again; a stop publishes nothing by design | cancellation path |
-| Result contains nebula filaments or misses stars | Learned inference included structure or missed stellar signal | Compare color input, inspect stretch, then test upsample or justified stride changes | official StarNet tips |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Processing controls and OK are disabled | Executable path/version/readiness probe failed | Use **Configure** and select official StarNet2 2.5.3+ |
+| Binary controls remain disabled | **Lightness** is off | Enable **Lightness**, then **Binary Mask** |
+| Binary settings do not change a grayscale result | Native mask has one channel, so the entire Lightness/Binary branch is skipped | Use the native grayscale mask as-is or apply a separate range/mask process afterward |
+| `StarNet2 takes a grey or colour picture, not a colour filter array mosaic; demosaic the image first` | The target is a CFA mosaic | [Debayer](../calibration/debayer.md) first, or enable demosaicing on the sequence view |
+| `StarNet2 supports grayscale and RGB images only.` | The target has two or four channels | Extract or compose a one- or three-channel image first |
+| `Could not start the StarNet2 process` | The configured executable could not be started | Recheck executable path, permissions, and package files |
+| `StarNet2 exited with code ...` | CLI returned nonzero; captured output is included | Read the detail; check dimensions, input/model/runtime compatibility, and disk space |
+| `the tool wrote no mask file` or `the tool's mask is ... where the image is ...` | StarNet2 ended normally without a mask, or wrote one of another size | Check the package's runtime files and model, and that the input size is supported |
+| Run stops silently with no new view | **Cancel** was pressed on the progress window | Run again; a stop publishes nothing by design |
+| Result contains nebula filaments or misses stars | Learned inference included structure or missed stellar signal | Compare color input, inspect stretch, then test upsample or justified stride changes |
 
 ## Related workflow steps
 
@@ -274,7 +270,7 @@ unscreen outputs are also needed, or [Star Mask](star-mask.md) for an analytical
 detector. A verified mask can then constrain [Star Reduction](star-reduction.md)
 or another local operation.
 
-## References and provenance
+## Credits
 
 - [StarNet command-line tool reference](https://starnetastro.com/documentation/starnet/command-line-tool/)
   documents CLI 2.5.3 options, supported integer grayscale/RGB input, 16-bit
@@ -285,7 +281,3 @@ or another local operation.
   upsampling, and inspecting masks for accidentally removed structure.
 - [Current command-line releases](https://starnetastro.com/cli-tools/) records
   the current 2.5.3 platform packages and packaged runtime behavior.
-- The exact AfterNight hand-off, range shaping, metadata, progress,
-  cancellation, cleanup, and publication behavior comes from AfterNight's
-  source and tests. StarNet2 inference remains an upstream
-  implementation detail.

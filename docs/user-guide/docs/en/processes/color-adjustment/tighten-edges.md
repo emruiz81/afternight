@@ -185,8 +185,6 @@ production timing or peak memory was measured.
 
 ## Worked example
 
-- **Evidence mode:** Source/equation-derived; not executed on project-owned
-  astronomical data.
 - **Identity checkpoint:** Value `0` gives `T=S` for normalized finite inputs;
   Apply is disabled. With Value nonzero and Amount `0`, `O=S`, but Apply remains
   enabled and still records a process step.
@@ -225,14 +223,14 @@ production timing or peak memory was measured.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Tighten Edges menu is disabled | No active image/sequence or generic process launch guard failed | Activate a target; close the same or exclusive process | action state/launcher |
-| Apply is disabled | Value is exactly `0` | Set a nonzero Value; Amount alone cannot enable Apply | `settingsUpdatedImpl` |
-| Apply runs but result is unchanged | Amount is `0`, or selected Channel has negligible local gradients | Raise Amount or choose the intended Channel | modulation blend/channel dispatcher |
-| Dark/colored frame rim appears | Neighbours outside the image count as zero | Reduce Value/Amount; inspect/crop final border only after processing | Engine zero border |
-| Preview-area seam differs after Apply | Crop created a different one-pixel neighborhood | Ignore crop perimeter and verify full Preview | Preview crop plus 3×3 edge map |
-| RGB result shows color fringes | R, G, and B edge maps are independent | Try CIE Y/L* on a duplicate; lower Value/Amount | RGB filter branch |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Tighten Edges menu is disabled | No active image/sequence or generic process launch guard failed | Activate a target; close the same or exclusive process |
+| Apply is disabled | Value is exactly `0` | Set a nonzero Value; Amount alone cannot enable Apply |
+| Apply runs but result is unchanged | Amount is `0`, or selected Channel has negligible local gradients | Raise Amount or choose the intended Channel |
+| Dark/colored frame rim appears | Neighbours outside the image count as zero | Reduce Value/Amount; inspect/crop final border only after processing |
+| Preview-area seam differs after Apply | Crop created a different one-pixel neighborhood | Ignore crop perimeter and verify full Preview |
+| RGB result shows color fringes | R, G, and B edge maps are independent | Try CIE Y/L* on a duplicate; lower Value/Amount |
 
 ## Related workflow steps
 
@@ -246,8 +244,3 @@ which applies the same engine filter before its mask/addition stage. Verify
 [Image History](../../interface/image-history.md),
 [Image Statistics](../../interface/image-statistics.md), and frame borders after
 Apply.
-
-## References and provenance
-
-- AfterNight's engine edge tightening (`planEdgeTighten` in `src/AfterNightEngine/include/AfterNightEngine/Algorithms/Spatial/GeneralFilter.h`) is authoritative for the four 3×3 responses, `0.05` magnitude scale, subtraction/clipping, float32 work precision, and constant-zero border. This process does not call an external Sobel or morphology implementation.
-- Shared AfterNight process/channel/preview source is authoritative for Amount blending, component conversion, metadata/history behavior, masks, Preview area, and temporary sequence execution.
