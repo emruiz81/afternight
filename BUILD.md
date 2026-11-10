@@ -12,7 +12,7 @@ canonical statement of these rules; this page is the walk-through.
 
 Both need Git with submodule support and Python 3 on `PATH` for the repository's checks and build helpers; the
 install step provisions the Python 3.14.7 that the product embeds. Packaging the Windows installer needs Inno Setup
-6.2 or later.
+6.6 or later.
 
 The first build downloads and compiles every dependency from source: expect several gigabytes on disk, and an hour
 or more for the Windows dependency step alone. Do not interrupt it.

@@ -618,7 +618,7 @@ Debug symbols (`.debug` on Linux, `.pdb` on Windows) must match the exact binary
 
 ## Installer builds
 
-- Windows (Inno Setup): ensure deploy has populated `bin/msvc/release`; build the user guide with `build\scripts\msvc\build_user_guide_docs.bat`; install Inno Setup 6.2+; run `iscc installer\win_installer.iss /DMSVC`. Local/manual builds bundle `docs/user-guide/site/` when it exists. Release builds must pass `/DREQUIRE_DOCS` so missing offline docs fail loudly. Use `/DADMIN=1` for elevation.
+- Windows (Inno Setup): ensure deploy has populated `bin/msvc/release`; build the user guide with `build\scripts\msvc\build_user_guide_docs.bat`; install Inno Setup 6.6+ (continuous integration pins 6.7.1); run `iscc installer\win_installer.iss /DMSVC`. The wizard's pictures are checked in under `installer/artwork/`, drawn from the logo by `build/scripts/tools/render_installer_artwork.py` at each size the wizard shows; run it only to change them, and `--check` holds the set. Local/manual builds bundle `docs/user-guide/site/` when it exists. Release builds must pass `/DREQUIRE_DOCS` so missing offline docs fail loudly. Use `/DADMIN=1` for elevation.
 - Linux AppImage: complete release build and deploy; build the user guide with `build/scripts/linux/build_user_guide_docs.sh`; run `installer/linux_packager.sh` (downloads `appimagetool` if needed). Local/manual builds bundle `docs/user-guide/site/` when it exists. Release builds must run with `REQUIRE_DOCS_SITE=1` so missing offline docs fail loudly. Output: `installer/AfterNight-<version>-x86_64.AppImage`.
 
 ## User documentation system
