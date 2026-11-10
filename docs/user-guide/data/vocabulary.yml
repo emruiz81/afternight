@@ -50,4 +50,22 @@ forbidden:
 #   - page: processes/calibration/image-calibration.md
 #     text: "**Validate masters**"
 #     reason: The button's label.
-allow: []
+allow:
+  - page: interface/settings-dialog.md
+    text: Verify & Repair
+    reason: The button's label.
+  - page: interface/settings-dialog.md
+    text: Validation Error
+    reason: The title of the message box.
+  - page: interface/settings-dialog-reference.md
+    text: Verify & Repair
+    reason: The button's label.
+  - page: interface/settings-dialog-reference.md
+    text: Validation Error
+    reason: The title of the message box.
+  - page: interface/settings-dialog-reference.md
+    text: Download again to verify and repair it.
+    reason: A message the catalog download shows, quoted.
+  - page: interface/settings-dialog-reference.md
+    text: Checksum verification failed for catalog chunk
+    reason: A message the catalog download shows, quoted.

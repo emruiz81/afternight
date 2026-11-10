@@ -1,282 +1,281 @@
 ---
 kind: interface
 summary: >-
-  Assign, show, invert and manage the mask that limits where a process changes an image.
+  A mask is another open image linked to a view, which limits where a process changes the image: white takes the
+  result and black keeps the original. Image > Mask links, shows, inverts and removes it.
+menu: Image > Mask
+rewritten: true
 ---
 # Masks
 
-![AfterNight target with an assigned grayscale mask shown in red, the Image Mask menu open, and the Mask Selector visible](../assets/images/interface/masks.png)
+A [mask](../reference/glossary.md#mask) is another open image that you link to a view, its target. A process applied
+to the target then changes it only where the mask lets it: white takes the result, black keeps the original, and gray
+mixes the two. You can draw the mask over the target in a color, invert it, or turn it off without unlinking it.
+Everything here is in **Image > Mask**, which a right-click on the view opens too.
 
-*The target keeps mask enablement and display controls in the Image menu while
-the modeless selector identifies the currently assigned mask.*
+A mask is a link between two views, not a part of the image. It is not saved with the target, not copied by
+**Duplicate**, not kept in the [history](../reference/glossary.md#history), and it ends when either view closes.
 
-## Purpose, audience, prerequisites, and expected result
+```figure
+owed: true
+image: ../assets/images/interface/masks.webp
+alt: >-
+  The AfterNight main window with two tabs, RGB and RGB - MASK. The view of RGB shows the Carina Nebula covered in
+  solid red, except for its bright clouds, which show through in their own colors. The Image menu is open, and beside
+  it its Mask submenu: Select Mask, Remove Mask, Invert Mask unticked, Enable Mask and Show Mask ticked, and Rendering
+  Mode, whose own submenu lists Overlay Red, ticked, then Overlay Green, Overlay Blue, Overlay Yellow, Overlay
+  Magenta, Overlay Cyan, Replace and Multiply.
+caption: >-
+  The stretched Carina master in the Linear display mode, with the mask Range Selection made of its bright clouds
+  drawn in Overlay Red, and the Image > Mask menu open.
+pins:
+  - {n: 1, x: 14.4, y: 9.8}
+  - {n: 2, x: 86.0, y: 50.0}
+  - {n: 3, x: 6.0, y: 18.5}
+  - {n: 4, x: 30.9, y: 19.7}
+  - {n: 5, x: 30.9, y: 25.9}
+  - {n: 6, x: 40.4, y: 40.0}
+```
 
-A mask is a live link from a target view to another open image view. For a
-mask-aware process, normalized white mask samples admit the processed result,
-black samples preserve the original, and intermediate values blend the two.
-The mask can also be shown over the target without enabling it for processing,
-or enabled for processing without being shown.
+## What you see
 
-This page is for anyone assigning an existing mask image. To create one first,
-use a mask-generation process such as [Range Selection](../processes/analysis/range-selection.md),
-[Binarize](../processes/masking/binarize.md), or
-[Mask Drawing](../processes/masking/mask-drawing.md). The expected result is a
-runtime-only mask relationship on the target; assignment does not change,
-embed, duplicate, or save either image's pixels.
+1. **The target and the mask.** Two open images of the same size, each in its own view. Here the mask,
+   `RGB - MASK`, was made from the target by Range Selection.
+2. **The overlay.** The mask drawn over the target: red where the mask keeps the original, clear where it lets the
+   process through.
+3. **Image > Mask.** The mask commands of the [active image](../reference/glossary.md#active-image).
+4. **Select Mask and Remove Mask.** Link another image as the mask, or unlink it.
+5. **Invert Mask, Enable Mask and Show Mask.** Swap black and white, use the mask in processes, and draw it over the
+   view. Each is on or off for this target alone.
+6. **Rendering Mode.** How the mask is drawn: a tint in one of six colors, the mask itself, or the picture multiplied
+   by the mask.
 
-## Reachability and availability
+## What you can do
 
-| Item | Current behavior |
-| --- | --- |
-| Main path | Activate an image and choose **Image > Mask > Select Mask**. The same Mask submenu is available from the image-view context menu. There is no toolbar button or default shortcut. |
-| Enabled when | The Mask menu requires an active view with image data. **Select Mask** is then enabled. Remove, invert, enable, show, and rendering actions require an assigned mask. |
-| Supported target/candidate | The selector supports the ordinary grayscale/RGB contract described below. Candidates must be another open view with the same width and height. |
-| Outputs and side effects | A live target-to-mask reference, display overlay state, and process-blend state. No file is written and no image pixels, metadata, or history step are changed by these controls. |
-| Persistence | Window-lifetime only. Save, duplicate, history navigation, application restart, and reopening a file do not restore the relationship or its flags. |
-| Dependencies | No external service. The source mask view must remain open and compatible. Rendering and processing allocate mask/display buffers proportional to image dimensions and channels. |
+### Make a mask
 
-## Before you start
+Any image of the target's width and height can be its mask, with one channel or three. The windows of **Process >
+Mask Generation** make one: [Range Selection](../processes/analysis/range-selection.md) from a band of brightness,
+[Star Mask](../processes/star-operations/star-mask.md) and
+[Starnet++ Star Mask](../processes/star-operations/starnet-star-mask.md) from the stars, and
+[Mask Drawing](../processes/masking/mask-drawing.md) by hand. [Binarize](../processes/masking/binarize.md) and
+[Morphological Transformation](../processes/masking/morphological-transformation.md) reshape a mask. Each new mask
+opens as an image of its own and is not linked yet.
 
-1. Open or generate the mask and target as separate views. A saved mask file is
-   useful when you need to recreate the relationship in a later session.
-2. Match width and height exactly. AfterNight does not register, crop, scale,
-   or resample a candidate during assignment.
-3. Prefer a grayscale mask. It applies one weight to every target channel and
-   works with grayscale or RGB targets. An RGB mask is accepted for an RGB
-   target and applies R, G, and B weights independently; it is not accepted for
-   a grayscale target.
-4. Use a mask with one channel or three. The selector lists no other, and the
-   view refuses one that stops matching when either image changes; convert an
-   alpha-bearing image to ordinary grayscale or RGB first.
-5. Confirm that the intended process supports masks. The shared process window
-   normally does, but a process can opt out or implement a specialized mask
-   path; its own page is authoritative.
+A grayscale mask weighs every channel of the target the same. A color mask weighs red, green and blue each by its own
+channel, and fits only a color target.
 
-The selector also accepts a compatible sequence view because it evaluates the
-view's current image. There is no target-frame-to-mask-frame pairing. Use a
-still mask for predictable sequence processing.
+### Link it to the target
 
-## Procedure
+1. Click the target's view, and choose **Image > Mask > Select Mask**.
+2. Choose the mask in **New Mask**. The list holds only the open images that fit the target. Rest the pointer on a
+   name to see its size, channels, [pixel type](../reference/glossary.md#pixel-type) and file.
+3. Choose **OK**. **Enable Mask** and **Show Mask** are on, **Invert Mask** is off, and the overlay appears.
 
-1. Activate the target and choose **Image > Mask > Select Mask**.
-2. In **Mask Selector `<target-name>`**, verify the read-only **Current Mask**.
-   Select the intended **New Mask**; each candidate tooltip reports its name,
-   dimensions, channels/color space, pixel type, source, and estimated memory.
-3. Select **OK**. Assignment turns **Enable Mask** and **Show Mask** on and
-   clears **Invert Mask**. The target and mask remain separate open views.
-4. Inspect the target with **Overlay Red** initially. Choose another colored
-   overlay or **Replace** if contrast is poor. **Multiply** shows the target as
-   the view displays it, multiplied by the mask.
-5. Decide display and native processing state separately. Clear **Show Mask** to
-   hide the overlay without changing processing. Clear **Enable Mask** to stop
-   the native mask-aware blend without hiding the overlay.
-6. If polarity is reversed, toggle **Invert Mask** and recheck both the overlay
-   and a native process preview. Inversion changes native processing weights as
-   well as the generated mask display. Extension input is different; see
-   [Process blend and inversion](#process-blend-and-inversion).
-7. Run the process in Preview first, then Apply/OK only after checking masked
-   and unmasked regions. When finished, choose **Remove Mask**; no confirmation
-   is shown, and the source mask view remains open.
+```figure
+owed: true
+image: ../assets/images/interface/masks-selector.webp
+alt: >-
+  The Mask Selector window for RGB. Under the heading Mask Selector and a line about choosing a compatible image, a
+  panel says that compatible masks must match dimensions, avoid circular references and respect color format
+  compatibility. Current Mask reads NO MASK and New Mask reads RGB - MASK. OK and Cancel stand at the bottom right.
+caption: >-
+  Mask Selector on the stretched Carina master, with the mask Range Selection made of it chosen in New Mask.
+```
 
-## Complete control and action reference
+### Check what it protects
 
-| UI label/action | Type and unit | Runtime default | Valid values or constraints | Effect | Enable/visibility rules | Quality, runtime, or memory trade-off | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Select Mask** | Menu action | No assigned mask on a new view | Active image required | Opens a modeless selector for the active target | Enabled whenever an active view has image data | Candidate tooltips calculate an approximate memory value; no image processing occurs | Target relationship | None |
-| **Remove Mask** | Menu action | Disabled with no mask | One click; no confirmation | Unlinks the current source, disables/hides/uninverts the mask, and resets rendering to Overlay Red | Assigned mask required | Frees the target's generated mask-render buffer; neither image is closed | Target relationship and mask state | None; no undo/history entry |
-| **Invert Mask** | Checkable menu action | Off after assignment | Off/on | Reverses visible mask polarity and swaps protected/processed weights for the native mask path | Assigned mask required | Regenerates the render buffer; process cost is otherwise unchanged | Display and supported native-process Preview/Apply | Window lifetime only |
-| **Enable Mask** | Checkable menu action | On after assignment | Off/on | Controls whether native mask-aware processing blends with the original | Assigned mask required | Adds a full mask blend when enabled; does not affect the viewer overlay | Supported native-process Preview/Apply and sequence frames | Window lifetime only |
-| **Show Mask** | Checkable menu action | On after assignment | Off/on | Shows or hides the viewer overlay | Assigned mask required | Display-only rendering/allocation; it does not enable processing | Target viewer and lens display | Window lifetime only |
-| **Rendering Mode** | Submenu | Overlay Red on a new/unmasked view | Exactly one of the eight actions below | Groups mutually exclusive display choices | Assigned mask required | Display only; changing mode regenerates the render buffer | Target viewer | Window lifetime; Remove resets red |
-| **Overlay Red** | Checkable rendering action | Checked initially | Mutually exclusive | Draws low/protected normal-mask values with a red translucent overlay | Assigned mask required | Good default contrast; stored samples unchanged | Display only | Window lifetime |
-| **Overlay Green** | Checkable rendering action | Off | Mutually exclusive | Green version of the colored overlay | Assigned mask required | Choose for contrast; stored samples unchanged | Display only | Window lifetime |
-| **Overlay Blue** | Checkable rendering action | Off | Mutually exclusive | Blue version of the colored overlay | Assigned mask required | Choose for contrast; stored samples unchanged | Display only | Window lifetime |
-| **Overlay Yellow** | Checkable rendering action | Off | Mutually exclusive | Yellow version of the colored overlay | Assigned mask required | Choose for contrast; stored samples unchanged | Display only | Window lifetime |
-| **Overlay Magenta** | Checkable rendering action | Off | Mutually exclusive | Magenta version of the colored overlay | Assigned mask required | Choose for contrast; stored samples unchanged | Display only | Window lifetime |
-| **Overlay Cyan** | Checkable rendering action | Off | Mutually exclusive | Cyan version of the colored overlay | Assigned mask required | Choose for contrast; stored samples unchanged | Display only | Window lifetime |
-| **Replace** | Checkable rendering action | Off | Mutually exclusive | Displays the normalized mask instead of a colored overlay | Assigned mask required | Direct structure/polarity inspection; converts a display copy to unsigned 8-bit | Display only | Window lifetime |
-| **Multiply** | Checkable rendering action | Off | Mutually exclusive | Displays the target, as the view shows it, multiplied by the current mask/channel | Assigned mask required | Follows the view's stretch and channel; it is a display, not a measurement | Display only | Window lifetime |
-| **Current Mask** | Read-only text field | Mask name or `NO MASK` when selector opens | Not editable | Reports the target's assignment at dialog construction | Always shown | It can become stale if another selector changes the relation while this modeless dialog remains open | Selector information | Dialog lifetime |
-| **New Mask** | Combo box | First compatible candidate | Open compatible views only | Chooses the source to assign; tooltip exposes candidate properties | Disabled with `<NO COMPATIBLE IMAGES>` | The first item is only a default selection, not a recommendation | Selector choice | Dialog lifetime |
-| **OK** | Default dialog button | Enabled with at least one compatible candidate | One click | Assigns a different selected source, or closes without state change if it is already current | Disabled with `<NO COMPATIBLE IMAGES>` | Candidate is looked up again by name; if it disappeared, the dialog closes without assigning | Target relationship | Runtime only |
-| **Cancel** | Dialog button | Enabled | One click | Closes without changing the target | Always available | No side effect | Selector dialog | None |
+With **Overlay Red**, the red marks what stays as it is, and the clear part is what a process changes. Choose another
+color in **Rendering Mode** when red is hard to see on the image, or **Replace** to see the mask itself. Hold the left
+button over the picture: the lens shows the mask's value beside the image's.
 
-## Behavior and state model
+When the wrong part is protected, choose **Invert Mask**. The overlay and what processes protect swap together.
 
-### Selection compatibility and relationship lifetime
+### Apply a process through it
 
-The selector excludes the target itself, images with different dimensions, an
-image with neither one nor three channels, an RGB candidate for a grayscale
-target, and a candidate whose own current mask is the target. The last rule prevents a direct two-image reciprocal reference;
-it is not a general cycle detector. One source may mask multiple targets.
+1. Open the process on the target. Its preview is blended through the mask, so check it at 100 % on both sides of
+   the mask's edges.
+2. Choose **Apply**. Where the mask is white the image takes the result, where it is black it keeps its samples, and
+   where it is gray it takes a share of each.
 
-The target stores a live reference, not a snapshot. Compatible source pixel
-updates refresh every client target. If an update changes dimensions, leaves
-the source with neither one nor three channels, or makes an RGB source
-incompatible with a grayscale target, AfterNight shows a **Mask Reference**
-warning and removes that relationship. Closing a source
-warns that it is used by other images and removes all of its client links.
-Closing a target unlinks it from its source. Renaming either view does not
-invalidate the object relationship.
+For a sample \(A\) of the target, the result \(P\) of the process at that sample, and the mask's value \(M\) from 0 to
+1, the image becomes
 
-Assigning a different source resets Enable and Show on and Invert off, while
-retaining the target's current rendering choice. Removing a source resets every
-flag and Overlay Red. Selecting the already-current source merely closes the
-selector.
+\[ O = (1 - M)\,A + M\,P \tag{1} \]
 
-### Process blend and inversion
+With **Invert Mask** on, \(M\) and \(1 - M\) swap places. With \(A = 0.2\) and \(P = 0.8\), a mask of 0, 0.5 and 1
+gives 0.2, 0.5 and 0.8, and inverted 0.8, 0.5 and 0.2.
 
-For original sample `A`, processed sample `P`, and mask sample `M` in `[0,1]`,
-an enabled normal mask calculates
+Not every process uses a mask. The **Masks** row of a process page's **At a glance** card reads **Blended after the
+process** or **Not used**. Among those that do not are the windows that make a mask, the geometry and stacking
+windows, [Debayer](../processes/calibration/debayer.md) and the [CFA](../reference/glossary.md#cfa) tools, Linear
+Match, Starnet++, the recombination windows and Pixel Math.
+[Process Windows Reference](process-windows-reference.md) lists the windows with a preview that leave it out.
 
-`O=(1-M)A+MP`.
+### Show it, use it, or neither
 
-Thus `M=0` preserves `A`, `M=0.5` mixes equally, and `M=1` accepts `P`. With
-Invert on, it calculates `O=MA+(1-M)P`. A grayscale mask uses its single
-channel for every target channel. An RGB mask uses the corresponding mask
-channel for R, G, and B.
+**Show Mask** and **Enable Mask** are separate. A hidden mask still protects the image in every process that uses
+a mask, and a shown mask protects nothing while **Enable Mask** is off. Turn **Enable Mask** off to see a process's
+whole result, and on again before you apply.
 
-The blend runs in the result's representation: a mask of another
-representation is first converted into it at full scale. Integer mask samples
-are therefore normalized when read. Over a floating-point result,
-floating-point mask samples are read verbatim and are not clamped or validated,
-so a floating mask below `0` or above `1` extrapolates instead of blending and a
-non-finite sample propagates. Over an integer result, the conversion holds a
-floating mask to `[0,1]` and reads NaN as `0`, and the blended result saturates
-at the representation's range. Normalize and clip a floating-point mask to
-`[0,1]` before assigning it.
+### Remove it
 
-In shared real-time process windows the process runs first, modulation is
-applied next where supported, and the mask blend is last. A Preview-area crop
-uses the matching mask rectangle. The same captured mask relationship is used
-for Apply/OK. **Show Mask does not enable processing**, and rendering mode does
-not affect output; only assigned + enabled + process support activates the
-blend.
+Choose **Image > Mask > Remove Mask**. The link goes at once, without a question, and the history has no step for it.
+The mask image stays open. Save it as an image of its own to link it again in a later session.
 
-For sequence Apply, the shared framework applies the attached view's current
-mask image to every processed frame. It does not advance or synchronize a mask
-sequence per target frame. An extension that declares mask-input capability
-receives the assigned mask's raw, read-only image buffer. That handoff occurs
-whenever a mask is assigned, regardless of **Enable Mask**, **Show Mask**, or
-**Invert Mask**; those flags do not disable, hide, or invert the extension input
-buffer. The extension defines how to interpret it instead of receiving the
-automatic native post-blend.
+## Controls
 
-### Display rendering
+### The Mask menu
 
-The engine draws the overlay. Colored modes generate an unsigned 8-bit RGBA
-display copy, each byte rounded to the nearest code. For a normal mask, overlay
-opacity is one minus the mask: strongest over low/black protected samples and
-transparent over high/white processed samples. Invert reverses that visual polarity. On an RGB mask,
-viewing a single R, G, or B target component selects the corresponding overlay
-channel; the composite display draws the three channels as one layer whose
-opacity is one minus the product of the channels. Replace shows the normalized
-mask directly. Multiply multiplies the target as the view shows it, after its
-stretch and channel choice, by the mask - by the mean of an RGB mask's channels
-when the view shows one channel - and is rebuilt whenever the target, its
-stretch, or the mask changes. Every mode reads each pixel type at its full
-scale; a signed integer mask is read as a signed fraction of its full scale, so
-every code below zero is an empty mask. A pixel the mask's validity rejects is
-left clear - the viewer draws no overlay there - and a NaN sample reads as zero. The display copy is kept at the image's full
-size; zooming out scales it from that copy each time, so repeated zooming does
-not blur it. While a mask is drawn with the mask drawing tools, the overlay
-shows every stroke that has landed since it was last painted.
+```controls
+window: Image > Mask
+controls:
+  - name: Select Mask
+    kind: action
+    default: ""
+    effect: Opens Mask Selector for the active image, to link another open image as its mask.
+    enabled: With an image or a sequence active. Without one the **Mask** menu is greyed, and a command that reaches it says "No selected image to process". There is no shortcut and no toolbar button.
+    note: The window leaves the rest of the application usable, and each choice opens another. It closes with the target's view.
+  - name: Remove Mask
+    kind: action
+    default: ""
+    effect: Unlinks the mask at once, with no question. **Invert Mask**, **Enable Mask** and **Show Mask** turn off, and **Rendering Mode** returns to **Overlay Red**.
+    enabled: When the target has a mask, as are the four commands below.
+    scope: The link and the overlay. The mask image stays open, and neither image changes.
+    persistence: It makes no history step, so Undo does not bring the link back.
+  - name: Invert Mask
+    kind: check
+    default: "Off"
+    effect: Swaps black and white of the mask, for processes and for the overlay alike. The mask image itself is not changed.
+    scope: The previews, snapshots and every Apply of the processes that blend through the mask, and the overlay. A process an extension adds receives the mask as it is, not inverted.
+    persistence: Off whenever a mask is linked, then kept while the view is open.
+  - name: Enable Mask
+    kind: check
+    default: "On"
+    effect: On, the processes that blend through a mask blend through this one. Off, they change the whole target, and the mask stays linked and shown.
+    tradeoff: The blend adds a pass over the whole image after the process, and holds the mask and the original beside the result. Its cost grows with the pixels and the channels.
+    scope: Previews, snapshots and every Apply, on a still image and on each frame of a sequence.
+    persistence: On whenever a mask is linked.
+  - name: Show Mask
+    kind: check
+    default: "On"
+    effect: Draws the mask over the target's view, as **Rendering Mode** says. Off hides it. It changes nothing a process does.
+    tradeoff: Drawing costs work for the view only, never for a process.
+    scope: The target's view and its lens. While it is on, the lens shows the mask's value as **M**, or **M0** to **M2** for a color mask, not inverted. A saved or exported image never holds the overlay.
+    persistence: On whenever a mask is linked.
+  - name: Rendering Mode
+    kind: radio
+    default: Overlay Red
+    options: [Overlay Red, Overlay Green, Overlay Blue, Overlay Yellow, Overlay Magenta, Overlay Cyan, Replace, Multiply]
+    effect: "Chooses how the mask is drawn. The six **Overlay** choices lay that color over the target, opaque where the mask is 0 and clear where it is 1, so the tint marks what is protected. **Replace** shows the mask itself, opaque, in gray or in color. **Multiply** shows the picture as the view displays it, multiplied by the mask."
+    tradeoff: "**Multiply** follows the view's stretch and channel, so it darkens what the mask protects and measures nothing. It is no preview of a masked process either. Judge the mask's edges and its sides with an overlay or **Replace**."
+    scope: The display only. No process reads it.
+    persistence: Kept when another mask is linked. **Remove Mask** returns it to **Overlay Red**.
+```
 
-## Inputs, outputs, and metadata
+### Mask Selector
 
-The input is another open view's current image. Width and height must match.
-Ordinary grayscale and RGB masks may have a different numeric pixel type from
-the target. Integer mask types are normalized on read; floating-point types are
-assumed to be normalized but are read without clamping. Integer conversion can
-still quantize a generated mask before assignment. AfterNight does not inspect
-FITS keywords, WCS, pixel scale, orientation, registration, or content when
-deciding compatibility. Geometrically align the images yourself.
+```controls
+window: Mask Selector
+controls:
+  - name: Title
+    kind: readout
+    default: ""
+    effect: Names the target, as `Mask Selector <RGB>`, and follows a rename. The heading reads **Mask Selector**, over "Select a compatible image to use as a mask for the active image.", and a panel under it reads "Compatible masks must match dimensions, avoid circular references, and respect color format compatibility."
+  - name: Current Mask
+    kind: field
+    default: NO MASK
+    effect: Names the image linked as the target's mask when the window opened, or reads `NO MASK`. It cannot be edited.
+    tradeoff: It is read once, so a mask linked from another Mask Selector while this one is open is not shown here.
+  - name: New Mask
+    kind: combo
+    default: The first image that fits
+    options: [The first image that fits, Every other open image that fits, "<NO COMPATIBLE IMAGES>"]
+    effect: Chooses the image to link. The tooltip of each entry gives its name, its file or `In-memory file`, its size, its channels and color, its pixel type and the memory its samples take.
+    range: It lists the open images and sequences of the target's width and height with one channel, or three for a color target. It leaves out the target itself, an image of any other number of channels, a color image for a grayscale target, and an image whose own mask is the target, so two images never mask each other. A longer loop is not looked for. Convert an image with alpha to RGB or grayscale before you use it as a mask.
+    enabled: Disabled, reading `<NO COMPATIBLE IMAGES>`, when no open image fits.
+    tradeoff: The first entry is only the first that fits, not a recommendation. Nothing is aligned, cropped or resized, and no header or plate solution is compared, so an image of the right size can still be of another field or turned.
+    persistence: The list follows the images opened, closed, changed and renamed while the window is open.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Links the chosen image as the mask and closes the window. **Enable Mask** and **Show Mask** turn on, **Invert Mask** turns off, and **Rendering Mode** stays as it was.
+    enabled: When the list holds an image.
+    range: Choosing the mask already linked only closes the window. The image is looked for by its name when you press it, and the window closes without linking when it was closed meanwhile.
+    scope: Linking changes neither image. No pixel, header card, file or history step comes of it.
+    note: One image may be the mask of several targets.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Closes the window and changes nothing.
+```
 
-Assignment creates no image, file, metadata field, or history entry. The mask
-is not embedded in a saved target and its visible overlay is not composited
-into Save/Export output. Duplicating the target copies the image and its
-detected stars, not the mask link. History stores pixel-state snapshots, not assignment flags.
-Save the source mask separately when it must survive closing or restart.
+### The link, the blend and the overlay
 
-## Performance and responsiveness
+```controls
+window: How a mask works
+controls:
+  - name: The link
+    kind: readout
+    default: ""
+    effect: The target holds a reference to the mask's view, not a copy. A change of the mask's image - a process, an undo, another frame of a mask sequence - redraws the overlay of every target it masks, and the next preview or Apply reads it.
+    range: "A change of either image that makes the mask unfit - another size, other channels, a color mask over a grayscale target - removes the link, in a message titled **Mask Reference**: \"This update made the mask '<mask>' incompatible with the image '<target>'. Removing the mask reference.\" Undoing a crop or a resize of the target does this too."
+    scope: A sequence used as a mask gives the frame its view shows, the same one to every frame of a target sequence. No frame of the mask is paired with a frame of the target, so a still mask is safer for a sequence.
+    persistence: "The link lasts while both views are open, and survives a rename of either. Closing the target removes it. Closing the mask says \"This image is being used as a mask in other images. The mask references are being removed\", with OK alone, and the view closes all the same. Saving, duplicating, the history, reopening a file and restarting AfterNight keep no link."
+    note: "Some windows link a mask themselves. Star Reduction links the protection mask it builds, enabled and hidden. Every mask an extension writes opens as an image, and the first becomes the mask of the image the extension ran on. A mask linked that way that does not fit is refused with \"'<mask>' cannot be the mask of '<target>': ...\" and the reason."
+  - name: The blend
+    kind: readout
+    default: ""
+    effect: After a process has computed its result, and after its **Amount** where it has one, each sample becomes the original plus the mask's share of the change, by equation (1).
+    range: The mask may have another pixel type than the target. It is read in the result's pixel type, as a fraction of its full scale, so an integer mask is scaled from its codes. Over a floating-point result, a floating-point mask is read as it is and never clamped. A value below 0 or above 1 then pushes the result beyond the original or the process's result, and a value that is not a number reaches the result. Over an integer result the mask is held between 0 and 1, a value that is not a number reads as 0, and the result is cut at the ends of its type.
+    tradeoff: Hold a floating-point mask between 0 and 1 before you link it. A mask rounded to the codes of an integer type when it was made keeps those steps in its soft edges.
+    scope: A one-channel mask weighs every channel of the result, and a three-channel mask weighs each channel by its own. A **Preview area** uses the same part of the mask. Every frame of a sequence is blended with the same mask.
+    note: A process an extension adds is not blended. When it asks for a mask, it receives the linked mask's image as it is, read only, whether the mask is enabled, shown or inverted. It can read those three settings, and decides itself what to do with the mask.
+  - name: The overlay
+    kind: readout
+    default: ""
+    effect: The layer the view draws over the target while **Show Mask** is on, in the mode **Rendering Mode** chooses.
+    range: Every pixel type is read as a fraction of full scale and held between 0 and 1, so a code of a signed integer below zero reads as 0, as does a value that is not a number. A pixel the mask marks as invalid is left clear. Each value is rounded once to the 8 bits of the screen.
+    scope: A color mask is drawn as one layer whose opacity is one minus the product of its three channels. While **View Channel** shows red, green or blue, only that channel of the mask is drawn, and **Multiply** of one channel uses the mean of the mask's three.
+    tradeoff: The layer is computed in the background with the picture, over the same part of the image and at the same reduction, and the view keeps showing the old picture until both are ready. A large mask over several targets costs work and memory, never a pause of the window.
+    persistence: It is drawn again when the mask's image, the target, its stretch or its channel changes, and when you invert the mask or choose another mode. Each time it is drawn from the mask's own samples, so repeated zooming does not blur it. While you paint a mask in Mask Drawing, that window's overlay shows every stroke that has landed since it was last drawn.
+```
 
-Assignment and toggles run on the UI path. Source updates and inversion/mode
-changes regenerate a full-size display buffer on a worker thread and notify
-client views; each view keeps showing its previous overlay until the new one is
-ready, so a large mask used by several targets costs work but does not pause the
-window.
-Enabled native processing adds a full-image blend after the process and
-holds source/result/mask buffers. Work and memory grow approximately with pixel
-count and channel count. Show-only overlays add display work but no process
-blend. No production timing or peak-memory measurement was made.
+## When it goes wrong
 
-## Worked example
+`<NO COMPATIBLE IMAGES>` in New Mask, and OK greyed
+:   **Cause.** No other open image has the target's width and height, with one channel or three for a color target.
+:   **Fix.** Make the mask from the target itself, with Range Selection or Mask Drawing, or resize or convert the image
+    you meant first.
 
-- Input: a same-size grayscale still mask with normalized samples `0`, `0.5`,
-  and `1`; target samples `A=0.2`; hypothetical processed samples `P=0.8`.
-- Normal expected result: `0.2`, `0.5`, and `0.8` respectively from
-  `O=(1-M)A+MP`.
-- Inverted expected result: `0.8`, `0.5`, and `0.2` respectively.
-- Workflow checkpoint: after assignment, Enable and Show are checked, Invert is
-  clear, and Overlay Red is visible over the low/protected portion. Clear Show
-  and confirm Preview results remain the same; then clear Enable and confirm a
-  mask-aware Preview becomes the unmasked process result.
-- Limitation: the approved target/mask capture demonstrates assignment and
-  Overlay Red presentation only; no sequence run, visual-quality comparison,
-  production timing, or peak-memory result was executed.
+A process changed the whole image
+:   **Cause.** **Enable Mask** is off, or the process does not use a mask: its page's **Masks** row reads **Not used**.
+:   **Fix.** Undo the step, turn **Enable Mask** on, and apply again. For a process that does not use a mask, write the
+    blend in Pixel Math with `$M`.
 
-## Warnings and limitations
+The process changed the part you meant to protect
+:   **Cause.** The mask is white where it should be black.
+:   **Fix.** Undo the step, choose **Invert Mask**, check the overlay, and apply again.
 
-- A mask is not a selection saved inside the target. Save mask images
-  separately and reassign them after reopening.
-- Same dimensions do not prove registration. A shifted, rotated, or optically
-  distorted mask will affect the wrong pixels.
-- Use ordinary one- or three-channel images. An image with any other channel
-  count is neither listed nor kept as a mask; assigning one through another
-  route shows a **Mask Reference** warning naming why, and assigns nothing.
-- RGB masks are per-channel, not automatically converted to luminance. Use a
-  grayscale mask when identical spatial influence across channels is intended.
-- Floating-point mask values are not range checked. Values outside `[0,1]`
-  extrapolate, and non-finite values can propagate into floating-point output.
-  Normalize and clip the mask before assignment.
-- Hide and Disable are independent. A hidden mask can still affect processing,
-  and a shown mask can be disabled for processing.
-- Multiply shows the displayed, possibly stretched, target times the mask; it
-  is not a preview of a masked process. Use colored overlays and Replace to
-  inspect mask geometry/polarity.
-- A sequence can be selected as a source, but there is no per-frame mask
-  synchronization. Use a still mask for a sequence workflow.
-- Removing or replacing a relationship has no confirmation and no history undo.
-  The warning shown while closing a mask source is informational: it has no
-  Cancel action, and closing continues after acknowledgement.
-- Several modeless selectors can coexist. A selector's Current Mask field is an
-  opening-time value and may not reflect a relationship changed elsewhere.
+The image is still protected after Show Mask was turned off
+:   **Cause.** **Show Mask** hides the overlay only, and **Enable Mask** is still on.
+:   **Fix.** Turn **Enable Mask** off, or choose **Remove Mask**.
 
-## Troubleshooting
+"This update made the mask '...' incompatible with the image '...'. Removing the mask reference."
+:   **Cause.** A crop, a resize, a conversion or an undo changed the size or the channels of the target or the mask.
+:   **Fix.** Make the two images the same size again, or make a new mask from the target, and link it again.
 
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| Mask menu is disabled | No active view with image data | Activate the intended target view |
-| Only Select Mask is enabled | The active target has no assigned mask | Assign a compatible source first |
-| `<NO COMPATIBLE IMAGES>` appears and OK is disabled | No other open view passes identity, dimensions, channel-count, color, and direct-reference checks | Open/generate a same-size grayscale or compatible RGB mask |
-| Selector closes but no mask is assigned | The selected view disappeared before OK, or it was already the current mask | Reopen the selector and choose a still-open different candidate |
-| **No selected image to process** appears | A stale/programmatic action reached the launcher/coordinator without an active target | Activate the target and retry |
-| **Mask Reference** warning appears and the mask disappears | A source/target update made dimensions or channel layout incompatible | Restore matching geometry/channel compatibility and reassign |
-| Closing a mask warns that other images use it | The source has one or more client targets; the warning is informational and offers only OK | Acknowledge the warning; closing continues and removes every client link. Reopen the saved mask and reassign it if needed |
-| Overlay remains but a process ignores the mask | Show is on but Enable is off, or the process does not support the native mask path | Turn on Enable and check the process-specific page |
-| Hidden mask still changes Preview/Apply | Show is display-only; Enable remains on | Turn off Enable or remove the mask |
-| RGB result has different masking by channel | The RGB mask supplies independent R/G/B weights | Inspect each mask channel or use a grayscale mask |
-| Multiply display looks darker than expected | Multiply scales the displayed target by the mask, so protected (dark) mask regions darken it | Use Replace or a colored overlay to inspect the mask itself |
-| Mask is absent after save/reopen, duplicate, or restart | Assignment and flags are runtime-only and are not serialized/copied | Reopen the saved mask image and assign it again |
+The mask is gone after the image was saved and opened again
+:   **Cause.** The link lasts only while both views are open, and no file keeps it.
+:   **Fix.** Save the mask as an image of its own, open it beside the target, and link it again.
 
-## Related workflow steps
+## Related
 
-Create candidate masks with [Range Selection](../processes/analysis/range-selection.md),
-[Binarize](../processes/masking/binarize.md), or
-[Mask Drawing](../processes/masking/mask-drawing.md). Use
-[Image Viewer](image-viewer.md) for display-channel and zoom behavior,
-[Process Windows](process-windows.md) for Preview/Apply interaction,
-[Sequences](sequences.md) for container behavior, and
-[Saving and Exporting](saving-and-exporting.md) for what is actually written.
-The complete menu placement is in [Toolbar and Menus](toolbar-and-menus.md).
+- [Range Selection](../processes/analysis/range-selection.md), [Star Mask](../processes/star-operations/star-mask.md)
+  and [Mask Drawing](../processes/masking/mask-drawing.md), to make a mask.
+- [Binarize](../processes/masking/binarize.md) and
+  [Morphological Transformation](../processes/masking/morphological-transformation.md), to harden, grow or shrink one.
+- [Process Windows](process-windows.md), for the preview and the Apply that blend through the mask.
+- [Image Viewer](image-viewer.md), for the overlay, the lens and the channels a view shows.
+- [Pixel Math](../processes/pixel-math/pixel-math.md), to write a blend of your own with the mask as `$M`.
+- [Saving and Exporting](saving-and-exporting.md), to keep a mask as a file.

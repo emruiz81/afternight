@@ -108,7 +108,7 @@ held to follow the pointer, and release it to close the lens.
 
 In **Linear** the values are the image's own samples. In **Autostretch** they are what you see, after the stretch:
 switch to **Linear** before you read a value you want to use. With a [mask](../reference/glossary.md#mask) on the
-image, the lens shows the mask's value too.
+image and shown, the lens shows the mask's value too.
 
 ### Use a preview
 
@@ -250,7 +250,9 @@ controls:
     default: ""
     effect: Holds the buttons that no longer fit when the view is narrow, rightmost first. Its tooltip reads **More tools**.
     enabled: Shown only while some buttons do not fit.
-    note: A button or box in the menu keeps its state and works as on the toolbar.
+    note: >-
+      A button or box in the menu keeps its state and works as on the toolbar when you choose it. Its keyboard
+      shortcut does nothing while it is in the menu: widen the view to use it.
 ```
 
 ### The picture
@@ -277,7 +279,7 @@ controls:
   - name: Lens
     kind: readout
     default: ""
-    effect: Shows the 24 by 24 pixels around the pointer magnified, a histogram of them, the position as **X** and **Y** to three decimals, and the values as **R**, **G** and **B**, or **K** for gray, to five decimals. With a mask on the view it adds the mask's value, **M**, or **M0** to **M2** for a color mask.
+    effect: Shows the 24 by 24 pixels around the pointer magnified, a histogram of them, the position as **X** and **Y** to three decimals, and the values as **R**, **G** and **B**, or **K** for gray, to five decimals. With a mask shown on the view it adds the mask's value, **M**, or **M0** to **M2** for a color mask.
     range: In Linear a value is the image's own sample as a fraction of full scale. In Autostretch it is the stretched value the view shows, and a component shown in **View Channel** reads as **K**.
     tradeoff: Do not take Autostretch values for measurements.
     note: In a real-time preview the lens reads the image shown, the original when you switch to it. Right-clicking while the lens is open shows the original in it.

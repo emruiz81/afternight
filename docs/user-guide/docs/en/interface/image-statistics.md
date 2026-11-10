@@ -1,178 +1,246 @@
 ---
 kind: interface
 summary: >-
-  Measures the level, spread, clipping and noise of the active image, one channel at a time, from its stored values.
+  Image Statistics measures each channel of an image, or of the frame a sequence shows: counts, level, spread,
+  extremes and background noise, read from the stored samples and never from the display.
+menu: Image > Information > Statistics
+rewritten: true
 ---
 # Image Statistics
 
-## Purpose, audience, prerequisites, and expected result
+Image Statistics measures the [active image](../reference/glossary.md#active-image), or the frame of a
+[sequence](../reference/glossary.md#sequence) its view shows, one channel at a time. Use it to put numbers on the
+level, the spread, the clipping and the noise of an image before and after a step. It reads each stored sample as a
+[fraction of full scale](../reference/glossary.md#fraction-of-full-scale), never what the view displays, so the
+[Autostretch](../reference/glossary.md#autostretch) display mode changes none of its figures. The window changes nothing either: not the samples, the header,
+the [history](../reference/glossary.md#history), the [mask](../reference/glossary.md#mask) or a file.
 
-Image Statistics measures the active image or current sequence frame one channel
-at a time. Use it to quantify level, spread, clipping, and background noise
-before or after a processing step. It reads stored pixel values, not the
-autostretched display.
+```figure
+owed: true
+image: ../assets/images/interface/image-statistics.webp
+alt: >-
+  The Image Statistics window. Under the title bar, the heading Image Statistics and a line about per-channel
+  statistics. A card titled Statistics Table holds a table with the columns Red, Green and Blue and a row for each
+  figure, from Count (px), Count (%), Mean, Sigma and Median downward, each cell a number with seven decimals. Under the
+  table, a box reading Normalized (0.0-1.0), an Unclipped check box, off, and a Refresh button. Close stands at the
+  bottom right.
+caption: >-
+  Image Statistics on the linear Carina master at its defaults, Normalized (0.0-1.0) with Unclipped off.
+pins:
+  - {n: 1, x: 23.0, y: 3.0}
+  - {n: 2, x: 11.0, y: 30.0}
+  - {n: 3, x: 2.8, y: 85.0}
+  - {n: 4, x: 47.0, y: 85.0}
+  - {n: 5, x: 78.5, y: 85.0}
+  - {n: 6, x: 80.5, y: 94.0}
+```
 
-You need an active view containing a valid mono or RGB image. The result is a
-read-only table with one **Gray** column or separate **Red**, **Green**, and
-**Blue** columns, and an **Alpha** column for a colour image with alpha. It does not change pixels, metadata, history, masks, or files.
+## What you see
 
-## Reachability and availability
+1. **The title.** It names the view the window measures, as `Statistics <RGB>`.
+2. **The table.** One column for each channel and one row for each figure. A grayscale image has one column,
+   **Gray**.
+3. **The range box.** The units of the figures: fractions from 0 to 1, or codes of 8, 16 or 32 bits.
+4. **Unclipped.** Whether the samples at either end of the range are counted.
+5. **Refresh.** Measures the image again.
+6. **Close.** Closes the window.
 
-| Item | Current behavior |
-| --- | --- |
-| Path | **Image > Information > Statistics**, or **Statistics** on the active image-view toolbar. The toolbar advertises `Ctrl+Shift+T` while that view has focus. |
-| Enabled/visible when | A view with an image is active. Opening the dialog disables that view's Statistics actions until the dialog closes; the focused-view shortcut also honors that disabled state. An image load or update in that view enables the actions again, so a second Statistics window can then be opened. |
-| Supported inputs/state | Mono and colour images of every pixel type, signed integers among them. On a sequence view, the table describes the current decoded frame, not all frames. Display mode, autostretch, zoom, channel display, the view's mask, and selections do not limit the sample; samples the image itself marks as holding no data - a registration border, for one - are left out. |
-| Outputs/side effects | A read-only per-channel table. No output image, file, clipboard data, metadata, or history entry is produced. |
-| Persistence | None. Range and **Unclipped** return to their defaults in each new dialog. |
-| External dependencies | None. Each measurement runs on a worker thread through the engine, in an operation the application's engine session admits; the table changes only when the latest measurement lands. |
+## What you can do
 
-## Before you start
+### Measure an image
 
-- Select the view you intend to measure. With a sequence, navigate to the frame
-  of interest first.
-- Decide whether exact endpoint values are valid signal. With **Unclipped** off,
-  normalized values at or below 0 and at or above 1 are excluded. Enable it to
-  include finite black/white endpoints - and, for a floating-point image, values
-  below 0 or above 1 - in the reported population.
-- Disable autostretch only if you also want to compare appearance. It does not
-  affect the numbers.
+1. Make the image the active view. For a sequence, pause the player on the frame you want to measure.
+2. Choose **Image > Information > Statistics**, choose **Statistics** on the view's toolbar, or press
+   ++ctrl+shift+t++ over the view. The window opens at once, and the table fills when the measurement is done.
+3. Read **Median** and **MAD** for the background, which a few stars hardly move. **Min**, **Max** and the two counts
+   show clipping, and **BG Noise** the noise between neighbouring pixels.
 
-## Procedure
+On the linear Carina [master](../reference/glossary.md#master), every channel's **Median** reads 0.02766 and its
+**MAD** 0.00175.
 
-1. Activate the image or sequence frame and open **Image > Information >
-   Statistics**. The initial computation runs asynchronously.
-2. Confirm that the title names the intended view and that the table shows
-   **Gray** or **Red/Green/Blue** columns (with **Alpha** for a colour image with
-   alpha).
-3. Leave **Normalized (0.0-1.0)** selected for the least ambiguous comparison
-   between pixel types.
-4. Compare **Count (px)** with the expected pixels per channel. The default
-   excludes black/white endpoints. Enable **Unclipped** to include finite
-   endpoints, then watch the count and percentage change. Non-finite values are
-   excluded in either state.
-5. Use **Median** and **MAD** for a robust background comparison; use **Min**,
-   **Max**, and the count change to diagnose endpoints. Treat **BG Noise** as a
-   row-difference noise estimate, not a full noise model.
-6. Change the numeric range only when you need familiar 8-, 16-, or 32-bit-like
-   units. This rescales the report; it does not convert the image.
-7. Close the window when finished. **Refresh** measures the image again; image
-   load/update notifications refresh the table automatically.
+### Count the samples at the ends
 
-## Complete control and action reference
+With **Unclipped** off, a sample at or below 0 or at or above 1 is left out. An integer image loses its lowest and its
+highest code: an unsigned 16-bit image loses 0 and 65535 and keeps 1 and 65534. Turn **Unclipped** on to count every sample that
+is a finite number. The window measures again, and **Count (px)** rises by the samples that were left out. On the
+Carina master, green's **Min** then reads -0.1600173 and its **Max** 1.8526056.
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Numeric range selector | Selector; reported level units | **Normalized (0.0-1.0)** | **Normalized (0.0-1.0)**; **8-bit (0-255)**; **16-bit (0-65K)**; **32-bit (0-4000M)** | Rescales the already computed table. Normalized values use seven decimal places; other modes use three. | Always available after data exists. It does not change counts or recompute the source image. | A level or a spread is multiplied by the range's full scale and **Variance** and **BWMV** by its square, so a variance stays the square of the standard deviation shown beside it. No value is held to the range: a floating image's mean above one shows above full scale. | All reported channels in this dialog | Dialog lifetime only |
-| **Unclipped** | Checkbox | Off | Off/on | Off retains only samples strictly inside normalized `(0,1)`. On includes every finite sample, including exact black/white endpoints and a floating-point value below 0 or above 1. Either change measures again on a worker. **Count** and **Count (%)** expose the retained population. | Applies to all channels; NaN/infinite samples, and samples the image marks as holding no data, are excluded in either mode. | Including endpoints reveals the complete finite population but can let black borders or saturated samples dominate extrema and distribution measures. | Whole current image/frame, all channels | Dialog lifetime only |
-| **Count (px)** | Read-only integer row | Computed | 0 to width x height per channel | Number of finite samples used. | Changes with **Unclipped** when endpoints exist; unaffected by report range. | A lower count is evidence of excluded endpoints or non-finite values, not automatic proof of processing damage. | Per channel | None |
-| **Count (%)** | Read-only percent row | Computed | 0-100%, seven decimals | `100 x retained count / (width x height)`. | Same filter as **Count (px)**. | Makes endpoint loss comparable across image sizes. | Per channel | None |
-| **Mean** | Read-only level row | Computed | Selected report range | Arithmetic mean of retained normalized samples. | Recomputed by **Unclipped** and image updates. | Sensitive to stars, clipping, gradients, and outliers. | Per channel | None |
-| **Sigma** | Read-only level row | Computed | Non-negative | The population standard deviation, as **StdDev**. | Recomputed with the retained population. | The same number as **StdDev**; the row keeps its place in the table. | Per channel | None |
-| **Median** | Read-only level row | Computed | Selected report range | The exact central retained value; the mean of the two middle values of an even count. | Recomputed with the retained population. | More robust than the mean for sparse stars and outliers, but not a background-only sample. | Per channel | None |
-| **Min** / **Max** | Read-only level rows | Computed | Selected report range | Lowest/highest retained finite sample. | Endpoint values disappear when **Unclipped** is off. | One extreme pixel can set either value. Pair with counts and histogram clipping information. | Per channel | None |
-| **StdDev** | Read-only level row | Computed | Non-negative | Population standard deviation around the mean. | Uses the retained population. | Sensitive to gradients, stars, and signal structure as well as noise. | Per channel | None |
-| **AvgDev** | Read-only level row | Computed | Non-negative | Mean absolute deviation from the arithmetic mean. | Uses the retained population. | Robustness is between mean-based spread and median-based MAD. | Per channel | None |
-| **BWMV** | Read-only robust-spread row | Computed | Non-negative when defined | Biweight midvariance about the median, with a tuning constant of nine MADs; zero when MAD is zero. | Uses the retained population. | Useful against outliers. It is in squared units, scaled by the square of the selected range's full scale. | Per channel | None |
-| **Variance** | Read-only squared-spread row | Computed | Non-negative | Mean squared deviation from the mean; `StdDev^2` apart from rounding. | Uses the retained population. | In squared units, scaled by the square of the selected range's full scale. | Per channel | None |
-| **MAD** | Read-only robust-spread row | Computed | Non-negative | Median of `abs(x - median)`. | Uses the retained population. | Robust against sparse outliers; it is not multiplied by a normal-distribution consistency factor in this table. | Per channel | None |
-| **BG Noise** | Read-only level row | Computed | Non-negative; zero when no row has two first differences | Median per-row population standard deviation of first horizontal differences after up to three strict 5-sigma rejection passes, divided by `sqrt(2)`. | Uses the retained population; a left-out sample is skipped and the next retained sample is differenced from the one before it. | Suppresses smooth background level but still reacts to structure and directionality. Compare similar data only. | Per channel | None |
-| **Refresh** | Push button | Available | Click | Measures the current image or frame again. | Always available. | The table changes when the measurement lands. | This dialog | None |
-| **Close** | Push button/default dialog action | Available | Click, Enter when default, or close the window | Closes the dialog and re-enables Statistics for its parent view. | Always available. | None. | This dialog | None |
+Leave it off when a black border or saturated stars would decide the extremes. Turn it on to see how far a
+floating-point image runs past 0 and 1.
 
-## Behavior and state model
+### Read the figures in codes
 
-AfterNight reads each stored pixel component as a fraction `x` of its pixel
-type's range before reporting it. An unsigned integer is read over its largest
-code, a signed integer from its smallest value to its largest - so a signed 16-bit
-image's -32768 reads as 0 and 32767 as 1 - and a floating-point value as it is.
-Non-finite floating-point values are discarded, as are samples the image marks as
-holding no data. With **Unclipped** off, only `0 < x < 1` contributes. With it on,
-every remaining finite value contributes.
+Choose **8-bit (0-255)**, **16-bit (0-65K)** or **32-bit (0-4000M)** in the range box. The table is shown again in
+those units at once, and nothing is measured again. At **16-bit (0-65K)**, the Carina master's red **Median** reads
+1812.496. Keep **Normalized (0.0-1.0)** to compare images of different [pixel types](../reference/glossary.md#pixel-type).
 
-All rows are computed independently for each stored channel. The current display
-composition does not merge or hide channels, and a mask does not restrict the
-measurement. For a sequence, the view supplies the current frame as the image;
-frame changes that emit an image update trigger a new calculation.
+### Compare before and after a step
 
-The dialog measures on a worker thread when it opens, on image load/update, when
-**Unclipped** changes and when **Refresh** is pressed; a measurement asked for
-while another is on its way replaces it, and the table changes only when the
-latest one lands. A measurement that cannot be made - no engine session, or an
-image the engine refuses - leaves the table empty. A rename updates the window
-title only. Changing the numeric range only reformats the last result.
+Leave the window open while you work. It measures again after each change of the image, an Apply, an Undo or a new
+frame, and shows the newest measurement. Press **Refresh** to measure again yourself. To learn what a save kept, save
+the image, open the file again and measure its new view.
 
-Use these relationships when reading the table:
+## Controls
 
-- `mean = sum(x) / N`, where `N` is **Count (px)**.
-- `variance = sum((x - mean)^2) / N` and `StdDev = sqrt(variance)`.
-- `MAD = median(abs(x - median))`.
-- **BG Noise** estimates high-frequency horizontal variation from adjacent
-  differences; it is not the same as global standard deviation.
+### The window
 
-The table has no sum-of-squares row; the engine's sum and mean of squares reach
-PixelMath, not this window.
+```controls
+window: Image Statistics
+controls:
+  - name: Title
+    kind: readout
+    default: ""
+    effect: Names the view the window measures, as `Statistics <RGB>`, and follows a rename. A rename changes nothing else.
+    enabled: The window opens from **Image > Information > Statistics**, from **Statistics** on the view's toolbar, or with ++ctrl+shift+t++ while the view has the focus. While it is open, that view's menu entry, button and shortcut are disabled. They come back when the window closes, and when the view's image loads or changes, which lets a second window open.
+    tradeoff: The shortcut does nothing while the button sits in the toolbar's **More** menu. Use the menu then.
+    persistence: Nothing of the window is kept. Each new window opens at **Normalized (0.0-1.0)** with **Unclipped** off.
+    note: The window stays open beside your work, and closes with its view. It writes nothing - no image, file, header card, history step or clipboard text.
+  - name: Numeric range
+    kind: combo
+    default: Normalized (0.0-1.0)
+    options: [Normalized (0.0-1.0), 8-bit (0-255), 16-bit (0-65K), 32-bit (0-4000M)]
+    effect: Shows the figures as fractions of full scale, or multiplied by 255, 65535 or 4294967295. **Variance** and **BWMV** are multiplied by the square, so a variance stays the square of the deviation beside it.
+    range: Seven decimals in **Normalized (0.0-1.0)**, three in the others. No figure is held to the range, so the mean of a floating-point image above 1 shows above full scale.
+    enabled: Always. The box has no label of its own.
+    tradeoff: It only shows the last measurement in other units. It converts nothing and measures nothing again.
+    scope: Every column and every figure. The two counts do not change.
+  - name: Unclipped
+    kind: check
+    default: "Off"
+    effect: Off counts only the samples strictly inside the range, above 0 and below 1. On counts every sample that is a finite number, the two ends included, and a floating-point sample below 0 or above 1.
+    range: For an integer image the ends are its lowest and highest code, as 0 and 65535 in 16 bits, or -128 and 127 in signed 8 bits.
+    tradeoff: On, a black border or saturated stars count, and can decide **Min**, **Max** and the spread. Neither state rejects outliers by their deviation or repairs a clipped sample.
+    scope: Every channel. A sample that is not a finite number, or that the image marks as invalid, is left out either way.
+    persistence: Each change measures the image again, in the background.
+  - name: Refresh
+    kind: button
+    default: ""
+    effect: Measures the image again, with **Unclipped** as it is.
+    enabled: Always.
+    tradeoff: A measurement reads every sample of every channel, and its time grows with the width, the height and the channel count. The median, **MAD** and **BWMV** rank the samples exactly - an 8- or 16-bit image, as a camera raw frame opens, from one read of each channel, a floating-point image from several. The work runs in the background and may use every thread the **Processing** page of the settings allows that is free, so the window stays responsive.
+    note: The window also measures by itself when it opens, when **Unclipped** changes and when the view's image loads or changes, a new frame of a sequence among them. A measurement asked for while another is on its way replaces it, and the table shows only the newest one.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window and enables the view's **Statistics** entries again.
+    range: ++enter++ and the window's own close button do the same.
+```
 
-## Inputs, outputs, and metadata
+### The table
 
-The only input is the active view's in-memory image. The tool reads all pixels
-of the current still or decoded sequence frame and produces transient table
-cells. It does not write an image, select pixels, alter display transfer
-functions, append history, change metadata, save a report, or touch disk.
+```controls
+window: The table
+controls:
+  - name: Columns
+    kind: readout
+    default: ""
+    effect: One column for each channel the image stores. **Gray** for one channel, then **Red**, **Green**, **Blue** and **Alpha**, and **Channel 5** and on for more.
+    scope: Each channel is measured alone, over the whole image or frame. The view's **View Channel**, its display mode, its zoom, a mask and a selection change nothing here.
+    note: A row can be selected, but the table has no copy and no export. It has no sum of squares either; the `ssqr` and `asqr` functions of Pixel Math give one.
+  - name: Count (px)
+    kind: readout
+    default: ""
+    effect: How many samples of the channel the figures are over.
+    range: From 0 to the width times the height.
+    tradeoff: A lower count says that samples were left out, at an end of the range, not finite or marked invalid. It does not say why, nor that the image was damaged.
+    note: A channel that keeps no sample shows 0 here and in every figure.
+  - name: Count (%)
+    kind: readout
+    default: ""
+    effect: The count as a share of the image's pixels, with seven decimals in every range.
+    note: It compares what was left out across images of different sizes.
+  - name: Mean
+    kind: readout
+    default: ""
+    effect: The arithmetic mean of the counted samples, their sum divided by **Count (px)**.
+    tradeoff: Stars, gradients, clipping and outliers pull it.
+  - name: Sigma
+    kind: readout
+    default: ""
+    effect: The population standard deviation, the same number as **StdDev**. Both rows keep their places.
+  - name: Median
+    kind: readout
+    default: ""
+    effect: The middle sample, ranked exactly, or the mean of the two middle samples of an even count.
+    tradeoff: A few stars or hot pixels hardly move it, but over a whole image it is not the background alone.
+  - name: Min and Max
+    kind: readout
+    default: ""
+    effect: The lowest and the highest counted sample.
+    tradeoff: One pixel decides each. Read them with the counts, and with the clipping shares of Histogram Analysis.
+    note: With **Unclipped** off they lie inside the range, so on a 16-bit image 0 and 65535 never appear.
+  - name: StdDev
+    kind: readout
+    default: ""
+    effect: The population standard deviation about the mean, the square root of **Variance**.
+    tradeoff: Gradients, stars and structure raise it as well as noise.
+  - name: AvgDev
+    kind: readout
+    default: ""
+    effect: The mean distance of the samples from the mean.
+    tradeoff: Outliers move it less than **StdDev** and more than **MAD**.
+  - name: BWMV
+    kind: readout
+    default: ""
+    effect: The biweight midvariance about the median, with a tuning constant of nine times **MAD**. It is 0 when **MAD** is 0.
+    range: In squared units, multiplied by the square of the full scale outside **Normalized (0.0-1.0)**.
+    tradeoff: Outliers hardly move it.
+  - name: Variance
+    kind: readout
+    default: ""
+    effect: The mean of the squared distances from the mean, **StdDev** squared apart from rounding.
+    range: In squared units, as **BWMV**.
+  - name: MAD
+    kind: readout
+    default: ""
+    effect: The median of the distances of the samples from **Median**, ranked exactly.
+    note: It is not multiplied by 1.4826. Multiply it by that to compare it with a standard deviation.
+  - name: BG Noise
+    kind: readout
+    default: ""
+    effect: The noise between neighbouring pixels. In each row, every counted sample is subtracted from the one before it. The standard deviation of those differences is taken after up to three passes that drop a difference five deviations or more from the row's mean. The median over the rows, divided by the square root of 2, is the figure.
+    range: 0 when no row holds two differences. A sample left out is skipped, and the next counted sample is compared with the one before it.
+    tradeoff: It follows the rows only. Structure, gradients, stars and noise that runs along the rows all raise it, so it is no full noise model and no sensor's figure. Compare it between images of the same kind.
+```
 
-## Performance and responsiveness
+## When it goes wrong
 
-Work scales with width x height x channels. The median, MAD and biweight rows
-rank the retained samples exactly: an 8- or 16-bit image, which is what a camera
-RAW opens as, is ranked from one read of each channel, and a floating-point image
-reads each channel several times. Every measurement runs on a worker thread, so
-large frames can take time to settle while the window stays responsive. A
-measurement may use every thread of the Processing page's limit that is free.
+**Statistics** is greyed in the menu or on the toolbar
+:   **Cause.** A Statistics window of this view is already open, or the active view has no image.
+:   **Fix.** Bring the open window forward or close it, or make a view with an image active.
 
-For long sequences, pause playback on a representative frame before opening the
-dialog. Close the tool when you no longer need continuously updated statistics.
+The table stays empty
+:   **Cause.** The measurement failed, and a failed measurement leaves the table empty.
+:   **Fix.** Press **Refresh**. For a floating-point image, turn **Unclipped** off, which leaves out every sample that
+    is not a finite number.
 
-## Worked example
+**Count (%)** is below 100
+:   **Cause.** Samples were left out: at an end of the range with **Unclipped** off, not finite, or marked invalid by
+    the image, such as the border a registration leaves.
+:   **Fix.** Turn **Unclipped** on to count the ends. Samples that are not finite or are marked invalid are never
+    counted.
 
-- Starting state, actions, settings, checkpoints, result, and limitations:
-  `StatisticsReportTest` measures a five-pixel 16-bit row holding 0, 1, 30000,
-  65534 and 65535. With **Unclipped** on, **Count (px)** is 5; with it off the two
-  end codes leave, **Count (px)** is 3, **Min** is above 0 and **Max** below 1. A
-  floating-point row of -0.25, 0, 0.2, 0.4, 1 and 1.5 counts 6 with
-  **Unclipped** on and 2 with it off. A signed 8-bit row of -128, -127, 0, 126
-  and 127 with **Unclipped** off reports **Min** `1/255` and **Median**
-  `128/255` in the normalized range. These are synthetic estimator checks, not a
-  claim about a particular astrophotography exposure.
+**Mean** and **Median** are far apart
+:   **Cause.** Stars, gradients or clipped samples pull the mean, and hardly move the median.
+:   **Fix.** Compare **Median** and **MAD** between images, and look at the shape in
+    [Histogram Analysis](image-histogram.md).
 
-## Warnings and limitations
+**BG Noise** is higher than the camera's noise
+:   **Cause.** Gradients, stars, structure and noise that runs along the rows all add to the differences between
+    neighbouring pixels.
+:   **Fix.** Compare it only between images of the same kind, such as two frames of one night.
 
-- Statistics describe stored pixel data, not autostretched appearance.
-- **Unclipped** includes exact finite endpoints; with it off, strict endpoint
-  exclusion is active. Neither state performs sigma clipping or highlight/shadow
-  repair.
-- The tool measures the full current frame. It has no ROI, mask, or selected-
-  channel sampling mode.
-- The bit-range selector is report scaling, not precision conversion.
-- No table export or copy action exists. Image Summary has a separate clipboard
-  action but reports metadata, not these statistics.
+The figures change while a sequence plays
+:   **Cause.** The window measures the frame shown, again at every frame.
+:   **Fix.** Pause the player on the frame to measure.
 
-## Troubleshooting
+## Related
 
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| Statistics is disabled | No active image exists, or this view already owns an open Statistics dialog. | Activate a loaded view, or close the existing dialog for that view. |
-| Count rises when **Unclipped** is enabled | Finite values `<= 0` and `>= 1` are restored to the population; non-finite samples remain excluded. | Compare **Count (%)**, **Min**, **Max**, and Histogram clipping; leave **Unclipped** off when endpoints should not influence the report. |
-| Mean and median differ strongly | The distribution is asymmetric or contains bright/dark structure and outliers. | Inspect [Histogram Analysis](image-histogram.md) and compare channels before assuming a defect. |
-| **BG Noise** is unexpectedly high | Horizontal structure, gradients, stars, or correlated noise contribute to adjacent-pixel differences. | Compare similar background regions with other analysis tools; do not interpret this full-frame number as a calibrated sensor-noise measurement. |
-| A sequence value changes during playback | Statistics follows the current decoded frame and refreshes on image updates. | Pause on the frame you want to inspect. |
-
-## Related workflow steps
-
-- Inspect [Histogram Analysis](image-histogram.md) next to see where the counted
-  samples lie and whether exact black or white endpoints are populated.
-- Use [Image Summary](image-summary.md) for dimensions, pixel type, acquisition
-  metadata, or sequence-level frame/FPS information.
-- After saving, use [Saving And Exporting](saving-and-exporting.md) and reopen the
-  file before comparing statistics when you need to verify codec precision.
-- Continue to [Histogram Transformation](../processes/stretching/histogram-transformation.md)
-  only after distinguishing measurement from display stretch.
+- [Histogram Analysis](image-histogram.md), for where the counted samples lie and how many sit at the ends.
+- [Image and Sequence Summary](image-summary.md), for the size, pixel type and acquisition facts of the image.
+- [Image Viewer](image-viewer.md), for the toolbar that opens the window and the display that does not change it.
+- [Saving And Exporting](saving-and-exporting.md), to save an image and open it again before you measure what was
+  kept.
+- [Histogram Transformation](../processes/stretching/histogram-transformation.md), to
+  [stretch](../reference/glossary.md#stretch) the image once every measurement that needs linear data is done.
+- [Pixel Math](../processes/pixel-math/pixel-math.md), for figures the table does not have, such as the sum of squares.
