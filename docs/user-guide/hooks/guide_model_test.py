@@ -302,8 +302,8 @@ class StageTests(TempDir):
 
 class NavTests(TempDir):
     def test_the_nav_is_read_past_python_tags_with_its_groups(self):
-        self.write('guide/mkdocs.yml', 'docs_dir: docs/en\nmarkdown_extensions:\n  - pymdownx.emoji:\n'
-                   '      emoji_index: !!python/name:material.extensions.emoji.twemoji\n'
+        self.write('guide/mkdocs.yml', 'docs_dir: docs/en\nmarkdown_extensions:\n  - pymdownx.superfences:\n'
+                   '      format: !!python/name:pymdownx.superfences.fence_code_format\n'
                    'nav:\n  - Home: index.md\n  - Processes:\n      - Overview: processes/index.md\n'
                    '      - Stretching:\n          - Curves: processes/curves.md\n'
                    '  - Repository: https://example.org/repo\n')

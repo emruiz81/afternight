@@ -38,7 +38,7 @@
 /* Links inside text are underlined, so they do not rely on color alone. */
 .prose a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .prose a:hover { text-decoration-thickness: 2px; }
-.prose a.headerlink, .prose a.md-button, .prose a.glightbox, .prose .footnote-ref a { text-decoration: none; }
+.prose a.headerlink, .prose a.glightbox, .prose .footnote-ref a { text-decoration: none; }
 
 /* Figures and images */
 .prose img { border-radius: var(--radius); border: 1px solid var(--border-strong); }

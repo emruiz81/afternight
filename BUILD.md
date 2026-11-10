@@ -172,8 +172,8 @@ build/scripts/format_changed.sh origin/main
 
 ## The user guide
 
-The user guide is MkDocs Material, under `docs/user-guide/`. The platform helpers build it in a locked
-environment:
+The user guide is MkDocs with the guide's own theme, under `docs/user-guide/`. The platform helpers build it in a
+locked environment:
 
 ```cmd
 build\scripts\msvc\build_user_guide_docs.bat

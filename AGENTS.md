@@ -623,7 +623,7 @@ Debug symbols (`.debug` on Linux, `.pdb` on Windows) must match the exact binary
 
 ## User documentation system
 
-End-user documentation lives in `docs/user-guide/` and is built with MkDocs Material.
+End-user documentation lives in `docs/user-guide/` and is built with MkDocs and the guide's own theme.
 
 ### Structure
 - Source: `docs/user-guide/docs/en/` (Markdown files)

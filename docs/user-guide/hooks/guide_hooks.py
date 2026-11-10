@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 """The user guide's MkDocs hooks: the data its theme renders from, the HTML passes over each page, and the search index.
 
-mkdocs.theme.yml names this file under `hooks:`. MkDocs puts the file's folder on the import path while it loads it,
+mkdocs.yml names this file under `hooks:`. MkDocs puts the file's folder on the import path while it loads it,
 so it imports its siblings directly.
 
 - on_config: reads data/stages.yml, registers the `controls` and `figure` blocks of guide_fences.py with
