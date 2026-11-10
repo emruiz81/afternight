@@ -1,10 +1,9 @@
 (function () {
   "use strict";
 
-  // In the guide's own theme the page carries design tokens as custom properties, and the diagrams are drawn in
-  // them: Mermaid takes its colors from the tokens of the theme in force, and draws again when the reader switches
-  // theme (the toggle dispatches "an-themechange"). A page without the tokens keeps Mermaid's base theme, which that
-  // page's stylesheet colors.
+  // The page carries the theme's design tokens as custom properties, and the diagrams are drawn in them: Mermaid
+  // takes its colors from the tokens of the theme in force, and draws again when the reader switches theme (the
+  // toggle dispatches "an-themechange"). A page without the tokens keeps Mermaid's base theme.
   const token = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
   const themed = () => token("--card") !== "" && token("--text") !== "";
@@ -108,8 +107,4 @@
   }
 
   document.addEventListener("an-themechange", redraw);
-
-  if (typeof document$ !== "undefined") {
-    document$.subscribe(scheduleRender);
-  }
 })();
