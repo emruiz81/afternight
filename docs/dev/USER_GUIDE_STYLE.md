@@ -158,7 +158,10 @@ left out.
 
 - Link a related page by its title, with a relative link to its `.md` file, which the strict build checks.
 - "Related" says in a few words why the reader would go there.
-- A term the glossary defines is linked to its entry the first time a page uses it, and not again.
+- A term the glossary defines is linked to its entry the first time a page uses it, and not again. A term inside a
+  name the page repeats - the title of a linked page, a bold label, a quoted message - is not a use of it: the first
+  plain use after it is the one to link. The glossary's entries are the terms as pages write them, and leave out
+  process names and everyday words, so that a link never lands on a word used in another sense.
 - A link's words say where it leads. "Click here" and a bare address do not.
 
 ## Credits and other programs

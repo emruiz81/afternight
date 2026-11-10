@@ -1,236 +1,165 @@
 ---
 kind: reference
 summary: >-
-  The file formats AfterNight opens and saves, and how each route handles images, sequences and their metadata.
+  The files AfterNight opens and the files it writes, by format and extension, with what each keeps of an image and
+  where in the menus each is written.
+rewritten: true
 ---
 # Supported Formats
 
-## Purpose, audience, prerequisites, and expected result
+This page answers two questions: can AfterNight open my files, and what can it write? The first table lists every
+kind of file AfterNight opens, the second every kind it writes, by format. [File Formats](../reference/file-formats.md)
+gives each format's precision, compression and metadata in more depth.
 
-Use this page to decide what kind of file to open and what kind of artifact to
-save. It is a beginner decision guide, not a second codec specification. The
-single detailed authority for extensions, sample precision, compression,
-metadata, sequence layouts, and current implementation limitations is
-[File Formats](../reference/file-formats.md).
+## Files AfterNight opens
 
-You need a local source file or an active AfterNight image/sequence and a
-writable destination when saving. At the end, you should have selected a format
-for a stated purpose, checked its authoritative capability row, written to a new
-path, and reopened/verified the result when it matters.
+Open a file with **File > Open**, ++ctrl+o++, the Dashboard's **Open file**, a recent file, or a drop of files on the
+Dashboard. The file's extension, in upper or lower case, decides how it is read. The **Open File** dialog shows only
+these extensions: it has no filter for all files.
 
-## Reachability and availability
+| Format | Extensions | What opens | What is refused |
+| --- | --- | --- | --- |
+| [FITS](../reference/glossary.md#fits) | `.fit`, `.fits`, `.fts` | The first image of the file: the primary image, an image extension or a tile-compressed image. Grayscale or color, in 8, 16 or 32-bit integers, signed or unsigned, or 32 or 64-bit floating point. A Bayer mosaic its header states. | A 64-bit integer image with a value beyond \(2^{53}\), which 64-bit floating point cannot hold exactly. Within that, it opens as 64-bit floating point. |
+| [XISF](../reference/glossary.md#xisf) | `.xisf` | Grayscale or color, in 8, 16 or 32-bit unsigned integers or 32 or 64-bit floating point. A Bayer or X-Trans mosaic. | 64-bit integer and complex samples. A file whose pixel data fail their checksum. |
+| TIFF | `.tif`, `.tiff` | Grayscale, or color with or without alpha, in 8, 16 or 32-bit integers, signed or unsigned, or 32 or 64-bit floating point. A mosaic it states. A color TIFF compressed as JPEG. | Palette, white-is-zero, CMYK and other [color models](../reference/glossary.md#color-model) whose values are not gray levels or red, green and blue. Associated alpha. 64-bit integer and half-precision floating point. |
+| PNG | `.png` | 8 or 16-bit grayscale or color, with or without alpha. A palette image opens in its palette's colors. | - |
+| JPEG | `.jpg`, `.jpeg`, `.jpe` | 8-bit grayscale or color. | 12-bit and CMYK JPEG. A file that ends before its last row. |
+| Camera [RAW](../reference/glossary.md#raw) | `.cr2`, `.cr3`, `.crw` (Canon), `.nef` (Nikon), `.arw`, `.sr2`, `.srf` (Sony), `.dng` (Adobe), `.raf` (Fujifilm), `.orf` (Olympus), `.pef` (Pentax), `.raw` (Panasonic), `.x3f` (Sigma), `.dcr`, `.k25`, `.kdc` (Kodak), `.erf` (Epson), `.mrw` (Minolta) | The sensor's data as a Bayer or X-Trans mosaic, or in color for a full-color raw such as a linear DNG. | A four-color sensor, such as CMYG or CYGM. A camera model the decoder does not know. |
+| [SER](../reference/glossary.md#ser) | `.ser` | A recording in grayscale, as a Bayer mosaic or in color, in 8 or 16 bits. A recording that stopped before it wrote its frame count opens with its complete frames. A CMY mosaic opens as one gray plane of its values. | - |
+| AfterNight [sequence](../reference/glossary.md#sequence) | `.anseq` | The image files the list names, in order, as one sequence. | A list whose files are missing. |
+| Video | `.avi`, `.mp4`, `.mov`, `.mkv`, `.webm`, `.mpg`, `.mpeg` | The video frames, decoded by FFmpeg, from a stream in one of these codecs: uncompressed, FFV1, HuffYUV, Ut Video, Motion JPEG, lossless JPEG, H.264, H.265, MPEG-4, MPEG-1, MPEG-2, VP8, VP9, AV1, ProRes, DNxHD, DV, Cinepak, RLE, Video 1, v210 and r210. | A stream in any other codec. Sound is never read. |
 
-| Item | Current behavior |
-| --- | --- |
-| Path | Open with **File > Open**, the Open toolbar action, a recent-file entry, or supported local drag-and-drop. Save with **File > Save as...** or **Image > Actions > Save File...**. Export an active sequence with **Image > Sequence > Export...**. |
-| Enabled/visible when | Open is application-wide. Standard save needs an active image or sequence view. Sequence Export applies to an active sequence. Settings routes are application-wide. |
-| Supported inputs/state | Astronomy/display stills, camera RAW acquisition stills, native SER and AfterNight image-list sequences, and recognized FFmpeg-backed video containers. Exact extensions and constraints live only in [File Formats](../reference/file-formats.md). |
-| Outputs/side effects | Standard still files, sequences written frame by frame into the container the destination path names, or Sequence Export output. A successful standard save adds the written file to recent files and, when the view still shows what was written, clears its pending changes and records the written file as the view's source path. |
-| Persistence | The last open/save directory is remembered. **Settings > General** stores the initial still save format; **Settings > Export** stores global still encoding/metadata preferences. Sequence Export stores its own format/codec choices. |
-| External dependencies | The deployed still codecs (camera RAW through LibRaw, with a private RawSpeed build used where it is qualified for the file) and, for video decode/encode, the deployed FFmpeg libraries and codec support. A recognized container suffix does not prove that its stream can be decoded. |
+A selection in the dialog that holds a file of any other extension is refused whole: "AfterNight can only open
+supported image, RAW, and video files." Dropped files of other extensions are ignored. A recent file that has moved or
+gone fails to open, and leaves the list.
 
-## Before you start
+A file whose extension the table lists can still fail to open: it may be damaged, or hold a variant the format allows
+and AfterNight does not read. An image whose samples are none of the eight types AfterNight works in is refused with
+"the file holds samples outside the eight this engine processes".
 
-Decide which artifact you are making:
+### What opening does to an image
 
-| Purpose | Beginner choice | Mandatory follow-up |
+- **Nothing is written.** Opening reads the file into memory, and the file stays as it is.
+- **A camera raw file** is read under the **Raw Images** settings in force when you asked to open it: its white
+  balance, and its turn by the orientation the camera recorded in its [EXIF](../reference/glossary.md#exif) record
+  when **Auto-rotate based on EXIF orientation** is on.
+  Under **Auto White Balance**, the balance is measured from the frame itself. AfterNight reads it with LibRaw, or with
+  a private build of RawSpeed for the cameras where that decoder gives the same samples and metadata. A full-color raw
+  opens with each color in its own plane.
+- **Only a camera raw file is turned.** A JPEG's or TIFF's recorded orientation is kept in its metadata and not
+  applied. Nothing is removed either: an alpha channel opens with the image.
+- **A mosaic asks a question.** For any [CFA](../reference/glossary.md#cfa) mosaic, a box titled **Open CFA file**
+  asks whether to [debayer](../reference/glossary.md#debayer) it. **Yes** turns it into color with the **Demosaic Algorithm** of the **Raw Images** settings. An X-Trans mosaic,
+  from a Fujifilm camera, is turned into color in the camera's colors by the X-Trans form of that method: the fast
+  X-Trans estimate for **Bilinear**, three passes of Markesteijn's method for every other. **No** opens the mosaic as
+  recorded.
+- **An XISF file keeps all it states.** Every property is read under its own name and kept with its type, such as a
+  number, a vector or a matrix. Text with line breaks is kept too, such as a record of processing steps written into
+  the file. When its FITS keywords state no [plate solution](../reference/glossary.md#plate-solution), a solution
+  stored in its properties is read, and the image opens solved.
+
+## Files AfterNight writes
+
+**File > Save as...**, ++ctrl+shift+s++, writes the [active image](../reference/glossary.md#active-image) or
+sequence to a file you name. **Image > Actions >
+Save File...** does the same. **Image > Sequence > Export...** writes a sequence through the **Export Sequence**
+dialog, and **Image > Information > Annotate Image...** exports an annotated picture.
+
+| Format | Extensions | Written by | What it keeps |
+| --- | --- | --- | --- |
+| FITS | `.fit`, `.fits` | Save as, for an image | Every sample type, and a Bayer mosaic. The [header cards](../reference/glossary.md#header-card) the image was read with. |
+| XISF | `.xisf` | Save as, for an image | 8, 16 and 32-bit unsigned integers and 32 and 64-bit floating point. A signed image is written as the unsigned integers of its width. Bayer and X-Trans mosaics. Its properties, written back with their types, and its FITS keywords. |
+| TIFF | `.tif`, `.tiff` | Save as, for an image. Annotate Image. | Every sample type, and Bayer and X-Trans mosaics. Part of the EXIF record, when it is embedded. |
+| PNG | `.png` | Save as, for an image. Annotate Image. | 8 and 16-bit unsigned integers. Signed 8 and 16-bit images are written as unsigned of their width, and every wider type as 16-bit. A small part of the EXIF record, when it is embedded. |
+| JPEG | `.jpg`, `.jpeg` | Save as, for an image. Annotate Image, without a transparent background. | 8-bit samples, compressed with loss. Part of the EXIF record, when it is embedded. |
+| SER | `.ser` | Save as, for a sequence. Export Sequence. | Grayscale, Bayer mosaic or color frames in 8 or 16 bits, and each frame's capture time. |
+| AfterNight sequence | `.anseq` | Save as, for a sequence | The list, and one FITS file for each frame in a folder named after it, `<name>-frames`, beside it. |
+| AVI | `.avi` | Save as, for a sequence. Export Sequence, as **AVI (RAW)**. | Uncompressed 8-bit frames. A mosaic is written as gray. |
+| MP4, MOV and MKV | `.mp4`, `.mov`, `.mkv` | Save as, for a sequence. Export Sequence writes MP4. | 8-bit frames as H.264, or H.265 from Export Sequence, compressed with loss. A mosaic is written as gray. |
+| WebM | `.webm` | Save as, for a sequence. Export Sequence. | 8-bit frames as VP9, compressed with loss. A mosaic is written as gray. |
+
+AfterNight writes no camera raw file and no MPG or MPEG video. A sequence saved under any extension the table does
+not list for sequences, `.mpg` and `.mpeg` among them, is refused before anything is written. Some processes write files of their own, such as the [masters](../reference/glossary.md#master) of Image Integration: their
+pages say which.
+
+### What saving does to an image
+
+- **The extension you type decides the format,** in upper or lower case, whatever filter the dialog shows. A still
+  image saved under any other extension is refused with "the product writes FITS, XISF, TIFF, PNG and JPEG files
+  only". A new profile proposes TIFF, which **Default Save Format** in **Settings > General** changes. The dialog
+  proposes the view's name, in the folder you last opened from or saved to.
+- **The image is written, not its display.** The [**Autostretch**](../reference/glossary.md#autostretch) display,
+  the channel shown, the zoom, overlays, annotations and [masks](../reference/glossary.md#mask) are not saved. A process you applied is.
+- **A type the format does not hold is converted** to the narrowest type of the format that holds it, or to the
+  widest when none does, at the same share of full scale and rounded to the nearest code.
+- **A mosaic keeps its filter pattern only where the format can state it.** A Bayer mosaic is written as FITS, XISF
+  or TIFF. An X-Trans mosaic is written as XISF or TIFF only, because FITS states a mosaic in one two-by-two pattern.
+  A save of a mosaic to any other format is refused before anything is written: debayer it first.
+- **The options of a format** are those of **Settings > Export**: the compression of TIFF and XISF, the quality of
+  JPEG, the compression level of PNG, an XISF checksum and the metadata. The save dialog has none of its own.
+- **FITS and XISF carry the image's header cards.** TIFF, PNG and JPEG carry the part of the EXIF record their format
+  allows, when **Embed EXIF metadata in exported files** is on, as it is on a new profile. A field the metadata
+  library cannot write is left out while the others are written. The EXIF date is not the time of the save, and a
+  FITS `GAIN` card is not written as the EXIF gain control. No file carries the image's processing [history](../reference/glossary.md#history), whatever
+  **Embed processing history in FITS header** says.
+- **A sequence is written frame by frame,** read from its source and written into the container the extension names.
+  A save to a video container decodes and encodes every frame again: it is never a copy of the source file. A
+  `.mov` file is written as an MP4 container under that name, and an `.mkv` file as Matroska.
+- **An existing file is replaced only when the new one is complete.** A save that fails or is stopped leaves nothing
+  at the destination, and an existing file as it was. Replacing a file keeps no backup of it.
+- **A save that succeeds** adds the file to the recent files. When the view still shows what was written, the view
+  takes the file as its own and its pending changes are cleared. AfterNight does not open the file again to check
+  it.
+
+**Export Sequence** writes its own choices: the **Output Format**, **SER**, **AVI (RAW)** or **MP4**, the **Codec** of
+a video, **h264**, **h265** or **WEBM**, which writes a WebM file of VP9, and the **FPS**. It keeps the format and the
+codec for the next export. Its **Debayer CFA**,
+**Autostretch** and **Resize** change the frames it writes, so an export is a copy to share, not a master to process.
+While it runs, its settings are locked, and its progress window can stop it. [Saving and Exporting](../interface/saving-and-exporting.md) describes the dialog.
+
+**Image > Sequence > Convert** changes an open sequence into SER or an AfterNight sequence, in AfterNight's temporary
+files. **Save as** then writes it where you choose.
+
+## Choosing a format
+
+| To keep | Choose | Because |
 | --- | --- | --- |
-| Astronomy processing master | FITS or XISF | Check the authority's sample-type and metadata row, then reopen and inspect required headers. |
-| External-editor handoff | TIFF | Check sample type and selected compression in the authority and **Settings > Export**. |
-| Lossless display copy | PNG | Confirm the authority's precision conversion is acceptable; do not treat it as the only high-precision master. |
-| Small sharing copy | JPEG | Accept lossy, reduced-precision delivery; keep a separate master. |
-| Original camera acquisition | Camera RAW as input | Preserve the RAW source and save processed work in another format; AfterNight does not write camera RAW. |
-| Undemosaiced colour filter array mosaic | FITS, XISF, or TIFF | These record the filter array; PNG and JPEG cannot, and a save refuses them. |
-| Native planetary/lucky-imaging sequence | SER | Verify CFA/debayer state, sample layout, frame count, and timing after writing. |
-| Reopenable frame manifest | AfterNight image list (`.anseq`) | Keep its referenced/sibling frame files with the manifest. |
-| Delivery video | Sequence Export to its offered AVI/MP4/WebM output | Treat it as decoded/re-encoded delivery, not a science master; verify codec, geometry, FPS, and boundary frames. |
+| A master you will go on processing | FITS or XISF | They keep floating-point samples and the astronomical header. |
+| A copy for another image editor | TIFF | It keeps the sample type. |
+| A picture to show, without loss | PNG | It is lossless, at 8 or 16 bits. Keep the master as well. |
+| A small picture to share | JPEG | It is small, at 8 bits with loss. Keep the master as well. |
+| Frames not yet debayered | FITS, XISF or TIFF; XISF or TIFF for X-Trans | They state the filter pattern. |
+| A planetary recording | SER | It keeps 16-bit frames, mosaics and each frame's time. |
+| A list of frames to open again | AfterNight sequence | It is small. Keep its frame files with it. |
+| A video to share | MP4 or WebM, from Export Sequence | It is small, at 8 bits with loss: never a master. |
 
-Preserve every acquisition source. Use a new destination rather than relying on
-replacement: standard output replacement is not a backup workflow. Ensure the
-destination has enough free space, especially for high-precision stills,
-intermediate frame sets, SER, or raw AVI.
+Keep the files your camera wrote, and save each result under a new name. Lossless and uncompressed files of a large
+image or of many frames take much disk space.
 
-## Procedure
+## When it goes wrong
 
-1. Identify the source as a still, camera RAW, native sequence, image list, or
-   video. Open [File Formats](../reference/file-formats.md) and verify its exact
-   extension, dependency, and input constraints before relying on it.
-2. Open with **File > Open** (or a supported recent/drop route).
-   **Checkpoint:** the load progress finishes and a still or sequence view opens.
-   A suffix appearing in the chooser is only the first gate; a damaged file,
-   unsupported camera variant, or unsupported video stream can still fail.
-3. Work on the underlying image/sequence. Viewer Autostretch, selected channel,
-   zoom, overlays, and masks are display state and are not flattened into a
-   standard still save. Apply a processing operation only when you intend to
-   change the pixels.
-4. Choose the artifact purpose from the table above, then read that format's
-   authoritative precision, compression, metadata, and dependency row. For a
-   still, set any global defaults under **Settings > General** and
-   **Settings > Export** before opening the save dialog.
-5. For a still, or to write a sequence into another sequence file, use
-   **File > Save as...** or **Image > Actions > Save File...**. Both routes prompt. Select a new path and
-   ensure the suffix agrees with the intended codec; the suffix controls still
-   codec dispatch, not merely the selected filter.
-6. For a delivery/converted sequence, use **Image > Sequence > Export...** and
-   review output family/codec, destination, FPS, CFA debayer, Autostretch, and
-   resize choices. **Checkpoint:** controls lock while export runs and the
-   progress/cancellation path is visible.
-7. Wait for success before using the artifact. A cancelled or failed write is
-   not a verified result. Preserve the original and inspect the error/progress
-   message before retrying.
-8. Reopen important output. For a still, check dimensions, channels, sample
-   type, and required metadata. For a sequence, check family/container, frame
-   count, geometry, sample/CFA state, FPS, and first/last frame. AfterNight does
-   not automatically perform this verification or checksum the output.
+A file is listed in the Open File dialog but does not open
+:   **Cause.** Its extension is one AfterNight reads, and its content is not: a damaged file, a four-color camera
+    sensor or a video stream in another codec.
+:   **Fix.** Read the reason in the "File open error" box, and check the format's row above. Keep the original, and
+    try a copy converted by the program that made it.
 
-## Complete control and action reference
+The Save as dialog offers no camera raw format
+:   **Cause.** AfterNight reads camera raw files and never writes them.
+:   **Fix.** Save your work as FITS, XISF or TIFF, and keep the raw files.
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **File > Open** / Open toolbar | File chooser; `Ctrl+O` | Last open directory | Supported still and sequence filters; there is no all-files filter, and a selection holding any unrecognized suffix is refused whole with **Unsupported File Type** | Dispatches by suffix to a still or sequence loader and opens progress; a colour-filter-array mosaic asks **Open CFA file** before it is shown | Application-wide | Recognition does not guarantee decoder/camera support | Selected local files | Directory remembered |
-| Recent file / local drag-and-drop | Direct open action | — | Existing local paths accepted by the app's filter/path checks | Uses the shared open workflow | Recent entry or accepted drop required | A moved/missing recent file fails; unsupported drops are ignored/rejected | Selected paths | Successful loads update recents |
-| **File > Save as...** | Prompted save action; `Ctrl+Shift+S` | Filename from the active view; clean-profile initial still format is TIFF | Active still, or a sequence written to SER, AVI, an image list (`.anseq`), MP4/MOV, MKV, or WebM | Writes the underlying data through the chosen suffix/container | Requires active view | May convert precision/metadata; a mosaic is refused for PNG and JPEG; existing-path replacement has no automatic backup | Active view | Directory, recents, pending state, and the view's source path updated on success |
-| **Image > Actions > Save File...** | Alias action | Same as **Save as...** | Same constraints | Calls the same standard save workflow | Requires active image/sequence context | Same side effects as **Save as...** | Active view | Same |
-| **Image > Sequence > Export...** | Sequence export dialog | Stored choices; current source provides defaults | Offered SER, raw AVI, MP4/H.264/H.265, or WebM/VP9 combinations and their constraints | Decodes and rewrites frames with optional CFA debayer, Autostretch, and resize | Active sequence; output path required; controls lock while running | Can change pixels, precision, geometry, timing representation, file size, and compatibility | Whole sequence | Export selections/path context persist as implemented |
-| **Settings > General** default format | Global selector | TIFF on a clean profile | Current still save choices | Selects the initial still filter/suffix | A suffix typed in the dialog can select another codec | Does not retroactively convert existing data | Later still saves | Global setting |
-| **Settings > Export** | Global option page | See [File Formats](../reference/file-formats.md) | TIFF/XISF/JPEG/PNG and metadata preferences implemented by the save path | Supplies options to later standard still saves | The standard save dialog has no per-save option panel | Global choices can silently affect precision, compression, size, and metadata | Later still saves | Global settings |
+The saved file has fewer bits than the image
+:   **Cause.** The format does not hold the image's sample type, and the save converted it.
+:   **Fix.** Save the master as FITS, XISF or TIFF, under a new name.
 
-## Behavior and state model
+The saved image looks dark, or lacks an overlay the view showed
+:   **Cause.** A save writes the image, not its display.
+:   **Fix.** Apply the [stretch](../reference/glossary.md#stretch) with a process before you save, or save the annotated picture from Annotate Image.
 
-```mermaid
-flowchart TD
-    accTitle: File format decision flow
-    accDescr: Identify the purpose, check the format authority, then open, save, or export and verify the result.
-    Source[Choose input or output goal] --> Authority[Check File Formats]
-    Authority -->|Open| Load[Decode by suffix]
-    Load --> View[Still or sequence]
-    View -->|Still or copy| Save[Standard Save as]
-    View -->|Convert sequence| Export[Sequence Export]
-    Save --> Verify[Reopen and check]
-    Export --> Verify
-```
+Image > Sequence > Export... is disabled
+:   **Cause.** The active view holds an image, not a sequence.
+:   **Fix.** Make a sequence's view active, then choose it again.
 
-Still codecs are selected by the final filename suffix, case-insensitively. A
-file-dialog filter does not override a conflicting typed suffix. Standard still
-save receives the underlying image data, not the viewer rendering. A successful
-save updates bookkeeping and, when the view still shows what was written,
-records the new file as the view's source path.
-
-Standard sequence save reads every frame of the source sequence and writes it
-into the container the destination path names: SER, AVI, an image list, MP4 or
-MOV, MKV, or WebM. A path naming another container is refused before anything
-is written. Sequence Export is different: it offers its own output families and
-codecs, and optional debayer/stretch/resize and output codec constraints can
-change the result. Those exact transformations and known implementation limitations are
-documented only in [Saving And Exporting](../interface/saving-and-exporting.md)
-and [File Formats](../reference/file-formats.md).
-
-## Inputs, outputs, and metadata
-
-AfterNight accepts the current still and sequence families listed by the
-authoritative matrix. Camera RAW is acquisition input only. Standard still
-outputs are FITS, XISF, TIFF, PNG, or JPEG; sequence routes depend on the source
-family and the Export choices. Do not infer compatibility merely from a broad
-format name—check extension, channels/sample type, compression, metadata,
-camera/stream variant, and deployed dependencies.
-
-FITS/XISF are the astronomy-oriented metadata paths; TIFF/PNG/JPEG carry a more
-limited EXIF subset when Embed EXIF is on; its date is never the moment of the
-save, and a FITS `GAIN` card is not written as its gain-control field.
-Every XISF property is read whole and saved back as the type it was - a number,
-a vector, a matrix - and the processing history a file carries is kept; when an
-XISF file's FITS keywords state no plate solution, a solution stored in its
-properties is read and the file opens solved.
-
-A camera RAW opens under the RAW settings in effect when the open was asked
-for; it is decoded by LibRaw, or by a private RawSpeed build where that decoder
-is qualified for the file, with the same samples and metadata either way. Under
-Auto White Balance its balance is measured from the frame itself. A full-colour
-RAW frame, such as a linear DNG, opens with each colour in its own plane. An
-X-Trans RAW (Fujifilm RAF) opens in colour, demosaiced in camera RGB by the
-engine's X-Trans methods - the fast X-Trans estimate under the **Bilinear**
-setting, three-pass Markesteijn under every other. Only a camera RAW frame is
-turned as it opens, by its recorded orientation when Auto-rotate is on.
-
-A save that narrows the samples rounds each to the nearest code. A signed image
-saved as XISF keeps its width, written as the unsigned representation of that
-width. Geometry-changing processing can make prior WCS/SIP invalid. Exact
-retained/generated fields, numeric conversions, source modification behavior,
-history behavior, naming, overwrite, and recovery are intentionally centralized
-in [File Formats](../reference/file-formats.md).
-
-## Performance and responsiveness
-
-Open, standard save, and sequence export use progress/background work, but
-decode/encode time, memory, and disk use depend on dimensions, channels, sample
-type, compression, frame count, transformations, and deployed codecs. Lossless
-or uncompressed output can be much larger than a delivery copy. Prototype an
-unfamiliar sequence export to a new path and verify it before committing to a
-long run. This guide records no current production timing, memory peak, size
-ratio, or cross-application interoperability result.
-
-## Worked example
-
-- Starting state, actions, settings, checkpoints, result, and limitations:
-
-Suppose a Quick Start integration is open and you need both a processing master
-and a sharing copy. First select FITS or XISF in the decision table, check its
-current row in File Formats, use **Save as...** with a new path, and reopen it to
-check dimensions, channels, sample type, and required astronomy metadata. Then
-create a separate PNG or JPEG delivery copy only after checking its precision
-and metadata consequences. The master and delivery copy have different jobs;
-the latter does not replace the former.
-
-The implementation and focused tests establish the routing, conversions, and
-verification need, but no project-owned file was encoded/reopened. No
-actual size, fidelity, metadata interoperability, or visual result is claimed.
-
-## Warnings and limitations
-
-- [File Formats](../reference/file-formats.md) is the sole detailed compatibility
-  authority. Do not copy its extension/precision tables into other pages.
-- Camera RAW output is unsupported. Preserve the source and save processed data
-  in a different format.
-- A recognized video container does not guarantee support for its internal
-  stream. Video/sequence export is not a precision-preserving science master.
-- Display Autostretch, masks, annotations, zoom, and overlays are not flattened
-  into a standard still save.
-- Existing-file replacement is not a backup, and AfterNight does not
-  automatically reopen or checksum saved/exported output. A still save replaces
-  an existing file only once the new one is complete.
-- Metadata support differs by family; pixel-write success does not by itself
-  prove every optional metadata field was written.
-- A standard Save of a video sequence decodes and re-encodes every frame into
-  the container the path names; it is not a byte copy of the source. MPG and
-  MPEG cannot be written; use Sequence Export to a new destination instead.
-- An X-Trans mosaic cannot be saved as FITS, which states only a two-by-two
-  pattern; save it as XISF or TIFF, or demosaic it first.
-- A `BITPIX = 64` FITS image opens as 64-bit floating point only when every
-  stored integer fits within 2^53; one with a larger integer is refused, since
-  a 64-bit float cannot hold it exactly. A palette TIFF and a white-is-zero grey
-  TIFF are refused by name (a palette PNG opens in its own colours), and an
-  XISF file whose pixel data fail their checksum is refused.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| A file appears in the chooser but does not open | The suffix passed the first filter/dispatch gate, but content, camera variant (a four-colour CMYG or CYGM sensor), stream, or deployed decoder is unsupported/damaged | Check the exact authority row; preserve the source and test a verified copy/transcode when appropriate |
-| Save does not offer camera RAW | RAW is input-only | Save a processing master as FITS/XISF/TIFF and retain the RAW source |
-| Reopened output has different precision or channels | The chosen codec/export path converted an unsupported input representation | Use the authority matrix to select a retaining master format; repeat to a new path and verify |
-| Saved image does not include the visible stretch/overlay | Standard save writes underlying pixels, not viewer display state | Apply the intended pixel process, or use an explicit delivery/export workflow |
-| Sequence Export action is unavailable | The active context is not a sequence | Activate/open a sequence view, then use **Image > Sequence > Export...** |
-| Sequence Save is refused for the chosen path | The path names a container the product does not write (for example `.mpg` or `.mpeg`) | Choose SER, AVI, `.anseq`, MP4/MOV, MKV, or WebM, or use Sequence Export to a new path |
-| Output cannot be trusted after cancellation/failure | The write/export did not reach a verified success state | Preserve source, discard or quarantine the partial destination, inspect the error, then retry to a new path |
-
-## Related workflow steps
-
-Use [First Launch](first-launch.md) to verify a known small input and
-[Quick Start](quick-start.md) to produce a first linear master. Use
-[Saving And Exporting](../interface/saving-and-exporting.md) for the complete
-task workflow and Sequence Export controls.
-
-Use [File Formats](../reference/file-formats.md) for every detailed compatibility
-decision. [Sequences](../interface/sequences.md), [Settings](../interface/settings-dialog.md),
-and [System Requirements](../reference/system-requirements.md) explain the
-related application state, global preferences, and deployed-environment needs.
+A sequence save to `.mpg` or `.mpeg` is refused
+:   **Cause.** AfterNight writes no MPEG stream.
+:   **Fix.** Save as SER, AVI, an AfterNight sequence, MP4, MOV, MKV or WebM, or export the sequence.

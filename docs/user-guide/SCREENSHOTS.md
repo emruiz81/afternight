@@ -47,7 +47,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
 - `-Page` takes pages of the guide that state a `menu`: a process page, or a tutorial that works in one window. The
   script reads each page's `menu`, opens the process from that menu and names the picture after the page.
 - `-Capture "<name>=<menu path>"` takes any menu path instead, and whatever window it opens, a dialog included;
-  several are separated by semicolons.
+  several are separated by semicolons. A window without a minimize button - Image Calibration, Image Registration,
+  Plate Solve - is taken this way, since `-Page` reads such a window as a message. `-Capture "<name>=@<button>"`
+  presses a button of the main window instead, by the name it shows: the Autostretch Settings of an image view,
+  which no menu opens.
+- `-View "<menu path>;..."` chooses menu items that act at once, after `-Prepare` and before the captures:
+  **Image > View > Zoom 100%** for a pair at 100 %, **View > Session Console** to dock the console. `@<button>`
+  presses a button of the main window there too, such as the console's **Clear Session**, so that the picture shows
+  no line of the log, whose paths name the machine's folders.
 - `-Open` opens the images the pictures need, in order, through **File > Open**.
 - `-Display Autostretch` shows the opened image stretched. A linear master is nearly black without it, and the
   preview of most processes follows the view.
@@ -111,8 +118,8 @@ image it opened stays for `-MainWindow`.
 **Cutting the image out of the pair.** With the main window at its default place and size and one image open, fit
 to its view, the image is the same rectangle of both pictures. Give that rectangle to the optimizing script as
 `--crop LEFT,TOP,WIDTH,HEIGHT` for both, so the two crops are the same region. A tone process is shown on the whole
-frame. A process whose effect is in the detail - noise, sharpening, stars - is shown at 100 %: zoom the view
-before the capture, and crop a region where the effect shows.
+frame. A process whose effect is in the detail - noise, sharpening, stars - is shown at 100 %: `-View "Image > View >
+Zoom 100%"` zooms the view around its middle before the pair, and the crop is the view's own area.
 
 ## Optimize
 

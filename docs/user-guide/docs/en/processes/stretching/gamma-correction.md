@@ -30,13 +30,14 @@ rewritten: true
 ---
 # Gamma Correction
 
-This window applies a [gamma correction](../../reference/glossary.md): it raises every sample to a power. **Gamma**
-above 1 brightens the [midtones](../../reference/glossary.md) and below 1 darkens them, while black and white stay
-where they are. **Channel** applies the power to the whole image, to one channel, or to one component of a color
-model.
+This window applies a gamma correction: it raises every sample to a power. **Gamma** above 1 brightens the
+[midtones](../../reference/glossary.md#midtones) and below 1 darkens them, while black and white stay where they are.
+**Channel** applies the power to the whole image, to one channel, or to one component of a
+[color model](../../reference/glossary.md#color-model).
 
-**Apply** replaces the image or sequence with the adjusted one, keeps its size and pixel type, and adds one step to
-its history. The result is recorded as nonlinear, whatever the image was before.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the adjusted one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear, whatever the image was before.
 
 ```figure
 image: ../../assets/images/processes/stretching/gamma-correction.webp
@@ -58,26 +59,26 @@ pins:
 
 ## Before you start
 
-- Stretch the image first, and finish background correction and color calibration before that. The power recovers
-  no clipped value and calibrates no channel.
-- **Apply** replaces the image or sequence. Duplicate it first, or use its
-  [history](../../reference/glossary.md), which keeps the step before.
+- [Stretch](../../reference/glossary.md#stretch) the image first, and finish background correction and color
+  calibration before that. The power recovers no clipped value and calibrates no channel.
+- **Apply** replaces the image or sequence. Duplicate it first, or use its history, which keeps the step before.
 - Use samples between 0 and 1. The power clamps nothing that lies outside that range.
 - The power is applied to the values as they are stored. It decodes and encodes no sRGB or monitor curve, reads no
   color profile, and is no change of exposure.
-- A [mask](../../reference/glossary.md) on the view blends the result with the original afterwards: white takes the
+- A [mask](../../reference/glossary.md#mask) on the view blends the result with the original afterwards: white takes the
   result, black keeps the original, gray mixes them, and **Invert Mask** swaps the two. The mask must have the
   image's size.
 - On a sequence, every frame gets the same **Gamma**, the same **Channel** and the mask. For a mosaic sequence,
-  decide first whether its automatic debayer turns the frames into RGB.
+  decide first whether its automatic [debayer](../../reference/glossary.md#debayer) turns the frames into RGB.
 
 ## Steps
 
 1. **Open the window.** Make the stretched image the active one and choose **Process > Adjustments > Gamma
    Correction**. **Target Image** names it, the preview shows it unchanged, and **Apply** stays disabled until
    **Gamma** leaves 1.
-2. **Choose what to adjust.** Leave **Channel** at **RGB** to give the three channels the same curve. Choose **HSL
-   Lightness**, **CIE Y (Luminance)** or **HSV Value** to change the tone through one component instead.
+2. **Choose what to adjust.** Leave **Channel** at **RGB** to give the three channels the same curve. Choose
+   [**HSL Lightness**](../../reference/glossary.md#hsl), **CIE Y (Luminance)** or
+   [**HSV Value**](../../reference/glossary.md#hsv) to change the tone through one component instead.
 3. **Set the gamma.** Lower **Gamma** below 1 to darken the midtones, or raise it above 1 to brighten them. The
    preview follows, and the peak of the histogram moves left or right.
 4. **Read the histogram.** Check where the peak of the background has landed. With **RGB**, **Clipping Low** and
@@ -205,18 +206,19 @@ controls:
 
 ## How it works
 
-1. Every sample is read as a fraction of full scale: an unsigned integer divided by its largest value, a signed
-   one counted from its smallest value, a floating-point sample as it is.
+1. Every sample is read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale): an
+   unsigned integer divided by its largest value, a signed one counted from its smallest value, a floating-point
+   sample as it is.
 2. **Channel** decides what the power is given: every channel, one channel, or one component of the image
    converted to a color model.
 3. Each of those values is raised to the power and written back in the image's own pixel type. A component is
    converted back to RGB first.
 4. A mask on the view then blends the result with the original, pixel by pixel.
-5. The image replaces the target and its history gets one step. Its header, its plate solution and its acquisition
-   data are kept with every choice of **Channel**. A saved file records the new state in its header: `ANLIN` is
-   `nonlinear`, `ANASRC` is `process`, `ANOP` is `gamma-correction`, and `ANBASIS` is `monochrome` or
-   `display-rgb`. A linear encoding the image stated is no longer stated, and its lineage gains an entry with the
-   gamma.
+5. The image replaces the target and its history gets one step. Its header, its
+   [plate solution](../../reference/glossary.md#plate-solution) and its acquisition data are kept with every choice
+   of **Channel**. A saved file records the new state in its header: `ANLIN` is `nonlinear`, `ANASRC` is `process`,
+   `ANOP` is `gamma-correction`, and `ANBASIS` is `monochrome` or `display-rgb`. A linear encoding the image stated is
+   no longer stated, and its [lineage](../../reference/glossary.md#lineage) gains an entry with the gamma.
 
 ### Model
 
@@ -252,7 +254,8 @@ weakens them.
 
 ### Worked example
 
-The image in the picture above is the linear master after Histogram Transformation with **Shadows** and
+The image in the picture above is the linear [master](../../reference/glossary.md#master) after Histogram
+Transformation with **Shadows** and
 **Midtones** at 0.02, which leaves the background near 0.28. With **Channel** at **RGB** and **Gamma** at 0.50,
 the exponent of equation (1) is 2. The background drops to \(0.28^2 = 0.078\), a sample of 0.50 becomes 0.25 and
 one of 0.90 becomes 0.81. The sky turns nearly black, the nebula keeps its bright parts, and the stars that were
