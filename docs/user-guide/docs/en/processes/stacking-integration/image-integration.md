@@ -326,7 +326,7 @@ controls:
     default: ""
     effect: Lists the window's keys.
     note: >-
-      ++f1++ opens it. Besides the keys of the menus, it lists ++f5++ to refresh the view, ++ctrl+f++ for the search
+      ++shift+f1++ opens it. Besides the keys of the menus, it lists ++f5++ to refresh the view, ++ctrl+f++ for the search
       box, ++ctrl+a++ to select every frame, ++esc++ to clear the selection, and ++home++ and ++end++ for the first
       and last frame.
 ```
