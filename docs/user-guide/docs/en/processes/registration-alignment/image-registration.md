@@ -482,8 +482,6 @@ found with **Solve...** or the automatic solve contributes no distortion.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-test-derived; not executed on approved
-  astrophotography data.
 - **Input condition/provenance and settings:** Three compatible calibrated
   linear stills with a repeatable synthetic star pattern; dedicated empty
   output root; Star Matching, Homography, Manual reference row 1, Min `10`, Max
@@ -540,24 +538,24 @@ found with **Solve...** or the automatic solve contributes no distortion.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Registration controls stay disabled | Fewer than two rows | Add at least two compatible stills | Process enablement state |
-| `Could not build registration persistence context: Registration output directory is empty.` | Register was selected without an output directory | Select **Browse** and choose a directory | Register path |
-| `The registration could not be recorded in '<output>/registration_metrics.db': ...` | The database in the output directory could not be opened or written: a read-only folder, a locked database, or a non-database file of that name | Choose a writable output directory, or close what holds the database, and register again | Register path |
-| `Some images in the list have different size or color depth` | Width/height, pixel type, or channel-count mismatch | Split into same-geometry batches or convert to a consistent precision/channel state before registration | Image-list validation |
-| `The reference frame holds too few stars to match` | The reference's detected stars cannot form the triangles the matcher needs | Verify CFA/debayer and linear data; lower the detection threshold or choose a stronger reference | Detection/register path |
-| Rows fail despite many visible stars | Fewer matched pairs than Min Star Pairs with the reference and with every frame registered near it, a match of fewer than ten candidate pairs under four fifths of them consistent, or triangle voting/RANSAC or the transform fit rejected inconsistent/degenerate matches | Try a better reference, simpler transform, improved detection, or a lower Min Star Pairs; inspect RMS and Blink | Star-alignment and transform tests |
-| Phase Correlation shifts look unreliable | Low correlation response, rotation/scale difference, or feature-poor/constant data | Use translation-dominant frames; otherwise use Star Matching or external planetary alignment | Phase-correlation source/tests |
-| Auto reference picked an unexpected frame | Auto picks from the star-detection figures before matching | Set the chosen reference manually and Register again | Standalone execution flow |
-| Auto-solve or Gaia checkbox is disabled | No configured solver route or no ready local Gaia catalog | Configure [Plate Solving settings](../../interface/settings-dialog.md#plate-solving-settings) and catalog readiness | Readiness gates |
-| Zero Point remains `-` | Gaia disabled/unready, catalog load failed, WCS invalid, or no catalog matches | Validate WCS and local pack; registration success alone does not guarantee photometric enrichment | Gaia enrichment path |
-| RMS shows `px` instead of arcseconds | The frame has no solution or Gaia enrichment did not run for it, so the transform residual in pixels is shown | Use it as relative registration fit error; enable Gaia enrichment with a ready catalog and valid WCS for an arcsecond residual | Metrics bridge/table formatter |
-| Align is disabled or says registration needs update | Frame order/list, reference, transform, a switch to or from Mosaic, CA, solve/enrichment, or hashed settings no longer match persisted state | Register again with final settings and exclusions | Persistence context comparison |
-| Aligned images have large black borders | Standard bounds plus translation/rotation, or Mosaic union | Use Intersection for shared overlap or crop later; keep Mosaic only for combined coverage | Output-plane geometry |
-| Aligned images have no WCS | Standalone Align drops the WCS cards because the warp invalidates them | Plate solve the aligned/final product | Alignment metadata path |
-| `Comet tracking requires accepted observations, finite timestamps, and an explicit reference frame.` | Fewer than two enabled marks, missing fixed reference, or missing/unparseable `DATE-OBS` | Mark two or more frames, choose a fixed reference, and repair timing metadata | Comet validation/engine path |
-| Existing state is not reused | DB absent, hashes/mtimes/frame list changed, cache missing, or a nonignored metric failed | Confirm output root and inputs; rerun registration; use Clear Registered Data only when deliberately rebuilding | Standalone persistence tests |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Registration controls stay disabled | Fewer than two rows | Add at least two compatible stills |
+| `Could not build registration persistence context: Registration output directory is empty.` | Register was selected without an output directory | Select **Browse** and choose a directory |
+| `The registration could not be recorded in '<output>/registration_metrics.db': ...` | The database in the output directory could not be opened or written: a read-only folder, a locked database, or a non-database file of that name | Choose a writable output directory, or close what holds the database, and register again |
+| `Some images in the list have different size or color depth` | Width/height, pixel type, or channel-count mismatch | Split into same-geometry batches or convert to a consistent precision/channel state before registration |
+| `The reference frame holds too few stars to match` | The reference's detected stars cannot form the triangles the matcher needs | Verify CFA/debayer and linear data; lower the detection threshold or choose a stronger reference |
+| Rows fail despite many visible stars | Fewer matched pairs than Min Star Pairs with the reference and with every frame registered near it, a match of fewer than ten candidate pairs under four fifths of them consistent, or triangle voting/RANSAC or the transform fit rejected inconsistent/degenerate matches | Try a better reference, simpler transform, improved detection, or a lower Min Star Pairs; inspect RMS and Blink |
+| Phase Correlation shifts look unreliable | Low correlation response, rotation/scale difference, or feature-poor/constant data | Use translation-dominant frames; otherwise use Star Matching or external planetary alignment |
+| Auto reference picked an unexpected frame | Auto picks from the star-detection figures before matching | Set the chosen reference manually and Register again |
+| Auto-solve or Gaia checkbox is disabled | No configured solver route or no ready local Gaia catalog | Configure [Plate Solving settings](../../interface/settings-dialog.md#plate-solving-settings) and catalog readiness |
+| Zero Point remains `-` | Gaia disabled/unready, catalog load failed, WCS invalid, or no catalog matches | Validate WCS and local pack; registration success alone does not guarantee photometric enrichment |
+| RMS shows `px` instead of arcseconds | The frame has no solution or Gaia enrichment did not run for it, so the transform residual in pixels is shown | Use it as relative registration fit error; enable Gaia enrichment with a ready catalog and valid WCS for an arcsecond residual |
+| Align is disabled or says registration needs update | Frame order/list, reference, transform, a switch to or from Mosaic, CA, solve/enrichment, or hashed settings no longer match persisted state | Register again with final settings and exclusions |
+| Aligned images have large black borders | Standard bounds plus translation/rotation, or Mosaic union | Use Intersection for shared overlap or crop later; keep Mosaic only for combined coverage |
+| Aligned images have no WCS | Standalone Align drops the WCS cards because the warp invalidates them | Plate solve the aligned/final product |
+| `Comet tracking requires accepted observations, finite timestamps, and an explicit reference frame.` | Fewer than two enabled marks, missing fixed reference, or missing/unparseable `DATE-OBS` | Mark two or more frames, choose a fixed reference, and repair timing metadata |
+| Existing state is not reused | DB absent, hashes/mtimes/frame list changed, cache missing, or a nonignored metric failed | Confirm output root and inputs; rerun registration; use Clear Registered Data only when deliberately rebuilding |
 
 ## Related workflow steps
 
@@ -573,13 +571,11 @@ found with **Solve...** or the automatic solve contributes no distortion.
 - Review Stars/FWHM/SNR/Ecc. in [Image Statistics](../../interface/image-statistics.md)
   and inspect copied headers with [FITS Header And Metadata Viewer](../../interface/fits-header-viewer.md).
 
-## References and provenance
+## Credits
 
-- AfterNight production and focused test sources are the primary behavior
-  source for this standalone page.
 - [Fischler and Bolles, “Random Sample Consensus,” 1981](https://doi.org/10.1145/358669.358692)
-  is the primary RANSAC reference; AfterNight's actual thresholds and acceptance
-  rules are its own source-verified implementation contract.
+  is the primary RANSAC reference; AfterNight's thresholds and acceptance
+  rules are its own.
 - [OpenCV geometric-transform and robust-estimation documentation](https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html)
   is background for affine/homography estimation; AfterNight does not use
   OpenCV for registration, and its matcher and estimator are its own
@@ -591,5 +587,11 @@ found with **Solve...** or the automatic solve contributes no distortion.
   defines the A/B/AP/BP FITS convention, which ordinary standalone registration
   does not apply.
 - [Gaia DR3 documentation](https://gea.esac.esa.int/archive/documentation/GDR3/)
-  is the catalog provenance reference. The installed pack format, readiness,
-  epoch correction, and enrichment fields are defined by AfterNight source.
+  is the catalog provenance reference.
+- The star detection and its point-spread-function fit are adapted from
+  [Siril](https://gitlab.com/free-astro/siril)'s star finder and PSF fit, by
+  Francois Meyer and team free-astro, under GPL-3.0-or-later.
+- Color-camera frames are demosaiced by methods adapted from RawTherapee's
+  demosaic code as [librtprocess](https://github.com/CarVac/librtprocess)
+  packages it, under GPL-3.0-or-later.
+- **About > About AfterNight** credits both works.

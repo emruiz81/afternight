@@ -209,16 +209,16 @@ current scalar mapping, not a recommended astronomical setting.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Apply disabled | Both values are `0` | Set B or C nonzero | `AdjustBrightnessAndContrastProcess::settingsUpdatedImpl` |
-| Highlights stay flat after lowering Contrast | Brightness clipped before Contrast | Reset/start from duplicate; lower Brightness | `AdjustBrightnessAndContrastProcess::executeTypedProcessIteration` (`an::buildBrightnessProgram`, `an::buildClampProgram`) |
-| Mid-gray moves unexpectedly | Brightness changes value before the `0.5` pivot | Tune Brightness first or use `B=0` | `AdjustBrightnessAndContrastProcess::executeTypedProcessIteration` (`an::buildContrastProgram`) |
-| Preview and Apply differ | Target, mask/inversion, Channel, or sequence frame changed after the last Preview; a Preview area shows only Apply's result for that area | Wait for the latest Preview; compare with Preview area off | `AdjustBrightnessAndContrastProcess::executeTypedProcessImpl` (one body for Preview and Apply); `an::ui::cropProcessRegion`, `an::ui::composeProcessRegion` |
-| Floating values above `1` or below `0` end at `1` or `0` | The Brightness step holds its result to `0..1` before Contrast | Expected; rescale the data upstream if its range must be kept | `AdjustBrightnessAndContrastProcess::executeTypedProcessIteration` (`an::buildClampProgram`) |
-| Color shifts in CIE/HSL/HSV/YCbCr mode | Scalar curve changed one encoded component; reconstruction saturated an integer image or left a floating color outside `0..1` | Use RGB or purpose-built color process | `an::ui::applyProcessChannelScope` |
-| Saved image is marked nonlinear | Every Apply records its result nonlinear | Expected; return to the pre-Apply history step for linear work | `process_utils::recordNonlinearResult` |
-| Sequence unchanged after Cancel | Frames are written to a temporary sequence published only on success; the engine operation observes Cancel | Expected; rerun and let every frame finish | `ImageRTPreviewControl::runOverSequence`; `process_utils::runNormalizedChain` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Apply disabled | Both values are `0` | Set B or C nonzero |
+| Highlights stay flat after lowering Contrast | Brightness clipped before Contrast | Reset/start from duplicate; lower Brightness |
+| Mid-gray moves unexpectedly | Brightness changes value before the `0.5` pivot | Tune Brightness first or use `B=0` |
+| Preview and Apply differ | Target, mask/inversion, Channel, or sequence frame changed after the last Preview; a Preview area shows only Apply's result for that area | Wait for the latest Preview; compare with Preview area off |
+| Floating values above `1` or below `0` end at `1` or `0` | The Brightness step holds its result to `0..1` before Contrast | Expected; rescale the data upstream if its range must be kept |
+| Color shifts in CIE/HSL/HSV/YCbCr mode | Scalar curve changed one encoded component; reconstruction saturated an integer image or left a floating color outside `0..1` | Use RGB or purpose-built color process |
+| Saved image is marked nonlinear | Every Apply records its result nonlinear | Expected; return to the pre-Apply history step for linear work |
+| Sequence unchanged after Cancel | Frames are written to a temporary sequence published only on success; the engine operation observes Cancel | Expected; rerun and let every frame finish |
 
 ## Related workflow steps
 
@@ -230,8 +230,3 @@ project-specific multiplicative mapping, and [Gamma Correction](../stretching/ga
 for a power curve. Use [Adjust HSL](adjust-hsl.md) or [Adjust LCh](adjust-lch.md)
 for named color coordinates. Verify [Image History](../../interface/image-history.md)
 and [Image Statistics](../../interface/image-statistics.md) after Apply.
-
-## References and provenance
-
-- AfterNight source is authoritative for the exact transfer, `0.5` pivot, parameter ranges, double clipping, normalized working units and rounding, channel conversions, metadata/state behavior, masks, and sequences.
-- The worked values were calculated directly from the source equation; no third-party brightness/contrast convention is assumed.

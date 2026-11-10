@@ -8,8 +8,6 @@ data_out: nonlinear
 ---
 # Pixel Math
 
-<!-- MEDIA_SLOT: UG-MEDIA-096 -->
-
 ## Purpose and expected result
 
 Pixel Math evaluates a small expression language once for every output sample. Use
@@ -367,10 +365,6 @@ copy in the working representation. A sequence repeats the work for every frame.
 
 ## Worked example
 
-Evidence mode: **Source-and-test-derived**. The numeric checkpoints below are
-held by `PixelMathRunTest` on synthetic samples. They make no astronomical
-visual-quality claim.
-
 ### Average two images
 
 With RGB `$T=(0.2,0.4,0.6)` and grey `SRC=0.8` at one coordinate:
@@ -424,18 +418,18 @@ Every pixel starts with `a=0.25`, so a target sample `0.6` produces `1.7`.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| `The pixel math expression is empty` | Every program the output uses is blank | Enter RGB/K, or at least one channel program | `PixelMathRunTest` |
-| `RGB/K expression at 'NAME': nothing is bound to the name 'NAME' at byte <n>` | Identifier is neither a symbol nor an open image name | Check case, view name, and Symbols list; declare numeric symbols | Engine resolution |
-| `$M reads the target's mask, and the target has none` | The target has no mask | Attach a mask or remove `$M` | `PixelMathRunTest` |
-| `the local symbol 'NAME' cannot be declared` | The symbol is a function name or declared twice | Rename the symbol | `PixelMathWindowTest` |
-| An image of another kind of number is refused | Sensor codes or physical quantities beside fractions | Convert or calibrate the image first | `PixelMathRunTest` |
-| A colour image beside a grey output is refused | Its channels do not line up with the output's | Name the channel, such as `SRC[0]` | Engine resolution |
-| Requested RGBA is transparent | An added alpha channel starts at `0` | Enter A=`1` for opaque output | `PixelMathRunTest` |
-| Output contains NaN | Division or domain error | Guard denominators with `iif`, avoid invalid domains | Floating evaluator |
-| Named source looks softened or misaligned | Pixel Math resized it but did not align it | Register and resize sources before Pixel Math | Binding policy |
-| Mask has no effect | Attached masks are not automatically blended | Reference `$M` explicitly | `PixelMathWindowTest` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `The pixel math expression is empty` | Every program the output uses is blank | Enter RGB/K, or at least one channel program |
+| `RGB/K expression at 'NAME': nothing is bound to the name 'NAME' at byte <n>` | Identifier is neither a symbol nor an open image name | Check case, view name, and Symbols list; declare numeric symbols |
+| `$M reads the target's mask, and the target has none` | The target has no mask | Attach a mask or remove `$M` |
+| `the local symbol 'NAME' cannot be declared` | The symbol is a function name or declared twice | Rename the symbol |
+| An image of another kind of number is refused | Sensor codes or physical quantities beside fractions | Convert or calibrate the image first |
+| A colour image beside a grey output is refused | Its channels do not line up with the output's | Name the channel, such as `SRC[0]` |
+| Requested RGBA is transparent | An added alpha channel starts at `0` | Enter A=`1` for opaque output |
+| Output contains NaN | Division or domain error | Guard denominators with `iif`, avoid invalid domains |
+| Named source looks softened or misaligned | Pixel Math resized it but did not align it | Register and resize sources before Pixel Math |
+| Mask has no effect | Attached masks are not automatically blended | Reference `$M` explicitly |
 
 ## Related workflow steps
 
@@ -450,11 +444,3 @@ Every pixel starts with `a=0.25`, so a target sample `0.6` produces `1.7`.
   a video/SER/image-list target, especially when other open sequences are inputs.
 - Use [Process Windows](../../interface/process-windows.md) for target selection,
   progress, cancellation, and Image History conventions shared with other tools.
-
-## References and provenance
-
-- The engine's expression language - parser, resolution, compiler, fused lowering
-  and evaluator - under
-  `src/AfterNightEngine/include/AfterNightEngine/Algorithms/PixelMath/`.
-- The Pixel Math window, its `.anpm` version-1 import/export and its binding policy
-  in `PixelMathProcess.*` and `PixelMathProcessSupport.*`.

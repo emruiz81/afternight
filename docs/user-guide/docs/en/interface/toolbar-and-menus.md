@@ -5,8 +5,6 @@ summary: >-
 ---
 # Toolbar & Menus
 
-<!-- Frozen template, 2026-07-10. Keep every heading and field. -->
-
 AfterNight's menu bar is the main catalog for file, image, process, extension, workspace, help, and application-information commands. The main toolbar repeats only **Open**, **Save as...**, and **Close**; dock-layout and image-view tools have separate toolbars.
 
 ![Process menu open over an active image, showing favorites, recents, and process categories](../assets/images/interface/toolbar-and-menus.png)
@@ -179,7 +177,6 @@ Avoid repeated duplication of large images, confirm available disk space before 
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations: Open an RGB FITS still image with EXIF records and activate its view. **Save as...**, **Image > Extract Channel**, **FITS Header**, **EXIF Viewer**, **Astrometry Info**, **Summary**, and eligible process entries become enabled; **Image > Sequence** remains disabled. Launch a valid process successfully and reopen **Process > Recent Processes**: its entry is first, with older duplicates removed and the list limited by **Settings > General > Recent Processes Limit**. Add it through **Manage Favorites...** and accept: it appears in **Favorite Processes** in case-insensitive alphabetical order. Right-click the image to confirm the same process families target that view and that **Current Window** layout actions are local to its containing window. This evidence verifies state transitions and ordering only; it does not claim GUI geometry, a processing result, timing, or persisted dock layout.
 
 ## Warnings and limitations
@@ -196,19 +193,19 @@ Avoid repeated duplication of large images, confirm available disk space before 
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Save as...**, **Close**, or Image submenus are disabled | No active data/view | Open an image or select an existing image view | `ActionStateCoordinator.cpp` |
-| Extract Channel or RGB color actions are disabled | Active image is not RGB | Choose an RGB image or use an enabled conversion process such as **Convert to RGB** | `ActionStateCoordinator.cpp` |
-| A conversion target is disabled | It is the current pixel/sequence type, or the active SER/video sequence disallows that sample type | Select a different supported target; export/convert through a supported workflow | `ActionStateCoordinator.cpp` |
-| **Convert to FITS** is visible but disabled | Current source explicitly disables this sequence action | Use a documented supported sequence export/conversion path | `ActionStateCoordinator.cpp` |
-| FITS Header or EXIF Viewer is disabled | Required metadata is absent | Select an image containing FITS records or EXIF metadata | `ActionStateCoordinator.cpp` |
-| A process is disabled, missing, or refused at launch | Registry is loading, installing, repairing, validating, incompatible, unavailable, or category-unmapped; or the launch guard rejects the active target or a conflict (a built-in entry is refused with a titled message, an extension entry is disabled) | Read its disabled reason or the message; finish extension discovery/repair, select compatible data, or close the conflicting instance | `ProcessRegistry.cpp`; `MenuActionManager.cpp`; `ActionStateCoordinator.cpp`; `ProcessLauncherTest.cpp` |
-| Recent Processes is empty or an entry says it is still loading | No successful launches are stored, or a stored extension ID is awaiting discovery | Launch a process successfully or let extension discovery finish | `AfterNightApp.cpp`; `ProcessMenuState.h` |
-| A favorite disappeared | Its descriptor is no longer registered after discovery | Restore/enable its extension or choose it again after the descriptor returns | `AfterNightApp.cpp`; `ProcessMenuState.h` |
-| Window commands are disabled | Dashboard is active, or maximize temporarily disabled global Group/Split | Open/activate an image workspace or restore the maximized view | `ActionStateCoordinator.cpp`; `WindowLayoutCoordinator.cpp` |
-| A shortcut does nothing or affects an unexpected view | Required action state or image-view focus is absent | Click the intended image view, inspect the menu's enabled state, and retry | `AfterNightAppUiBuilder.h`; `ImageViewControl.cpp` |
-| `F1` opens online help or reports it cannot open the guide | Bundled guide is absent/unopenable; online fallback is used unless policy disables it | Install a package containing the guide; check `AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE` policy | `DialogOrchestrationCoordinator.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Save as...**, **Close**, or Image submenus are disabled | No active data/view | Open an image or select an existing image view |
+| Extract Channel or RGB color actions are disabled | Active image is not RGB | Choose an RGB image or use an enabled conversion process such as **Convert to RGB** |
+| A conversion target is disabled | It is the current pixel/sequence type, or the active SER/video sequence disallows that sample type | Select a different supported target; export/convert through a supported workflow |
+| **Convert to FITS** is visible but disabled | Current source explicitly disables this sequence action | Use a documented supported sequence export/conversion path |
+| FITS Header or EXIF Viewer is disabled | Required metadata is absent | Select an image containing FITS records or EXIF metadata |
+| A process is disabled, missing, or refused at launch | Registry is loading, installing, repairing, validating, incompatible, unavailable, or category-unmapped; or the launch guard rejects the active target or a conflict (a built-in entry is refused with a titled message, an extension entry is disabled) | Read its disabled reason or the message; finish extension discovery/repair, select compatible data, or close the conflicting instance |
+| Recent Processes is empty or an entry says it is still loading | No successful launches are stored, or a stored extension ID is awaiting discovery | Launch a process successfully or let extension discovery finish |
+| A favorite disappeared | Its descriptor is no longer registered after discovery | Restore/enable its extension or choose it again after the descriptor returns |
+| Window commands are disabled | Dashboard is active, or maximize temporarily disabled global Group/Split | Open/activate an image workspace or restore the maximized view |
+| A shortcut does nothing or affects an unexpected view | Required action state or image-view focus is absent | Click the intended image view, inspect the menu's enabled state, and retry |
+| `F1` opens online help or reports it cannot open the guide | Bundled guide is absent/unopenable; online fallback is used unless policy disables it | Install a package containing the guide; check `AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE` policy |
 
 ## Related workflow steps
 
@@ -220,11 +217,3 @@ Avoid repeated duplication of large images, confirm available disk space before 
 - [Process Windows](process-windows.md) explains process launch and execution behavior; [Process Index](../processes/index.md) is the catalog.
 - [Using Extensions](../extensions/using-extensions.md) covers extension management and dynamic processes.
 - [Keyboard Shortcuts](../reference/keyboard-shortcuts.md) is the consolidated shortcut reference.
-
-## References and provenance
-
-- AfterNight source and focused tests.
-- Process availability, category mapping, and launch guards are project-defined behavior in `ProcessRegistry` and `MenuActionManager`; extension-provided labels and URLs originate in installed manifests.
-- Qt `QAction`, `QMenu`, shortcut, settings, and desktop-services behavior is provided under the Qt licensing terms included with AfterNight distributions.
-- The validated menu capture is tracked as `UG-MEDIA-009` in the canonical media
-  manifest.

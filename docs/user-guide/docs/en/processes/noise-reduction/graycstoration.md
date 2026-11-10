@@ -284,21 +284,21 @@ normalized original value `0.20` and smoothed value `0.12` become
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Check or correction | Evidence |
-| --- | --- | --- | --- |
-| Fine stars disappear | Scale/amplitude treats them as removable variation | Reduce Amplitude/Iterations; lower Noise Scale or Regularity; blend with Amount or a mask | Tensor construction and repeated-pass path |
-| Texture becomes curved or painted | Directional paths dominate local detail | Reduce Anisotropy, Precision, Amplitude, or Iterations | Tensor eigenvalue and LIC paths |
-| Result looks blocky or directionally biased | Path/angular sampling is coarse | Try Linear or Runge-Kutta, lower Spatial/Angular Step Size | CImg integration branches |
-| Border differs from interior | Paths stop when they leave the image | Inspect full frame and protect/crop borders if necessary | LIC boundary test |
-| Amount `0` is unchanged but still slow | G'MIC and the filtered-result clamp run before the shared Amount blend restores the original samples | Close or disable Preview when no processing is wanted | G'MIC run and modulation order |
-| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged | `GmicProcessSupport.cpp` |
-| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another denoiser | `GmicProcessSupport.cpp` |
-| Fast Approximation result changes | It replaces Gaussian distance weights with equal sample weights | Disable it for Gaussian-weighted integration; expect more cost | CImg weighting branch |
-| Colors smear together | Shared RGB tensor paths follow dominant multichannel structure | Try a deliberate luminance component and inspect chroma channels | Vector structure tensor and Channel dispatcher |
-| Reset changes Fast Approximation to checked | Live process initialization overrides the raw UI-builder checkbox state | Treat checked as the runtime default | `initialize()` after UI construction |
-| Cancel appears delayed | G'MIC cancellation is cooperative inside a large multi-core pass | Wait for the current polling point; use a smaller Preview area next time | G'MIC adapter abort flag |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Fine stars disappear | Scale/amplitude treats them as removable variation | Reduce Amplitude/Iterations; lower Noise Scale or Regularity; blend with Amount or a mask |
+| Texture becomes curved or painted | Directional paths dominate local detail | Reduce Anisotropy, Precision, Amplitude, or Iterations |
+| Result looks blocky or directionally biased | Path/angular sampling is coarse | Try Linear or Runge-Kutta, lower Spatial/Angular Step Size |
+| Border differs from interior | Paths stop when they leave the image | Inspect full frame and protect/crop borders if necessary |
+| Amount `0` is unchanged but still slow | G'MIC and the filtered-result clamp run before the shared Amount blend restores the original samples | Close or disable Preview when no processing is wanted |
+| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged |
+| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another denoiser |
+| Fast Approximation result changes | It replaces Gaussian distance weights with equal sample weights | Disable it for Gaussian-weighted integration; expect more cost |
+| Colors smear together | Shared RGB tensor paths follow dominant multichannel structure | Try a deliberate luminance component and inspect chroma channels |
+| Reset changes Fast Approximation to checked | Live process initialization overrides the raw UI-builder checkbox state | Treat checked as the runtime default |
+| Cancel appears delayed | G'MIC cancellation is cooperative inside a large multi-core pass | Wait for the current polling point; use a smaller Preview area next time |
 
-## References and provenance
+## Credits
 
 - [G'MIC `smooth` command reference](https://gmic.eu/reference/smooth.html)
   defines the anisotropic-smoothing arguments, interpolation choices, and
@@ -306,10 +306,6 @@ normalized original value `0.20` and smoothed value `0.12` become
 - [David Tschumperlé, “Fast Anisotropic Smoothing of Multi-Valued Images using Curvature-Preserving PDE's”](https://tschumperle.users.greyc.fr/publications/tschumperle_ijcv06.pdf)
   is the primary publication for the curvature-preserving, line-integral
   formulation behind this smoothing family.
-- AfterNight's `GRAYCstorationProcess.cpp` and `GmicProcessSupport.cpp`, the
-  G'MIC adapter, bundled `gmic.cpp`, and bundled `CImg.h` are authoritative for
-  the exact script, float/clamp hand-off, tensor equations, integration,
-  boundaries, and cancellation behavior shipped with this build.
 
 ## Related workflow steps
 

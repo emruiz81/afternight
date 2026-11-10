@@ -237,7 +237,6 @@ a representative still.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; not run on approved astronomical data.
 - Input condition and settings: a linear RGB master after gradient correction,
   used as its own reference; ROI over clean sky; Lower `0.0`; Upper `0.1`; no
   view mask. Suppose the medians within the limits are red `0.050`, green
@@ -271,19 +270,19 @@ a representative still.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **The selected background reference image is no longer available.** | The selected reference view holds no image when **OK** is pressed; a closed reference instead returns the selector to `<--TARGET IMAGE-->` | Choose an open RGB reference | `BackgroundNeutralizationProcess::executeBackgroundNeutralization()` |
-| **The background ROI must be fully inside the reference image and have a non-zero size.** | The enabled ROI is empty or overhangs the reference | Turn ROI off for the whole image, use **From Selection**, or correct the fields | `ColorToolsUnitsTest.ARectangleIsTheWholeImageOrARegionInsideIt` |
-| **Error running background neutralization** with `No <channel> sample of the background reference lies between the limits <L> and <U>; widen the limits or choose another reference` | That channel of the reference, inside the ROI, has no finite valid sample with `L ≤ x ≤ U`, or Lower exceeds Upper; nothing changes | Widen the limits, restore Lower ≤ Upper, move the ROI, or choose a reference whose background lies within the limits | `ColorToolsCase.ANeutralizationWhoseLimitsKeepNoSampleIsRefusedByChannel` |
-| **Error running background neutralization** with another reason | The engine refused the run, for example for memory | Read the message and the log, free memory, and retry | `ColorToolsWindowTest.ARunTheEngineRefusesSaysWhyAndChangesNothing` |
-| A signed integer image is refused with the default limits | Its background reads near `0.5` of full scale | Set the limits around the background as the image reads it | `ColorToolsWindowTest.EveryRepresentationIsKept` |
-| Result is clipped | The offsets are large or the reference does not match the target | Undo; choose a clean, matching reference; inspect clipping | Constant-offset model |
-| Background cast remains | A spatial gradient remains, the ROI or reference is contaminated, or the channel balance is multiplicative | Correct gradients; choose a clean target ROI; then use Color Calibration, PCC or SPCC for gains | Constant-offset model |
-| An **Image History** error, and nothing is applied | Image History could not keep the image the step replaces; it says so once | Free memory and run again | `runInPlace` still-image path |
-| Busy warning titled **Background Neutralization** | Another run holds the sequence view | Wait for it to finish, then run again | `runInPlace` busy path |
-| Sequence does not change after Cancel | A stopped run publishes nothing | Run again | `ColorToolsWindowTest.AStoppedRunPublishesNothing` |
-| Closing during a run does not stop it | A title-bar close hides the window until the run lands | Use the sequence progress **Cancel**, or wait for a still run | `ImageProcessControl::closeEvent()` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **The selected background reference image is no longer available.** | The selected reference view holds no image when **OK** is pressed; a closed reference instead returns the selector to `<--TARGET IMAGE-->` | Choose an open RGB reference |
+| **The background ROI must be fully inside the reference image and have a non-zero size.** | The enabled ROI is empty or overhangs the reference | Turn ROI off for the whole image, use **From Selection**, or correct the fields |
+| **Error running background neutralization** with `No <channel> sample of the background reference lies between the limits <L> and <U>; widen the limits or choose another reference` | That channel of the reference, inside the ROI, has no finite valid sample with `L ≤ x ≤ U`, or Lower exceeds Upper; nothing changes | Widen the limits, restore Lower ≤ Upper, move the ROI, or choose a reference whose background lies within the limits |
+| **Error running background neutralization** with another reason | The engine refused the run, for example for memory | Read the message and the log, free memory, and retry |
+| A signed integer image is refused with the default limits | Its background reads near `0.5` of full scale | Set the limits around the background as the image reads it |
+| Result is clipped | The offsets are large or the reference does not match the target | Undo; choose a clean, matching reference; inspect clipping |
+| Background cast remains | A spatial gradient remains, the ROI or reference is contaminated, or the channel balance is multiplicative | Correct gradients; choose a clean target ROI; then use Color Calibration, PCC or SPCC for gains |
+| An **Image History** error, and nothing is applied | Image History could not keep the image the step replaces; it says so once | Free memory and run again |
+| Busy warning titled **Background Neutralization** | Another run holds the sequence view | Wait for it to finish, then run again |
+| Sequence does not change after Cancel | A stopped run publishes nothing | Run again |
+| Closing during a run does not stop it | A title-bar close hides the window until the run lands | Use the sequence progress **Cancel**, or wait for a still run |
 
 ## Related workflow steps
 
@@ -294,15 +293,3 @@ before neutralization. Follow with [Color Calibration](color-calibration.md),
 Calibration](spectrophotometric-cc.md) for multiplicative channel balance.
 Stretch only after the linear colour workflow, for example with
 [Histogram Transformation](../stretching/histogram-transformation.md).
-
-## References and provenance
-
-- The AfterNight Background Neutralization process, the colour tools' shared
-  support, the shared in-place run, the engine's statistics and colour
-  calibration apply, and the focused tests are the
-  implementation sources.
-- This is a project-specific median offset model. No paper, external standard,
-  or upstream algorithm claim is used.
-- `ColorToolsRecordTest.EveryRecordOfTheProcessIsReproducedThroughItsWindow`
-  holds the result to the stated model within `2e-6` of full scale and to the
-  behavior records within one offset per channel.

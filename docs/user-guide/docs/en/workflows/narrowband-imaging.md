@@ -38,23 +38,6 @@ Expected branch products are:
 | NBRGB continuum enhancement | Registered linear RGB plus one or more mono narrowband masters | An RGB result with selected channels enhanced; retain RGB and narrowband inputs |
 | Star-separated finish | Stretched color image plus a verified star mask/star image or optional external extraction | Matched starless/stars products and a recombined master; retain the pre-separation image |
 
-## Verification data and evidence mode
-
-| Item | Record |
-| --- | --- |
-| Project-owned sample set | The mono SHO data set of M16 captured on 2025-06-18: maintainer-supplied project-owned mono Ha/OIII/SII lights and per-filter flats. Permission covers validation and retention of sanitized settings, hashes, observations, and derived evidence. |
-| Branches covered | Physical mono SHO path: eight lights plus eight flats per Ha/OIII/SII group, 48 selected inputs. Direct SHO/HOO/Foraxx/custom, matching, native star, export, recovery, and negative paths were executed in the historical partial run. OSC1 and NBRGB arithmetic used same-target derivatives; representative physical OSC and matched broadband-continuum branches remain blocked. |
-| External tools/models | None. StarNet, DeepSNR, and other optional executables/models were not used. |
-| Catalogs/network | None. Gaia enrichment, online solving, response packs, catalogs, and network access were disabled/not used. |
-| Platform/application build | Historical partial execution: Windows MSVC x64 Release and Debug, Qt 6.10.3. The blocked-remediation numbered builds and complete-suite results are retained separately in the evidence record. |
-| Evidence artifacts | Sanitized frame IDs/hashes, historical partial-run binary/source/output/report hashes, exact settings, stage results, warnings, bounded image observations, export/reopen, recovery evidence, exact focused commands, and blocked-remediation validation are in the guide's validation record. Private paths, reports, logs, manifests, and generated images remain only in isolated approved output trees. |
-| Unverified claims excluded | Physical narrowband OSC acquisition/calibration/demosaic/sensor behavior and matched broadband-continuum production behavior remain unverified, so verification of this workflow is incomplete. No claim is made that eight frames or recorded values are production-optimal; that uncalibrated flats are recommended; or that external tools, other platforms, polished aesthetics, or printing were accepted. |
-
-The retained mode-E run proves only the recorded mono branch and bounded proxy
-artifacts. It does not satisfy the mandatory representative-data gate for the
-OSC and continuum branches. Apply the checkpoints to your data instead of
-copying the values blindly.
-
 ## Inputs and outputs
 
 ### Acquisition assumptions and organization
@@ -111,8 +94,7 @@ The release guide does not include a diagram of this workflow. The physical
 narrowband OSC and matched broadband-continuum branches have not passed their
 representative-data gate, so a combined visual flow would imply verification
 that the current evidence does not provide. The decision table below remains
-available as source-derived planning guidance; see **Verification data and
-evidence mode** for the exact boundary.
+available as source-derived planning guidance.
 
 | Decision | Choose this path | Check before continuing |
 | --- | --- | --- |
@@ -552,9 +534,6 @@ replace the only linear channel masters.
   required. The standard repository-wide Release runner passed all discovered
   `Test_*.exe` test executables in 1,067.6 seconds.
 
-Hashes, exact settings, output observations, privacy policy, and exclusions are
-in the guide's validation record.
-
 ## Warnings and limitations
 
 !!! warning "Verification remains blocked on representative branch data"
@@ -597,21 +576,21 @@ in the guide's validation record.
 
 ## Troubleshooting and recovery
 
-| Stage/symptom | Verified cause or failed checkpoint | Recovery | Resume/restart consequence | Evidence |
-| --- | --- | --- | --- | --- |
-| Flat warning | No bias/dark master assigned to that filter's flat group | Supply a compatible master or explicitly accept the bounded limitation | Rebuild flat and downstream light groups | Worked run: three warnings |
-| Expected filter master missing | Wrong grouping/filter label, failed stage, or output collision | Correct metadata/plan/output name and rerun affected group | Preserve successful unrelated groups/history | Image Integration source/run |
-| Low-signal OIII/SII rejected | Weak frames, normalization/reference/rejection mismatch | Inspect frame metrics; change reference/rejection or exclude only verified failures | Rerun affected normalization/stack | Workflow report contract |
-| Colored halos/doubled stars | Channels have unequal registration/crop/PSF | Register/crop on one grid; inspect stars at center/edges | Restart from mono/RGB masters | Source + decision checkpoint |
-| One role dominates palette | Background/intensity mismatch or clipped input | Correct backgrounds, Linear Match deliberately, reduce intensity/layer saturation | Restart composition from preserved masters | Worked-run matching/palettes |
-| Palette Composer rejects inputs | OIII absent, no Ha/SII after synthesis, invalid/missing image, or unresolved sizes | Supply required role, fix/enable size preparation, reopen valid views | No output; inputs unchanged | Negative path + process page |
-| OSC palette looks implausible | Physical passbands/CFA do not match OSC helper assumptions | Verify filter/CFA; disable helper; prepare explicit roles | Restart from calibrated OSC master | Scoped OSC execution |
-| NBRGB background/noise explodes | Bad registration/background, wrong units/widths, or width near RGB width | Fix upstream; verify widths; reduce Scale; keep nonlinear rescale off | Restart from original RGB | Source + scoped arithmetic |
-| NBRGB fit seems inactive | Fewer than three usable pairs or near-constant corrected plane | Inspect clipping and rejection; widen range carefully | Fallback uses corrected NB directly | NBRGB source/tests |
-| Star mask empty/full | Detection threshold/size/shape unsuitable | Inspect mask, tune one control, regenerate before processing | Restore pre-star checkpoint | Worked-run native star path |
-| Recombination has seams/rings | Mask too hard or star/starless states no longer form a compatible pair | Soften/rebuild mask; recombine matched products | Restart from pre-star image | Recombination source/checkpoint |
-| Saved file is dark | Only viewer autostretch was visible | Permanently stretch a copy, then export it | Linear master remains valid | Save/viewer contract |
-| Save fails | Missing/unwritable parent, disk, lock, or extension issue | Keep view open; repair destination; retry; reopen | No processing restart required | Worked-run failure/recovery |
+| Symptom | Cause | Fix | Resume or restart |
+| --- | --- | --- | --- |
+| Flat warning | No bias/dark master assigned to that filter's flat group | Supply a compatible master or explicitly accept the bounded limitation | Rebuild flat and downstream light groups |
+| Expected filter master missing | Wrong grouping/filter label, failed stage, or output collision | Correct metadata/plan/output name and rerun affected group | Preserve successful unrelated groups/history |
+| Low-signal OIII/SII rejected | Weak frames, normalization/reference/rejection mismatch | Inspect frame metrics; change reference/rejection or exclude only verified failures | Rerun affected normalization/stack |
+| Colored halos/doubled stars | Channels have unequal registration/crop/PSF | Register/crop on one grid; inspect stars at center/edges | Restart from mono/RGB masters |
+| One role dominates palette | Background/intensity mismatch or clipped input | Correct backgrounds, Linear Match deliberately, reduce intensity/layer saturation | Restart composition from preserved masters |
+| Palette Composer rejects inputs | OIII absent, no Ha/SII after synthesis, invalid/missing image, or unresolved sizes | Supply required role, fix/enable size preparation, reopen valid views | No output; inputs unchanged |
+| OSC palette looks implausible | Physical passbands/CFA do not match OSC helper assumptions | Verify filter/CFA; disable helper; prepare explicit roles | Restart from calibrated OSC master |
+| NBRGB background/noise explodes | Bad registration/background, wrong units/widths, or width near RGB width | Fix upstream; verify widths; reduce Scale; keep nonlinear rescale off | Restart from original RGB |
+| NBRGB fit seems inactive | Fewer than three usable pairs or near-constant corrected plane | Inspect clipping and rejection; widen range carefully | Fallback uses corrected NB directly |
+| Star mask empty/full | Detection threshold/size/shape unsuitable | Inspect mask, tune one control, regenerate before processing | Restore pre-star checkpoint |
+| Recombination has seams/rings | Mask too hard or star/starless states no longer form a compatible pair | Soften/rebuild mask; recombine matched products | Restart from pre-star image |
+| Saved file is dark | Only viewer autostretch was visible | Permanently stretch a copy, then export it | Linear master remains valid |
+| Save fails | Missing/unwritable parent, disk, lock, or extension issue | Keep view open; repair destination; retry; reopen | No processing restart required |
 
 ## Related workflows and references
 
@@ -638,8 +617,6 @@ in the guide's validation record.
   copies, processing history, and readback.
 - [Broadband Imaging](broadband-imaging.md) — production OSC and RGB/LRGB
   acquisition/integration context for real continuum or broadband-star inputs.
-- The guide's validation record — the sanitized execution record and claim
-  boundaries.
 
 The palette-composer and mapper process pages record their upstream source-code
 provenance and license constraints. NBRGB is native AfterNight GPL code. This

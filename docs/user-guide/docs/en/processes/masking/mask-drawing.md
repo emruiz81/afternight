@@ -8,8 +8,6 @@ data_in: either
 ---
 # Mask Drawing
 
-<!-- MEDIA_SLOT: UG-MEDIA-100 -->
-
 ## Purpose and expected result
 
 Mask Drawing is an interactive editor for building a grayscale mask over the RT
@@ -301,7 +299,6 @@ measurement was made.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Input condition/provenance and settings: finite same-size still, Brush Round,
   Size `24`, Hardness `1`, Opacity `1`, Flow `1`, Spacing `0.25`, Normal blend;
   then one filled Rectangle with Feather `0`; no approved astronomical data.
@@ -346,21 +343,21 @@ measurement was made.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Preview cannot be unchecked | The canvas requires the RT preview and the control is intentionally checked/disabled | Leave it enabled; use Switch image/display controls to inspect the underlying target | UI builder and process setup |
-| A new target shows a blank document | Width or height differs from the prior target, or the target was edited to another size | Return to the prior target if still available, or export before switching geometry | `syncDocumentToTargetImage()` |
-| A same-size target unexpectedly shows the old drawing | Document reset is geometry-based, not target-identity-based | Select Reset or Clear before drawing for the new target | `syncDocumentToTargetImage()` |
-| An error titled **Mask Drawing** appears and nothing can be drawn | The drawing could not be made from the engine session, for example because the memory budget cannot hold it | Free memory or use a smaller target, then select Reset or reopen the window | `replaceDocument()` |
-| **Open a target image before importing a mask.** or **There is no mask to export yet.** | The window has no drawing | Activate a target, then select Reset or reopen the window | `importMask()`, `exportMask()` |
-| **The imported mask must match the target image size (W × H).** | Imported width/height differs; no resampling occurs | Resize/register it separately to exact geometry, then import again | `importMaskFrom()` |
-| **Failed to import the selected mask.** followed by the reason | The file could not be read: missing, unreadable, or not an image the application reads | Verify the file opens normally and use a supported FITS/TIFF/PNG/XISF mask | `importMaskFrom()` |
-| **Failed to export the current mask.** followed by the reason | Path, container, permission, or disk failure; an extension other than FITS, XISF, TIFF, PNG, or JPEG is refused | Choose a writable path with a supported suffix and retry; the drawing remains open | `exportMaskTo()` |
-| **Error executing the process** naming *there is no drawing to create a mask from* | **OK** was selected while the window had no drawing | Activate a target, select Reset or reopen the window, and draw again | `executeTypedProcessImpl()` |
-| Strokes appear a moment after they are drawn | The engine is busy with a preview or another process; edits wait in order and land when it admits them | Keep drawing; nothing is dropped | `DrawingEditQueue` |
-| Fill crosses more area than expected | Four-connected samples stayed within fixed `0.05` of the clicked seed | Undo and choose a more isolated seed or prepare a stronger boundary | `floodFill()` |
-| Shape cannot be edited after Fill/Gradient/Eraser/Import | That operation flattened shape objects into paint | Undo restores them as shapes; edit shapes first, then flattening operations last | `DrawingDocument` state transitions |
-| Soft output becomes banded | OK wrote the float mask into an integer target pixel type | Export the float mask as FITS, XISF, or TIFF, or use a float target before OK | output conversion path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Preview cannot be unchecked | The canvas requires the RT preview and the control is intentionally checked/disabled | Leave it enabled; use Switch image/display controls to inspect the underlying target |
+| A new target shows a blank document | Width or height differs from the prior target, or the target was edited to another size | Return to the prior target if still available, or export before switching geometry |
+| A same-size target unexpectedly shows the old drawing | Document reset is geometry-based, not target-identity-based | Select Reset or Clear before drawing for the new target |
+| An error titled **Mask Drawing** appears and nothing can be drawn | The drawing could not be made from the engine session, for example because the memory budget cannot hold it | Free memory or use a smaller target, then select Reset or reopen the window |
+| **Open a target image before importing a mask.** or **There is no mask to export yet.** | The window has no drawing | Activate a target, then select Reset or reopen the window |
+| **The imported mask must match the target image size (W × H).** | Imported width/height differs; no resampling occurs | Resize/register it separately to exact geometry, then import again |
+| **Failed to import the selected mask.** followed by the reason | The file could not be read: missing, unreadable, or not an image the application reads | Verify the file opens normally and use a supported FITS/TIFF/PNG/XISF mask |
+| **Failed to export the current mask.** followed by the reason | Path, container, permission, or disk failure; an extension other than FITS, XISF, TIFF, PNG, or JPEG is refused | Choose a writable path with a supported suffix and retry; the drawing remains open |
+| **Error executing the process** naming *there is no drawing to create a mask from* | **OK** was selected while the window had no drawing | Activate a target, select Reset or reopen the window, and draw again |
+| Strokes appear a moment after they are drawn | The engine is busy with a preview or another process; edits wait in order and land when it admits them | Keep drawing; nothing is dropped |
+| Fill crosses more area than expected | Four-connected samples stayed within fixed `0.05` of the clicked seed | Undo and choose a more isolated seed or prepare a stronger boundary |
+| Shape cannot be edited after Fill/Gradient/Eraser/Import | That operation flattened shape objects into paint | Undo restores them as shapes; edit shapes first, then flattening operations last |
+| Soft output becomes banded | OK wrote the float mask into an integer target pixel type | Export the float mask as FITS, XISF, or TIFF, or use a float target before OK |
 
 ## Related workflow steps
 
@@ -369,11 +366,3 @@ or [Binarize](binarize.md) when the mask can be derived automatically. Refine a
 binary result with [Morphological Transformation](morphological-transformation.md).
 After drawing, follow [Masks](../../interface/masks.md) to select the generated
 image, inspect its polarity, and enable it on the intended target.
-
-## References and provenance
-
-This page documents AfterNight's current drawing document, edit queue,
-brush/shape engines, the engine's drawing primitives and layer blend, process
-framework, and focused tests. The equations are
-current implementation contracts; no external drawing standard or
-executed-data benchmark is claimed.

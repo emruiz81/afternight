@@ -20,6 +20,8 @@ Rules, each reported with its id:
   R5  Every image a page shows exists, spelled with the file's own case: its Markdown and HTML images, the images of
       its `figure` blocks and the picture its front matter names (the home page's `hero.image`). An image under
       assets/images that no page, README.md or the site's logo and favicon uses is a warning.
+  R6  Credits. A process page that states `derived: true` has a `## Credits` section that says something: the work
+      its result is computed with, its authors and its licence are credited on the page itself.
 
   R1  The built site (--site). Every relative reference in its HTML - `href`, `src`, `srcset`, `poster`, `data`,
       inline `style` and `<style>` - and every `url()` and `@import` in its stylesheets names a file inside the site,
@@ -36,7 +38,7 @@ Usage, with the documentation toolchain's Python, which has PyYAML (docs/user-gu
     python build/scripts/tools/check_user_guide.py [--guide docs/user-guide] [--page <page> ...] [--site <site>]
                                                    [--tokens <the website's assets/css/tokens.css>]
 
-R2-R5 hold every page, or with --page only the pages named (relative to the docs folder or to the working
+R2-R6 hold every page, or with --page only the pages named (relative to the docs folder or to the working
 directory); the guide-wide parts - nav entries, menu coverage and unused images - run only over every page. R1 runs
 when --site names a built site, R16 when --tokens names the website's file. Each finding prints as
 `path:line: Rnn message`, then a count per rule and what was read. Exits 1 on any error, 0 otherwise, and 2 when the
@@ -60,6 +62,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.p
 REGISTRY = 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp'
 UI_BUILDER = 'src/AfterNightControls/app/AfterNightAppUiBuilder.h'
 IMAGE_EXTENSIONS = ('.png', '.webp', '.jpg', '.jpeg', '.gif', '.svg')
+CREDITS = 'Credits'
 
 RULES = {
     'R1': 'built-site references',
@@ -67,6 +70,7 @@ RULES = {
     'R3': 'nav and H1',
     'R4': 'menu parity',
     'R5': 'images',
+    'R6': 'credits of derived pages',
     'R16': 'token parity',
 }
 THEME_TOKENS = 'theme/assets/guide/css/tokens.css'
@@ -487,6 +491,15 @@ class _GuideCheck:
             resolved = self.check_image(path, relative, line, url)
             if resolved:
                 referenced.add(resolved)
+        # R6: a derived page credits the work it is derived from.
+        if front.meta and front.meta.get('derived') is True:
+            credits = model.section(front.body, CREDITS, front.body_line)
+            if credits is None:
+                self.report('R6', path, front.key_lines.get('derived', 1), 'the page states `derived: true` and has '
+                            'no `## Credits` section; it credits the upstream work, its authors and its licence there')
+            elif not credits[1]:
+                self.report('R6', path, credits[0], 'the `## Credits` section is empty, and the page states '
+                            '`derived: true`; it credits the upstream work, its authors and its licence there')
         return referenced
 
     def check_image(self, path, relative, line, url):
@@ -570,7 +583,7 @@ class _GuideCheck:
                     self.report('R5', full, 1, 'no page, README.md, logo or favicon shows this image', 'warning')
 
     def run(self, selected=None):
-        """R2-R5 over every page, or over the pages selected; returns what the summary reports."""
+        """R2-R6 over every page, or over the pages selected; returns what the summary reports."""
         try:
             product = ProductMenus(self.repo)
             product_paths = product.existing_paths()
@@ -634,7 +647,7 @@ def main(argv=None, stream=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--repo', default=REPO_ROOT, help='the repository whose application sources R4 reads')
     parser.add_argument('--guide', help='the guide folder that holds mkdocs.yml; default <repo>/docs/user-guide')
-    parser.add_argument('--page', action='append', help='hold only this page to R2-R5; may be repeated')
+    parser.add_argument('--page', action='append', help='hold only this page to R2-R6; may be repeated')
     parser.add_argument('--site', help='a built site to hold to R1, such as docs/user-guide/site')
     parser.add_argument('--tokens', help='the website\'s assets/css/tokens.css, to hold the theme\'s copy to (R16)')
     arguments = parser.parse_args(argv)

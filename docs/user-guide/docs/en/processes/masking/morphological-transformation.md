@@ -8,8 +8,6 @@ data_in: either
 ---
 # Morphological Transformation
 
-<!-- MEDIA_SLOT: UG-MEDIA-102 -->
-
 ## Purpose and expected result
 
 Morphological Transformation changes the spatial extent of bright or dark
@@ -265,7 +263,6 @@ approved production timing, peak-memory, or disk-space measurement.
 
 ## Worked example
 
-- Evidence mode: Source/test/equation-derived.
 - Input condition/provenance and settings: duplicate binary grayscale mask with
   no active mask, one isolated white pixel away from the border, default filled
   `3×3` element, one iteration, and Amount `1` unless noted.
@@ -297,7 +294,7 @@ approved production timing, peak-memory, or disk-space measurement.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Opening/Closing seems opposite to the label | The current parenthetical UI descriptions are reversed | Trust the operation name: Opening is erosion→dilation; Closing is dilation→erosion |
 | Larger size barely changes the result | Size growth preserved the centered old cells and added inactive rim | Select a preset or **Fill grid** after changing Size |
@@ -318,11 +315,8 @@ approved production timing, peak-memory, or disk-space measurement.
 - Assign, invert, and enable the result through [Masks](../../interface/masks.md).
 - Inspect the incomplete operation record in [Image History](../../interface/image-history.md).
 
-## References and provenance
+## Credits
 
-- AfterNight source and focused tests are the
-  authority for current UI and integration behavior.
 - [OpenCV image-filtering reference](https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html)
   defines the erosion, dilation, morphologyEx, center-anchor, iteration, and
   default-border behavior the engine's morphology follows.
-- AfterNight source and focused tests.

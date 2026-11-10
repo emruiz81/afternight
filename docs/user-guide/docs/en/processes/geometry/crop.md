@@ -8,8 +8,6 @@ data_in: either
 ---
 # Crop
 
-<!-- MEDIA_SLOT: UG-MEDIA-092 -->
-
 ## Purpose and expected result
 
 Crop replaces one image, or every frame of a sequence, with the rectangular
@@ -226,7 +224,6 @@ the estimates shown in the dialog exclude that overhead and any codec behavior.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; not run on approved astronomical data.
 - Input condition and settings: a `1024×768` solved image, crop
   `X=100`, `Y=200`, `Width=824`, `Height=568`.
 - Expected checkpoint: output dimensions are `824×568`; original pixel
@@ -256,16 +253,16 @@ the estimates shown in the dialog exclude that overhead and any codec behavior.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| OK is disabled | Rectangle is empty or identical to the full target | Set nonzero Width/Height and change at least one edge | `CropProcess::checkChangesPending()` |
-| Width or Height will not increase | Maximum is the remaining extent after Pos X/Pos Y | Reduce the corresponding position or choose a smaller output | Crop value-change handlers |
-| A cropped mosaic reports a different Bayer pattern | X or Y was odd; the result states the arrangement that starts at the new origin | Expected; the filters stay under their samples | `GeometryProcessCase.ACropKeepsTheFilterUnderEverySample` |
-| **Error running crop** | The engine refused the rectangle or could not allocate the result | Read the message and the log, reset, enter an in-bounds rectangle, free memory, and retry | `GeometryInPlaceWindowTest.ARunTheEngineRefusesSaysWhyAndChangesNothing` |
-| An **Image History** error, and the crop is not applied | Image History could not keep the image the crop replaces; it says so once and nothing changes | Free memory and run Crop again | `GeometryProcessCase.AnEditTheHistoryCannotKeepIsSaidOnceAndChangesNothing` |
-| Astrometry overlay disappears after Crop | The image's header cards stated no plate solution, so there was none to carry | Plate-solve the cropped image | `GeometryProcessCase.AStillImagesSolutionFollowsACropAResizeAndAResampleAndNotARotation` |
-| Busy warning titled **Crop** | Another run holds the sequence view | Wait for it to finish, then run again | `runInPlace` busy path |
-| Sequence does not change after Cancel | A stopped run publishes nothing | Run again with the intended rectangle | `GeometryWindowTest.AStoppedRunPublishesNothing` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| OK is disabled | Rectangle is empty or identical to the full target | Set nonzero Width/Height and change at least one edge |
+| Width or Height will not increase | Maximum is the remaining extent after Pos X/Pos Y | Reduce the corresponding position or choose a smaller output |
+| A cropped mosaic reports a different Bayer pattern | X or Y was odd; the result states the arrangement that starts at the new origin | Expected; the filters stay under their samples |
+| **Error running crop** | The engine refused the rectangle or could not allocate the result | Read the message and the log, reset, enter an in-bounds rectangle, free memory, and retry |
+| An **Image History** error, and the crop is not applied | Image History could not keep the image the crop replaces; it says so once and nothing changes | Free memory and run Crop again |
+| Astrometry overlay disappears after Crop | The image's header cards stated no plate solution, so there was none to carry | Plate-solve the cropped image |
+| Busy warning titled **Crop** | Another run holds the sequence view | Wait for it to finish, then run again |
+| Sequence does not change after Cancel | A stopped run publishes nothing | Run again with the intended rectangle |
 
 ## Related workflow steps
 
@@ -275,10 +272,3 @@ master before expensive filters. Use [Resize](resize.md) for a sampled dimension
 change and [Rotate](rotate.md) for arbitrary orientation. Restore coordinates
 with [Plate Solving](../registration-alignment/plate-solving.md) after a
 rotation, a turn or a mirror, which drop the solution.
-
-## References and provenance
-
-- AfterNight Crop process, the shared geometry support, the engine's
-  geometry plans, and the focused tests are the
-  implementation sources.
-- No external library is used by Crop; retained samples are copied directly.

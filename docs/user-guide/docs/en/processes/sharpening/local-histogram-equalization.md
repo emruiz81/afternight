@@ -264,8 +264,6 @@ These are source-derived checkpoints, not executed visual-quality claims.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-equation-derived; not executed on approved
-  astronomical data.
 - **Input/settings:** Finite normalized nonlinear image, default RGB/Lab
   lightness, Strength `75%`, Radius `4`, Sigma `100`, Regularization `8`, Reduce
   Halos selected, Amount `1`.
@@ -304,20 +302,20 @@ These are source-derived checkpoints, not executed visual-quality claims.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Result looks unlike CLAHE | This process computes per-pixel weighted CDFs and Soft blend; no tiles/clip limit | Use CLAHE when tiled contrast-limited behavior is required | Bundled G'MIC command |
-| Smooth background becomes mottled | Neighborhood CDF expands small differences/noise | Denoise first; reduce Strength/Radius; increase Regularization cautiously | CDF/cost model |
-| Halos appear with Reduce Halos selected | Similarity weighting reduces but does not eliminate local CDF and Soft-light edge effects | Reduce Strength/Radius; inspect full frame; use mask | Weighted CDF and Soft blend |
-| Turning Reduce Halos off changes result drastically | Weight becomes `1-exp(...)`, not unweighted histogram | Re-enable it; retune Sigma only if the complementary behavior is intentional | Exact script equation |
-| Sigma seems opposite with protection off | Complementary weighting favors larger intensity differences | Re-enable Reduce Halos or reason from the off-mode equation | Exact script equation |
-| Colors shift | Non-default component reconstruction or extreme Lab-lightness mapping clips/gamut shifts | Return process Channel to RGB; reduce Strength/Amount | Channel pipeline |
-| Process is very slow | Per-pixel window plus 512-bin CDF, optional bilateral, and preview repeats | Use small Preview area, lower Radius, pause changes | Complexity model |
-| Preview differs from Apply | Preview area, Channel, mask, or display conditions changed | Match controls, disable area | Shared execution paths |
-| The image is marked nonlinear after Apply | Apply records local equalization as a nonlinear operation | Expected; a later linear-only process will see the recorded state | Processing-state record |
-| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged | `GmicProcessSupport.cpp` |
-| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or CLAHE | `GmicProcessSupport.cpp` |
-| A G'MIC error is reported | G'MIC failure, invalid data, or memory exhaustion | Verify finite normalized data; retry smaller duplicate | Process error path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Result looks unlike CLAHE | This process computes per-pixel weighted CDFs and Soft blend; no tiles/clip limit | Use CLAHE when tiled contrast-limited behavior is required |
+| Smooth background becomes mottled | Neighborhood CDF expands small differences/noise | Denoise first; reduce Strength/Radius; increase Regularization cautiously |
+| Halos appear with Reduce Halos selected | Similarity weighting reduces but does not eliminate local CDF and Soft-light edge effects | Reduce Strength/Radius; inspect full frame; use mask |
+| Turning Reduce Halos off changes result drastically | Weight becomes `1-exp(...)`, not unweighted histogram | Re-enable it; retune Sigma only if the complementary behavior is intentional |
+| Sigma seems opposite with protection off | Complementary weighting favors larger intensity differences | Re-enable Reduce Halos or reason from the off-mode equation |
+| Colors shift | Non-default component reconstruction or extreme Lab-lightness mapping clips/gamut shifts | Return process Channel to RGB; reduce Strength/Amount |
+| Process is very slow | Per-pixel window plus 512-bin CDF, optional bilateral, and preview repeats | Use small Preview area, lower Radius, pause changes |
+| Preview differs from Apply | Preview area, Channel, mask, or display conditions changed | Match controls, disable area |
+| The image is marked nonlinear after Apply | Apply records local equalization as a nonlinear operation | Expected; a later linear-only process will see the recorded state |
+| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged |
+| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or CLAHE |
+| A G'MIC error is reported | G'MIC failure, invalid data, or memory exhaustion | Verify finite normalized data; retry smaller duplicate |
 
 ## Related workflow steps
 
@@ -328,17 +326,15 @@ clip limit and interpolation. Use [Masks](../../interface/masks.md) to protect
 smooth background and [Image History](../../interface/image-history.md) to
 compare or revert Apply.
 
-## References and provenance
+## Credits
 
 - [G'MIC `blend` reference](https://gmic.eu/reference/blend) — official Soft
-  light and opacity command contract; accessed 2026-07-14.
+  light and opacity command contract.
 - [G'MIC `bilateral` reference](https://gmic.eu/reference/bilateral.html) —
-  official guide/spatial/range sigma contract; accessed 2026-07-14.
-- [G'MIC `apply_channels` reference](https://gmic.eu/reference/apply_channels.html)
-  — official channel-selection and 0–255 working convention; accessed
-  2026-07-14.
+  official guide/spatial/range sigma contract.
+- [G'MIC `apply_channels`
+  reference](https://gmic.eu/reference/apply_channels.html) — official
+  channel-selection and 0–255 working convention.
 - [David Tschumperlé's 2018 G'MIC implementation note](https://discuss.pixls.us/t/feature-request-contrast-limited-adaptive-histogram-equalization-clahe/6573/5)
   — primary author statement that this local-histogram filter is not CLAHE and
   source listing for the original controls.
-- Bundled G'MIC 3.5.4 `gmic_stdlib.gmic` and AfterNight sources/tests are authoritative for the shipped CDF, fixed mode/internal
-  channel, controls, G'MIC hand-off, masks, state/history, preview, and sequences.

@@ -8,11 +8,6 @@ needs: []
 ---
 # Quick Start
 
-Source and focused tests establish the
-labels, routes, state transitions, and branch behavior claimed below. The
-retained screenshots illustrate the documented ready and result states; they do
-not establish output quality or production performance.
-
 ![Image Integration Lite ready to run with a single M16 Ha dataset, calibrated-frame assignments, and the Run Integration action](../assets/images/interface/quick-start-step1.png)
 
 *Image Integration Lite after import and validation. The green **Ready.** banner,
@@ -183,7 +178,6 @@ timing or peak memory from this source-derived walkthrough.
 
 ## Worked example
 
-- Evidence mode: **Source-and-test-derived**.
 - Starting state, actions, settings, checkpoints, result, and limitations:
 
 | Stage | OSC/CFA branch | Mono branch | Shared checkpoint |
@@ -221,17 +215,17 @@ image data or demonstrate a quality threshold.*
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Run Integration** remains disabled | Import is active, or readiness reports a missing, non-directory, unwritable, or uncreatable output directory, **No light frames available.**, or multiple objects; the banner shows up to three errors | Wait for import; read the red banner; correct roles, paths, or object metadata | `ImageIntegrationLiteProcess.cpp`; `test_image_integration_lite_process.cpp`; `test_lite_integration_profile.cpp` |
-| An import adds no rows | No selected/scanned file passed the still-image extension/import checks. The import's own message is replaced at once by the readiness banner, so into an empty list it shows **No light frames available.** | Use a readable still format from [File Formats](../reference/file-formats.md), or extract sequence frames first | `ImageIntegrationLiteProcess.cpp`; `FileImport.cpp` |
-| The run fails with **Invalid workflow manifest.** | Size or format problems among the frames are found only when the run prepares | Read the warning it shows, remove or correct the named frames, and run again | `WorkflowExecutionController.cpp`; `IntegrationDataModel.cpp` |
-| **No calibration frames** warning | Lights exist but no calibration frames are loaded | Add matching frames, accept an explicitly uncalibrated structural run, or stop | `ImageIntegrationLiteProcess.cpp`; focused UI readiness tests |
-| Missing flat calibration match warning | Flat metadata/filter does not match the Light group under the active policy, or bias/dark frames are loaded with no flats at all | Correct frame roles/metadata choice, use matching flats, or hand off to the full process | `CalibrationMatcher.cpp`; `test_image_integration_lite_process.cpp` |
-| CFA color/pattern looks wrong | The filter array the files state is wrong for the camera, or the files state none and are processed as monochrome | Stop judging the result; use **Open Full Process** and set Registration's CFA Pattern/Method explicitly. A stated pattern corrects a wrong arrangement; it cannot make a light whose file states no filter array into color | `RegistrationFrames.cpp`; `DemosaicTextMaps.h`; full Image Integration registration controls |
-| Integration failed or was cancelled | A workflow stage returned an error or observed cancellation | Preserve the output directory and read the banner/log. If at least one integration group completed, also inspect its retained outputs and archived report; an earlier failure or cancellation may not create an archive. Correct the cause and rerun. | `WorkflowExecutor.cpp`; `WorkflowArchiver.cpp` |
-| Existing result was reused unexpectedly | Matching artifacts exist and **Reprocess existing outputs** is off | Enable reprocessing or choose a fresh output directory | `ImageIntegrationLiteProcess.cpp`; `WorkflowExecutor.cpp` |
-| **Registration Records** warning and the run does not start | The directory's `registration_metrics.db` was written by a newer AfterNight version | Use that newer version, or choose a fresh output directory; the records are left unchanged | `ImageIntegrationProcessShared.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Run Integration** remains disabled | Import is active, or readiness reports a missing, non-directory, unwritable, or uncreatable output directory, **No light frames available.**, or multiple objects; the banner shows up to three errors | Wait for import; read the red banner; correct roles, paths, or object metadata |
+| An import adds no rows | No selected/scanned file passed the still-image extension/import checks. The import's own message is replaced at once by the readiness banner, so into an empty list it shows **No light frames available.** | Use a readable still format from [File Formats](../reference/file-formats.md), or extract sequence frames first |
+| The run fails with **Invalid workflow manifest.** | Size or format problems among the frames are found only when the run prepares | Read the warning it shows, remove or correct the named frames, and run again |
+| **No calibration frames** warning | Lights exist but no calibration frames are loaded | Add matching frames, accept an explicitly uncalibrated structural run, or stop |
+| Missing flat calibration match warning | Flat metadata/filter does not match the Light group under the active policy, or bias/dark frames are loaded with no flats at all | Correct frame roles/metadata choice, use matching flats, or hand off to the full process |
+| CFA color/pattern looks wrong | The filter array the files state is wrong for the camera, or the files state none and are processed as monochrome | Stop judging the result; use **Open Full Process** and set Registration's CFA Pattern/Method explicitly. A stated pattern corrects a wrong arrangement; it cannot make a light whose file states no filter array into color |
+| Integration failed or was cancelled | A workflow stage returned an error or observed cancellation | Preserve the output directory and read the banner/log. If at least one integration group completed, also inspect its retained outputs and archived report; an earlier failure or cancellation may not create an archive. Correct the cause and rerun. |
+| Existing result was reused unexpectedly | Matching artifacts exist and **Reprocess existing outputs** is off | Enable reprocessing or choose a fresh output directory |
+| **Registration Records** warning and the run does not start | The directory's `registration_metrics.db` was written by a newer AfterNight version | Use that newer version, or choose a fresh output directory; the records are left unchanged |
 
 ## Related workflow steps
 
@@ -246,14 +240,3 @@ inspect it and distinguish its temporary Autostretch from a pixel-changing
 process such as [Statistical Stretch](../processes/stretching/statistical-stretch.md).
 Choose a save/export path through [Supported Formats](supported-formats.md),
 whose detailed capability authority is [File Formats](../reference/file-formats.md).
-
-## References and provenance
-
-- The implementation and focused tests are the primary
-  sources for this source-derived walkthrough.
-- [Image Integration Lite](../processes/stacking-integration/image-integration-lite.md)
-  retains the exhaustive Lite policy, parameter, output, and limitation record.
-- [Image Integration](../processes/stacking-integration/image-integration.md)
-  retains the shared workflow, engine, report, and advanced-process record.
-- No external algorithm or format contract is introduced here; detailed format
-  provenance is centralized in [File Formats](../reference/file-formats.md).

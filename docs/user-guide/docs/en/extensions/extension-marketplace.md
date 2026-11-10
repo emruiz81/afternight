@@ -5,8 +5,6 @@ summary: >-
 ---
 # Extension Marketplace
 
-<!-- MEDIA_SLOT: UG-MEDIA-112 -->
-
 ## Purpose, audience, prerequisites, and expected result
 
 The Extension Marketplace is AfterNight's package discovery and lifecycle
@@ -261,7 +259,6 @@ cache contains metadata, not necessarily the archive/dependencies.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations: Open
   Browse with a deterministic official-index fixture containing a compatible
   Signed release and an older repository-installed version. **Updates Available**
@@ -294,21 +291,21 @@ cache contains metadata, not necessarily the archive/dependencies.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Extension repository unavailable** | Official index fetch/validation failed and no usable current result replaced it; one release that declares a package format, protocol, or SDK version other than 1 fails the whole index | Check network/policy, keep cached/installed packages, then Refresh later | manager page/client tests |
-| **Extension repository network features are disabled by policy.** | Either repository-offline environment policy is truthy | Restart without the policy only when approved; Installed/local uninstall remain available | manager page/offline tests |
-| Cached cards show a failed-background-refresh diagnostic | Saved snapshot loaded, later live refresh failed | Do not assume metadata is current; retry Refresh when online | cached-snapshot tests |
-| **Package asset is missing the required SHA-256 hash.** | Repository asset lacks authoritative hash metadata | Do not install; report the index/release defect | trust policy/index-validator tests |
-| **Package signature state is unknown, so installation is blocked.** | Asset did not resolve to a supported signature state | Obtain corrected repository metadata/package | trust policy tests |
-| **Package signature verification failed, so installation is blocked.** | Signature was Failed or cryptographic verification did not match | Do not bypass by allowing unsigned; report package/repository compromise or metadata defect | signature tests |
-| **Unsigned Extension Blocked** | Unsigned repository/local package while opt-in is Off | Prefer Signed; otherwise independently verify, enable opt-in, and confirm each install | manager-page unsigned-policy tests |
-| Install/Update button says **Unavailable** | Selected release is incompatible with current app/backend/target | Read Compatibility and install a compatible build/release | manager compatibility tests |
-| Install finishes download but reports failure | Hash/signature, extraction, package validation, environment, cache, or bytecode readiness failed; a manifest of another version reports **Only package/protocol/sdk version 1 manifests are supported** | Read exact banner/progress phase; fix source/package/disk/dependencies and retry; prior package is preserved on update failure | install transaction/rollback tests |
-| Update is not offered for a local/user package | UpdateAvailable is derived for an older Repository-installed source | Use a reviewed local replacement or reinstall from repository after understanding source precedence | browse-entry/source tests |
-| Uninstall is disabled | Not installed, Bundled, or explicit Local package source on that card | Use Installed/source-specific management; bundled content is app-owned | manager-page action tests |
-| Cleanup removes zero environments | Every environment is still referenced or inventory is already clean | No action needed; uninstall obsolete packages first | environment inventory/cleanup tests |
-| No startup notification appears | Setting Off, policy/network/fetch failure, no updates, or no matching installed package | Check General setting/logs; open Browse and Refresh manually | startup-update coordinator/settings tests |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Extension repository unavailable** | Official index fetch/validation failed and no usable current result replaced it; one release that declares a package format, protocol, or SDK version other than 1 fails the whole index | Check network/policy, keep cached/installed packages, then Refresh later |
+| **Extension repository network features are disabled by policy.** | Either repository-offline environment policy is truthy | Restart without the policy only when approved; Installed/local uninstall remain available |
+| Cached cards show a failed-background-refresh diagnostic | Saved snapshot loaded, later live refresh failed | Do not assume metadata is current; retry Refresh when online |
+| **Package asset is missing the required SHA-256 hash.** | Repository asset lacks authoritative hash metadata | Do not install; report the index/release defect |
+| **Package signature state is unknown, so installation is blocked.** | Asset did not resolve to a supported signature state | Obtain corrected repository metadata/package |
+| **Package signature verification failed, so installation is blocked.** | Signature was Failed or cryptographic verification did not match | Do not bypass by allowing unsigned; report package/repository compromise or metadata defect |
+| **Unsigned Extension Blocked** | Unsigned repository/local package while opt-in is Off | Prefer Signed; otherwise independently verify, enable opt-in, and confirm each install |
+| Install/Update button says **Unavailable** | Selected release is incompatible with current app/backend/target | Read Compatibility and install a compatible build/release |
+| Install finishes download but reports failure | Hash/signature, extraction, package validation, environment, cache, or bytecode readiness failed; a manifest of another version reports **Only package/protocol/sdk version 1 manifests are supported** | Read exact banner/progress phase; fix source/package/disk/dependencies and retry; prior package is preserved on update failure |
+| Update is not offered for a local/user package | UpdateAvailable is derived for an older Repository-installed source | Use a reviewed local replacement or reinstall from repository after understanding source precedence |
+| Uninstall is disabled | Not installed, Bundled, or explicit Local package source on that card | Use Installed/source-specific management; bundled content is app-owned |
+| Cleanup removes zero environments | Every environment is still referenced or inventory is already clean | No action needed; uninstall obsolete packages first |
+| No startup notification appears | Setting Off, policy/network/fetch failure, no updates, or no matching installed package | Check General setting/logs; open Browse and Refresh manually |
 
 ## Related workflow steps
 
@@ -321,14 +318,3 @@ cache contains metadata, not necessarily the archive/dependencies.
   platforms, deployed runtimes, network/disk requirements, and policy context.
 - [Session Console](../interface/log-viewer.md) — repository refresh, startup
   update, install, environment, and host diagnostics.
-
-## References and provenance
-
-- AfterNight's current implementation and its focused tests are the primary sources.
-- `docs/dev/EXTENSION_HOST_MODES_AND_LICENSING.md` describes the full and lite
-  extension hosts that `sdk_backend` selects and the licensing boundary between
-  them.
-- `docs/extension-examples/PACKAGE_AUTHOR_GUIDE.md` is the package-author
-  publication/metadata/dependency contract.
-- `docs/extension-examples/README.md` is the development-example index. Reference
-  packages marked `development_only` are excluded from normal user discovery.

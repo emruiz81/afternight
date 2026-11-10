@@ -9,8 +9,6 @@ data_out: nonlinear
 ---
 # LRGB Combination
 
-<!-- MEDIA_SLOT: UG-MEDIA-087 -->
-
 ## Purpose and expected result
 
 LRGB Combination replaces the CIE L\* lightness of an RGB target with, or
@@ -269,8 +267,6 @@ crop as both RGB and luminance inputs. No approved LRGB pair was timed.
 
 ## Worked example
 
-- **Evidence mode:** Source-, focused-test-, and calculator-derived; not
-  executed on project-owned astronomical data.
 - **Input condition:** At one aligned pixel, the RGB target converts to
   normalized `L=0.40`, `C=0.20`, `h=0.60`; the grayscale luminance
   sample is `0.70`.
@@ -304,7 +300,7 @@ crop as both RGB and luminance inputs. No approved LRGB pair was timed.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Apply is disabled | Luminance is **No image**, a selection disappeared, or the RGB selection no longer matches the attached target | Select the current RGB target and a valid same-size grayscale image |
 | Luminance image is absent from the list | It is RGB, has different dimensions, is the target itself, or is not open | Convert/extract grayscale, register/crop to exact dimensions, and reopen/update it |
@@ -330,9 +326,8 @@ crop as both RGB and luminance inputs. No approved LRGB pair was timed.
 - [Image Viewer](../../interface/image-viewer.md) — display stretch, masks, and
   image-state inspection.
 
-## References and provenance
+## Credits
 
-- AfterNight source and focused tests.
 - [ICC sRGB specification](https://www.color.org/sRGB.pdf) — sRGB transfer,
   primaries, and D65 reference behavior used by the engine conversion.
 - [CIE 1976 L\*a\*b\* colour space, CIE Colorimetry Part 4](https://cie.co.at/publications/colorimetry-part-4-cie-1976-lab-colour-space-1)

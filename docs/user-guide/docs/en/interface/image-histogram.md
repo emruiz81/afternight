@@ -137,7 +137,6 @@ the display aggregation.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations:
   `HistogramComputationTest` counts a floating-point row of -0.5, 0, 0.5, 1, 2
   and a not-a-number at **100 levels**: the first bin holds 2, bin 49 holds 1 and
@@ -166,15 +165,15 @@ the display aggregation.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Histogram is disabled | No active image exists, or this view already owns an open Histogram dialog. | Activate a loaded view, or close the existing dialog for that view. | `ActionStateCoordinator.cpp`; `ImageHistogramControl.cpp` |
-| One RGB curve appears much shorter | Shared scaling uses the largest displayed channel peak. | Select the channel alone, or enable the scale toggle while remembering that relative amplitudes are then hidden. | `HistogramWidget.cpp` |
-| The curve looks comb-like or noisy | Resolution is high relative to occupied levels/sample count. | Reduce **Plot resolution** and compare again. | `HistogramComputation.cpp`; `HistogramWidget.cpp` |
-| The curve looks too smooth | Few bins or screen-width aggregation merges neighboring levels. | Increase resolution and/or zoom the plot. | `HistogramWidget.cpp` |
-| Clipping remains after selecting one channel | The clipping overlay always sums all channels. | Use the channel plot shape plus [Image Statistics](image-statistics.md) per-channel counts/min/max. | `HistogramWidget.cpp` |
-| Reset leaves filled areas enabled/disabled | Reset does not touch the areas toggle. | Set **Draw histogram areas** explicitly. | `ImageHistogramControl.cpp` |
-| A sequence histogram changes during playback | The tool follows the current decoded frame. | Pause on the frame to inspect. | `ImageHistogramControl.cpp`; `ImageViewControl.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Histogram is disabled | No active image exists, or this view already owns an open Histogram dialog. | Activate a loaded view, or close the existing dialog for that view. |
+| One RGB curve appears much shorter | Shared scaling uses the largest displayed channel peak. | Select the channel alone, or enable the scale toggle while remembering that relative amplitudes are then hidden. |
+| The curve looks comb-like or noisy | Resolution is high relative to occupied levels/sample count. | Reduce **Plot resolution** and compare again. |
+| The curve looks too smooth | Few bins or screen-width aggregation merges neighboring levels. | Increase resolution and/or zoom the plot. |
+| Clipping remains after selecting one channel | The clipping overlay always sums all channels. | Use the channel plot shape plus [Image Statistics](image-statistics.md) per-channel counts/min/max. |
+| Reset leaves filled areas enabled/disabled | Reset does not touch the areas toggle. | Set **Draw histogram areas** explicitly. |
+| A sequence histogram changes during playback | The tool follows the current decoded frame. | Pause on the frame to inspect. |
 
 ## Related workflow steps
 
@@ -187,16 +186,3 @@ the display aggregation.
   while keeping resolution and scaling consistent.
 - Reopen saved output through [Saving And Exporting](saving-and-exporting.md) when
   verifying whether codec precision or clipping survived the write.
-
-## References and provenance
-
-- `HistogramComputation.cpp` defines how each pixel type is read, the binning and
-  the endpoint counters over the engine's histogram; `HistogramDisplayData.h`
-  the supported resolutions and per-channel storage.
-- `HistogramWidget.cpp` is authoritative for plot aggregation, scaling,
-  clipping percentages, gestures, coordinate overlays, and rendering behavior.
-- `ImageHistogramControl.cpp` defines menu-dialog state, choices, defaults,
-  reset behavior, and image-update refresh.
-- `Test_ControlsStatistics` holds the counts of every standard fixture - every
-  pixel type, mono and colour - to the binning rule stated in the suite, and the
-  window to counting again on a new image or resolution.

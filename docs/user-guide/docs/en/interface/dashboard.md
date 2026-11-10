@@ -239,7 +239,6 @@ not the source image timestamp.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state: empty recent list, Session Console closed, and one known small
   supported local still.
 - Actions and checkpoints: verify onboarding; use **Open Image**; observe **File
@@ -279,21 +278,21 @@ not the source image timestamp.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Onboarding is absent | At least one recent path exists, even if no card renders. | Use search/recents, remove stale entries, or clear recents intentionally. | `MainDashboard.cpp` |
-| Search/sort is absent or `Ctrl+F` does nothing | The recent list is empty, so the controls are hidden. | Open one supported file successfully first. | `MainDashboard.cpp` |
-| **No matches found** appears immediately after restart | Search text persists and matches no current filename/path. | Use the field's clear button or enter a matching path/name fragment. | `MainDashboard.cpp`; `RecentFilesGrid.cpp` |
-| **Recent** count exceeds visible cards | One or more matching paths lack a usable thumbnail mapping/file/decoder result. | Open the source through **File > Open** to regenerate a thumbnail, or remove the stale entry. | `RecentFilesGrid.cpp`; `FileManager.cpp` |
-| Featured file is unexpected | A separate hero pin overrides recent order, or earlier candidates are missing/undecodable. | Use **Unpin featured file**; verify candidate source and thumbnail files. | `FeaturedFilePresenter.cpp`; `MainDashboard.cpp` |
-| **Clear recents** is disabled | No recent paths exist. | No action is required; opening a file successfully will enable it. | `MainDashboard.cpp`; `DashboardToolbar.cpp` |
-| A recent card reports **File open error** and disappears | The path is stale, the engine refused to read the file, its demosaic failed, or its view could not be made; any recent-open failure other than a stop removes it. | Locate the file and reopen from its new path; inspect Session Console/File Formats. | `FileWorkflowRunner.cpp`; `FileManager.cpp` |
-| **File Not Found** from **Show in File Browser** | The stored source path no longer exists. | Remove the entry or restore/reopen the file at its current location. | `ShowInFileBrowser.cpp` |
-| A dropped file is ignored | It is nonlocal or lacks one of the exact recognized still/RAW/sequence/video suffixes (compared case-insensitively). | Drop a local supported file or use **Open file** and consult File Formats. | `MainDashboard.cpp`; `FileDialogUtils.h`; `FileManager.cpp` |
-| Some dropped files open before a failure/cancel | Multi-open processes retained files sequentially and is not atomic: a file that cannot be read is reported and the next one opens, while a view that cannot be made stops the batch. | Keep wanted views; close unwanted partial results; retry the failed file alone. | `FileWorkflowRunner.cpp`; `FileOpenTest.cpp` |
-| Moving a quick action seems to do nothing | The swap crossed the primary/secondary rendering boundary rather than another item in the same visible group. | Continue moving until its relative order changes within primary or overflow, or reset. | `DashboardToolbar.cpp`; `MainDashboard.cpp` |
-| Hidden action cannot be hidden | It is the final visible quick action. | Show another action first, then hide this one. | `MainDashboard.cpp` |
-| Lowering Recent files limit removes entries | Applying Settings trims oldest paths and thumbnails immediately. | Reopen source files to add them again; increase the limit for future retention. | `GeneralSettingsPage.cpp`; `DialogOrchestrationCoordinator.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Onboarding is absent | At least one recent path exists, even if no card renders. | Use search/recents, remove stale entries, or clear recents intentionally. |
+| Search/sort is absent or `Ctrl+F` does nothing | The recent list is empty, so the controls are hidden. | Open one supported file successfully first. |
+| **No matches found** appears immediately after restart | Search text persists and matches no current filename/path. | Use the field's clear button or enter a matching path/name fragment. |
+| **Recent** count exceeds visible cards | One or more matching paths lack a usable thumbnail mapping/file/decoder result. | Open the source through **File > Open** to regenerate a thumbnail, or remove the stale entry. |
+| Featured file is unexpected | A separate hero pin overrides recent order, or earlier candidates are missing/undecodable. | Use **Unpin featured file**; verify candidate source and thumbnail files. |
+| **Clear recents** is disabled | No recent paths exist. | No action is required; opening a file successfully will enable it. |
+| A recent card reports **File open error** and disappears | The path is stale, the engine refused to read the file, its demosaic failed, or its view could not be made; any recent-open failure other than a stop removes it. | Locate the file and reopen from its new path; inspect Session Console/File Formats. |
+| **File Not Found** from **Show in File Browser** | The stored source path no longer exists. | Remove the entry or restore/reopen the file at its current location. |
+| A dropped file is ignored | It is nonlocal or lacks one of the exact recognized still/RAW/sequence/video suffixes (compared case-insensitively). | Drop a local supported file or use **Open file** and consult File Formats. |
+| Some dropped files open before a failure/cancel | Multi-open processes retained files sequentially and is not atomic: a file that cannot be read is reported and the next one opens, while a view that cannot be made stops the batch. | Keep wanted views; close unwanted partial results; retry the failed file alone. |
+| Moving a quick action seems to do nothing | The swap crossed the primary/secondary rendering boundary rather than another item in the same visible group. | Continue moving until its relative order changes within primary or overflow, or reset. |
+| Hidden action cannot be hidden | It is the final visible quick action. | Show another action first, then hide this one. |
+| Lowering Recent files limit removes entries | Applying Settings trims oldest paths and thumbnails immediately. | Reopen source files to add them again; increase the limit for future retention. |
 
 ## Related workflow steps
 
@@ -311,13 +310,3 @@ not the source image timestamp.
 - [Supported Formats](../getting-started/supported-formats.md) helps choose a
   source; [File Formats](../reference/file-formats.md) is the compatibility
   authority.
-
-## References and provenance
-
-- AfterNight dashboard, file-workflow, persistence, settings, metadata, and
-  focused-test sources.
-- [Interface Overview](overview.md) is the authority for central-surface and
-  active-action transitions.
-- [File Formats](../reference/file-formats.md) is the authority for exact codec,
-  precision, metadata, and sequence support.
-- No external standard is required for dashboard behavior.

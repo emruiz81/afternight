@@ -272,7 +272,6 @@ and a new output path before committing a long export.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations: for
   a floating-point RGB processing master, keep **General > Default Save
   Format** at TIFF or choose FITS/XISF explicitly, then save to a new name.
@@ -323,20 +322,20 @@ and a new output path before committing a long export.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Save actions are disabled | No active view contains image data. | Activate an image/sequence view and retry. | `ActionStateCoordinator.cpp`; `FileManager::saveFile()`. |
-| `No selected image to save` | The action reached FileManager without a current active view. | Select the intended view; wait for it to finish opening. | `FileManager::saveFile()`. |
-| **File save error**: `the product writes FITS, XISF, TIFF, PNG and JPEG files only` | The still filename has no recognized output extension or a mismatched unsupported suffix. | Choose `.fit/.fits/.fts`, `.xisf`, `.tif/.tiff`, `.png`, `.jpg/.jpeg/.jpe`; use the matching filter. | `FilePolicies.cpp` (`buildExportIntent`); `FileSaveTest.cpp`. |
-| **File save error**: `no sequence container the product writes is named by ...` | A sequence was saved to a suffix AfterNight does not write, such as `.mpg` or `.mpeg`. | Save to `.ser`, `.anseq`, `.avi`, `.mp4`, `.mkv` or `.webm`. | `SequenceCompanions.cpp` (`writeSequenceFile`); `SequenceContainers.cpp`. |
-| `a colour filter array mosaic cannot be written as PNG or JPEG, which cannot state its filter array; write it as FITS, XISF or TIFF, or demosaic it first` | The active image is an undemosaiced mosaic. | Save as FITS, XISF, or TIFF, or demosaic the image first. | `FilePolicies.cpp`; `ImageViewFiles.cpp`. |
-| `an X-Trans mosaic cannot be written as FITS, PNG or JPEG, none of which can state its six-by-six filter array; write it as XISF or TIFF, or demosaic it first` | The active image is an undemosaiced X-Trans mosaic. | Save as XISF or TIFF, or demosaic the image first. | `FilePolicies.cpp`; `ImageViewFiles.cpp`; `FilePoliciesTest.AnXTransMosaicIsRefusedForFitsWhichStatesATwoByTwoPatternOnly`. |
-| TIFF is larger/different than expected | Compression setting differs, or JPEG was requested for non-8-bit input and LZW was written instead. | Inspect pixel depth and Export settings; use None/LZW/ZIP for lossless work. | `FilePolicies.cpp`. |
-| Processing history is absent from saved FITS | No file carries processing history; the setting writes nothing. | Preserve provenance separately and inspect existing FITS HISTORY. | `FilePolicies.h`. |
-| EXIF is absent although enabled | The format-specific allowed set excluded it, or the image carried none. | Verify with EXIF viewer; keep the source/master metadata and use FITS/XISF for astronomy fields. | `FilePolicies.cpp`. |
-| Exported MP4 dimensions differ | A video stores even sizes, so an odd width or height was cropped by one. | Choose even dimensions and verify output geometry. | `SequenceContainers.cpp`; Export dialog source. |
-| A reopened SER plays at 1 FPS | A SER has no frame-rate field, and its frames' timestamps give no rate: its frames stated no exposure start, as a video's do not, or fewer than two distinct ones. | Keep the rate with the file's notes, or export AVI/video, which store it. | `SequenceContainers.cpp` (`serTimestampRate`); `SequenceContainersTest.ASerWrittenKeepsEachFramesExposureStartAndItsRate`. |
-| Exported result is stretched/cropped/letterboxed | Autostretch or Resize was enabled; fill mode defines scaling/canvas behavior. | Reset Resize, turn Autostretch off, or deliberately choose Fit/Fill/Stretch/Center and retry to a new file. | `ExportSequenceControl.cpp`. |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Save actions are disabled | No active view contains image data. | Activate an image/sequence view and retry. |
+| `No selected image to save` | The action reached FileManager without a current active view. | Select the intended view; wait for it to finish opening. |
+| **File save error**: `the product writes FITS, XISF, TIFF, PNG and JPEG files only` | The still filename has no recognized output extension or a mismatched unsupported suffix. | Choose `.fit/.fits/.fts`, `.xisf`, `.tif/.tiff`, `.png`, `.jpg/.jpeg/.jpe`; use the matching filter. |
+| **File save error**: `no sequence container the product writes is named by ...` | A sequence was saved to a suffix AfterNight does not write, such as `.mpg` or `.mpeg`. | Save to `.ser`, `.anseq`, `.avi`, `.mp4`, `.mkv` or `.webm`. |
+| `a colour filter array mosaic cannot be written as PNG or JPEG, which cannot state its filter array; write it as FITS, XISF or TIFF, or demosaic it first` | The active image is an undemosaiced mosaic. | Save as FITS, XISF, or TIFF, or demosaic the image first. |
+| `an X-Trans mosaic cannot be written as FITS, PNG or JPEG, none of which can state its six-by-six filter array; write it as XISF or TIFF, or demosaic it first` | The active image is an undemosaiced X-Trans mosaic. | Save as XISF or TIFF, or demosaic the image first. |
+| TIFF is larger/different than expected | Compression setting differs, or JPEG was requested for non-8-bit input and LZW was written instead. | Inspect pixel depth and Export settings; use None/LZW/ZIP for lossless work. |
+| Processing history is absent from saved FITS | No file carries processing history; the setting writes nothing. | Preserve provenance separately and inspect existing FITS HISTORY. |
+| EXIF is absent although enabled | The format-specific allowed set excluded it, or the image carried none. | Verify with EXIF viewer; keep the source/master metadata and use FITS/XISF for astronomy fields. |
+| Exported MP4 dimensions differ | A video stores even sizes, so an odd width or height was cropped by one. | Choose even dimensions and verify output geometry. |
+| A reopened SER plays at 1 FPS | A SER has no frame-rate field, and its frames' timestamps give no rate: its frames stated no exposure start, as a video's do not, or fewer than two distinct ones. | Keep the rate with the file's notes, or export AVI/video, which store it. |
+| Exported result is stretched/cropped/letterboxed | Autostretch or Resize was enabled; fill mode defines scaling/canvas behavior. | Reset Resize, turn Autostretch off, or deliberately choose Fit/Fill/Stretch/Center and retry to a new file. |
 
 ## Related workflow steps
 
@@ -353,22 +352,26 @@ and a new output path before committing a long export.
 - Continue to [Extract Sequence](../processes/utility/extract-sequence.md) when
   only an inclusive frame range should be written or processed.
 
-## References and provenance
+## Credits
 
 - [FITS Standard 4.0](https://fits.gsfc.nasa.gov/fits_standard.html), official
-  IAU FITS Working Group reference, accessed 2026-07-11.
-- [XISF 1.0 Specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html),
-  PixInsight's primary format specification, accessed 2026-07-11.
-- [TIFF 6.0 specification index](https://libtiff.gitlab.io/libtiff/specification/index.html)
-  and [TIFF/JPEG Technical Note 2](https://libtiff.gitlab.io/libtiff/specification/technote2.html),
-  primary LibTIFF-hosted references, accessed 2026-07-11.
-- [PNG Specification, Second Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html),
-  primary format specification, accessed 2026-07-11.
-- [Independent JPEG Group](https://ijg.org/) and
-  [JPEG Still Picture Compression Standard](https://www.ijg.org/files/Wallace.JPEG.pdf),
-  primary implementation/technical references, accessed 2026-07-11.
-- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html), primary
-  libavformat documentation, accessed 2026-07-11.
-- [SER format description, version 3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf),
-  primary format description, accessed 2026-07-11.
-- AfterNight source and focused tests.
+  IAU FITS Working Group reference.
+- [XISF 1.0
+  Specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html),
+  PixInsight's primary format specification.
+- [TIFF 6.0 specification
+  index](https://libtiff.gitlab.io/libtiff/specification/index.html) and
+  [TIFF/JPEG Technical Note
+  2](https://libtiff.gitlab.io/libtiff/specification/technote2.html), primary
+  LibTIFF-hosted references.
+- [PNG Specification, Second
+  Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html), primary
+  format specification.
+- [Independent JPEG Group](https://ijg.org/) and [JPEG Still Picture Compression
+  Standard](https://www.ijg.org/files/Wallace.JPEG.pdf), primary
+  implementation/technical references.
+- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html),
+  primary libavformat documentation.
+- [SER format description, version
+  3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf), primary format
+  description.

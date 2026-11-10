@@ -11,8 +11,6 @@ derived: true
 ---
 # Image Integration
 
-<!-- MEDIA_SLOT: UG-MEDIA-114 -->
-
 The table records the primary exact-path inventory. The list below names the remaining files; together, the table and list are the exhaustive source/test inventory:
 
 - Model/core: `src/AfterNightProcesses/processes/ImageIntegration/model/GroupingKeys.h`; `src/AfterNightProcesses/processes/ImageIntegration/model/GroupingKeys.cpp`; `src/AfterNightProcesses/processes/ImageIntegration/model/GroupingEngine.cpp`; `src/AfterNightProcesses/processes/ImageIntegration/model/RegistrationGroupEngine.cpp`; `src/AfterNightProcesses/processes/ImageIntegration/model/IntegrationGroupEngine.cpp`; `src/AfterNightProcesses/processes/ImageIntegration/model/FrameMetadata.cpp`; `src/AfterNightProcesses/processes/ImageIntegration/model/FrameCollection.cpp`; `src/AfterNightProcesses/processes/ImageIntegration/core/FileImport.cpp`; `src/AfterNightProcesses/processes/ImageIntegration/core/FilenameUtils.h`; `src/AfterNightProcesses/processes/ImageIntegration/workflow/stages/CalibrationStackInputs.cpp`; `src/AfterNightProcesses/processes/ImageIntegration/core/StackingParamsUtils.cpp`; `src/AfterNightProcesses/processes/ImageIntegration/core/NormalizationOptionParsing.cpp`; `src/AfterNightProcesses/processes/ImageIntegration/core/RejectionMapUtils.h`.
@@ -553,7 +551,6 @@ For a safe prototype, run registration for one representative group, inspect its
 
 ## Worked example
 
-- Evidence mode: **Source-and-test-derived** from `src/AfterNightTests/Test_ImageIntegration/integration/test_full_workflow.cpp`. The fixture was executed within the complete deployed MSVC Release and Debug `Test_ImageIntegration` suites; no approved astrophotography dataset was executed for this page.
 - Input condition/provenance and settings: the fixture creates two synthetic 64×64 FITS files for each of Bias, Dark, Flat, and Light; uses one group per calibration type, a fixed first-light registration reference, normalization with the first light, and drizzle artifacts in the full manifest.
 - Expected checkpoint: the test asserts successful creation of `master_bias.fit`, `master_dark.fit`, `master_flat.fit`, both calibrated lights in disk mode, `registration_metrics.db`, normalization `coefficients.json` plus metadata, the drizzle group's descriptor sidecar, `stacked_TestObject_L.fit`, and a `history` archive containing a schema-3 manifest and report path. A later identical run exercises reuse; a separate ten-light/five-group test changes one local-normalization group and asserts that the registration database and four unaffected groups retain their modification times.
 - Inspect at 100%/statistics/history: no visual 100% or statistics result is claimed because the inputs are synthetic test patterns. The verified inspection point is file/database/history structure and deterministic incremental timestamps. With approved real data, inspect calibrated residuals, registered edges/stars, rejection/quality maps, and the master at 100% before accepting settings.
@@ -581,36 +578,36 @@ For a safe prototype, run registration for one representative group, inspect its
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Fix Issues First** / Execute disabled | Empty lights, empty/invalid/unwritable output directory, or another model error | Use each **Go to** action; add lights and select/create a writable directory | `IntegrationDataModel::validate`, `SummaryTab` |
-| **Import Project...** refuses the file and loads nothing | The file is not a project exported as JSON | Export/import the project as JSON | `ImageIntegrationProcess::onOpenRecentProject` |
-| Import says “Unsupported file format” | No codec the engine registers reads the file's format (its extension is not one of the supported still formats) | Convert/extract to FITS/TIFF/PNG/JPEG/RAW/XISF; do not import a sequence container | `FileImport`, `CodecRegistry` |
-| Import warns “Metadata read failed” | The format is read but the file's header could not be probed | The frame is still imported - its type taken from its folder or the source type you chose, its size unknown and its file modification time as capture time; check the file, or remove the row and add it again | `FileImport` |
-| **Calibrated** is disabled | No Light is selected; the group is Pre-Calibrated; no usable master remains after matching/manual unassignments; a selected generated/assigned master file does not yet exist; or CCD mode has a Dark but no Bias | Select a Light, review the checkbox tooltip, build/select the required master files, correct matching/overrides, or disable Pre-Calibrated/CCD mode only when that reflects the data | `ImageIntegrationProcess::updateLightCalibrationPreview`, `ImageViewControl` |
-| Light shows missing calibration | No exact/fallback/manual compatible master, or it was explicitly unassigned | Inspect **Coverage**, grouping metadata, matching policy, and master source; use Pre-Calibrated only when true | `CalibrationMatcher`, model validation |
-| Dark fallback warning | Exact exposure match absent and fallback is within tolerance | Add matching darks, narrow tolerance, disable fallback, or accept after inspection | `CalibrationMatcher` |
-| Registration metrics unavailable | Group has not run for the current settings version, database/schema is missing/stale, or frames failed. A database in a format this version does not read is refused and never changed | Run Registration; inspect Process Output; clear and rerun stale registration if necessary | `RegistrationTab`, `ExecutionPlanner` |
-| Registration has too few matches | Detection thresholds/reference/method do not produce required pairs | Choose a stronger reference, lower threshold cautiously, raise **Maximum Stars per Frame**, use phase/manual points when appropriate | `RegistrationSettingsDialog`, `LightsRegistrationStage` |
-| The run does not start: `Unknown <setting> '<text>' in group '<group>'.` | A stored stacking method, rejection, weighting or star-count scaling (for a calibration group, its method or rejection) that this version does not know - a project edited by hand or written by another version | Open the group's **Stacking Settings...**, choose the setting again and accept the dialog | `WorkflowManifest::validate` |
-| `The reference frame has N stars, and a star match needs at least 5 pairs; its lights cannot be matched by their stars.` | The registration reference holds four stars or fewer, so no light can be matched to it by its stars | Choose a reference with more stars, lower the detection threshold, or place the lights by their world coordinates under **Mosaic** | `LightsRegistrationStage` |
-| A light is left unregistered: `<light> has no world-coordinate solution and no plate solver is configured` | Star matching could not place the light, and it could only be placed by a solve, which needs a configured solver | Configure a solver in **Settings > Plate Solving**, or improve the star match | `LightsRegistrationStage`, `PlateSolveService` |
-| Manual Points cannot be accepted | Reference missing or a target has fewer than three pairs | Select a fixed reference and add at least three well-distributed correct pairs per target | `ManualRegistrationDialog`, manifest validation |
-| Comet workflow rejected | Fewer than two enabled accepted observations, observation outside group, or fixed reference absent | Mark/accept two time-separated points in group and choose a reference | `CometTrackingDialog`, `WorkflowManifest::validate` |
-| Drizzle falls back or fails | Too few usable transforms/drizzle descriptors or incomplete cache | Run registration, retain at least two transformed frames, clear stale registration/drizzle artifacts, rerun | `LightsDrizzleStage`, `LightsStackingStage` |
-| Black/low-coverage transformed edges or a zero-valued sample differs between standard and drizzle stacks | Standard rejection treats exact zero as missing to suppress null/alignment-border samples; drizzle uses transform coverage and keeps finite zero data, while drizzled output no footprint reaches carries no data and a master pixel no frame reaches is written as zero | Inspect the coverage map and registered/drizzle geometry; crop low-coverage edges when appropriate and compare like-for-like standard/drizzle settings | `StackFrameSources`, `DrizzledStackFrameSource`, `StackingStageTest` |
-| Non-drizzle stack says no registered outputs | Alignment products are absent for current transforms | Run Registration/Alignment; do not delete `registered_lights` between plan and stack | `LightsAlignmentStage`, `LightsStackingStage` |
-| Photometric weighting unavailable | Registration metrics lack usable zero-point coverage | Configure Gaia/WCS as needed and rerun registration, or choose another weighting mode | `FrameQualityDashboard`, photometric weighting utilities |
-| The window starts empty and names a stored value | The saved session holds a value no dialog writes | Open the project from its JSON export after correcting the value, or choose the settings again; the stored session is left as it was | `IntegrationDatabase`, `SessionDocument` |
-| A preset is refused | The preset holds a value no dialog writes, or is in a format this version does not read | Save the preset again from the current settings; the file is left as it was | `PresetManager` |
-| “Nothing to process” | Manifest and required artifacts match current state | Use existing outputs, or select **Reprocess existing** only when a full rebuild is intended | `ExecutionPlanner` |
-| A deleted master/stack is unexpectedly rebuilt | Unchanged-manifest artifact scan found a required file/database row missing | Allow targeted regeneration or restore the exact valid artifact | `ExecutionPlanner::populateMissingArtifactsPlan` |
-| Rerun recomputes downstream groups | A master/light assignment, registration setting/reference, or integration setting changed and dirty state propagated | Inspect Execution Plan Reason/Dependencies; revert unintended setting changes | `ManifestDiff`, `DirtyStateTracker`, `ExecutionPlanner` |
-| 64-bit checkbox changes nothing | Current known inert control | Treat output as the engine's default precision; do not claim 64-bit output | `StackingTabUiBuilder`, stage parameter sources |
-| Dark Multiplication Factor changes nothing | With dark optimization on, a single-channel light of at least 512×512 pixels ignores the entered factor and the engine solves its own value | Leave at default; use matching darks and read the run's warnings, which name each calibration whose lights the entered factor scaled | `LightCalibrationSettingsDialog`, `ImageCalibration.h` (`prepareImageCalibration`), `CalibrationMasterSet` |
-| Report missing after a run | No completed integration result to report, archive write failed, or run stopped before report generation | Review Process Output/log; use a completed archive row; verify output/history write access | `WorkflowArchiver`, `WorkflowProgressDialogV2` |
-| Old history disappeared | 20-entry or 5-GiB retention limit removed oldest runs | Copy important archives elsewhere; run history is not backup | `WorkflowArchiver::cleanupOldArchives` |
-| Cancelled run left new masters | Earlier groups completed and were committed before cancellation | Inspect the cancelled archive and committed-subset baseline; rerun/reprocess intentionally | `WorkflowExecutor`, `WorkflowArchiver` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Fix Issues First** / Execute disabled | Empty lights, empty/invalid/unwritable output directory, or another model error | Use each **Go to** action; add lights and select/create a writable directory |
+| **Import Project...** refuses the file and loads nothing | The file is not a project exported as JSON | Export/import the project as JSON |
+| Import says “Unsupported file format” | No codec the engine registers reads the file's format (its extension is not one of the supported still formats) | Convert/extract to FITS/TIFF/PNG/JPEG/RAW/XISF; do not import a sequence container |
+| Import warns “Metadata read failed” | The format is read but the file's header could not be probed | The frame is still imported - its type taken from its folder or the source type you chose, its size unknown and its file modification time as capture time; check the file, or remove the row and add it again |
+| **Calibrated** is disabled | No Light is selected; the group is Pre-Calibrated; no usable master remains after matching/manual unassignments; a selected generated/assigned master file does not yet exist; or CCD mode has a Dark but no Bias | Select a Light, review the checkbox tooltip, build/select the required master files, correct matching/overrides, or disable Pre-Calibrated/CCD mode only when that reflects the data |
+| Light shows missing calibration | No exact/fallback/manual compatible master, or it was explicitly unassigned | Inspect **Coverage**, grouping metadata, matching policy, and master source; use Pre-Calibrated only when true |
+| Dark fallback warning | Exact exposure match absent and fallback is within tolerance | Add matching darks, narrow tolerance, disable fallback, or accept after inspection |
+| Registration metrics unavailable | Group has not run for the current settings version, database/schema is missing/stale, or frames failed. A database in a format this version does not read is refused and never changed | Run Registration; inspect Process Output; clear and rerun stale registration if necessary |
+| Registration has too few matches | Detection thresholds/reference/method do not produce required pairs | Choose a stronger reference, lower threshold cautiously, raise **Maximum Stars per Frame**, use phase/manual points when appropriate |
+| The run does not start: `Unknown <setting> '<text>' in group '<group>'.` | A stored stacking method, rejection, weighting or star-count scaling (for a calibration group, its method or rejection) that this version does not know - a project edited by hand or written by another version | Open the group's **Stacking Settings...**, choose the setting again and accept the dialog |
+| `The reference frame has N stars, and a star match needs at least 5 pairs; its lights cannot be matched by their stars.` | The registration reference holds four stars or fewer, so no light can be matched to it by its stars | Choose a reference with more stars, lower the detection threshold, or place the lights by their world coordinates under **Mosaic** |
+| A light is left unregistered: `<light> has no world-coordinate solution and no plate solver is configured` | Star matching could not place the light, and it could only be placed by a solve, which needs a configured solver | Configure a solver in **Settings > Plate Solving**, or improve the star match |
+| Manual Points cannot be accepted | Reference missing or a target has fewer than three pairs | Select a fixed reference and add at least three well-distributed correct pairs per target |
+| Comet workflow rejected | Fewer than two enabled accepted observations, observation outside group, or fixed reference absent | Mark/accept two time-separated points in group and choose a reference |
+| Drizzle falls back or fails | Too few usable transforms/drizzle descriptors or incomplete cache | Run registration, retain at least two transformed frames, clear stale registration/drizzle artifacts, rerun |
+| Black/low-coverage transformed edges or a zero-valued sample differs between standard and drizzle stacks | Standard rejection treats exact zero as missing to suppress null/alignment-border samples; drizzle uses transform coverage and keeps finite zero data, while drizzled output no footprint reaches carries no data and a master pixel no frame reaches is written as zero | Inspect the coverage map and registered/drizzle geometry; crop low-coverage edges when appropriate and compare like-for-like standard/drizzle settings |
+| Non-drizzle stack says no registered outputs | Alignment products are absent for current transforms | Run Registration/Alignment; do not delete `registered_lights` between plan and stack |
+| Photometric weighting unavailable | Registration metrics lack usable zero-point coverage | Configure Gaia/WCS as needed and rerun registration, or choose another weighting mode |
+| The window starts empty and names a stored value | The saved session holds a value no dialog writes | Open the project from its JSON export after correcting the value, or choose the settings again; the stored session is left as it was |
+| A preset is refused | The preset holds a value no dialog writes, or is in a format this version does not read | Save the preset again from the current settings; the file is left as it was |
+| “Nothing to process” | Manifest and required artifacts match current state | Use existing outputs, or select **Reprocess existing** only when a full rebuild is intended |
+| A deleted master/stack is unexpectedly rebuilt | Unchanged-manifest artifact scan found a required file/database row missing | Allow targeted regeneration or restore the exact valid artifact |
+| Rerun recomputes downstream groups | A master/light assignment, registration setting/reference, or integration setting changed and dirty state propagated | Inspect Execution Plan Reason/Dependencies; revert unintended setting changes |
+| 64-bit checkbox changes nothing | Current known inert control | Treat output as the engine's default precision; do not claim 64-bit output |
+| Dark Multiplication Factor changes nothing | With dark optimization on, a single-channel light of at least 512×512 pixels ignores the entered factor and the engine solves its own value | Leave at default; use matching darks and read the run's warnings, which name each calibration whose lights the entered factor scaled |
+| Report missing after a run | No completed integration result to report, archive write failed, or run stopped before report generation | Review Process Output/log; use a completed archive row; verify output/history write access |
+| Old history disappeared | 20-entry or 5-GiB retention limit removed oldest runs | Copy important archives elsewhere; run history is not backup |
+| Cancelled run left new masters | Earlier groups completed and were committed before cancellation | Inspect the cancelled archive and committed-subset baseline; rerun/reprocess intentionally |
 
 ## Related workflow steps
 
@@ -623,10 +620,24 @@ For a safe prototype, run registration for one representative group, inspect its
 - After a linear master is accepted, continue with [Auto Gradient Removal](../background-extraction/auto-gradient-removal.md), [Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md), and a controlled stretch such as [Histogram Transformation](../stretching/histogram-transformation.md).
 - See [Saving And Exporting](../../interface/saving-and-exporting.md) for delivering final images; workflow archives are reproducibility records, not final publication exports.
 
-## References and provenance
+## Credits
 
-- AfterNight production and test sources are the primary behavior source.
-- FITS and SIP terminology follows the FITS WCS/SIP convention implemented by the engine's `SipDistortion.h`; no external behavior beyond the implementation was inferred for this page.
-- Drizzle is identified in the UI as Variable-Pixel Linear Reconstruction; the documented scale/kernel/pixel-fraction behavior is based on the engine's drizzle (`DrizzleExecutor.h`, `DrizzleCanvas.h`, `DrizzleMapDescriptor.h`).
-- Qt standard-path and settings locations are described symbolically because their concrete directories are platform/user dependent.
-- No external catalog, solver, or approved astrophotography dataset was executed.
+- Color-camera frames are demosaiced by methods adapted from RawTherapee's
+  demosaic code as [librtprocess](https://github.com/CarVac/librtprocess)
+  packages it, under GPL-3.0-or-later.
+- The star detection and its point-spread-function fit are adapted from
+  [Siril](https://gitlab.com/free-astro/siril)'s star finder and PSF fit, by
+  Francois Meyer and team free-astro, under GPL-3.0-or-later.
+- The drizzle corner interpolation is adapted from Siril's routine, which
+  follows the [STScI drizzle library](https://github.com/spacetelescope/drizzle)'s,
+  under the BSD 3-Clause notice of the Association of Universities for Research
+  in Astronomy (AURA).
+- The auto-adaptive weighted mean is adapted from
+  [DeepSkyStacker](https://github.com/deepskystacker/DSS)'s routine, by David C.
+  Partridge with Michael A. Covington and Simon C. Smith, under the BSD 3-Clause
+  License of Luc Coiffier and the DeepSkyStacker contributors.
+- The median selection networks the normalization analysis uses are
+  [RawTherapee](https://github.com/Beep6581/RawTherapee)'s, by Flössie and Ingo
+  Weyrich, under GPL-3.0-or-later.
+- **About > About AfterNight** credits these works and reproduces the BSD
+  notices.

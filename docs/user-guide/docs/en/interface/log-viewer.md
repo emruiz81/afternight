@@ -178,7 +178,6 @@ queued bridge callback.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations:
   Open **View > Session Console** after reproducing a warning. Leave **Show >=**
   at **info** and confirm the warning is present. Scroll upward and confirm the
@@ -211,18 +210,18 @@ queued bridge callback.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Session Console opened but older expected messages are absent | Message preceded bridge initialization, was evicted beyond 10,000 entries, was cleared, is below the selected threshold, or was trimmed from the visible pane | Lower **Show >=**, raise **Max lines** if appropriate, and reload. If still absent, inspect rotating file logs when their separate level retained the event | `main.cpp`; `SessionConsoleBridge.cpp`; `LogViewerControl.cpp` |
-| Info or Warn lines disappear after selecting **error** | The selector is an inclusive minimum-severity threshold | Select **warn**, **info**, **debug**, or **trace**, then allow the automatic reload | `LogViewerControl::currentMinimumLevel`; `appendSessionEntry` |
-| Session Console still shows messages while file **Minimum Level** is **Off** | The in-memory session sink is independent of the rotating file sink | Use **Show >=** or close/clear the console for its view; use Logging settings for disk output | `Logging.cpp`; `LoggingConfig.cpp`; `LogViewerControl.cpp` |
-| Search reports **No occurrences found.** | Text is not in the rendered pane, options exclude it, or the regular expression is invalid | Lower the severity filter/reload; simplify the query; disable Case sensitive, Match whole word, or Regular expression | `LogViewerControl::findText`; `LogViewerFindTextControl.cpp` |
-| Backward search does not wrap to a later occurrence | The fallback restarts a backward find at document position 0, where nothing precedes it | Clear/reset search, disable **Backward**, find forward, or move the visible cursor near the end before retrying | `LogViewerControl::findText` |
-| Export is shorter than expected | Export writes only the visible pane after threshold filtering and block trimming | Lower the threshold, raise **Max lines** within available backlog, reload, then export; use rotating files for separate disk history | `LogViewerControl::save`; `reloadContent`; `trimVisibleLines` |
-| **File Error: Unable to open file for writing** | Destination could not be opened writable | Choose a writable local folder/name and retry; check permissions and free space | `LogViewerControl::save` |
-| New output keeps jumping or stops following | Auto-scroll follows only while at the bottom | Scroll up intentionally to pause; return to the bottom or reload to resume | `LogViewerControl::initialize`; `appendSessionEntry`; `scrollToBottom` |
-| Colors or selection are unreadable | Persisted colors - including the theme colors stored when the console last closed - have poor contrast for the active theme, or ANSI formatting overrides parts of a line | Open **Settings**, use **Reset**, then **Apply**; optionally turn **ANSI Colors** off | `resolveThemeDefaults`; `LogViewerSettingsControl::on_dialog_box_button_clicked` |
-| File-log indicator looks stale after Logging settings changed | Indicator refresh occurs on initialize, reload, console focus, or active-tab change | Focus the console or select **Reload session lines** | `LogViewerControl::updateFileLogLevelIndicator`; focus/tab handlers |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Session Console opened but older expected messages are absent | Message preceded bridge initialization, was evicted beyond 10,000 entries, was cleared, is below the selected threshold, or was trimmed from the visible pane | Lower **Show >=**, raise **Max lines** if appropriate, and reload. If still absent, inspect rotating file logs when their separate level retained the event |
+| Info or Warn lines disappear after selecting **error** | The selector is an inclusive minimum-severity threshold | Select **warn**, **info**, **debug**, or **trace**, then allow the automatic reload |
+| Session Console still shows messages while file **Minimum Level** is **Off** | The in-memory session sink is independent of the rotating file sink | Use **Show >=** or close/clear the console for its view; use Logging settings for disk output |
+| Search reports **No occurrences found.** | Text is not in the rendered pane, options exclude it, or the regular expression is invalid | Lower the severity filter/reload; simplify the query; disable Case sensitive, Match whole word, or Regular expression |
+| Backward search does not wrap to a later occurrence | The fallback restarts a backward find at document position 0, where nothing precedes it | Clear/reset search, disable **Backward**, find forward, or move the visible cursor near the end before retrying |
+| Export is shorter than expected | Export writes only the visible pane after threshold filtering and block trimming | Lower the threshold, raise **Max lines** within available backlog, reload, then export; use rotating files for separate disk history |
+| **File Error: Unable to open file for writing** | Destination could not be opened writable | Choose a writable local folder/name and retry; check permissions and free space |
+| New output keeps jumping or stops following | Auto-scroll follows only while at the bottom | Scroll up intentionally to pause; return to the bottom or reload to resume |
+| Colors or selection are unreadable | Persisted colors - including the theme colors stored when the console last closed - have poor contrast for the active theme, or ANSI formatting overrides parts of a line | Open **Settings**, use **Reset**, then **Apply**; optionally turn **ANSI Colors** off |
+| File-log indicator looks stale after Logging settings changed | Indicator refresh occurs on initialize, reload, console focus, or active-tab change | Focus the console or select **Reload session lines** |
 
 ## Related workflow steps
 
@@ -234,12 +233,3 @@ queued bridge callback.
   cancellation, and failure states that can emit console diagnostics.
 - The process-specific troubleshooting table for the operation that failed uses
   the exported console evidence to select the next recovery step.
-
-## References and provenance
-
-- AfterNight session-console control, bridge, logging sink/configuration, app
-  wiring, and focused tests are the authoritative
-  implementation provenance for this page.
-- The console uses the spdlog severity ordering and message formatting exposed
-  through AfterNight's platform logging wrapper, `AfterNightPlatform/Logging.h`; no external behavior beyond the
-  reviewed vendored/API use is claimed here.

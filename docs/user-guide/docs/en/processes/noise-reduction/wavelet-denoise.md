@@ -10,8 +10,6 @@ derived: true
 ---
 # Wavelet Denoise
 
-<!-- MEDIA_SLOT: UG-MEDIA-061 -->
-
 ## Purpose and expected result
 
 Wavelet Denoise reduces low-amplitude structure by decomposing the image into
@@ -257,8 +255,6 @@ production timing was measured.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-calculator-derived; not executed on
-  project-owned astronomical data.
 - **Input condition:** Assume the robust estimate is `sigma=0.020`, Threshold
   `1.40`, Scales `6`, Iterations `10`, and Amount `0.50`.
 - **Coefficient checkpoint:** `T=1.40×0.020=0.028`. A coefficient `0.020` becomes
@@ -301,16 +297,16 @@ production timing was measured.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Increasing Iterations mostly slows processing | It is a fixed averaging count, not a convergence or repeated-strength loop | Tune Threshold/Scales/Amount for strength; use Iterations for shift averaging | `WaveletDenoiseProcess.cpp` (the `denoise_haar` command); G'MIC `cycle_spinning` |
-| Broad structure or mean level changes | Soft threshold applies to the complete Haar coefficient array, including coarse approximation | Reduce Threshold and/or Scales; restore detail with lower Amount | vendored `threshold` and `denoise_haar` commands |
-| Block patterns or damaged edges | Decimated Haar blocks, temporary zero-boundary dimension extension, and finite cycle sampling | Reduce Scales/Threshold, add cycles, use a feathered mask, or compare another denoiser | vendored Haar/resize/shift commands |
-| Output clips out-of-range float samples | Every G'MIC result is clamped before restoring source type | Normalize/crop range before filtering and preserve a duplicate | `GmicProcessSupport.cpp` |
-| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged | `GmicProcessSupport.cpp` |
-| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another denoiser | `GmicProcessSupport.cpp` |
-| A G'MIC error on a tiny target | Requested/UI-minimum Haar depth can exceed the dimension-derived supported depth | Use a larger image/crop or fewer supported scales where possible | vendored `denoise_haar`; Haar validation |
-| Cancelled sequence leaves original unchanged | Temporary output is removed and commit is skipped | Expected; restart Apply when ready | shared sequence executor; G'MIC adapter abort flag |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Increasing Iterations mostly slows processing | It is a fixed averaging count, not a convergence or repeated-strength loop | Tune Threshold/Scales/Amount for strength; use Iterations for shift averaging |
+| Broad structure or mean level changes | Soft threshold applies to the complete Haar coefficient array, including coarse approximation | Reduce Threshold and/or Scales; restore detail with lower Amount |
+| Block patterns or damaged edges | Decimated Haar blocks, temporary zero-boundary dimension extension, and finite cycle sampling | Reduce Scales/Threshold, add cycles, use a feathered mask, or compare another denoiser |
+| Output clips out-of-range float samples | Every G'MIC result is clamped before restoring source type | Normalize/crop range before filtering and preserve a duplicate |
+| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged |
+| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another denoiser |
+| A G'MIC error on a tiny target | Requested/UI-minimum Haar depth can exceed the dimension-derived supported depth | Use a larger image/crop or fewer supported scales where possible |
+| Cancelled sequence leaves original unchanged | Temporary output is removed and commit is skipped | Expected; restart Apply when ready |
 
 ## Related workflow steps
 
@@ -326,14 +322,10 @@ in [DeepSNR](deepsnr.md), and the later patch methods in
 controlled stretch, then verify [Image History](../../interface/image-history.md),
 [Image Statistics](../../interface/image-statistics.md), and critical metadata.
 
-## References and provenance
+## Credits
 
-- [G'MIC `denoise_haar` reference](https://gmic.eu/reference/denoise_haar.html) —
-  upstream command contract for Haar thresholding, scale selection, and cycle
-  spinning. AfterNight bundles G'MIC 3.5.4; the exact vendored command is authoritative for this build.
+- [G'MIC `denoise_haar` reference](https://gmic.eu/reference/denoise_haar.html)
+  — upstream command contract for Haar thresholding, scale selection, and cycle
+  spinning. AfterNight bundles G'MIC 3.5.4.
 - [G'MIC Haar analysis and synthesis tutorial](https://gmic.eu/oldtutorial/wavelet-analysis-and-synthesis-in-gmic.html)
   — upstream background for the separable Haar transform.
-- AfterNight and vendored G'MIC project sources —
-  authoritative for the robust estimate, soft threshold, random shifts,
-  dimension/boundary behavior, float/clamp bridge, channels, Amount/masks,
-  preview, metadata, history, cancellation, and sequences.

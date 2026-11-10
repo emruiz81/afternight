@@ -315,18 +315,18 @@ peak-memory measurement has been made.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix | Evidence basis |
-| --- | --- | --- | --- |
-| Nothing changes | Amount `0`, black/constant mask, active mask protection, or wrong Channel | Inspect pure Generated mask; restore defaults and check active mask/channel | Engine/window source and tests |
-| Whole background darkens | Layer depth selects a broad gradient, or bright stars push the plain background high in the extreme-based mask | Reduce Layers; correct gradients first; inspect the full-frame mask; protect regions with an active target mask | Mask source |
-| Area preview differs after Apply | Crop-local extremes and starlet borders | Turn Preview area off for the final check | Framework/multiscale source |
-| Generated mask looks like the target outside a region | The active target mask outer-blended the mask preview | Disable the target mask while inspecting Generated mask | Framework mask source |
-| Higher Amount does not change Generated mask | Amount affects the transfer only | Switch to Processed image to judge Amount | Engine source |
-| Iterations crush shadows quickly | Same darkening curve repeats through fixed mask | Return to one iteration and lower Amount | Transfer equation |
-| Color shifts | RGB channels are darkened through one shared mask, or a component is reconstructed | Prefer CIE L*/luma and inspect channels | Channel/framework source |
-| No separate mask after sequence Apply or a snapshot | Mask publication is still-Apply only | Apply to a representative still, or take a Generated mask snapshot | Window source and tests |
-| Apply reports an error naming the memory budget | The session cannot hold the run's working images | Close images you no longer need, or work on a smaller image or one component | Window refusal test |
-| Cancel takes a moment | The engine stops at its next stage, layer, iteration, or row-block boundary | Wait; reduce area/layers while tuning | Engine source |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Nothing changes | Amount `0`, black/constant mask, active mask protection, or wrong Channel | Inspect pure Generated mask; restore defaults and check active mask/channel |
+| Whole background darkens | Layer depth selects a broad gradient, or bright stars push the plain background high in the extreme-based mask | Reduce Layers; correct gradients first; inspect the full-frame mask; protect regions with an active target mask |
+| Area preview differs after Apply | Crop-local extremes and starlet borders | Turn Preview area off for the final check |
+| Generated mask looks like the target outside a region | The active target mask outer-blended the mask preview | Disable the target mask while inspecting Generated mask |
+| Higher Amount does not change Generated mask | Amount affects the transfer only | Switch to Processed image to judge Amount |
+| Iterations crush shadows quickly | Same darkening curve repeats through fixed mask | Return to one iteration and lower Amount |
+| Color shifts | RGB channels are darkened through one shared mask, or a component is reconstructed | Prefer CIE L*/luma and inspect channels |
+| No separate mask after sequence Apply or a snapshot | Mask publication is still-Apply only | Apply to a representative still, or take a Generated mask snapshot |
+| Apply reports an error naming the memory budget | The session cannot hold the run's working images | Close images you no longer need, or work on a smaller image or one component |
+| Cancel takes a moment | The engine stops at its next stage, layer, iteration, or row-block boundary | Wait; reduce area/layers while tuning |
 
 ## Related workflow steps
 
@@ -344,19 +344,3 @@ peak-memory measurement has been made.
   regions with an ordinary active target mask.
 - [Glossary](../../reference/glossary.md) — starlet, MTF, mask, clipping, and
   nonlinear-image terminology.
-
-## References and provenance
-
-This page is source-first (**S**) with focused window tests. The menu,
-registry, window, shared target/channel/preview framework, the engine's
-dark-structure operation and multiscale transform, the midtones transfer, mask
-blending, representation/state paths, and tests were traced. AfterNight
-was not launched. The window tests establish
-launch, Preview equal to Apply, the Preview area, active-mask weighting,
-frame-by-frame sequences, the history step, metadata and lineage, persistence,
-cancellation, every representation, a pixel holding no number, a memory refusal,
-the mask image beside the target with the target's record, and the Generated
-mask preview of a color target under an active mask with a sample holding no
-number. No behavior record exists for this process, and no approved astronomical
-still/sequence was processed, so visual quality, production timing, and peak
-memory remain unverified.

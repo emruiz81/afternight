@@ -384,8 +384,6 @@ number is claimed by this page.
 
 ## Worked example
 
-- **Evidence mode:** Execution on an earlier build, plus source and focused
-  tests of the current build. The current build has not repeated this run.
 - **Retained execution record:** The private output path, a distinct post-save
   hash, and raw console transcript were not retained.
 - **Input and provenance:** The project maintainer supplied and approved a
@@ -465,31 +463,31 @@ number is claimed by this page.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Plate Solve is disabled/absent | No loaded still is focused; sequences fail the view/action gate | Focus a single still-image view | `ActionStateCoordinator.cpp`; `ImageViewControl.cpp` |
-| **Solve** is disabled and warning appears | No ready Gaia pack, executable ASTAP/local path, or non-empty web key passes minimal configuration | Use **Configure...**, then Catalogs & Data/Plate Solving Settings; verify the real dependency separately | `PlateSolveConfiguration.h`; `PlateSolveControl.cpp` |
-| Warning says to use External Tools | The warning's text names External Tools, while the solvers are configured on the **Plate Solving** and **Catalogs & Data** Settings pages | Click **Configure...** or use **Edit > Settings... > Plate Solving**; manage Gaia under Catalogs & Data | `PlateSolveControl.cpp`; `DialogOrchestrationCoordinator.cpp` |
-| “Failed to save image for plate solving: ...” | Current in-memory image could not be staged as temporary FITS | Check runtime temporary path, permissions, free disk, and codec error; retry without overwriting the source | `PlateSolveControl::startSolve` |
-| “Failed to create a temporary path for plate solving.” | The configured temporary root or staging directory could not be created | Check the temporary path, permissions, and directory availability, then retry | `createUniquePlateSolveInputPath`; `PlateSolveControl::startSolve` |
-| “Internal Gaia catalog ...” missing, invalid, incomplete, or in a layout this version does not read | Selected pack is not a ready chunk catalog | Select/repair/download a chunk catalog pack in Catalogs & Data | `runInternalGaiaSolver`; `GaiaCatalogSettings.h` |
-| “Internal Gaia solver could not detect enough stars.” | Every image channel produced fewer than three usable detections | Use an image with better stellar signal/focus, verify pixels are not clipped, or choose another configured backend | `runInternalGaiaSolver`; plate-solver tests |
-| “Internal Gaia solver failed to match the field.” | Stars were detected, but no catalog/trial-center match succeeded | Verify position/scale, widen search radius carefully, confirm catalog depth/epoch, or use another backend | `runInternalGaiaSolver`; `PlateSolverTest.TooFewOrUnrelatedStarsReturnEmptySelection` |
-| “Internal Gaia solver timed out after N seconds.” | The internal solve outlasted the **Timeout** setting, typically a blind or wide-radius search | Supply a position and scale hint, narrow **Search radius**, or raise **Timeout** | `runInternalGaiaSolver`; `PlateSolveUtils.RunGuardDistinguishesTimeoutFromExternalCancellation` |
-| “Internal Gaia solver failed: the region holds more catalog stars than one solve reads...” | The hint's region - **Search radius** plus the catalog margin - holds more stars than one solve reads | Narrow **Search radius** or select a shallower catalog pack | `GaiaCatalogSource::regionWithColors` |
-| “ASTAP timed out.” / no `.wcs` | Process exceeded timeout or ASTAP did not emit the expected solution file | Test ASTAP and its star database independently; verify hints/downsample/timeout and input support | `runAstapSolver`; ASTAP documentation |
-| A solver's diagnostic ends “the header ends without an END record”, or names a keyword stated twice | The solver's header-only answer was truncated or states one keyword twice | Run the solver again; check the solver's output and disk space | `SolvedHeaderCards.AHeaderWithNoEndRecordIsRefused`; `SolvedHeaderCards.ADuplicatedKeywordIsRefusedRatherThanReplaced` |
-| “solve-field timed out.” / no valid WCS | Process exceeded timeout or indexes/config/output did not cover the field | Install matching indexes, check local path/config, test `solve-field`, and verify scale bounds | `runSolveFieldSolver`; Astrometry.net documentation |
-| Web login/upload/network error | Non-empty key passed minimal configuration but auth/TLS/network/upload failed | Verify key and service access; review proxy/policy; use a local route when upload is prohibited | `runAstrometryWebSolver`; Nova API documentation |
-| Web waits far beyond **Timeout** | Timeout applies per request; assignment and solve each have fixed 120×5 s polling | Cancel, inspect service state/log, or use a local route; do not treat Timeout as a total web deadline | `PlateSolveService.cpp` |
-| Cancel seems delayed | Internal cancellation is cooperative; the runner kills an external process; the web solve notices a cancellation within a tenth of a second and aborts its request in flight | Wait for the current check boundary; close triggers cancel then closes after finish | `SolverProcessRunner.cpp`; `PlateSolveControl::closeEvent` |
-| All solvers failed | Every route contributed one diagnostic; no result is partially applied | Read the complete message and Session Console in attempted order; fix the first intended route or disable an unapproved fallback | `PlateSolveService::solve` |
-| Solved result was not written | **Write WCS** was Off or the solve failed/cancelled | Re-solve on the intended active image with writing On, do not edit, undo or replace its image until the solve completes, then inspect metadata before saving | `PlateSolveControl::onSolveFinished` |
-| A finished solve was not applied: “Plate solve finished for an image that is no longer active. The result was not applied.” | The view's image changed - an edit, an undo, another image - while the solve ran; an answer is applied only to the image it solved | Solve again on the image now shown | `PlateSolveControl::onSolveFinished`; `PlateSolveWindowTest.ASolveOfAnImageThatChangedUnderItIsSetAside` |
-| SPCC/overlays still report no WCS after success | Result remained display-only or pending metadata was never saved/reloaded in the intended file | Check Astrometry Info/FITS cards, write WCS, save a metadata-capable output, and reopen it | `writeWcsToMetadata`; codec/save documentation |
-| An image solved elsewhere shows no solution | Its header states FK5, or an equinox other than J2000 and no frame, which AfterNight does not convert | Solve it again; a header with the J2000 equinox and no frame is read in the ICRS | `readImageWcsSolution` |
-| SIP says No | Valid WCS contains no accepted forward A/B model | Use ordinary TAN WCS if adequate; inspect external header or internal match quality rather than fabricating SIP | `populateDerivedFields`; `fitPlateSolveModel` |
-| **Clear Astrometry** left a card | Only world-coordinate cards and `PLTSOLVR` are removed; equipment, acquisition and other cards stay | Remove other cards with a metadata-aware workflow | `metadataWithoutPlateSolution` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Plate Solve is disabled/absent | No loaded still is focused; sequences fail the view/action gate | Focus a single still-image view |
+| **Solve** is disabled and warning appears | No ready Gaia pack, executable ASTAP/local path, or non-empty web key passes minimal configuration | Use **Configure...**, then Catalogs & Data/Plate Solving Settings; verify the real dependency separately |
+| Warning says to use External Tools | The warning's text names External Tools, while the solvers are configured on the **Plate Solving** and **Catalogs & Data** Settings pages | Click **Configure...** or use **Edit > Settings... > Plate Solving**; manage Gaia under Catalogs & Data |
+| “Failed to save image for plate solving: ...” | Current in-memory image could not be staged as temporary FITS | Check runtime temporary path, permissions, free disk, and codec error; retry without overwriting the source |
+| “Failed to create a temporary path for plate solving.” | The configured temporary root or staging directory could not be created | Check the temporary path, permissions, and directory availability, then retry |
+| “Internal Gaia catalog ...” missing, invalid, incomplete, or in a layout this version does not read | Selected pack is not a ready chunk catalog | Select/repair/download a chunk catalog pack in Catalogs & Data |
+| “Internal Gaia solver could not detect enough stars.” | Every image channel produced fewer than three usable detections | Use an image with better stellar signal/focus, verify pixels are not clipped, or choose another configured backend |
+| “Internal Gaia solver failed to match the field.” | Stars were detected, but no catalog/trial-center match succeeded | Verify position/scale, widen search radius carefully, confirm catalog depth/epoch, or use another backend |
+| “Internal Gaia solver timed out after N seconds.” | The internal solve outlasted the **Timeout** setting, typically a blind or wide-radius search | Supply a position and scale hint, narrow **Search radius**, or raise **Timeout** |
+| “Internal Gaia solver failed: the region holds more catalog stars than one solve reads...” | The hint's region - **Search radius** plus the catalog margin - holds more stars than one solve reads | Narrow **Search radius** or select a shallower catalog pack |
+| “ASTAP timed out.” / no `.wcs` | Process exceeded timeout or ASTAP did not emit the expected solution file | Test ASTAP and its star database independently; verify hints/downsample/timeout and input support |
+| A solver's diagnostic ends “the header ends without an END record”, or names a keyword stated twice | The solver's header-only answer was truncated or states one keyword twice | Run the solver again; check the solver's output and disk space |
+| “solve-field timed out.” / no valid WCS | Process exceeded timeout or indexes/config/output did not cover the field | Install matching indexes, check local path/config, test `solve-field`, and verify scale bounds |
+| Web login/upload/network error | Non-empty key passed minimal configuration but auth/TLS/network/upload failed | Verify key and service access; review proxy/policy; use a local route when upload is prohibited |
+| Web waits far beyond **Timeout** | Timeout applies per request; assignment and solve each have fixed 120×5 s polling | Cancel, inspect service state/log, or use a local route; do not treat Timeout as a total web deadline |
+| Cancel seems delayed | Internal cancellation is cooperative; the runner kills an external process; the web solve notices a cancellation within a tenth of a second and aborts its request in flight | Wait for the current check boundary; close triggers cancel then closes after finish |
+| All solvers failed | Every route contributed one diagnostic; no result is partially applied | Read the complete message and Session Console in attempted order; fix the first intended route or disable an unapproved fallback |
+| Solved result was not written | **Write WCS** was Off or the solve failed/cancelled | Re-solve on the intended active image with writing On, do not edit, undo or replace its image until the solve completes, then inspect metadata before saving |
+| A finished solve was not applied: “Plate solve finished for an image that is no longer active. The result was not applied.” | The view's image changed - an edit, an undo, another image - while the solve ran; an answer is applied only to the image it solved | Solve again on the image now shown |
+| SPCC/overlays still report no WCS after success | Result remained display-only or pending metadata was never saved/reloaded in the intended file | Check Astrometry Info/FITS cards, write WCS, save a metadata-capable output, and reopen it |
+| An image solved elsewhere shows no solution | Its header states FK5, or an equinox other than J2000 and no frame, which AfterNight does not convert | Solve it again; a header with the J2000 equinox and no frame is read in the ICRS |
+| SIP says No | Valid WCS contains no accepted forward A/B model | Use ordinary TAN WCS if adequate; inspect external header or internal match quality rather than fabricating SIP |
+| **Clear Astrometry** left a card | Only world-coordinate cards and `PLTSOLVR` are removed; equipment, acquisition and other cards stay | Remove other cards with a metadata-aware workflow |
 
 ## Related workflow steps
 
@@ -507,28 +505,31 @@ number is claimed by this page.
   [Astrometry Info/FITS metadata](../../interface/fits-header-viewer.md), then
   preserve it using [Saving and Exporting](../../interface/saving-and-exporting.md).
 
-## References and provenance
+## Credits
 
-- AfterNight dialog, service, image engine, catalog-search, WCS formatter, and
-  focused tests.
 - H. Shupe and R. Hook, [The SIP Convention for Representing Distortion in FITS
-  Image Headers, version 1.0](https://fits.gsfc.nasa.gov/registry/sip/SIP_distortion_v1_0.pdf),
-  official FITS registry document, accessed 2026-07-12.
-- NASA/GSFC, [FITS World Coordinate System references](https://fits.gsfc.nasa.gov/fits_wcs.html),
-  including Greisen & Calabretta's WCS Paper I and Calabretta & Greisen's
-  celestial-coordinate Paper II, accessed 2026-07-12. AfterNight's behavior is
-  defined by its image engine's own implementation of the TAN projection and the
-  SIP convention, not by a WCS library.
-- [ASTAP official solver and command-line documentation](https://www.hnsky.org/astap.htm),
-  including `-f`, `-r`, `-fov`, `-ra`, `-spd`, downsample, and `.wcs` output,
-  accessed 2026-07-12.
-- [Astrometry.net local usage and output documentation](https://astrometrynet.readthedocs.io/en/stable/readme.html),
+  Image Headers, version
+  1.0](https://fits.gsfc.nasa.gov/registry/sip/SIP_distortion_v1_0.pdf),
+  official FITS registry document.
+- NASA/GSFC, [FITS World Coordinate System
+  references](https://fits.gsfc.nasa.gov/fits_wcs.html), including Greisen &
+  Calabretta's WCS Paper I and Calabretta & Greisen's celestial-coordinate Paper
+  II. AfterNight's behavior is defined by its image engine's own implementation
+  of the TAN projection and the SIP convention, not by a WCS library.
+- [ASTAP official solver and command-line
+  documentation](https://www.hnsky.org/astap.htm), including `-f`, `-r`, `-fov`,
+  `-ra`, `-spd`, downsample, and `.wcs` output.
+- [Astrometry.net local usage and output
+  documentation](https://astrometrynet.readthedocs.io/en/stable/readme.html),
   including `solve-field`, index configuration, scale/position hints,
-  downsampling, `.wcs`, and `.new` outputs, accessed 2026-07-12.
-- [Nova Astrometry.net API documentation](https://astrometry.net/doc/net/api.html),
-  including API-key login, image upload, privacy/licensing flags, submission/job
-  polling, and WCS download, accessed 2026-07-12.
-- [Gaia Data Release 3 documentation](https://gea.esac.esa.int/archive/documentation/GDR3/)
-  and [credit/citation instructions](https://gea.esac.esa.int/archive/documentation/GDR3/Miscellaneous/sec_credit_and_citation_instructions/),
-  release 1.3, accessed 2026-07-12. AfterNight uses a project-managed local
-  chunk-pack representation rather than the Gaia Archive service at solve time.
+  downsampling, `.wcs`, and `.new` outputs.
+- [Nova Astrometry.net API
+  documentation](https://astrometry.net/doc/net/api.html), including API-key
+  login, image upload, privacy/licensing flags, submission/job polling, and WCS
+  download.
+- [Gaia Data Release 3
+  documentation](https://gea.esac.esa.int/archive/documentation/GDR3/) and
+  [credit/citation
+  instructions](https://gea.esac.esa.int/archive/documentation/GDR3/Miscellaneous/sec_credit_and_citation_instructions/),
+  release 1.3. AfterNight uses a project-managed local chunk-pack representation
+  rather than the Gaia Archive service at solve time.

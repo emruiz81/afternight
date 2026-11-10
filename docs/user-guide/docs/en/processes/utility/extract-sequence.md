@@ -213,7 +213,6 @@ directory on a fast volume with sufficient free space.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Input condition/provenance and settings: a 3-frame Image List of 32-bit
   floating RGB frames, the second different from the other two, with Start
   Frame 2 and End Frame 3 - the sequence
@@ -250,16 +249,16 @@ directory on a fast volume with sufficient free space.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Extract Sequence is unavailable | The active view is not a sequence, or no view is active. | Activate/open the intended sequence. | `ExtractSequenceProcess::isViewControlSupported()`; registry. |
-| Start will not move past End | The window enforces an ordered inclusive range. | Move End later first, then increase Start. | `on_startFrameChanged()`. |
-| End will not move before Start | The window enforces an ordered inclusive range. | Move Start earlier first, then decrease End. | `on_endFrameChanged()`. |
-| Size estimate differs from the file on disk | The readout is sample bytes of the image the view holds, excluding encoding and filesystem overhead. | Use it only for relative planning; inspect actual temp/output size after completion. | `updateSizeAndFrameCount()`; `imageBytesOf()`. |
-| "Another process is executing for this sequence, please cancel that job first before running this process" | Another run holds the source view. | Finish or cancel the other process, then retry. | `runToNewViews()`; `GeometryProcessCase` cases. |
-| **Error running Extract Sequence** | No temporary files are lent, or a read, write or completion failed; the message names the reason. The source view is released and partial output is removed. | Check source readability, temp free space/permissions, logs, and codec support; preserve the original and retry a smaller range. | `runToNewViews()`; `reportRunFailure()`; `GeometryProcessCase.ASequenceRunThatCannotFinishLeavesNothingBehind`. |
-| Cancelling creates no result | Cancellation intentionally publishes nothing. | Run the intended range again. | `runOverFrames()` cancellation path. |
-| Video result differs in size or appearance | MP4 and Matroska extraction decodes and re-encodes frames, at an even width and height. | Use SER or an Image List when scientific sample preservation matters; compare decoded frames before relying on video output. | `SequenceContainers.h`. |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Extract Sequence is unavailable | The active view is not a sequence, or no view is active. | Activate/open the intended sequence. |
+| Start will not move past End | The window enforces an ordered inclusive range. | Move End later first, then increase Start. |
+| End will not move before Start | The window enforces an ordered inclusive range. | Move Start earlier first, then decrease End. |
+| Size estimate differs from the file on disk | The readout is sample bytes of the image the view holds, excluding encoding and filesystem overhead. | Use it only for relative planning; inspect actual temp/output size after completion. |
+| "Another process is executing for this sequence, please cancel that job first before running this process" | Another run holds the source view. | Finish or cancel the other process, then retry. |
+| **Error running Extract Sequence** | No temporary files are lent, or a read, write or completion failed; the message names the reason. The source view is released and partial output is removed. | Check source readability, temp free space/permissions, logs, and codec support; preserve the original and retry a smaller range. |
+| Cancelling creates no result | Cancellation intentionally publishes nothing. | Run the intended range again. |
+| Video result differs in size or appearance | MP4 and Matroska extraction decodes and re-encodes frames, at an even width and height. | Use SER or an Image List when scientific sample preservation matters; compare decoded frames before relying on video output. |
 
 ## Related workflow steps
 
@@ -275,10 +274,10 @@ directory on a fast volume with sufficient free space.
   archival representation and [Saving And Exporting](../../interface/saving-and-exporting.md)
   for the complete save/export and verification behavior.
 
-## References and provenance
+## Credits
 
-- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html), current
-  upstream libavformat documentation, accessed 2026-07-11.
-- [SER format description, version 3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf),
-  primary format description, accessed 2026-07-11.
-- AfterNight sources/tests.
+- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html),
+  current upstream libavformat documentation.
+- [SER format description, version
+  3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf), primary format
+  description.

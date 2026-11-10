@@ -213,8 +213,6 @@ blend. No production timing or peak-memory measurement was made.
 
 ## Worked example
 
-- Evidence mode: source-, equation-, and test-derived; not an astronomical
-  quality demonstration.
 - Input: a same-size grayscale still mask with normalized samples `0`, `0.5`,
   and `1`; target samples `A=0.2`; hypothetical processed samples `P=0.8`.
 - Normal expected result: `0.2`, `0.5`, and `0.8` respectively from
@@ -257,20 +255,20 @@ blend. No production timing or peak-memory measurement was made.
 
 ## Troubleshooting
 
-| Symptom or exact message | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Mask menu is disabled | No active view with image data | Activate the intended target view | `ActionStateCoordinator::setEnableImageActions()` |
-| Only Select Mask is enabled | The active target has no assigned mask | Assign a compatible source first | `ActionStateCoordinator::updateActiveImageActions()` |
-| `<NO COMPATIBLE IMAGES>` appears and OK is disabled | No other open view passes identity, dimensions, channel-count, color, and direct-reference checks | Open/generate a same-size grayscale or compatible RGB mask | `ImageMaskSelectorControl::recalculateMasksList()` |
-| Selector closes but no mask is assigned | The selected view disappeared before OK, or it was already the current mask | Reopen the selector and choose a still-open different candidate | `ImageMaskSelectorControl::on_dialog_box_button_clicked()` |
-| **No selected image to process** appears | A stale/programmatic action reached the launcher/coordinator without an active target | Activate the target and retry | `ProcessLauncher` and `MaskOverlayCoordinator` guards |
-| **Mask Reference** warning appears and the mask disappears | A source/target update made dimensions or channel layout incompatible | Restore matching geometry/channel compatibility and reassign | `ImageViewControl::notifySourceMaskUpdated()`; `ImageViewControl::setCurrentMask()` |
-| Closing a mask warns that other images use it | The source has one or more client targets; the warning is informational and offers only OK | Acknowledge the warning; closing continues and removes every client link. Reopen the saved mask and reassign it if needed | `ImageViewControl::closeEvent()` and `DialogOrchestrationCoordinator::notifyWarnMessage()` |
-| Overlay remains but a process ignores the mask | Show is on but Enable is off, or the process does not support the native mask path | Turn on Enable and check the process-specific page | `ImageRTPreviewControl` mask gate |
-| Hidden mask still changes Preview/Apply | Show is display-only; Enable remains on | Turn off Enable or remove the mask | viewer and process state gates |
-| RGB result has different masking by channel | The RGB mask supplies independent R/G/B weights | Inspect each mask channel or use a grayscale mask | `blendProcessResult()` and `MaskRenderer` |
-| Multiply display looks darker than expected | Multiply scales the displayed target by the mask, so protected (dark) mask regions darken it | Use Replace or a colored overlay to inspect the mask itself | `ImageViewWidget::requestMaskOverlay()` and `renderViewMaskOverlay()` |
-| Mask is absent after save/reopen, duplicate, or restart | Assignment and flags are runtime-only and are not serialized/copied | Reopen the saved mask image and assign it again | view state, save, duplicate, and history paths |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Mask menu is disabled | No active view with image data | Activate the intended target view |
+| Only Select Mask is enabled | The active target has no assigned mask | Assign a compatible source first |
+| `<NO COMPATIBLE IMAGES>` appears and OK is disabled | No other open view passes identity, dimensions, channel-count, color, and direct-reference checks | Open/generate a same-size grayscale or compatible RGB mask |
+| Selector closes but no mask is assigned | The selected view disappeared before OK, or it was already the current mask | Reopen the selector and choose a still-open different candidate |
+| **No selected image to process** appears | A stale/programmatic action reached the launcher/coordinator without an active target | Activate the target and retry |
+| **Mask Reference** warning appears and the mask disappears | A source/target update made dimensions or channel layout incompatible | Restore matching geometry/channel compatibility and reassign |
+| Closing a mask warns that other images use it | The source has one or more client targets; the warning is informational and offers only OK | Acknowledge the warning; closing continues and removes every client link. Reopen the saved mask and reassign it if needed |
+| Overlay remains but a process ignores the mask | Show is on but Enable is off, or the process does not support the native mask path | Turn on Enable and check the process-specific page |
+| Hidden mask still changes Preview/Apply | Show is display-only; Enable remains on | Turn off Enable or remove the mask |
+| RGB result has different masking by channel | The RGB mask supplies independent R/G/B weights | Inspect each mask channel or use a grayscale mask |
+| Multiply display looks darker than expected | Multiply scales the displayed target by the mask, so protected (dark) mask regions darken it | Use Replace or a colored overlay to inspect the mask itself |
+| Mask is absent after save/reopen, duplicate, or restart | Assignment and flags are runtime-only and are not serialized/copied | Reopen the saved mask image and assign it again |
 
 ## Related workflow steps
 
@@ -282,10 +280,3 @@ Create candidate masks with [Range Selection](../processes/analysis/range-select
 [Sequences](sequences.md) for container behavior, and
 [Saving and Exporting](saving-and-exporting.md) for what is actually written.
 The complete menu placement is in [Toolbar and Menus](toolbar-and-menus.md).
-
-## References and provenance
-
-This page documents AfterNight's current mask menu, selector, image-view state,
-renderer, process framework, engine blend, extension handoff, and focused tests. The blend equations are current implementation
-contracts. No external masking standard, persisted mask-file format, or visual
-quality benchmark is claimed.

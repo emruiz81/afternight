@@ -229,7 +229,6 @@ production timing or peak-memory measurement was made.
 
 ## Worked example
 
-- Evidence mode: Source-and-equation-derived.
 - Input condition/provenance and settings: finite normalized floating RGB
   duplicate, no active mask, Individual thresholds Red `0.25`, Green `0.50`,
   Blue `0.75`.
@@ -278,20 +277,20 @@ production timing or peak-memory measurement was made.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Binarize is absent under Sensor Calibration | Registry metadata files it under the sensor-calibration category, but the menu composition places it in Intensity Transformations | Use **Process > Intensity Transformations > Binarize** | app UI builder and registry wiring |
-| Green and Blue cannot be edited | Joint mode is selected, or target is non-RGB | On RGB choose Individual RGB/K channels; non-RGB has only K | mode handler and `checkImageColorSpace()` |
-| Switching to Joint lost custom Green/Blue values | Joint copies the current RGB/K/Red threshold into both channels | Record values before switching or re-enter them after returning to Individual | selection-mode handler |
-| Result is still gray in some regions | An enabled active mask blended continuous original samples into the binary result | Disable/remove the target mask and Apply again from an unmodified duplicate/source | shared `blendProcessResult` |
-| RGB result has colored edges | Individual channel thresholds classified channels differently | Inspect each channel, use closer thresholds, or return to Joint | per-channel dispatch in `BinarizeProcess::executeTypedProcessImpl` |
-| An 8-bit or 16-bit sample just below the threshold became white | Unsigned thresholds are truncated to a stored code before comparing | Raise the threshold by one code step if the distinction matters | `thresholdCode` in `BinarizeProcess.cpp` |
-| Pixels holding NaN became black | A sample holding no number is never selected | Repair or replace such pixels upstream if needed | `BinarizeProcess::executeTypedProcessImpl`; `an::binarizeImage` |
-| Apply modified the source instead of opening a mask | Binarize uses the in-place Apply | Undo/reopen the source if possible; use a duplicate next time | `ImageRTPreviewControl::runApplyInPlace` |
-| Displayed controls changed while Apply used older values | Parameters are captured when Apply is selected; Binarize does not lock its own controls | Wait for completion and read the committed history entry | run snapshot and control-lock path |
-| Snapshot carries no nonlinear record | Snapshots are Preview results and are not recorded | Apply on a duplicate for an archival result | `BinarizeProcess::executeTypedProcessImpl`; `process_utils::recordNonlinearResult` |
-| Sequence Cancel leaves the sequence as it was | Cancel stops the run between frames or inside the threshold pass, and the target is replaced only when every frame succeeds | Expected; Apply again when ready | `ImageRTPreviewControl::runOverSequence`; `an::binarizeImage` |
-| **Error executing the process** names the memory budget | The session cannot hold the run's copy of the image or the history's copy of the state it replaces | Close other images or work on a smaller crop; nothing was changed | shared execution error path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Binarize is absent under Sensor Calibration | Registry metadata files it under the sensor-calibration category, but the menu composition places it in Intensity Transformations | Use **Process > Intensity Transformations > Binarize** |
+| Green and Blue cannot be edited | Joint mode is selected, or target is non-RGB | On RGB choose Individual RGB/K channels; non-RGB has only K |
+| Switching to Joint lost custom Green/Blue values | Joint copies the current RGB/K/Red threshold into both channels | Record values before switching or re-enter them after returning to Individual |
+| Result is still gray in some regions | An enabled active mask blended continuous original samples into the binary result | Disable/remove the target mask and Apply again from an unmodified duplicate/source |
+| RGB result has colored edges | Individual channel thresholds classified channels differently | Inspect each channel, use closer thresholds, or return to Joint |
+| An 8-bit or 16-bit sample just below the threshold became white | Unsigned thresholds are truncated to a stored code before comparing | Raise the threshold by one code step if the distinction matters |
+| Pixels holding NaN became black | A sample holding no number is never selected | Repair or replace such pixels upstream if needed |
+| Apply modified the source instead of opening a mask | Binarize uses the in-place Apply | Undo/reopen the source if possible; use a duplicate next time |
+| Displayed controls changed while Apply used older values | Parameters are captured when Apply is selected; Binarize does not lock its own controls | Wait for completion and read the committed history entry |
+| Snapshot carries no nonlinear record | Snapshots are Preview results and are not recorded | Apply on a duplicate for an archival result |
+| Sequence Cancel leaves the sequence as it was | Cancel stops the run between frames or inside the threshold pass, and the target is replaced only when every frame succeeds | Expected; Apply again when ready |
+| **Error executing the process** names the memory budget | The session cannot hold the run's copy of the image or the history's copy of the state it replaces | Close other images or work on a smaller crop; nothing was changed |
 
 ## Related workflow steps
 
@@ -301,9 +300,3 @@ fuzzy ramps, Screening, smoothing, inversion, or a new mask image. Use
 Transformation](morphological-transformation.md) to expand, erode, open, close,
 or otherwise reshape a binary mask. Follow [Masks](../../interface/masks.md) to
 assign the result to another target.
-
-## References and provenance
-
-This page documents AfterNight's threshold operation,
-process window, metadata-state behavior, and focused tests. The hard transfer is an implementation contract; no external
-automatic-threshold method or executed-data benchmark is claimed.

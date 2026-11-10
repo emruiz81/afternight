@@ -169,7 +169,6 @@ progress is reported within a frame.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Input condition/provenance and settings: Programmatic UI coverage verifies
   thresholds `0.50`, Amount `1.00`, preview on, and the standard buttons. Engine
   source defines `3x3` median replacement with both groups initially on.
@@ -194,14 +193,14 @@ progress is reported within a frame.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Apply is disabled | Both Hot Pixels and Cold Pixels are off. | Enable at least one group. | `settingsUpdatedImpl()` |
-| Known defect remains | Threshold is too high, the local median is similar, Amount is below 1, or the selected Channel excludes it. | Verify channel/group, use `3x3`, lower only the relevant threshold, then check Amount. | Detector equations; framework modulation |
-| Small stars/details disappear | Threshold is too low or kernel too wide. | Raise threshold, return to `3x3`, or protect the area with a final-blend mask after validating detection. | Median/detector source |
-| Preview changes only inside a mask | The mask is post-blending the corrected result. | Disable the mask while tuning; re-enable it for final spatial limitation. | `ImageRTPreviewControl.cpp` |
-| NaN or infinity survives correction | Non-finite samples are treated as missing and left in place. | Repair them first if the result must be finite. | Missing-sample rule |
-| Color shifts around corrected pixels | A derived color component was filtered/recomposed or RGB channels corrected different pixels. | Use RGB/Grayscale where appropriate and inspect channels before Apply. | Channel preprocessing/recomposition source |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Apply is disabled | Both Hot Pixels and Cold Pixels are off. | Enable at least one group. |
+| Known defect remains | Threshold is too high, the local median is similar, Amount is below 1, or the selected Channel excludes it. | Verify channel/group, use `3x3`, lower only the relevant threshold, then check Amount. |
+| Small stars/details disappear | Threshold is too low or kernel too wide. | Raise threshold, return to `3x3`, or protect the area with a final-blend mask after validating detection. |
+| Preview changes only inside a mask | The mask is post-blending the corrected result. | Disable the mask while tuning; re-enable it for final spatial limitation. |
+| NaN or infinity survives correction | Non-finite samples are treated as missing and left in place. | Repair them first if the result must be finite. |
+| Color shifts around corrected pixels | A derived color component was filtered/recomposed or RGB channels corrected different pixels. | Use RGB/Grayscale where appropriate and inspect channels before Apply. |
 
 ## Related workflow steps
 
@@ -210,10 +209,3 @@ available. On CFA data, keep the correction before [Debayer](debayer.md), then
 continue with [Image Registration](../registration-alignment/image-registration.md)
 and stacking. For broad impulsive noise rather than isolated defects, compare
 [Median Filter](../noise-reduction/median-filter.md) cautiously.
-
-## References and provenance
-
-- The standalone process uses the AfterNight engine's impulse rejection over its
-  order-statistic median; it does not invoke an external tool.
-- AfterNight's source and focused tests are the authority for current
-  labels, defaults, equations, channel behavior, and limitations.

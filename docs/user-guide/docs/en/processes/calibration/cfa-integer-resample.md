@@ -198,7 +198,6 @@ sequences.
 
 ## Worked example
 
-- Evidence mode: Source-and-focused-test-derived.
 - Input condition/provenance and settings: a 16-bit RGGB mosaic cropped to
   23×15, resampled with the defaults (Downsample, factor 2, Average); then a
   32-bit float grey image with no filter array.
@@ -229,17 +228,17 @@ sequences.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Target absent from the selector | View is not shown as a one-channel mosaic. | Open undebayered data with correct Bayer metadata. | Target filter |
-| `the image states no colour filter array` | The target states no Bayer pattern. | Reopen with correct RAW/CFA metadata. | `checkBayerMosaic` |
-| `a CFA reduction factor leaves at least one complete block in every phase` | `2 × factor` exceeds the even width or height. | Use `f ≤ floor(W/2), floor(H/2)` and preferably dimensions divisible by `2f`. | engine CFA integer plan |
-| Actual size differs from Target Px | UI uses `W/f` or `W×f`; the engine crops odd edges and discards incomplete blocks. | Use the exact formulas above; crop to compatible even dimensions first. | UI vs engine plan |
-| New Size looks too small at extreme factor | Target dimension spin boxes cap at 100,000 and the estimate omits working memory. | Calculate externally and reduce factor before executing. | UI ranges/estimate code |
-| No astrometric solution after Apply | The geometry change drops it. | Plate-solve the result. | geometry metadata policy |
-| An **Image History** error, and nothing changed | Image History could not keep the image the resample replaces; it says so once and the window says nothing more. | Free memory and run again. | `GeometryProcessCase.AnEditTheHistoryCannotKeepIsSaidOnceAndChangesNothing` |
-| The busy warning | Another run holds the sequence. | Wait for it to land and run again. | `runInPlace` |
-| Result looks blocky after Upsample | Values are intentionally replicated; no interpolation/detail synthesis occurs. | Debayer at native size or use an appropriate post-debayer resampler for display geometry. | engine integer plan |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Target absent from the selector | View is not shown as a one-channel mosaic. | Open undebayered data with correct Bayer metadata. |
+| `the image states no colour filter array` | The target states no Bayer pattern. | Reopen with correct RAW/CFA metadata. |
+| `a CFA reduction factor leaves at least one complete block in every phase` | `2 × factor` exceeds the even width or height. | Use `f ≤ floor(W/2), floor(H/2)` and preferably dimensions divisible by `2f`. |
+| Actual size differs from Target Px | UI uses `W/f` or `W×f`; the engine crops odd edges and discards incomplete blocks. | Use the exact formulas above; crop to compatible even dimensions first. |
+| New Size looks too small at extreme factor | Target dimension spin boxes cap at 100,000 and the estimate omits working memory. | Calculate externally and reduce factor before executing. |
+| No astrometric solution after Apply | The geometry change drops it. | Plate-solve the result. |
+| An **Image History** error, and nothing changed | Image History could not keep the image the resample replaces; it says so once and the window says nothing more. | Free memory and run again. |
+| The busy warning | Another run holds the sequence. | Wait for it to land and run again. |
+| Result looks blocky after Upsample | Values are intentionally replicated; no interpolation/detail synthesis occurs. | Debayer at native size or use an appropriate post-debayer resampler for display geometry. |
 
 ## Related workflow steps
 
@@ -248,9 +247,3 @@ Use [Image Calibration](image-calibration.md) before geometry changes. Compare
 then [Debayer](debayer.md) afterward. Use ordinary
 [Integer Resample](../geometry/integer-resample.md) only after Debayer when CFA
 phase no longer needs preservation.
-
-## References and provenance
-
-- AfterNight's image engine and the geometry support unit define all current behavior; no external resampler is invoked.
-- The focused window and unit tests cover the reducers, the odd-edge crop, the
-  kept arrangement and the refusals.

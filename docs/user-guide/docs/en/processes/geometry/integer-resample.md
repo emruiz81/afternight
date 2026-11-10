@@ -231,7 +231,6 @@ clamping.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; not run on approved astronomical data.
 - Input/settings: `6×4` single-channel values, Downsample, factor `2`, Average.
 - Expected checkpoint: output is `3×2`; each sample is the arithmetic mean of its
   corresponding `2×2` source block, rounded to the nearest code for an integer
@@ -270,16 +269,16 @@ clamping.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Error running integer resample** naming a complete source block | Downsample factor exceeds width or height | Reduce factor to at most the smaller dimension | engine integer resample plan |
-| Output edge is missing | Source dimension was not divisible and trailing samples were discarded | Crop to divisible dimensions first or choose another factor | `GeometryUnits` incomplete-block case |
-| Downsample result is darker/brighter | Minimum/Maximum was selected, or integrated sum was compared to an average/median result | Choose intended statistic and compare local means rather than raw sums | reducers |
-| Output contains `NaN` or an unexpected non-finite statistic | A block contained `NaN`/infinity under a rule that counts every sample valid | Repair non-finite samples before resampling and rerun from the original | reducer validity rule |
-| **Integer Resample CFA** question | Target is a mosaic the view does not demosaic | Choose No and use CFA Integer Resample or Debayer first | `GeometryProcessCase.AMosaicIsReadAsGreyOnlyWhenThePersonSaysSo` |
-| Astrometry overlay disappears | The image's header cards stated no plate solution, so there was none to carry | Plate-solve the result | `GeometryProcessCase.AStillImagesSolutionFollowsACropAResizeAndAResampleAndNotARotation` |
-| **Error running integer resample** otherwise | The engine refused the request or could not allocate the result | Read the message and the log, use a safe factor/direction, free memory, and retry | `GeometryInPlaceWindowTest.ARunTheEngineRefusesSaysWhyAndChangesNothing` |
-| An **Image History** error, and the resample is not applied | Image History could not keep the image the resample replaces; it says so once, Integer Resample says nothing more, and nothing changes | Free memory and run Integer Resample again | `GeometryProcessCase.AnEditTheHistoryCannotKeepIsSaidOnceAndChangesNothing` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Error running integer resample** naming a complete source block | Downsample factor exceeds width or height | Reduce factor to at most the smaller dimension |
+| Output edge is missing | Source dimension was not divisible and trailing samples were discarded | Crop to divisible dimensions first or choose another factor |
+| Downsample result is darker/brighter | Minimum/Maximum was selected, or integrated sum was compared to an average/median result | Choose intended statistic and compare local means rather than raw sums |
+| Output contains `NaN` or an unexpected non-finite statistic | A block contained `NaN`/infinity under a rule that counts every sample valid | Repair non-finite samples before resampling and rerun from the original |
+| **Integer Resample CFA** question | Target is a mosaic the view does not demosaic | Choose No and use CFA Integer Resample or Debayer first |
+| Astrometry overlay disappears | The image's header cards stated no plate solution, so there was none to carry | Plate-solve the result |
+| **Error running integer resample** otherwise | The engine refused the request or could not allocate the result | Read the message and the log, use a safe factor/direction, free memory, and retry |
+| An **Image History** error, and the resample is not applied | Image History could not keep the image the resample replaces; it says so once, Integer Resample says nothing more, and nothing changes | Free memory and run Integer Resample again |
 
 ## Related workflow steps
 
@@ -289,9 +288,3 @@ Use [Resize](resize.md) for arbitrary dimensions and kernels. Use
 integer operations. Integer Resample carries a plate solution;
 [Plate Solving](../registration-alignment/plate-solving.md) restores one after a
 rotation or a CFA Integer Resample.
-
-## References and provenance
-
-- AfterNight Integer Resample process, the shared geometry support, the
-  engine's geometry plans, the sequence companions, and the focused tests.
-- No external algorithm or runtime is used by these block operations.
