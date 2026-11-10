@@ -70,6 +70,13 @@ rewritten never fails a rule it cannot meet, and a rewritten one is protected fr
       inventory does not have - a dialog a button opens - is not held. Controls in another order than the window's
       are a warning.
 
+  R15 Help pages. Help (F1) in a process window opens that process's page, which the application reads from the
+      help table of ProcessRegistryBuiltins.cpp: a row per action, and one page for the non-interactive operations
+      that have no row. Every path of the table is the path of a built page (`<folder>/<page>.html`) whose source the
+      guide has, spelled with its own case; every row is of a registered action, once; every registered action has a
+      row or is a non-interactive operation; and the page a row names is one whose `menu` reaches the action, so
+      Help opens the page that describes the window it was asked from. A page that moves is moved in the table.
+
   R1  The built site (--site). Every relative reference in its HTML - `href`, `src`, `srcset`, `poster`, `data`,
       inline `style` and `<style>` - and every `url()` and `@import` in its stylesheets names a file inside the site,
       spelled with the file's own case; a folder does not count, because a browser opened from disk lists a folder
@@ -86,7 +93,8 @@ Usage, with the documentation toolchain's Python, which has PyYAML (docs/user-gu
                                                    [--site <site>] [--tokens <the website's assets/css/tokens.css>]
 
 R2-R14 hold every page, or with --page only the pages named (relative to the docs folder or to the working
-directory); the guide-wide parts - nav entries, menu coverage and unused images - run only over every page. R1 runs
+directory); the guide-wide parts - nav entries, menu coverage, the help table (R15) and unused images - run only over
+every page. R1 runs
 when --site names a built site, R16 when --tokens names the website's file. Each finding prints as
 `path:line: Rnn message`, a warning as `path:line: Rnn warning: message`, then a count per rule and what was read.
 The warnings of the pages not yet rewritten are counted and not listed, so that the errors can be read; --page lists
@@ -128,6 +136,7 @@ RULES = {
     'R12': 'process keys',
     'R13': 'glossary links',
     'R14': 'controls of the windows',
+    'R15': 'help pages',
     'R16': 'token parity',
 }
 THEME_TOKENS = 'theme/assets/guide/css/tokens.css'
@@ -471,7 +480,12 @@ _ADD_MENU = re.compile(r'(?m)^\s*(menu[A-Za-z0-9_]+)->addAction\((menu[A-Za-z0-9
 _REGISTRATION = re.compile(
     r'(?ms)^\s+AN_REGISTER_(PROCESS_(?:SINGLE|TOPLEVEL|NON_INTERACTIVE)|CHANNEL|IMAGE_OPERATION)\((.*?)\);')
 _ACTION_NAME = re.compile(r'\b(action[A-Za-z0-9_]+)\b')
+_HELP_TABLE = re.compile(r'(?s)\bkHelpPages\[\]\s*=\s*\{(.*?)\n\};')
+_HELP_ROW = re.compile(r'\{\s*"(action[A-Za-z0-9_]+)"\s*,\s*"([^"]*)"\s*\}')
+_HELP_DEFAULT = re.compile(r'\bkNonInteractiveHelpPage\s*=\s*"([^"]*)"')
+_BUILT_PAGE = re.compile(r'(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\.html')
 PROCESS_MENU = 'menuProcess'
+NON_INTERACTIVE_CATEGORY = 'kCategoryNonInteractive'
 
 
 class ProductMenus:
@@ -494,10 +508,24 @@ class ProductMenus:
             if match.group(1) in self.titles:
                 self.parents.setdefault(match.group(2), []).append(match.group(1))
         self.registered = []
+        # The actions registered in the non-interactive category: the channel and image operations, and a process
+        # registered under it by name.
+        self.non_interactive = set()
         for match in _REGISTRATION.finditer(registry_text):
             action = _ACTION_NAME.search(match.group(2))
             if action:
                 self.registered.append((action.group(1), _line_of(registry_text, match.start(2))))
+                if (not match.group(1).startswith('PROCESS_') or
+                        match.group(2).split(',')[0].strip() == NON_INTERACTIVE_CATEGORY):
+                    self.non_interactive.add(action.group(1))
+        # The help table: (action, page, line) for each row, and (page, line) of the non-interactive operations' page.
+        self.help_rows = None
+        table = _HELP_TABLE.search(registry_text)
+        if table:
+            self.help_rows = [(row.group(1), row.group(2), _line_of(registry_text, table.start(1) + row.start()))
+                              for row in _HELP_ROW.finditer(table.group(1))]
+        default = _HELP_DEFAULT.search(registry_text)
+        self.non_interactive_help = (default.group(1), _line_of(registry_text, default.start(1))) if default else None
 
     def _menu_trails(self, menu, seen=()):
         """Every list of menu ids from the menu bar down to a menu."""
@@ -1275,6 +1303,7 @@ class _GuideCheck:
         self.used_allowances = set()
         self.word_counts = {}          # page -> (the words R8 counted, its limit or None)
         self._glossary_terms = None
+        self.help_summary = None       # what R15 read of the help table, once it has
 
     def report(self, rule, path, line, message, severity='error', pending=False):
         self.findings.append(Finding(self.display(path), line, rule, message, severity, pending))
@@ -1499,6 +1528,71 @@ class _GuideCheck:
                 covered += 1
         return len(product.registered), len(unregistered), covered
 
+    def check_help(self, product):
+        """R15: the help table against the registered actions and the guide's pages."""
+        registry = os.path.join(self.repo, REGISTRY)
+        if product.help_rows is None:
+            self.report('R15', registry, 1, '%s has no help table (`kHelpPages[] = {...};`), so Help opens no '
+                        'process\'s page' % REGISTRY)
+            return
+        pages = set(self.all_pages())
+        menus = self.all_menus()
+
+        def named(page, action, line):
+            """The source of the page a path names, or None once the path is reported."""
+            if not _BUILT_PAGE.fullmatch(page):
+                self.report('R15', registry, line, 'the help table names "%s" for %s, which is not the path of a '
+                            'built page (`<folder>/<page>.html`, from the guide\'s root)' % (page, action))
+                return None
+            source = page[:-len('.html')] + '.md'
+            if source not in pages:
+                self.report('R15', registry, line, 'the help table names %s for %s, and the guide has no page %s' %
+                            (page, action, source))
+                return None
+            return source
+
+        def reaches(source, page, action, line):
+            places = [place for place, _, _ in product.placements_of(action)]
+            if places and not _closeness(places, menus.get(source, [])):
+                self.report('R15', registry, line, 'the help table names %s for %s (%s), and that page\'s `menu` '
+                            'does not reach it' % (page, action, '; '.join(places)))
+
+        registered = {action for action, _ in product.registered}
+        rows = {}
+        for action, page, line in product.help_rows:
+            if action in rows:
+                self.report('R15', registry, line, 'the help table has a row for %s again; its first is on line %d' %
+                            (action, rows[action]))
+                continue
+            rows[action] = line
+            if action not in registered:
+                self.report('R15', registry, line, 'the help table has a row for %s, which is no registered action' %
+                            action)
+                continue
+            source = named(page, action, line)
+            if source:
+                reaches(source, page, action, line)
+
+        default = product.non_interactive_help
+        default_source = named(default[0], 'the non-interactive operations', default[1]) if default else None
+        shared = 0
+        for action, line in product.registered:
+            if action in rows:
+                continue
+            if action not in product.non_interactive:
+                self.report('R15', registry, line, 'registered action %s has no row in the help table, so Help opens '
+                            'no page from its window' % action)
+            elif default is None:
+                self.report('R15', registry, line, 'registered action %s is a non-interactive operation, and the '
+                            'registry states no page for those (`kNonInteractiveHelpPage`)' % action)
+            else:
+                shared += 1
+                if default_source:
+                    reaches(default_source, default[0], action, line)
+        own = sum(1 for action in registered if action in rows)
+        self.help_summary = ('help: %d of %d registered actions open a page of their own, %d the page of the '
+                             'non-interactive operations' % (own, len(registered), shared))
+
     def check_unused_images(self, referenced):
         images = os.path.join(self.docs, 'assets', 'images')
         theme = self.config.get('theme') if isinstance(self.config.get('theme'), dict) else {}
@@ -1523,7 +1617,7 @@ class _GuideCheck:
                     self.report('R5', full, 1, 'no page, README.md, logo or favicon shows this image', 'warning')
 
     def run(self, selected=None):
-        """R2-R13 over every page, or over the pages selected; returns what the summary reports."""
+        """R2-R15 over every page, or R2-R14 over the pages selected; returns what the summary reports."""
         try:
             product = ProductMenus(self.repo)
             product_paths = product.existing_paths()
@@ -1543,6 +1637,7 @@ class _GuideCheck:
             self.check_nav()
             if product is not None:
                 coverage = self.check_coverage(product)
+                self.check_help(product)
             self.check_unused_images(referenced)
         return pages, coverage
 
@@ -1573,6 +1668,8 @@ def _guide_summary(check, pages, coverage):
         registered, unregistered, covered = coverage
         lines.append('menus: %d of %d registered actions and other Process menu actions on a page\'s `menu`' %
                      (covered, registered + unregistered))
+    if check.help_summary:
+        lines.append(check.help_summary)
     return lines
 
 

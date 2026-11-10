@@ -9,6 +9,7 @@
 #include "controls/MainDashboard.h"
 #include "controls/SettingsDialog.h"
 #include "controls/SystemInformationDialog.h"
+#include "controls/TopLevelProcessBaseControl.h"
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/settings/CatalogsDataSettingsPage.h"
 #include "controls/settings/ExportSettingsPage.h"
@@ -56,6 +57,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 
 namespace
 {
@@ -718,7 +720,11 @@ void DialogOrchestrationCoordinator::about() const
 
 void DialogOrchestrationCoordinator::openHelp() const
 {
-    const QStringList candidates = bundledUserGuideCandidatePaths(QCoreApplication::applicationDirPath());
+    // The window Help was asked from: the one the focus is in, or the active one when nothing in it takes the focus.
+    const QWidget* const asked =
+        QApplication::focusWidget() != nullptr ? QApplication::focusWidget() : QApplication::activeWindow();
+    const QString helpPath = helpPathFor(asked);
+    const QStringList candidates = bundledUserGuideCandidatePaths(QCoreApplication::applicationDirPath(), helpPath);
     for (const auto& candidate : candidates)
     {
         const QFileInfo info(candidate);
@@ -735,7 +741,9 @@ void DialogOrchestrationCoordinator::openHelp() const
         LOG_WARNING("Failed to open local AfterNight user guide at '{}'", info.absoluteFilePath().toStdString());
     }
 
-    if (!onlineUserGuideFallbackAllowed())
+    const std::optional<QUrl> onlineUrl =
+        onlineUserGuideUrl(helpPath, qEnvironmentVariable(kAfterNightDisableOnlineUserGuideEnv));
+    if (!onlineUrl.has_value())
     {
         LOG_WARNING("AfterNight bundled user guide was not found or could not be opened. Online fallback is disabled "
                     "by {}. Checked candidates: {}",
@@ -746,14 +754,13 @@ void DialogOrchestrationCoordinator::openHelp() const
         return;
     }
 
-    const QUrl onlineUrl(QString::fromLatin1(kAfterNightUserGuideOnlineUrl));
-    if (QDesktopServices::openUrl(onlineUrl))
+    if (QDesktopServices::openUrl(*onlineUrl))
     {
         return;
     }
 
     LOG_WARNING("Failed to open AfterNight user guide locally or online at '{}'. Checked candidates: {}",
-                kAfterNightUserGuideOnlineUrl, candidates.join(QStringLiteral("; ")).toStdString());
+                onlineUrl->toString().toStdString(), candidates.join(QStringLiteral("; ")).toStdString());
     notifyInfoMessage(m_dependencies.mainWindow, QObject::tr("Help"),
                       QObject::tr("The AfterNight User Guide could not be opened locally or online."));
 }

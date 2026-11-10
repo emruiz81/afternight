@@ -241,7 +241,9 @@ void ImageIntegrationProcess::setupMenuBar()
     }
 
     auto* shortcutsAction = helpMenu->addAction(tr("Keyboard Shortcuts"));
-    shortcutsAction->setShortcut(QKeySequence::HelpContents);
+    // F1 is the application's: it opens the user guide at this window's page from every window. A second F1 here
+    // would make the key ambiguous in this window, and an ambiguous key runs neither command.
+    shortcutsAction->setShortcut(QKeySequence(QStringLiteral("Shift+F1")));
     shortcutsAction->setIcon(iconOrFallback(QStringLiteral("help")));
     connect(shortcutsAction, &QAction::triggered, this, &ImageIntegrationProcess::showKeyboardShortcutsHelp);
     setActionTooltip(shortcutsAction, tr("Show a list of available keyboard shortcuts."));

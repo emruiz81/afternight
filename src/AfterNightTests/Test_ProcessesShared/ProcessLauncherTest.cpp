@@ -11,7 +11,10 @@
 
 #include "app/ProcessLauncher.h"
 #include "app/ProcessRegistry.h"
+#include "controls/TopLevelProcessBaseControl.h"
 
+#include <QLabel>
+#include <QList>
 #include <QString>
 
 #include <gtest/gtest.h>
@@ -217,6 +220,61 @@ TEST(ProcessLaunchGuardsTest, ALaunchWithNothingToOpenIsStillAdmitted)
 }
 
 // ---- The launcher, acting for registered descriptors.
+
+// The window a launch shows states the user guide's page of the descriptor the launch is for, and Help asked from
+// anywhere inside the window finds it. The view, which is no process window, states none.
+TEST(ProcessLauncherTest, TheWindowALaunchShowsStatesItsDescriptorsGuidePage)
+{
+    const RegistrySnapshot snapshot;
+    std::unique_ptr<ProcessTestContext> context = openProcessContext();
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    ViewHandle view = activeView(*context);
+    const an::tests::processes::shared::ClosesOpenedWindows closesWindows;
+
+    const ProcessDescriptor* const descriptor = an::tests::processes::shared::registered("filters.actionGaussian_Blur");
+    ASSERT_NE(descriptor, nullptr);
+    EXPECT_EQ(descriptor->helpPath, "processes/noise-reduction/gaussian-blur.html");
+
+    an::ui::ProcessLauncher("filters.actionGaussian_Blur").executeGaussianBlurFilter();
+    ASSERT_EQ(openedProcessWindows().size(), 1u);
+    TopLevelProcessBaseControl* const window = openedProcessWindows()[0].window;
+    EXPECT_EQ(window->helpPath(), QStringLiteral("processes/noise-reduction/gaussian-blur.html"));
+
+    const QList<QLabel*> labels = window->findChildren<QLabel*>();
+    ASSERT_FALSE(labels.isEmpty());
+    EXPECT_EQ(an::ui::helpPathFor(labels.back()), window->helpPath());
+    EXPECT_EQ(an::ui::helpPathFor(window), window->helpPath());
+    EXPECT_TRUE(an::ui::helpPathFor(view.get()).isEmpty());
+    EXPECT_TRUE(an::ui::helpPathFor(nullptr).isEmpty());
+}
+
+// A second launch states its page on the window it shows and leaves the page of the window already open alone; a
+// top-level window states its descriptor's page too, and one opened for no descriptor states none.
+TEST(ProcessLauncherTest, EachLaunchStatesItsPageOnItsOwnWindowOnly)
+{
+    const RegistrySnapshot snapshot;
+    std::unique_ptr<ProcessTestContext> context = openProcessContext();
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    ViewHandle view = activeView(*context);
+    const an::tests::processes::shared::ClosesOpenedWindows closesWindows;
+
+    an::ui::ProcessLauncher("filters.actionGaussian_Blur").executeGaussianBlurFilter();
+    an::ui::ProcessLauncher("multi_image_stacking.actionImage_Stacking").executeImageStacking();
+    ASSERT_EQ(openedProcessWindows("GaussianBlurProcess").size(), 1u);
+    ASSERT_EQ(openedProcessWindows("ImageStackingProcess").size(), 1u);
+    EXPECT_EQ(openedProcessWindows("GaussianBlurProcess")[0].window->helpPath(),
+              QStringLiteral("processes/noise-reduction/gaussian-blur.html"));
+    EXPECT_EQ(openedProcessWindows("ImageStackingProcess")[0].window->helpPath(),
+              QStringLiteral("processes/stacking-integration/image-stacking.html"));
+
+    an::ui::ProcessLauncher().executeImageRegistration();
+    ASSERT_EQ(openedProcessWindows("ImageRegistrationProcess").size(), 1u);
+    EXPECT_TRUE(openedProcessWindows("ImageRegistrationProcess")[0].window->helpPath().isEmpty());
+    EXPECT_EQ(openedProcessWindows("GaussianBlurProcess")[0].window->helpPath(),
+              QStringLiteral("processes/noise-reduction/gaussian-blur.html"));
+}
 
 // The launcher acting for a registered process opens it on the active view, under that process's descriptor.
 TEST(ProcessLauncherTest, AProcessOpensOnTheActiveViewUnderItsDescriptor)

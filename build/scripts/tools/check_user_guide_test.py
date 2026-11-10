@@ -222,6 +222,13 @@ void registerBuiltins()
                                facts);
     AN_REGISTER_PROCESS_SINGLE(kCategoryToneBrightness, actionCurves, curvesTransformation, facts);
 }
+
+constexpr std::string_view kNonInteractiveHelpPage = "processes/adjustments.html";
+
+constexpr HelpPage kHelpPages[] = {
+    {"actionHT", "processes/ht.html"},
+    {"actionCurves", "processes/curves.html"},
+};
 '''
 
 MKDOCS = '''\
@@ -305,9 +312,11 @@ class CleanGuideTests(GuideCase):
         code, output = self.run_main()
         self.assertEqual(code, 0, output)
         for rule in ('R2 front matter', 'R3 nav and H1', 'R4 menu parity', 'R5 images',
-                     'R6 credits of derived pages'):
+                     'R6 credits of derived pages', 'R15 help pages'):
             self.assertIn('%s: 0 error(s), 0 warning(s)' % rule, output)
         self.assertIn('5 pages: 1 home, 3 process, 1 reference', output)
+        self.assertIn('help: 2 of 2 registered actions open a page of their own, 0 the page of the non-interactive '
+                      'operations', output)
         self.assertIn('process pages by stage: stretch 1, finish 1, any 1; 0 derived', output)
         self.assertIn("menus: 3 of 3 registered actions and other Process menu actions on a page's `menu`", output)
         self.assertIn('R1 not run', output)
@@ -381,6 +390,9 @@ class MenuRuleTests(GuideCase):
             'menu: Process > Intensity Transformations'))
         self.page('processes/curves.md', PAGES['processes/curves.md'].replace(
             'menu: Process > Intensity Transformations > Curves Transformation', 'menu: Process > Adjustments'))
+        # Help opens the page that covers the action, which is now the Histogram Transformation page for both.
+        self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp',
+                   REGISTRY.replace('"processes/curves.html"', '"processes/ht.html"'))
         code, found = self.findings('R4')
         self.assertEqual((code, found), (0, []))
 
@@ -391,6 +403,99 @@ class MenuRuleTests(GuideCase):
         self.assertEqual(len(found), 2, found)
         self.assertIn('actionExtract_Red has no label', found[0])
         self.assertIn('actionExtract_Red is in no menu', found[1])
+
+
+class HelpRuleTests(GuideCase):
+    """R15: the pages Help opens, read from the registry's help table."""
+
+    def registry(self, old, new):
+        self.assertIn(old, REGISTRY)
+        self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp', REGISTRY.replace(old, new))
+
+    def test_a_path_that_names_no_page_fails_on_its_row(self):
+        self.registry('"processes/curves.html"', '"processes/curve.html"')
+        self.assertEqual(self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 12, 'processes/curve.html',
+                                               'actionCurves', 'the guide has no page processes/curve.md'), 1)
+
+    def test_a_page_is_named_with_its_own_case(self):
+        self.registry('"processes/curves.html"', '"processes/Curves.html"')
+        self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 12, 'the guide has no page processes/Curves.md')
+
+    def test_a_path_that_is_not_a_built_page_fails(self):
+        for path in ('processes/curves.md', '/processes/curves.html', '../en/processes/curves.html', ''):
+            with self.subTest(path=path):
+                self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp',
+                           REGISTRY.replace('"processes/curves.html"', '"%s"' % path))
+                self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 12, 'is not the path of a built page')
+
+    def test_a_row_for_an_action_that_is_not_registered_fails(self):
+        self.registry('    {"actionCurves"', '    {"actionGone", "processes/ht.html"},\n    {"actionCurves"')
+        self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 12, 'actionGone, which is no registered action')
+
+    def test_a_second_row_for_an_action_fails(self):
+        self.registry('    {"actionCurves"', '    {"actionHT", "processes/ht.html"},\n    {"actionCurves"')
+        self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 12, 'actionHT again', 'line 11')
+
+    def test_a_registered_action_without_a_row_fails_at_its_registration(self):
+        self.registry('    {"actionCurves", "processes/curves.html"},\n', '')
+        self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 5, 'actionCurves has no row in the help table')
+
+    def test_a_page_whose_menu_does_not_reach_the_action_fails(self):
+        self.registry('{"actionCurves", "processes/curves.html"}', '{"actionCurves", "processes/adjustments.html"}')
+        self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 12, 'processes/adjustments.html', 'actionCurves',
+                              'Process > Intensity Transformations > Curves Transformation',
+                              'does not reach it')
+
+    def test_a_non_interactive_action_opens_the_page_of_the_non_interactive_operations(self):
+        self.registry('}\n\nconstexpr std::string_view',
+                      '    AN_REGISTER_CHANNEL(actionNegative, negative);\n'
+                      '    AN_REGISTER_PROCESS_SINGLE(kCategoryNonInteractive, actionZoom, zoom, facts);\n'
+                      '}\n\nconstexpr std::string_view')
+        # The Adjustments page reaches the first of them, and no page the second.
+        self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 7, 'processes/adjustments.html', 'actionZoom',
+                              'does not reach it')
+        self.page('processes/adjustments.md', PAGES['processes/adjustments.md'].replace(
+            'menu: Process > Adjustments', 'menu:\n  - Process > Adjustments\n  - Image'))
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('help: 2 of 4 registered actions open a page of their own, 2 the page of the non-interactive '
+                      'operations', output)
+
+    def test_a_row_takes_a_non_interactive_action_to_a_page_of_its_own(self):
+        self.registry('}\n\nconstexpr std::string_view',
+                      '    AN_REGISTER_CHANNEL(actionNegative, negative);\n}\n\nconstexpr std::string_view')
+        text = (self.root / 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp').read_text(encoding='utf-8')
+        self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp',
+                   text.replace('    {"actionCurves"', '    {"actionNegative", "processes/ht.html"},\n    {"actionCurves"'))
+        self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 13, 'processes/ht.html', 'actionNegative',
+                              'does not reach it')
+
+    def test_non_interactive_actions_need_the_page_the_registry_states_for_them(self):
+        self.registry('constexpr std::string_view kNonInteractiveHelpPage = "processes/adjustments.html";\n', '')
+        code, found = self.findings('R15')
+        self.assertEqual((code, found), (0, []))
+        text = (self.root / 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp').read_text(encoding='utf-8')
+        self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp',
+                   text.replace('}\n\n', '    AN_REGISTER_CHANNEL(actionNegative, negative);\n}\n\n', 1))
+        self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 6, 'actionNegative',
+                              'the registry states no page for those')
+
+    def test_the_page_of_the_non_interactive_operations_is_a_page(self):
+        self.registry('"processes/adjustments.html";', '"processes/gone.html";')
+        self.assertOneFinding('R15', 'ProcessRegistryBuiltins.cpp', 8, 'processes/gone.html',
+                              'the guide has no page processes/gone.md')
+
+    def test_a_registry_without_a_help_table_fails(self):
+        self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp', REGISTRY.split('\nconstexpr')[0])
+        code, found = self.findings('R15')
+        self.assertEqual(code, 1)
+        self.assertEqual(len(found), 1, found)
+        self.assertIn('has no help table', found[0])
+
+    def test_the_table_is_not_read_for_a_page_checked_by_name(self):
+        self.registry('"processes/curves.html"', '"processes/curve.html"')
+        code, found = self.findings('R15', '--page', 'processes/ht.md')
+        self.assertEqual((code, found), (0, []))
 
 
 class ImageRuleTests(GuideCase):
@@ -963,6 +1068,9 @@ class WritingCase(GuideCase):
         super().setUp()
         for relative in PAGES:
             (self.root / 'docs/user-guide/docs/en' / relative).unlink()
+        # Help opens the one process page of this guide from every action.
+        self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp',
+                   re.sub(r'processes/(curves|adjustments)\.html', 'processes/ht.html', REGISTRY))
         self.write('docs/user-guide/mkdocs.yml', MKDOCS[:MKDOCS.index('nav:')] + WRITING_NAV)
         for relative, text in WRITING_PAGES.items():
             self.page(relative, text)

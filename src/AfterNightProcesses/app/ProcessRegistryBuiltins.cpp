@@ -71,6 +71,119 @@ constexpr ProcessFacts noProcess()
     return ProcessFacts{};
 }
 
+/// The user guide's page of a registered action.
+struct HelpPage
+{
+    /// The action's object name.
+    std::string_view actionObjectName;
+
+    /// The page, relative to the guide's root as the built guide names it.
+    std::string_view page;
+};
+
+/// The page that describes the operations that open no window: the channel extractions, the format conversions and
+/// the sequence conversions. An action of the non-interactive category with no row of its own in `kHelpPages` has it.
+constexpr std::string_view kNonInteractiveHelpPage = "processes/utility/non-interactive-processes.html";
+
+/// The user guide's page of every registered action that has one of its own: the page whose `menu` reaches the
+/// action. Help opens it from the window the action opens. The guide's check reads these rows from this file and
+/// refuses a path that names no page, so a page that moves is moved here with it.
+constexpr HelpPage kHelpPages[] = {
+    {"actionAdjustBrightness_Contrast", "processes/color-adjustment/adjust-brightness-contrast.html"},
+    {"actionAdjustHSL", "processes/color-adjustment/adjust-hsl.html"},
+    {"actionAdjustLightness_Chroma_Hue", "processes/color-adjustment/adjust-lch.html"},
+    {"actionArcSinh_Stretch", "processes/stretching/arcsinh-stretch.html"},
+    {"actionAuto_Gradient_Removal", "processes/background-extraction/auto-gradient-removal.html"},
+    {"actionBackground_Extraction", "processes/background-extraction/background-extraction.html"},
+    {"actionBackground_Neutralization", "processes/color-calibration/background-neutralization.html"},
+    {"actionBanding_Reduction_Filter", "processes/noise-reduction/banding-reduction.html"},
+    {"actionBilateral_Filter", "processes/noise-reduction/bilateral-filter.html"},
+    {"actionBinarize", "processes/masking/binarize.html"},
+    {"actionCFA_Integer_Resample", "processes/calibration/cfa-integer-resample.html"},
+    {"actionCLA_Histogram_Equalization", "processes/sharpening/clahe.html"},
+    {"actionChannelComposition", "processes/color-composition/channel-composition.html"},
+    {"actionColor_Calibration_2", "processes/color-calibration/color-calibration.html"},
+    {"actionColor_Saturation", "processes/color-adjustment/color-saturation.html"},
+    {"actionColorize", "processes/color-composition/colorize.html"},
+    {"actionCosmetic_Correction_Filter", "processes/calibration/cosmetic-correction.html"},
+    {"actionCrop", "processes/geometry/crop.html"},
+    {"actionCurves_Transformation", "processes/stretching/curves-transformation.html"},
+    {"actionDark_Structure_Enhance", "processes/star-operations/dark-structure-enhance.html"},
+    {"actionDebayer", "processes/calibration/debayer.html"},
+    {"actionDeepSNR", "processes/noise-reduction/deepsnr.html"},
+    {"actionExport", "interface/saving-and-exporting.html"},
+    {"actionExposure", "processes/stretching/exposure-correction.html"},
+    {"actionExtract_Sequence", "processes/utility/extract-sequence.html"},
+    {"actionGRAYCstoration_Filter", "processes/noise-reduction/graycstoration.html"},
+    {"actionGamma_Correction", "processes/stretching/gamma-correction.html"},
+    {"actionGaussian_Blur", "processes/noise-reduction/gaussian-blur.html"},
+    {"actionGeneralized_Hyperbolic_Transformation", "processes/stretching/gh-transformation.html"},
+    {"actionHigh_Pass", "processes/sharpening/high-pass-filter.html"},
+    {"actionHistogram_Transformation", "processes/stretching/histogram-transformation.html"},
+    {"actionImage_Blend", "processes/analysis/image-blend.html"},
+    {"actionImage_Calibration", "processes/calibration/image-calibration.html"},
+    {"actionImage_Compare", "processes/analysis/image-compare.html"},
+    {"actionImage_Integration", "processes/stacking-integration/image-integration.html"},
+    {"actionImage_Integration_Lite", "processes/stacking-integration/image-integration-lite.html"},
+    {"actionImage_List_Analyzer", "processes/stacking-integration/image-list-analyzer.html"},
+    {"actionImage_Registration", "processes/registration-alignment/image-registration.html"},
+    {"actionImage_Stacking", "processes/stacking-integration/image-stacking.html"},
+    {"actionIntegerResample", "processes/geometry/integer-resample.html"},
+    {"actionLRGB_Combination", "processes/color-composition/lrgb-combination.html"},
+    {"actionLinear_Match", "processes/color-calibration/linear-match.html"},
+    {"actionLocal_Contrast_Enhancement", "processes/sharpening/local-contrast-enhancement.html"},
+    {"actionLocal_Histogram_Equalization", "processes/sharpening/local-histogram-equalization.html"},
+    {"actionMask_Drawing", "processes/masking/mask-drawing.html"},
+    {"actionMedian_Filter", "processes/noise-reduction/median-filter.html"},
+    {"actionMerge_CFA", "processes/calibration/merge-cfa.html"},
+    {"actionMorphological_Transformation", "processes/masking/morphological-transformation.html"},
+    {"actionMultiscale_Alpha_Sharpen", "processes/sharpening/sharpen-alpha.html"},
+    {"actionMultiscale_Linear_Transform", "processes/multiscale/multiscale-linear.html"},
+    {"actionNBColorMapper", "processes/color-composition/nb-color-mapper.html"},
+    {"actionNBRGB_Combination", "processes/color-composition/nbrgb-combination.html"},
+    {"actionNarrowbandPaletteComposer", "processes/color-composition/narrowband-palette-composer.html"},
+    {"actionNoise_Generator", "processes/utility/noise-generator.html"},
+    {"actionNon_Local_Bayes_Filter", "processes/noise-reduction/nl-bayes.html"},
+    {"actionPatch_PCA_Filter", "processes/noise-reduction/patch-pca-denoise.html"},
+    {"actionPhotometric_Color_Calibration", "processes/color-calibration/photometric-cc.html"},
+    {"actionPixel_Math_2", "processes/pixel-math/pixel-math.html"},
+    {"actionProfiled_Starmask_Recombination", "processes/star-operations/profiled-starmask-recomb.html"},
+    {"actionRange_Selection", "processes/analysis/range-selection.html"},
+    {"actionRemove_Mask", "interface/masks.html"},
+    {"actionResize", "processes/geometry/resize.html"},
+    {"actionRotate", "processes/geometry/rotate.html"},
+    {"actionSCNR", "processes/color-calibration/scnr.html"},
+    {"actionSelect_Mask", "interface/masks.html"},
+    {"actionSpectrophotometric_Color_Calibration", "processes/color-calibration/spectrophotometric-cc.html"},
+    {"actionSplit_CFA", "processes/calibration/split-cfa.html"},
+    {"actionStar_Mask", "processes/star-operations/star-mask.html"},
+    {"actionStar_Profiler_v1", "processes/registration-alignment/star-profiler.html"},
+    {"actionStar_Profiler_v2", "processes/registration-alignment/star-profiler.html"},
+    {"actionStar_Reduction", "processes/star-operations/star-reduction.html"},
+    {"actionStarmask_Recombination", "processes/star-operations/starmask-recombination.html"},
+    {"actionStarnet", "processes/star-operations/starnet.html"},
+    {"actionStarnet_Star_Mask", "processes/star-operations/starnet-star-mask.html"},
+    {"actionStatistical_Stretch", "processes/stretching/statistical-stretch.html"},
+    {"actionTighten_Edges", "processes/color-adjustment/tighten-edges.html"},
+    {"actionTotal_Variation_Denoise_Filter", "processes/noise-reduction/total-variation-denoise.html"},
+    {"actionUnsharp_Mask", "processes/sharpening/unsharp-mask.html"},
+    {"actionWavelet_Denoise_Filter", "processes/noise-reduction/wavelet-denoise.html"},
+};
+
+/// The user guide's page of an action: its row of `kHelpPages`, the non-interactive operations' page for an action of
+/// that category with no row, and none otherwise.
+std::string helpPathOf(const std::string_view category, const std::string_view actionObjectName)
+{
+    for (const HelpPage& row : kHelpPages)
+    {
+        if (row.actionObjectName == actionObjectName)
+        {
+            return std::string(row.page);
+        }
+    }
+    return category == "non_interactive" ? std::string(kNonInteractiveHelpPage) : std::string();
+}
+
 std::string buildProcessId(const std::string_view category, const std::string_view actionObjectName)
 {
     std::string id;
@@ -101,6 +214,7 @@ ProcessDescriptor makeDescriptor(const char* category, const char* actionObjectN
     descriptor.display_name = descriptor.action_object_name;
     descriptor.process_name = descriptor.display_name;
     descriptor.launch_mode = launchMode;
+    descriptor.helpPath = helpPathOf(descriptor.category, descriptor.action_object_name);
     return descriptor;
 }
 

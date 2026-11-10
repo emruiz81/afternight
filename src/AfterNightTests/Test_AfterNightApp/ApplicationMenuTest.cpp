@@ -45,6 +45,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QKeySequence>
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
@@ -1001,7 +1002,77 @@ void collectMenuEntries(const QList<QAction*>& actions, std::vector<QAction*>& e
     }
 }
 
+// The repository the suite was built from: the first folder at or above the working directory, the suite's own folder
+// or this source file that holds both `src` and `build`. Empty when there is none.
+QString repositoryRoot()
+{
+    const QStringList seeds = {QDir::currentPath(), QCoreApplication::applicationDirPath(),
+                               QFileInfo(QString::fromUtf8(__FILE__)).absolutePath()};
+    for (const QString& seed : seeds)
+    {
+        QDir folder(seed);
+        do
+        {
+            if (QFileInfo::exists(folder.filePath(QStringLiteral("src"))) &&
+                QFileInfo::exists(folder.filePath(QStringLiteral("build"))))
+            {
+                return folder.absolutePath();
+            }
+        } while (folder.cdUp());
+    }
+    return {};
+}
+
 } // namespace
+
+// Every process of the application states the page of the user guide that Help opens from its window, and the guide
+// has that page: the built guide names a page as its source with `.html` for `.md`. An extension's process has no page
+// of the guide.
+TEST_F(ApplicationMenu, EveryRegisteredProcessStatesAPageTheUserGuideHas)
+{
+    const QString root = repositoryRoot();
+    ASSERT_FALSE(root.isEmpty()) << "the repository's root was not found";
+    const QDir pages(QDir(root).filePath(QStringLiteral("docs/user-guide/docs/en")));
+    ASSERT_TRUE(pages.exists()) << pages.absolutePath().toStdString();
+
+    std::size_t stated = 0u;
+    for (const an::ui::process_registry::ProcessDescriptor& descriptor :
+         an::ui::process_registry::ProcessRegistry::instance().all())
+    {
+        if (descriptor.is_extension_process)
+        {
+            continue;
+        }
+        const QString helpPath = QString::fromStdString(descriptor.helpPath);
+        ASSERT_TRUE(helpPath.endsWith(QStringLiteral(".html")))
+            << descriptor.id << " states the page '" << descriptor.helpPath << "'";
+        const QString source = helpPath.chopped(5) + QStringLiteral(".md");
+        EXPECT_TRUE(QFileInfo(pages.filePath(source)).isFile())
+            << descriptor.id << " states " << descriptor.helpPath << ", and the guide has no " << source.toStdString();
+        ++stated;
+    }
+    EXPECT_GT(stated, 0u);
+}
+
+// Help answers F1 from every window of the application: a process window is a window of its own, where a shortcut of
+// the main window's context is not heard. No other entry of the menus takes F1.
+TEST_F(ApplicationMenu, UserGuideAnswersF1FromEveryWindowOfTheApplication)
+{
+    QAction* const guide = menuAction("actionUser_Guide");
+    ASSERT_NE(guide, nullptr);
+    EXPECT_EQ(guide->shortcut(), QKeySequence(Qt::Key_F1));
+    EXPECT_EQ(guide->shortcutContext(), Qt::ApplicationShortcut);
+
+    std::vector<QAction*> entries;
+    collectMenuEntries(s_window->menuBar()->actions(), entries);
+    for (const QAction* action : entries)
+    {
+        if (action != guide)
+        {
+            EXPECT_NE(action->shortcut(), QKeySequence(Qt::Key_F1)) << action->objectName().toStdString();
+        }
+    }
+}
 
 // Every process the registry holds is an entry of the window's own menus, reached from its menu bar, and no two entries
 // share a name, so the name a descriptor binds reaches one entry. The names are recorded beside the result, in menu

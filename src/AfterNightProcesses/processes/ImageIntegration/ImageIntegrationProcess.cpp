@@ -4413,7 +4413,8 @@ void ImageIntegrationProcess::showKeyboardShortcutsHelp()
                                  "<tr><td><b>Home</b></td><td>Go to First Frame</td></tr>"
                                  "<tr><td><b>End</b></td><td>Go to Last Frame</td></tr>"
                                  "<tr><td><b>Ctrl+1..8</b></td><td>Switch Tab</td></tr>"
-                                 "<tr><td><b>F1</b></td><td>Show This Help</td></tr>"
+                                 "<tr><td><b>F1</b></td><td>Open the User Guide at Image Integration</td></tr>"
+                                 "<tr><td><b>Shift+F1</b></td><td>Show This Help</td></tr>"
                                  "</table>");
 
     openNonBlockingMessageBox(this, QMessageBox::Information, tr("Keyboard Shortcuts"), shortcuts);

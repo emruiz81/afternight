@@ -25,10 +25,12 @@
 #include <QSize>
 #include <QString>
 #include <QStringList>
+#include <QUrl>
 
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace
@@ -190,6 +192,67 @@ TEST(DialogOrchestrationCoordinatorComponent, DialogOrchestrationCoordinator_Ope
     EXPECT_TRUE(candidates.contains(QDir(appDir).filePath(QStringLiteral("../share/doc/AfterNight/index.html"))));
     EXPECT_TRUE(candidates.contains(QDir(appDir).filePath(QStringLiteral("../../../docs/user-guide/site/index.html"))));
     EXPECT_STREQ(an::ui::kAfterNightUserGuideOnlineUrl, "https://docs.afternightastro.org/");
+}
+
+// A process's page is looked for where the guide's home page is, in the same order, under the path the process states.
+TEST(DialogOrchestrationCoordinatorComponent, DialogOrchestrationCoordinator_OpenHelp_ResolvesAPageOfTheBundledGuide)
+{
+    const QString appDir = QStringLiteral("C:/Development/afternight/bin/msvc/release");
+    const QString page = QStringLiteral("processes/stretching/histogram-transformation.html");
+    const QStringList home = an::ui::bundledUserGuideCandidatePaths(appDir);
+    const QStringList candidates = an::ui::bundledUserGuideCandidatePaths(appDir, page);
+
+    ASSERT_EQ(candidates.size(), home.size());
+    EXPECT_EQ(candidates.front(), QDir(appDir).filePath(QStringLiteral("docs/") + page));
+    for (qsizetype index = 0; index < candidates.size(); ++index)
+    {
+        ASSERT_TRUE(home[index].endsWith(QStringLiteral("index.html")));
+        EXPECT_EQ(candidates[index], home[index].chopped(10) + page);
+    }
+    EXPECT_EQ(an::ui::bundledUserGuideCandidatePaths(appDir, QString()), home);
+}
+
+// A path that is no page inside the guide - one that climbs out of it, an absolute one, an address, a folder - is not
+// followed: the home page opens instead, from the bundled guide and from the online one alike.
+TEST(DialogOrchestrationCoordinatorComponent, DialogOrchestrationCoordinator_OpenHelp_FollowsOnlyAPageInsideTheGuide)
+{
+    const QString home = QStringLiteral("index.html");
+    EXPECT_EQ(an::ui::userGuidePage(QStringLiteral("interface/masks.html")), QStringLiteral("interface/masks.html"));
+    EXPECT_EQ(an::ui::userGuidePage(QString()), home);
+    for (const char* refused : {"../secrets.html", "processes/../../x.html", "/etc/passwd.html", "C:/x.html",
+                                "processes\\x.html", "https://example.org/x.html", "processes/stretching/",
+                                "processes//x.html", "./x.html", "page.exe", "x.html?y", "x.html#y"})
+    {
+        EXPECT_EQ(an::ui::userGuidePage(QString::fromLatin1(refused)), home) << refused;
+    }
+
+    const QString appDir = QStringLiteral("C:/Development/afternight/bin/msvc/release");
+    EXPECT_EQ(an::ui::bundledUserGuideCandidatePaths(appDir, QStringLiteral("../../x.html")),
+              an::ui::bundledUserGuideCandidatePaths(appDir));
+}
+
+// The online guide has a process's page under the path the bundled guide has it, and the guide's own address is its
+// home page. A policy value that turns the online guide off leaves no address to open, whatever the page.
+TEST(DialogOrchestrationCoordinatorComponent, DialogOrchestrationCoordinator_OpenHelp_JoinsThePageToTheOnlineGuide)
+{
+    const QString page = QStringLiteral("processes/stretching/histogram-transformation.html");
+    const std::optional<QUrl> online = an::ui::onlineUserGuideUrl(page, QString());
+    ASSERT_TRUE(online.has_value());
+    EXPECT_EQ(online->toString(),
+              QStringLiteral("https://docs.afternightastro.org/processes/stretching/histogram-transformation.html"));
+
+    const std::optional<QUrl> home = an::ui::onlineUserGuideUrl(QString(), QStringLiteral("0"));
+    ASSERT_TRUE(home.has_value());
+    EXPECT_EQ(home->toString(), QString::fromLatin1(an::ui::kAfterNightUserGuideOnlineUrl));
+    const std::optional<QUrl> outside = an::ui::onlineUserGuideUrl(QStringLiteral("../x.html"), QString());
+    ASSERT_TRUE(outside.has_value());
+    EXPECT_EQ(outside->toString(), QString::fromLatin1(an::ui::kAfterNightUserGuideOnlineUrl));
+
+    for (const char* off : {"1", "true", "yes", "on", " ON "})
+    {
+        EXPECT_FALSE(an::ui::onlineUserGuideUrl(page, QString::fromLatin1(off)).has_value()) << off;
+        EXPECT_FALSE(an::ui::onlineUserGuideUrl(QString(), QString::fromLatin1(off)).has_value()) << off;
+    }
 }
 
 // The online guide is a fallback unless the policy value turns it off: any of the usual spellings of "on" does.
