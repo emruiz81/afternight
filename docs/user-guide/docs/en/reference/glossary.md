@@ -111,7 +111,7 @@ the continuum out of each narrowband image before it combines the line with the 
 
 A Crashpad minidump AfterNight writes on the computer when it crashes, on Windows and Linux. AfterNight does not
 upload it. It can hold what the application had in memory, file paths among it, and it is read with the symbols of
-the exact build that wrote it. See [Troubleshooting](troubleshooting.md).
+the exact build that wrote it. See [Troubleshooting](troubleshooting.md#crash-dumps).
 
 ## D
 

@@ -70,8 +70,9 @@ settings, and processes read the frames the same way. **No** shows the mosaic as
   pauses while you hold it.
 
 The player only shows frames. It ranks, aligns and stacks nothing, and the view has no way to keep the best frames of
-a planetary video. Combine frames with [Image Stacking](../processes/stacking-integration/image-stacking.md) or Image
-Integration.
+a planetary video. Image Stacking and Image Integration take still files, not a sequence: save the sequence as an image
+list (`.anseq`), which writes each frame as a [FITS](../reference/glossary.md#fits) file in a folder beside it, and add those files there.
+[Planetary Imaging](../workflows/planetary-imaging.md) follows that path.
 
 ### Make a sequence from still images
 

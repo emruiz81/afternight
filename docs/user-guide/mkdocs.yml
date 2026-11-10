@@ -231,7 +231,9 @@ nav:
       - Mosaic Workflow: workflows/mosaic-workflow.md
   - Extensions:
       - Using Extensions: extensions/using-extensions.md
+      - Using Extensions Reference: extensions/using-extensions-reference.md
       - Extension Marketplace: extensions/extension-marketplace.md
+      - Extension Marketplace Reference: extensions/extension-marketplace-reference.md
   - Reference:
       - Keyboard Shortcuts: reference/keyboard-shortcuts.md
       - Glossary: reference/glossary.md
