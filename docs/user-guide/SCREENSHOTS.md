@@ -115,11 +115,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
 screen - the message that it is complete, its progress window - is dismissed before its window is closed, and an
 image it opened stays for `-MainWindow`.
 
+- **Several preparations** go in one `-Prepare`, separated by `||`, and run in that order. A window with OK in place
+  of Apply is applied with OK; a preparation whose last change runs it already (`OK!`) is not applied again, and one
+  with neither Apply nor OK - a tool that saves a file - does only what its changes say.
+- **A process that needs a tool's path** - Starnet++ and StarNet2 - is captured in a profile that knows it: a run
+  with `-Storage <new folder>` keeps its storage root, its settings database (`afternight_data.db`, table
+  `global_settings`) takes the path under the key the External Tools page writes (`tools/starnetPath`), and later
+  runs reuse that root with `-Storage <folder> -ReuseStorage`.
+- **A run that makes a new image** - a recombination, a mask - is paired with that image: `-AfterView` says what to
+  do once the run has ended, such as `"Window > Group All Images;@RGB - starless - RGB - star mask...;Image > View >
+  Zoom 100%;%middle"`. `@<name>` chooses a view's tab as it chooses a button, and a name ending in `...` is the
+  beginning of the name, since a tab adds ` *` while its image is unsaved.
+
 **Cutting the image out of the pair.** With the main window at its default place and size and one image open, fit
 to its view, the image is the same rectangle of both pictures. Give that rectangle to the optimizing script as
-`--crop LEFT,TOP,WIDTH,HEIGHT` for both, so the two crops are the same region. A tone process is shown on the whole
-frame. A process whose effect is in the detail - noise, sharpening, stars - is shown at 100 %: `-View "Image > View >
-Zoom 100%"` zooms the view around its middle before the pair, and the crop is the view's own area.
+`--crop LEFT,TOP,WIDTH,HEIGHT` for both, so the two crops are the same region: `246,142,1094,820` for the guide's
+master in the default main window. A tone process is shown on the whole frame. A process whose effect is in the
+detail - noise, sharpening, stars - is shown at 100 %: `-View "Image > View > Zoom 100%;%middle"` zooms the view and
+puts its scroll bars at their middle, and `--crop 467,305,640,480` takes the middle of the view.
 
 ## Optimize
 

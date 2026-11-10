@@ -3,378 +3,325 @@ kind: process
 stage: finish
 menu: Process > Color Spaces > Colorize
 summary: >-
-  Turns a grayscale or RGB image into a color image of the hue and saturation you choose.
+  Turns a grayscale or RGB image into an RGB image of one hue and saturation that you choose, keeping each pixel's
+  intensity as HSV value or HSI intensity.
+data_in: nonlinear
 data_out: nonlinear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Colorize window is open on it yet, and no window that needs the image
+    for itself is open on it.
+  inputs: >-
+    One grayscale or RGB image or sequence, a mosaic read as one grayscale plane, and an optional mask of the image's
+    size on its view. An image with an alpha channel is refused.
+  outputs: >-
+    The same view, replaced by an RGB image of the same size and pixel type, with one history step. A grayscale image
+    becomes three channels. No file, preset or report is written.
+  state: >-
+    A stretched image, or one plane of it, after calibration and color calibration. A linear image is accepted, and its
+    result is recorded as nonlinear all the same.
+derived: false
+rewritten: true
 ---
 # Colorize
 
-## Purpose and expected result
+Colorize gives an image one hue and one saturation that you choose. Each pixel keeps its intensity, as the value of
+the [HSV](../../reference/glossary.md#hsv) model or the intensity of the [HSI](../../reference/glossary.md#hsi) model,
+and the hue and saturation are yours. It turns a mono plane into a layer of one color, or makes a false-color version
+of a [mask](../../reference/glossary.md#mask) or of another support image. It is a construction for display, not a
+color calibration or a physical narrowband mapping.
 
-Colorize converts one grayscale or RGB target into a same-size RGB image using
-a selected Hue, Saturation, and either HSV Value or HSI Intensity. It is useful
-for turning a mono intensity plane into a fixed-color layer, making a false-color
-version of a mask or support image, or remapping an RGB image with the process's
-special channel-wise behavior.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with an RGB image of the same size and
+[pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). A grayscale image becomes three channels. The result is recorded as
+nonlinear.
 
-The expected result is an RGB image at the source pixel type: an integer image
-stays integer. Apply replaces the target only after the calculation succeeds. A
-grayscale target therefore becomes three-channel RGB. The process records the
-output nonlinear on its processing-state cards; it is a display/color
-construction operation, not spectral calibration or a physical narrowband
-mapping.
-
-!!! warning "RGB input has two distinct paths"
-    With **Use lightness** checked, Colorize first derives one CIE L* plane and
-    maps that shared scalar to RGB. With it unchecked, the process does not
-    convert the source RGB pixel to HSV/HSI and replace its Hue and Saturation.
-    Instead, it maps source Red into output Red, source Green into output Green,
-    and source Blue into output Blue independently. Except at special hues or on
-    neutral input, the selected Hue is therefore not the measured hue of the
-    resulting RGB pixel.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Color Spaces > Colorize** |
-| Enabled when | An image or sequence is active, Colorize is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One grayscale or RGB still or sequence; an optional active mask must match target geometry; a still CFA mosaic is accepted as one grayscale plane; an image with an alpha channel, or any other channel layout, is refused by name at Apply and nothing changes |
-| Outputs | Destructively replaces the target with same-size, same-type RGB; **Take snapshot** creates an auxiliary RGB still; no file is written directly |
-| Recommended image state | Finite normalized data on a duplicate or reversible history state; normally use after physical calibration and color calibration because output is recorded nonlinear |
-| Preview support | Checked by default; asynchronous full-image linear display with histogram, optional Preview area, original/result switching, display-channel inspection, and snapshot; runs the same operation as Apply, CIE L* conversion included; no Display Mode or Autostretch Settings control |
-| Sequence support | Exposed and processed frame by frame through temporary storage; one captured parameter/mask state applies to every frame; Cancel stops the run and replaces nothing |
-| Mask support | Yes; the shared post-process blend mixes original and colorized RGB by the active mask and inversion state |
-| External dependency | None; HSV, HSI, CIE L*, masking, and sequence support are built into AfterNight |
+```figure
+image: ../../assets/images/processes/color-composition/colorize.webp
+alt: >-
+  The Colorize window. On the left, a histogram with a red, a green and a blue peak apart from each other, its
+  toolbar, the Method list at HSV, the Hue box at 200.00 and the Saturation box at 0.60 with their sliders, Use
+  lightness ticked, Target Image and Preview. On the right, the preview shows the nebula in shades of blue and cyan.
+  Reset, Close and Apply run along the bottom.
+caption: >-
+  Colorize on a stretched master with Hue at 200, Saturation at 0.60 and Use lightness on: the lightness of the image
+  in one blue hue.
+pins:
+  - {n: 2, x: 13.0, y: 70.4}
+  - {n: 3, x: 2.0, y: 55.6}
+  - {n: 4, x: 2.0, y: 60.5}
+  - {n: 5, x: 2.0, y: 65.7}
+  - {n: 6, x: 47.6, y: 40.0}
+  - {n: 7, x: 92.3, y: 96.0}
+```
 
 ## Before you start
 
-- Decide whether the source should supply one structural plane or three separate
-  stored channels. Use a mono target, or enable **Use lightness** on RGB, when a
-  fixed Hue/Saturation should describe each output pixel in the selected model.
-- Duplicate important data or verify Image History. Apply replaces the target
-  and changes grayscale/CFA input into RGB.
-- Use finite samples in the normalized range expected by the pixel type. HSI
-  clamps finite output to `[0,1]` at any nonzero Saturation; HSV, and HSI at
-  Saturation `0`, add no final clamp for float or double data outside that
-  range. On an image whose samples are all valid, a pixel holding NaN or an
-  infinity is not colorized: an RGB pixel without **Use lightness** is left as
-  it was, and otherwise the pixel carries its non-finite intensity in all three
-  channels.
-- Confirm the active mask and inversion state. Mask alpha is applied after
-  colorization, so partial mask values mix the original and colorized RGB.
-- The preview is a fixed linear display. Low-valued linear data can look dark,
-  and Colorize does not expose the shared preview autostretch controls. Use the
-  histogram and one consistent external viewing strategy rather than judging
-  the process from a fitted dark preview alone.
+- Decide what gives the intensity. A grayscale image gives its one plane. An RGB image gives its
+  [CIE L*](../../reference/glossary.md#cie-lab) lightness with **Use lightness**, or each of its channels without it.
+- **Apply** replaces the image and turns a grayscale image, or a mosaic, into RGB. Its history keeps the step before.
+- Use samples between 0 and 1. HSV adds no clamp, so a floating-point sample outside that range gives channels
+  outside it. HSI holds its channels between 0 and 1 at any saturation above 0.
+- The preview is shown as its samples are, with no
+  [display stretch](../../reference/glossary.md#display-stretch). A
+  [linear image](../../reference/glossary.md#linear-image) looks nearly black in it: read the histogram, or
+  [stretch](../../reference/glossary.md#stretch) the image first.
+- A mask on the view blends the colorized image with the original afterwards. A grayscale original is blended into
+  each of the three channels.
 
-## Procedure
+## Steps
 
-1. Select a grayscale or RGB target and open **Process > Color Spaces > Colorize**.
-   Confirm **Target Image**, the active mask, and whether the target is a still
-   or sequence.
-2. For a mono target, leave **Use lightness** unavailable. For RGB, enable it if
-   you want one CIE L*-derived structure plane; leave it off only when you intend
-   the channel-wise mapping described below.
-3. Choose **HSV** for Value-preserving fixed-color mapping or **HSI** for an
-   intensity-based mapping that can clip bright saturated colors.
-4. Set Hue in degrees. Start with Saturation below `1` when highlight clipping
-   or strongly unequal channels would be distracting. Hue `360` is identical to
-   `0`.
-5. Keep Preview checked, compare with **Switch image**, inspect output channels,
-   and use **Preview area** for a representative local check. Then uncheck the
-   area and inspect the full frame before Apply.
-6. Select **Apply**. For a still, there is no progress dialog or Cancel action.
-   For a sequence, use the shared progress dialog; Cancel stops the run and the
-   original sequence is kept.
+1. **Open the window.** Make the image active and choose **Process > Color Spaces > Colorize**. At the defaults the
+   preview shows the image in red, and **Apply** is already enabled.
+2. **Choose the intensity.** For an RGB image, tick **Use lightness** to color its lightness. Leave it off only when
+   you want each channel mapped on its own.
+3. **Choose the model.** Leave **Method** at **HSV** to keep each intensity as the brightest channel, or choose
+   **HSI** to keep it as the mean of the three.
+4. **Set the hue.** Move **Hue** to the color you want, in degrees: 0 is red, 120 green and 240 blue.
+5. **Set the saturation.** Lower **Saturation** from 1 toward 0 for a paler color. At 0 the result is gray.
+6. **Check the preview.** Press ++space++ over it to compare with the original, read the histogram, and look at the
+   channels with the preview's **View Channel**. Untick **Preview area**, if you drew one, for the last look.
+7. **Apply.** Choose **Apply**. The image in its view is RGB in the color you set, and its history lists **Colorize**
+   with the hue and the saturation.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Histogram plot | Graph, normalized intensity/count | Current colorized preview; RGB overlaid | None | Binning comes from **Plot resolution** | Shows the mask-aware preview distribution and approximate endpoint-bin clipping | Present while Preview pane exists | Recalculation adds work; endpoint counts depend on bins | Display only; RGB preview | Recomputed with preview/resolution |
-| Left-drag in histogram | Graph gesture | No readout | None | Hold left button and move | Shows normalized coordinate readout | Histogram present | Diagnostic only | Display only | Ends on release |
-| Middle-drag in histogram | Graph gesture | Fitted/unpanned | None | Hold middle button and drag | Pans the graph | Useful after zoom | Display cost only | Display only | Window lifetime |
-| Ctrl+mouse wheel in histogram | Graph gesture | Fitted size | None | Up `1.20x`; down `0.8x`; wheel without Ctrl scrolls | Zooms around cursor | Interactive graph | Larger graph needs more rendering area | Display only | Window lifetime |
-| Zoom in | Histogram-toolbar action | Fitted size | None | Each action `1.30x` | Enlarges plot | Histogram present | Plot rendering only | Display only | Window lifetime |
-| Zoom out | Histogram-toolbar action | Fitted size | None | Each action `0.70x` | Shrinks plot | Histogram present | Plot rendering only | Display only | Window lifetime |
-| Zoom reset | Histogram-toolbar action | — | None | One action | Fits plot and resets scrolling | Histogram present | Plot rendering only | Display only | Immediate |
-| Show grid | Toggle | Checked | None | Checked/unchecked | Shows/hides graph grid | Histogram present | Display-only aid | Display only | Window lifetime; Reset unchanged |
-| Show clipping info | Toggle | Checked | None | Checked/unchecked | Shows/hides endpoint-bin counts and percentages | Histogram present | Bin-based diagnostic, not exact float clipping proof | Display only | Window lifetime |
-| Absolute scales | Toggle | Unchecked | None | Checked/unchecked | Normalizes each visible histogram channel to its own peak | Histogram present | Can conceal relative RGB strength; pixels unchanged | Display only | Window lifetime |
-| Draw histogram areas | Toggle | Unchecked | None | Checked/unchecked | Chooses filled-area or line rendering | Histogram present | Filled areas can obscure overlap | Display only | Window lifetime |
-| Show histogram | Toggle | Checked | None | Checked/unchecked | Shows/hides histogram curves | Histogram present | Display-only | Display only | Window lifetime |
-| Plot resolution | Combo box, bins | **8-bit (256)** | None | **6-bit (64)**, **7-bit (128)**, **8-bit (256)**, **9-bit (512)**, **10-bit (1024)**, **12-bit (4096)**, **14-bit (16K)**, **16-bit (64K)**, **100 levels**, **1000 levels**, **10000 levels** | More bins show finer distribution | Histogram present | Higher values add histogram memory/rendering; output precision unchanged | Display only | Window lifetime |
-| Method | Combo box | **HSV** | None | **HSV**, **HSI** | Chooses Value-based sector mapping or mean-Intensity trigonometric mapping | Remains editable during Apply, but the run uses the captured choice | HSI can clip bright saturated values; HSV preserves the scalar as maximum for a shared mono plane | Preview/Apply; all output channels; still/sequence | Reset and success return **HSV** |
-| Hue | Double value plus slider, degrees | `0.00` | None | `0.00..360.00`; spin step `1.00`; two decimals; slider has 1,000 positions (`0.36` degrees nominal) | Rotates fixed model hue through red, yellow, green, cyan, blue, and magenta; `360=0` | Disabled during Apply | Hue controls channel ratios; on RGB without Use lightness, unequal source channels can shift measured output hue | Preview/Apply; still/sequence | Reset and success return `0.00` |
-| Saturation | Double value plus slider, normalized | `1.00` | None | `0.00..1.00`; spin step `0.01`; two decimals; slider nominal resolution `0.001` but spin rounds to two decimals | `0` is achromatic; `1` is maximum requested model saturation | Disabled during Apply | Higher values increase channel separation and HSI highlight clipping; lower values approach gray/identity cases | Preview/Apply; still/sequence | Reset and success return `1.00` |
-| Use lightness | Checkbox | Unchecked; disabled on grayscale and on an image with alpha | None | Checked/unchecked | Checked converts RGB to one normalized CIE L* plane before HSV/HSI mapping | Enabled only while the current target image is red, green, and blue without alpha; switching to mono, or to an image with alpha, disables and unchecks it; remains editable during Apply but the current run is captured | Better structural consistency than three-channel mapping, but it does not guarantee the output's measured CIE L* equals the input L*; Preview and Apply use the same exact CIE conversion | Preview/Apply; RGB input only; still/sequence | Reset/success do not clear it while RGB remains selected; window lifetime |
-| Target Image | Image/sequence selector | Attached active target | None | Any open image/sequence accepted by the generic launch guards; Apply processes grayscale or RGB and refuses an image with alpha by name | Changes source, mask, preview, and Apply destination; updates Use lightness availability | Disabled during Apply | Wrong target is destructively replaced | Preview/Apply; still/sequence | Target lifecycle; Reset unchanged |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Creates/destroys asynchronous full-image or ROI preview | Remains live during execution | Full image adds RGB output, histogram, and display buffers; disabling it removes visual verification | Preview only; current displayed sequence frame | Window lifetime; Reset unchanged |
-| Preview pane | Fixed-linear image viewer | Colorized, mask-aware result | No target autostretch inheritance | Pan plus toolbar actions below | Shows computed pixels without modifying target | Exists only while Preview is checked; no Display Mode/Autostretch Settings controls | Linear display can hide faint data; buffers add memory | Preview only; current still/frame | Preview lifetime |
-| Fit To Window | Preview-toolbar action | Fitted on first display | None | Click or **Ctrl+Shift+F** | Fits whole image | Preview image required | Overview resampling hides pixel-scale differences | Display only | Viewer lifetime |
-| Zoom In | Preview-toolbar action | Current scale | None | Click; `1.25x` relative zoom | Enlarges view | Preview image required | More local detail, more panning | Display only | Viewer lifetime |
-| Zoom Out | Preview-toolbar action | Current scale | None | Click; `0.8x` relative zoom | Reduces view | Preview image required | More context, less fine detail | Display only | Viewer lifetime |
-| Zoom 100% | Preview-toolbar action | Current scale | None | Click; absolute `1.0` scale | Shows one viewer pixel per image pixel | Preview image required | Preferred for clipping/banding inspection | Display only | Viewer lifetime |
-| View Channel | Preview-toolbar combo box | **RGB** | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE a*=R / b*=G (Chrominance)**, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **HSI Hue**, **HSI Saturation**, **HSI Intensity**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | Selects only the displayed stored/derived component | Colorize preview is always RGB | Helps verify whether chosen model and RGB path produced expected components; conversion is display-only | Preview display | Viewer lifetime |
-| Switch image | Preview-toolbar action | Processed preview shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles colorized result/original | Preview required | Comparison only; no recomputation | Preview display; still/current frame | Preview lifetime |
-| Preview area | Preview-toolbar checkbox and movable ROI | Unchecked; first enable creates centered area up to `600 x 600` | None | Checked/unchecked; drag/resize within bounds | Processes selected crop and pastes it over original full preview | Disabled during Apply; full Apply always uses full target | Reduces tuning work; outside ROI is deliberately original and can hide global channel behavior | Preview/Take snapshot; mask cropped consistently | Preview lifetime; Reset unchanged |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes and opens `<target> - Colorize - SNAPSHOT` | Disabled during Apply | Allocates an RGB still; current ROI/mask honored; target unchanged; the snapshot is not recorded nonlinear | New still; no sequence snapshot | Each action creates a view |
-| Apply | Button/action | Enabled | None | One action | Captures Method/Hue/Saturation/Use lightness and processes full target in background | Target must lock; repeat clicks ignored while running. During every Apply, with or without Preview, Target, Hue, Saturation, Apply, Reset, Close, Preview area, and Take snapshot disable; Method, Use lightness, Preview, and histogram remain live | Still run has no progress/Cancel; sequence writes temporary output; RGB allocation and optional CIE conversion add cost | Destructive still/sequence replacement after success; active mask post-blend | Records incomplete history text, then resets Method/Hue/Saturation |
-| Reset | Button/action | Enabled while idle | None | One action | Restores Method **HSV**, Hue `0`, Saturation `1`; schedules preview | Does not clear Use lightness, Target, Preview, mask, histogram, or Preview area; disabled during Apply | Recomputes default red mapping; does not undo applied pixels | Configuration only | Immediate; also follows success |
-| Close | Button/action | Enabled while idle | None | One action | Closes without applying pending settings | Disabled during Apply; closing the window another way while a run is in flight hides it, and it closes once the run has landed | No output itself; nothing waits on the GUI thread | Window | Values not saved after destruction |
-| Sequence progress / Cancel | Shared frame/task progress and Cancel | Created for sequence Apply | None | Cancel stops the run; the engine operation on the current frame observes the stop | Sequence target only | One captured parameter and mask state; optional configured auto-debayer happens before each frame | Temporary sequence disk plus RGB expansion; Cancel replaces nothing | Full sequence; success replaces sequence and records one step | Temporary until success; then target sequence owns result |
+The histogram and its toolbar, **Target Image**, **Preview**, the preview pane, **Close** and the progress window of a
+sequence work as in every process window: see [Process Windows](../../interface/process-windows.md). The preview pane
+of this window has no **Display Mode**.
 
-## How the algorithm works
+```controls
+window: Colorize
+controls:
+  - name: Method
+    kind: combo
+    default: HSV
+    options: [HSV, HSI]
+    effect: Chooses the model that turns an intensity into a color. **HSV** keeps the intensity as the brightest of the three channels. **HSI** keeps it as their mean, before they are held between 0 and 1.
+    enabled: It stays enabled while Apply runs, and the run keeps the choice it started with.
+    tradeoff: HSI clips bright, saturated colors and loses their detail. HSV keeps every intensity between 0 and 1 inside the range. Both cost the same small work for each pixel, HSI a little more for its cosines and its three clamps.
+    scope: The preview and Apply, all three channels of the result, on images and sequences.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to **HSV**.
+  - name: Hue
+    kind: spinbox
+    default: "0.00"
+    widget: {min: 0, max: 360, step: 1, decimals: 2}
+    effect: Sets the color, in degrees, through red, yellow, green, cyan, blue and magenta. 360 is the same as 0.
+    range: The slider beside the box has 1,000 steps, about 0.36 degrees each.
+    enabled: Disabled while Apply runs.
+    tradeoff: It sets the ratios between the channels. On an RGB image without **Use lightness**, unequal channels give another hue than the one you set.
+    scope: The preview and Apply, on images and sequences.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Saturation
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 2}
+    effect: Sets how strong the color is. At 0 the result is gray, and at 1 it is the strongest color the model gives.
+    range: The slider moves in steps of 0.001, and the box rounds its value to two decimals.
+    enabled: Disabled while Apply runs.
+    tradeoff: Higher values separate the channels more, and with **HSI** clip more highlights. Lower values come closer to gray or to the original.
+    scope: The preview and Apply, on images and sequences.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Use lightness
+    kind: check
+    default: "Off"
+    effect: On, an RGB image is colored from one plane, its CIE L* lightness divided by 100, so every pixel takes the hue and saturation you set. Off, each of its channels is colored from its own value.
+    range: The lightness is read as the Channel list of a process window reads it. The RGB is converted as linear when the image is described as linear RGB, and as sRGB-encoded otherwise. An image without a full scale is read as the fractions of full scale the view shows.
+    enabled: Only while the target is RGB without an alpha channel. A grayscale target, or one with alpha, disables it and turns it off. It stays enabled while Apply runs, and the run keeps the choice it started with.
+    tradeoff: It keeps the structure of the image together, but the result's own lightness is not the source's. It adds a pass over the image and a floating-point plane of the lightness, which has the precision of 32-bit floating point, or of 64-bit for a 64-bit floating-point image.
+    scope: The preview and Apply, which convert alike, for RGB images and sequences.
+    persistence: Until the window closes, or until the target is no longer RGB. **Reset** and a finished Apply leave it as it is.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence Apply replaces, with the mask on its view. The preview and whether **Use lightness** is offered follow it.
+    range: It lists every open image. An image with an alpha channel, or any channels other than one or three, is refused when the preview or Apply runs.
+    persistence: Until the window closes. **Reset** leaves it.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the colorized image beside the controls, with the mask blended in. The histogram counts it.
+    enabled: It stays enabled while Apply runs.
+    tradeoff: The preview holds an RGB result as large as the image, three times a grayscale one.
+    scope: "The window only. The pane shows the samples as they are, in its Linear mode, and offers no **Display Mode** or **Autostretch Settings**. **Preview area** is off when the window opens, and ticked it starts at 600 by 600 pixels in the middle of the image. A snapshot is an RGB image named `<target> - Colorize - SNAPSHOT`, not recorded as nonlinear."
+    persistence: Until the window closes. **Reset** leaves it.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Method** to **HSV**, **Hue** to 0 and **Saturation** to 1, and one preview of that red follows.
+    range: It leaves **Use lightness**, **Target Image**, **Preview** and the preview area as they are.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Colorizes the whole image, or every frame of the sequence, with the values it finds when you press it, and then returns **Method**, **Hue** and **Saturation** to their defaults.
+    enabled: From the moment the window opens. While the run works it is disabled, with **Target Image**, **Hue**, **Saturation**, **Reset**, **Close**, **Preview area** and **Take snapshot**. **Method**, **Use lightness**, **Preview** and the histogram stay enabled.
+    tradeoff: The result is three channels in the image's pixel type, and an integer image also needs a three-channel floating-point working copy. A sequence of grayscale frames is written again as RGB, which can take up to three times its disk space.
+    scope: The whole image, never limited by a preview area, with the mask on the view blended afterwards.
+    persistence: "The history step is **Colorize** and reads, for example, `Colorize hue to 200 and saturation to 0.6`. It does not record **Method** or **Use lightness**."
+```
 
-### 1. Choose the scalar source
+## How it works
 
-Every stored sample is read in normalized units: unsigned integers divided by
-their largest value, signed integers counted from their smallest value to their
-largest, float and double samples as stored. Integer samples are held in a
-Float32 working image (Float64 for 32-bit integers), float and double samples
-are used where they are, and each pixel's arithmetic is double. The result is
-narrowed back to the source's pixel type at the nearest code.
+1. Each sample is read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale). An integer
+   image is worked on in a floating-point copy, and every pixel is computed in double precision.
+2. The intensity of a pixel is the sample of a grayscale image, the lightness of an RGB image with **Use lightness**,
+   or, without it, each of the three channels in turn.
+3. The intensity becomes red, green and blue by equation (1) for **HSV** or (2) for **HSI**. Without **Use
+   lightness**, the red of the result comes from the red channel, the green from the green and the blue from the blue.
+4. The result is written as a new RGB image of the source's size and pixel type, rounded to the nearest value, with
+   no color filter array. A mask on the view then blends it with the original.
+5. The image keeps its header, its [plate solution](../../reference/glossary.md#plate-solution), its acquisition data
+   and its validity mask. A saved file records `ANLIN` as `nonlinear`, `ANASRC` as `process` and `ANOP` as
+   `colorize`, and no linear encoding is stated. The [lineage](../../reference/glossary.md#lineage) gains an entry with
+   the hue, the saturation, the model and whether the lightness was used.
 
-For grayscale input, the normalized sample `x` is the shared HSV Value or HSI
-Intensity. For RGB with **Use lightness**, AfterNight reads the image's RGB as
-the process framework reads every color image (sRGB primaries and D65 white,
-through the sRGB transfer curve unless the image's color space says linear RGB),
-converts it to CIE L*, and uses `x=L*/100`. The L* plane is computed in double
-but held in Float32 (Float64 only for a 64-bit float image), so a 32-bit integer
-image's lightness carries Float32 precision. Preview and Apply use the same
-exact conversion.
+### Model
 
-For RGB with **Use lightness** off, there is no RGB-to-HSV/HSI analysis. If
-`F_R`, `F_G`, and `F_B` are the output components of the selected fixed-Hue
-mapping, the implementation computes
+With \(H\) the hue as a share of a full turn, \(S\) the saturation and \(V\) the intensity, HSV computes
 
-\[
-R'=F_R(H,S,R),\qquad
-G'=F_G(H,S,G),\qquad
-B'=F_B(H,S,B).
-\]
+\[ C = V\,S, \qquad X = C\,\bigl(1 - \lvert (6H \bmod 2) - 1 \rvert\bigr), \qquad m = V - C \tag{1} \]
 
-Each output component therefore receives a different source scalar. At
-Saturation `0`, both methods reduce to `R'=R`, `G'=G`, `B'=B`. At nonzero
-Saturation, this path is not equivalent to preserving source Value/Intensity
-while replacing Hue and Saturation.
+The 60-degree sector the hue falls in, from red, chooses \((C, X, 0)\), \((X, C, 0)\), \((0, C, X)\), \((0, X, C)\),
+\((X, 0, C)\) or \((C, 0, X)\), and \(m\) is added to each channel. For \(V\) between 0 and 1 the brightest channel is
+\(V\) and none leaves the range. Nothing is clamped afterwards.
 
-### 2. HSV mapping
+With \(I\) the intensity and \(h\) the hue in degrees, HSI computes in its first 120-degree sector
 
-Hue `H_d` in degrees becomes `H=H_d/360`; any hue is wrapped modulo 360 degrees,
-so the UI endpoint `360` is `0`. For a shared scalar Value `V=x`, define
+\[ B = I\,(1 - S), \qquad R = I\Bigl(1 + \frac{S \cos h}{\cos(60^\circ - h) + 10^{-12}}\Bigr), \qquad G = 3I - R - B \tag{2} \]
 
-\[
-C=VS,\qquad
-X=C\left(1-\left|\left((6H)\bmod 2\right)-1\right|\right),\qquad
-m=V-C.
-\]
+The next two sectors give the same roles to green and to blue, after 120 or 240 degrees are taken from \(h\). The mean
+of the three is \(I\). Each channel is then held between 0 and 1, which breaks that mean for a bright, saturated
+color. At a saturation of 0, HSI returns \(I\) in every channel without that hold.
 
-One of `(C,X,0)`, `(X,C,0)`, `(0,C,X)`, `(0,X,C)`, `(X,0,C)`, or `(C,0,X)`
-is selected by the 60-degree Hue sector, then `m` is added to all channels. For
-finite `V` in `[0,1]` and UI Saturation in `[0,1]`, output remains in gamut and
-the maximum channel equals `V`. The mapping does not clamp afterward, so
-out-of-range float/double input gives out-of-range output; integer output is
-held to its type's range when it is narrowed.
+Without **Use lightness**, with \(F_R\), \(F_G\) and \(F_B\) the red, green and blue that equation (1) or (2) gives for
+an intensity, an RGB pixel \((R, G, B)\) becomes
 
-### 3. HSI mapping
+\[ R' = F_R(R), \qquad G' = F_G(G), \qquad B' = F_B(B) \tag{3} \]
 
-HSI uses `I=x` as arithmetic mean before clipping. In the first 120-degree
-sector, with Hue expressed in degrees,
+At a saturation of 0 that is the pixel itself. At any other saturation it does not keep the pixel's value or intensity
+while it replaces its hue.
 
-\[
-B=I(1-S),\qquad
-R=I\left(1+\frac{S\cos H}{\cos(60^\circ-H)+10^{-12}}\right),\qquad
-G=3I-(R+B).
-\]
+### Boundaries
 
-The next two sectors rotate the roles of R, G, and B after subtracting 120 or
-240 degrees. Finally each component is clamped independently to `[0,1]`; at
-Saturation `0` HSI returns `(I,I,I)` without that clamp, so float or double
-input outside `[0,1]` stays outside it. Before that clamp, `(R+G+B)/3=I`;
-clipping bright saturated colors breaks that equality and can flatten one or
-more channels.
+- An image with an alpha channel, or with channels other than one or three, is refused: "the colorization needs a grey
+  image or an image of red, green and blue". Nothing is written.
+- A pixel holding not-a-number or an infinity, or one the image marks as invalid, is not colorized. Without **Use
+  lightness** an RGB pixel stays as it was. A grayscale pixel, or one read through its lightness, keeps its intensity
+  in all three channels.
+- A floating-point result keeps values outside 0 to 1 where HSV or a gray HSI gives them. An integer result is
+  rounded and held to the range of its type.
+- A source whose [processing state](../../reference/glossary.md#processing-state) records the basis `monochrome`
+  keeps it, although the result has three colored channels. Any other source becomes `display-rgb`. A saved
+  [FITS](../../reference/glossary.md#fits) file carries no `BAYERPAT` card, because the result has no color filter
+  array.
+- A mask with one channel weighs all three channels, and a mask of three weighs each by its own. A mask of another
+  size or channel count makes the run fail. The whole image is recorded as colorized, also where the mask is black.
 
-### 4. Output, mask, and state
+### Worked example
 
-The result is a new three-channel RGB image with the source width, height, and
-pixel type, described with no color filter array and carrying the source's
-metadata (FITS cards, astrometric solution, acquisition record) and validity
-mask. An image with an alpha channel, or any channel layout other than
-grayscale or RGB, is refused before any work with
-`the colorization needs a grey image or an image of red, green and blue`; the
-run publishes nothing. Colorization runs on the engine's worker threads. A pixel
-holding NaN or an infinity in a channel the mapping reads (with
-**Use lightness**, a pixel whose CIE L* is not finite) is not colorized on an
-image whose samples are all valid, and always with **Use lightness**; without
-it, on a floating image whose validity is exact-zero-is-no-data or an explicit
-mask, such a pixel in a valid position stops the Apply with an error. An RGB
-image colorized channel by channel leaves an uncolorized pixel as it was; a
-grayscale image, or a colour image read through its lightness, starts each of
-the result's three channels as the intensity, so the pixel keeps its non-finite
-intensity in all three.
+The picture above shows the window on the linear Carina [master](../../reference/glossary.md#master) after Histogram
+Transformation with **Shadows** and **Midtones** at 0.02, with **Method** at **HSV**, **Hue** at 200, **Saturation**
+at 0.60 and **Use lightness** on. The gray background, near 0.28 in each channel, is read as sRGB and has a lightness
+of 30, so \(V = 0.30\). Hue 200 lies in the fourth sector of equation (1), and the background becomes
+\((0.12, 0.24, 0.30)\), a dark blue. A white star, \(V = 1\), becomes \((0.40, 0.80, 1.00)\).
 
-The result's processing-state cards are then restated: `ANLIN` nonlinear,
-`ANASRC` process, `ANOP` `colorize`, and a stretched channel basis. A source
-recorded as linear, camera, or display RGB, recorded as `raw-cfa`, or with no
-recorded basis becomes `display-rgb`; a source recorded as `monochrome` keeps
-that basis even though the output has three colored channels, which is a
-metadata limitation. A linear encoding the source claimed is no longer claimed,
-and the result's lineage gains an `an::colorizeImage` entry naming the hue,
-saturation, model, and whether CIE L* was used. Other source cards are kept; a
-FITS file saved from the result carries no `BAYERPAT` card, because the FITS
-writer states that card from the image's description.
+```figure
+images:
+  - image: ../../assets/images/processes/color-composition/colorize-before.webp
+    alt: The whole frame before Colorize, the red and white clouds of the nebula across a field of stars on a dark gray background.
+    label: Before
+  - image: ../../assets/images/processes/color-composition/colorize-after.webp
+    alt: The whole frame after Colorize, the same nebula and stars in shades of one blue, from a dark blue background to light blue clouds and stars.
+    label: After
+caption: >-
+  The stretched Carina master before and after Apply with HSV, Hue at 200, Saturation at 0.60 and Use lightness on.
+  Both are the whole frame in the Linear display mode, without a display stretch.
+```
 
-If an active mask is enabled, the shared framework blends a grayscale original
-against every output channel when necessary and applies, for each output
-component,
+Four more pixels of intensity 0.40 or 0.50 show the two models:
 
-\[
-O=(1-M)A+MB,
-\]
-
-where `A` is original, `B` is colorized, and `M` is mask alpha. Inversion swaps
-the two weights. A one-channel mask weighs every channel and a three-channel
-mask weighs each channel by its own; a mask of another channel count, width, or
-height makes the run fail. The entire image still carries the global nonlinear
-`colorize` state even where mask alpha is zero.
-
-## Parameter interactions and starting points
-
-| Combination | Useful starting point | Too weak / expected identity | Too strong / failure symptom | Correction |
-| --- | --- | --- | --- | --- |
-| HSV + mono/shared lightness | Saturation `0.4..0.8`; chosen line Hue | Near `0` approaches neutral gray; mono still becomes RGB | High saturation gives one dominant channel and can expose integer banding | Lower Saturation; inspect at 100% |
-| HSI + bright mono/shared lightness | Saturation below `0.5` first | `0` is neutral gray at intensity `I` | Bright values clip one/two components, so mean intensity and detail are not preserved | Reduce Saturation or choose HSV |
-| RGB + Use lightness off | Use only when channel-wise scaling is intentional | Saturation `0` is the original RGB pixel | Selected Hue does not match measured output Hue on unequal channels | Enable Use lightness or convert a chosen mono plane first |
-| Use lightness + image color space | Compare full frame and histogram | Neutral input can look similar either way | The same samples give a different CIE L* when the image is recorded as linear RGB than when it is read as sRGB-encoded | Check the image's color space before judging the structure |
-| Mask + saturated mapping | Soft finite mask, verify inversion | Alpha `0` leaves original samples | Hard edges or channel masks can create colored seams | Feather/repair mask before Colorize |
-
-These are conservative source-derived starting points, not measured quality
-recommendations for a particular astronomical dataset.
-
-## Inputs, outputs, and metadata
-
-- Successful Apply replaces the selected still or sequence with an RGB result.
-  Width, height, and source pixel type are retained; grayscale input expands to
-  three channels.
-- Source metadata is carried onto the RGB result, which is described with no
-  color filter array. The processing-state cards become nonlinear with
-  `colorize` provenance; the state-dependent channel-basis behavior is described
-  above. The lineage entry names the hue, saturation, model, and whether CIE L*
-  was used.
-- Still Image History records `Colorize hue to <value> and saturation to
-  <value>`, for example `Colorize hue to 200 and saturation to 0.6`. It does not
-  record Method or Use lightness, so the history text alone cannot reproduce the
-  result. Undo restores the previous image.
-- **Take snapshot** creates an RGB still from current preview/ROI/mask settings
-  and leaves the target unchanged. Linear preview display settings are not baked
-  into its pixels, and the snapshot is not recorded nonlinear.
-- Sequence Apply captures one Method/Hue/Saturation/Use lightness state, applies
-  it frame by frame to a temporary sequence, then replaces the original only on
-  success. Configured CFA auto-debayering can turn frames into RGB before this
-  process; cancellation or an error leaves the original sequence in place.
-- Reset after success restores HSV, Hue `0`, and Saturation `1`, but does not
-  clear Use lightness on an RGB target. Nothing is stored between openings of
-  the window.
-
-## Performance
-
-Both mappings are `O(W x H)` with constant work per pixel and run on the
-engine's worker threads. HSV uses arithmetic and a sector switch. HSI adds
-trigonometric operations and three clamps. **Use lightness** adds a complete
-RGB-to-XYZ-to-CIE-L* pass and a temporary floating lightness plane.
-
-The destination always allocates three source-type channels; an integer image
-also needs a three-channel floating working image, and an Apply copies the
-result once more to restate its cards. Preview also keeps source/result
-presentation buffers and histogram data; masks add blend inputs. Sequence mode
-writes a temporary RGB sequence before replacement, so disk and codec cost can
-dominate and can approach three times the uncompressed sample storage of a mono
-source. No approved astronomical workload was timed, and peak memory was not
-measured.
-
-## Worked example
-
-The values below reproduce the current formulas for a normalized scalar
-`x=0.40`. They were calculated from source and were not executed on approved
-astronomical data.
-
-| Settings | Output RGB | What it demonstrates |
+| Settings | Result | Why |
 | --- | --- | --- |
-| HSV, Hue `0`, Saturation `0.5`, Value `0.4` | `(0.40, 0.20, 0.20)` | HSV keeps the maximum channel equal to the source scalar |
-| HSI, Hue `0`, Saturation `0.5`, Intensity `0.4` | `(0.80, 0.20, 0.20)` | Unclipped channel mean remains `0.40` |
-| HSI, Hue `0`, Saturation `1.0`, Intensity `0.5` | raw `(1.50, 0, 0)`, stored `(1.00, 0, 0)` | HSI gamut clamp loses the requested mean intensity |
-| Either method, Saturation `0`, shared scalar `0.4` | `(0.40, 0.40, 0.40)` | Zero saturation is achromatic |
+| HSV, **Hue** 0, **Saturation** 0.50, intensity 0.40 | (0.40, 0.20, 0.20) | The brightest channel is the intensity. |
+| HSI, **Hue** 0, **Saturation** 0.50, intensity 0.40 | (0.80, 0.20, 0.20) | The mean is the intensity. |
+| HSI, **Hue** 0, **Saturation** 1, intensity 0.50 | (1.00, 0, 0) | 1.50 is held at 1, and the mean is lost. |
+| Either, **Saturation** 0, intensity 0.40 | (0.40, 0.40, 0.40) | No saturation is gray. |
 
-For the RGB no-lightness path, take source `(0.20,0.40,0.60)`, HSV Hue `60`,
-and Saturation `1`. A conventional fixed-HSV mapping would use one shared Value.
-Colorize instead keeps the red component from a Value-`0.20` mapping and the
-green component from a Value-`0.40` mapping, producing `(0.20,0.40,0)`. Its
-measured HSV hue is not the requested 60 degrees. Enable **Use lightness** when
-that channel-wise behavior is not intended.
+Without **Use lightness**, the RGB pixel (0.20, 0.40, 0.60) under HSV, **Hue** 60 and **Saturation** 1 takes its red
+from an intensity of 0.20, its green from 0.40 and its blue from 0.60, by equation (3). It becomes (0.20, 0.40, 0),
+whose own hue is 90 degrees, not 60.
 
-## Warnings and limitations
+## Starting points
 
-- **Use lightness** selects a CIE L*-derived source plane; it does not guarantee
-  output CIE L* preservation. HSV treats that scalar as maximum channel; HSI
-  treats it as pre-clamp arithmetic mean.
-- RGB without Use lightness is a channel-wise construction, not ordinary
-  RGB-to-HSV/HSI editing. The selected Hue need not be the output Hue.
-- At nonzero Saturation HSI clips finite components independently to `[0,1]`;
-  high Intensity and Saturation can lose highlight ratios. HSV, and HSI at
-  Saturation `0`, lack a final clamp for out-of-range float/double input. On an
-  image whose samples are all valid, a pixel holding NaN or an infinity is not
-  colorized and keeps its non-finite value.
-- An image with an alpha channel is refused by name at Apply, and
-  **Use lightness** is not offered for it; remove the alpha channel first.
-- The preview is fixed Linear and has no autostretch controls. Histogram/viewer
-  tools change only display, never Colorize samples.
-- A mono/CFA source becomes RGB described with no color filter array. An
-  existing `monochrome` channel basis remains `monochrome`; an existing
-  `raw-cfa` basis becomes `display-rgb`.
-- Image History omits Method and Use lightness; the result's lineage records
-  them.
-- Still Apply offers no progress or Cancel facility. Sequence Cancel stops the
-  run and keeps the original sequence.
-- Method, Use lightness, and Preview stay editable during Apply. The run uses
-  the values captured when Apply was selected. Every Apply, with or without
-  Preview, locks Target, Hue, Saturation, Apply, Reset, and Close.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Colorize is not under Process > Color | The current menu is named **Color Spaces** | Use **Process > Color Spaces > Colorize** |
-| Selected Hue is not the measured RGB hue | RGB target is using channel-wise no-lightness path | Enable Use lightness or provide a mono structural plane |
-| Bright HSI result clips or loses structure | Sector formula exceeded `[0,1]` and final clamp flattened channels | Reduce Saturation or use HSV |
-| HSV float result contains out-of-range samples | Float/double source was outside the normalized range; HSV adds no final clamp | Sanitize/rescale a duplicate before Colorize |
-| NaN or infinite pixels remain in the result | A non-finite pixel is not colorized: it is left as it was, or carries its intensity into all three channels | Repair non-finite samples on a duplicate before Colorize |
-| Use lightness is disabled | Current target image is grayscale or carries an alpha channel | This is expected; grayscale is already the shared scalar source, and an image with alpha is refused at Apply |
-| Use lightness result differs between two images with the same samples | One image's color space says linear RGB, so its RGB is read as linear; the other is read as sRGB-encoded | Check the image's color space |
-| Preview looks almost black | Colorize preview is fixed Linear | Inspect histogram; use an appropriate upstream/display workflow without assuming pixels are zero |
-| Error message includes `the colorization needs a grey image or an image of red, green and blue` | The target, or a decoded sequence frame, has an alpha channel or another channel layout | Remove the alpha channel first, or extract one plane and colorize it; the target was not changed |
-| Reset did not clear Use lightness | Colorize reset omits that checkbox | Uncheck it manually before the next run |
-| History cannot reproduce the result | Method and Use lightness are omitted from step description | Read them from the result's lineage, or record them separately |
-| Method, Use lightness, or Preview stay enabled during Apply | They are not part of the window's control locking | The run uses the captured values; change them after it finishes |
+| A mono plane, or an RGB image with **Use lightness**, under HSV | **Saturation** from 0.40 to 0.80, at the hue you want | Lower **Saturation** if one channel dominates or an integer image shows bands. Check at 100 %. |
+| A bright plane under HSI | **Saturation** below 0.50 | If bright parts clip in one or two channels and lose detail, lower **Saturation** or return to **HSV**. |
+| An RGB image without **Use lightness** | Only when you want each channel mapped on its own | At **Saturation** 0 it is the original. If the hue is not the one you set, tick **Use lightness**. |
+| Colorize through a mask | A soft mask, with its inversion checked | A hard edge gives a colored seam: soften or repair the mask before you apply. |
+
+## When it goes wrong
+
+!!! warning "Without Use lightness, the hue is not the one you set"
+    An RGB image without **Use lightness** is mapped channel by channel, by equation (3). Only on neutral pixels does
+    the result have the hue you set. Tick **Use lightness**, or colorize one plane of the image.
+
+!!! warning "The history does not record Method or Use lightness"
+    The step names the hue and the saturation only, so its text cannot repeat the result. The lineage of the result
+    records all four. Note **Method** and **Use lightness** when you must repeat the step.
+
+The preview is nearly black
+:   **Cause.** The preview shows the samples as they are, and a linear image is dark.
+:   **Fix.** Read the histogram, or stretch the image before you colorize it.
+
+Bright parts lose their detail with HSI
+:   **Cause.** Equation (2) went beyond 1, and the hold flattened the channels.
+:   **Fix.** Lower **Saturation**, or choose **HSV**.
+
+The result has samples outside 0 to 1 with HSV
+:   **Cause.** The floating-point source had them, and HSV adds no clamp.
+:   **Fix.** Bring a duplicate into the range first, then colorize it.
+
+Not-a-number or infinite pixels are still there
+:   **Cause.** A pixel holding no number is not colorized.
+:   **Fix.** Repair those pixels on a duplicate before you colorize.
+
+Use lightness is disabled
+:   **Cause.** The target is grayscale, or has an alpha channel.
+:   **Fix.** Nothing for a grayscale image, whose one plane is the intensity. Remove the alpha channel first.
+
+Two images with the same samples give different results with Use lightness
+:   **Cause.** One is described as linear RGB and is read as linear, the other is read as sRGB-encoded.
+:   **Fix.** Check how each image's color space is described.
+
+"the colorization needs a grey image or an image of red, green and blue"
+:   **Cause.** The target, or a frame of the sequence, has an alpha channel or another number of channels.
+:   **Fix.** Remove the alpha channel, or extract one plane and colorize it. The target was not changed.
+
+Reset did not turn Use lightness off
+:   **Cause.** **Reset** leaves **Use lightness** as it is.
+:   **Fix.** Untick it yourself before the next run.
+
+## Related
+
+- [NB Color Mapper](nb-color-mapper.md), which colors several narrowband layers and mixes them.
+- [Narrowband Palette Composer](narrowband-palette-composer.md), which mixes narrowband masters by fixed palettes.
+- [Adjust HSL](../color-adjustment/adjust-hsl.md), to change the hue and saturation an RGB image already has.
+- [Masks](../../interface/masks.md), to make and attach the mask Apply blends through.
+- [Image History](../../interface/image-history.md), to undo the step.
+- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every process
+  window shares.
 
 ## Credits
 
-- Alvy Ray Smith, [“Color Gamut Transform
-  Pairs”](https://alvyray.com/Papers/CG/color78.pdf), SIGGRAPH 1978, describes
-  the hexcone HSV transform family.
-- International Color Consortium, [How to interpret the sRGB color space](https://www.color.org/sRGB.pdf),
-  documents the sRGB transfer and D65 RGB/XYZ basis used by AfterNight's CIE L*
-  conversion for an image not recorded as linear RGB. AfterNight does not
-  inspect or apply an embedded ICC profile here.
-
-## Related workflow steps
-
-- [NB Color Mapper](nb-color-mapper.md) provides multi-layer HSV colorization,
-  modifiers, background neutralization, and screen mixing for narrowband work.
-- [Narrowband Palette Composer](narrowband-palette-composer.md) uses fixed
-  palette matrices rather than a single Hue/Saturation mapping.
-- [Adjust HSL](../color-adjustment/adjust-hsl.md) modifies an existing RGB
-  image in HSL instead of constructing RGB from fixed HSV/HSI settings.
-- [Masks](../../interface/masks.md), [Process Windows](../../interface/process-windows.md),
-  and [Image History](../../interface/image-history.md) explain shared blending,
-  preview, Apply, and verification behavior.
+- Alvy Ray Smith, ["Color Gamut Transform Pairs"](https://alvyray.com/Papers/CG/color78.pdf), SIGGRAPH 1978,
+  describes the hexcone HSV model.
+- International Color Consortium, [How to interpret the sRGB color space](https://www.color.org/sRGB.pdf), describes
+  the sRGB transfer and the D65 basis the CIE L* conversion uses for an image not described as linear RGB. No embedded
+  ICC profile is read.

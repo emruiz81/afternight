@@ -3,338 +3,360 @@ kind: process
 stage: finish
 menu: Process > Intensity Transformations > Local Histogram Equalization
 summary: >-
-  Remaps each pixel through the histogram of its own neighborhood, raising local contrast, with G'MIC.
+  Ranks each pixel's lightness among its neighbors and blends that rank back over the image, brightening what is
+  bright for its surroundings and darkening what is dark, computed by G'MIC.
 data_in: nonlinear
 data_out: nonlinear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: The G'MIC library bundled with AfterNight
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Local Histogram Equalization window is open on it yet, and no window
+    that needs the image for itself is open on it.
+  inputs: >-
+    One grayscale or RGB image or sequence whose samples are all finite numbers, and an optional mask on its view.
+  outputs: >-
+    The same view, replaced, with one history step, its processing state recorded as nonlinear. Its size, channels and
+    pixel type are kept, and its samples are held between 0 and 1. No file is written.
+  state: >-
+    A stretched image, after noise reduction, whose structure needs more separation between neighboring tones.
 derived: true
+rewritten: true
 ---
 # Local Histogram Equalization
 
-## Purpose and expected result
+Local Histogram Equalization raises local contrast by ranking. For every pixel it builds a histogram of the lightness
+in a small square around it, finds where the pixel stands in it, and blends that standing back over the image: a pixel
+brighter than its neighbors is brightened, a darker one is darkened. Each pixel gets its own mapping, with no tiles
+and no clip limit.
 
-Local Histogram Equalization remaps each pixel through a cumulative distribution
-function (CDF) built from that pixel's own neighborhood. Unlike CLAHE, it does
-not divide the image into tiles, clip histogram bins, or interpolate between
-tile mappings. Every pixel receives a separately computed local mapping.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the equalized one, keeps its
+size and [pixel type](../../reference/glossary.md#pixel-type), adds one step to its
+[history](../../reference/glossary.md#history), and records the result as nonlinear. The bundled G'MIC library
+computes the samples.
 
-The expected result is a same-size still or replacement sequence with stronger
-local tonal separation. The shipped process always uses G'MIC's hidden **Soft**
-mode and, for default RGB, operates on Lab lightness. It can reveal faint
-structure, but it can also amplify noise, create local halos, and produce an
-overprocessed soft-light appearance.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Intensity Transformations > Local Histogram Equalization** |
-| Enabled when | An image or sequence is active, the same process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One grayscale or RGB still or sequence; optional active mask with matching geometry; a CFA still remains one grayscale mosaic plane, while a CFA sequence is auto-debayered to RGB first when its view has sequence auto-debayer enabled |
-| Outputs | Destructively replaces the still or, after successful temporary processing, the sequence; **Take snapshot** creates an auxiliary still; no file is written directly |
-| Recommended image state | Finite normalized nonlinear working copy after noise reduction; local CDF remapping is normally a post-stretch contrast operation |
-| Preview support | Asynchronous movable-area preview, original/result switching, snapshot, display-channel selection, and separate source/result histogram; no execution autostretch |
-| Sequence support | Yes; numeric/checkbox parameters and process Channel are captured once when Apply starts, CFA frames can be auto-debayered first, and temporary output replaces the sequence only after success |
-| Mask support | Yes; active mask blends the Amount-mixed result with the original after local equalization |
-| External dependencies | Bundled G'MIC 3.5.4/cgmic standard library, run through AfterNight's optional G'MIC adapter; no separate installation, model, file, or network access. In a build without G'MIC, Preview and Apply are disabled and their tooltip says why |
-| Non-finite samples | An image holding a NaN or infinite sample is refused before G'MIC sees it, and left unchanged |
-| Processing state | Apply records the result as nonlinear under the operation `local-histogram-equalization`; a preview records nothing |
+```figure
+image: ../../assets/images/processes/sharpening/local-histogram-equalization.webp
+alt: >-
+  The Local Histogram Equalization window. On the left, a histogram with three colored peaks and the lines Clipping
+  Low and Clipping High in its corner, a toolbar, then the Strength, Radius, Sigma, Regularization and Amount boxes
+  with their sliders, the Reduce Halos check box ticked, Target Image, Channel at RGB and Preview. On the right, the
+  preview of the stretched nebula, with a framed area in its middle that shows the equalized result. Reset, Close and
+  Apply run along the bottom.
+caption: >-
+  Local Histogram Equalization on a stretched master with its default values: the framed preview area shows what
+  Apply writes there.
+pins:
+  - {n: 2, x: 2.0, y: 85.5}
+  - {n: 3, x: 2.0, y: 52.1}
+  - {n: 4, x: 2.0, y: 56.3}
+  - {n: 5, x: 2.0, y: 60.6}
+  - {n: 6, x: 2.0, y: 47.9}
+  - {n: 7, x: 73.4, y: 16.6}
+  - {n: 8, x: 2.0, y: 64.8}
+  - {n: 9, x: 91.0, y: 96.7}
+```
 
 ## Before you start
 
-- Denoise before local equalization. A local CDF expands small neighborhood
-  differences whether they are structure, shot noise, compression, or defects.
-- Debayer CFA stills before color work. For CFA sequences, confirm the view's
-  sequence auto-debayer setting: enabled frames enter as RGB; disabled frames
-  remain a grayscale mosaic that can exaggerate the sensor pattern.
-- Duplicate the image or confirm Image History is available. Apply replaces the
-  target only after the full operation succeeds.
-- Use finite normalized data. G'MIC works in float32 and the result is clamped
-  to `[0,1]`; out-of-range values and double precision are not preserved. An
-  image holding a NaN or infinite sample is refused with "the image holds a
-  sample that is not a finite number, which G'MIC cannot process" and left
-  unchanged.
-- This process needs G'MIC, which AfterNight normally includes. In a build
-  without it, **Preview** and **Apply** are disabled and their tooltip reads
-  "This build of AfterNight carries no G'MIC library, so this process cannot
-  run."
-- Start with default RGB if Lab-lightness enhancement is intended. Selecting a
-  different process Channel first changes the component supplied to G'MIC.
-- Preview smooth background, a bright star edge, and faint structure at 100%.
-  Disable Preview area before Apply to check broad context and frame borders.
+- [Stretch](../../reference/glossary.md#stretch) the image and reduce its noise first. The ranking enlarges every
+  small difference between neighbors, noise and defects included.
+- **Apply** replaces the image. Its history keeps the step before: duplicate the image when you want to compare.
+- Every sample must be a finite number, and what G'MIC returns is held between 0 and 1. A floating-point sample
+  outside that range is cut to it, and a 64-bit image is computed in 32-bit precision.
+- The process needs G'MIC, which AfterNight includes: nothing is installed or downloaded. A build without G'MIC keeps
+  **Preview** and **Apply** disabled, and their tooltip reads "This build of AfterNight carries no G'MIC library, so
+  this process cannot run."
+- A raw color-filter mosaic is equalized as one grayscale plane, which strengthens its pattern:
+  [debayer](../../reference/glossary.md#debayer) it first. The frames of a sequence follow its view's automatic
+  debayer setting.
+- A [mask](../../reference/glossary.md#mask) on the view blends the result with the original after **Amount**.
 
-## Procedure
+## Steps
 
-1. Open **Process > Intensity Transformations > Local Histogram Equalization**
-   and confirm Target Image and Channel.
-2. Start at Strength `75%`, Radius `4`, Sigma `100`, Regularization `8`, Reduce
-   Halos selected, and Amount `1`.
-3. Choose Radius for neighborhood scale. Increase only while the desired
-   structure benefits more than stars, gradients, and smooth background.
-4. Tune Sigma with Reduce Halos selected. Lower values restrict the CDF toward
-   center-like intensities; higher values admit a broader intensity range.
-5. Adjust Regularization to smooth an unstable or mottled equalization map.
-   Recheck fine structure because strong bilateral smoothing can suppress it.
-6. Reduce Strength to weaken the internal Soft blend; reduce Amount last to
-   crossfade the entire completed filter result toward the source.
-7. Toggle Switch image and inspect noise, halos, clipping, and color at Zoom
-   100%. Confirm mask/inversion, then Apply.
+1. **Open the window.** Make the stretched image the active one and choose **Process > Intensity Transformations >
+   Local Histogram Equalization**. The preview shows a framed area in the middle of the image already equalized, and
+   **Apply** is enabled at once.
+2. **Choose what to equalize.** Leave **Channel** at **RGB** to equalize the lightness and keep the colors.
+3. **Set the neighborhood.** Raise **Radius** for broader structures. Every step makes the run much longer.
+4. **Set the tone range.** Keep **Reduce Halos** ticked and lower **Sigma** to rank each pixel among neighbors of
+   similar brightness only.
+5. **Calm the map.** Raise **Regularization** when the background turns mottled, and lower it when fine structure
+   flattens.
+6. **Set the strength.** Lower **Strength (%)** to weaken the whole effect. Keep it above 0.
+7. **Check the whole image at 100 %.** Untick **Preview area**, zoom into the background, a bright star and the edge
+   of the frame, and press ++space++ over the preview to compare with the original.
+8. **Soften the result.** Lower **Amount** last, to fade the whole effect.
+9. **Apply.** Choose **Apply**. The image in its view is the equalized one, its history lists **Local Histogram
+   Equalization** with the six values, and the controls return to their defaults.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Strength (%) | Double value plus slider, percent opacity of fixed Soft blend | `75.00` | None | `0.00..100.00`; spin default step `1`; slider maps `0..1000` to tenths | Raises opacity of G'MIC Soft blend between source and locally equalized layer; `0%` is source, `100%` is full Soft blend—not the raw CDF layer | Hidden Mode is always Soft (`2`); captured for execution | High values can look crunchy/flattened and amplify noise; does not avoid CDF cost at `0` | Preview/Apply; selected process Channel; before final Amount/mask; still/sequence | Captured; Reset/success restore `75` |
-| Radius | Integer value plus slider, pixels | `4` | None | `1..16`; step `1`; square neighborhood is `(2r+1)×(2r+1)` | Enlarges the local sample window from `3×3` to `33×33` | Captured for execution | Larger windows include broader structures and sharply increase per-pixel work; can create broader halos | Preview/Apply; selected Channel; before blending/mask | Captured; Reset/success restore `4` |
-| Sigma | Double value plus slider, 512-bin intensity-distance scale | `100.00` | None | `0.00..256.00`; spin step `0.05` adaptive; slider maps `0..2560` to tenths; script uses `0.1+Sigma` | With Reduce Halos on, higher Sigma admits more intensity differences into the local histogram; lower Sigma favors center-like levels. With it off, the complementary weighting reverses that relationship | Interacts fundamentally with Reduce Halos; captured | Very low selected Sigma can reduce support to nearly identical bins; very high values approach broad weighting. Off mode can ignore same-level samples and emphasize dissimilar neighbors | Preview/Apply; local CDF; still/sequence | Captured; Reset/success restore `100` |
-| Regularization | Double value plus slider, G'MIC bilateral spatial/range scale | `8.00` | None | `0.00..32.00`; spin step `0.05` adaptive; slider maps `0..320` to tenths; `0` disables | If nonzero, smooths the equalized result using source norm as guide, spatial sigma `Regularization`, and range sigma `2+Regularization` in G'MIC's working convention | Applied after CDF normalization and before Soft blend | Higher values can reduce mottling/halos but blur the mapping and cost a bilateral pass; `0` preserves raw local-map variation | Preview/Apply; selected Channel; still/sequence | Captured; Reset/success restore `8` |
-| Reduce Halos | Checkbox | Selected | None | Selected/unselected | Selected uses `exp(-(difference/(0.1+Sigma))²)` and favors intensities similar to the center. Unselected uses `1-exp(...)`, gives zero weight to identical values, and increasingly favors dissimilar levels | Changes meaning of Sigma; captured | Unselected can produce aggressive/unstable local mappings; selected is the conservative path but does not guarantee halo-free output | Preview/Apply; local CDF; still/sequence | Captured; Reset/success select it |
-| Amount | Double value plus slider, final normalized blend | `1.00` | None | `0.00..1.00`; spin step `0.05` adaptive; slider maps `0..1000` to thousandths | Linearly crossfades source and complete fixed-Soft LHE result; `0` is source, `1` is full result | Independent of Strength; captured | Reduces all visible effects but does not undo internal clipping or save CDF/bilateral work | Preview/Apply; reconstructed Channel; before mask; still/sequence | Captured; Reset/success restore `1` |
-| Histogram plot | Interactive source/result histogram | Source initially, preview result after execution | None | Mouse wheel/drag and toolbar actions below | Displays distribution and clipping diagnostics only | Updated from target/preview; separate from preview display | High bin counts add analysis/rendering cost; spatial halos are not visible in a histogram | Display only | Window lifetime |
-| Zoom in | Histogram-toolbar action | Current histogram range | None | Click | Narrows plot range | Histogram shown | Diagnostic only | Histogram display only | Window lifetime |
-| Zoom out | Histogram-toolbar action | Current histogram range | None | Click | Widens plot range | Histogram shown | Diagnostic only | Histogram display only | Window lifetime |
-| Zoom reset | Histogram-toolbar action | Full histogram range | None | Click | Restores full plot range | Histogram shown | Diagnostic only | Histogram display only | Window lifetime |
-| Show grid | Checkable histogram action | Checked | None | Checked/unchecked | Shows/hides plot grid | Histogram shown | Display only | Histogram display only | Window lifetime |
-| Show clipping info | Checkable histogram action | Checked | None | Checked/unchecked | Shows/hides endpoint clipping readouts | Histogram shown | Binned diagnostic, not spatial-quality evidence | Histogram display only | Window lifetime |
-| Absolute scales | Checkable histogram action | Unchecked | None | Checked/unchecked | Uses shared absolute vertical scale instead of local per-channel normalization | Histogram shown | A low-population channel can become hard to see | Histogram display only | Window lifetime |
-| Draw histogram areas | Checkable histogram action | Unchecked | None | Checked/unchecked | Fills plotted channel areas | Histogram shown | Overlap can obscure detail | Histogram display only | Window lifetime |
-| Show histogram | Checkable histogram action | Checked | None | Checked/unchecked | Hides/clears graph and disables toolbar, or reloads source/preview | Always available while idle | Hiding saves graph work only | Display only | Window lifetime |
-| Plot resolution | Combo box, histogram bins | **8-bit (256)** | None | **6-bit (64)**, **7-bit (128)**, **8-bit (256)**, **9-bit (512)**, **10-bit (1024)**, **12-bit (4096)**, **14-bit (16K)**, **16-bit (64K)**, **100 levels**, **1000 levels**, **10000 levels** | Changes diagnostic binning only | Disabled when histogram hidden | More bins cost memory/rendering; output always uses internal 512-bin local CDF regardless | Histogram display only | Window lifetime |
-| Target Image | Image selector | Attached/active target | None | Open eligible image or sequence | Changes source, Channel list, histogram, Preview, mask, and destination | Active target required; duplicate/exclusive launch gates apply; disabled during Apply | A wrong selection before Apply replaces the wrong target | Preview/Apply source and mask | Target lifetime; Reset unchanged |
-| Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | Default RGB is internally converted by G'MIC and equalized only in Lab lightness. A selected component is extracted first and supplied as grayscale, then reconstructed | RGB required for components; disabled during Apply; the selection is captured when Apply starts | Lab-lightness default better preserves chroma than independent RGB; alternate component round trips add buffers and possible gamut clipping | Preview/Apply; active mask post-blend; still/sequence | Dialog-local; Reset/success restore RGB |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables asynchronous full/area execution and preview pane | Process idle | Recomputes full per-pixel CDF/bilateral after changes | Preview only; mask-aware; still/current displayed frame | Window lifetime; Reset unchanged |
-| Preview pane | Image viewer | Filtered result in Linear mode; centered `600×600` area when possible | Execution autostretch is unavailable | Pan/scroll and toolbar actions below | Shows mask-aware result without target modification | Exists only with Preview | Holds source/result/display plus G'MIC buffers | Preview only | Window lifetime |
-| Fit To Window | Preview-toolbar action | Preview fitted initially | None | Click or **Ctrl+Shift+F** | Fits whole image | Preview required | Broad context; hides fine noise | Preview display only | Viewer lifetime |
-| Zoom In | Preview-toolbar action | Current scale | None | Click; `1.25×` | Enlarges around center | Preview required | Improves local inspection | Preview display only | Viewer lifetime |
-| Zoom Out | Preview-toolbar action | Current scale | None | Click; `0.8×` | Reduces view | Preview required | More context, less fine detail | Preview display only | Viewer lifetime |
-| Zoom 100% | Preview-toolbar action | Current scale | None | Click; scale `1.0` | One-pixel viewer scale | Preview required | Preferred for noise/halos | Preview display only | Viewer lifetime |
-| View Channel | Preview-toolbar combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | Stored/derived RGB, CIE, HSL, HSV, HSI, YCbCr display components | Selects display component only | Separate from process Channel | Diagnoses color changes without altering samples | Preview display only | Viewer lifetime |
-| Switch image | Preview-toolbar action | Result shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles result/original | Preview required | Comparison only | Preview display | Preview lifetime |
-| Preview area | Preview-toolbar checkbox | Checked with centered `600×600` area when possible | None | Checked/unchecked; move/resize | Processes area and composites it over original preview | Preview required | Major tuning speedup; can hide broad context/border behavior | Preview/snapshot; mask cropped consistently | Preview lifetime |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes and opens `<target> - Local Histogram Equalization - SNAPSHOT` | Preview required | Adds costly execution and auxiliary still | New still; target unchanged; area/mask honored | New view per action |
-| Apply | Button/action | Enabled | None | One action | Captures numeric/checkbox values, requests a processing lock on the current target, executes the full still/sequence, then applies Amount/mask and commits on success | Target, Channel, and process controls lock during Apply | Per-pixel CDF, optional bilateral, conversions, mask, and sequence encoding are expensive | Destructive still/sequence replacement after success; the result is recorded nonlinear | History records six parameters and, for a colour image, the selected Channel text; then Reset |
-| Reset | Button/action | Enabled while idle | None | One action | Restores `75/4/100/8/selected/1` and RGB | Leaves Target, Preview, histogram, mask, and preview toolbar; disabled during Apply | Checked Preview schedules another expensive execution | Configuration only | Immediate; also after successful Apply |
-| Close | Button/action | Enabled while idle | None | One action | Closes without Apply | Disabled during Apply | G'MIC cancellation may wait for next abort check | Window/execution | Settings discarded |
-| Sequence progress / Cancel | Shared indeterminate process/frame progress and Cancel | Created for sequence Apply | None | Cooperative Cancel | Optionally auto-debayers configured CFA frames, writes a temporary sequence, and promotes it only after success | Sequence only | Captured parameters and Channel stay fixed for every frame; high temporary disk/CPU cost | Full sequence; Amount/mask per frame | Cancel removes temporary output; success records one history step and resets |
+The histogram above the controls, its toolbar and the preview pane are the same in every window: see
+[Process Windows](../../interface/process-windows.md). A histogram cannot show a halo: judge halos on the preview.
 
-## How the algorithm works
+```controls
+window: Local Histogram Equalization
+controls:
+  - name: Strength (%)
+    kind: spinbox
+    default: "75.00"
+    widget: {min: 0, max: 100, step: 1, decimals: 2}
+    effect: Sets how much of the equalized lightness is blended in. A pixel at the top of its neighborhood is brightened by up to this share of its value, and one at the bottom darkened by up to it. Lower weakens both.
+    range: The slider moves it in tenths. At 0 the preview and Apply are refused, because G'MIC then returns two images instead of one. Use **Amount** to fade the result to nothing.
+    tradeoff: High values look crunchy and flat, enlarge noise and clip the brightest pixels. The equalization costs as much at any value.
+    scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Radius
+    kind: spinbox
+    default: "4"
+    widget: {min: 1, max: 16, step: 1}
+    effect: Sets the size of the square neighborhood every pixel is ranked in, a side of twice the radius plus one pixel. Higher ranks a pixel among broader structures, from 3 by 3 pixels at 1 to 33 by 33 at 16.
+    tradeoff: The work for every pixel is the square's area plus a scan of 512 levels, so 9 samples at 1 and 1,089 at 16. Larger squares spread halos further.
+    scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Sigma
+    kind: spinbox
+    default: "100.00"
+    widget: {min: 0, max: 256, step: 0.05, decimals: 2}
+    effect: Sets how far apart in lightness a neighbor may be and still count, in levels of 512 from the darkest pixel to the brightest. With **Reduce Halos** ticked, higher lets more different neighbors count, and lower ranks a pixel only among neighbors of similar lightness.
+    range: The slider moves it in tenths. It measures a difference in lightness, not a distance in pixels, which **Radius** sets alone.
+    enabled: Its effect turns round when **Reduce Halos** is unticked.
+    tradeoff: Very low values leave almost no neighbor to rank against. Very high values count every neighbor almost alike.
+    scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Regularization
+    kind: spinbox
+    default: "8.00"
+    widget: {min: 0, max: 32, step: 0.05, decimals: 2}
+    effect: Smooths the map of ranks over about this many pixels before it is blended in. Higher calms a mottled background and broad halos. At 0 the map is not smoothed, and every pixel is ranked on its own.
+    range: The slider moves it in tenths.
+    tradeoff: Higher values also soften the fine separation the process is for, and cost one more pass. At 0 the grain of the background is ranked pixel by pixel and grows strongly.
+    scope: The preview and Apply, on what **Channel** selects, before the blend, **Amount** and the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    note: It is G'MIC's bilateral filter, guided by the lightness, with a range of 2 more than this value. On the fractions of full scale G'MIC is given, the lightness spans far less than that range, so the smoothing does not stop at edges.
+  - name: Amount
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Mixes the result with the original. At 1 the image takes the whole result, at 0 it stays the original, and at 0.5 it takes half of each.
+    range: The slider moves it in thousandths.
+    tradeoff: It fades everything the equalization did and saves no time, because the equalization runs in full at any value. It cannot bring back what was clipped.
+    scope: The preview and Apply, on the whole image once **Channel** has been converted back, before the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Reduce Halos
+    kind: check
+    default: "On"
+    effect: On, a neighbor counts more the closer its lightness is to the pixel's, and one of the same lightness counts fully. Off, the weights are turned round. A neighbor of the same lightness counts nothing, and the more different ones count most.
+    tradeoff: Off gives aggressive mappings that change a lot from pixel to pixel. On is the gentler choice, but it does not remove every halo.
+    scope: The preview and Apply, with **Sigma**, before **Amount** and the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply tick it again.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence Apply replaces, with the mask on its view. The histogram, the choices of **Channel** and the preview follow it.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses what is equalized. **RGB** ranks the lightness and multiplies the three channels of a pixel by the same factor, which keeps their ratios. Every other choice gives G'MIC one plane, which it equalizes as a grayscale image, and the plane is then converted back to RGB.
+    enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**.
+    tradeoff: A chroma or hue component can come back as colors outside the range or as jumps of hue. A component costs two conversions of the image.
+    scope: The preview and Apply, before **Amount** and the mask.
+    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply returns it to **RGB**.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the result beside the controls, with **Amount** and the mask applied. When the window opens it shows a framed preview area of 600 by 600 pixels in the middle of the image.
+    tradeoff: Every change runs the whole equalization again, in a new G'MIC session. On the whole of a large image it takes far longer than on the area.
+    scope: The window only. A preview area is equalized as an image of its own, between its own darkest and brightest pixels, so it can rank differently from the whole image.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+    note: In a build without G'MIC it is off and disabled, with the tooltip "This build of AfterNight carries no G'MIC library, so this process cannot run."
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Strength (%)**, **Radius**, **Sigma**, **Regularization** and **Amount** to their defaults and ticks **Reduce Halos**.
+    range: It leaves **Channel**, the target, **Preview** and the preview area as they are.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Equalizes the image, or every frame of the sequence, with the values as they are when you press it, then returns them to their defaults.
+    enabled: From the moment the window opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
+    tradeoff: The image goes to G'MIC as a 32-bit floating-point working copy, beside the second copy every run needs. A single image shows a progress window with a busy bar, because the command reports no share done, and its **Cancel** stops the run.
+    persistence: >-
+      The history step is **Local Histogram Equalization** and reads, for example, `Strength: 75.00, Radius: 4, Sigma:
+      100.00, Regularization: 8.00, Amount: 1.00, Reduce Halos: true in channel: RGB`. For a grayscale image it ends
+      after **Reduce Halos**. The mask and the G'MIC version are not recorded.
+```
 
-### Conceptual pipeline
+## How it works
 
-1. The shared process path extracts a selected component when needed, checks it
-   for non-finite samples, and sends it through AfterNight's G'MIC adapter, one
-   G'MIC session per run, as float32 planar fractions of full scale. For default RGB, the filter's fixed channel
-   code `16` selects Lab lightness internally.
-2. The bundled G'MIC command `fx_equalize_local_histograms` normalizes that
-   working channel to integer bins `0..511`. At every pixel, it scans a square Radius neighborhood using Neumann
-   boundary extension and builds a weighted 512-bin histogram.
-3. It converts the histogram to a normalized CDF and maps the center sample
-   through that CDF. It then normalizes the resulting local-map image to
-   `0..255`.
-4. If Regularization is nonzero, it applies a guided bilateral smoothing pass
-   to the local-map result.
-5. The command combines source and map with G'MIC **Soft light** at Strength
-   opacity. AfterNight clamps the result to `[0,1]` and converts it back to the
-   source type. On Apply it then records the result as nonlinear in the
-   processing-state cards (`ANLIN` false, `ANOP` `local-histogram-equalization`),
-   keeping every other card, before applying final Amount and mask; a preview
+1. The channels **Channel** selects go to the bundled G'MIC library as 32-bit floating-point samples, each a
+   [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale), in one G'MIC session for the run. An
+   image with a sample that is not a finite number is refused before G'MIC sees it.
+2. G'MIC converts the image to [CIE Lab](../../reference/glossary.md#cie-lab) and works on its lightness, in which
+   green counts most. A single plane is worked as a grayscale image. The lightness is spread over 512 levels, from the
+   darkest pixel of what G'MIC is given to the brightest.
+3. For every pixel, a weighted histogram of its square neighborhood gives the share of neighbors at or below its
+   level: its [CDF](../../reference/glossary.md#cdf) there. Over the image, that map is stretched to run from 0 to 1
+   and smoothed by **Regularization**.
+4. The map is blended over the image in G'MIC's soft-light mode, at an opacity of **Strength (%)**. The result is
+   held between 0 and 1 and written back in the image's own pixel type, rounded to the nearest value. **Amount** and
+   a mask on the view then mix it with the original.
+5. The image replaces the target and its history gets one step. Its header, its
+   [plate solution](../../reference/glossary.md#plate-solution) and its acquisition data are kept. Its
+   [processing state](../../reference/glossary.md#processing-state) is recorded as nonlinear, and a saved file states
+   in its [header cards](../../reference/glossary.md#header-card) that `ANLIN` is `nonlinear` and `ANOP` is
+   `local-histogram-equalization`. Its [lineage](../../reference/glossary.md#lineage) names the process. A preview
    records nothing.
 
-### Local weighted CDF
+### Model
 
-Let `q(p)` be the center sample quantized to one of 512 bins, and let
-`N_r(p)` be its `(2r+1)×(2r+1)` neighborhood. For neighbor `u`, define intensity
-difference `Δ=|q(u)-q(p)|` and `s=0.1+Sigma`.
+With \(k\) the lightness level of a pixel, \(k_u\) that of a neighbor \(u\) in its square of side \(2r + 1\), \(r\)
+the value of **Radius** and \(\sigma\) that of **Sigma**, the neighbor weighs
 
-With Reduce Halos selected, the histogram weight is
+\[ w_u = e^{-\left(|k_u - k| / (\sigma + 0.1)\right)^2} \tag{1} \]
 
-\[
-w(\Delta)=\exp[-(\Delta/s)^2].
-\]
+with **Reduce Halos** ticked, and \(1 - w_u\) without it. The pixel's standing is the weighted share of the
+neighbors at or below its level, the pixel itself included:
 
-Without it, the script uses the complement
+\[ C = \frac{\sum_{k_u \le k} w_u}{\sum_{u} w_u} \tag{2} \]
 
-\[
-w(\Delta)=1-\exp[-(\Delta/s)^2].
-\]
+The map of \(C\) is stretched over the image, smoothed, and turned back into a lightness. That lightness, as a
+fraction \(F\), lies within 0.04 of the smoothed map. With \(s\) the value of **Strength (%)** divided by 100, the
+soft-light blend of \(F\) over a sample \(x\), given as a fraction of full scale, gives
 
-The weighted histogram and CDF are
+\[ y = \min\bigl(1,\ x\,(1 - s + 2sF)\bigr) \tag{3} \]
 
-\[
-h_p(k)=\sum_{u\in N_r(p)} w(|q(u)-q(p)|)\,[q(u)=k],
-\]
+A pixel at the top of its neighborhood is multiplied by up to \(1 + s\), one at the bottom by down to \(1 - s\), and
+the three channels of a pixel by the same factor. With \(a\) the value of **Amount** and \(m\) the mask's weight at
+the pixel, 1 where there is no mask, the sample written is
 
-\[
-C_p(k)=\frac{\sum_{j=0}^{k}h_p(j)}{\max(10^{-5},\sum_{j=0}^{511}h_p(j))}.
-\]
+\[ z = x + a\,m\,(y - x) \tag{4} \]
 
-The local-map sample is `E(p)=C_p(q(p))`. Selected weighting favors levels near
-the center; unselected weighting gives identical levels zero weight and favors
-increasingly dissimilar levels. This is an intensity-distance Gaussian, not a
-spatial Gaussian. Spatial inclusion is the hard square Radius window.
+Equation (3) clips before equation (4) mixes, so **Amount** and the mask cannot bring back a clipped highlight.
 
-### Two separate strength stages
+### Boundaries
 
-The hidden process mode is always G'MIC **Soft light**. Strength `s_t` is its
-opacity between the original and locally mapped layer; it is not a linear mix
-with the raw CDF layer. Let the resulting G'MIC output be `F`. AfterNight then
-uses a separate linear Amount `a`:
+- A sample that is not a finite number stops the preview and the run with "the image holds a sample that is not a
+  finite number, which G'MIC cannot process". Nothing is written.
+- At a **Strength (%)** of 0 the run is refused: G'MIC returns two images, and the reason says so.
+- Beyond the frame the neighborhood repeats the image's edge pixels. A
+  [preview area](../../reference/glossary.md#preview-area) is a frame of its own, with its own darkest and brightest
+  pixels.
+- **Cancel**, or closing the window, asks G'MIC to stop. It stops at its next check, and a stopped run writes nothing.
+- When G'MIC itself fails, on memory for example, the run reports the library's reason and writes nothing. Try again
+  on a smaller image or with fewer images open.
 
-\[
-M(p)=(1-a)I(p)+aF(p).
-\]
+### Worked example
 
-With mask weight `m(p)`, final output is
+The image in the picture above is the linear [master](../../reference/glossary.md#master) after Histogram
+Transformation with **Shadows** and **Midtones** at 0.02, which leaves the background near 0.28. The window keeps its
+defaults: **Strength (%)** at 75, **Radius** at 4, **Sigma** at 100, **Regularization** at 8, **Reduce Halos** ticked,
+**Amount** at 1 and **Channel** at **RGB**. **Preview area** is unticked.
 
-\[
-O(p)=(1-m(p))I(p)+m(p)M(p).
-\]
+Each pixel is ranked in a square of 9 by 9 pixels. A neighbor 100 levels away from it weighs \(e^{-1} = 0.37\) by
+equation (1). A neighborhood whose weights add to 10, with 7 of them at or below the pixel's level, gives
+\(C = 0.7\) by equation (2). By equation (3), a pixel where the smoothed map stands at 1 is multiplied by 1.75, and one
+where it stands at 0 by 0.25. In the smooth background the ranks of the grain even out to about one half, which gives
+\(F\) near 0.46 and a factor near 0.94: the background drops from 0.28 to about 0.26. Stars and the bright edges of
+the nebula rank high and are brightened, and the pixels just around them rank low and are darkened.
 
-Strength `0%` and Amount `0` are both identity endpoints but neither bypasses
-the expensive local-CDF call. Clipping/normalization inside G'MIC occurs before
-Amount and mask, so later blending cannot restore lost range.
+```figure
+images:
+  - image: ../../assets/images/processes/sharpening/local-histogram-equalization-before.webp
+    alt: >-
+      A crop at 100 % of the middle of the stretched master, the bright red nebula beside Eta Carinae, dark dust lanes
+      and many stars on a grainy background.
+    label: Before
+  - image: ../../assets/images/processes/sharpening/local-histogram-equalization-after.webp
+    alt: >-
+      The same crop after Apply, the edges of the nebula and the stars brighter against darker surroundings, the
+      background a little darker and the colors kept.
+    label: After
+caption: >-
+  The middle of the stretched Carina Nebula master at 100 %, before and after Apply with the window's defaults. Both
+  are shown in the Linear display mode, without a display stretch.
+```
 
-### Regularization, color, and precision
+## Starting points
 
-- For nonzero Regularization `λ`, the script applies bilateral smoothing with
-  source norm as guide, spatial sigma `λ`, and range sigma `2+λ` in the G'MIC
-  working convention. This smooths the map rather than changing CDF support.
-- Default RGB uses Lab lightness and preserves G'MIC's reconstructed chroma.
-  Selecting Red/Green/Blue or another process component extracts that scalar
-  component before the fixed internal lightness selection is invoked. A derived
-  component's reconstruction saturates an integer image at its type's range and
-  keeps a floating image's values outside `[0, 1]`.
-- The G'MIC hand-off is float32. Integers normalize before processing; double
-  narrows; all output clamps to `[0,1]` and returns to the original storage
-  type, rounded to nearest.
-- Apply records the result as nonlinear under the operation
-  `local-histogram-equalization`.
-
-## Parameter interactions and starting points
-
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Radius × structure | Radius `4` on 100% preview | Structure remains compressed | Broad halos/flattening and long runtime | Radius first |
-| Sigma × Reduce Halos | Selected, Sigma `100` | Very low Sigma uses only center-like levels | Very high Sigma admits broad level population; unselected can become aggressive | Keep selected; tune Sigma second |
-| Regularization × noise | `8`, compare `0` only on a duplicate | Map remains mottled/noisy | Fine local separation is smoothed away | Sigma, then Regularization |
-| Strength × Amount | Strength `75%`, Amount `1` | Both low obscure whether CDF settings work | High Strength creates Soft-light artifacts even if Amount later hides them | Tune Strength, lower Amount last |
-| RGB × component | Default RGB/Lab lightness | Luminance separation is modest | Alternate chroma/hue component produces gamut/color artifacts | Choose process Channel before CDF controls |
-| Preview area × Radius | Area for tuning, full frame before Apply | Small area misses context | Full result surprises at borders/large structures | Tune locally, then full preview |
-
-These are source-derived checkpoints, not executed visual-quality claims.
-
-## Inputs, outputs, and metadata
-
-- Output dimensions, channel count, pixel format, and storage type match the
-  source still/frame. Integer results quantize; float/double still clamp and
-  double passes through float32.
-- Still Apply modifies only after success. Take snapshot creates a new still;
-  histogram/display settings are not baked into samples.
-- The result keeps the source image's header cards and metadata, and Apply
-  records its processing state as nonlinear under the operation
-  `local-histogram-equalization`, with a lineage entry naming the process. A
-  preview records nothing. Image History uses the process name.
-- History records Strength, Radius, Sigma, Regularization, Amount, Reduce Halos,
-  and, for a colour image, ` in channel: <channel>`. It omits fixed Soft mode,
-  internal Lab-lightness code, mask/inversion, G'MIC version, and CDF bins.
-- Successful Apply resets process parameters/RGB. Target, Preview, histogram,
-  mask, and preview toolbar remain.
-- Sequence Apply promotes a temporary sequence only after success; Cancel
-  removes temporary output. There is no direct output path/name control.
-- CFA sequence frames are auto-debayered before filtering when sequence
-  auto-debayer is enabled; otherwise the filter receives the mosaic plane.
-
-## Performance
-
-- Per pixel, the script scans `(2r+1)²` samples and cumulatively scans 512 bins.
-  A useful model is `O(width × height × ((2r+1)² + 512))` per processed scalar
-  channel, plus color conversion, normalization, and blending.
-- Radius grows the neighborhood from 9 to 1089 samples, so it is the dominant
-  user-controlled cost. The fixed CDF scan remains large even at Radius `1`.
-- Nonzero Regularization adds a full guided bilateral pass. Default RGB also
-  adds Lab conversion/reconstruction.
-- Memory includes G'MIC float images, local command/list intermediates,
-  destination, color conversion, mask, preview, histogram, and temporary
-  sequence storage.
-- Preview area is the safest prototype path. Strength `0`, Amount `0`, and
-  unchecked Preview do not provide an algorithmic fast path for Apply.
-- Focused tests illustrate cost even on synthetic small/medium fixtures: the
-  four-test filter took 57.166 seconds in Release and 105.196 seconds in Debug on
-  the recorded machine. These are validation timings, not production benchmarks.
-- No approved astronomical timing or peak-memory measurement was made.
-
-## Worked example
-
-- **Input/settings:** Finite normalized nonlinear image, default RGB/Lab
-  lightness, Strength `75%`, Radius `4`, Sigma `100`, Regularization `8`, Reduce
-  Halos selected, Amount `1`.
-- **CDF checkpoint:** If a local weighted histogram has total weight 10 and
-  cumulative weight 7 at the center bin, its local-map value before global
-  normalization/blending is `0.7`.
-- **Endpoint checkpoint:** Strength `0%` returns source at the G'MIC blend stage;
-  Amount `0` returns source at the AfterNight stage.
-- **Inspect:** At 100%, check smooth background noise, star rims, mottling,
-  border behavior, hue/chroma stability, clipping bins, and recorded history.
-- **Limitations:** No visual improvement, executed sequence output, production
-  timing, or memory result is claimed.
-
-## Warnings and limitations
-
-- Local Histogram Equalization is not CLAHE: no tiles, clip limit, or tile
-  interpolation exist. It avoids tile seams by computing a CDF at every pixel,
-  at much higher cost.
-- The only process mode is hidden Soft. Raw and Hard remain disabled because the
-  process source records them as broken for 16-bit images.
-- Sigma measures intensity difference in 512-bin space, not spatial distance.
-  Radius alone defines the square spatial neighborhood.
-- Turning Reduce Halos off does more than remove protection: it complements the
-  weighting, gives identical values zero weight, and favors dissimilar levels.
-- Default RGB operates on Lab lightness, not independently on R/G/B. Alternate
-  process components can alter color/gamut during reconstruction.
-- Local equalization can amplify noise, ringing, hot pixels, compression, and
-  gradient residuals. Regularization and final blending do not make bad input
-  safe.
-- Every result is clamped to `[0,1]`; out-of-range float data and double
-  precision are not preserved. An image holding NaN or infinity is refused by
-  name; without G'MIC in the build, the process cannot run and Preview and Apply
-  stay disabled.
-- History uses the process name but omits the hidden mode/internal channel
-  details.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Result looks unlike CLAHE | This process computes per-pixel weighted CDFs and Soft blend; no tiles/clip limit | Use CLAHE when tiled contrast-limited behavior is required |
-| Smooth background becomes mottled | Neighborhood CDF expands small differences/noise | Denoise first; reduce Strength/Radius; increase Regularization cautiously |
-| Halos appear with Reduce Halos selected | Similarity weighting reduces but does not eliminate local CDF and Soft-light edge effects | Reduce Strength/Radius; inspect full frame; use mask |
-| Turning Reduce Halos off changes result drastically | Weight becomes `1-exp(...)`, not unweighted histogram | Re-enable it; retune Sigma only if the complementary behavior is intentional |
-| Sigma seems opposite with protection off | Complementary weighting favors larger intensity differences | Re-enable Reduce Halos or reason from the off-mode equation |
-| Colors shift | Non-default component reconstruction or extreme Lab-lightness mapping clips/gamut shifts | Return process Channel to RGB; reduce Strength/Amount |
-| Process is very slow | Per-pixel window plus 512-bin CDF, optional bilateral, and preview repeats | Use small Preview area, lower Radius, pause changes |
-| Preview differs from Apply | Preview area, Channel, mask, or display conditions changed | Match controls, disable area |
-| The image is marked nonlinear after Apply | Apply records local equalization as a nonlinear operation | Expected; a later linear-only process will see the recorded state |
-| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged |
-| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or CLAHE |
-| A G'MIC error is reported | G'MIC failure, invalid data, or memory exhaustion | Verify finite normalized data; retry smaller duplicate |
+| A stretched nebula, first try | The defaults, with **Preview area** on | **Radius** first, then **Sigma** with **Reduce Halos** ticked, then **Regularization**. **Strength (%)** before **Amount**. |
+| A mottled background | **Regularization** higher | Compare with 0 only on a duplicate. Then **Strength (%)** lower. |
+| Halos around bright stars | **Strength (%)** or **Radius** lower | A mask that protects the stars. |
+| A color component in mind | **RGB** first | Choose the component before the other values, since every value acts on it. |
 
-## Related workflow steps
+## When it goes wrong
 
-Complete [noise reduction](../noise-reduction/wavelet-denoise.md) before local
-equalization. Compare [Local Contrast Enhancement](local-contrast-enhancement.md)
-for a high-radius residual model, and [CLAHE](clahe.md) for tiled CDFs with a
-clip limit and interpolation. Use [Masks](../../interface/masks.md) to protect
-smooth background and [Image History](../../interface/image-history.md) to
-compare or revert Apply.
+!!! warning "The image is recorded as nonlinear"
+    Apply records the result as nonlinear, and a later process that needs a
+    [linear image](../../reference/glossary.md#linear-image) treats it so. Finish every linear step first, or undo
+    the step in the image's history.
+
+!!! warning "Amount and the mask cannot undo clipping"
+    Bright pixels multiplied by more than 1 are clipped before **Amount** and the mask mix the result with the
+    original. Lower **Strength (%)** when star cores turn flat white.
+
+The smooth background turns mottled or grainy
+:   **Cause.** Every small difference between neighbors, noise included, is ranked and enlarged.
+:   **Fix.** Reduce the noise first, raise **Regularization**, or lower **Strength (%)** or **Radius**.
+
+Halos around stars and edges with Reduce Halos ticked
+:   **Cause.** The pixels around a bright star rank low in a square that holds the star, and are darkened.
+:   **Fix.** Lower **Strength (%)** or **Radius**, check the whole image, or protect the stars with a mask.
+
+The result changes a lot, or Sigma works the other way, after unticking Reduce Halos
+:   **Cause.** The weights are turned round: a neighbor of the same lightness counts nothing.
+:   **Fix.** Tick **Reduce Halos** again, unless you mean that ranking.
+
+The preview area looks different from the result of Apply
+:   **Cause.** The area is equalized alone, between its own darkest and brightest pixels.
+:   **Fix.** Untick **Preview area** for the last check before **Apply**.
+
+The preview fails at a Strength of 0, and the reason says the command left 2 images
+:   **Cause.** At 0 G'MIC skips the blend and returns both images.
+:   **Fix.** Set **Strength (%)** above 0, and fade the result with **Amount** instead.
+
+Colors shift after the equalization
+:   **Cause.** A bright channel was clipped while the others were multiplied, or a component other than **RGB** was
+    equalized.
+:   **Fix.** Return **Channel** to **RGB**, and lower **Strength (%)** or **Amount**.
+
+"the image holds a sample that is not a finite number, which G'MIC cannot process"
+:   **Cause.** The image holds a sample that is not a number or is infinite, and the image was left unchanged.
+:   **Fix.** Repair or crop away those samples, then apply again.
+
+Preview and Apply are disabled, and the tooltip names G'MIC
+:   **Cause.** This build of AfterNight was made without G'MIC.
+:   **Fix.** Use a build that includes G'MIC, or use [CLAHE](clahe.md), which does not need it.
+
+## Related
+
+- [CLAHE](clahe.md), which equalizes tiles of the image with a clip limit instead of every pixel's neighborhood.
+- [Local Contrast Enhancement](local-contrast-enhancement.md), which raises contrast by the difference from a wide
+  blur.
+- [Wavelet Denoise](../noise-reduction/wavelet-denoise.md), to reduce the noise before.
+- [Masks](../../interface/masks.md), to protect the background or the stars.
+- [Image History](../../interface/image-history.md), to compare with the step before or undo it.
+- [Process Windows](../../interface/process-windows.md), for the preview, the histogram and what every process window
+  shares.
 
 ## Credits
 
-- [G'MIC `blend` reference](https://gmic.eu/reference/blend) — official Soft
-  light and opacity command contract.
-- [G'MIC `bilateral` reference](https://gmic.eu/reference/bilateral.html) —
-  official guide/spatial/range sigma contract.
-- [G'MIC `apply_channels`
-  reference](https://gmic.eu/reference/apply_channels.html) — official
-  channel-selection and 0–255 working convention.
-- [David Tschumperlé's 2018 G'MIC implementation note](https://discuss.pixls.us/t/feature-request-contrast-limited-adaptive-histogram-equalization-clahe/6573/5)
-  — primary author statement that this local-histogram filter is not CLAHE and
-  source listing for the original controls.
+- [G'MIC](https://gmic.eu) 3.5.4, by David Tschumperlé and the G'MIC team, under CeCILL-2.1 or CeCILL-C at the
+  user's choice, computes the equalization with its `fx_equalize_local_histograms` filter, by David Tschumperlé.
+  AfterNight bundles it.
+- [David Tschumperlé's note of 2018](https://discuss.pixls.us/t/feature-request-contrast-limited-adaptive-histogram-equalization-clahe/6573/5)
+  explains that this filter is not CLAHE, and lists its controls.
+- The G'MIC [`blend` reference](https://gmic.eu/reference/blend) describes the soft-light mode and its opacity.
+- The G'MIC [`bilateral` reference](https://gmic.eu/reference/bilateral.html) describes the smoothing
+  **Regularization** sets.
+- The G'MIC [`apply_channels` reference](https://gmic.eu/reference/apply_channels.html) describes how the filter
+  reaches the lightness of the image.
