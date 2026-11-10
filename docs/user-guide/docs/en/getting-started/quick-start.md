@@ -62,7 +62,7 @@ Integration** card opens the full process, which is another window.
 
 !!! see "You should see"
     A red banner: "No light frames available." On a first run it also says "Output directory is required." Later,
-    the window restores the last folder you used, if it still exists, and its own size.
+    the window restores the last folder you used, even one that is gone, and its own size.
 
 ### Choose the output folder
 
@@ -73,9 +73,9 @@ Use a new folder for each data set. A folder that already holds results of the s
 instead of computing them again, unless **Reprocess existing outputs** is on. A run that reuses everything is over
 in seconds and opens no master.
 
-??? wrong "If it goes wrong: the banner keeps saying "Output directory is required.""
-    The folder is missing and cannot be created, is a file, or cannot be written to. Choose a folder on a disk you
-    can write to.
+??? wrong "If it goes wrong: the banner says the output directory cannot be used"
+    "Output directory cannot be created (parent directory is not writable).", "Output directory path is not a
+    directory." or "Output directory is not writable.": choose a folder on a disk you can write to.
 
 ### Add your frames
 

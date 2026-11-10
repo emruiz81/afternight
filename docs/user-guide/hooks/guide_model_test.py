@@ -549,7 +549,7 @@ class BlockTests(unittest.TestCase):
     def test_a_figure_is_read_as_written(self):
         figure = model.read_figure('image: a.png\nalt: An image.\ncaption: A caption.\npins:\n  - {n: 2, x: 1, y: 1}\n'
                                    '  - {n: two, x: 1, y: 1}\n')
-        self.assertEqual(figure, {'pair': False, 'caption': 'A caption.', 'pins': [2],
+        self.assertEqual(figure, {'pair': False, 'caption': 'A caption.', 'pins': [2], 'owed': False,
                                   'images': [{'image': 'a.png', 'alt': 'An image.', 'label': ''}]})
 
     def test_a_pair_is_read_with_its_labels_and_what_it_lacks_is_empty(self):

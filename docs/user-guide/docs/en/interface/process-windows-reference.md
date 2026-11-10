@@ -105,6 +105,7 @@ The [Session Console](log-viewer.md) keeps these lines of a window's work.
 | Show a progress window, with **Cancel**, for a single image too | Auto Gradient Removal, Background Extraction, Banding Reduction, Bilateral Filter, Cosmetic Correction, Dark Structure Enhance, DeepSNR, GRAYCstoration, Local Contrast Enhancement, Local Histogram Equalization, Median Filter, Multiscale Linear Transform, NL-Bayes, Noise Generator, Patch PCA Denoise, Sharpen Alpha, Spectrophotometric Color Calibration, Star Mask, Starnet++, Starnet++ Star Mask, Total Variation Denoise, Unsharp Mask and Wavelet Denoise |
 | Offer **Display Mode** and [**Autostretch Settings**](../reference/glossary.md#autostretch) in the preview's toolbar | Auto Gradient Removal, Background Extraction, Banding Reduction, Bilateral Filter, Binarize, Cosmetic Correction, Dark Structure Enhance, Exposure Correction, Gaussian Blur, GRAYCstoration, Image Blend, Image Compare, LRGB Combination, Mask Drawing, Median Filter, Morphological Transformation, Multiscale Linear Transform, NB Color Mapper, NBRGB Combination, NL-Bayes, Noise Generator, Patch PCA Denoise, Profiled Starmask Recombination, Range Selection, Star Mask, Starmask Recombination, Star Reduction, Tighten Edges, Total Variation Denoise, Unsharp Mask and Wavelet Denoise |
 | Have no [**Preview area**](../reference/glossary.md#preview-area) | Auto Gradient Removal and Background Extraction |
+| Show the selected file in a still preview, never processed, with **Display Mode**, **Autostretch Settings** and **Show statistics** in its toolbar | Image Calibration, Image Registration, Image Stacking, Image List Analyzer and the source tabs of Image Integration |
 | Have no preview pane and no **Preview** check box: a grid of palettes takes its place | Narrowband Palette Composer |
 | Have no **Preview** check box: the preview is always on | LRGB Combination |
 | Open with **Preview** off | Profiled Starmask Recombination |
@@ -241,6 +242,17 @@ was maximized. The option is on the **Interface** page of the settings and is on
 window of that process opens at the kept size, cut to the screen it opens on, and takes the kept values even when the
 option is off. The window's position is not kept. Nothing else is: the target, the preview, the preview area, the
 mask, a run and its progress start afresh.
+
+The stacking windows keep different things:
+
+| Window | What the next window takes |
+| --- | --- |
+| Image Calibration, Image Registration, Image Stacking | Its values and its list of files, which it reads again |
+| Image Integration | Nothing in the record but its size: the project, its frames and settings are saved in Image Integration's own session database every 5 seconds while they change, and when the window closes |
+| Image Integration Lite | Its Output folder only; every other control opens at its default |
+| Image List Analyzer | Its playback rate only |
+
+Each menu choice of a stacking window opens another window, and the last one closed writes the record.
 
 ## Troubleshooting
 

@@ -732,8 +732,8 @@ def fence_blocks(body, first_line=1):
 
 def read_figure(source):
     """A `figure` block as written, without judging it: {'pair', 'images': [{'image', 'alt', 'label'}], 'caption',
-    'pins': [numbers]}, each text stripped and empty when it is not stated. None when the block is not a YAML mapping,
-    which the build reports."""
+    'pins': [numbers], 'owed'}, each text stripped and empty when it is not stated, `owed` true when the block says its
+    pictures are not yet taken. None when the block is not a YAML mapping, which the build reports."""
     try:
         data = yaml.load(textwrap.dedent(source), yaml.BaseLoader)
     except yaml.YAMLError:
@@ -756,7 +756,7 @@ def read_figure(source):
         number = pin.get('n') if isinstance(pin, dict) else None
         if isinstance(number, str) and number.strip().isdigit():
             pins.append(int(number))
-    return {'pair': pair, 'caption': text(data, 'caption'), 'pins': pins,
+    return {'pair': pair, 'caption': text(data, 'caption'), 'pins': pins, 'owed': text(data, 'owed') == 'true',
             'images': [{'image': text(entry, 'image'), 'alt': text(entry, 'alt'), 'label': text(entry, 'label')}
                        for entry in entries]}
 
@@ -801,11 +801,13 @@ def read_controls(source):
     return {'window': window, 'controls': controls}
 
 
-def figure_images(source):
-    """The image paths a `figure` block names, in order; none when the block is not valid YAML, which the build
-    reports."""
+def figure_images(source, owed=False):
+    """The image paths a `figure` block names, in order, when the block's pictures are taken - or, with `owed`, when
+    they are owed; none when the block is not valid YAML, which the build reports."""
     figure = read_figure(source)
-    return [entry['image'] for entry in figure['images'] if entry['image']] if figure else []
+    if not figure or figure['owed'] != owed:
+        return []
+    return [entry['image'] for entry in figure['images'] if entry['image']]
 
 
 def block_texts(source, keys):
@@ -875,17 +877,17 @@ def section(body, title, first_line=1):
     return start + first_line - 1, _HTML_COMMENT.sub('', '\n'.join(lines[start:end])).strip()
 
 
-def image_references(body, first_line=1):
+def image_references(body, first_line=1, owed=False):
     """(line, url) for every image a page body shows: Markdown images and `<img src>`, outside code, and the images
-    of its `figure` blocks."""
+    of its `figure` blocks. With `owed`, the images its `figure` blocks name as not yet taken instead."""
     references = []
     for language, line, source in fence_blocks(body, first_line):
         if language == 'figure':
             source_lines = source.split('\n')
-            for url in figure_images(source):
+            for url in figure_images(source, owed):
                 offset = next((index for index, text in enumerate(source_lines, start=1) if url in text), 0)
                 references.append((line + offset, url))
-    return references + inline_images(body, first_line)
+    return references if owed else references + inline_images(body, first_line)
 
 
 def inline_images(body, first_line=1):

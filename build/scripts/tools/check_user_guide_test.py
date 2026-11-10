@@ -421,6 +421,29 @@ class ImageRuleTests(GuideCase):
         self.page('reference/glossary.md', page % 'gone.webp')
         self.assertOneFinding('R5', 'reference/glossary.md', 8, 'gone.webp does not exist')
 
+    def test_an_owed_picture_is_counted_and_refused_only_when_every_picture_is_asked_for(self):
+        page = ('---\nkind: reference\nsummary: The terms.\n---\n# Glossary\n\n```figure\n'
+                'image: ../assets/images/%s\nowed: true\nalt: A.\ncaption: C.\n```\n')
+        self.page('reference/glossary.md', page % 'later.webp')
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('R5 images: 0 error(s), 0 warning(s)', output)
+        self.assertIn('1 picture owed, on 1 page', output)
+        code, output = self.run_main('--owed')
+        self.assertIn('owed: reference/glossary.md:8: ../assets/images/later.webp', output.replace('\\', '/'))
+        code, found = self.findings('R5', '--no-owed')
+        self.assertEqual(len(found), 1, found)
+        self.assertIn('reference/glossary.md:8: R5 ', found[0].replace('\\', '/'))
+        self.assertIn('later.webp is owed', found[0])
+        self.assertNotEqual(code, 0)
+        # A picture taken is shown: the block no longer says it is owed, and until then nothing shows the file.
+        self.write('docs/user-guide/docs/en/assets/images/later.webp', 'webp')
+        code, found = self.findings('R5')
+        self.assertEqual(len(found), 2, found)
+        self.assertIn('reference/glossary.md:8: R5 image ../assets/images/later.webp exists: remove `owed`',
+                      found[0].replace('\\', '/'))
+        self.assertIn('no page, README.md, logo or favicon shows this image', found[1])
+
     def test_the_home_pages_picture_is_held_and_counts_as_shown(self):
         self.write('docs/user-guide/docs/en/assets/images/spare.webp', 'webp')
         page = ('---\nkind: home\nhero:\n  lede: The guide.\n  actions:\n    - {label: Terms, page: '
