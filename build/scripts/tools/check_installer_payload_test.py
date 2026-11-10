@@ -719,7 +719,30 @@ class PackagedVersionTests(PackagerCase):
         self.edit_packager(payload.WINDOWS_PACKAGER, 'VersionInfoVersion=1.2.3.0', 'VersionInfoVersion=1.2.2.0')
         code, output = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn('states version 1.2.2.0 where the application states 1.2.3 (1.2.3.0)', output)
+        self.assertIn('states version 1.2.2.0 where the application states 1.2.3 (1.2.3.0 or 1.2.3)', output)
+
+    def test_an_installer_taking_its_file_version_from_its_one_statement_passes(self):
+        self.write()
+        self.edit_packager(payload.WINDOWS_PACKAGER, 'VersionInfoVersion=1.2.3.0',
+                           'VersionInfoVersion={#MyAppVersion}')
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+
+    def test_a_file_version_taken_from_a_statement_of_another_release_fails(self):
+        self.write()
+        self.edit_packager(payload.WINDOWS_PACKAGER, 'VersionInfoVersion=1.2.3.0',
+                           'VersionInfoVersion={#MyAppVersion}')
+        self.edit_packager(payload.WINDOWS_PACKAGER, '#define MyAppVersion "1.2.3"', '#define MyAppVersion "1.2.2"')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('states version 1.2.2 where the application states 1.2.3 (1.2.3.0 or 1.2.3)', output)
+
+    def test_an_installer_stating_no_file_version_fails(self):
+        self.write()
+        self.edit_packager(payload.WINDOWS_PACKAGER, 'VersionInfoVersion=1.2.3.0\n', '')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('win_installer.iss: states no version where', output)
 
     def test_an_appimage_naming_another_version_fails(self):
         self.write()

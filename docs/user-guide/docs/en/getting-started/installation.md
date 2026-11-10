@@ -48,20 +48,23 @@ folders beside it.
 
 The installer for your account asks for no administrator rights. The installer for every user asks for them first.
 
-When it finds an earlier version, the installer removes it before it goes on. It reads "A previous version (…) is
-installed. It will now be uninstalled." Choose **OK**: its uninstaller runs, and setup continues when it succeeds.
-When it finds the same version, it asks "The same version (…) is already installed. Would you like to uninstall it
-first?" **Yes** removes it and installs again. **No** ends with "Installation cancelled by user." and changes
-nothing. Setup compares the two version numbers as text, character by character. It installs over a version that
-sorts after its own without removing it first. Your settings are kept in every case, because they are not in the
-installation folder.
+Setup replaces an AfterNight that is already installed, an earlier version or the same one. It removes it without
+asking once you choose **Install**, then installs. Nothing is removed before that, so **Cancel** on any earlier page
+leaves the installed AfterNight as it was. Setup compares the two version numbers part by part, as numbers. When the
+installed version is the newer one, setup asks before its first page: "AfterNight … is installed, and it is newer
+than the version this setup installs, …. Replace it with the older version?" **No** ends setup and changes nothing.
+Your settings are kept in every case, because they are not in the installation folder.
+
+When AfterNight is still running as you choose **Install**, setup reads "AfterNight is running (AfterNight.exe).
+Close it, then try again." Close AfterNight, then choose **Try again**. **Cancel** stops setup with nothing removed.
 
 !!! see "You should see"
-    The setup wizard. On a first installation it opens on the page that chooses the destination folder.
+    The setup wizard, dark, with the AfterNight mark and name on its first page. That page names the version it
+    installs.
 
-??? wrong "If it goes wrong: "Uninstaller not found in registry." or "Uninstallation failed with exit code: …""
-    Setup found an earlier version recorded but could not remove it, and it stops without installing. Remove the
-    earlier AfterNight from the list of installed apps in the Windows settings, then run setup again. Do not delete
+??? wrong "If it goes wrong: "The installed AfterNight could not be removed: …""
+    Setup found an installed AfterNight and its uninstaller failed, and it stops without installing. Remove the
+    installed AfterNight from the list of installed apps in the Windows settings, then run setup again. Do not delete
     files of the old installation by hand.
 
 ### Choose the folder and the shortcuts
@@ -71,6 +74,9 @@ Keep the folder setup proposes unless you have a reason to change it. The instal
 `C:\Program Files`.
 
 Keep no images, projects or results in that folder. Uninstalling AfterNight deletes the folder and everything in it.
+For that reason setup takes only a new folder, an empty one or the folder of an installed AfterNight. For any other
+it reads "The folder … already holds other files." and stays on the page. When AfterNight is already installed,
+setup does not show this page and installs into the same folder.
 
 Choose **Next**. On the next page, check **Create a desktop shortcut** if you want one. The Start menu entry
 **AfterNight** is always made. Choose **Next**, then **Install**.
@@ -155,7 +161,7 @@ AfterNight is installed and starts, and this guide opens without a network conne
   C++ runtime among them, the Python that extensions run in, the two programs that run extensions, the command-line
   tool `AfterNightCLI.exe`, the crash handler and the guide in `docs`. Nothing else needs to be installed. It holds
   no test programs and no debug symbols. Windows lists AfterNight among its installed apps, and uninstalling it there
-  removes the folder.
+  removes the folder. Close AfterNight first: the uninstaller removes nothing while it runs.
 - **On Linux,** the AppImage holds the same parts. Deleting the file removes AfterNight.
 
 Every AfterNight program on Windows can read and write paths longer than 260 characters, where Windows has long paths

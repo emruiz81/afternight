@@ -28,6 +28,7 @@ python build/scripts/tools/check_build_graph.py
 python build/scripts/tools/check_header_architecture.py
 python build/scripts/tools/check_public_api.py
 python build/scripts/tools/check_installer_payload.py
+python build/scripts/tools/render_installer_artwork.py --check
 python build/scripts/tools/check_deployed_runtimes.py --binaries bin/<toolchain>/<configuration>
 python build/scripts/tools/check_gpu_backend_optionality.py
 python build/scripts/tools/remove_gpu_proof.py

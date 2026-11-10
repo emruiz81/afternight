@@ -48,8 +48,9 @@ crosses a separator. The profile's lists name a file at the root, or, with a sla
 the Qt Test deployed in `lib/` is kept out of the AppImage without taking the copy the bundled Python's PySide6
 carries under `PythonLib`, which must ship with it.
 
-Both packagers also name the product's version - the Windows installer's name, its registration and its file
-version, the AppImage's name - and each is held to the version the application states, `kProductVersion` in
+Both packagers also name the product's version - the Windows installer's one statement of it, from which its name,
+its registration and its file version are taken, the AppImage's name - and each is held to the version the application
+states, `kProductVersion` in
 `src/AfterNightApp/app/ApplicationSession.h`, because a package that names another version than the window, the log
 and the crash reports it installs is a release nobody can match to its reports.
 
@@ -108,10 +109,15 @@ REGISTRIES = (REGISTRY, SOURCE_LISTS, PROFILES)
 # Where the application states the product's version, which both packagers name.
 PRODUCT_VERSION_SOURCE = os.path.join('src', 'AfterNightApp', 'app', 'ApplicationSession.h')
 PRODUCT_VERSION = re.compile(r'kProductVersion\[\]\s*=\s*"([^"]+)"')
-# What each packager states the version as: the name, the registration and the four-part file version.
-WINDOWS_VERSIONS = ((re.compile(r'^#define\s+MyAppVersion\s+"([^"]*)"', re.MULTILINE), '{}'),
-                    (re.compile(r'^VersionInfoVersion=(\S*)', re.MULTILINE), '{}.0'))
-LINUX_VERSIONS = ((re.compile(r'^APP_VERSION="([^"]*)"', re.MULTILINE), '{}'),)
+# What each packager states the version as, and the spellings of the product's version each statement may take: the
+# installer's one statement of it, which names the package and registers it, and its file version, which Inno Setup
+# fills with zeros when it is given three parts. The installer's file version may name that one statement rather than
+# repeat it, and is read as what the statement holds.
+WINDOWS_VERSION_DEFINE = re.compile(r'^#define\s+MyAppVersion\s+"([^"]*)"', re.MULTILINE)
+WINDOWS_VERSION_REFERENCE = '{#MyAppVersion}'
+WINDOWS_VERSIONS = ((WINDOWS_VERSION_DEFINE, ('{}',)),
+                    (re.compile(r'^VersionInfoVersion=(\S*)', re.MULTILINE), ('{}.0', '{}')))
+LINUX_VERSIONS = ((re.compile(r'^APP_VERSION="([^"]*)"', re.MULTILINE), ('{}',)),)
 
 # The extension SDK package, and where each platform's deployment puts it below the payload root.
 SDK_PACKAGE = os.path.join('python', 'modules', 'afternight')
@@ -487,14 +493,19 @@ def packaged_version_problems(repo_root):
             continue
         with open(path, encoding='utf-8', errors='replace') as handle:
             text = handle.read()
-        for pattern, spelling in statements:
+        defined = WINDOWS_VERSION_DEFINE.search(text)
+        for pattern, spellings in statements:
             found = pattern.search(text)
-            expected = spelling.format(version)
+            expected = [spelling.format(version) for spelling in spellings]
             if found is None:
                 problems.append('%s: states no version where %s would' % (label, pattern.pattern))
-            elif found.group(1) != expected:
+                continue
+            stated = found.group(1)
+            if defined is not None:
+                stated = stated.replace(WINDOWS_VERSION_REFERENCE, defined.group(1))
+            if stated not in expected:
                 problems.append('%s: states version %s where the application states %s (%s)'
-                                % (label, found.group(1), version, expected))
+                                % (label, stated, version, ' or '.join(expected)))
     return problems
 
 

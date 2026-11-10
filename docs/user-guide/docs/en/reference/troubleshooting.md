@@ -77,9 +77,10 @@ AfterNight does not start on an older Windows
 :   **Cause.** The bundled Qt 6.10 needs Windows 10 version 1809 or later, and setup does not check the version.
 :   **Fix.** Update Windows, or use Windows 11.
 
-"Uninstaller not found in registry.", "Error launching the uninstaller." or "Uninstallation failed with exit code: …"
-:   **Cause.** Setup found an earlier version recorded but could not remove it, and it stops without installing.
-:   **Fix.** Remove the earlier AfterNight from the list of installed apps in the Windows settings, then run setup again.
+"The installed AfterNight could not be removed: …"
+:   **Cause.** Setup found an installed AfterNight and its uninstaller failed, and it stops without installing.
+:   **Fix.** Remove the installed AfterNight from the list of installed apps in the Windows settings, then run setup
+    again.
     [Run the Windows installer](../getting-started/installation.md#run-the-windows-installer) describes the rest.
 
 The AppImage reports "Permission denied"
