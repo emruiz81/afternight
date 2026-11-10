@@ -7663,6 +7663,26 @@ ExtensionPackageTransactionService::removeInstalledPackage(const ExtensionPackag
         result.diagnostic = "Extension id is required for package removal";
         return result;
     }
+    // A bundled package ships with AfterNight and goes only with it: AfterNight's own extensions folder is no place
+    // to remove from, whatever asks, and where it can be written nothing would stop the deletion otherwise.
+    {
+        std::error_code canonical_error;
+        const std::filesystem::path bundled = std::filesystem::weakly_canonical(
+            bundled_extensions_root(std::filesystem::path(QCoreApplication::applicationDirPath().toStdString())),
+            canonical_error);
+        std::error_code root_error;
+        const std::filesystem::path root = std::filesystem::weakly_canonical(install_root, root_error);
+        if (!canonical_error && !root_error && !bundled.empty() && root == bundled)
+        {
+            result.diagnostic = "Bundled extension packages ship with AfterNight and cannot be uninstalled";
+            if (an::platform::isLoggingInitialized())
+            {
+                LOG_WARNING("Extension package uninstall refused id='{}' install_root='{}' reason='bundled'",
+                            request.extension_id, install_root.generic_string());
+            }
+            return result;
+        }
+    }
     if (an::platform::isLoggingInitialized())
     {
         LOG_INFO("Starting extension package uninstall id='{}' install_root='{}' require_existing={}",

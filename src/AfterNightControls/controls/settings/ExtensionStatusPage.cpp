@@ -16,9 +16,7 @@
 #include "components/AnStatusBadge.h"
 #include "theme/AnDesignTokens.h"
 
-#include <AfterNightPlatform/CrashHandler.h>
 #include <AfterNightPlatform/Logging.h>
-#include <AfterNightPlatform/LoggingConfig.h>
 
 #include <verdigris/wobjectimpl.h>
 
@@ -488,24 +486,27 @@ QString recoveryGuidanceText(const ExtensionLoadResult& result)
 
     switch (result.runtime_status->termination_kind)
     {
+    // No extension host starts a crash handler - the Lite host links only the protocol library - so the advice names
+    // what the card records: the reason, the exit code and the host's last output under Last Crash / Termination.
     case ExtensionRuntimeTerminationKind::Crashed:
-        return QObject::tr("The extension host crashed. Review the log directory and crash dumps, then relaunch. If it "
-                           "repeats, rebuild or reinstall the extension environment.");
+        return QObject::tr(
+            "The extension host crashed. Last Crash / Termination gives the reason and the host's last "
+            "output. Relaunch the extension; if it crashes again, rebuild or reinstall its environment.");
     case ExtensionRuntimeTerminationKind::ForcedStop:
         return QObject::tr(
             "The session was stopped before completion. Relaunch the extension when you are ready to continue.");
     case ExtensionRuntimeTerminationKind::Disconnected:
-        return QObject::tr("The extension host lost its control channel. Relaunch the extension, then review logs and "
-                           "crash dumps if the disconnect repeats.");
+        return QObject::tr("The extension host lost its control channel. Relaunch the extension; if it happens again, "
+                           "read the reason under Last Crash / Termination.");
     case ExtensionRuntimeTerminationKind::Unresponsive:
-        return QObject::tr("The extension host stopped responding and was terminated. Reduce workload or adjust "
-                           "settings, then relaunch. Review logs and crash dumps if it happens again.");
+        return QObject::tr("The extension host stopped responding and was terminated. Reduce the work or adjust its "
+                           "settings, then relaunch; Last Crash / Termination names the request it was working on.");
     case ExtensionRuntimeTerminationKind::Failed:
-        return QObject::tr("The extension session failed before completion. Review diagnostics and logs, then relaunch "
-                           "or rebuild the extension environment.");
+        return QObject::tr("The extension session failed before completion. Read the reason under Last Crash / "
+                           "Termination, then relaunch or rebuild the extension environment.");
     case ExtensionRuntimeTerminationKind::Exited:
-        return QObject::tr("The extension host exited unexpectedly. Relaunch it and inspect logs or crash dumps if no "
-                           "explicit error was recorded.");
+        return QObject::tr("The extension host exited unexpectedly. Last Crash / Termination gives its exit code and "
+                           "last output; relaunch it.");
     }
 
     return {};
@@ -923,43 +924,6 @@ QString compactExtensionCardTooltip(const ExtensionLoadResult& result)
     return lines.join(QChar::fromLatin1('\n'));
 }
 
-QString resolveLogDirectoryPath()
-{
-    an::platform::LoggingConfig config;
-    an::platform::loadLoggingConfig(config);
-    if (!config.logDirectory.empty())
-    {
-        return QString::fromStdString(config.logDirectory);
-    }
-
-    return QString::fromStdString(an::platform::LoggingConfig::defaultLogDirectory().string());
-}
-
-QString resolveCrashDumpDirectoryPath()
-{
-    std::filesystem::path database_path = an::platform::crashDatabasePath();
-    if (database_path.empty())
-    {
-        const auto config = an::platform::defaultCrashHandlerConfig(
-            std::filesystem::path(QCoreApplication::applicationFilePath().toStdString()));
-        database_path = config.databasePath;
-    }
-
-    if (database_path.empty())
-    {
-        return {};
-    }
-
-    const std::filesystem::path pending_path = database_path / "pending";
-    std::error_code ec;
-    if (std::filesystem::exists(pending_path, ec))
-    {
-        return QString::fromStdString(pending_path.string());
-    }
-
-    return QString::fromStdString(database_path.string());
-}
-
 ExtensionDiscoveryOptions buildDefaultDiscoveryOptions()
 {
     return an::ui::extensions::default_extension_discovery_options();
@@ -1049,7 +1013,9 @@ QFutureWatcher<std::vector<ExtensionLoadResult>>* startInstalledExtensionStatusC
 
 bool canUninstallExtension(const ExtensionLoadResult& result)
 {
-    return result.manifest.has_value() && !result.package_root.empty();
+    // A bundled package ships with AfterNight and goes only with it.
+    return result.manifest.has_value() && !result.package_root.empty() &&
+           result.source != ExtensionPackageSource::Bundled;
 }
 
 bool canRepairExtensionEnvironment(const ExtensionLoadResult& result)

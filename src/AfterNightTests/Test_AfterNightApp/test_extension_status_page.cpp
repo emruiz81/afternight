@@ -518,6 +518,24 @@ TEST_F(ExtensionStatusPageTest, InstalledExtensionStatusHidesUndeclaredOptionalM
     EXPECT_EQ(page.findChild<QLabel*>(fieldObjectName("minimal_ext", "settingsSchemaState")), nullptr);
 }
 
+// A bundled package ships with AfterNight and goes only with it. Its card offered Uninstall, whose removal would delete
+// the package from AfterNight's own folder where that folder can be written; it offers none.
+TEST_F(ExtensionStatusPageTest, ABundledExtensionCardOffersNoUninstall)
+{
+    ExtensionStatusPage page(nullptr);
+    page.setDiscoveryProvider([]() {
+        return std::vector<ExtensionLoadResult>{
+            makeReadyResult("bundled_ext", "Bundled Extension", "/tmp/extensions/bundled_ext",
+                            "/tmp/extensions/bundled_ext/.venv", ExtensionPackageSource::Bundled)};
+    });
+
+    page.loadSettings();
+
+    EXPECT_NE(page.findChild<QPushButton*>(QStringLiteral("anExtensionStatusButton_revealPackage_bundled_ext")),
+              nullptr);
+    EXPECT_EQ(page.findChild<QPushButton*>(QStringLiteral("anExtensionStatusButton_uninstall_bundled_ext")), nullptr);
+}
+
 TEST_F(ExtensionStatusPageTest, InstalledExtensionCardKeepsOnlyUsefulActions)
 {
     ExtensionStatusPage page(nullptr);
@@ -592,43 +610,6 @@ TEST_F(ExtensionStatusPageTest, UninstallRequiresConfirmationAndRefreshesAfterRe
     EXPECT_EQ(confirmation_calls, 2);
     ASSERT_TRUE(waitFor([&]() { return uninstall_calls == 1; }));
     ASSERT_TRUE(waitFor([&]() { return discovery_calls == 2; }));
-}
-
-TEST_F(ExtensionStatusPageTest, BundledExtensionCanBeUninstalledFromStatusPage)
-{
-    int confirmation_calls = 0;
-    int uninstall_calls = 0;
-
-    ExtensionStatusPage page(nullptr);
-    page.setDiscoveryProvider([]() {
-        auto result = makeReadyResult("bundled_ext", "Bundled Extension", "/tmp/extensions/bundled_ext",
-                                      "/tmp/extensions/bundled_ext/.venv", ExtensionPackageSource::Bundled);
-        result.manifest->processes.push_back(makeProcess("bundled", "Bundled Process"));
-        return std::vector<ExtensionLoadResult>{result};
-    });
-    page.setUninstallConfirmationProvider([&](const ExtensionLoadResult& result) {
-        ++confirmation_calls;
-        EXPECT_EQ(result.source, ExtensionPackageSource::Bundled);
-        EXPECT_EQ(result.manifest->id, "bundled_ext");
-        return true;
-    });
-    page.setUninstallProvider([&](const ExtensionLoadResult& result) {
-        ++uninstall_calls;
-        EXPECT_EQ(result.source, ExtensionPackageSource::Bundled);
-        EXPECT_EQ(result.package_root, std::filesystem::path("/tmp/extensions/bundled_ext"));
-        return an::ui::ExtensionStatusPageUninstallResult{true, QStringLiteral("Removed Bundled Extension.")};
-    });
-
-    page.loadSettings();
-
-    auto* uninstall_button =
-        page.findChild<QPushButton*>(QStringLiteral("anExtensionStatusButton_uninstall_bundled_ext"));
-    ASSERT_NE(uninstall_button, nullptr);
-    EXPECT_TRUE(uninstall_button->isEnabled());
-
-    uninstall_button->click();
-    EXPECT_EQ(confirmation_calls, 1);
-    ASSERT_TRUE(waitFor([&]() { return uninstall_calls == 1; }));
 }
 
 TEST_F(ExtensionStatusPageTest, UninstallShowsImmediateBusyState)
@@ -978,7 +959,44 @@ TEST_F(ExtensionStatusPageTest, LoadSettingsRendersRecordedLaunchAndTerminationS
         page.findChild<QWidget*>(fieldObjectName("demo_extension", "recoveryBanner")));
     ASSERT_NE(recovery_banner, nullptr);
     EXPECT_TRUE(recovery_banner->message().contains(QStringLiteral("relaunch"), Qt::CaseInsensitive));
-    EXPECT_TRUE(recovery_banner->message().contains(QStringLiteral("crash dumps"), Qt::CaseInsensitive));
+    EXPECT_TRUE(recovery_banner->message().contains(QStringLiteral("Last Crash / Termination")));
+}
+
+// No extension host starts a crash handler - the Lite host links only the protocol library - so the advice after a
+// session ended badly sent the reader to crash dumps that do not exist. It names the row that holds the reason, the
+// exit code and the host's last output instead.
+TEST_F(ExtensionStatusPageTest, TheAdviceAfterABadEndingNamesWhatTheCardRecordsAndNoCrashDump)
+{
+    for (const ExtensionRuntimeTerminationKind kind :
+         {ExtensionRuntimeTerminationKind::Crashed, ExtensionRuntimeTerminationKind::Disconnected,
+          ExtensionRuntimeTerminationKind::Unresponsive, ExtensionRuntimeTerminationKind::Failed,
+          ExtensionRuntimeTerminationKind::Exited})
+    {
+        SCOPED_TRACE(static_cast<int>(kind));
+        ExtensionStatusPage page(nullptr);
+        page.setDiscoveryProvider([kind]() {
+            std::vector<ExtensionLoadResult> results;
+            auto result = makeReadyResult("demo_extension", "Demo Extension", "/tmp/extensions/demo_extension",
+                                          "/tmp/extensions/demo_extension/.venv", ExtensionPackageSource::Bundled);
+            ExtensionRuntimeStatusSnapshot runtime_status;
+            runtime_status.has_termination_result = true;
+            runtime_status.termination_kind = kind;
+            runtime_status.termination_detail = "Extension host process ended";
+            result.runtime_status = runtime_status;
+            results.push_back(std::move(result));
+            return results;
+        });
+
+        page.loadSettings();
+
+        auto* recovery_banner = dynamic_cast<an::ui::AnInfoBanner*>(
+            page.findChild<QWidget*>(fieldObjectName("demo_extension", "recoveryBanner")));
+        ASSERT_NE(recovery_banner, nullptr);
+        EXPECT_FALSE(recovery_banner->message().contains(QStringLiteral("crash dump"), Qt::CaseInsensitive))
+            << recovery_banner->message().toStdString();
+        EXPECT_TRUE(recovery_banner->message().contains(QStringLiteral("Last Crash / Termination")))
+            << recovery_banner->message().toStdString();
+    }
 }
 
 TEST_F(ExtensionStatusPageTest, LoadSettingsRendersTerminationDiagnosticsWhenAvailable)

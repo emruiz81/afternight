@@ -3252,6 +3252,24 @@ TEST(ExtensionManagerTest, LocalPackageRepairTransactionRejectsMissingInstalledP
     EXPECT_NE(result.diagnostic.find("not found"), std::string::npos);
 }
 
+// A bundled package ships with AfterNight and goes only with it: the removal refuses AfterNight's own extensions folder
+// whatever it holds. The request names a package that is not there and accepts its absence, so a removal that does not
+// refuse reports success and deletes nothing of the deployment the suite runs from.
+TEST(ExtensionManagerTest, TheBundledExtensionsFolderIsNoPlaceToRemoveFrom)
+{
+    an::ui::extensions::ExtensionPackageRemoveRequest request;
+    request.install_root = an::ui::extensions::bundled_extensions_root(
+        std::filesystem::path(QCoreApplication::applicationDirPath().toStdString()));
+    request.extension_id = "a_package_no_deployment_holds";
+    request.require_existing = false;
+
+    an::ui::extensions::ExtensionPackageTransactionService service;
+    const auto result = service.removeInstalledPackage(request);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_NE(result.diagnostic.find("Bundled"), std::string::npos) << result.diagnostic;
+}
+
 // A removed package is deleted and discovery no longer finds it.
 TEST(ExtensionManagerTest, LocalPackageRemoveTransactionDeletesPackageAndDiscoveryNoLongerFindsIt)
 {
