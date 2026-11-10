@@ -31,3 +31,9 @@ body { font-size: 11pt; background: #FFFFFF; color: #000000; }
 h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
 figure, img, tr, pre, .admonition, details, .prose .an-mermaid { break-inside: avoid; page-break-inside: avoid; }
 details > :not(summary) { display: block !important; }
+.chip i, .chip.warn i, .hero-glow, .prog, .drawer-host, .btn-primary::after, .links a::after { display: none !important; }
+.ctl, .ts, .lane .prow, .prose ol.steps > li, .prose ol.tsteps > li, .result, .pos > div, .card { break-inside: avoid; page-break-inside: avoid; }
+.tut { display: block; }
+.tut > .fig { position: static; max-width: 120mm; }
+.home .block, .hero { padding: 8mm 0; }
+.lane { border-top-width: 1px; }

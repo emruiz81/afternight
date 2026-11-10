@@ -47,7 +47,8 @@ verified, what a complete page contains, how it is written and how its media is 
 | `docs/user-guide/docs/en/` | The English pages; `mkdocs.yml` names this directory `docs_dir`. |
 | `docs/user-guide/data/` | The guide's data: `stages.yml`, the stages of the pipeline that pages name ([Page metadata](#page-metadata)). |
 | `docs/user-guide/mkdocs.theme.yml` | The guide in its own theme: `mkdocs.yml` inherited, with the theme, its hooks and their plugins; it builds into `site-theme/` ([The guide's own theme](#the-guides-own-theme)). |
-| `docs/user-guide/hooks/` | The theme's MkDocs hooks - `guide_hooks.py` (the events), `guide_html.py` (the passes over each page's HTML) and `guide_search.py` (the search index) - and `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the hooks and `check_user_guide.py` share; their tests beside them. |
+| `docs/user-guide/hooks/` | The theme's MkDocs hooks - `guide_hooks.py` (the events), `guide_fences.py` (the `controls` and `figure` blocks), `guide_html.py` (the passes over each page's HTML) and `guide_search.py` (the search index) - and `guide_model.py`, the schema of the pages' front matter and the readers of the guide's data and navigation, which the hooks and `check_user_guide.py` share; their tests beside them. |
+| `docs/user-guide/hooks/fixtures/components/` | A small made-up guide that shows every page kind and component of the theme. The hooks' tests build it strictly, and it is the site to look at while changing the theme ([Components and blocks](#components-and-blocks)). |
 | `docs/user-guide/theme/` | The theme: `main.html`, `base.html`, `404.html`, a layout per page kind in `layouts/`, the shared parts in `partials/`, and under `assets/guide/` its CSS (`tokens.css` a copy of the website's), JavaScript, fonts and the vendored lunr. |
 | `docs/user-guide/docs/en/assets/images/` | Committed screenshots and example images. |
 | `docs/user-guide/docs/en/assets/javascripts/` | The vendored MathJax runtime with its fonts and configuration, the Mermaid runtime, and the polyfills the site loads locally. |
@@ -127,7 +128,8 @@ data_out: nonlinear
 | `derived` | Process | `true` when the process's result is computed, in whole or in part, by another project's code, by a bundled upstream library such as G'MIC, or by an external tool or service, or needs licensed data. The page credits that work ([Naming other programs](#naming-other-programs)). |
 | `needs` | Tutorial, workflow | What it needs from outside AfterNight; an empty list when nothing. |
 | `destructive`, `preview`, `sequences`, `masks`, `external`, `glance`, `controls_ignore` | Process | What the page's "At a glance" shows, and the window's controls the page leaves out on purpose. Stated when the page is rewritten on the new templates. |
-| `hero`, `notice`, `paths`, `popular`; `reach` | Home; catalog | The data those pages are drawn from. |
+| `hero`, `notice`, `paths`, `popular` | Home | What the home page is drawn from ([Pages drawn from data](#pages-drawn-from-data)). |
+| `reach` | Catalog | The ways to reach a process, a list of sentences under the catalog's summary. |
 | `rewritten` | Every page | `true` once the page is rewritten on the new templates. |
 
 - **One source per fact.** An unknown key is an error. A fact that has a source of its own is not repeated in front
@@ -155,9 +157,12 @@ the site the installers bundle does not change. `docs.yml` builds both strictly.
   maintenance mode, and its layout fights the design. MkDocs 2.x loads neither a 1.x theme nor hooks, so MkDocs is
   pinned exactly; the hooks stay small, plain Python, so a later move costs little.
 - **A layout per kind.** `main.html` extends `layouts/<kind>.html` (workflows share the tutorial layout); the page's
-  front matter picks it. Every layout renders the same anatomy for now - left navigation, breadcrumbs, the page head
-  (the H1, lifted out of the content, with the summary and the chips for the menu path and the stage), the lead, the
-  body, the table of contents - and the components of each kind join it.
+  front matter picks it. Interface and reference pages render the plain anatomy: left navigation, breadcrumbs, the
+  page head (the H1, lifted out of the content, with the summary and the chips), the lead, the body, the table of
+  contents. A process page adds its position and its "At a glance" card between the lead and the body; a tutorial or
+  workflow has two columns, its table of contents under the left navigation, so that its steps and their figure get
+  the right rail's width; the home page and the catalog are drawn from data
+  ([Pages drawn from data](#pages-drawn-from-data)).
 - **The stage stepper is on every page**, all eight stages, linked to their lanes of the catalog: it marks a process
   page's stage, the stages a tutorial or workflow spans, and leads the catalog and the home page.
 - **The hooks** (`guide_hooks.py`) read `data/stages.yml` and `AFTERNIGHT_GUIDE_VERSION` (the footer's version, or
@@ -184,6 +189,129 @@ the site the installers bundle does not change. `docs.yml` builds both strictly.
 - **Breakpoints.** Three columns from 1100 px, two from 820 px, one below; the header's section links move behind
   the menu button below 1024 px, which opens the left navigation as a drawer. Anything wider than the column - a
   table, a code block, an equation, a diagram - scrolls in its own box, and the page is never wider than the window.
+
+### Components and blocks
+
+A page is plain Markdown. The theme draws some of it as components, found by where it sits, so that a page stays
+readable as text and Material ignores all of it. `guide_html.dress_sections` does this by the words of each `##`
+heading:
+
+| Where | Markdown | Drawn as |
+| --- | --- | --- |
+| Process page, `## Steps` | An ordered list; each item a bold lead and a sentence or two | Numbered step cards |
+| Any page, `## When it goes wrong` or `## Troubleshooting` | A definition list: the term is the symptom, the definitions `**Cause.** ...` and `**Fix.** ...` | Troubleshooting cards |
+| Tutorial or workflow, `## What you need` | A task list (`- [ ] ...`) | A checklist the reader ticks, with its progress; nothing is stored |
+| Tutorial or workflow, `## Your camera` or `## Your data` | A list of two items, each a bold lead and its text | Branch cards, side by side |
+| Tutorial or workflow, `## Steps` | One `###` heading per step, after an optional `figure` block | Step cards beside the figure, which stays in view from 1100 px; a step the figure does not pin has a plain number |
+| Tutorial or workflow, `## The result` | Text | The result box |
+| Tutorial or workflow, `## Next` | A list of links | Cards |
+| Any page | `!!! see "You should see"` and `??? wrong "If it goes wrong: <symptom>"` | The green checkpoint and the folded amber box, beside `note`, `tip`, `warning` and `danger` |
+| Any page | A table of six columns or more | A smaller table whose first column stays in view while the rest scrolls, until the page is rewritten without it |
+
+Process steps are a list and tutorial steps are headings on purpose: a tutorial's steps get anchors, search entries
+and the home page's step track, and a process's short steps read best as a list.
+
+Two fenced blocks hold what Markdown cannot say. Both are YAML read with PyYAML's base loader, so `Off`, `Yes` and
+`No` stay the words a window shows. `guide_fences.py` registers them with SuperFences, which would swallow an
+exception and leave stray text: a block that cannot be drawn becomes a visible error box and a warning that names the
+page and the line, so `mkdocs serve` shows it and the strict build refuses it.
+
+````markdown
+```controls
+window: Histogram Transformation
+controls:
+  - name: Shadows
+    kind: spinbox
+    default: "0.000000"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 6}
+    range: Not forced below Highlights.
+    effect: Higher maps more low samples to black and rescales the rest; lower keeps more shadow range.
+    tradeoff: Raising it can erase faint signal for good.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue]
+    effect: Chooses the channel the sliders move.
+```
+````
+
+- **`controls`** holds one window's controls: a mapping of `window` and `controls`, or a plain list on a page with
+  one window. A control states `name`, `kind`, `default` and `effect`, and may state `range`, `enabled`, `tradeoff`,
+  `scope`, `persistence` and `note`. `kind` is `spinbox`, `slider`, `combo`, `check`, `radio`, `toolbutton`, `button`,
+  `field` or `action`. A spin box or slider needs `widget.min` and `widget.max` (and may state `step` and
+  `decimals`), with a numeric default inside them; a combo or radio needs `options` that hold its default. Names are
+  unique in a block. Each control is drawn as the widget it is, at its default, with its facets beside it, and gets
+  the anchor `ctl-<name>`, which the page's table of contents lists. The facets take `code` and `**bold**` and no
+  other Markdown. A parameter table of ten columns cannot be read on a page; a row per control can, and it holds the
+  numbers a later check compares with the window.
+- **`figure`** is a picture with `image` (a path relative to the page), `alt` and `caption`, all required, and
+  optional `pins`: `{n, x, y}`, numbered from 1 to match the page's steps and placed in percent of the picture's
+  width and height. With `images:` - two entries of `image`, `alt` and `label` - it is a before-and-after pair,
+  side by side. The picture must exist; the block writes its size, so the page does not jump while it loads, and its
+  own lightbox link, so the lightbox plugin does not wrap the image and shift the pins. A quoted value keeps a comma
+  or a colon in a flow mapping: write a pair's entries as block mappings when their `alt` has one.
+
+````markdown
+```figure
+image: ../../assets/images/processes/stretching/histogram-transformation.webp
+alt: The Histogram Transformation window with the source and predicted histograms and the real-time preview.
+caption: The source histogram below, the predicted result above, the preview on the right.
+pins:
+  - {n: 2, x: 91.0, y: 27.5}
+```
+````
+
+The fixture guide under `docs/user-guide/hooks/fixtures/components/` uses every component, block and kind:
+
+```bash
+mkdocs build -f docs/user-guide/hooks/fixtures/components/mkdocs.yml -d <a folder outside the repository> --strict
+```
+
+It reads the guide's theme, hooks and data in place (`extra.guide_root` names the guide's folder for a configuration
+that is not beside it). It loads neither MathJax nor Mermaid, which are checked on the guide's own pages.
+
+### Pages drawn from data
+
+- **A process page's position.** "Where it belongs" shows the stage before, the page's own and the stage after, each
+  leading to its lane of the catalog, and a bar of the seven stages. `data/stages.yml` states where the image stands
+  at each (`data`: `linear` through Noise & stars, `turn` at Stretch, `nonlinear` at Finish), and the page's
+  `data_in` and `data_out` are shown beside it. A page of Any time has one card and no marked stage.
+- **"At a glance"** is drawn only on a page that states `glance`: its menu paths, the image it takes and leaves, what
+  becomes of the target, its preview, sequences, masks and tools, then `glance`'s `enabled`, `inputs`, `outputs`
+  and `state`. A page not yet rewritten keeps the "At a glance" section it wrote. The head's chips show the same
+  facts in short: "Replaces the target" when `destructive` is true.
+- **The catalog** ignores its own body. It lists every process page in the lane of its `stage`, the lanes in pipeline
+  order with Any time last; inside a lane, by nav group - the Process menu's category - in nav order. A row is the
+  nav label, the page's `summary`, its `menu` paths and `data_in` and `data_out`. A stage per category would teach
+  the wrong order, so the category is the tag and the stage is the lane. Its `reach` sentences follow its summary.
+  A link to a lane is `processes/index.md#stage-<id>`.
+- **The home page** ignores its own body too:
+
+  ```yaml
+  hero:
+    accent: Documentation        # words of the H1 drawn in the accent color; optional
+    lede: One or two sentences under the title.
+    actions:                     # one to three; the first is the main one
+      - {label: Run the quick start, page: getting-started/quick-start.md}
+    image: assets/images/interface/hero-screenshot.png   # with alt and caption, or none of the three
+    alt: What the picture shows.
+    caption: Its caption.
+  notice: A sentence the reader must not miss.
+  paths:                         # one to four cards
+    - {tag: First session, title: Install and launch, text: What the card leads to., page: getting-started/installation.md}
+  popular:
+    - getting-started/quick-start.md
+  ```
+
+  A page is named by its path under the docs folder, as the nav names it, and its title and address come from the
+  nav; a page or picture the guide does not have fails the strict build. The title is the page's H1. The stages show
+  their first four processes; the sections and their page counts come from the nav; and "First stack" lists the
+  `###` steps of the first tutorial in the nav that states `stages`, and is left out while that tutorial has none.
+- **The search** holds the summary of a page drawn from data, not a body the page does not show.
+- **Diagrams follow the theme.** `mermaid-init.js` gives Mermaid the theme's tokens as its colors and draws each
+  diagram again, from the source it kept, when the toggle dispatches `an-themechange`. On a page without the tokens
+  - the Material site - it does what it did.
+- **Code is dark in both themes**, like the application's console, so the highlighter has one set of colors.
 
 ## Offline site, packaging and publication
 

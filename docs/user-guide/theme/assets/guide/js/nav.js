@@ -50,7 +50,7 @@
     });
   });
 
-  var links = Array.prototype.slice.call(document.querySelectorAll(".side-toc .toc-list a"));
+  var links = Array.prototype.slice.call(document.querySelectorAll(".toc-list a"));
   if (!links.length || !("IntersectionObserver" in window)) {
     return;
   }

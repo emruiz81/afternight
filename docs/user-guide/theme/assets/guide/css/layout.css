@@ -285,7 +285,6 @@
 .drawer-sections { display: none; }
 .side-toc .toc-list ul { padding-left: 12px; }
 .side-toc li a { font-size: 13px; padding: 4px 10px; }
-.side-toc li a.in-view { color: var(--accent); border-left-color: var(--accent); }
 .toc-actions { margin-top: 4px; }
 .toc-actions li { padding: 4px 10px; font-size: 13px; }
 .toc-actions li a { display: inline; padding: 0; border: 0; background: none; color: var(--accent); }

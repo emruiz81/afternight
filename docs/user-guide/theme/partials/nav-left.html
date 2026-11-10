@@ -1,6 +1,7 @@
 {#- The left navigation, which is also the drawer the menu button opens below 1024 px. A process page lists its nav
     group, then the other processes of its stage; any other page lists its section. The guide's other sections follow
-    as folded groups. The drawer starts with the section links the header hides at that width. -#}
+    as folded groups. The drawer starts with the section links the header hides at that width. On a two-column page (a
+    layout that sets `two`) the page's table of contents and its actions are here, since it has no right rail. -#}
 <aside class="side side-left" id="guide-drawer" aria-label="Guide navigation">
   <nav class="drawer-sections" aria-label="Sections, in the drawer">
     <ul>
@@ -25,6 +26,22 @@
     <li><a class="more" href="{{ ('processes/index.html#stage-' ~ gp.stage.id)|url }}">The {{ gp.stage.name }} stage in the catalog</a></li>
   </ul>
   {%- endif %}
+  {%- endif %}
+  {%- if two and gp and gp.toc %}
+  <h2 class="side-title">On this page</h2>
+  <ul class="toc-list">
+    {%- for item in gp.toc %}
+    <li><a href="{{ item.url }}">{{ item.title }}</a>
+      {%- if item.children %}
+      <ul>
+        {%- for child in item.children %}
+        <li><a href="{{ child.url }}">{{ child.title }}</a></li>
+        {%- endfor %}
+      </ul>
+      {%- endif %}
+    </li>
+    {%- endfor %}
+  </ul>
   {%- endif %}
   <h2 class="side-title">The guide</h2>
   {%- for item in nav.items %}
@@ -54,4 +71,13 @@
   <ul class="top-pages"><li><a href="{{ item.url|url }}"{% if page and item.url == page.url %} aria-current="page"{% endif %}>{{ item.title }}</a></li></ul>
   {%- endif %}
   {%- endfor %}
+  {%- if two and page %}
+  <h2 class="side-title">This page</h2>
+  <ul class="toc-actions">
+    {%- if page.edit_url %}
+    <li><a href="{{ page.edit_url }}">Edit on GitHub</a></li>
+    {%- endif %}
+    <li><button type="button" class="link-btn print-btn">Print</button></li>
+  </ul>
+  {%- endif %}
 </aside>

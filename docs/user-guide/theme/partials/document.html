@@ -1,7 +1,9 @@
 {#- The anatomy the layouts share: the left navigation, the article - breadcrumbs, the page head, the lead and the
-    body - and the table of contents. A layout sets `crumbs` (show the breadcrumbs) and `wide` (no table of contents
-    and the left navigation only as the drawer) before it includes this. -#}
-<div class="wrap layout{% if wide %} layout-wide{% endif %}">
+    body - and the table of contents. A process page shows its place among the stages and, when it states one, its
+    "At a glance" card between the lead and the body. A layout sets `crumbs` (show the breadcrumbs), `wide` (no
+    table of contents and the left navigation only as the drawer) and `two` (two columns: the table of contents moves
+    under the left navigation and the page takes the right rail's width) before it includes this. -#}
+<div class="wrap layout{% if wide %} layout-wide{% elif two %} layout-two{% endif %}">
   {% include "partials/nav-left.html" %}
   <main id="content" class="content" tabindex="-1">
     {%- if crumbs %}
@@ -10,11 +12,17 @@
     <article class="prose">
       {% include "partials/page-head.html" %}
       <div class="lead">{{ gp.lead }}</div>
+      {%- if gp.position %}
+      {% include "partials/position.html" %}
+      {%- endif %}
+      {%- if gp.glance %}
+      {% include "partials/glance.html" %}
+      {%- endif %}
       {{ gp.body }}
     </article>
     {% include "partials/pager.html" %}
   </main>
-  {%- if not wide %}
+  {%- if not wide and not two %}
   {% include "partials/toc.html" %}
   {%- endif %}
 </div>

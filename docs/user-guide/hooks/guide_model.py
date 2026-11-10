@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import re
 import struct
+import textwrap
 from dataclasses import dataclass, field
 
 import yaml
@@ -28,6 +29,12 @@ DATA_STATES = ('linear', 'nonlinear', 'either', 'cfa')
 PREVIEW_MODES = ('real-time', 'static', 'none')
 MASK_MODES = ('post-blend', 'modulates', 'none')
 GLANCE_KEYS = ('enabled', 'inputs', 'outputs', 'state')
+# Where the image stands at a numbered stage: still linear, turned nonlinear by this stage, or nonlinear.
+STAGE_DATA = ('linear', 'turn', 'nonlinear')
+HERO_KEYS = ('lede', 'accent', 'actions', 'image', 'alt', 'caption')
+HERO_REQUIRED = ('lede', 'actions')
+MAX_HERO_ACTIONS = 3
+MAX_PATHS = 4
 MENU_SEPARATOR = ' > '
 
 _ALL = frozenset(KINDS)
@@ -76,6 +83,7 @@ REQUIRED_KEYS = {
 _FRONT_MATTER = re.compile(r'^-{3}[ \t]*\n(.*?\n)(?:\.{3}|-{3})[ \t]*\n', re.UNICODE | re.DOTALL)
 _KEY_LINE = re.compile(r'^([A-Za-z0-9_-]+)\s*:')
 _FENCE = re.compile(r'^\s*(`{3,}|~{3,})')
+_FENCE_LANGUAGE = re.compile(r'\s*\{?\s*\.?([A-Za-z0-9_+-]*)')
 _ATX_H1 = re.compile(r'^ {0,3}#(?:[ \t]+|$)')
 _HTML_H1 = re.compile(r'<h1[\s>]', re.IGNORECASE)
 _MARKDOWN_IMAGE = re.compile(
@@ -147,6 +155,34 @@ def _is_menu_path(value):
     return all(part.strip() == part and part != '' and '>' not in part for part in parts)
 
 
+def _is_page_path(value):
+    """A page named by its source path under the docs folder, as the nav names it: `processes/index.md`."""
+    return _is_text(value) and value.endswith('.md') and not value.startswith(('/', '.')) and '\\' not in value
+
+
+def _is_record(keys):
+    """A test for a mapping that states exactly `keys`, each as text, its `page` a page path."""
+    def test(value):
+        return (isinstance(value, dict) and set(value) == set(keys) and all(_is_text(item) for item in value.values())
+                and ('page' not in value or _is_page_path(value['page'])))
+    return test
+
+
+def _is_hero(value):
+    if not isinstance(value, dict) or any(key not in HERO_KEYS for key in value):
+        return False
+    if any(key not in value for key in HERO_REQUIRED):
+        return False
+    if not all(_is_text(value[key]) for key in ('lede', 'accent', 'image', 'alt', 'caption') if key in value):
+        return False
+    # A picture is stated whole: the file, what it shows and its caption.
+    if len({key in value for key in ('image', 'alt', 'caption')}) != 1:
+        return False
+    actions = value['actions']
+    return (isinstance(actions, list) and 1 <= len(actions) <= MAX_HERO_ACTIONS
+            and all(_is_record(('label', 'page'))(action) for action in actions))
+
+
 def validate_meta(meta, stage_ids):
     """Every problem with a page's front matter, as (key or None, message) pairs; an empty list when it is valid."""
     problems = []
@@ -193,10 +229,17 @@ def validate_meta(meta, stage_ids):
                                                       and _is_text(item['label']) and _is_text(item['reason']))),
           'a list of {label, reason}')
     check('needs', is_list_of(_is_text), 'a list of short phrases, empty when nothing outside AfterNight is needed')
-    check('hero', lambda value: isinstance(value, dict), 'a mapping')
+    check('hero', _is_hero,
+          'a mapping of `lede`, `actions` (one to %d of {label, page}, the first the main one), and optionally `accent` '
+          '(words of the H1 to draw in the accent color) and a picture as `image`, `alt` and `caption` together' %
+          MAX_HERO_ACTIONS)
     check('notice', _is_text, 'text')
-    check('paths', lambda value: isinstance(value, list), 'a list')
-    check('popular', lambda value: isinstance(value, list), 'a list')
+    check('paths', lambda value: (is_list_of(_is_record(('tag', 'title', 'text', 'page')), allow_empty=False)(value)
+                                  and len(value) <= MAX_PATHS),
+          'a list of one to %d of {tag, title, text, page}' % MAX_PATHS)
+    check('popular', lambda value: (is_list_of(_is_page_path, allow_empty=False)(value)
+                                    and len(set(value)) == len(value)),
+          'a list of distinct pages, each named by its path under the docs folder')
     check('reach', is_list_of(_is_text, allow_empty=False), 'a list of sentences')
     check('rewritten', lambda value: value is True, 'true; leave it out until the page is rewritten')
     return problems
@@ -220,6 +263,7 @@ class Stage:
     number: int | None
     hue_dark: str
     hue_light: str
+    data: str | None = None
 
 
 def load_stages(guide_dir):
@@ -247,8 +291,12 @@ def load_stages(guide_dir):
         if number is not None and number != index:
             raise GuideDataError('%s: stage %s is numbered %r but is stage %d of the pipeline' %
                                  (path, values[0], number, index))
+        state = entry.get('data')
+        if (state is None) != (number is None) or (state is not None and state not in STAGE_DATA):
+            raise GuideDataError('%s: stage %s states `data` (%s) when it is numbered, and not otherwise' %
+                                 (path, values[0], ', '.join(STAGE_DATA)))
         stages.append(Stage(id=values[0], name=values[1], description=values[2], number=number,
-                            hue_dark=values[3], hue_light=values[4]))
+                            hue_dark=values[3], hue_light=values[4], data=state))
     ids = [stage.id for stage in stages]
     if len(set(ids)) != len(ids):
         raise GuideDataError('%s: stage ids repeat' % path)
@@ -325,6 +373,56 @@ def _outside_code(text):
         yield number, _CODE_SPAN.sub(lambda match: ' ' * len(match.group(0)), line)
 
 
+def fence_blocks(body, first_line=1):
+    """(language, line of the opening fence, source) for every fenced block of a page body that names a language.
+    The source is the block's lines as written, indentation included."""
+    blocks = []
+    fence = None
+    language = ''
+    opened_at = 0
+    lines = []
+    for number, line in enumerate(body.split('\n'), start=1):
+        opened = _FENCE.match(line)
+        if fence is None:
+            if opened:
+                fence = opened.group(1)
+                language = _FENCE_LANGUAGE.match(line[opened.end():]).group(1)
+                opened_at = number
+                lines = []
+            continue
+        if opened and opened.group(1)[0] == fence[0] and len(opened.group(1)) >= len(fence) \
+                and line.strip() == opened.group(1):
+            if language:
+                blocks.append((language, opened_at + first_line - 1, '\n'.join(lines)))
+            fence = None
+            continue
+        lines.append(line)
+    return blocks
+
+
+def figure_images(source):
+    """The image paths a `figure` block names, in order; none when the block is not valid YAML, which the build
+    reports."""
+    try:
+        data = yaml.load(textwrap.dedent(source), yaml.BaseLoader)
+    except yaml.YAMLError:
+        return []
+    if not isinstance(data, dict):
+        return []
+    entries = [data]
+    if isinstance(data.get('images'), list):
+        entries += [entry for entry in data['images'] if isinstance(entry, dict)]
+    return [entry['image'] for entry in entries if isinstance(entry.get('image'), str)]
+
+
+def meta_images(meta):
+    """The images a page's front matter names, relative to the page: the home page's picture."""
+    hero = meta.get('hero') if isinstance(meta, dict) else None
+    if isinstance(hero, dict) and isinstance(hero.get('image'), str):
+        return [hero['image']]
+    return []
+
+
 def h1_lines(body, first_line=1):
     """The line of every level-one heading of a page body: `# ` headings and `<h1>` elements, outside code."""
     lines = []
@@ -335,8 +433,15 @@ def h1_lines(body, first_line=1):
 
 
 def image_references(body, first_line=1):
-    """(line, url) for every image a page body shows: Markdown images and `<img src>`, outside code."""
+    """(line, url) for every image a page body shows: Markdown images and `<img src>`, outside code, and the images
+    of its `figure` blocks."""
     references = []
+    for language, line, source in fence_blocks(body, first_line):
+        if language == 'figure':
+            source_lines = source.split('\n')
+            for url in figure_images(source):
+                offset = next((index for index, text in enumerate(source_lines, start=1) if url in text), 0)
+                references.append((line + offset, url))
     for number, line in _outside_code(body):
         for match in _MARKDOWN_IMAGE.finditer(line):
             references.append((number + first_line - 1, match.group(1) if match.group(1) is not None
