@@ -4,7 +4,6 @@ summary: >-
   Start AfterNight for the first time, find your way around its Dashboard, open one image and look at it, and come
   back to the Dashboard with the image among your recent files.
 needs: []
-rewritten: true
 ---
 # First Launch
 

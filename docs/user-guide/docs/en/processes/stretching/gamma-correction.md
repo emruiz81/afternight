@@ -26,7 +26,6 @@ glance:
     A stretched image, mono or RGB, whose midtones need a last adjustment. A linear image is accepted too, and its
     result is recorded as nonlinear all the same.
 derived: false
-rewritten: true
 ---
 # Gamma Correction
 

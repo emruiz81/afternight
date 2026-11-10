@@ -4,7 +4,6 @@ summary: >-
   Image History lists the steps of an image or sequence view and previews any of them. From it you restore, clone or
   remove a step and save the list as text. Undo and Redo move through the same steps.
 menu: Edit > Image History
-rewritten: true
 ---
 # Image History
 

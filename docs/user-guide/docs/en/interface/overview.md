@@ -3,7 +3,6 @@ kind: interface
 summary: >-
   A map of the main window - its menus, toolbar, Dashboard and workspace, image views, docked panels, status bar and
   process windows - and what each part is for.
-rewritten: true
 ---
 # Interface Overview
 

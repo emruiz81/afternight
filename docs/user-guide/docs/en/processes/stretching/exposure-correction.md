@@ -26,7 +26,6 @@ glance:
     A stretched image that needs a small overall brightening or darkening. On linear data the factor is a change of
     exposure, but the result is recorded as nonlinear, so every step that needs linear data comes first.
 derived: false
-rewritten: true
 ---
 # Exposure Correction
 

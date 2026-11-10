@@ -61,8 +61,8 @@ large_pages:
   - processes/utility/non-interactive-processes.md
   - interface/settings-dialog.md
 
-# The glossary: `## <letter>` sections of `### <term>` entries. Its terms are the ones a rewritten page links on
-# their first use (R13).
+# The glossary: `## <letter>` sections of `### <term>` entries. Its terms are the ones a page links on their first
+# use (R13).
 glossary:
   page: reference/glossary.md
   entry_words: 80
@@ -82,3 +82,11 @@ before_after_groups:
   - Background Extraction
   - Color Calibration
   - Star Operations
+
+# The pages of those groups that show no pair, each with the reason, which R10 then does not ask for one. An entry
+# that excuses nothing - its page shows a pair, is of another group or is gone - is a warning.
+before_after_exempt:
+  - page: processes/noise-reduction/deepsnr.md
+    reason: >-
+      DeepSNR is under a licence of its own that limits what the program's outputs may be used for, so the guide
+      shows no result of it.

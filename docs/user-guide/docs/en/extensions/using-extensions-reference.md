@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   What Using Extensions leaves out: where AfterNight finds packages, what each state means, the two hosts, how a
   session and an environment are run, what an extension receives and returns, what it costs, and every message.
-rewritten: true
 ---
 # Using Extensions Reference
 

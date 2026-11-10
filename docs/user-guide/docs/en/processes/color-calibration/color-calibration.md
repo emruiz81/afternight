@@ -27,7 +27,6 @@ glance:
     A stacked and cropped linear RGB master after gradient removal and before the stretch, with a field of stars or a
     galaxy to take as white.
 derived: false
-rewritten: true
 ---
 # Color Calibration
 

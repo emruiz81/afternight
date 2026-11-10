@@ -4,7 +4,6 @@ summary: >-
   Image Statistics measures each channel of an image, or of the frame a sequence shows: counts, level, spread,
   extremes and background noise, read from the stored samples and never from the display.
 menu: Image > Information > Statistics
-rewritten: true
 ---
 # Image Statistics
 

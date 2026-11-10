@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   Every key AfterNight defines, by the window or the part that must have the keyboard: the main window, an image
   view, a process window and its preview, the Session Console, Image Integration, Blink Comparator and Mask Drawing.
-rewritten: true
 ---
 # Keyboard Shortcuts
 

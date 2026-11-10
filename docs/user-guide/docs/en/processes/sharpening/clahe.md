@@ -24,7 +24,6 @@ glance:
     A stretched image, after noise reduction, whose structure needs more local contrast than one curve for the whole
     image can give.
 derived: false
-rewritten: true
 ---
 # CLAHE
 

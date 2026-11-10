@@ -28,7 +28,6 @@ glance:
     A stacked, gradient-corrected, cropped and plate-solved linear RGB master of broadband filters, before any
     stretch.
 derived: true
-rewritten: true
 ---
 # Photometric Color Calibration
 

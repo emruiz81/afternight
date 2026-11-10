@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   What Image Calibration needs of its masters, the files it writes, its messages and log lines, what too little and too
   much of each correction look like, what a run costs and what the window keeps.
-rewritten: true
 ---
 # Image Calibration Reference
 

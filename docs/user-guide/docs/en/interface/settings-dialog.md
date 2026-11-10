@@ -4,7 +4,6 @@ menu: Edit > Settings...
 summary: >-
   The Settings dialog: nine pages of preferences for the whole application, from temporary files, camera raw files and
   saving to processing limits, logging, catalogs, external tools and plate solving.
-rewritten: true
 ---
 # Settings
 

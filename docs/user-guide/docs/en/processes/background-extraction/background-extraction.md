@@ -25,7 +25,6 @@ glance:
   state: >-
     A calibrated, stacked and cropped linear master, before color calibration and the stretch.
 derived: true
-rewritten: true
 ---
 # Background Extraction
 

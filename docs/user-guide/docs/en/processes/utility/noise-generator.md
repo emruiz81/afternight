@@ -26,7 +26,6 @@ glance:
     A duplicate of any image, linear or stretched, or a synthetic frame, made into test data. Noise on linear data is
     the easiest to read.
 derived: false
-rewritten: true
 ---
 # Noise Generator
 

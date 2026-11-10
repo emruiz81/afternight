@@ -26,7 +26,6 @@ glance:
     Any image whose structures of interest sit at known values, most often a stretched image, from which a mask for
     later work is wanted.
 derived: false
-rewritten: true
 ---
 # Range Selection
 

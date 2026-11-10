@@ -26,7 +26,6 @@ glance:
     A calibrated linear image, debayered and without strong gradients, whose stars are to be protected or treated
     apart from the rest.
 derived: true
-rewritten: true
 ---
 # Star Mask
 

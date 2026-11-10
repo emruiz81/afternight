@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   What Extension Marketplace leaves out: where the list comes from, which release a card offers, what each signature
   state allows, how an install runs and what it writes, what a package file may hold, and every message.
-rewritten: true
 ---
 # Extension Marketplace Reference
 

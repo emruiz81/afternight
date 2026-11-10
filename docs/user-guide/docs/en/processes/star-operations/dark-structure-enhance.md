@@ -22,7 +22,6 @@ glance:
     on, an Apply to a single image also opens the mask it used as a new image.
   state: A stretched image, mono or RGB, whose dust lanes or dark nebulae should stand out more.
 derived: false
-rewritten: true
 ---
 # Dark Structure Enhance
 

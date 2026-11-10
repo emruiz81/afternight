@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   The language of Pixel Math: how an expression is written, its operators, images and symbols, every function with its
   arguments and result, the two ways an expression runs, the messages, the settings file and what a run records.
-rewritten: true
 ---
 # Pixel Math Reference
 

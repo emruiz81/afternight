@@ -26,7 +26,6 @@ glance:
     Any image: a calibrated, registered linear image for a resize you will measure, or a duplicate of a finished
     picture for its display size.
 derived: false
-rewritten: true
 ---
 # Resize
 

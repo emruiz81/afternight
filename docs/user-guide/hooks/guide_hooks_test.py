@@ -254,7 +254,6 @@ class ComponentSiteTests(unittest.TestCase):
         self.assertIn('<figure class="an-figure an-pair">', html)
         self.assertIn('<dl class="tsc">', html)
         self.assertNotIn('fence-error', html)
-        self.assertNotIn('class="table-wrap wide"', html)
 
     def test_position_blocks_at_the_first_stage_the_stretch_and_any_time(self):
         first = self.site('processes/calibration/flat-division.html')
@@ -269,7 +268,7 @@ class ComponentSiteTests(unittest.TestCase):
         self.assertIn('#stage-finish">Finish</a>', stretch)
         self.assertIn('<i class="turn on" style="--c:var(--s6)"></i>', stretch)
         self.assertNotIn('id="at-a-glance"', stretch)
-        self.assertIn('class="table-wrap wide"', stretch)
+        self.assertIn('<dl class="tsc">', stretch)
         any_time = self.site('processes/geometry/trim.html')
         self.assertIn('<div class="pos pos-any"', any_time)
         self.assertIn('It belongs to no one stage', any_time)
@@ -317,7 +316,7 @@ class ComponentSiteTests(unittest.TestCase):
         self.assertIn('<dl class="tsc">', viewer)
         self.assertNotIn('class="steps"', viewer)
         markdown = self.site('reference/markdown.html')
-        self.assertIn('class="table-wrap wide"', markdown)
+        self.assertEqual(markdown.count('<div class="table-wrap" tabindex="0"><table>'), 1)
         self.assertIn('<div class="admonition see">', markdown)
         self.assertIn('<details class="wrong">', markdown)
         self.assertIn('<dl>', markdown)

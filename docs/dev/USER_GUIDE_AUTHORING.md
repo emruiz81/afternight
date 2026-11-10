@@ -11,11 +11,6 @@ rules a change to the guide follows: where its parts live, how it is built and s
 are read from, what a complete page contains and how its media is handled.
 [USER_GUIDE_STYLE.md](USER_GUIDE_STYLE.md) says how a page is written.
 
-> **The guide is being rebuilt ([#37](https://github.com/emruiz81/afternight/issues/37)).** Its theme, metadata,
-> templates, budgets and checks are the ones this document describes. Its pages are rewritten on the templates
-> group by group: a page that states `rewritten: true` is held to all of it, and a page that does not yet keeps the
-> structure it was written with and is only counted against the new rules ([Checks](#checks)).
-
 ## Contents
 
 1. [Layout](#layout)
@@ -121,11 +116,10 @@ data_out: nonlinear
 | `data_in`, `data_out` | Process | `linear`, `nonlinear`, `either` or `cfa`: the state the process expects, and the state its result is recorded in. Stated only where the page establishes it. |
 | `derived` | Process | `true` when the process's result is computed, in whole or in part, by another project's code, by a bundled upstream library such as G'MIC, or by an external tool or service, or needs licensed data. The page credits that work ([Naming other programs](#naming-other-programs)). |
 | `needs` | Tutorial, workflow | What it needs from outside AfterNight; an empty list when nothing. |
-| `destructive`, `preview`, `sequences`, `masks`, `external`, `glance` | Process | What the page's "At a glance" shows: whether Apply replaces the target (`true` or `false`), the preview (`real-time`, `static` or `none`), whether sequences are processed, what a mask does (`post-blend`, `modulates` or `none`), what the process needs from outside (`none` or a short phrase), and four texts - `enabled`, `inputs`, `outputs` and `state`. A rewritten page states them all, and `derived` (rule R12). |
+| `destructive`, `preview`, `sequences`, `masks`, `external`, `glance` | Process | What the page's "At a glance" shows: whether Apply replaces the target (`true` or `false`), the preview (`real-time`, `static` or `none`), whether sequences are processed, what a mask does (`post-blend`, `modulates` or `none`), what the process needs from outside (`none` or a short phrase), and four texts - `enabled`, `inputs`, `outputs` and `state`. A process page states them all, and `derived` (rule R12). |
 | `controls_ignore` | Process | The window's controls the page leaves out on purpose, each as `{label, reason}`, with the `object` of the one control meant when the window has several of that label ([The windows' controls](#the-windows-controls)). |
 | `hero`, `notice`, `paths`, `popular` | Home | What the home page is drawn from ([Pages drawn from data](#pages-drawn-from-data)). |
 | `reach` | Catalog | The ways to reach a process, a list of sentences under the catalog's summary. |
-| `rewritten` | Every page | `true` once the page is rewritten on its template; left out until then. It makes the rules of a rewritten page errors on the page ([Checks](#checks)). |
 
 - **One source per fact.** An unknown key is an error. A fact that has a source of its own is not repeated in front
   matter: the title is the page's H1 and its nav label, the category is its nav group, related pages are links in its
@@ -144,8 +138,7 @@ data_out: nonlinear
 ## The guide's own theme
 
 The guide is drawn by a theme of its own that wears the website's look: the templates and assets under
-`docs/user-guide/theme/`, the hooks under `hooks/` and the data under `data/`. It replaced MkDocs Material, which is
-no longer installed.
+`docs/user-guide/theme/`, the hooks under `hooks/` and the data under `data/`.
 
 - **MkDocs 1.6.1, a custom theme.** `theme.name: null` with `custom_dir: theme`; with no named theme MkDocs reads no
   `mkdocs_theme.yml`, so the theme's keys are in `mkdocs.yml`. Material for MkDocs is in maintenance mode, and its
@@ -163,7 +156,8 @@ no longer installed.
   the right rail's width; the home page and the catalog are drawn from data
   ([Pages drawn from data](#pages-drawn-from-data)).
 - **The stage stepper is on every page**, all eight stages, linked to their lanes of the catalog: it marks a process
-  page's stage, the stages a tutorial or workflow spans, and leads the catalog and the home page.
+  page's stage, the stages a tutorial or workflow spans, and leads the catalog and the home page. Any time is one
+  of the eight, so that a page of a tool no stage owns shows where it stands too.
 - **The hooks** (`guide_hooks.py`) read `data/stages.yml` and `AFTERNIGHT_GUIDE_VERSION` (the footer's version, or
   "development build"), lift each page's H1, wrap tables and make code blocks and display equations reachable by the
   keyboard, collect the search index, and hand the layouts `guide` (the data every page shares) and `gp` (the page's).
@@ -204,7 +198,6 @@ readable as text. `guide_html.dress_sections` does this by the words of each `##
 | Tutorial or workflow, `## The result` | Text | The result box |
 | Tutorial or workflow, `## Next` | A list of links | Cards |
 | Any page | `!!! see "You should see"` and `??? wrong "If it goes wrong: <symptom>"` | The green checkpoint and the folded amber box, beside `note`, `tip`, `warning` and `danger` |
-| Any page | A table of six columns or more | A smaller table whose first column stays in view while the rest scrolls, until the page is rewritten without it |
 
 Process steps are a list and tutorial steps are headings on purpose: a tutorial's steps get anchors, search entries
 and the home page's step track, and a process's short steps read best as a list.
@@ -287,16 +280,15 @@ that is not beside it). It loads neither MathJax nor Mermaid, which are checked 
   leading to its lane of the catalog, and a bar of the seven stages. `data/stages.yml` states where the image stands
   at each (`data`: `linear` through Noise & stars, `turn` at Stretch, `nonlinear` at Finish), and the page's
   `data_in` and `data_out` are shown beside it. A page of Any time has one card and no marked stage.
-- **"At a glance"** is drawn only on a page that states `glance`: its menu paths, the image it takes and leaves, what
+- **"At a glance"** is drawn from the page's front matter: its menu paths, the image it takes and leaves, what
   becomes of the target, its preview, sequences, masks and tools, then `glance`'s `enabled`, `inputs`, `outputs`
-  and `state`. A page not yet rewritten keeps the "At a glance" section it wrote. The head's chips show the same
-  facts in short: "Replaces the target" when `destructive` is true.
+  and `state`. The head's chips show the same facts in short: "Replaces the target" when `destructive` is true.
 - **The catalog** has no body: its page is its front matter and its H1. It lists every process page in the lane of
   its `stage`, the lanes in pipeline order with Any time last; inside a lane, by nav group - the Process menu's
   category - in nav order. A row is the nav label, the page's `summary`, its `menu` paths and `data_in` and
   `data_out`. A stage per category would teach the wrong order, so the category is the tag and the stage is the
   lane. Its `reach` sentences follow its summary. A link to a lane is `processes/index.md#stage-<id>`.
-- **The home page** is drawn from its front matter, and ignores the body it still has until it is rewritten:
+- **The home page** has no body either, and is drawn from its front matter:
 
   ```yaml
   hero:
@@ -341,7 +333,8 @@ The installers bundle the built site, and it works opened from disk without a ne
 - `404.html` is the one page that does not work from disk: MkDocs writes its references from the site's root, for the
   web server that shows it at any address. R1 resolves them from the root, and the render tool serves the page over
   the loopback address when it is named.
-- MathJax's fonts and font data are vendored with it, under `assets/javascripts/mathjax/fonts/`, and
+- The pages write their equations as LaTeX, which is easier to write and to review than MathML by hand, and
+  MathJax typesets them. Its fonts and font data are vendored with it, under `assets/javascripts/mathjax/fonts/`, and
   `assets/javascripts/mathjax/mathjax-config.js`, listed before MathJax, points it at them. MathJax otherwise fetches
   them from jsDelivr, and an equation opened offline renders with wrong glyphs. The configuration also turns semantic
   enrichment off, because its speech worker is made from a `blob:` URL that a page opened from disk may not load;
@@ -434,9 +427,7 @@ record of that kind is pinned to the revision it was read at and is stale with t
 processing an image has no use for it. So a page carries no evidence section, no evidence column in a table and no
 comment for its authors, and a rule of the product is stated as the rule, without the file it was read in. The
 pull request that writes or rewrites a page lists, for each page, the sources read and the windows observed: that
-list is the record the page does not carry. Git keeps what earlier pages said: commit `fbd4b0ef81c8` removed the
-evidence from the pages, and with it the audit that had enforced it - its scripts, the completion tracker, the
-screenshot manifest, the verification prerequisites and the audit's baselines.
+list is the record the page does not carry.
 
 What a page owes to others is the exception, and it stays on the page: the credits of
 [Naming other programs](#naming-other-programs).
@@ -495,7 +486,7 @@ and each file lists the controls the window opens with, in the order a person me
   which rule R14 does not hold. What a window only shows is a `readout` in the window's own block
   ([Components and blocks](#components-and-blocks)).
 
-**Rule R14 holds a rewritten process page to its windows** ([Checks](#checks)). The page's windows are the ones
+**Rule R14 holds a process page to its windows** ([Checks](#checks)). The page's windows are the ones
 its `menu` reaches that no other page names more exactly, so the Non-Interactive Processes page, which names whole
 submenus, is not held to the windows that have pages of their own.
 
@@ -510,12 +501,8 @@ submenus, is not held to the windows that have pages of their own.
   `object`. A control the window gives no caption appears in the inventory under its object name: the writer names
   it, and `object` finds it.
 
-**A draft to start from.** `python build/scripts/tools/draft_guide_controls.py <page>` prints a page's `controls`
-blocks drafted from the inventory - names, kinds, defaults, numbers and choices, in the window's order - with every
-cell of the page's old parameter table placed on its control by the header of its column, and the rows that name
-no control listed after the blocks, so a rewrite starts from the window's facts and loses none of the page's. The
-names, kinds and numbers of a draft stay; its sentences are rewritten. The tool lasts as long as there are pages to
-rewrite.
+**A new page's blocks start from the inventory.** The names, kinds, defaults, numbers and choices of a `controls`
+block are copied from the window's file, in the window's order; the writer adds what each control does.
 
 ## Verifying in the application
 
@@ -568,12 +555,8 @@ A subsection has a place too: a `###` heading names a step of a tutorial, a task
 tab under `Controls`, or one of the three parts of `How it works`. There is no fourth level. A page that needs more
 structure than its template has is two pages: the page, and a reference page beside it.
 
-**A page is rewritten whole, and says so.** `rewritten: true` in a page's front matter marks a page written on its
-template. The rules of a rewritten page - its sections, budgets, vocabulary, figures and front matter - are errors
-on a page that carries the mark and are only counted on one that does not. So a rewritten page is protected from
-the day it lands, and a page not yet rewritten never fails a rule it cannot meet: the guide stays buildable while
-its pages are rewritten group by group. A page keeps the sections it was written with until it is rewritten whole;
-it is not moved to the template a heading at a time.
+**Every page is held to its template from the day it is added:** a new page is written on its template whole, in
+the change that adds it, and no page can excuse itself from a rule.
 
 ## What a complete page contains
 
@@ -615,8 +598,8 @@ A page carries what its reader needs and nothing about how it was written ([Sour
 10. **Credits,** when the process is derived or the explanation rests on a paper or a standard
     ([Naming other programs](#naming-other-programs)).
 
-Every fact the page stated before it was rewritten is still stated after: in its prose, in a control's facets, or
-on its reference page. A rewrite drops only what proves.
+A page that is rewritten still states every fact it stated before: in its prose, in a control's facets, or on its
+reference page. A rewrite drops only what proves.
 
 ### An interface page
 
@@ -709,9 +692,11 @@ written, links, credits and length.
 - **A page shows only a picture that exists,** in a `figure` block, with a caption and an alternative text written
   for the reader. A picture not yet taken states `owed: true` on its block, which keeps its caption, alternative
   text and pins for it: the page draws a frame that says the picture is to come and holds its description,
-  `check_user_guide.py` counts it (`--owed` lists every one), and `--no-owed` refuses it, as a release runs the check.
-  Each owed picture is also an issue with its capture recipe, and the block drops `owed` in the change that commits
-  the picture.
+  `check_user_guide.py` counts it (`--owed` lists every one), and `--no-owed` refuses it, for a build that must
+  show every picture. The block drops `owed` in the change that commits the picture. A process page of
+  `before_after_groups` that shows no pair on purpose - DeepSNR's, a program whose licence limits what its
+  outputs may be used for - is named in `before_after_exempt` of `limits.yml` with its reason, instead of owing
+  a pair for ever.
 - **Recapture with the window.** A change that alters a window recaptures its picture in the same pull request.
 - **What may be committed.** Captures and processed examples made by the maintainer from data the project may
   publish. No third-party astrophotography images, catalog screenshots, captures of other applications or
@@ -770,9 +755,9 @@ A page is done when:
 10. **Truth.** Every statement was read in the product's source or seen in the window
     ([Sources of truth](#sources-of-truth)), and the pull request lists, for the page, the sources read and the
     windows observed. The page itself carries no record of how it was written.
-11. **Checks.** The page states `rewritten: true`; `check_user_guide.py` and the strict build pass; and the page
-    was rendered from disk with the network blocked, in Chromium and Firefox, at 1440, 1024 and 390 px, in both
-    themes ([Checks](#checks)).
+11. **Checks.** `check_user_guide.py` reports no error and no warning on the page; the strict build passes; and
+    the page was rendered from disk with the network blocked, in Chromium and Firefox, at 1440, 1024 and 390 px,
+    in both themes ([Checks](#checks)).
 
 A change that touches the guide without rewriting a page - a correction, a new control's row, a recaptured picture
 - is done when what it changed is accurate, navigation, front matter, the glossary, related links and the media
@@ -785,10 +770,10 @@ Run from the repository root:
 | Command | Checks |
 | --- | --- |
 | `build\scripts\msvc\build_user_guide_docs.bat`, `build/scripts/linux/build_user_guide_docs.sh` | The strict build from the lock. |
-| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the hooks' `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths, images and credits; each rewritten page's sections, budgets, vocabulary, figures and glossary links; and what the built site references. `docs.yml` runs all three after the strict build. |
-| `python build/scripts/tools/check_user_guide.py --page <page>` | One page, with every warning it still has: the command to run while writing it. |
+| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the hooks' `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths, images and credits; its sections, budgets, vocabulary, figures, glossary links and controls; the application's help table; and what the built site references. `docs.yml` runs all three after the strict build. |
+| `python build/scripts/tools/check_user_guide.py --page <page>` | One page, with its count of words against its budget: the command to run while writing it. |
 | `bin\msvc\release\Test_ProcessesShared.exe --gtest_filter=ProcessUiInventoryTest.*`, with `AFTERNIGHT_TEST_STORAGE_ROOT` set | That every process window still opens with the controls `data/ui/` records ([The windows' controls](#the-windows-controls)). It runs with the application's suites, on both platforms. |
-| `python build/scripts/tools/draft_guide_controls_test.py`, `python build/scripts/tools/optimize_guide_image_test.py` | The tools that draft a page's controls and prepare a picture. The first runs in `docs.yml`; the second needs Pillow and skips without it. |
+| `python build/scripts/tools/optimize_guide_image_test.py` | The tool that prepares a picture. It needs Pillow and skips without it. |
 | `python build/scripts/tools/check_user_guide.py --tokens <the website's assets/css/tokens.css>` | That the theme's tokens are still the website's (R16), where the website's sources are at hand; not in CI. |
 | `node build/scripts/render_user_guide.cjs --offline` | What a reader sees in the copy the installers bundle; the script's header gives its setup, which keeps its Node packages and browsers outside the repository. |
 
@@ -811,9 +796,7 @@ coverage, the help table and unused images - then do not run.
 - R15 holds the application's help table to the guide: every page it names exists, every registered action opens
   one, and the page is one whose `menu` reaches the action ([Help from a process window](#help-from-a-process-window)).
 
-The rules of a rewritten page hold a page to its template, its budgets, the style guide and its windows. They are
-errors on a page that states `rewritten: true`. On a page that does not, R7, R8, R9 and R11 are warnings, and R10,
-R12, R13 and R14 do not run ([Page kinds and templates](#page-kinds-and-templates) says why):
+R7 to R14 hold every page to its template, its budgets, the style guide and its windows:
 
 - R7 holds the page's sections to its template's, in order, with no others, and the parts the theme draws to their
   shape: a process page's steps an ordered list with bold leads, its controls in a `controls` block, a tutorial's
@@ -831,22 +814,19 @@ R12, R13 and R14 do not run ([Page kinds and templates](#page-kinds-and-template
 - R10 holds every picture to a `figure` block with a caption and an alternative text, a process or interface page
   to one opening figure before its first section, each pin to a step, and each item of an interface page's
   `What you see` to a pin. It warns when a process page of a group under `before_after_groups` shows no
-  before-and-after pair in its worked example.
+  before-and-after pair in its worked example, unless `before_after_exempt` names the page with its reason, and
+  when such an entry excuses nothing.
 - R11 holds each picture a page shows to PNG, WebP or JPEG, to the size and weight of `limits.yml`, and to a row in
-  `MEDIA_PROVENANCE.md`. A picture is held as an error once a rewritten page shows it.
-- R12 holds a rewritten process page to every key its "At a glance" is drawn from, and to saying whether it is
+  `MEDIA_PROVENANCE.md`.
+- R12 holds a process page to every key its "At a glance" is drawn from, and to saying whether it is
   `derived`.
 - R13 warns when the first use on a page of a term the glossary defines - a `### <term>` of one of its letter
   sections - is not a link to the glossary. A term matches whole, with or without a plural ending; one written all
   in capitals matches only in capitals.
-- R14 holds the `controls` blocks of a rewritten process page to the inventory of its windows
+- R14 holds the `controls` blocks of a process page to the inventory of its windows
   ([The windows' controls](#the-windows-controls)): every control of a window listed, excused or shared; every
   control listed in the window under its label, with the window's kind, default, numbers and choices. Controls in
   another order than the window's are a warning, and so is an entry of `controls_ignore` that excuses nothing.
-
-A warning about a page not yet rewritten is counted and not listed, so that the errors can be read while most pages
-wait: the check ends with the count per rule. `--page <page>` lists the warnings of the pages it names, which is
-what a page still owes its template, and `--pending` lists them all.
 
 Rule R1 holds the built site: every relative reference in its pages and stylesheets names a file inside the
 site, spelled in the file's own case, and nothing the site loads comes from the network; a link a reader follows may

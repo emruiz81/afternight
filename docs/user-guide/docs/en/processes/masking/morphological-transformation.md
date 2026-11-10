@@ -25,7 +25,6 @@ glance:
     A mask, or a duplicate of an image, whose bright or dark structures must grow, shrink or be cleaned, linear or
     stretched.
 derived: false
-rewritten: true
 ---
 # Morphological Transformation
 

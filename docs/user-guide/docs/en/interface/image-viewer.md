@@ -4,7 +4,6 @@ summary: >-
   An image view shows one open image or sequence with a toolbar for zoom, channel, display mode, history, analysis
   and astrometry. What it shows never changes the image.
 menu: Image > View
-rewritten: true
 ---
 # Image Viewer
 

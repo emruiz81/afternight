@@ -24,7 +24,6 @@ glance:
     written.
   state: A linear master, mono or RGB, after background correction and color calibration.
 derived: false
-rewritten: true
 ---
 # ArcSinh Stretch
 

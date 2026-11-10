@@ -27,7 +27,6 @@ glance:
     A stacked master, linear with Pre-Stretch linear image ticked, or stretched with it off. Star Reduction and
     Starmask Recombination need a starless image of the stretched image.
 derived: true
-rewritten: true
 ---
 # Starnet++
 

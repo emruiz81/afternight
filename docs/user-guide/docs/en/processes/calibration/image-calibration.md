@@ -25,7 +25,6 @@ glance:
     Raw linear lights as the camera wrote them, grayscale, a color-filter mosaic or RGB, before the debayer,
     registration and stacking.
 derived: false
-rewritten: true
 ---
 # Image Calibration
 

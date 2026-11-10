@@ -5,7 +5,6 @@ summary: >-
   Open a planetary video, keep its steady frames, write them as image files, register them by phase correlation, stack
   them and sharpen the result.
 needs: []
-rewritten: true
 ---
 # Planetary Imaging
 

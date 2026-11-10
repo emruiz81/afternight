@@ -43,7 +43,6 @@ glance:
   enabled: An image view is active.
   inputs: One image or sequence view.
 derived: false
-rewritten: true
 ---
 # Histogram Transformation
 
@@ -84,7 +83,7 @@ class FrontMatterTests(TempDir):
         self.assertEqual(front.key_lines['menu'], 4)
         self.assertNotIn('enabled', front.key_lines)
         self.assertTrue(front.body.startswith('# Histogram Transformation'))
-        self.assertEqual(front.body_line, 20)
+        self.assertEqual(front.body_line, 19)
 
     def test_a_dotted_end_line_closes_the_front_matter_as_mkdocs_allows(self):
         front = model.split_front_matter('---\nkind: reference\n...\n# Title\n')
@@ -187,9 +186,6 @@ class SchemaTests(unittest.TestCase):
         for entry in ({'label': 'Width', 'object': '', 'reason': 'R.'}, {'label': 'Width', 'group': 'Size',
                                                                          'reason': 'R.'}):
             self.assertEqual([key for key, _ in self.problems(controls_ignore=[entry], **valid)], ['controls_ignore'])
-
-    def test_rewritten_is_true_or_absent(self):
-        self.assertEqual([key for key, _ in self.problems(kind='home', rewritten=False)], ['rewritten'])
 
     def test_menu_paths_lists_what_a_page_states(self):
         self.assertEqual(model.menu_paths({'menu': 'A > B'}), ['A > B'])
@@ -697,6 +693,7 @@ class LimitsTests(TempDir):
         self.assertEqual(limits.glossary_page, 'reference/glossary.md')
         self.assertEqual(limits.provenance_page, 'assets/MEDIA_PROVENANCE.md')
         self.assertIn('Stretching', limits.before_after_groups)
+        self.assertTrue(all(reason.strip() for reason in limits.before_after_exempt.values()))
 
     def test_a_large_page_has_the_budgets_its_kind_raises_and_the_others_unchanged(self):
         limits = model.load_limits(str(GUIDE_DIR))
@@ -716,7 +713,8 @@ class LimitsTests(TempDir):
     def test_every_large_page_and_named_page_is_a_page_of_the_guide(self):
         limits = model.load_limits(str(GUIDE_DIR))
         docs = pathlib.Path(model.docs_dir(str(GUIDE_DIR), model.load_config(str(GUIDE_DIR))))
-        for page in sorted(limits.large_pages) + [limits.glossary_page, limits.provenance_page]:
+        for page in sorted(limits.large_pages) + sorted(limits.before_after_exempt) + [limits.glossary_page,
+                                                                                     limits.provenance_page]:
             self.assertTrue((docs / page).is_file(), page)
 
     def test_every_before_and_after_group_is_a_nav_group(self):
@@ -739,12 +737,26 @@ class LimitsTests(TempDir):
                 ('  entry_words: 80', '  entry_words: eighty', '`glossary` states'),
                 ('  max_bytes: 409600', '  max_bytes: 400 KB', '`images` states'),
                 ('before_after_groups:', 'before_after_groups: Stretching\nother:', '`other`'),
+                ('before_after_exempt:\n  - page: processes/', 'before_after_exempt:\n  - page: /processes/',
+                 '`before_after_exempt` is a list of {page, reason}'),
+                ('before_after_exempt:\n', 'before_after_exempt:\n  - page: reference/glossary.md\n',
+                 '`before_after_exempt` is a list of {page, reason}'),
         ):
             with self.subTest(new):
                 self.assertEqual(LIMITS.count(old), 1, old)
                 with self.assertRaises(model.GuideDataError) as raised:
                     self.load(LIMITS.replace(old, new))
                 self.assertIn(message, str(raised.exception))
+
+    def test_a_page_is_excused_from_its_pair_once_and_with_a_reason(self):
+        start = LIMITS.index('before_after_exempt:')
+        entry = '  - {page: processes/a.md, reason: Its result is a file.}\n'
+        limits = self.load(LIMITS[:start] + 'before_after_exempt:\n' + entry)
+        self.assertEqual(limits.before_after_exempt, {'processes/a.md': 'Its result is a file.'})
+        self.assertEqual(self.load(LIMITS[:start] + 'before_after_exempt: []\n').before_after_exempt, {})
+        with self.assertRaises(model.GuideDataError) as raised:
+            self.load(LIMITS[:start] + 'before_after_exempt:\n' + entry + entry)
+        self.assertIn('distinct pages', str(raised.exception))
 
     def test_a_missing_file_is_a_data_error(self):
         with self.assertRaises(model.GuideDataError):

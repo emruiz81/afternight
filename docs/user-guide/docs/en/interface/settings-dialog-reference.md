@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   What a reader looks up about the Settings dialog: when each change takes effect, what saving writes, where the
   settings and catalogs are kept, what a settings file holds, how a catalog download works, and every message.
-rewritten: true
 ---
 # Settings Reference
 

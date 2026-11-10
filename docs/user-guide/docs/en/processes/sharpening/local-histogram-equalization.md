@@ -24,7 +24,6 @@ glance:
   state: >-
     A stretched image, after noise reduction, whose structure needs more separation between neighboring tones.
 derived: true
-rewritten: true
 ---
 # Local Histogram Equalization
 

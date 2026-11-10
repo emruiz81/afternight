@@ -21,7 +21,6 @@ glance:
   state: >-
     A color-calibrated RGB image with a green cast or green noise left, after every step that needs linear data.
 derived: false
-rewritten: true
 ---
 # SCNR
 

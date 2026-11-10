@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   The formula of every Image Blend mode, the filters of the blend image, how grayscale and color images meet,
   Preserve lightness, the header and exposure of the result, and the history text.
-rewritten: true
 ---
 # Image Blend Reference
 

@@ -4,7 +4,6 @@ summary: >-
   A mask is another open image linked to a view, which limits where a process changes the image: white takes the
   result and black keeps the original. Image > Mask links, shows, inverts and removes it.
 menu: Image > Mask
-rewritten: true
 ---
 # Masks
 
