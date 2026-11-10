@@ -119,7 +119,7 @@ at their defaults, and open **Summary**.
 
 ### Run the integration
 
-Choose **Execute Integration** on **Summary**, or press ++ctrl+enter++. The **Execution Plan** lists each stage with
+Choose **Execute Integration** on **Summary**, or press ++ctrl+num-enter++ with the keypad's Enter. The **Execution Plan** lists each stage with
 **Recompute**, **Reuse** or **Skip**. Choose **Run**, and keep the frames and the output folder where they are until
 the run ends. **Cancel** stops at the next safe point, and the groups finished by then keep their masters.
 
