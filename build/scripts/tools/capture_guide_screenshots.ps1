@@ -653,9 +653,17 @@ public sealed class AnScreenshots
             AutomationElement combo = null;
             try
             {
-                combo = scope.FindFirst(TreeScope.Descendants, new AndCondition(
+                // Of several views' boxes, the last one shown: the views grouped as tabs hide all but the active one's,
+                // and a view a run has just opened comes last.
+                AutomationElement shown = null;
+                foreach (AutomationElement candidate in scope.FindAll(TreeScope.Descendants, new AndCondition(
                     new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox),
-                    new PropertyCondition(AutomationElement.NameProperty, name)));
+                    new PropertyCondition(AutomationElement.NameProperty, name))))
+                {
+                    if (combo == null) combo = candidate;
+                    if (!candidate.Current.IsOffscreen) shown = candidate;
+                }
+                if (shown != null) combo = shown;
             }
             catch (ElementNotAvailableException) { combo = null; }
             if (combo != null) return combo;
@@ -693,6 +701,15 @@ public sealed class AnScreenshots
             PostKey(window, 0x0D);
             Thread.Sleep(900);
         }
+        if (ValueOf(combo) == wanted) return true;
+        // A long list - SPCC's sensors - is searched by typing the item's text into the open list.
+        System.Windows.Rect box = combo.Current.BoundingRectangle;
+        PostClick(window, (int)(box.X + box.Width / 2), (int)(box.Y + box.Height / 2));
+        Thread.Sleep(700);
+        foreach (char typed in wanted) AnCaptureNative.PostMessage(window, 0x0102, (IntPtr)typed, IntPtr.Zero);
+        Thread.Sleep(300);
+        PostKey(window, 0x0D);
+        Thread.Sleep(900);
         return ValueOf(combo) == wanted;
     }
 
@@ -806,20 +823,33 @@ public sealed class AnScreenshots
                 // A name ending in "..." is the beginning of the name: a view's tab adds " *" while it is unsaved.
                 Condition kind = new OrCondition(new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
                                                  new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem));
-                if (name.EndsWith("..."))
+                // A view's tab wins over a button of the same name: "RGB" is a tab and the channel button of a view.
+                bool prefix = name.EndsWith("...");
+                string start = prefix ? name.Substring(0, name.Length - 3) : name;
+                foreach (AutomationElement candidate in main.FindAll(TreeScope.Descendants, kind))
                 {
-                    string start = name.Substring(0, name.Length - 3);
-                    foreach (AutomationElement candidate in main.FindAll(TreeScope.Descendants, kind))
-                    {
-                        if (candidate.Current.Name.StartsWith(start)) { button = candidate; break; }
-                    }
+                    string shown = candidate.Current.Name;
+                    if (!(prefix ? shown.StartsWith(start) : shown == name)) continue;
+                    if (candidate.Current.ControlType == ControlType.TabItem && !candidate.Current.IsOffscreen) { button = candidate; break; }
+                    if (button == null) button = candidate;
                 }
-                else button = main.FindFirst(TreeScope.Descendants, new AndCondition(kind,
-                    new PropertyCondition(AutomationElement.NameProperty, name)));
             }
             catch (ElementNotAvailableException) { button = null; }
             if (button != null && IsEnabled(button))
             {
+                // A view's tab is also clicked: selecting it does not make its view the active one when the views sit
+                // side by side, each in an area of its own.
+                if (button.Current.ControlType == ControlType.TabItem)
+                {
+                    System.Windows.Rect place = button.Current.BoundingRectangle;
+                    IntPtr mainHandle = (IntPtr)main.Current.NativeWindowHandle;
+                    object selection;
+                    try { if (button.TryGetCurrentPattern(SelectionItemPattern.Pattern, out selection)) ((SelectionItemPattern)selection).Select(); }
+                    catch (Exception) { }
+                    Thread.Sleep(300);
+                    if (!place.IsEmpty) PostClick(mainHandle, (int)(place.X + place.Width / 2), (int)(place.Y + place.Height / 2));
+                    return Task.FromResult(0);
+                }
                 return Task.Run(delegate
                 {
                     object pattern;
@@ -847,7 +877,17 @@ public sealed class AnScreenshots
         object pattern;
         if (control.Current.ControlType == ControlType.ComboBox)
         {
-            if (!ChooseInComboBox(window, control, value)) throw new InvalidOperationException("'" + name + "' has no choice '" + value + "'");
+            // A list the window fills on a worker - SPCC's sensors after a readiness check - is given time to fill.
+            Stopwatch filling = Stopwatch.StartNew();
+            bool chosen = ChooseInComboBox(window, control, value);
+            while (!chosen && filling.ElapsedMilliseconds < 30000)
+            {
+                CheckAlive();
+                Thread.Sleep(1000);
+                control = Control(window, name) ?? control;
+                chosen = ChooseInComboBox(window, control, value);
+            }
+            if (!chosen) throw new InvalidOperationException("'" + name + "' has no choice '" + value + "'");
             return name + " shows " + value;
         }
         if (value == "On" || value == "Off")
@@ -1137,16 +1177,34 @@ foreach ($given in @($Prepare | ForEach-Object { $_ -split '\|\|' } | Where-Obje
 $viewActions = New-Object System.Collections.Generic.List[object]
 foreach ($given in @($View | ForEach-Object { $_ -split ';' } | Where-Object { $_ -and $_.Trim() })) {
     $action = @{ name = $null; menu = $given.Trim(); process = $false; prepare = $false; view = $true; changes = @() }
+    # `@<button>|<control>=<value>[&...]` opens a window by a button of the main window, changes it and closes it.
+    if ($action.menu.StartsWith('@') -and $action.menu.Contains('|')) {
+        $at = $action.menu.IndexOf('|')
+        $action = @{ name = $null; menu = $action.menu.Substring(0, $at).Trim(); process = $false; prepare = $true
+                     button = $action.menu.Substring(1, $at - 1).Trim()
+                     changes = (Read-Changes @($action.menu.Substring($at + 1).Replace('&', ';')) '-View') }
+        $viewActions.Add($action)
+        continue
+    }
     if ($action.menu.StartsWith('@')) { $action.button = $action.menu.Substring(1).Trim() }
     if ($action.menu -eq '%middle') { $action.middle = $true; $action.button = '%middle' }
+    if ($action.menu.StartsWith('%display=')) { $action.display = $action.menu.Substring(9).Trim(); $action.button = '%display' }
     $viewActions.Add($action)
 }
 # What -AfterView chooses once an -Apply run has ended, in place of the -View actions done again.
 $afterActions = New-Object System.Collections.Generic.List[object]
 foreach ($given in @($AfterView | ForEach-Object { $_ -split ';' } | Where-Object { $_ -and $_.Trim() })) {
     $action = @{ menu = $given.Trim() }
+    if ($action.menu.StartsWith('@') -and $action.menu.Contains('|')) {
+        $at = $action.menu.IndexOf('|')
+        $action.window = $action.menu.Substring(1, $at - 1).Trim()
+        $action.changes = (Read-Changes @($action.menu.Substring($at + 1).Replace('&', ';')) '-AfterView')
+        $afterActions.Add($action)
+        continue
+    }
     if ($action.menu.StartsWith('@')) { $action.button = $action.menu.Substring(1).Trim() }
     if ($action.menu -eq '%middle') { $action.middle = $true }
+    if ($action.menu.StartsWith('%display=')) { $action.display = $action.menu.Substring(9).Trim() }
     $afterActions.Add($action)
 }
 
@@ -1275,6 +1333,10 @@ try {
         # A view action opens nothing: the view redraws, and the next step finds it so.
         if ($shot.view) {
             if ($shot.middle) { $shots.Note("$($shots.ScrollToMiddle($main)) scroll bars put at their middle") }
+            elseif ($shot.display) {
+                $box = $shots.ComboBox($main, $displayModeBox, 10000)
+                if (-not $box -or -not $shots.ChooseInComboBox($mainHandle, $box, $shot.display)) { throw "the active view has no display mode '$($shot.display)'" }
+            }
             elseif ($shot.button) { [void]$shots.PressMainButton($main, $shot.button, $OpenTimeoutSeconds * 1000) }
             else { [void]$shots.Choose($item) }
             $rested = $false
@@ -1443,6 +1505,28 @@ try {
                 if ($afterActions.Count -gt 0) { $redo = $afterActions }
                 foreach ($action in $redo) {
                     if ($action.middle) { [void]$shots.ScrollToMiddle($main) }
+                    elseif ($action.display) {
+                        $box = $shots.ComboBox($main, $displayModeBox, 10000)
+                        if (-not $box -or -not $shots.ChooseInComboBox($mainHandle, $box, $action.display)) { throw "the active view has no display mode '$($action.display)'" }
+                    }
+                    elseif ($action.window) {
+                        # A window a button of the main window opens - a view's Autostretch Settings - is changed and closed.
+                        $known = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
+                        foreach ($shown in $shots.Windows()) { [void]$known.Add($shown.Handle) }
+                        [void]$shots.PressMainButton($main, $action.window, $OpenTimeoutSeconds * 1000)
+                        $opened = $null
+                        $asked = [System.Diagnostics.Stopwatch]::StartNew()
+                        while (-not $opened -and $asked.ElapsedMilliseconds -lt 20000) {
+                            $opened = $shots.NewWindow($known)
+                            if (-not $opened) { Start-Sleep -Milliseconds 200 }
+                        }
+                        if (-not $opened) { throw "'@$($action.window)' opened no window" }
+                        Start-Sleep -Milliseconds 800
+                        foreach ($change in $action.changes) { $shots.Note($shots.SetControl($opened.Handle, $change.control, $change.value)); Start-Sleep -Milliseconds 400 }
+                        $shots.PostKey($opened.Handle, 0x1B)
+                        Start-Sleep -Milliseconds 700
+                        if ($shots.IsShown($opened.Handle)) { $shots.Close($opened.Handle); Start-Sleep -Milliseconds 700 }
+                    }
                     elseif ($action.button -and $afterActions.Count -eq 0) { continue }
                     elseif ($action.button) { [void]$shots.PressMainButton($main, $action.button, $OpenTimeoutSeconds * 1000) }
                     else {

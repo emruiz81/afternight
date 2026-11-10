@@ -1,423 +1,495 @@
 ---
 kind: process
-stage: color
+stage: stretch
 menu: Process > Color Spaces > NB Color Mapper
 summary: >-
-  Colors narrowband or RGB layers with the hues you choose and screen-blends them into one color image.
+  Gives each narrowband master, or a color image, a stretch and a hue of its own and screen-blends them into one new
+  color image, with an optional background neutralization and output stretch.
 data_in: linear
 data_out: nonlinear
+destructive: false
+preview: real-time
+sequences: false
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    A still image is active, no NB Color Mapper window is open on it yet, and no window that needs the image for
+    itself is open on it. Apply waits for every layer's image to be open and of one size.
+  inputs: >-
+    Up to 64 layers, each an open grayscale or RGB still image of the first layer's width and height, in any pixel
+    type. One image may serve several layers. An optional mask on the active image's view.
+  outputs: >-
+    One new image beside the active image, RGB or grayscale, in 32-bit floating point, or 64-bit when a layer is 64-bit
+    floating point or a 32-bit integer, and on request one more image for each included layer. The sources stay as
+    they are, and no file is written.
+  state: >-
+    Registered linear narrowband masters of one target, cropped alike, with gradients removed and their levels
+    brought together.
 derived: true
+rewritten: true
 ---
 # NB Color Mapper
 
-## Purpose and expected result
+NB Color Mapper turns narrowband [masters](../../reference/glossary.md#master) into one color image with colors you
+choose. Each master is a layer with its own [black point](../../reference/glossary.md#black-point) and
+[midtones](../../reference/glossary.md#midtones) balance. A grayscale layer takes a hue and a saturation of
+[HSV](../../reference/glossary.md#hsv), and can first be modified by another layer, while an RGB layer is used as it
+is. The layers are then screen-blended, like light added through slides. A background neutralization and an output
+[stretch](../../reference/glossary.md#stretch) can follow. It is a free mapping of colors, not a fixed palette or a
+spectral model.
 
-NB Color Mapper prepares any number of same-size mono or RGB stills as layers,
-optionally colorizes mono layers with an HSV hue and saturation, and combines
-the included layers with an N-layer screen blend. A mono layer can first use
-another listed layer as an additive, multiplicative, or boost modifier.
+**Apply** opens the result as a new image beside the [active image](../../reference/glossary.md#active-image),
+recorded as nonlinear. The sources stay as they are.
 
-The expected primary result is a new float still named
-`<first listed image> - NB Color Mapper`. It is RGB when at least one prepared
-layer is RGB or colorized and can remain grayscale when every included layer is
-neutral mono. Optional auxiliary windows contain individual colorized mono
-layers. Sources are not replaced.
-
-This is a free-form color mixing process, not fixed SHO/HOO channel assignment.
-It does not identify filters, normalize exposure or bandwidth, register
-geometry, match PSFs, solve WCS, or derive a physically calibrated spectrum.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Color Spaces > NB Color Mapper** |
-| Enabled when | A still is active, the same process is not already attached, and no attached process holds exclusive access; the descriptor does not restrict the active channel count |
-| Inputs | One or more listed, same-width/height grayscale or three-channel RGB stills; a supported active still is added as layer `#1` automatically |
-| Outputs | One new Float32 RGB still; optionally one Float32 RGB still for each included layer colourized alone; **Take snapshot** creates another still; no direct file output |
-| Recommended image state | Registered, cropped, calibrated linear masters with gradients and gross scale differences corrected upstream |
-| Preview support | Always-on asynchronous preview with histogram, pixel-changing Preview STF, and separate viewer display autostretch; starts on the full image with **Preview area** unchecked |
-| Sequence support | Not supported: the registered action needs still images, and a sequence run is refused by name |
-| Mask support | Not applied: the result is a new image, not an edit of the active view |
-| External dependencies | No runtime external tool, model, catalog, or network service; the native port's source lineage is recorded under [Credits](#credits) |
+```figure
+image: ../../assets/images/processes/color-composition/nb-color-mapper.webp
+alt: >-
+  The NB Color Mapper window. On the left, under Histogram Controls, a histogram of three peaks close together over
+  its toolbar, then Midtones at 0.020 and Blackpoint at 0.036, and the Layers table with two rows: the
+  Ha master at H 0 / S 1.00 and the OIII master at H 180 / S 1.00, the second selected. On the right, the preview
+  shows the Eagle Nebula in red over a teal background with many stars. Reset, Close and Apply run along the
+  bottom.
+caption: >-
+  NB Color Mapper with the Ha master in red and the OIII master in cyan, each stretched on its own, the background
+  neutralized, and the preview in the Linear display mode under Preview STF.
+pins:
+  - {n: 1, x: 62.0, y: 25.5}
+  - {n: 2, x: 2.6, y: 36.6}
+  - {n: 4, x: 2.6, y: 56.4}
+```
 
 ## Before you start
 
-- Register and crop every layer to one geometry. The selector checks still-image
-  status, grayscale/RGB format, and dimensions against the first resolvable
-  layer only. It does not inspect stars, WCS, crop origin, pixel scale,
-  orientation, or PSF.
-- Correct gradients and bring very different channel levels into a workable
-  relationship upstream. NB Color Mapper has per-layer tonal shaping and
-  optional background neutralization, but no exposure, filter-bandwidth, or
-  photometric normalization model.
-- Activate the image you want to associate with the process before opening it.
-  There is no visible target selector. The active view supplies the initial
-  layer, mask, preview comparison source, output-neighbour placement, and
-  fallback name even if you later edit the layer list.
-- Disable the active mask while judging raw layer registration or palette
-  values. The ordinary process mask is applied after the entire combination,
-  including Preview STF, and blends against the active source rather than the
-  first included layer.
-- Decide whether the combined pixels should receive a final STF. **Preview STF**
-  changes preview pixels only. **Apply STF to combined output** separately bakes
-  the same family of transform into Apply output. Viewer autostretch is a third,
-  display-only operation.
+- Register the masters to one grid and crop them alike, against the first layer's image.
+- Remove the gradients of each master and bring very different levels together first. The window stretches each
+  layer and can neutralize the background, but knows nothing of exposures, filters or bandwidths.
+- Decide whether **Apply** writes a stretched image. **Preview STF** stretches only the preview's samples, and the
+  view's [Autostretch](../../reference/glossary.md#autostretch) only displays them.
+- A [mask](../../reference/glossary.md#mask) on the active image's view blends the active image with the whole
+  result, after every other step, and never weights one layer. Disable it while you choose colors.
+- Every layer is a still image. A [sequence](../../reference/glossary.md#sequence) is refused when you choose the
+  process.
 
-## Procedure
+## Steps
 
-1. Activate a registered mono or RGB still and open **Process > Color Spaces >
-   NB Color Mapper**. The active still appears as layer `#1` with **Include
-   layer** checked.
-2. Select `#1` in **Layers**. For mono input, set **Hue** and **Saturation** with
-   the wheel or numeric fields. Useful anchor hues are red `0`, green `120`, and
-   blue `240`; these are color coordinates, not filter identities.
-3. Select **Add** to duplicate the current row and select the new row. Then choose
-   another compatible image under **Image** and set its mapping. Repeat for every
-   source. Reusing one image in multiple rows is allowed when you want different
-   mappings.
-4. Use **Midtones** and **Blackpoint** per row to control its value plane before
-   colorization and mixing. Start at the identity values `0.500` and `0.000`.
-5. To shape a mono row with another layer, choose **Add**, **Multiply**, or
-   **Boost** under **Mode**, choose **With layer**, and tune **Factor**. An
-   excluded row can still be a modifier.
-6. Keep **Preview STF** checked while inspecting linear inputs, but avoid also
-   enabling viewer autostretch unless you intentionally want two stretches.
-   Move or resize **Preview area** for faster local tuning; it starts unchecked.
-7. Enable **Background Neutralization** only after the blend is sensible. On a
-   Preview-area run, its sample population is that cropped area; on a full
-   preview or Apply, it samples the full result.
-8. Choose whether to create auxiliary layer images or bake STF into the combined
-   Apply output. Select **Apply** and wait for the new window. The current build
-   provides no Apply progress dialog or user Cancel action.
+1. **Open the window.** Make the first master active and choose **Process > Color Spaces > NB Color Mapper**.
+   **Layers** lists it as #1, and the preview shows it in pale red, the default color, stretched by **Preview STF**.
+   Set the preview's **Display Mode** to **Linear**, so that it is stretched once.
+2. **Stretch the layer.** Set **Blackpoint** just below the master's median, as Image Statistics gives it, and lower
+   **Midtones** until its signal shows in the preview.
+3. **Color it.** Drag in the hue wheel, or type **Hue**, and set **Saturation**.
+4. **Add the next layer.** Choose **Add**: a new row copies the selected one and is selected. Choose the next master
+   in **Image**, then give it its own stretch and color.
+5. **Modify a layer, if you want.** Choose **Mode**, then the modifying row in **With layer**, and set **Factor**.
+6. **Neutralize the background.** Tick **Enable** under **Background Neutralization** when the background shows a
+   cast.
+7. **Choose the output.** Tick **Apply STF to combined output** for a stretched result, and **Create colorized layer
+   images** for one more image per layer.
+8. **Apply.** Choose **Apply**. The result opens as a tab beside the active image, named after the first layer's
+   image with ` - NB Color Mapper`.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Histogram plot | Graph, normalized intensity/count | Current combined preview; RGB channels overlaid | None | Binning comes from **Plot resolution** | Shows the mask-aware preview distribution and approximate endpoint-bin clipping | Always present | Recalculation adds work; endpoint counts depend on binning | Display only; preview result | Recomputed after preview/resolution changes |
-| Left-drag in histogram | Graph gesture | No readout | None | Hold left button and move in graph | Shows normalized coordinate readout | Histogram always present | Diagnostic only | Display only | Ends on release |
-| Middle-drag in histogram | Graph gesture | Fitted/unpanned | None | Hold middle button and drag | Pans the graph | Useful after zooming | Display cost only | Display only | Until reset/window close |
-| Ctrl+mouse wheel in histogram | Graph gesture | Fitted size | None | Up `1.20x`; down `0.8x`; wheel without Ctrl scrolls | Zooms around cursor | Interactive graph enabled | Larger graph needs more rendering area | Display only | Window lifetime |
-| Zoom in | Toolbar action | Fitted size | None | Each selection multiplies size by `1.30` | Enlarges plot | Available while idle | Plot rendering only | Display only | Window lifetime |
-| Zoom out | Toolbar action | Fitted size | None | Each selection multiplies size by `0.70` | Shrinks plot | Available while idle | Plot rendering only | Display only | Window lifetime |
-| Zoom reset | Toolbar action | — | None | One action | Fits graph and resets scrolling | Available while idle | Plot rendering only | Display only | Immediate |
-| Show grid | Toggle | Checked | None | Checked/unchecked | Shows or hides graph grid | Always present | Display-only aid | Display only | Window lifetime; process Reset unchanged |
-| Show clipping info | Toggle | Checked | None | Checked/unchecked | Shows/hides endpoint-bin counts and percentages | Always present | Bin-based diagnostic, not an exact clipped-pixel proof | Display only | Window lifetime |
-| Absolute scales | Toggle | Unchecked | None | Checked/unchecked | Normalizes each visible histogram channel to its own peak | Always present | Can conceal relative RGB strength; pixels unchanged | Display only | Window lifetime |
-| Draw histogram areas | Toggle | Unchecked | None | Checked/unchecked | Chooses filled-area or line rendering | Always present | Filled areas can obscure overlaps | Display only | Window lifetime |
-| Show histogram | Toggle | Checked | None | Checked/unchecked | Shows or hides histogram curves | Always present | Display-only | Display only | Window lifetime |
-| Plot resolution | Combo box, bins | **8-bit (256)** | None | **6-bit (64)** through **16-bit (64K)** plus **100**, **1000**, **10000 levels** | More bins show finer distribution | Always present | Higher counts increase histogram memory/rendering; engine precision unchanged | Display only | Window lifetime |
-| Midtones | Double spin box, MTF midpoint | `0.500` | Active supported image is auto-added, then its selected-row value starts here | `0.001..0.999`; step `0.010` | Below `0.5` brightens interior values; above `0.5` darkens them | Edits the selected row; applies to mono, RGB, excluded, and modifier-source rows | Extreme values compress levels and emphasize noise/clipping; adds a full float transform when nonidentity | Preview/Apply; all channels of selected layer before modification/color | Stored per row for window lifetime; Reset/success changes only selected row to `0.500` |
-| Blackpoint | Double spin box, normalized value | `0.000` | Same auto-added-row behavior as Midtones | `0.000..1.000`; step `0.001` | Raises the MTF shadows endpoint and suppresses values at/below it | Edits selected row; active for all layer formats/states | High values erase faint signal and can leave a sparse modifier | Preview/Apply; all channels of selected layer before modification/color | Per row; Reset/success changes only selected row to `0.000` |
-| Layers table | Five-column single-row selector | One auto-added active mono/RGB still when supported | No saved process instance | Read-only **Include**, **Layer**, **Image**, **Color**, **Modifier** cells; duplicate images allowed | Selects the row loaded into every per-layer editor | Apply requires at least one valid row and one included row; every row must still resolve and match dimensions, even if excluded | Every row is prepared, so excluded/reference rows still cost conversion/stretch memory and time | Configuration; stills only | Rows survive Reset/success; window lifetime only |
-| Add | Button/action | Enabled | None | Requires a selected **Image** other than **No image** | Appends current editor values as a new row and selects it | Same-size mono/RGB selector filter; does not deduplicate | More rows add preparation memory/time even if excluded | Configuration | Row persists until Remove/window close |
-| Remove | Button/action | Enabled | None | One selected row | Deletes row; dependants using it reset to **Mode: None**; later modifier indices shift | No action without selection | Can change several mappings; releases future layer work | Configuration | Immediate; no undo in process window |
-| Image | Combo box, layer source | Active supported still for auto row; otherwise current editor selection | Reset does not clear selection | Open grayscale/RGB still; dimensions must match first resolvable row | Replaces the selected row source | If first row is unresolved, selector temporarily accepts any supported dimensions; Apply still validates all rows | Wrong replacement causes registration artifacts; source itself remains unchanged | Preview/Apply; selected row | Per row/window; tracks renames; closing source disables Apply but does not delete row |
-| Include layer | Checkbox | Checked | Reset affects selected row only | Checked/unchecked | Checked contributes prepared row to screen blend; unchecked can still serve as modifier | At least one row must be included | Excluded rows still undergo base preparation and metadata merge | Preview/Apply blend participation | Per row; Reset/success checks selected row |
-| Color picker | Hue wheel plus saturation strip | Hue `0`, saturation `0.5` | Mirrors selected row | Drag wheel/strip; hue wraps; saturation clamps `0..1` | Sets the two numeric color fields together | Enabled only for selected mono source not referenced as another row's modifier; RGB ignores it | Saturated mappings can expose registration/PSF differences | Preview/Apply; selected mono row | Per row; Reset/success returns selected row to red/`0.5` |
-| Hue | Double spin box, degrees | `0.000` | Same as color picker | `0.000..359.990`; step `1.000` | Rotates fixed HSV hue; `0` red, `120` green, `240` blue | Mono only and disabled when this row is used as a modifier; RGB ignores it | Large hue changes redistribute layer value among channels, not intensity scaling | Preview/Apply; selected mono row | Per row; Reset/success returns selected row to `0.000` |
-| Saturation | Double spin box, HSV saturation | `0.500` | Same as color picker | `0.000..1.000`; step `0.010` | `0` leaves mono neutral/grayscale; `1` uses full fixed hue | Same enable rules as Hue | More saturation can clip/color-separate structure; exactly `0` can keep all-neutral output grayscale | Preview/Apply; selected mono row | Per row; Reset/success returns selected row to `0.500` |
-| Mode | Combo box | **None** | Reset affects selected row only | **None**, **Add**, **Multiply**, **Boost** | Chooses modifier equation for selected mono row | Enabled only for mono row not referenced as another modifier; RGB and referenced-modifier rows are never modified | Add/Boost can clip highs; Multiply can suppress faint target signal | Preview/Apply; selected mono row before colorization | Per row; Reset/success returns selected row to **None** |
-| With layer | Combo box, row reference | **None** | None | Any other row; self-reference omitted | Selects modifier's stretched grayscale values | Enabled only when Mode is not None; every non-None mode requires a valid other row | Using a noisy/poorly aligned layer transfers its structure; reference row may be excluded | Preview/Apply; selected mono target | Per row; removing reference resets Mode |
-| Factor | Double spin box, multiplier | `1.00` | Reset affects selected row only | `0.00..10.00`; step `0.05` | Strengthens Add/Multiply/Boost modifier term; `0` makes Add/Boost identity but makes Multiply zero | Enabled only with active modifier mode | High Add/Boost clips at blend input; high Multiply can also reach the clamp; no extra buffer-size change | Preview/Apply; selected mono row | Per row; Reset/success returns selected row to `1.00` |
-| Invert modifier | Checkbox | Unchecked | Reset affects selected row only | Checked/unchecked | Uses `1-u` instead of modifier value `u` | Enabled only with active modifier mode | Moves influence from bright to dark modifier regions; can boost background | Preview/Apply; modifier values only | Per row; Reset/success unchecks selected row |
-| Median offset | Checkbox | Unchecked | Reset affects selected row only | Checked/unchecked | Replaces modifier with `max(0,u-median(u))` after optional inversion | Enabled only with active modifier mode | Suppresses half/below-median influence but needs a full modifier vector and median selection | Preview/Apply; modifier values only | Per row; Reset/success unchecks selected row |
-| Enable | Background-neutralization checkbox | Unchecked | None | Checked/unchecked; requires Upper sigma > Lower sigma | Subtracts a robust background median per RGB channel, then conditionally rescales/clamps | Does nothing to grayscale combined output; sigma controls remain editable when off | Can remove color casts, but nebulosity-dominated samples can subtract real signal | Preview/Apply after screen blend; RGB only | Global/window; Reset/success unchecks |
-| Rescale high | Background checkbox | Unchecked | None | Checked/unchecked | Checked uses each channel's actual corrected maximum for shared range; unchecked uses `1-background` | Evaluated only when Enable is checked and output is RGB | Checked expands available highs more aggressively and can amplify outliers/change balance | Preview/Apply; all valid RGB channels | Global/window; Reset/success unchecks |
-| Lower sigma | Double spin box, normalized-MAD multiplier | `-2.80` | Ignored while Enable is off | `-10.00..10.00`; step `0.10`; must be below Upper sigma when enabled | Higher values reject more dark samples; lower values admit them | Field remains enabled when neutralization is off | Tight bounds can select no samples; broad bounds may include artifacts | Preview/Apply background sampling | Global/window; Reset/success returns `-2.80` |
-| Upper sigma | Double spin box, normalized-MAD multiplier | `2.00` | Ignored while Enable is off | `-10.00..10.00`; step `0.10`; must exceed Lower sigma when enabled | Lower values reject more bright structure; higher values admit it | Field remains enabled when neutralization is off | Too high admits stars/nebulosity; too low can leave no samples | Preview/Apply background sampling | Global/window; Reset/success returns `2.00` |
-| Preview STF | Checkbox, pixel transform | Checked | Separate from viewer display autostretch | Checked/unchecked | Checked computes a linked MTF from preview median luminance and bakes it into preview pixels | Does not control Apply; STF target is always validated | Makes linear mappings visible, but double-stretching with viewer autostretch misleads comparisons and costs a full pass | Preview/snapshot only, before active mask | Global/window; Reset/success checks it |
-| STF target | Double spin box, normalized median target | `0.250` | Shared by Preview STF and optional Apply STF | `0.010..0.990`; step `0.010`; engine requires open interval `(0,1)` | Higher target brightens the mapped median; lower target darkens it | Value is validated even when both STF checkboxes are off | Extreme targets compress tones and can expose clipping/noise | Preview and optional Apply; linked channels | Global/window; Reset/success returns `0.250` |
-| Create colorized layer images | Checkbox | Unchecked | None | Checked/unchecked | Apply also publishes each included mono row actually converted to RGB, before screen/background/output STF | Preview never creates auxiliaries; RGB, neutral-saturation, excluded, and referenced-modifier rows produce none | Extra full-size float RGB windows consume memory and later disk if saved | Apply only; auxiliary stills | Global/window; Reset/success unchecks |
-| Apply STF to combined output | Checkbox, pixel transform | Unchecked | Independent of Preview STF | Checked/unchecked | Bakes median-target MTF into primary Apply output | Does not affect auxiliary colorized layers | Produces display-ready nonlinear pixels but reduces later linear-processing flexibility | Apply primary output only, before active mask | Global/window; Reset/success unchecks |
-| Preview pane | Image viewer | Processed full-image preview | Inherits active view display-autostretch settings | Standard zoom/pan plus viewer linear/autostretch display | Shows current combined result and supports original/result comparison | Always present; no Preview checkbox | Holds source/result/statistics buffers; viewer stretch is display-only | Preview; active still | Window lifetime |
-| Switch image | Preview-toolbar action | Processed preview shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles processed result and attached active source | Always present | Comparison is invalid if display modes differ | Preview display only | Preview-window lifetime |
-| Preview area | Preview-toolbar checkbox and movable ROI | Unchecked; first enable creates centered area up to `512 x 512` | Reset does not change it | Checked/unchecked; drag/resize overlay | Checked crops every layer consistently, combines ROI, then pastes result over active source; background sampling uses cropped ROI | Snapshot follows this state; disabled during an in-flight execution | Faster/local tuning; outside ROI is not calculated and can hide global imbalance | Preview/snapshot only; active mask applied after composite | Window lifetime |
-| Take snapshot | Preview-toolbar action | Enabled while idle | None | One action | Creates a still from current preview settings, including Preview STF and Preview-area composite | Disabled during captured execution; auxiliary-layer option suppressed | Adds an image window/memory; may not represent full Apply | Preview-derived still | New image persists until closed/saved |
-| Apply | Button/action | Enabled when all rows resolve/match, one is included, modifiers are valid, STF target is valid, and enabled sigma limits are ordered | No saved process instance | One action; disabled during execution | Captures current parameters and output-name stem, then creates primary/optional auxiliary images asynchronously | The controls pane and Apply/Reset/Close buttons are disabled until completion | Full-frame work; the captured run and auxiliary names cannot drift with UI edits | Apply; still only; mask after complete result | Successful run resets globals and selected-row defaults but retains rows |
-| Reset | Button/action | Enabled while idle | None | One action | Restores global defaults and defaults of the currently selected row | Does not remove rows, clear Image, reset histogram/viewer state, or reset Preview area; disabled during Apply | Recomputes preview | Configuration | Immediate; no process-instance save |
-| Close | Button/action | Enabled while idle | None | One action | Closes process window | Disabled during Apply because no user cancellation controller exists | Wait for the full Apply to finish | Dialog only | Ends window-local settings |
+The controls scroll in one column. **Midtones**, **Blackpoint** and the controls from **Image** to **Median offset**
+edit the row selected in **Layers** at once. Those from **Enable** down apply to the whole map. The preview is always
+on, with no **Preview** check box, and **Preview area** is off when the window opens. For the histogram and the
+toolbars, see [Process Windows](../../interface/process-windows.md).
 
-The Apply path has no progress dialog or Cancel action. Preview recalculations do
-use an internal cooperative controller so a superseded preview can stop at
-engine polling boundaries; that controller is not a user-facing Apply control.
+```controls
+window: The layer list
+controls:
+  - name: Layers
+    kind: readout
+    default: "#1, the active image"
+    effect: Lists the layers, one row each, under **Include** (Yes or No), **Layer** (#1, #2 and so on), **Image**, **Color** (as `H 0 / S 0.50`, RGB, or Excluded) and **Modifier** (None, or as `Add #2`). Click a row to load it into the controls of the window.
+    range: The active image is row #1 when the window opens, if it is a grayscale or RGB still image. The cells cannot be edited. Up to 64 rows can be mapped, and more make the run fail.
+    tradeoff: Every row, included or not, is read and stretched for each preview and Apply, so remove a row you do not need rather than exclude it.
+    persistence: Until the window closes. **Reset** and **Apply** keep every row. Nothing is kept between sessions.
+    note: The order of the rows does not change the blend. The first row gives the result its size, its name, its header and its plate solution.
+```
 
-## How the algorithm works
+```controls
+window: NB Color Mapper
+controls:
+  - name: Midtones
+    kind: spinbox
+    default: "0.500"
+    widget: {min: 0.001, max: 0.999, step: 0.01, decimals: 3}
+    effect: Sets the midtones balance of the selected layer's own transfer, by equation (1). Below 0.5 it brightens what lies between the black point and white, above 0.5 it darkens it. At 0.5, with **Blackpoint** at 0, the layer is used as it is.
+    range: It edits the selected row, grayscale or RGB, included or not, a modifier or not.
+    tradeoff: Near either end, tones collapse and noise and clipping show.
+    scope: Every channel of the selected layer, before its modifier and its color. A row used as a modifier is read through its own transfer.
+    persistence: Kept for each row until the window closes. **Reset** and a finished Apply return the selected row's to 0.5.
+  - name: Blackpoint
+    kind: spinbox
+    default: "0.000"
+    widget: {min: 0, max: 1, step: 0.001, decimals: 3}
+    effect: Sets the selected layer's black point. Samples at or below it become black and the rest spread over the range, by equation (1).
+    range: It edits the selected row, as **Midtones** does.
+    tradeoff: Set high, it erases faint signal, and leaves a modifier with little to act with.
+    scope: As **Midtones**.
+    persistence: Kept for each row until the window closes. **Reset** and a finished Apply return the selected row's to 0.
+  - name: Add
+    object: addLayerButton
+    kind: button
+    default: ""
+    effect: Adds a row at the end that copies the selected row, image included, and selects it, so that the next image you choose in **Image** goes into it.
+    range: It does nothing while **Image** reads `<--NO IMAGE-->`. One image may fill several rows, each with its own mapping.
+    tradeoff: Each row adds a working copy of its image and work to every preview.
+    persistence: The row stays until you remove it or the window closes.
+  - name: Remove
+    object: removeLayerButton
+    kind: button
+    default: ""
+    effect: Removes the selected row. A row that used it as its modifier returns to **None** in **Mode**, and the rows after it move up one number.
+    range: It does nothing without a selected row, and cannot be undone in the window.
+  - name: Image
+    kind: combo
+    default: "<--NO IMAGE-->"
+    options: ["<--NO IMAGE-->", Every open grayscale or RGB still image of the first row's size]
+    effect: Chooses the image of the selected row; the first row starts with the active image. A grayscale image is a layer to color, an RGB image a layer used as it is. The image itself is not changed.
+    range: It lists the open still images of one or three channels with the width and height of the first row's image, or of any size while that image is not open. The tooltip of each item gives its file, size, channels, pixel type and memory.
+    enabled: The list follows the views as they open, close, change or are renamed, and a renamed image renames its rows. While a row's image is closed, **Apply** stays dimmed.
+    tradeoff: A wrong or unregistered image shows as colored halos and doubled stars.
+    persistence: Kept for each row. **Reset** leaves it.
+  - name: Include layer
+    kind: check
+    default: "On"
+    effect: On, the selected row takes part in the screen blend. Off, it stays out of the blend, and can still be another row's modifier.
+    range: At least one row must be included, or **Apply** stays dimmed.
+    tradeoff: An excluded row is still read and stretched, and still counts in the header.
+    persistence: Kept for each row. **Reset** and a finished Apply turn the selected row's on.
+  - name: Hue
+    kind: spinbox
+    default: "0.000"
+    widget: {min: 0, max: 359.99, step: 1, decimals: 3}
+    effect: Sets the hue the selected grayscale row takes, in degrees, by equation (3). 0 is red, 60 yellow, 120 green, 180 cyan, 240 blue and 300 magenta. A hue is a color of your choice, not a filter.
+    range: The hue wheel sets it too.
+    enabled: For a grayscale row that no other row uses as its modifier. An RGB row ignores it.
+    tradeoff: It moves the layer's light between the channels, and does not scale it.
+    scope: The selected row, after its modifier.
+    persistence: Kept for each row. **Reset** and a finished Apply return the selected row's to 0.
+  - name: Saturation
+    kind: spinbox
+    default: "0.500"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 3}
+    effect: Sets how strongly the selected grayscale row takes its hue, by equation (3). At 0 the layer stays gray, at 1 it is the pure hue.
+    range: The saturation strip sets it too.
+    enabled: As **Hue**.
+    tradeoff: A strong saturation separates the colors, and shows registration and star size differences. When every included row stays gray and none is RGB, the result is grayscale.
+    persistence: Kept for each row. **Reset** and a finished Apply return the selected row's to 0.50.
+  - name: Mode
+    kind: combo
+    default: None
+    options: [None, Add, Multiply, Boost]
+    effect: Chooses how another row modifies the selected grayscale row before it is colored, by equation (2). **Add** adds the modifier, **Multiply** multiplies by it, and **Boost** strengthens the row where the modifier is bright.
+    enabled: As **Hue**. An RGB row and a row used as a modifier are never modified.
+    tradeoff: "**Add** and **Boost** can clip highlights. **Multiply** can take faint signal out."
+    persistence: Kept for each row. **Reset** and a finished Apply return the selected row's to **None**.
+    note: A mode without a row in **With layer** leaves the row unmodified, and the **Modifier** column reads None.
+  - name: With layer
+    kind: combo
+    default: None
+    options: [None]
+    effect: Chooses the row that modifies the selected row. A grayscale modifier gives its stretched value, an RGB one 0.2989 of its stretched red, 0.5870 of its green and 0.1140 of its blue.
+    range: After **None** it lists every other row, as `#2 <image>`. A row cannot modify itself, and the modifier may be excluded.
+    enabled: While **Mode** is not **None**.
+    tradeoff: A noisy or misaligned modifier carries its noise and stars into the row.
+    persistence: Kept for each row. Removing the modifier row returns **Mode** to **None**.
+    note: The modifier is read through its own **Midtones** and **Blackpoint**, not its color or its own modifier. While it serves, it is neither colored nor modified, and adds as gray when it is included.
+  - name: Factor
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 10, step: 0.05, decimals: 2}
+    effect: Scales the modifier, by equation (2). Higher makes it act more strongly. At 0, **Add** and **Boost** change nothing and **Multiply** turns the row black.
+    enabled: While **Mode** is not **None**.
+    tradeoff: High values clip the row.
+    persistence: Kept for each row. **Reset** and a finished Apply return the selected row's to 1.
+  - name: Invert modifier
+    kind: check
+    default: "Off"
+    effect: Uses one minus the modifier, so that its dark areas act strongly and its bright ones weakly.
+    enabled: While **Mode** is not **None**.
+    tradeoff: It can lift the background of the row.
+    persistence: Kept for each row. **Reset** and a finished Apply turn the selected row's off.
+  - name: Median offset
+    kind: check
+    default: "Off"
+    effect: Subtracts the modifier's median, after any inversion, and keeps what lies above it, so that only signal above the modifier's background acts.
+    enabled: While **Mode** is not **None**.
+    tradeoff: It costs a pass over the modifier to find its median, over the image or the preview area.
+    persistence: Kept for each row. **Reset** and a finished Apply turn the selected row's off.
+  - name: Enable
+    kind: check
+    default: "Off"
+    effect: After the blend, measures each channel's background inside a window around its median, takes it out and spreads the three channels alike, by equation (5).
+    range: For an RGB result only. While it is on, **Upper sigma** must be above **Lower sigma**, or **Apply** stays dimmed.
+    tradeoff: It removes a color cast, but where nebula fills the frame it takes signal for background. A channel whose window holds no sample is left as it is, without a message.
+    scope: The preview and Apply, before the output stretch. A preview area measures itself alone. Not the colorized layer images.
+    persistence: Until the window closes. **Reset** and a finished Apply turn it off. The history adds `background neutralized`.
+  - name: Rescale high
+    kind: check
+    default: "Off"
+    effect: On, the spread reaches up to each channel's highest corrected value. Off, it reaches up to one minus the channel's background.
+    range: It acts only while **Enable** is on and the result is RGB.
+    tradeoff: On gives back headroom, but lets one outlier set the range and can change the balance.
+    persistence: Until the window closes. **Reset** and a finished Apply turn it off.
+  - name: Lower sigma
+    kind: spinbox
+    default: "-2.80"
+    widget: {min: -10, max: 10, step: 0.1, decimals: 2}
+    effect: Sets the lower edge of the background window, in deviations from the channel's median. Higher keeps more dark samples out, lower lets them in.
+    range: It must stay below **Upper sigma** while **Enable** is on. It stays editable, and is not read, while **Enable** is off.
+    tradeoff: A narrow window can hold no sample. A wide one can take in defects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to -2.80.
+  - name: Upper sigma
+    kind: spinbox
+    default: "2.00"
+    widget: {min: -10, max: 10, step: 0.1, decimals: 2}
+    effect: Sets the upper edge of the background window. Lower keeps more bright structure, such as stars and nebula, out. Higher lets it in.
+    range: It must stay above **Lower sigma** while **Enable** is on.
+    tradeoff: Too high takes stars and nebula for background. Too low can leave no sample.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 2.
+  - name: Preview STF
+    kind: check
+    default: "On"
+    effect: Stretches the preview and **Take snapshot** by equation (6), so that linear layers can be seen. It changes the preview's samples, not only their display.
+    range: It never touches what **Apply** writes.
+    tradeoff: With the preview's **Display Mode** at **Autostretch**, the preview is stretched twice and looks far brighter than the result. It costs a pass to find the median.
+    scope: The preview and snapshots, before the mask. **Switch image** shows the active image without it.
+    persistence: Until the window closes. **Reset** and a finished Apply turn it on.
+  - name: STF target
+    kind: spinbox
+    default: "0.250"
+    widget: {min: 0.01, max: 0.99, step: 0.01, decimals: 3}
+    effect: Sets where the output stretch puts the median of the mean of the channels, by equation (6). Higher brightens, lower darkens.
+    range: It serves **Preview STF** and **Apply STF to combined output** alike, and is checked even while both are off.
+    tradeoff: Near either end, tones compress and noise and clipping show.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.25.
+  - name: Create colorized layer images
+    kind: check
+    default: "Off"
+    effect: Apply also opens one image for each included row, mapped alone through its transfer, its modifier and its color, without the other rows, the background step, the output stretch or the mask.
+    range: An excluded row gives none. A row that stays gray, or that another row uses as its modifier, gives a grayscale image.
+    tradeoff: Each is a full-size image in the result's precision, three channels for a colored row.
+    scope: Apply only. Previews and snapshots never make them.
+    persistence: "Until the window closes. **Reset** and a finished Apply turn it off. Each image opens beside the active image after the result, named `<first layer's image> - <row's image> colorized`, with a history that starts with `NB Color Mapper colorized layer`. It keeps its own image's header and plate solution, its lineage gains the coloring, and it is recorded as nonlinear with the operation `nb-color-mapper-layer`."
+  - name: Apply STF to combined output
+    kind: check
+    default: "Off"
+    effect: Applies the output stretch of equation (6) to the image **Apply** writes, so that it opens stretched.
+    range: Not the colorized layer images.
+    tradeoff: Off leaves a result to stretch yourself. It is recorded as nonlinear either way.
+    scope: Apply only, before the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply turn it off. The history adds `stretched`.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns every control from **Enable** down to its default, and the selected row's **Include layer**, **Hue**, **Saturation**, **Midtones**, **Blackpoint** and modifier to theirs.
+    range: It keeps every row with its image, the other rows' values, the preview area and the histogram's settings.
+    enabled: Disabled while a run works.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Maps every row as the window stands and opens the result as a new image, a tab beside the active image, named `<first row's image> - NB Color Mapper`. Then it does what **Reset** does.
+    enabled: While the active image is a still image, every row names an open grayscale or RGB image of the first row's size, a row is included, and the background window is ordered while **Enable** is on. While the run works, the controls of the window, **Apply**, **Reset**, **Close**, **Preview area** and **Take snapshot** are disabled.
+    tradeoff: There is no progress window and no **Cancel**. Each row is read as a working copy. The blend is spread over the processor's threads, while the background step, a median offset and the output stretch rank the whole image on one thread, in one or two planes of 8 bytes a pixel.
+    scope: Every row's whole image, then the mask on the active image's view, which blends the active image with the result. A preview area does not limit it.
+    persistence: "The history starts with a step that reads like `Created NB Color Mapper combination from 2 layers, 2 included, background neutralized, stretched`, and shows the active image's steps above it as inherited lineage. The result is recorded as nonlinear with the operation `nb-color-mapper`, whatever the output stretch. No palette, preset, report, mask or file is written."
+    note: "The header is built from every row's image, excluded and modifier rows included, the first leading. The exposure is the light they hold together: the sum, over the distinct acquisitions, of each one's `TOTEXP`, else its `LIVETIME`, else its exposure times its `STACKCNT`, else `NCOMBINE`, else one. Images that state the same exposure start are one acquisition and count once, with the largest integration and frame count any of them states, and one that states no start counts on its own. A single row keeps its own exposure. With several, their `EXPOSURE` and `EXPTIME` cards are dropped, and the result states its own `EXPTIME` and `TOTEXP`, `LIVETIME` when an image states one, and `STACKCNT` and `NCOMBINE` summed the same way, each when an image states it. The observation start is the earliest, with its `DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` together. The object, instrument, telescope, observer, filter, sensor temperature, gain and binning are kept when every image states the same, and so is every other card the first row's image shares with all of them. The first row's pointing cards `RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA` and `TELDEC`, its WCS cards and its plate solution are kept, without a check that the other images share its grid. No processing-state or file identity card of an image is kept."
+```
 
-### 1. Prepare every row
+```controls
+window: The color picker
+controls:
+  - name: Hue wheel
+    kind: action
+    default: ""
+    effect: Click or drag inside the wheel to set **Hue** by the angle around its center, red at the top and the hues following clockwise.
+    enabled: With **Hue**. Its group is disabled with it.
+  - name: Saturation strip
+    kind: action
+    default: ""
+    effect: Click or drag in the strip beside the wheel to set **Saturation**, 0 at its top and 1 at its bottom.
+    enabled: With **Saturation**.
+  - name: Swatch
+    kind: readout
+    default: ""
+    effect: Shows the color of the hue and saturation chosen, at full value.
+```
 
-Every listed row, including excluded rows, converts to normalized 32-bit float.
-For input sample `x`, **Midtones** `m`, and **Blackpoint** `b`, the per-layer
-transfer is:
+## How it works
 
-\[
-T(x;m,b)=
-\begin{cases}
-0 & x\le b,\\
-1 & x\ge 1,\\
-\dfrac{(m-1)u}{(2m-1)u-m} & \text{otherwise},
-\quad u=\dfrac{x-b}{1-b}.
-\end{cases}
-\]
+1. Every row's image is read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale), in
+   32-bit floating point, or 64-bit when a row's image is 64-bit floating point or a 32-bit integer.
+2. In one pass over the image, each layer goes through its own transfer, equation (1). A grayscale layer then goes
+   through its modifier, equation (2), and takes its color, equation (3).
+3. The included layers are screen-blended, equation (4).
+4. With **Enable** on, each channel's background is measured and taken out, equation (5). With the output stretch,
+   the median of the mean of the channels moves to **STF target**, equation (6).
+5. A mask on the active image's view blends the active image with the result, which opens as a new image beside it.
 
-The engine clamps `m` to `[10^-6,1-10^-6]`, clamps `b` to `[0,1]`, and clamps
-the result to `[0,1]`. The UI's narrower Midtones range avoids those engine
-endpoints. At `m=0.5,b=0`, this stage is skipped as identity.
+### Model
 
-### 2. Apply an optional modifier
+For a sample \(x\) of a layer, with \(b\) its **Blackpoint** and \(m\) its **Midtones**, take \(t = (x - b)/(1 - b)\).
+The layer's value is
 
-Modification applies only to a mono target row that is not itself referenced as
-another row's modifier. RGB targets, referenced modifier rows, and **Mode:
-None** pass through. The modifier uses its already-stretched base image;
-RGB modifiers convert to grayscale. It does not use the modifier row's own
-colorization or modification.
+\[ v = \frac{(m - 1)\,t}{(2m - 1)\,t - m} \tag{1} \]
 
-For target `t`, modifier `u`, and Factor `f`:
+or 0 at or below \(b\) and 1 at or above 1. With \(u\) the modifier's value by equation (1), first \(1 - u\) with
+**Invert modifier** and then \(\max(0, u - \tilde u)\) with **Median offset**, where \(\tilde u\) is its median, and
+\(k\) the **Factor**, the modified value is
 
-- **Invert modifier** first changes `u` to `1-u`.
-- **Median offset** then changes it to `max(0,u-median(u))`.
-- **Add:** `t' = t + f u`.
-- **Multiply:** `t' = t(f u)`.
-- **Boost:** `t' = t(1 + f u)`.
+\[ v_{Add} = v + k\,u, \qquad v_{Multiply} = v\,k\,u, \qquad v_{Boost} = v\,(1 + k\,u) \tag{2} \]
 
-This stage does not immediately clamp. Values are clamped when the prepared
-layer is read by the blend. A referenced row is deliberately not modified or
-colorized, preventing recursive modifier evaluation; it may still be included
-as a neutral grayscale layer.
+held between 0 and 1. With \(s\) the **Saturation**, a hue of 0 colors \(v\) as
 
-### 3. Colorize mono layers
+\[ (R, G, B) = \bigl(v,\ (1 - s)\,v,\ (1 - s)\,v\bigr) \tag{3} \]
 
-An eligible mono layer with Saturation greater than floating-point epsilon uses
-its sample as HSV Value with fixed Hue and Saturation, then converts HSV to RGB.
-Hue is normalized modulo 360 and saturation is clamped to `[0,1]`. For example,
-full saturation maps value `0.25` at hue `0` to RGB `(0.25,0,0)` and value
-`0.4` at hue `120` to `(0,0.4,0)`. Saturation `0` skips colorization and leaves
-the layer grayscale. RGB layers ignore Hue and Saturation.
+and the other hues move the full value \(v\) and the least, \((1 - s)\,v\), between the channels: 120 gives
+\(((1 - s)v, v, (1 - s)v)\), 180 gives \(((1 - s)v, v, v)\), and 30 at full saturation gives \((v, 0.5v, 0)\). With
+\(L_{i}\) the value of included layer \(i\) in one channel, a gray layer the same in all three, the blend is
 
-### 4. Screen the included layers
+\[ O = 1 - \prod_{i} \bigl(1 - L_{i}\bigr) \tag{4} \]
 
-For every output channel `c`, each prepared layer sample is converted to `0` when
-it is NaN or infinite; finite samples are clamped to `[0,1]`. The engine then
-calculates:
+The background step takes, in each channel, the median \(M\) and \(\sigma\), 1.4826 times the
+[median absolute deviation](../../reference/glossary.md#median-absolute-deviation). Its level \(B\) is the median of
+the samples from \(M + l\,\sigma\) to \(M + h\,\sigma\), with \(l\) and \(h\) the two sigma values, each edge held
+between 0 and 1. With \(d_{min}\) the lowest \(O - B\) of the three channels, and \(d_{max}\) the highest \(1 - B\), or
+the highest \(O - B\) with **Rescale high**, each channel becomes
 
-\[
-O_c=\operatorname{clip}_{[0,1]}
-\left(1-\prod_{i=1}^{N}(1-L_{i,c})\right).
-\]
+\[ O' = \frac{O - B - d_{min}}{d_{max} - d_{min}} \tag{5} \]
 
-If any included prepared layer is RGB, output is RGB and grayscale layers are
-broadcast into all three channels. If none is RGB, output remains grayscale.
-Screen is commutative for the prepared samples: row order does not change the
-blend equation, although the first row still controls dimension filtering,
-metadata base, and output name.
+when \(d_{min}\) is below 0 or \(d_{max}\) above 1, and \(O - B\) otherwise, held between 0 and 1. The output stretch
+takes \(P\), the median of \((R + G + B)/3\), and \(T\), the **STF target**, and applies equation (1) with \(b = 0\)
+to every channel, with the balance
 
-### 5. Optionally neutralize RGB background
+\[ m = \frac{(T - 1)\,P}{(2T - 1)\,P - T} \tag{6} \]
 
-Neutralization is skipped for grayscale output. For each RGB channel, the
-engine samples the whole calculated image: that is the cropped Preview area
-during ROI preview and the full image otherwise. It calculates median `M`, raw
-MAD, and `sigma = 1.4826 MAD`, then keeps samples in the inclusive interval:
+which sends \(P\) to \(T\). A median of 0 or 1 skips it.
 
-\[
-[\operatorname{clip}(M+l\sigma),\operatorname{clip}(M+h\sigma)],
-\]
+### Boundaries
 
-where `l` and `h` are the lower and upper controls. The median `B_c` of retained
-samples is the channel background. If no sample survives, that channel is left
-unchanged and the engine records a warning in its result; the process has no
-visible warning report for it.
+- A sample that is not a finite number is read as 0, which adds no light. Every pixel is mapped.
+- A row that another row uses as its modifier is neither modified nor colored, and an RGB row is never either.
+- The background step does nothing to a grayscale result, and leaves a channel without a sample in its window as it
+  is.
+- Every value is held between 0 and 1 at each step, so a floating-point sample above 1 becomes 1.
 
-For valid channels, it subtracts `B_c`. It forms one shared RGB minimum and
-maximum. The low endpoint uses each channel's actual `min-B_c`; the high
-endpoint uses `1-B_c` by default or actual `max-B_c` with **Rescale high**. If
-the shared range extends below 0 or above 1 and has nonzero width, all valid
-channels use `(x-B_c-global_min)/(global_max-global_min)`. Results are clamped.
+### Worked example
 
-### 6. Optionally apply linked STF
+Make the Ha master of the Eagle Nebula active, a 3008 × 3004
+[linear image](../../reference/glossary.md#linear-image) in 32-bit floating point, and open the window: it is row #1.
+Set **Saturation** to 1, **Blackpoint** to 0.035 and **Midtones** to 0.020, and leave **Hue** at 0. Choose **Add**,
+choose the OIII master in **Image**, and set **Hue** to 180 and **Blackpoint** to 0.036. Tick
+**Enable** and **Apply STF to combined output**. Equation (1) lifts the Ha median, 0.03783, to 0.126 in red, and the
+OIII median, 0.03863, to 0.118 in green and blue. The background step measures 0.122 in red and 0.118 in green and
+blue, and sets all three to 0.122, a neutral gray. The output stretch finds \(P = 0.128\), and equation (6) gives a
+balance of 0.306, which sends it to 0.25. A pixel of the nebula at 0.0459 in Ha and 0.0396 in OIII ends at 0.56 in
+red and 0.30 in green and blue.
 
-The engine takes the median of per-pixel arithmetic RGB mean `(R+G+B)/3`, or
-the mono sample for grayscale. For median `P` and **STF target** `q`, it derives
-`m=MTF(P,q,0,1)` and then maps every channel with `MTF(x,m,0,1)`. It skips this
-stage when `P` is effectively 0 or 1. **Preview STF** requests the stage only
-for preview/snapshot; **Apply STF to combined output** requests it only for the
-primary Apply image.
+The new image, `<Ha master> - NB Color Mapper`, is RGB in 32-bit floating point. It states `TOTEXP` 13500 and
+`STACKCNT` 45, the sums of the two masters, and the Ha master's `DATE-OBS`, the earlier.
 
-The active-view mask is blended after all six stages. Mask weight `a` produces
-`active_source(1-a)+combined*a`; an inverted mask swaps those weights.
+```figure
+images:
+  - image: ../../assets/images/processes/color-composition/nb-color-mapper-before.webp
+    alt: The whole Ha master in the view's Autostretch, a gray picture of the Eagle Nebula's clouds, pillars and dark lanes among many stars.
+    label: Before
+  - image: ../../assets/images/processes/color-composition/nb-color-mapper-after.webp
+    alt: >-
+      The whole mapped image, the same field with the nebula in red and pink over a teal background, brighter
+      toward the left edge.
+    label: After
+caption: >-
+  The Ha master, and the image Apply opens from it and the OIII master with the settings above. The Ha master is shown
+  in the view's Autostretch, and the result in the Linear display mode, since its own output stretch is in its
+  samples.
+```
 
-## Parameter interactions and starting points
+A modifier works pixel by pixel. With **Mode** at **Add**, **Factor** at 0.5 and an excluded modifier at 0.50, a
+layer at 0.20 becomes 0.45, which hue 0 at full saturation colors \((0.45, 0, 0)\). Blended with an RGB layer at
+\((0.20, 0.30, 0.40)\), equation (4) gives \((0.56, 0.30, 0.40)\).
 
-| Combination | Start with | What it controls | Risk or diagnostic |
-| --- | --- | --- | --- |
-| Midtones + Blackpoint | `0.5` / `0` | Value distribution before every later operation | Strong blackpoint can erase modifier/palette signal before colorization |
-| Hue + Saturation | Anchor hues, moderate saturation | Fixed HSV mapping of one mono row | It does not identify Ha/OIII/SII; wrong row assignment is accepted |
-| Mode + With layer + Factor | None, then low factor | Spatial cross-layer shaping | Misregistration transfers doubled stars/halos; referenced layer is nonrecursive |
-| Include layer + modifier reference | Include targets; exclude mask-only rows | Blend participation is separate from modifier availability | Excluded rows still must remain open, match dimensions, and incur preparation cost |
-| Enable + sigma limits | Off; then `-2.8..2.0` | Robust channel backgrounds | Full-frame nebulosity is not clean sky; empty selections are silently skipped in the UI |
-| Rescale high + background | Off | Shared RGB post-subtraction range | On can expand isolated highs/outliers to the range endpoint |
-| Preview STF + viewer autostretch | Preview STF on, viewer stretch off | Pixel stretch versus display stretch | Enabling both makes preview much brighter than final unstretched output |
-| Preview STF + Apply STF | Judge independently | Preview and final pixel policies | Matching checkboxes use same target but preview ROI/full-image medians can differ |
-| Preview area + background | Representative empty/background region | Preview sample population and processing cost | Apply returns to full-image sampling; local result need not predict global neutralization |
-| Active mask + layer list | Mask off while mapping | Final outer blend against launch-time active image | Mask does not weight individual layers and can mix an unrelated active source into result |
+## Starting points
 
-## Inputs, outputs, and metadata
-
-- All rows must resolve to open grayscale or RGB stills with identical width and
-  height. Pixel types may differ; working and output buffers are 32-bit float.
-  Empty lists, invalid images, dimension mismatches, no included layer, invalid
-  modifier references, non-finite parameters, invalid STF target, and enabled
-  unordered sigma limits are rejected. Non-finite input pixels are not a
-  parameter error: at the screen-blend input they are replaced with `0` so they
-  contribute no light to the combined result.
-- Apply creates `<first listed image> - NB Color Mapper`; the fallback is the
-  active view name. Sources remain unchanged. There is no palette preset,
-  matrix, report, mask, or direct disk file.
-- **Create colorized layer images** publishes only included mono layers actually
-  converted to RGB. Their names are
-  `<base> - <layer image name> colorized`. They represent the per-layer MTF and
-  optional modification/colorization, before screen blend, background
-  neutralization, combined-output STF, and active mask.
-- The primary output's metadata is built from every row - including excluded
-  and modifier-only rows - the first row leading. With more than one row, its
-  exposure is the light the rows hold together, recorded once: the sum, over
-  the distinct acquisitions, of each row's whole integration - its `TOTEXP`
-  card, else its `LIVETIME` card, else its exposure times its frame count
-  (`STACKCNT`, else `NCOMBINE`, else one). Rows that state the same exposure
-  start are one acquisition - an image and copies made of it, such as its
-  starless image, its stars or a channel taken out of it - and count once,
-  with the largest integration and the largest frame count any of them states,
-  since a copy such as a StarNet output may have lost its `TOTEXP` and
-  `STACKCNT` cards; a row that states no exposure start always counts on its
-  own. One row keeps its own exposure. The observation start is the earliest
-  any row states. The object, instrument, telescope, observer, filter, sensor
-  temperature, gain, and binning are kept when every row states the same value
-  and dropped otherwise, so a filter is kept only when every row shares it.
-- The primary output keeps the header cards every row's image states
-  identically, but no exposure, processing-state or identity card of a row; a
-  card the rows state differently, or only some state, is dropped, except the
-  first row's pointing cards (`RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`,
-  `OBJDEC`, `TELRA`, `TELDEC`), kept because the result is on its grid, and the
-  observation-start cards (`DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`,
-  `MJD-BEG`, `TIME-OBS`), taken together from the row that began earliest.
-  With more than one row the output states its own `EXPTIME` and `TOTEXP` as
-  the exposure above, `LIVETIME` the same when a row states one, and
-  `STACKCNT` and `NCOMBINE` as the frame counts of the distinct acquisitions
-  summed, each when a row states it. It keeps the first row's plate solution
-  with its world coordinate (WCS) cards, so the viewer, the astrometry window
-  and a new plate solve find it on the result. A colorized layer image keeps
-  its own row's record whole, with the colorization appended to its lineage.
-- The primary output is always marked nonlinear with operation provenance
-  `nb-color-mapper`, whether or not final STF is checked. Auxiliary colorized
-  layers are marked nonlinear with `nb-color-mapper-layer`.
-- Successful Apply records the description “Created NB Color Mapper combination
-  from selected mono and RGB layers,” resets global controls and the selected
-  row's defaults, and retains the layer rows/selections.
-- **Take snapshot** follows current Preview STF, active mask, and Preview area.
-  With the area checked, only that ROI is a calculated combination in the
-  full-size snapshot.
-
-## Performance
-
-Base preparation is proportional to total pixels across every listed row, not
-only included rows. Nonidentity per-layer MTF, mono modification, HSV
-colorization, N-layer screen blending, background statistics/rescale, and STF
-each add full-plane passes. Pixel transforms and the screen loop use oneTBB;
-layer preparation order and background sample/statistics scans are otherwise
-serial at the process level.
-
-Memory scales with image dimensions and row count. The engine holds a float base
-image for every row, prepared included images, the float combined result, and a
-full `double` modifier vector for each modified mono target while it is built.
-Colorized layers are three-channel float images; requesting auxiliary outputs
-copies them. Preview, histogram, source, mask, and snapshot buffers add to the
-working set. Use **Preview area** for local tuning and remove unused rows rather
-than only unchecking Include. No approved astronomical set was timed.
-
-## Worked example
-
-- **Target row:** one mono sample `t=0.20`, identity Midtones/Blackpoint, hue
-  `0`, saturation `1`, **Mode: Add**, Factor `0.5`.
-- **Modifier row:** one mono sample `u=0.50`, identity tonal controls,
-  **Include layer** unchecked. Add produces `t'=0.20+0.5(0.50)=0.45`.
-- **Color checkpoint:** HSV hue `0`, saturation `1`, value `0.45` produces
-  `(0.45,0,0)`.
-- **Second included row:** an RGB sample `(0.20,0.30,0.40)` with identity tonal
-  controls.
-- **Screen checkpoint:** the result is
-  `(1-(1-.45)(1-.20), 1-(1-0)(1-.30), 1-(1-0)(1-.40))`, or
-  `(0.56,0.30,0.40)`.
-- **Policy:** Background neutralization and both STF stages are off; no active
-  mask is applied. The modifier value, HSV mapping, and screen equation reproduce
-  focused engine fixtures, but the combined single-pixel scenario is a derived
-  teaching checkpoint rather than an astronomical quality claim.
-
-## Warnings and limitations
-
-!!! warning "Preview STF and viewer autostretch are separate"
-    Preview STF permanently transforms the preview buffer. Viewer autostretch
-    changes only presentation. If both are enabled, the preview is stretched
-    twice and does not predict an Apply output with final STF off.
-
-!!! warning "The active view is still an implicit target"
-    The window has no target selector, but the launch-time active image remains
-    the comparison/mask source. A mask blends that source against the whole
-    combination; it does not mask individual layers.
-
-!!! warning "Apply has no progress or Cancel"
-    The engine supports cooperative cancellation, but this process exposes no
-    Apply controller. The mapping/output controls and Apply, Reset, and Close are
-    disabled after parameters and output names are captured, then restored when
-    Apply finishes.
-
-!!! warning "Dimensions are the only geometry compatibility test"
-    Equal size does not prove registration, crop origin, orientation, scale, or
-    PSF agreement. Colorization and modifiers make misalignment conspicuous as
-    colored or transferred star structure.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Menu action is disabled | No active still, same process already attached, or an exclusive process is attached | Activate a still and close the conflicting process |
-| Expected source is absent from Image | It is a sequence, not mono/RGB, or differs from the first resolvable row's dimensions | Convert/extract a still and register/crop it to exact dimensions |
-| Apply is disabled | A row's image closed, dimensions differ, no row is included, modifier reference is invalid, or enabled sigma limits are reversed | Repair every row, include at least one, and ensure Upper sigma exceeds Lower sigma |
-| Preview is unchanged active source | Parameters are not ready, or active mask is black over the result | Restore valid rows and temporarily disable/check the mask |
-| Color controls are disabled | Selected image is RGB or this mono row is referenced as another row's modifier | Select an eligible mono target; use a separate duplicate row if it must also be colorized |
-| Modifier mode has no visible effect | Target is RGB/referenced, Factor is zero for Add/Boost, Multiply has zero Factor, or modifier was suppressed by Median offset | Use an eligible mono target and inspect modifier values/settings |
-| Excluded row still affects result | It is referenced as another row's modifier | Set the target row's Mode to None or choose another modifier |
-| Preview is much brighter than Apply | Preview STF is on, Apply STF is off, viewer autostretch is also on, or ROI/full-image medians differ | Compare with one display mode; align the two STF checkboxes only if desired; test full preview |
-| Background neutralization changes color strongly | Nebulosity/outliers dominated samples or Rescale high expanded the shared range | Use a representative Preview area, tighten sigma limits cautiously, or disable Rescale high/neutralization |
-| One background channel is not corrected | No samples survived that channel's sigma interval; UI does not surface engine warnings | Widen limits and choose a cleaner area |
-| Auxiliary layer image is missing | Row was excluded, RGB, saturation zero, or referenced as a modifier | Include an eligible colorized mono row and reapply |
-| Output is grayscale | Every included prepared row remained neutral mono | Set nonzero Saturation on an eligible mono row or include an RGB row |
-| Doubled stars or color rims | Sources share dimensions but are not registered or PSF-matched | Register/crop and, if needed, match star profiles upstream |
-| Mapping controls or dialog buttons are disabled | A non-cancellable Apply is running | Let Apply finish; tune with Preview area before the next full run |
+| Ha and OIII masters | Ha at **Hue** 0, OIII at 180, **Saturation** 1 | Each layer's **Blackpoint** just below its median, then **Midtones**. |
+| Ha, OIII and SII masters | One row each, at the hues you want | One layer at a time, with **Include layer** off on the others. |
+| A cast in the background | **Enable** with the sigma values at their defaults | A narrower window where nebula fills the frame, and **Rescale high** last. |
+| A result to stretch later | **Apply STF to combined output** off | Stretch the result with Histogram Transformation. |
 
-## Related workflow steps
+## When it goes wrong
 
-- [Narrowband Imaging](../../workflows/narrowband-imaging.md) — calibration,
-  registration, gradients, scaling, palette choice, and later stretching.
-- [Image Registration](../registration-alignment/image-registration.md) — align
-  layer geometry before mapping or cross-layer modifiers.
-- [Linear Match](../color-calibration/linear-match.md) — correct gross relative
-  scale differences upstream when appropriate.
-- [Channel Composition](channel-composition.md) — use explicit scalar-to-RGB
-  channel assignment instead of HSV layers and screen mixing.
-- [NBRGB Combination](nbrgb-combination.md) — inject continuum-corrected
-  narrowband structure into an existing broadband RGB target.
-- [Narrowband Palette Composer](narrowband-palette-composer.md) — compare its
-  fixed palette formulas and normalized mixes.
-- [Process Windows](../../interface/process-windows.md) — shared preview,
-  masks, snapshots, Apply, Reset, and history behavior.
-- [Glossary](../../reference/glossary.md) — midtones transfer function, HSV,
-  background neutralization, and palette terminology.
+!!! danger "One size is not one grid"
+    The window compares width and height only: nothing matches stars, world coordinates, scale, rotation or star
+    profiles. An unregistered layer gives colored halos and doubled stars, and a modifier carries its stars into the
+    layer it modifies.
+
+!!! warning "Apply and Reset return the selected row to its defaults"
+    The selected row loses its hue, saturation, stretch and modifier, and the other rows keep theirs. Note its
+    values before you apply.
+
+!!! warning "The window stays on the image it opened on"
+    It has no **Target Image**. That image's mask blends the result, **Switch image** shows it, the result opens
+    beside it, and it names the result when no row names an image, even when it is no longer a layer. Open the window
+    from the master you want as the first layer.
+
+!!! warning "Apply shows no progress and has no Cancel"
+    The controls, **Apply**, **Reset** and **Close** stay disabled until the run ends. Closing the window another way
+    stops the run, and nothing opens.
+
+Apply stays dimmed, and the preview shows the active image unchanged
+:   **Cause.** A row's image is closed or of another size, no row is included, or **Upper sigma** is not above
+    **Lower sigma** while **Enable** is on.
+:   **Fix.** Open or replace the image, or remove its row, include a row, and order the two sigma values.
+
+Hue, Saturation and Mode are disabled
+:   **Cause.** The selected row's image is RGB, another row uses this row as its modifier, or **Image** reads
+    `<--NO IMAGE-->`.
+:   **Fix.** Select a grayscale row. To color a modifier too, add a second row of the same image.
+
+The preview is far brighter than the result
+:   **Cause.** **Preview STF** is on while the preview shows **Autostretch**, or **Apply STF to combined output** is
+    off, or a [preview area](../../reference/glossary.md#preview-area) measured its own median.
+:   **Fix.** Show the preview in **Linear**, tick **Apply STF to combined output** if you want the result stretched,
+    and untick **Preview area** for a last look.
+
+A modifier has no visible effect, or an excluded row still changes the result
+:   **Cause.** **With layer** reads None, **Factor** is 0 with **Add** or **Boost**, **Median offset** left nothing
+    above the median, or the excluded row is another row's modifier.
+:   **Fix.** Choose a row in **With layer**, raise **Factor**, untick **Median offset**, or set the dependent row's
+    **Mode** to **None**.
+
+The background keeps a cast, or its colors shift strongly
+:   **Cause.** Nebula fills the background window, **Rescale high** let an outlier set the range, or a channel's
+    window held no sample.
+:   **Fix.** Narrow the two sigma values, or turn **Rescale high** off.
+
+The result is grayscale
+:   **Cause.** Every included row is gray, at **Saturation** 0 or used as a modifier, and none is RGB.
+:   **Fix.** Raise **Saturation** on a grayscale row that no other row modifies.
+
+## Related
+
+- [Narrowband Imaging](../../workflows/narrowband-imaging.md), from narrowband frames to a color image.
+- [Image Registration](../registration-alignment/image-registration.md), to put the masters on one grid first.
+- [Channel Composition](channel-composition.md), to put masters into red, green and blue as they are.
+- [NBRGB Combination](nbrgb-combination.md), to add narrowband signal to a broadband color image.
+- [Narrowband Palette Composer](narrowband-palette-composer.md), for fixed palettes such as
+  [SHO](../../reference/glossary.md#sho), side by side.
+- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
+  process window shares.
 
 ## Credits
 
-- The process is a native port of Cosmic Photons' NBColorMapper 2.2, a
-  PixInsight script by Mike Cranfield, under the GNU General Public License
-  version 3. It uses AfterNight's engine and controls; the upstream
-  PixInsight/PJSR APIs, generated resources, and script bitmap assets are not
-  included.
-- The licence page of **About > About AfterNight** carries the same credit.
+- The layer mapping, with each layer's black point and midtones transfer, the four modification modes with their
+  inversion and median offset, the HSV coloring, the screen blend, the background neutralization's window and the
+  output stretch, with their formulas and constants, is derived from
+  [NBColorMapper 2.2](https://cosmicphotons.com/scripts/), a PixInsight script by Mike Cranfield of Cosmic Photons,
+  Copyright (C) 2023, 2024 Mike Cranfield, under the GNU General Public License version 3, and is distributed under
+  that licence. The single pass over the image, the bounded memory and the handling of invalid samples are
+  AfterNight's. No PixInsight, PJSR or Pleiades code, interface or asset is included. **About > About AfterNight**
+  credits it.

@@ -1,334 +1,333 @@
 ---
 kind: process
-stage: color
+stage: finish
 menu: Process > Color Spaces > LRGB Combination
 summary: >-
-  Replaces or blends the lightness of an RGB image with a same-size luminance image, keeping the image's chroma and
-  hue.
+  Gives a stretched color image the lightness of a luminance image of its size and keeps its hue and chroma, with a
+  transfer for the luminance, one for the chroma and a weight for each channel.
+data_in: nonlinear
 data_out: nonlinear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An RGB image or sequence view is active, no LRGB Combination window is open on it yet, and no window that needs
+    the image for itself is open on it. Apply waits for a luminance image.
+  inputs: >-
+    One RGB image or sequence, a grayscale luminance image of exactly its width and height in any pixel type, and an
+    optional mask on the color image's view.
+  outputs: >-
+    The color image, replaced, with one history step, in its own size and pixel type and recorded as nonlinear. No
+    file is written.
+  state: >-
+    A color image and a luminance image of one target, registered and cropped alike, and both stretched so that their
+    backgrounds have about the same lightness.
+derived: false
+rewritten: true
 ---
 # LRGB Combination
 
-## Purpose and expected result
+LRGB Combination gives a color image the lightness of a separate luminance image, such as a
+[master](../../reference/glossary.md#master) taken through a clear filter. It reads the color image as the lightness,
+chroma and hue of [CIE Lab](../../reference/glossary.md#cie-lab), replaces its lightness with the luminance or blends
+the two, and converts back to red, green and blue. A
+[midtones transfer function](../../reference/glossary.md#midtones-transfer-function) can reshape the luminance and
+another the chroma first, and a weight can lower each channel last.
 
-LRGB Combination replaces the CIE L\* lightness of an RGB target with, or
-blends it toward, a same-size grayscale luminance image. It keeps the target's
-CIE chroma and hue unless **Saturation MTF** reshapes chroma, converts the
-result back to RGB, and finally applies independent red, green, and blue
-multipliers.
+**Apply** replaces the color image, or every frame of its [sequence](../../reference/glossary.md#sequence), keeps its
+size and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear.
 
-The expected result is a same-size RGB image carrying detail from the selected
-luminance source and color from the RGB target. The process does not register,
-resample, normalize, or linear-match its inputs. Prepare the two images so that
-stars and other structures coincide before opening the process.
-
-The luminance may have another representation than the RGB target: each image
-is read as a fraction of its own full scale, and the result is written in the
-target's representation. **Preview area** crops the luminance to the same area
-as the target, so an area preview shows the combination of that area.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Color Spaces > LRGB Combination** |
-| Enabled when | An RGB image or RGB sequence is active; the same process is not already attached to it; and no attached process holds exclusive access |
-| Inputs | One three-channel RGB target plus one open grayscale luminance image with exactly the same width and height; the luminance may be of any representation and is read in its own units |
-| Outputs | Destructively replaces the RGB target after success; **Take snapshot** creates an auxiliary still; no file is written directly |
-| Recommended image state | Geometrically aligned, normalized sources prepared consistently for the sRGB/D65 CIE conversion; the process does not enforce or convert an ICC profile or processing state |
-| Preview support | Always-on asynchronous full-image preview with histogram and display autostretch; **Preview area** is supported, the luminance cropped to the same area |
-| Sequence support | Framework-supported. Apply captures the luminance image from its view once, and every target frame is combined with it as a still image of the frame would be; there is no frame pairing or luminance-sequence traversal |
-| Mask support | Supported after combination: white applies the result, black keeps the RGB target, gray blends, and **Invert Mask** reverses the weights |
-| External dependencies | None; execution uses the bundled engine and does not access a tool, model, catalog, or network service |
+```figure
+image: ../../assets/images/processes/color-composition/lrgb-combination.webp
+alt: >-
+  The LRGB Combination window. On the left, a histogram of three colored peaks over its toolbar, then Luminance naming
+  the stretched luminance master and RGB naming the color image, the Channel Weights group with Lightness, Red, Green
+  and Blue at 1.00, and the Transfer Functions group with Lightness at 0.50 and Saturation at 0.40. On the right, the
+  preview shows the red and white clouds of the nebula. Reset, Close and Apply run along the bottom.
+caption: >-
+  LRGB Combination on the stretched Carina master, with the luminance master stretched to the same background as its
+  Luminance and Saturation at 0.40. The preview shows what Apply writes.
+pins:
+  - {n: 2, x: 36.0, y: 44.1}
+  - {n: 3, x: 26.0, y: 77.3}
+  - {n: 4, x: 25.0, y: 56.3}
+  - {n: 5, x: 34.0, y: 81.0}
+  - {n: 6, x: 25.0, y: 63.6}
+  - {n: 7, x: 62.0, y: 21.0}
+```
 
 ## Before you start
 
-- Register the luminance and RGB masters upstream. Equal dimensions only prove
-  that the selector will accept them; the process does not compare stars, WCS,
-  pixel scale, orientation, crop origin, or other geometry.
-- The two inputs may have different representations. Each is read in its own
-  units - an unsigned integer as a fraction of its largest value, a signed
-  integer counted from its smallest, a floating-point image as it is - so a
-  16-bit luminance over a 32-bit float target needs no conversion first.
-- Keep both images normalized to their ordinary `[0,1]` interpretation. The
-  target RGB is decoded using the sRGB transfer (or read as linear when the image
-  states linear RGB) and a D65 white point. The grayscale source is used
-  directly as normalized L\*, where `0` means L\* 0 and `1` means L\* 100.
-- Complete linear matching or other intensity preparation before this process.
-  There is no automatic matching between the luminance and target lightness.
-- **Preview area** crops the target and the luminance to the same area, so it
-  is a safe way to reduce preview cost.
-- When the RGB target is a sequence, understand that Apply snapshots the
-  selected view's currently displayed luminance image and reuses that snapshot
-  for every target frame. Use a still target unless that behavior is intentional.
-- Duplicate the target or be prepared to use Image History. **Apply** replaces
-  the selected target; it does not create a new image by default.
+- [Stretch](../../reference/glossary.md#stretch) both images first. The luminance's samples become the lightness as
+  they are, 0 black and 1 white, so its background should sit at the color image's lightness, and nothing matches
+  the two for you. A linear luminance makes a nearly black image.
+- Register the two images to one reference and crop them alike. The luminance is offered by its width and height
+  alone: nothing matches stars, compares world coordinates, or moves, turns, scales or resamples it.
+- Remove gradients and calibrate the color while both are linear. The result is recorded as nonlinear, and the color
+  calibrations refuse it.
+- The two may differ in pixel type. Each is read as a
+  [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale), so a 16-bit luminance meets a 32-bit
+  floating-point color image without a conversion, and the result keeps the color image's type.
+- A [mask](../../reference/glossary.md#mask) on the color image's view blends the result with the original after the
+  combination. On a sequence, every frame gets the one luminance image.
 
-## Procedure
+## Steps
 
-1. Select an aligned RGB target and open **Process > Color Spaces > LRGB
-   Combination**. Confirm the intended image in **RGB**.
-2. Select a same-size grayscale master in **Luminance**. The
-   **Apply** button remains disabled until both selections resolve to open
-   images.
-3. Start with all channel weights at `1.0` and both MTF controls at `0.5`.
-4. Reduce **Lightness** below `1.0` if the separate luminance overwhelms the
-   target's original lightness. This is the actual L\* blend control.
-5. Adjust **Lightness MTF** only when the incoming luminance needs a global
-   midtone remap. Values below `0.5` lift interior values; values above `0.5`
-   lower them.
-6. Adjust **Saturation MTF** cautiously. Despite the UI label, it maps the CIE
-   L\*C\*h chroma plane, not an HSL/HSV saturation channel.
-7. Use **Red**, **Green**, and **Blue** only for final downward channel scaling.
-   They multiply the reconstructed RGB channels and cannot raise a channel
-   above its unweighted value.
-8. Compare the preview and original with **Switch image** under one display
-   stretch. Inspect stars and high-contrast edges for registration errors, then
-   select **Apply**. The luminance selection, all six numeric controls, Apply,
-   Reset, and Close remain disabled until the run ends.
+1. **Open the window.** Make the stretched color image the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Color Spaces > LRGB Combination**.
+   **RGB** names it, **Luminance** reads `<--NO IMAGE-->`, and **Apply** is dimmed.
+2. **Choose the luminance.** Pick the luminance image in **Luminance**. **Apply** enables, and the preview shows the
+   color image with the luminance's lightness.
+3. **Match the lightness.** Hold ++space++ over the preview to compare its background with the original. If it is
+   darker, lower **Lightness** under **Transfer Functions**. If it is paler, raise it.
+4. **Blend, if you want.** Lower **Lightness** under **Channel Weights** to keep part of the color image's own
+   lightness.
+5. **Set the color.** Lower **Saturation** below 0.5 for stronger colors, or raise it for weaker ones. Gray stays
+   gray.
+6. **Trim a channel.** Lower **Red**, **Green** or **Blue** only to take some of one color out at the end.
+7. **Check at 100 %.** Zoom the preview into stars and edges, or draw a
+   [preview area](../../reference/glossary.md#preview-area) there, which crops both images alike and shortens each
+   preview. Doubled stars or colored fringes mean the two images are not registered.
+8. **Apply.** Choose **Apply**. The image in its view has the luminance's detail, its history lists **LRGB
+   Combination** with the luminance's name and the six values, and the values return to their defaults.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Histogram plot | Graph, normalized intensity/count | Current LRGB preview; RGB channels overlaid | None | Binning comes from **Plot resolution** | Shows the mask-aware preview distribution and approximate endpoint-bin clipping | Always present | Recalculation adds work; endpoint counts depend on binning | Display only; preview RGB | Recomputed after preview or resolution changes |
-| Left-drag in histogram | Graph gesture | No readout | None | Hold left button and move in graph | Shows normalized coordinate readout | Histogram always present | Diagnostic only | Display only | Ends on button release |
-| Middle-drag in histogram | Graph gesture | Fitted/unpanned | None | Hold middle button and drag | Pans the graph | Useful after zooming | Display cost only | Display only | Until reset/window close |
-| Ctrl+mouse wheel in histogram | Graph gesture | Fitted size | None | Up `1.20x`; down `0.8x`; wheel without Ctrl scrolls | Zooms around the cursor | Interactive graph enabled | Larger graph needs more rendering area | Display only | Window lifetime |
-| Zoom in | Toolbar action | Fitted size | None | Each selection multiplies size by `1.30` | Enlarges plot | Available while idle | Plot rendering only | Display only | Window lifetime |
-| Zoom out | Toolbar action | Fitted size | None | Each selection multiplies size by `0.70` | Shrinks plot | Available while idle | Plot rendering only | Display only | Window lifetime |
-| Zoom reset | Toolbar action | — | None | One action | Fits graph and resets scrolling | Available while idle | Plot rendering only | Display only | Immediate |
-| Show grid | Toggle | Checked | None | Checked/unchecked | Shows or hides graph grid | Available while idle | Display-only aid | Display only | Window lifetime; process Reset does not change it |
-| Show clipping info | Toggle | Checked | None | Checked/unchecked | Shows or hides histogram endpoint-bin counts and percentages | Available while idle | Counts are bin-based diagnostics | Display only | Window lifetime |
-| Absolute scales | Toggle | Unchecked | None | Checked/unchecked | Checked normalizes each visible histogram channel to its own peak | Available while idle | Can conceal relative RGB strength; never changes pixels | Display only | Window lifetime |
-| Draw histogram areas | Toggle | Unchecked | None | Checked/unchecked | Chooses filled-area or line rendering | Available while idle | Filled areas can obscure overlaps | Display only | Window lifetime |
-| Show histogram | Toggle | Checked | None | Checked/unchecked | Shows or hides histogram curves | Available while idle | Display-only | Display only | Window lifetime |
-| Plot resolution | Combo box, bins | **8-bit (256)** | None | **6-bit (64)**, **7-bit (128)**, **8-bit (256)**, **9-bit (512)**, **10-bit (1024)**, **12-bit (4096)**, **14-bit (16K)**, **16-bit (64K)**, **100 levels**, **1000 levels**, **10000 levels** | More bins show finer distribution | Available while idle | Higher counts increase histogram memory/rendering; processing precision is unchanged | Display only | Window lifetime |
-| Luminance | Image selector | **No image** | None | Open grayscale image with target width and height, of any representation | Chooses the plane used as normalized L\*, read as a fraction of its own full scale | Rebuilt when images open, close, rename, update, or the RGB target changes; Apply requires a valid selection and disables the selector during execution | Wrong registration creates edge/color artifacts | Preview uses the current selection; Apply captures one luminance image snapshot and reuses it for every target-sequence frame | Survives Reset/successful Apply; target change clears it; not saved after close |
-| RGB | Target selector | Attached active RGB view | None | Open three-channel RGB image or sequence | Supplies original L\*, C, h, metadata base, mask, and destructive destination | Menu opens only for active RGB; choosing another RGB target rebuilds Luminance choices | Target is replaced on Apply | Preview/Apply source; all RGB channels; still/sequence | Follows attachment lifecycle; Reset does not change it |
-| Lightness | Double value plus slider, blend fraction | `1.0` | None | `0..1`; spin step `0.05`; slider `0..1000`, tracking off | `0` keeps target L\*; interior values blend; `1` uses selected luminance fully | Apply requires both images | Higher values transfer more luminance contrast/detail | Preview/Apply before mask; still/sequence | Captured per preview/execution; Reset/success returns `1.0` |
-| Red | Double value plus slider, multiplier | `1.0` | None | `0..1`; spin step `0.05`; slider `0..1000`, tracking off | Scales reconstructed red downward; `0` removes it | Applied after L\*C\*h-to-RGB conversion | Strong reduction shifts color and can clip detail to black | Preview/Apply; red output; before mask | Captured; Reset/success returns `1.0` |
-| Green | Double value plus slider, multiplier | `1.0` | None | `0..1`; spin step `0.05`; slider `0..1000`, tracking off | Scales reconstructed green downward; `0` removes it | Applied after conversion | Strong reduction shifts color and luminance appearance | Preview/Apply; green output; before mask | Captured; Reset/success returns `1.0` |
-| Blue | Double value plus slider, multiplier | `1.0` | None | `0..1`; spin step `0.05`; slider `0..1000`, tracking off | Scales reconstructed blue downward; `0` removes it | Applied after conversion | Strong reduction shifts color and can suppress blue structure | Preview/Apply; blue output; before mask | Captured; Reset/success returns `1.0` |
-| Lightness MTF | Double value plus slider, MTF midpoint | `0.5` (identity) | None | `0..1`; spin step `0.05`; slider `0..1000`, tracking off | Below `0.5` lifts interior luminance; above `0.5` lowers it; endpoints remain 0/1 | Applied to selected luminance before Lightness blend; exact `0.5` skips the stage | Extremes collapse most interior values toward white (`0`) or black (`1`) | Preview/Apply; luminance source; before mask | Captured; Reset/success returns `0.5` |
-| Saturation MTF | Double value plus slider, CIE-chroma MTF midpoint | `0.5` (identity) | None | `0..1`; spin step `0.05`; slider `0..1000`, tracking off | Below `0.5` raises normalized C; above `0.5` lowers it | Maps target CIE C plane; it does not inspect luminance source color | Strong settings distort color and can drive later gamut clipping | Preview/Apply; target chroma; before mask | Captured; Reset/success returns `0.5` |
-| Preview pane | Full-image viewer | Current combination shown | None | Standard viewer zoom/pan/display controls | Shows asynchronous mask-aware result; display autostretch does not change data | Always present; no Preview checkbox | Holds source/result/statistics buffers | Preview only; current target/displayed sequence frame | Window lifetime |
-| Switch image | Preview-toolbar action | Processed preview shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles processed preview and original RGB target | Available in preview pane | Display comparison only | Preview display only | Preview-window lifetime |
-| Preview area | Preview-toolbar checkbox | Unchecked | None | Off/on; move/resize overlay | Crops the RGB target and the luminance to the same area and shows their combination there | Visible while idle | A smaller area is less preview work | Preview and Take snapshot only; not Apply | Window lifetime; Reset does not clear it |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes current settings at source depth and opens `<target> - LRGB Combination - SNAPSHOT` | Preview available | Allocates/processes a new full-size still; active mask applies | New still; target unchanged | Each action creates a view |
-| Apply | Button/action | Disabled until valid RGB and luminance selections | None | One action | Captures the luminance image plus six numeric values and replaces the target after successful processing | Target must lock; target/luminance selectors, numeric controls, Apply, Reset, Close, and shared preview actions disable during work | Full-image conversion and buffers; target is destructive | Still/sequence; mask-aware | Success registers an **LRGB Combination** history step and resets six numeric controls; selectors remain |
-| Reset | Button/action | Enabled while idle | None | One action | Restores four weights to `1.0` and both MTF values to `0.5` | Does not clear either selector, histogram state, or Preview area | Recomputes preview; no target change | Configuration only | Immediate |
-| Close | Button/action | Enabled while idle | None | One action | Closes without applying current settings | Disabled with other controls during Apply | No output | Window/execution | Values are not persisted after destruction |
-| Sequence progress / Cancel | Shared progress dialog and Cancel action | Created when target-sequence Apply begins | None | Progress per decoded target frame; cooperative Cancel | Writes a temporary replacement and commits only after success | Target sequence only; the Apply-time luminance snapshot remains fixed | Full sequence I/O plus per-frame CIE conversion; Cancel removes temporary output | Sequence framework; no luminance frame pairing | Success replaces sequence and resets values; Cancel retains original |
+The window has no **Preview** check box: the preview is always on. Its histogram, the histogram's toolbar, the
+preview's toolbar and the progress window of a sequence are those of every process window: see
+[Process Windows](../../interface/process-windows.md). The sliders change their value when you let them go.
 
-## How the algorithm works
+```controls
+window: LRGB Combination
+controls:
+  - name: Luminance
+    kind: combo
+    default: "<--NO IMAGE-->"
+    options: ["<--NO IMAGE-->"]
+    effect: Chooses the luminance image, whose samples become the lightness of the result. Until one is chosen the preview shows the color image unchanged.
+    range: After `<--NO IMAGE-->` the list holds every open grayscale image of exactly the color image's width and height, of any pixel type, and never the color image itself. The tooltip of each item gives its file, size, channels, pixel type and memory.
+    enabled: Disabled while a run works. The list is filled again when a view opens, closes, changes or is renamed, and when **RGB** names another image.
+    tradeoff: Nothing checks that it is registered to the color image. A pair off by a pixel gives doubled stars and colored edges.
+    scope: The image its view shows when the preview or **Apply** asks for it, read as a fraction of its own full scale. A preview area crops it to the same area as the color image, without registering the two. On a sequence, the one image its view shows when you press **Apply** serves every frame, and two sequences are not paired frame by frame.
+    persistence: Kept by **Reset** and **Apply**. Another image in **RGB**, and a luminance view that closes or changes into an image the list does not take, return it to `<--NO IMAGE-->`.
+  - name: RGB
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open RGB image or sequence]
+    effect: Chooses the color image, which gives the hue and the chroma, the mask, the header and the pixel grid, and which **Apply** replaces.
+    range: It lists the open views with three channels, never a grayscale one.
+    tradeoff: The image chosen here is replaced. Check it, and the window's title, before you apply.
+    persistence: Until the window closes. **Reset** leaves it. Choosing another fills the luminance list again.
+  - name: Lightness
+    object: lightnessWeightValue
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Sets how much of the lightness the luminance supplies, by equation (2). At 1 it replaces the color image's lightness, at 0 the color image keeps its own, and between them the two are mixed in proportion.
+    tradeoff: Higher brings more of the luminance's detail and contrast, and more of any difference between the two backgrounds.
+    scope: The lightness only, after the luminance's transfer, before the channel weights and the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+  - name: Red
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Multiplies the red of the result after the conversion back. Lower takes red out, and 0 removes it. It cannot raise a channel above its value at 1.
+    tradeoff: A strong cut shifts the color and sends faint red detail to black.
+    scope: The red channel of the result, held between 0 and 1 again afterwards, before the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+  - name: Green
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Multiplies the green of the result after the conversion back. Lower takes green out, and 0 removes it.
+    tradeoff: A strong cut shifts the color and darkens the image most, since green carries most of the lightness.
+    scope: The green channel of the result, held between 0 and 1 again afterwards, before the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+  - name: Blue
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Multiplies the blue of the result after the conversion back. Lower takes blue out, and 0 removes it.
+    tradeoff: A strong cut shifts the color and can hide faint blue structure.
+    scope: The blue channel of the result, held between 0 and 1 again afterwards, before the mask.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.
+  - name: Lightness
+    object: lightnessMTFValue
+    kind: spinbox
+    default: "0.50"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Sets the midtones balance the luminance is stretched by before it is used, by equation (1). Below 0.5 it brightens the luminance between black and white, above 0.5 it darkens it. At 0.5 the luminance is used as it is.
+    range: Black and white stay where they are. At 0 every sample between them turns white, and at 1 black.
+    tradeoff: It reshapes all the luminance's tones, not only its background. Near either end small moves change the lightness a lot.
+    scope: The luminance only, before **Lightness** of **Channel Weights** blends it.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.5.
+    note: Any value but 0.5 records the operation as `lrgb-mtf-combination`.
+  - name: Saturation
+    kind: spinbox
+    default: "0.50"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Sets the midtones balance the color image's chroma is stretched by, by equation (3). Below 0.5 the colors grow stronger, above 0.5 weaker. At 0.5 the chroma is kept.
+    range: It acts on the CIE chroma, not on the saturation of HSL or HSV, and keeps each pixel's hue. A gray pixel stays gray.
+    tradeoff: Strong values distort colors and push them out of the range, where the conversion back clips them.
+    scope: The chroma of the color image, before the conversion back, the channel weights and the mask. The luminance has no color and plays no part.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.5.
+    note: Any value but 0.5 records the operation as `lrgb-mtf-combination`.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns the four weights to 1 and both transfers to 0.5.
+    range: It leaves **Luminance**, **RGB**, the preview area and the histogram's settings as they are.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Combines the color image, or every frame of its sequence, with the luminance as the window stands, replaces it and returns the six values to their defaults. **Luminance** stays chosen.
+    enabled: While **RGB** and **Luminance** both name an image, at any values. While the run works, **Luminance**, **RGB**, the six values, **Apply**, **Reset** and **Close** are disabled.
+    tradeoff: Every pixel is converted to CIE Lab and back, in one pass spread over the processor's threads, and a transfer other than 0.5 adds work to each pixel but no image. An integer image, the color image or the luminance, is worked on a 32-bit floating-point copy, or 64-bit for a 32-bit integer. On a large image, try the settings on aligned crops of both images first.
+    scope: The whole image, through the mask on its view. A preview area does not limit it.
+    persistence: "The history step is **LRGB Combination** and reads like `Luminance: '<name>', lightness weight 1.00, channel weights R 1.00 G 1.00 B 1.00, lightness midtones 0.50, saturation midtones 0.40`, every value with two decimals. The result is recorded as nonlinear with the operation `lrgb-combination`, or `lrgb-mtf-combination` when a transfer is not 0.5, whatever the two images stated."
+    note: "The header is built from both images. The exposure is the light they hold together: each one's `TOTEXP`, else its `LIVETIME`, else its exposure times its `STACKCNT`, else `NCOMBINE`, else one, summed. Two images that state the same exposure start are one acquisition, such as an image and a lightness channel taken from it, and count once with the larger integration and frame count either states. Their `EXPOSURE` and `EXPTIME` cards are dropped, and the result states its own `EXPTIME` and `TOTEXP`, `LIVETIME` when either image states one, and `STACKCNT` and `NCOMBINE` summed the same way, each when either image states it. The observation start is the earliest, with its `DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` together. The object, instrument, telescope, observer, filter, sensor temperature, gain and binning are kept when both images state the same, and every other card of the color image only when the luminance states it alike. The color image's WCS cards, plate solution and pointing cards `RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA` and `TELDEC` are kept, without a check that the luminance shares its grid."
+```
 
-### Target conversion and encodings
+## How it works
 
-For each RGB target pixel, AfterNight reads the stored channels as fractions
-of full scale, applies the sRGB decoding curve (unless the image states linear
-RGB), converts sRGB to CIE XYZ with the D65 matrix, and then converts XYZ to
-CIE L\*a\*b\*, computing each pixel in double. The cylindrical form is
+1. Both images are read as fractions of full scale, an integer one through a floating-point copy, and each pixel is
+   computed in double precision.
+2. The color image's red, green and blue are read as sRGB-encoded, or as linear when the image states linear RGB,
+   and converted to CIE \(L^*\), \(a^*\) and \(b^*\) with a D65 white. No color profile is read or converted.
+3. The luminance, through its transfer, gives the lightness, mixed with the color image's own by **Lightness** of
+   **Channel Weights**. The chroma goes through its transfer, and \(a^*\) and \(b^*\) are scaled to it, which keeps
+   the hue.
+4. The color is converted back the way it was read, each channel is held between 0 and 1, multiplied by its weight
+   and held again. A mask on the view then blends the result with the original.
+5. The result is written once in the color image's pixel type, rounded to the nearest code, and replaces it with one
+   history step.
 
-\[
-C^*=\sqrt{a^{*2}+b^{*2}},\qquad
-h=\operatorname{atan2}(b^*,a^*).
-\]
+### Model
 
-The engine reads L\* as `L*/100` and C\* as `C*/200`. The combination never
-computes `h` itself: it keeps the hue as the direction of `a*` and `b*`,
-scaling both by the transferred chroma over the original chroma. No source ICC
-profile is selected or transformed by this dialog.
+The lightness is read as \(\ell = L^*/100\) and the chroma as \(c = C^*/200\), with \(C^* = \sqrt{a^{*2} + b^{*2}}\),
+both from 0 to 1. A transfer with the balance \(m\) sends a value \(x\) between 0 and 1 to
 
-### Lightness and chroma transfer
+\[ T_m(x) = \frac{(m - 1)\,x}{(2m - 1)\,x - m} \tag{1} \]
 
-Both transfer controls use the same midtones transfer function. For a
-normalized sample `x` and control value `m`, with endpoints fixed at 0 and 1,
+and gives 0 at or below 0 and 1 at or above 1. With \(m = 0.5\) it changes nothing and is skipped, and always
+\(T_m(m) = 0.5\). With \(y\) the luminance
+sample, \(w\) the value of **Lightness** under **Channel Weights** and \(m_L\) that under **Transfer Functions**, the
+new lightness is
 
-\[
-T_m(x)=
-\begin{cases}
-0,&x\le0,\\
-1,&x\ge1,\\
-\dfrac{(m-1)x}{(2m-1)x-m},&0<x<1.
-\end{cases}
-\]
+\[ \ell' = (1 - w)\,\ell + w\,T_{m_L}(y) \tag{2} \]
 
-At `m=0.5`, `T_m(x)=x`, and the process skips allocation of that transfer.
-Values below `0.5` raise interior samples; values above `0.5` lower them.
-The endpoint settings are severe: `m=0` sends every interior sample to 1,
-while `m=1` sends every interior sample to 0.
+With \(m_C\) the value of **Saturation**, the chroma becomes \(c'\), and \(a^*\) and \(b^*\) are scaled together,
+so the hue angle \(h = \operatorname{atan2}(b^*, a^*)\) is kept without being computed:
 
-Let `L_rgb` be normalized target L\*, `L_src` the selected grayscale sample,
-`w_L` **Lightness**, and `C_rgb` the target's normalized CIE chroma. The planes
-used for reconstruction are
+\[ c' = T_{m_C}(c), \qquad a^{*\prime} = a^*\,\frac{c'}{c}, \qquad b^{*\prime} = b^*\,\frac{c'}{c} \tag{3} \]
 
-\[
-L_{out}=(1-w_L)L_{rgb}+w_L T_{m_L}(L_{src}),\qquad
-C_{out}=T_{m_C}(C_{rgb}),\qquad h_{out}=h_{rgb}.
-\]
+With **Lightness** of **Channel Weights** at 0.25, a lightness of 0.40 and a luminance of 0.70 give 0.475. A
+**Saturation** of 0.25 turns a chroma of 0.20 into 0.43. After the conversion back, a channel \(R\) with the weight
+\(w_R\) becomes
 
-`L_src` is read as a fraction of the luminance image's own full scale, whatever
-its representation, so a luminance of another representation than the target's
-needs no conversion. The result is written once in the target's
-representation.
+\[ R' = \min\bigl(1,\ w_R \min(1,\ \max(0,\ R))\bigr) \tag{4} \]
 
-### RGB reconstruction, weights, and mask
+and green and blue alike.
 
-AfterNight converts L\*C\*h back through CIE XYZ to sRGB, applies the sRGB
-encoding curve, and clips each reconstructed channel to `[0,1]`. It then
-multiplies R, G, and B independently by their corresponding weights, holds
-each weighted channel to `[0,1]` again, and writes it in the target's
-representation, an integer rounded to the nearest code.
+### Boundaries
 
-If an active mask is enabled, the shared framework blends after all LRGB work:
+- A pixel either image marks as invalid keeps the color image's samples. A sample that is not a finite number, in a
+  pixel both images state valid, stops the run.
+- A grayscale image cannot be the color image: the menu command is greyed while one is active, and **RGB** lists
+  none.
+- The weights only lower a channel, and a color the conversion back puts out of range is clipped before them.
+- The result is recorded as nonlinear even when both images were linear.
 
-\[
-RGB_{final}=RGB_{target}(1-M)+RGB_{lrgb}M.
-\]
+### Worked example
 
-An inverted mask swaps the two weights. The luminance/chroma calculation is
-global; the mask does not change its inputs or derive settings locally.
+The color image is the Carina master after Histogram Transformation with **Shadows** and **Midtones** at 0.02, which
+puts each channel's median at 0.278. A gray of 0.278 has a CIE lightness of 30.2. The luminance is the luminance
+master of the same night, whose median is 0.144, after Histogram Transformation with **Shadows** at 0.135 and
+**Midtones** at 0.023, which puts its median at 0.302. With the defaults, equation (2) makes the background's
+lightness 0.302, so each channel's background moves only from 0.278 to 0.279, while the clouds take the luminance's
+structure. Set
+**Saturation** to 0.40: equation (3) turns a pale color of chroma 20 into 28.6, and leaves the gray background gray.
 
-A pixel either image's validity rejects keeps the target's samples.
+```figure
+images:
+  - image: ../../assets/images/processes/color-composition/lrgb-combination-before.webp
+    alt: The whole stretched color image, the red and white clouds of the nebula and its stars over a dark gray background.
+    label: Before
+  - image: ../../assets/images/processes/color-composition/lrgb-combination-after.webp
+    alt: The whole image after Apply, the same field with the clouds in stronger reds and the background as dark as before.
+    label: After
+caption: >-
+  The stretched Carina master before and after Apply with the stretched luminance master and Saturation at 0.40.
+  Both are the whole frame in the Linear display mode, without a display stretch.
+```
 
-## Parameter interactions and starting points
+Had the luminance been stretched like the color image, with 0.02 and 0.02, its median would land at 0.876. The
+result would be pale: a lightness of 0.876 is a gray of 0.86.
 
-| Combination | Conservative starting point | Too weak looks like | Too strong or defective looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Lightness + source preparation | `1.0` after upstream matching; otherwise start near `0.5` | Added detail is subtle | Background/contrast discontinuity or luminance dominates color | Align and match upstream, then set Lightness |
-| Lightness MTF + Lightness | MTF `0.5`, then change one control at a time | Luminance tonal mismatch remains | Crushed/washed interior values, especially near MTF endpoints | Set blend first, then shape luminance |
-| Saturation MTF + RGB weights | Saturation MTF `0.5`; RGB all `1.0` | Color remains subdued | Gamut clipping, hue imbalance, or missing channel | Shape chroma first; use RGB multipliers only for final reduction |
-| Mask + high-contrast detail | Use a smooth, registered mask | Protected area changes too little | Halos at mask/registration boundaries | Fix alignment, soften mask, reduce Lightness |
-| Same dimensions + WCS | Treat dimensions as only the selector gate | — | Doubled/misaligned stars while target WCS still appears present | Register/crop first and inspect edges before Apply |
-| Sequence target + luminance | Prefer a still target | — | Every target frame receives the same displayed luminance frame | Extract/pair frames upstream; do not expect automatic pairing |
+## Starting points
 
-## Inputs, outputs, and metadata
-
-- The RGB selector accepts only three-channel RGB views. The luminance selector
-  accepts grayscale views with the target width and height and excludes the
-  target itself. It does not check WCS, origin, orientation, or
-  image-processing state; the luminance may have any representation.
-- A still Apply replaces the RGB target only after the worker succeeds. **Take
-  snapshot** creates a separate still. The process creates no mask, model,
-  report, preset, or direct disk file.
-- Output dimensions are the common input dimensions, and the output is in the
-  RGB target's representation whatever the luminance's.
-- The result's metadata is built from both images. Its exposure is the light
-  they hold together, recorded once: each image's whole integration - its
-  `TOTEXP` card, else its `LIVETIME` card, else its exposure times its frame
-  count (`STACKCNT`, else `NCOMBINE`, else one) - summed. Two images that state
-  the same exposure start are one acquisition - an image and a copy made of
-  it, such as a lightness channel taken out of it - and count once, with the
-  larger integration and the larger frame count either states, since a copy
-  may have lost its `TOTEXP` and `STACKCNT` cards. Their `EXPOSURE` and
-  `EXPTIME` cards are dropped; the result states its own `EXPTIME` and
-  `TOTEXP` as that total, `LIVETIME` the same when either image states one,
-  and `STACKCNT` and `NCOMBINE` as their frame counts, summed the same way,
-  each when either image states it.
-- The observation start is the earliest either image states, and its
-  `DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` cards
-  are taken together from that image. The object, instrument, telescope,
-  observer, filter, sensor temperature, gain, and binning are kept when both
-  images state the same value; every other header card of the target is kept
-  only when the luminance states it identically.
-- The RGB target's world coordinate (WCS) cards, plate solution and pointing
-  cards (`RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA`,
-  `TELDEC`) are kept, because the pixel grid is the target's. The process does
-  not verify that the luminance shares that geometry.
-- Output processing state is always marked nonlinear/display RGB with operation
-  provenance `lrgb-combination`, or `lrgb-mtf-combination` when either MTF is
-  not `0.5`. This happens even if the inputs carried linear declarations.
-- Apply registers an Image History step named **LRGB Combination** whose
-  description names the luminance image and the six settings: `Luminance:
-  '<name>', lightness weight <w>, channel weights R <r> G <g> B <b>, lightness
-  midtones <m>, saturation midtones <m>`.
-- For a sequence target, the shared framework processes decoded target frames
-  into a temporary sequence, supports cooperative cancellation, and replaces
-  the target only after success. Apply captures the selected view's current
-  displayed image before worker execution and passes that same snapshot through
-  typed parameters for every frame; luminance sequences are not traversed or synchronized.
-
-## Performance
-
-The main work is linear in pixel count. The engine combines each pixel in one
-walk on the operation's worker threads - the RGB-to-L\*a\*b\* conversion, both
-transfers, the lightness blend, the conversion back to RGB, and the channel
-weights - so an MTF value other than `0.5` adds per-pixel work but no extra
-image. An integer target or luminance is first copied into a Float32 working
-image (Float64 for 32-bit integers); mask blending, preview display, and the
-histogram add their own passes, and a full preview retains the source, result,
-and display buffers.
-
-**Preview area** limits preview work to the area it covers. On a
-large master, move sliders deliberately—the sliders have tracking disabled, so
-dragging schedules work on release—and consider preparing a separate aligned
-crop as both RGB and luminance inputs. No approved LRGB pair was timed.
-
-## Worked example
-
-- **Input condition:** At one aligned pixel, the RGB target converts to
-  normalized `L=0.40`, `C=0.20`, `h=0.60`; the grayscale luminance
-  sample is `0.70`.
-- **Settings:** Lightness `0.25`, Lightness MTF `0.5`, Saturation MTF `0.25`,
-  and Red/Green/Blue `1.0`.
-- **Lightness result:** The identity Lightness MTF leaves `0.70` unchanged, so
-  `L_out = 0.75(0.40) + 0.25(0.70) = 0.475`.
-- **Chroma result:** `T_0.25(0.20) = (-0.75×0.20) /
-  (-0.50×0.20-0.25) = 3/7 ≈ 0.428571`; hue remains `0.60`.
-- **Interpretation:** Reconstruction therefore uses
-  `(L,C,h)=(0.475,0.428571,0.60)`, then clips the converted sRGB channels. The
-  unit channel weights leave them unchanged, and an absent mask commits the
-  whole pixel. This proves the plane operations and anchors, not that the
-  setting is visually appropriate for a particular astronomical target.
-
-## Warnings and limitations
-
-!!! note "Mixed representations and Preview area"
-    The luminance may have another representation than the target; each is
-    read as a fraction of its own full scale. **Preview area** crops both images
-    to the same pixel area; it does not register them.
-
-!!! warning "Equal dimensions are not registration"
-    The process performs no star matching, WCS comparison, translation,
-    rotation, scale correction, distortion correction, or resampling. Align and
-    crop the pair upstream.
-
-!!! note "MTF values are nonlinear"
-    `0.5` is identity. Values near `0` or `1` are not small adjustments; the
-    endpoints map almost every interior sample to white or black respectively.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Situation | Start | Then adjust |
 | --- | --- | --- |
-| Apply is disabled | Luminance is **No image**, a selection disappeared, or the RGB selection no longer matches the attached target | Select the current RGB target and a valid same-size grayscale image |
-| Luminance image is absent from the list | It is RGB, has different dimensions, is the target itself, or is not open | Convert/extract grayscale, register/crop to exact dimensions, and reopen/update it |
-| Preview area shows misaligned structure | Both images are cropped to the same pixel area, but they are not registered | Register and crop the luminance to the RGB target upstream |
-| Doubled stars or colored edge halos | Inputs share dimensions but are not geometrically registered | Register and crop the luminance to the RGB target upstream |
-| Result is nearly white or black | An MTF control is near `0` or `1` | Return both MTF values to `0.5`, then move in small steps |
-| Saturation change is unexpected | Saturation MTF maps CIE C\*, and later RGB conversion clips out-of-gamut values | Move Saturation MTF toward `0.5`; leave RGB weights at `1.0` while diagnosing |
-| Color balance shifts | Red, Green, or Blue weight is below `1.0` | Reset the three channel multipliers and adjust only after the L/C result is stable |
-| Sequence frames all receive the same luminance structure | Apply intentionally reuses its captured luminance snapshot for every target frame; it does not traverse the selected view's sequence | Combine paired still frames upstream or use one intended fixed luminance image knowingly |
+| Both images stretched to the same background | The defaults | **Saturation** below 0.5 if the colors look thin. |
+| The backgrounds differ | The luminance stretched again to the color image's background | **Lightness** under **Transfer Functions** for what is left, one control at a time, then **Lightness** under **Channel Weights** near 0.5 if the join still shows. |
+| Colors too strong, or clipped | **Saturation** toward 0.5, channel weights at 1 | Lower one channel's weight only for a cast left at the end. |
+| A mask over bright detail | A smooth mask on registered images | Soften the mask or lower **Lightness** under **Channel Weights** if halos show at its edges. |
 
-## Related workflow steps
+## When it goes wrong
 
-- [Channel Composition](channel-composition.md) — assign scalar planes directly
-  to RGB, CIE, hue/chroma, or luma/chroma models.
-- [Linear Match](../color-calibration/linear-match.md) — prepare source intensity
-  relationships before composition; it does not align images.
-- [Image Registration](../registration-alignment/image-registration.md) — align geometry before
-  LRGB Combination.
-- [Color Saturation](../color-adjustment/color-saturation.md) — adjust color after
-  composition when a CIE-chroma transfer is not the intended control.
-- [Process Windows](../../interface/process-windows.md) — shared preview, mask,
-  Apply, Reset, and history behavior.
-- [Image Viewer](../../interface/image-viewer.md) — display stretch, masks, and
-  image-state inspection.
+!!! warning "Apply replaces the color image and records it as nonlinear"
+    Duplicate the color image first, or use its history to return. Keep the separate masters.
+
+Apply stays dimmed
+:   **Cause.** **Luminance** reads `<--NO IMAGE-->`, or the image it named was closed or changed.
+:   **Fix.** Choose the luminance again in **Luminance**.
+
+The luminance image is not in the list
+:   **Cause.** It is a color image, its width or height differs from the color image's, or it is the color image
+    itself.
+:   **Fix.** Take one channel out of a color luminance, or register and crop it to the color image's grid.
+
+The result is paler or darker than the color image
+:   **Cause.** The luminance's background is brighter or darker than the color image's lightness, and its samples
+    replace the lightness as they are.
+:   **Fix.** Stretch the luminance again so its median matches, or move **Lightness** under **Transfer Functions**:
+    above 0.5 darkens, below brightens.
+
+Doubled stars or colored fringes, also in a preview area
+:   **Cause.** The two images have one size but are not registered to each other.
+:   **Fix.** Register and crop the luminance to the color image's grid, then combine them again.
+
+The result is nearly white or black
+:   **Cause.** A transfer is near 0 or 1.
+:   **Fix.** Press **Reset**, then move the transfers from 0.5 in small steps.
+
+The colors change in a way you did not expect
+:   **Cause.** **Saturation** stretches the CIE chroma, and colors pushed out of range are clipped. A channel weight
+    below 1 shifts the balance.
+:   **Fix.** Move **Saturation** toward 0.5 with the channel weights at 1, and lower a weight only at the end.
+
+Every frame of a sequence has the same detail
+:   **Cause.** The one luminance image its view showed at **Apply** serves every frame.
+:   **Fix.** Combine paired still frames one by one, or use a single luminance on purpose.
+
+## Related
+
+- [Channel Composition](channel-composition.md), to compose the color image from red, green and blue masters.
+- [Histogram Transformation](../stretching/histogram-transformation.md), to stretch both images to one background
+  first.
+- [Image Registration](../registration-alignment/image-registration.md), to put both images on one grid.
+- [Color Saturation](../color-adjustment/color-saturation.md), to adjust the color afterwards.
+- [Image Statistics](../../interface/image-statistics.md), to read the medians the two stretches are matched by.
+- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
+  process window shares.
 
 ## Credits
 
-- [ICC sRGB specification](https://www.color.org/sRGB.pdf) — sRGB transfer,
-  primaries, and D65 reference behavior used by the engine conversion.
-- [CIE 1976 L\*a\*b\* colour space, CIE Colorimetry Part 4](https://cie.co.at/publications/colorimetry-part-4-cie-1976-lab-colour-space-1)
-  — external definition for the L\*a\*b\* basis from which C\* and h are derived.
+- International Color Consortium, [How to interpret the sRGB color space](https://www.color.org/sRGB.pdf), for the
+  sRGB transfer, primaries and D65 white the conversion uses.
+- CIE, [Colorimetry, Part 4: CIE 1976 L\*a\*b\* Colour Space](https://cie.co.at/publications/colorimetry-part-4-cie-1976-lab-colour-space-1),
+  for the lightness, chroma and hue the combination works in.

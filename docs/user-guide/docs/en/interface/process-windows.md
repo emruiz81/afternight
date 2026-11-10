@@ -110,7 +110,7 @@ controls:
     kind: readout
     default: ""
     effect: Names the process and, in angle brackets, its target, as in `Gamma Correction <M42>`. The header inside the window repeats the process's name over a line that says what the process does, in the windows that have one.
-    enabled: It follows a rename of the target. A window that chooses its images itself names no target.
+    enabled: It follows a rename of the target. A window that chooses its images itself names no target, or the image it measures the others against, as Narrowband Palette Composer names its OIII image.
   - name: Message strip
     kind: readout
     default: ""
