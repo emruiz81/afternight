@@ -1,0 +1,19 @@
+{
+  "id": "star_object.actionStarnet",
+  "window": "Starnet++ <{image}>",
+  "controls": [
+    {"label": "Upsample x2", "kind": "check", "object": "upsamplex2", "group": "", "visible": true, "default": "Off"},
+    {"label": "Pre-Stretch linear image", "kind": "check", "object": "preStretchLinearImage", "group": "", "visible": true, "default": "Off"},
+    {"label": "Highlight protection", "kind": "check", "object": "highlightProtection", "group": "", "visible": true, "default": "On"},
+    {"label": "Generate Stars Output", "kind": "check", "object": "generateStarMask", "group": "", "visible": true, "default": "On"},
+    {"label": "Output", "kind": "combo", "object": "starOutputMode", "group": "", "visible": true, "default": "Subtractive Mask", "options": ["Subtractive Mask", "Unscreen Star Layer", "Both"]},
+    {"label": "Stride", "kind": "combo", "object": "stridePreset", "group": "", "visible": true, "default": "Standard (256)", "options": ["Standard (256)", "Wide-field (384)", "Custom"]},
+    {"label": "Stride", "kind": "spinbox", "object": "customStrideValue", "group": "", "visible": true, "default": "256", "min": 2, "max": 512, "step": 2},
+    {"label": "Weights", "kind": "field", "object": "weightsPath", "group": "", "visible": true, "default": ""},
+    {"label": "Browse", "kind": "button", "object": "browseWeights", "group": "", "visible": true, "default": ""},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Configure", "kind": "button", "object": "configureStarnet", "group": "StarNet2 executable path is empty.", "visible": true, "default": ""},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

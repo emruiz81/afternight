@@ -1,0 +1,26 @@
+{
+  "id": "sharpening_enhancement.actionLocal_Contrast_Enhancement",
+  "window": "Local Contrast Enhancement <{image}>",
+  "controls": [
+    {"label": "Zoom in", "kind": "toolbutton", "object": "zoomIn", "group": "", "visible": true, "default": "", "shared": "rt-preview"},
+    {"label": "Zoom out", "kind": "toolbutton", "object": "zoomOut", "group": "", "visible": true, "default": "", "shared": "rt-preview"},
+    {"label": "Zoom reset", "kind": "toolbutton", "object": "zoomReset", "group": "", "visible": true, "default": "", "shared": "rt-preview"},
+    {"label": "Show grid", "kind": "toolbutton", "object": "gridButton", "group": "", "visible": true, "default": "On", "shared": "rt-preview"},
+    {"label": "Show clipping info", "kind": "toolbutton", "object": "showClippingInfo", "group": "", "visible": true, "default": "On", "shared": "rt-preview"},
+    {"label": "Absolute scales", "kind": "toolbutton", "object": "localChannelNormalization", "group": "", "visible": true, "default": "Off", "shared": "rt-preview"},
+    {"label": "Draw histogram areas", "kind": "toolbutton", "object": "showHistogramAreas", "group": "", "visible": true, "default": "Off", "shared": "rt-preview"},
+    {"label": "Show histogram", "kind": "toolbutton", "object": "showHistogram", "group": "", "visible": true, "default": "On", "shared": "rt-preview"},
+    {"label": "Plot resolution", "kind": "combo", "object": "plotResolution", "group": "", "visible": true, "default": "8-bit (256)", "options": ["6-bit (64)", "7-bit (128)", "8-bit (256)", "9-bit (512)", "10-bit (1024)", "12-bit (4096)", "14-bit (16K)", "16-bit (64K)", "100 levels", "1000 levels", "10000 levels"], "shared": "rt-preview"},
+    {"label": "Spatial Radius", "kind": "spinbox", "object": "spatialRadiusValue", "group": "", "visible": true, "default": "80.00", "min": 30, "max": 200, "step": 1, "decimals": 2, "slider": true},
+    {"label": "Weight", "kind": "spinbox", "object": "weightValue", "group": "", "visible": true, "default": "0.50", "min": 0, "max": 5, "step": 1, "decimals": 2, "slider": true},
+    {"label": "Darkness Level", "kind": "spinbox", "object": "darknessLevelValue", "group": "", "visible": true, "default": "1.00", "min": 0, "max": 4, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Lightness Level", "kind": "spinbox", "object": "lightnessLevelValue", "group": "", "visible": true, "default": "1.00", "min": 0, "max": 4, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Amount", "kind": "spinbox", "object": "amountValue", "group": "", "visible": true, "default": "1.00", "min": 0, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Channel", "kind": "combo", "object": "channelSelector", "group": "", "visible": true, "default": "RGB", "options": ["RGB", "Red", "Green", "Blue", "CIE L* (Lightness)", "CIE a*", "CIE b*", "CIE c*", "CIE h*", "CIE X", "CIE Y (Luminance)", "CIE Z", "HSL Hue", "HSL Saturation", "HSL Lightness", "HSV Hue", "HSV Saturation", "HSV Value", "YCbCr Luma", "YCbCr Blue Chroma", "YCbCr Red Chroma"]},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

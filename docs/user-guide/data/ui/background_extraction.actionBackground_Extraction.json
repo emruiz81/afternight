@@ -1,0 +1,23 @@
+{
+  "id": "background_extraction.actionBackground_Extraction",
+  "window": "Background Extraction <{image}>",
+  "controls": [
+    {"label": "Samples per Line", "kind": "spinbox", "object": "samplesPerLineValue", "group": "Sample generation", "visible": true, "default": "20", "min": 5, "max": 100, "step": 1, "slider": true},
+    {"label": "Grid Tolerance", "kind": "spinbox", "object": "gridToleranceValue", "group": "Sample generation", "visible": true, "default": "2.00", "min": 0.01, "max": 6, "step": 0.1, "decimals": 2, "slider": true},
+    {"label": "Generate Samples", "kind": "button", "object": "generateSamplesButton", "group": "Sample generation", "visible": true, "default": ""},
+    {"label": "Clear Samples", "kind": "button", "object": "clearSamplesButton", "group": "Sample generation", "visible": true, "default": ""},
+    {"label": "Interpolation Method", "kind": "combo", "object": "interpolationMethod", "group": "Background Extraction", "visible": true, "default": "RBF", "options": ["Polynomial", "RBF"]},
+    {"label": "Correction", "kind": "combo", "object": "correctionMode", "group": "Background Extraction", "visible": true, "default": "Subtraction", "options": ["Subtraction", "Division"]},
+    {"label": "Smoothing", "kind": "spinbox", "object": "smoothingValue", "group": "Background Extraction", "visible": true, "default": "0.50", "min": 0, "max": 1, "step": 0.01, "decimals": 2, "slider": true},
+    {"label": "Degree Order", "kind": "spinbox", "object": "degreeOrder", "group": "Background Extraction", "visible": true, "default": "4", "min": 1, "max": 4, "step": 1},
+    {"label": "Output Background Model", "kind": "check", "object": "outputBackgroundModel", "group": "Background Extraction", "visible": true, "default": "Off"},
+    {"label": "Add dither", "kind": "check", "object": "addDither", "group": "Background Extraction", "visible": true, "default": "Off"},
+    {"label": "Preview Display", "kind": "combo", "object": "previewDisplaySelector", "group": "Background Extraction", "visible": true, "default": "Corrected image", "options": ["Corrected image", "Gradient model"]},
+    {"label": "Preview", "kind": "button", "object": "previewButton", "group": "Background Extraction", "visible": true, "default": ""},
+    {"label": "Enable preview", "kind": "check", "object": "previewCheckbox", "group": "", "visible": true, "default": "On"},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

@@ -10,6 +10,17 @@ data_out: nonlinear
 ---
 # Generalized Hyperbolic Transformation
 
+```figure
+image: ../../assets/images/processes/stretching/gh-transformation.webp
+alt: >-
+  The Generalized Hyperbolic Transformation window. On the left, two plots of the transfer over
+  the histogram, the Channel and Transformation type boxes, and the stretch factor, local
+  intensity, symmetry point and protection values with their sliders. On the right, the preview of
+  the image.
+caption: >-
+  Generalized Hyperbolic Transformation as it opens on a linear master, before any stretch.
+```
+
 ## Purpose and expected result
 
 Generalized Hyperbolic Transformation (GHT) is a permanent display stretch for

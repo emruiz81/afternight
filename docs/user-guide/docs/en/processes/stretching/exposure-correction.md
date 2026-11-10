@@ -10,6 +10,17 @@ data_out: nonlinear
 ---
 # Exposure Correction
 
+```figure
+image: ../../assets/images/processes/stretching/exposure-correction.webp
+alt: >-
+  The Exposure Correction window. On the left, the image's histogram, the Exposure value with its
+  slider, Target Image, Channel and Preview. On the right, the preview of the image, shown in
+  Autostretch like its view.
+caption: >-
+  Exposure Correction as it opens on a linear master whose view is in Autostretch, which the
+  preview follows.
+```
+
 ## Purpose and expected result
 
 Exposure Correction multiplies normalized samples or one selected RGB-derived

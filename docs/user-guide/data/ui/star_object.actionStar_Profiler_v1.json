@@ -1,0 +1,21 @@
+{
+  "id": "star_object.actionStar_Profiler_v1",
+  "window": "StarProfilerV1 <{image}>",
+  "controls": [
+    {"label": "Load Profile", "kind": "button", "object": "loadProfileButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Save Profile", "kind": "button", "object": "saveProfileButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Stars Filter", "kind": "button", "object": "starsFilterButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Create Mask", "kind": "button", "object": "createMaskButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Remove selected star", "kind": "button", "object": "deleteStarButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Clear", "kind": "button", "object": "clearProfileButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Center Selected Star", "kind": "check", "object": "centerSelectedStar", "group": "Detected Stars", "visible": true, "default": "Off"},
+    {"label": "0", "kind": "spinbox", "object": "zoomDetectedStars", "group": "Detected Stars", "visible": true, "default": "2.00", "min": 1, "max": 20, "step": 1, "decimals": 2},
+    {"label": "Detection Threshold", "kind": "spinbox", "object": "detectionThresholdValue", "group": "Star Detection", "visible": true, "default": "0.10", "min": 0.01, "max": 1, "step": 0.01, "decimals": 2, "slider": true},
+    {"label": "Roundness Tolerance", "kind": "spinbox", "object": "roundnessToleranceValue", "group": "Star Detection", "visible": true, "default": "2.00", "min": 0, "max": 10, "step": 0.01, "decimals": 2, "slider": true},
+    {"label": "Min Size", "kind": "spinbox", "object": "minSizeValue", "group": "Star Detection", "visible": true, "default": "2", "min": 0, "max": 99, "step": 1, "slider": true},
+    {"label": "Max Size", "kind": "spinbox", "object": "maxSizeValue", "group": "Star Detection", "visible": true, "default": "25", "min": 0, "max": 99, "step": 1, "slider": true},
+    {"label": "Detect Stars", "kind": "button", "object": "detectStarsButton", "group": "Star Detection", "visible": true, "default": ""},
+    {"label": "Reset", "kind": "button", "object": "resetButton", "group": "Star Detection", "visible": true, "default": ""},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

@@ -10,6 +10,17 @@ data_out: nonlinear
 ---
 # Histogram Transformation
 
+```figure
+image: ../../assets/images/processes/stretching/histogram-transformation.webp
+alt: >-
+  The Histogram Transformation window. On the left, the image's histogram above the transfer curve
+  and its three handles, then the Channel box, the Shadows, Highlights and Midtones values, Target
+  Image and Preview. On the right, the preview of the image.
+caption: >-
+  Histogram Transformation as it opens on a linear master. Nothing is stretched yet, so the
+  histogram is a spike at the left and the preview is nearly black.
+```
+
 ## Purpose and expected result
 
 Histogram Transformation permanently maps normalized image samples through a

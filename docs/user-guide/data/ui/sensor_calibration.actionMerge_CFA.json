@@ -1,0 +1,13 @@
+{
+  "id": "sensor_calibration.actionMerge_CFA",
+  "window": "Merge CFA",
+  "controls": [
+    {"label": "CFA Pattern", "kind": "combo", "object": "patternSelector", "group": "", "visible": true, "default": "RGGB", "options": ["RGGB", "BGGR", "GBRG", "GRBG"]},
+    {"label": "CFA0", "kind": "combo", "object": "cfa0Selector", "group": "", "visible": true, "default": "<--NO IMAGE-->", "options": ["<--NO IMAGE-->"]},
+    {"label": "CFA1", "kind": "combo", "object": "cfa1Selector", "group": "", "visible": true, "default": "<--NO IMAGE-->", "options": ["<--NO IMAGE-->"]},
+    {"label": "CFA2", "kind": "combo", "object": "cfa2Selector", "group": "", "visible": true, "default": "<--NO IMAGE-->", "options": ["<--NO IMAGE-->"]},
+    {"label": "CFA3", "kind": "combo", "object": "cfa3Selector", "group": "", "visible": true, "default": "<--NO IMAGE-->", "options": ["<--NO IMAGE-->"]},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

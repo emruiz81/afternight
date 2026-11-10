@@ -1,0 +1,19 @@
+{
+  "id": "color.actionBackground_Neutralization",
+  "window": "Background Neutralization <{image}>",
+  "controls": [
+    {"label": "Reference image", "kind": "combo", "object": "backgroundReferenceImageSelector", "group": "", "visible": true, "default": "<--TARGET IMAGE-->", "options": ["<--TARGET IMAGE-->"]},
+    {"label": "Lower Limit", "kind": "spinbox", "object": "backgroundLowerLimitValue", "group": "", "visible": true, "default": "0.000000", "min": 0, "max": 1, "step": 0.05, "decimals": 6, "slider": true},
+    {"label": "Upper Limit", "kind": "spinbox", "object": "backgroundUpperLimitValue", "group": "", "visible": true, "default": "0.100000", "min": 0, "max": 1, "step": 0.05, "decimals": 6, "slider": true},
+    {"label": "Region of interest", "kind": "check", "object": "backgroundRoiGroupBox", "group": "", "visible": true, "default": "Off"},
+    {"label": "Left", "kind": "spinbox", "object": "backgroundRoiLeftValue", "group": "Region of interest", "visible": true, "default": "0", "min": 0, "max": 99, "step": 1},
+    {"label": "Top", "kind": "spinbox", "object": "backgroundRoiTopValue", "group": "Region of interest", "visible": true, "default": "0", "min": 0, "max": 99, "step": 1},
+    {"label": "Width", "kind": "spinbox", "object": "backgroundRoiWidthValue", "group": "Region of interest", "visible": true, "default": "0", "min": 0, "max": 99, "step": 1},
+    {"label": "Height", "kind": "spinbox", "object": "backgroundRoiHeightValue", "group": "Region of interest", "visible": true, "default": "0", "min": 0, "max": 99, "step": 1},
+    {"label": "From Selection", "kind": "button", "object": "backgroundRoiSelectionButton", "group": "Region of interest", "visible": true, "default": "Off"},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Cancel", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

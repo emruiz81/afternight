@@ -1,0 +1,11 @@
+{
+  "id": "multi_image_stacking.actionExtract_Sequence",
+  "window": "Extract Sequence <{image}>",
+  "controls": [
+    {"label": "Start Frame", "kind": "spinbox", "object": "startFrameValue", "group": "", "visible": true, "default": "0", "min": 0, "max": 0, "step": 1, "slider": true},
+    {"label": "End Frame", "kind": "spinbox", "object": "endFrameValue", "group": "", "visible": true, "default": "0", "min": 0, "max": 0, "step": 1, "slider": true},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

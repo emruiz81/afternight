@@ -1,0 +1,14 @@
+{
+  "id": "multi_image_stacking.actionImage_List_Analyzer",
+  "window": "Image List Analyzer",
+  "controls": [
+    {"label": "Optimize For Fast Play", "kind": "button", "object": "optimizeButton", "group": "", "visible": true, "default": ""},
+    {"label": "Export Sequence", "kind": "button", "object": "exportSequenceButton", "group": "No Optimization Needed", "visible": true, "default": ""},
+    {"label": "Add Files", "kind": "button", "object": "addFiles", "group": "", "visible": true, "default": ""},
+    {"label": "Add Folder", "kind": "button", "object": "addFolder", "group": "", "visible": true, "default": ""},
+    {"label": "Remove Selected", "kind": "button", "object": "removeSelected", "group": "", "visible": true, "default": ""},
+    {"label": "Clear All", "kind": "button", "object": "clearAll", "group": "", "visible": true, "default": ""},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

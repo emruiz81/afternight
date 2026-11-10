@@ -1,0 +1,13 @@
+{
+  "id": "geometry.actionCFA_Integer_Resample",
+  "window": "CFA Integer Resample <{image}>",
+  "controls": [
+    {"label": "Resample Factor", "kind": "spinbox", "object": "resampleFactor", "group": "Resample", "visible": true, "default": "2", "min": 2, "max": 100, "step": 1},
+    {"label": "Downsample Mode", "kind": "combo", "object": "downsampleMode", "group": "Resample", "visible": true, "default": "Average", "options": ["Average", "Median", "Maximum", "Minimum"]},
+    {"label": "Downsample / Upsample", "kind": "radio", "object": "downSampleRadioButton", "group": "Resample", "visible": true, "default": "Downsample", "options": ["Downsample", "Upsample"]},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "default": "", "options": []},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

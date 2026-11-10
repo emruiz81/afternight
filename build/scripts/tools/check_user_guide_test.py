@@ -12,6 +12,7 @@ The rules of a rewritten page have a guide with a page on each template, and a c
 from __future__ import annotations
 
 import io
+import json
 import os
 import pathlib
 import re
@@ -900,7 +901,25 @@ WRITING_PAGES = {
     'assets/MEDIA_PROVENANCE.md': PROVENANCE,
 }
 WRITING_RULES = ('R7 headings', 'R8 limits', 'R9 vocabulary', 'R10 figures', 'R11 image files', 'R12 process keys',
-                 'R13 glossary links')
+                 'R13 glossary links', 'R14 controls of the windows')
+
+
+def ui_control(label, kind, obj, group='', **stated):
+    """One control of a window's inventory, as the application's test records it."""
+    record = {'label': label, 'kind': kind, 'object': obj, 'group': group, 'visible': True, 'default': ''}
+    record.update(stated)
+    for key in record.get('varies', ()):
+        record.pop(key, None)
+    return record
+
+
+# The window the process page of the writing cases describes: its one control, a button of the toolbar every
+# real-time preview has and the buttons every process window has.
+HT_WINDOW = [
+    ui_control('Zoom in', 'toolbutton', 'zoomIn', shared='rt-preview'),
+    ui_control('Midtones', 'spinbox', 'midtonesValue', default='0.50', min=0, max=1),
+    ui_control('Apply', 'button', '', shared='process-window'),
+]
 NOT_REWRITTEN = ('rewritten: true\n', '')
 
 
@@ -924,6 +943,12 @@ class WritingCase(GuideCase):
             self.page(relative, text)
         for name in ('ht', 'before', 'after', 'viewer', 'first'):
             self.image('assets/images/%s.png' % name, png(800, 600))
+        self.inventory('tone_brightness.actionHT', 'Histogram Transformation <{image}>', HT_WINDOW)
+
+    def inventory(self, identifier, title, controls):
+        """Plants the inventory of a window: the file the application's test writes for it."""
+        return self.write('docs/user-guide/data/ui/%s.json' % identifier,
+                          json.dumps({'id': identifier, 'window': title, 'controls': controls}, indent=2) + '\n')
 
     def image(self, relative, data):
         path = self.root / 'docs/user-guide/docs/en' / relative
@@ -1232,6 +1257,8 @@ class VocabularyRuleTests(WritingCase):
         self.assertPasses()
 
     def test_a_label_of_the_window_is_not_the_pages_word(self):
+        self.inventory('tone_brightness.actionHT', 'Histogram Transformation <{image}>',
+                       [ui_control('Validate', 'spinbox', 'midtonesValue', default='0.50', min=0, max=1)])
         self.change('processes/ht.md', '- name: Midtones', '- name: Validate')
         self.assertPasses()
 
@@ -1388,6 +1415,200 @@ class GlossaryRuleTests(WritingCase):
     def test_the_glossary_itself_links_nothing(self):
         self.change('reference/glossary.md', 'The median absolute deviation.', 'A linear estimate of spread.')
         self.assertPasses()
+
+
+CONTROLS_BLOCK = ('```controls\n- name: Midtones\n  kind: spinbox\n  default: "0.50"\n  widget: {min: 0, max: 1}\n  '
+                  'effect: Lower brightens the image.\n```\n')
+CHANNEL_ENTRY = ('- name: Channel\n  kind: combo\n  default: RGB\n  options: [RGB, Red]\n  effect: Chooses what the '
+                 'transfer acts on.\n')
+CURVES_PAGE = ('---\nkind: process\nstage: finish\nmenu: Process > Intensity Transformations > Curves Transformation\n'
+               'summary: Reshapes tone.\n---\n# Curves Transformation\n')
+
+
+class ControlsRuleTests(WritingCase):
+    """The window of the process page: Midtones, a toolbar button every preview shares and the window's Apply."""
+
+    def window(self, *controls):
+        """The window with these controls beside the ones it has."""
+        self.inventory('tone_brightness.actionHT', 'Histogram Transformation <{image}>', HT_WINDOW + list(controls))
+
+    def block(self, new):
+        """The page with its `controls` block replaced."""
+        self.change('processes/ht.md', CONTROLS_BLOCK, new)
+
+    def test_the_page_is_held_to_its_window_and_shared_controls_are_not_asked_for(self):
+        self.assertPasses()
+        code, output = self.run_main()
+        self.assertIn('controls: 1 of the 1 windows of the inventory described by rewritten pages', output)
+
+    def test_each_break_of_a_control_fails_on_its_line(self):
+        self.cases('R14', (
+            ('a label in another case', 'processes/ht.md', '- name: Midtones', '- name: midtones',
+             'ht.md:49: R14 "midtones" is no control of the window "Histogram Transformation"; the window labels it '
+             '"Midtones"'),
+            ('another kind', 'processes/ht.md', 'kind: spinbox', 'kind: slider',
+             '"Midtones" is a spin box in the window, and the block says `kind: slider`'),
+            ('another default', 'processes/ht.md', 'default: "0.50"', 'default: "0.25"',
+             '"Midtones" opens with "0.50" in the window, and the block says `default: "0.25"`'),
+            ('another number', 'processes/ht.md', 'widget: {min: 0, max: 1}', 'widget: {min: 0, max: 2}',
+             '"Midtones": `widget.max` is 2, and the window has 1'),
+        ))
+
+    def test_a_control_the_window_lacks_fails_and_leaves_the_windows_own_unlisted(self):
+        self.change('processes/ht.md', '- name: Midtones', '- name: Middle')
+        self.assertFails('R14', 'ht.md:49: R14 "Middle" is no control of the window "Histogram Transformation"',
+                         'has the spin box "Midtones", which no `controls` block lists', count=2)
+        self.change('processes/ht.md', '- name: Midtones', '- name: Midtones\n  object: midValue')
+        self.assertFails('R14', '"Midtones" states `object: midValue`, and the window "Histogram Transformation" has '
+                         'no control of that object name', 'has the spin box "Midtones"', count=2)
+
+    def test_a_number_the_window_fixes_is_stated(self):
+        self.inventory('tone_brightness.actionHT', 'Histogram Transformation <{image}>',
+                       [ui_control('Midtones', 'spinbox', 'midtonesValue', default='0.50', min=0, max=1, step=0.01,
+                                   decimals=2)])
+        self.assertFails('R14', '"Midtones": the window has `step` 0.01, and the block\'s `widget` does not state it',
+                         '"Midtones": the window has `decimals` 2', count=2)
+        self.block(CONTROLS_BLOCK.replace('{min: 0, max: 1}', '{min: 0.0, max: 1, step: 0.010, decimals: 2}'))
+        self.assertPasses()
+
+    def test_what_follows_the_image_is_the_writers_to_say(self):
+        self.inventory('tone_brightness.actionHT', 'Histogram Transformation <{image}>',
+                       [ui_control('Midtones', 'spinbox', 'midtonesValue', min=0, max=1, varies=['default', 'max']),
+                        ui_control('Channel', 'combo', 'channelSelector', varies=['default', 'options'])])
+        self.block(CONTROLS_BLOCK.replace('default: "0.50"', 'default: "640"')
+                   .replace('{min: 0, max: 1}', '{min: 0}\n  range: Up to the width of the image.')
+                   .replace('```\n', CHANNEL_ENTRY.replace('[RGB, Red]', '[RGB, Luminance]') + '```\n'))
+        self.assertPasses()
+
+    def test_a_control_no_block_lists_fails_unless_the_page_says_why(self):
+        self.window(ui_control('Shadows', 'spinbox', 'shadowsValue', 'Clipping', default='0.00', min=0, max=1))
+        self.assertFails('R14', 'ht.md:46: R14 the window "Histogram Transformation" has the spin box "Shadows" (under '
+                         '"Clipping"), which no `controls` block lists')
+        self.change('processes/ht.md', 'derived: false\n', 'derived: false\ncontrols_ignore:\n  - {label: Shadows, '
+                    'reason: Moved by the same handle as Midtones.}\n')
+        self.assertPasses()
+
+    def test_an_excuse_for_a_control_that_needs_none_is_a_warning(self):
+        self.change('processes/ht.md', 'derived: false\n', 'derived: false\ncontrols_ignore:\n  - {label: Midtones, '
+                    'reason: None.}\n  - {label: Gone, reason: None.}\n')
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('ht.md:21: R14 warning: `controls_ignore` names "Midtones", which excuses no control', output)
+        self.assertIn('R14 warning: `controls_ignore` names "Gone"', output)
+        self.assertIn('R14 controls of the windows: 0 error(s), 2 warning(s)', output)
+
+    def test_a_label_the_window_has_twice_is_told_apart_by_its_object(self):
+        self.window(ui_control('Midtones', 'slider', 'midtonesSlider', default='50', min=0, max=100))
+        self.assertFails('R14', 'the window "Histogram Transformation" has 2 controls labelled "Midtones"; say which '
+                         'one this is with `object`: midtonesValue, midtonesSlider')
+        named = PROCESS.replace('- name: Midtones', '- name: Midtones\n  object: midtonesValue')
+        self.page('processes/ht.md', named)
+        self.assertFails('R14', 'has the slider "Midtones" (object `midtonesSlider`), which no `controls` block lists')
+        self.page('processes/ht.md', named.replace('derived: false\n', 'derived: false\ncontrols_ignore:\n  - {label: '
+                                                   'Midtones, object: midtonesSlider, reason: The handle of the spin '
+                                                   'box.}\n'))
+        self.assertPasses()
+
+    def test_a_control_listed_twice_fails(self):
+        self.block(CONTROLS_BLOCK.replace('```\n', '- name: Midtones\n  object: midtonesValue\n  kind: spinbox\n  '
+                                          'default: "0.50"\n  widget: {min: 0, max: 1}\n  effect: The same.\n```\n'))
+        self.assertFails('R14', 'ht.md:54: R14 "Midtones" is the control "Midtones" of line 49 again')
+
+    def test_a_control_is_called_by_its_label_unless_the_window_gives_it_none(self):
+        self.change('processes/ht.md', '- name: Midtones', '- name: Middle tones\n  object: midtonesValue')
+        self.assertFails('R14', '"Middle tones" states `object: midtonesValue`, which the window "Histogram '
+                         'Transformation" labels "Midtones"; a control is called by its label')
+        self.inventory('tone_brightness.actionHT', 'Histogram Transformation <{image}>',
+                       [ui_control('midtonesValue', 'spinbox', 'midtonesValue', default='0.50', min=0, max=1)])
+        self.assertPasses()
+
+    def test_a_list_the_window_opens_empty_is_the_writers_to_fill(self):
+        self.window(ui_control('Catalog', 'combo', 'catalogSelector', default='', options=[]))
+        self.block(CONTROLS_BLOCK.replace('```\n', CHANNEL_ENTRY.replace('Channel', 'Catalog') + '```\n'))
+        self.assertPasses()
+
+    def test_the_choices_of_a_combo_are_the_windows(self):
+        self.window(ui_control('Channel', 'combo', 'channelSelector', default='RGB', options=['RGB', 'Red']))
+        for options, message in (('[RGB]', 'the window also has "Red"'),
+                                 ('[RGB, Red, Blue]', 'the window has no "Blue"'),
+                                 ('[Red, RGB]', 'the window lists them as RGB, Red')):
+            with self.subTest(options):
+                self.restore()
+                self.block(CONTROLS_BLOCK.replace('```\n', CHANNEL_ENTRY.replace('[RGB, Red]', options) + '```\n'))
+                self.assertFails('R14', '"Channel": its `options` are not the window\'s: ' + message)
+        self.restore()
+        self.block(CONTROLS_BLOCK.replace('```\n', CHANNEL_ENTRY + '```\n'))
+        self.assertPasses()
+
+    def test_a_block_named_for_a_tab_holds_the_controls_of_the_tab(self):
+        self.window(ui_control('Channel', 'combo', 'channelSelector', 'Options > Advanced', default='RGB',
+                               options=['RGB', 'Red']),
+                    ui_control('Channel', 'combo', 'outputChannel', 'Output', default='RGB', options=['RGB', 'Red']))
+        tabs = ('\n### Advanced\n\n```controls\nwindow: Advanced\ncontrols:\n' +
+                CHANNEL_ENTRY.replace('- ', '  - ').replace('\n  ', '\n    ') + '```\n\n### Output\n\n```controls\n'
+                'window: Output\ncontrols:\n' + CHANNEL_ENTRY.replace('- ', '  - ').replace('\n  ', '\n    ') + '```\n')
+        self.block(CONTROLS_BLOCK + tabs)
+        self.assertPasses()
+        self.block(CONTROLS_BLOCK + tabs.replace('window: Output', 'window: Advanced', 1)
+                   .replace('### Output', '### Advanced again'))
+        self.assertFails('R14', '"Channel" is the control "Channel" of line', 'has the combo box "Channel" (under '
+                         '"Output", object `outputChannel`)', count=2)
+        self.restore()
+        self.block(CONTROLS_BLOCK + tabs.replace('- name: Channel', '- name: Mode', 1))
+        self.assertFails('R14', '"Mode" is no control of "Advanced" in the window "Histogram Transformation"',
+                         'has the combo box "Channel" (under "Options > Advanced"', count=2)
+
+    def test_a_block_of_a_dialog_the_window_opens_is_not_held(self):
+        self.block(CONTROLS_BLOCK + '\n### Settings\n\n```controls\nwindow: Stretch settings\ncontrols:\n  - name: '
+                   'Anything\n    kind: check\n    default: "On"\n    effect: It is the dialog\'s.\n```\n')
+        self.assertPasses()
+
+    def test_a_page_without_a_block_of_its_window_fails_once(self):
+        self.block(CONTROLS_BLOCK.replace('- name: Midtones', 'window: Histogram\ncontrols:\n  - name: Midtones')
+                   .replace('\n  kind', '\n    kind').replace('\n  default', '\n    default')
+                   .replace('\n  widget', '\n    widget').replace('\n  effect', '\n    effect'))
+        self.assertFails('R14', 'ht.md:46: R14 no `controls` block is of the window "Histogram Transformation"')
+
+    def test_controls_in_another_order_than_the_windows_are_a_warning(self):
+        self.window(ui_control('Channel', 'combo', 'channelSelector', default='RGB', options=['RGB', 'Red']))
+        self.block(CONTROLS_BLOCK.replace('- name: Midtones', CHANNEL_ENTRY + '- name: Midtones'))
+        self.assertWarns('R14', '"Midtones" comes before "Channel" in the window "Histogram Transformation", and '
+                         'after it on the page')
+
+    def test_a_page_of_two_windows_says_which_window_a_block_is_of(self):
+        self.inventory('tone_brightness.actionCurves', 'Curves Transformation <{image}>',
+                       [ui_control('Interpolation', 'combo', 'interpolation', default='Cubic',
+                                   options=['Linear', 'Cubic'])])
+        self.assertFails('R14', 'the page describes 2 windows ("Histogram Transformation", "Curves Transformation"); '
+                         'the block says which one it is of with `window`',
+                         'no `controls` block is of the window "Histogram Transformation"',
+                         'no `controls` block is of the window "Curves Transformation"', count=3)
+
+    def test_a_window_belongs_to_the_page_that_names_it_most_exactly(self):
+        self.inventory('tone_brightness.actionCurves', 'Curves Transformation <{image}>',
+                       [ui_control('Interpolation', 'combo', 'interpolation', default='Cubic',
+                                   options=['Linear', 'Cubic'])])
+        self.write('docs/user-guide/mkdocs.yml', MKDOCS[:MKDOCS.index('nav:')] + WRITING_NAV.replace(
+            '          - Histogram Transformation: processes/ht.md\n',
+            '          - Histogram Transformation: processes/ht.md\n          - Curves: processes/curves.md\n'))
+        self.page('processes/curves.md', CURVES_PAGE)
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('R14 controls of the windows: 0 error(s), 0 warning(s)', output)
+        self.assertIn('controls: 1 of the 2 windows of the inventory described by rewritten pages', output)
+
+    def test_a_page_not_yet_rewritten_is_not_held_to_its_window(self):
+        self.page('processes/ht.md', PROCESS.replace(*NOT_REWRITTEN).replace('- name: Midtones', '- name: Middle'))
+        code, output = self.run_main('--pending')
+        self.assertEqual(code, 0, output)
+        self.assertIn('R14 controls of the windows: 0 error(s), 0 warning(s)', output)
+
+    def test_an_inventory_that_cannot_be_read_stops_the_check(self):
+        self.write('docs/user-guide/data/ui/tone_brightness.actionHT.json', '{"id": "tone_brightness.actionHT"}\n')
+        code, output = self.run_main()
+        self.assertEqual(code, 2)
+        self.assertIn("the guide's data cannot be read", output)
+        self.assertIn('an inventory states `id`, `window` and `controls`', output)
 
 
 class WritingDataTests(WritingCase):
