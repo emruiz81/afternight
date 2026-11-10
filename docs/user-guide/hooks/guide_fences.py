@@ -6,6 +6,13 @@ screenshot with its caption and numbered pins, or a before-and-after pair.
 Both hold YAML, read with PyYAML's base loader, so every scalar arrives as text: `Off`, `Yes` and `No` stay the words
 a window shows. Numbers are converted where a number is meant (`widget`, a pin's place).
 
+A control is called by the label its window gives it. `object` names the control in the inventory of the window's
+controls (`data/ui/`) when the label cannot: the window has several controls of that label - a row of three boxes
+under one caption - or gives the control no caption at all. It is for the check that holds the block to the window,
+and draws nothing; a name may be listed more than once in a block only when `object` tells each of them apart. A spin
+box or a slider states the numbers of its range under `widget`; one whose range follows the image it works on - a
+crop cannot be wider than the picture - says so in `range` instead.
+
 ````markdown
 ```controls
 window: Histogram Transformation
@@ -71,7 +78,7 @@ CONTROL_FACETS = (
     ('persistence', 'Persistence'),
     ('note', 'Note'),
 )
-CONTROL_KEYS = CONTROL_REQUIRED + ('widget', 'options') + tuple(key for key, _ in CONTROL_FACETS)
+CONTROL_KEYS = CONTROL_REQUIRED + ('widget', 'options', 'object') + tuple(key for key, _ in CONTROL_FACETS)
 WIDGET_KEYS = ('min', 'max', 'step', 'decimals')
 RANGED_KINDS = ('spinbox', 'slider')
 CHOICE_KINDS = ('combo', 'radio')
@@ -206,14 +213,18 @@ def parse_controls(source):
         raise FenceError('the block is a list of controls, or a mapping of `window` and `controls`')
     if not controls:
         raise FenceError('the block lists no control', getattr(controls, 'line', None))
-    names = set()
+    listed = {}  # a name -> the objects it was listed with, None for none
     for index, control in enumerate(controls, start=1):
         if not isinstance(control, dict):
             raise FenceError('control %d is not a mapping of keys to values' % index, getattr(controls, 'line', None))
         _check_control(control, index)
-        if control['name'] in names:
-            raise FenceError('control "%s" is listed twice in the block' % control['name'], control.line)
-        names.add(control['name'])
+        objects = listed.setdefault(control['name'], [])
+        stated = control.get('object')
+        if objects and (stated is None or None in objects or stated in objects):
+            raise FenceError('control "%s" is listed twice in the block%s' % (
+                control['name'], '' if stated in objects and stated is not None else
+                '; when the window has several controls of one label, each states its `object`'), control.line)
+        objects.append(stated)
     return {'window': window.strip() if window else None, 'controls': controls}
 
 
@@ -250,14 +261,17 @@ def _check_control(control, index):
             if _number(value) is None:
                 fail('`widget.%s` is %r, not a number' % (key, value))
     if kind in RANGED_KINDS:
-        if not isinstance(widget, dict) or 'min' not in widget or 'max' not in widget:
-            fail('a %s needs `widget.min` and `widget.max`' % kind)
-        low, high = _number(widget['min']), _number(widget['max'])
-        if low > high:
+        widget = widget or {}
+        if ('min' not in widget or 'max' not in widget) and 'range' not in control:
+            fail('a %s needs `widget.min` and `widget.max`, or a `range` that says what bounds it when the image '
+                 'does' % kind)
+        low = _number(widget['min']) if 'min' in widget else None
+        high = _number(widget['max']) if 'max' in widget else None
+        if low is not None and high is not None and low > high:
             fail('`widget.min` %s is above `widget.max` %s' % (widget['min'], widget['max']))
         default = _number(control['default'])
-        if default is not None and not low <= default <= high:
-            fail('the default %s is outside %s to %s' % (control['default'], widget['min'], widget['max']))
+        if default is not None and ((low is not None and default < low) or (high is not None and default > high)):
+            fail('the default %s is outside %s' % (control['default'], _bounds(widget)))
     options = control.get('options')
     if options is not None:
         if kind not in CHOICE_KINDS:
@@ -271,6 +285,17 @@ def _check_control(control, index):
             fail('a %s needs `options`' % kind)
         if control['default'] not in options:
             fail('the default "%s" is not among its options (%s)' % (control['default'], ', '.join(options)))
+
+
+def _bounds(widget):
+    """The range a `widget` states, as words: both ends, or the one it has."""
+    if 'min' in widget and 'max' in widget:
+        return '%s to %s' % (widget['min'].strip(), widget['max'].strip())
+    if 'min' in widget:
+        return 'from %s' % widget['min'].strip()
+    if 'max' in widget:
+        return 'up to %s' % widget['max'].strip()
+    return ''
 
 
 def parse_figure(source, folder, docs):
@@ -383,14 +408,20 @@ def _widget_html(control):
     widget = control.get('widget') or {}
     drawn, said = '', ''
     if kind in RANGED_KINDS:
-        low, high = _number(widget['min']), _number(widget['max'])
+        # The handle sits where the default lies in the range; a range the image bounds has no place to draw it at.
+        low = _number(widget['min']) if 'min' in widget else None
+        high = _number(widget['max']) if 'max' in widget else None
         value = _number(default)
-        position = 0.0 if value is None or high == low else (value - low) / (high - low) * 100
-        track = ('<span class="slider"><b style="width:%.4g%%"></b><i style="left:%.4g%%"></i></span>'
-                 % (position, position)) if value is not None else ''
+        track = ''
+        if value is not None and low is not None and high is not None:
+            position = 0.0 if high == low else (value - low) / (high - low) * 100
+            track = ('<span class="slider"><b style="width:%.4g%%"></b><i style="left:%.4g%%"></i></span>'
+                     % (position, position))
         box = '<span class="spin"><span class="v">%s</span><span class="arr"><i></i><i></i></span></span>' % _e(default)
         drawn = box + track if kind == 'spinbox' else track + '<span class="v">%s</span>' % _e(default)
-        said = 'Default <b>%s</b> &middot; %s to %s' % (_e(default), _plain(widget['min']), _plain(widget['max']))
+        said = 'Default <b>%s</b>' % _e(default)
+        if _bounds(widget):
+            said += ' &middot; %s' % _e(_bounds(widget))
         if 'step' in widget:
             said += ' &middot; step %s' % _plain(widget['step'])
         if 'decimals' in widget:

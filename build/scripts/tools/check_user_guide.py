@@ -26,8 +26,8 @@ Rules, each reported with its id:
 The rules of a rewritten page hold a page to the guide's writing system: the templates under
 docs/user-guide/templates/, the budgets of data/limits.yml and the vocabulary of data/vocabulary.yml, which
 docs/dev/USER_GUIDE_STYLE.md explains. A page that states `rewritten: true` fails on them. A page that does not is
-only counted against R7, R8, R9 and R11, as warnings, and is not held to R10, R12 and R13: a page not yet rewritten
-never fails a rule it cannot meet, and a rewritten one is protected from the day it lands.
+only counted against R7, R8, R9 and R11, as warnings, and is not held to R10, R12, R13 and R14: a page not yet
+rewritten never fails a rule it cannot meet, and a rewritten one is protected from the day it lands.
 
   R7  Headings. A page has the sections of its kind's template, in the template's order, and no others; the parts
       the theme draws from them have their shape - a process page's steps an ordered list with bold leads and its
@@ -50,6 +50,18 @@ never fails a rule it cannot meet, and a rewritten one is protected from the day
   R12 A rewritten process page states every key its "At a glance" is drawn from, the four texts of `glance` among
       them, and says whether it is `derived`.
   R13 Glossary. The first use on a page of a term the glossary defines is a link to the glossary (a warning).
+  R14 Controls. The `controls` blocks of a rewritten process page say what its windows hold. The windows are the ones
+      its `menu` reaches, and what they hold is their inventory under data/ui/, which a test of the application
+      writes by opening every process window and fails on when a window changes. Every control of the inventory is
+      on a block, or named in the page's `controls_ignore` with a reason, or shared by every window (the preview's
+      histogram toolbar, the window's own buttons); every control a block lists is in the window, under the label
+      the window gives it, with its `object` where the window has the label more than once; and its kind, its
+      default, the numbers of its `widget` and its `options` are the window's, apart from what the inventory records
+      as varying with the image and from a list the window opens empty. A control the window gives no caption - the
+      inventory knows it by its object name - is named by the writer and found by its `object`. A block
+      whose `window` is the title of a tab or a group holds that tab's controls; one named for a window the
+      inventory does not have - a dialog a button opens - is not held. Controls in another order than the window's
+      are a warning.
 
   R1  The built site (--site). Every relative reference in its HTML - `href`, `src`, `srcset`, `poster`, `data`,
       inline `style` and `<style>` - and every `url()` and `@import` in its stylesheets names a file inside the site,
@@ -66,7 +78,7 @@ Usage, with the documentation toolchain's Python, which has PyYAML (docs/user-gu
     python build/scripts/tools/check_user_guide.py [--guide docs/user-guide] [--page <page> ...] [--pending]
                                                    [--site <site>] [--tokens <the website's assets/css/tokens.css>]
 
-R2-R13 hold every page, or with --page only the pages named (relative to the docs folder or to the working
+R2-R14 hold every page, or with --page only the pages named (relative to the docs folder or to the working
 directory); the guide-wide parts - nav entries, menu coverage and unused images - run only over every page. R1 runs
 when --site names a built site, R16 when --tokens names the website's file. Each finding prints as
 `path:line: Rnn message`, a warning as `path:line: Rnn warning: message`, then a count per rule and what was read.
@@ -108,6 +120,7 @@ RULES = {
     'R11': 'image files',
     'R12': 'process keys',
     'R13': 'glossary links',
+    'R14': 'controls of the windows',
     'R16': 'token parity',
 }
 THEME_TOKENS = 'theme/assets/guide/css/tokens.css'
@@ -517,6 +530,40 @@ def _covered(path, page_paths):
     return any(path == menu or path.startswith(menu + ' > ') for menu in page_paths)
 
 
+def windows_of(product, inventory, menus, every_pages_menus):
+    """The inventories of the windows a page whose `menu` paths are `menus` describes, in the order the application
+    registers them: the windows those paths reach that no page's paths name more exactly."""
+    found = []
+    for action, _ in product.registered:
+        if action not in inventory:
+            continue
+        places = [place for place, _, _ in product.placements_of(action)]
+        own = _closeness(places, menus)
+        if own and own == max(_closeness(places, other) for other in every_pages_menus):
+            found.append(inventory[action])
+    return found
+
+
+def guide_menus(model, docs, pages):
+    """The `menu` paths every page of `pages` states, by page."""
+    menus = {}
+    for relative in pages:
+        front = model.split_front_matter(model.read_text(os.path.join(docs, relative)))
+        if front.meta:
+            menus[relative] = model.menu_paths(front.meta)
+    return menus
+
+
+def _closeness(places, menus):
+    """How exactly a page's `menu` paths name an action that sits at `places`: the length of the longest path that
+    covers one of them, and 0 when none does."""
+    return max((len(menu.split(' > ')) for menu in menus if _covered_by(places, menu)), default=0)
+
+
+def _covered_by(places, menu):
+    return any(_covered(place, (menu,)) for place in places)
+
+
 def _article(kind):
     return ('an %s' if kind[:1] in 'aeiou' else 'a %s') % kind
 
@@ -550,7 +597,7 @@ def _meta_prose(meta):
 
 
 class _Writing:
-    """One page held to the rules of a rewritten page: R7-R10, R12 and R13."""
+    """One page held to the rules of a rewritten page: R7-R10 and R12-R14."""
 
     def __init__(self, check, relative, path, front):
         model = check.model
@@ -585,6 +632,7 @@ class _Writing:
             self.check_figures()
             self.check_process_keys()
             self.check_glossary_links()
+            self.check_controls()
 
     # --- Reading the page ---
 
@@ -965,6 +1013,220 @@ class _Writing:
                                       'on the page to its entry' % term, 'warning')
 
 
+    # --- R14: the controls against the windows' inventory ---
+
+    def windows(self):
+        """The inventories of the windows the page describes, in the order the application registers them: the
+        windows its `menu` reaches that no other page's `menu` names more exactly. A page that names a submenu has
+        the windows under it that have no page of their own."""
+        product, inventory = self.check.product, self.check.inventory
+        if product is None or not inventory:
+            return []
+        return windows_of(product, inventory, self.model.menu_paths(self.meta), self.check.all_menus().values())
+
+    def check_controls(self):
+        if self.kind != 'process':
+            return
+        windows = self.windows()
+        if not windows:
+            return  # a page of actions that open no window
+        heading = self.section('Controls')
+        anchor = heading.line if heading else self.top
+        blocks = []
+        for name, line, source in self.fences:
+            if name == 'controls':
+                block = self.model.read_controls(source)
+                if block is None:
+                    self.report('R14', line, 'the `controls` block is not a list of controls, so the page cannot be '
+                                'held to its window; the build says what is wrong with it')
+                    return
+                blocks.append((line, block))
+        if not blocks:
+            return  # R7 reports a process page whose controls are in no block
+        self.check.held_windows.update(window.id for window in windows)
+        matched = {window.id: {} for window in windows}   # the place of a control in its window -> (line, name)
+        # The controls a finding about a block already speaks of, which are not then reported as unlisted too.
+        spoken_of = {window.id: set() for window in windows}
+        described = set()
+        for line, block in blocks:
+            if block['window'] is None and len(windows) > 1:
+                self.report('R14', line, 'the page describes %d windows (%s); the block says which one it is of with '
+                            '`window`' % (len(windows), ', '.join('"%s"' % window.name for window in windows)))
+                continue
+            target = _block_target(block['window'], windows)
+            if target is None:
+                continue  # a window the inventory does not have: a dialog one of the window's buttons opens
+            window, group = target
+            described.add(window.id)
+            for entry in block['controls']:
+                if entry['name']:
+                    self._check_control(window, group, entry, line + entry['line'], matched[window.id],
+                                        spoken_of[window.id])
+        ignores = [dict(entry, used=False) for entry in self.meta.get('controls_ignore') or []
+                   if isinstance(entry, dict)]
+        for window in windows:
+            if window.id not in described:
+                self.report('R14', anchor, 'no `controls` block is of the window "%s"; a block of it states no '
+                            '`window`, or the window\'s title, or the title of a tab or a group in it' % window.name)
+                continue
+            for control in window.controls:
+                if control.index in matched[window.id] or control.index in spoken_of[window.id] or control.shared:
+                    continue
+                excuses = [entry for entry in ignores if entry.get('label') == control.label
+                           and entry.get('object', control.object) == control.object]
+                for entry in excuses:
+                    entry['used'] = True
+                if not excuses:
+                    self.report('R14', anchor, 'the window "%s" has the %s "%s"%s, which no `controls` block lists; '
+                                'document it, or name it in `controls_ignore` with the reason' %
+                                (window.name, _KIND_WORDS[control.kind], control.label, _whereabouts(window, control)))
+            self._check_order(window, matched[window.id])
+        for entry in ignores:
+            if not entry['used']:
+                self.check.report('R14', self.path, self.front.key_lines.get('controls_ignore', 1), '`controls_ignore` '
+                                  'names "%s", which excuses no control: the page\'s windows do not have it, or its '
+                                  'blocks list it; remove the entry' % entry.get('label'), 'warning')
+
+    def _check_control(self, window, group, entry, line, matched, spoken_of):
+        name = entry['name']
+        if entry['object']:
+            found = [control for control in window.controls if control.object == entry['object']]
+            if not found:
+                self.report('R14', line, '"%s" states `object: %s`, and the window "%s" has no control of that '
+                            'object name' % (name, entry['object'], window.name))
+                return
+            control = next((control for control in found if control.index not in matched), found[0])
+            # A control is called by its label; one the window gives no caption is the writer's to name.
+            if control.label != name and control.label != control.object:
+                self.report('R14', line, '"%s" states `object: %s`, which the window "%s" labels "%s"; a control is '
+                            'called by its label' % (name, entry['object'], window.name, control.label))
+                matched[control.index] = (line, name)
+                return
+        else:
+            found = [control for control in window.controls
+                     if control.label == name and (group is None or group in control.groups)]
+            if not found:
+                self.report('R14', line, '"%s" is no control of %s%s' %
+                            (name, 'the window "%s"' % window.name if group is None else
+                             '"%s" in the window "%s"' % (group, window.name), _near_miss(window, name, group)))
+                spoken_of.update(control.index for control in window.controls
+                                 if control.label.lower() == name.lower())
+                return
+            if len(found) > 1:
+                spoken_of.update(control.index for control in found)
+                objects = [control.object for control in found if control.object]
+                self.report('R14', line, 'the window "%s" has %d controls labelled "%s"%s; %s' %
+                            (window.name, len(found), name, ' under "%s"' % group if group else '',
+                             'say which one this is with `object`: %s' % ', '.join(objects)
+                             if len(objects) == len(found) else
+                             'put each in a block of its own tab or group, or name the rest in `controls_ignore`'))
+                return
+            control = found[0]
+        if control.index in matched:
+            self.report('R14', line, '"%s" is the control "%s" of line %d again' %
+                        (name, matched[control.index][1], matched[control.index][0]))
+            return
+        matched[control.index] = (line, name)
+        if entry['kind'] and entry['kind'] != control.kind:
+            self.report('R14', line, '"%s" is %s in the window%s, and the block says `kind: %s`' %
+                        (name, _article(_KIND_WORDS[control.kind]),
+                         ', which moves with a slider beside it' if control.slider else '', entry['kind']))
+            return
+        # A list the window opens empty is filled from what is installed or open: its choices are the writer's to say.
+        empty_list = control.options is not None and not control.options
+        if control.default is not None and entry['default'] is not None and entry['default'] != control.default \
+                and not empty_list:
+            self.report('R14', line, '"%s" opens with "%s" in the window, and the block says `default: "%s"`' %
+                        (name, control.default, entry['default']))
+        for key in self.model.UI_NUMBERS:
+            if key not in control.numbers:
+                continue
+            stated = entry['widget'].get(key)
+            if stated is None:
+                self.report('R14', line, '"%s": the window has `%s` %s, and the block\'s `widget` does not state it' %
+                            (name, key, _number_text(control.numbers[key])))
+            elif not _same_number(stated, control.numbers[key]):
+                self.report('R14', line, '"%s": `widget.%s` is %s, and the window has %s' %
+                            (name, key, stated.strip(), _number_text(control.numbers[key])))
+        if control.options and entry['options'] is not None and entry['options'] != list(control.options):
+            self.report('R14', line, '"%s": its `options` are not the window\'s: %s' %
+                        (name, _options_difference(entry['options'], list(control.options))))
+
+    def _check_order(self, window, matched):
+        """A warning for the first control the page lists before one the window shows earlier."""
+        last = None
+        for index, (line, name) in sorted(matched.items(), key=lambda item: item[1][0]):
+            if last is not None and index < last[0]:
+                self.check.report('R14', self.path, line, '"%s" comes before "%s" in the window "%s", and after it on '
+                                  'the page; the blocks follow the window\'s order' % (name, last[1], window.name),
+                                  'warning')
+                return
+            last = (index, name)
+
+
+_KIND_WORDS = {
+    'spinbox': 'spin box', 'slider': 'slider', 'combo': 'combo box', 'check': 'check box', 'radio': 'set of radio '
+    'buttons', 'toolbutton': 'toolbar button', 'button': 'button', 'field': 'text field', 'action': 'menu action',
+}
+
+
+def _block_target(name, windows):
+    """What a block named `name` is of: (window, None) for a window by its title or for the page's one window when
+    the block has no name, (window, group) for the title of a tab or a group in a window; None for another window."""
+    if name is None:
+        return windows[0], None
+    for window in windows:
+        if name == window.name:
+            return window, None
+    for window in windows:
+        if any(name in control.groups for control in window.controls):
+            return window, name
+    return None
+
+
+def _whereabouts(window, control):
+    """Where a control sits and how to name it, for a message: its group, and its object when its label repeats."""
+    parts = []
+    if control.group:
+        parts.append('under "%s"' % control.group)
+    if control.object and sum(1 for other in window.controls if other.label == control.label) > 1:
+        parts.append('object `%s`' % control.object)
+    return ' (%s)' % ', '.join(parts) if parts else ''
+
+
+def _near_miss(window, name, group):
+    """What a name the window lacks may have meant: the same label under another group, or in another case."""
+    elsewhere = sorted({control.group for control in window.controls if control.label == name and control.group})
+    if group is not None and elsewhere:
+        return '; the window has it under %s' % ', '.join('"%s"' % place for place in elsewhere)
+    spelled = sorted({control.label for control in window.controls if control.label.lower() == name.lower()})
+    if spelled:
+        return '; the window labels it "%s"' % spelled[0]
+    return ''
+
+
+def _number_text(number):
+    return ('%d' % number) if float(number).is_integer() and abs(number) < 1e15 else ('%.12g' % number)
+
+
+def _same_number(stated, number):
+    try:
+        value = float(stated.strip())
+    except ValueError:
+        return False
+    return abs(value - number) <= 1e-9 * max(1.0, abs(number))
+
+
+def _options_difference(stated, recorded):
+    missing = [option for option in recorded if option not in stated]
+    extra = [option for option in stated if option not in recorded]
+    if missing:
+        return 'the window also has %s' % ', '.join('"%s"' % option for option in missing)
+    if extra:
+        return 'the window has no %s' % ', '.join('"%s"' % option for option in extra)
+    return 'the window lists them as %s' % ', '.join(recorded)
+
+
 class _GuideCheck:
     def __init__(self, model, repo, guide, display):
         self.model = model
@@ -978,6 +1240,10 @@ class _GuideCheck:
         self.stage_ids = [stage.id for stage in self.stages]
         self.limits = model.load_limits(guide)
         self.vocabulary = model.load_vocabulary(guide)
+        self.inventory = model.load_ui_inventory(guide)
+        self.product = None            # the application's menus, once read
+        self.held_windows = set()      # the ids of the windows whose inventory a rewritten page was held to
+        self._menus = None
         self.nav = model.nav_entries(self.config)
         self.nav_groups = {entry.path: entry.groups for entry in self.nav}
         self.exact = _ExactCase(self.docs)
@@ -991,6 +1257,12 @@ class _GuideCheck:
 
     def page_path(self, relative):
         return os.path.join(self.docs, relative)
+
+    def all_menus(self):
+        """The `menu` paths of every page of the guide, by page, whichever pages are being checked."""
+        if self._menus is None:
+            self._menus = guide_menus(self.model, self.docs, self.all_pages())
+        return self._menus
 
     def all_pages(self):
         found = []
@@ -1063,7 +1335,7 @@ class _GuideCheck:
             elif not credits[1]:
                 self.report('R6', path, credits[0], 'the `## Credits` section is empty, and the page states '
                             '`derived: true`; it credits the upstream work, its authors and its licence there')
-        # R7-R10, R12, R13: the page against its template, its budgets and the guide's vocabulary.
+        # R7-R10, R12-R14: the page against its template, its budgets, the guide's vocabulary and its windows.
         if front.meta and front.meta.get('kind') in model.KINDS:
             _Writing(self, relative, path, front).run()
         return referenced
@@ -1221,6 +1493,7 @@ class _GuideCheck:
             product, product_paths = None, set()
             self.report('R4', os.path.join(self.repo, REGISTRY), 1, 'the application sources cannot be read: %s' %
                         error)
+        self.product = product
         pages = selected if selected is not None else self.all_pages()
         referenced = set()
         for relative in pages:
@@ -1254,7 +1527,10 @@ def _guide_summary(check, pages, coverage):
         lines.append('process pages by stage: %s; %d derived' % (
             ', '.join('%s %d' % (stage, stages[stage]) for stage in check.stage_ids + [None] if stages.get(stage)),
             derived))
-    lines.append('%d of %d pages rewritten and held to R7-R13 as errors' % (rewritten, len(pages)))
+    lines.append('%d of %d pages rewritten and held to R7-R14 as errors' % (rewritten, len(pages)))
+    if check.inventory:
+        lines.append('controls: %d of the %d windows of the inventory described by rewritten pages' %
+                     (len(check.held_windows), len(check.inventory)))
     if coverage:
         registered, unregistered, covered = coverage
         lines.append('menus: %d of %d registered actions and other Process menu actions on a page\'s `menu`' %

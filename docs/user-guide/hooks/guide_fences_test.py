@@ -91,6 +91,34 @@ class ControlsParseTests(unittest.TestCase):
         self.assertRefused(control(kind='spinbox', default='0', options=None, widget='{min: 0, max: lots}'),
                            "`widget.max` is 'lots', not a number")
 
+    def test_a_range_the_image_bounds_is_said_in_words(self):
+        block = fences.parse_controls(control(kind='spinbox', default='0', options=None, widget='{min: 0, step: 1}',
+                                              range='Up to the width of the image.'))
+        self.assertEqual(block['controls'][0]['widget'], {'min': '0', 'step': '1'})
+        fences.parse_controls(control(kind='spinbox', default='640', options=None,
+                                      range='From one pixel to the width of the image.'))
+        self.assertRefused(control(kind='spinbox', default='0', options=None, widget='{min: 0}'),
+                           'needs `widget.min` and `widget.max`, or a `range`')
+        self.assertRefused(control(kind='spinbox', default='-1', options=None, widget='{min: 0}',
+                                   range='Up to the width of the image.'), 'the default -1 is outside from 0')
+        self.assertRefused(control(kind='slider', default='9', options=None, widget='{max: 8}',
+                                   range='From the smallest scale the image has.'), 'the default 9 is outside up to 8')
+
+    def test_a_control_may_name_its_object_in_the_inventory(self):
+        block = fences.parse_controls(control(object='channelSelector'))
+        self.assertEqual(block['controls'][0]['object'], 'channelSelector')
+        self.assertRefused(control(object='""'), '`object` is text')
+
+    def test_a_label_the_window_has_twice_is_listed_once_for_each_object(self):
+        block = fences.parse_controls(control(object='inputChannel') + control(object='outputChannel'))
+        self.assertEqual([entry['object'] for entry in block['controls']], ['inputChannel', 'outputChannel'])
+        self.assertRefused(control(object='inputChannel') + control(object='inputChannel'),
+                           'control "Channel" is listed twice in the block', line=7)
+        self.assertRefused(control(object='inputChannel') + control(),
+                           'control "Channel" is listed twice in the block; when the window has several controls of '
+                           'one label, each states its `object`')
+        self.assertRefused(control() + control(object='outputChannel'), 'each states its `object`')
+
     def test_a_default_that_is_no_number_is_left_to_the_writer(self):
         block = fences.parse_controls(control(kind='spinbox', default='Auto', options=None,
                                               widget='{min: 0, max: 1}'))
@@ -123,6 +151,21 @@ class ControlsRenderTests(unittest.TestCase):
         self.assertIn('<dt>Range</dt><dd>Never above the white point.</dd>', html)
         self.assertIn('<dt>Trade-off</dt><dd class="warn">It can erase faint signal.</dd>', html)
 
+    def test_a_range_the_image_bounds_draws_no_handle_and_says_the_end_it_has(self):
+        html = fences.render_controls(fences.parse_controls(control(
+            kind='spinbox', default='0', options=None, widget='{min: 0, step: 1}', range='Up to the image width.')))
+        self.assertIn('<span class="spin"><span class="v">0</span>', html)
+        self.assertNotIn('class="slider"', html)
+        self.assertIn('Default <b>0</b> &middot; from 0 &middot; step 1', html)
+        self.assertIn('<dt>Range</dt><dd>Up to the image width.</dd>', html)
+        html = fences.render_controls(fences.parse_controls(control(
+            kind='spinbox', default='640', options=None, range='From one pixel to the image width.')))
+        self.assertIn('<span class="state">Default <b>640</b></span>', html)
+
+    def test_the_object_of_a_control_is_not_drawn(self):
+        html = fences.render_controls(fences.parse_controls(control(object='channelSelector')))
+        self.assertNotIn('channelSelector', html)
+
     def test_a_combo_lists_its_options_with_the_default_marked(self):
         html = fences.render_controls(fences.parse_controls(control()))
         self.assertIn('<section class="ctls" aria-label="Controls">', html)
@@ -132,6 +175,12 @@ class ControlsRenderTests(unittest.TestCase):
         html = fences.render_controls(fences.parse_controls(control(name='"A <b> & c"', effect='"x < y"')))
         self.assertIn('<b>A &lt;b&gt; &amp; c</b>', html)
         self.assertIn('x &lt; y', html)
+
+    def test_a_label_listed_for_two_objects_gets_two_anchors(self):
+        html = fences.render_controls(fences.parse_controls(control(object='inputChannel') +
+                                                            control(object='outputChannel')))
+        self.assertIn('id="ctl-channel"', html)
+        self.assertIn('id="ctl-channel-2"', html)
 
     def test_a_name_repeated_on_a_page_gets_an_anchor_of_its_own(self):
         used = set()

@@ -1,0 +1,24 @@
+{
+  "id": "background_extraction.actionAuto_Gradient_Removal",
+  "window": "Auto Gradient Removal <{image}>",
+  "controls": [
+    {"label": "Scale", "kind": "spinbox", "object": "scaleValue", "group": "Background model", "visible": true, "default": "5.0", "min": 1, "max": 10, "step": 0.5, "decimals": 1, "slider": true},
+    {"label": "Smoothness", "kind": "spinbox", "object": "smoothnessValue", "group": "Background model", "visible": true, "default": "1.00", "min": 0, "max": 3, "step": 0.1, "decimals": 2, "slider": true},
+    {"label": "Downsample", "kind": "combo", "object": "downsampleComboBox", "group": "Background model", "visible": true, "default": "4", "options": ["1", "2", "4", "8"]},
+    {"label": "Simplified polynomial model", "kind": "check", "object": "simplifiedModel", "group": "Background model", "visible": true, "default": "Off"},
+    {"label": "Polynomial degree", "kind": "spinbox", "object": "polynomialDegreeValue", "group": "Background model", "visible": true, "default": "2", "min": 1, "max": 6, "step": 1, "slider": true},
+    {"label": "Protect bright structures", "kind": "check", "object": "structureProtection", "group": "Structure protection", "visible": true, "default": "On"},
+    {"label": "Threshold", "kind": "spinbox", "object": "protectionThresholdValue", "group": "Structure protection", "visible": true, "default": "0.050", "min": 0, "max": 1, "step": 0.005, "decimals": 3, "slider": true},
+    {"label": "Amount", "kind": "spinbox", "object": "protectionAmountValue", "group": "Structure protection", "visible": true, "default": "0.50", "min": 0, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Mode", "kind": "combo", "object": "correctionModeComboBox", "group": "Correction", "visible": true, "default": "Subtraction", "options": ["Subtraction", "Division"]},
+    {"label": "Preview display", "kind": "combo", "object": "previewDisplaySelector", "group": "Correction", "visible": true, "default": "Corrected image", "options": ["Corrected image", "Gradient model", "Protection mask"]},
+    {"label": "Preview", "kind": "button", "object": "previewButton", "group": "Correction", "visible": true, "default": ""},
+    {"label": "Create gradient model image", "kind": "check", "object": "outputGradientModel", "group": "Outputs", "visible": true, "default": "Off"},
+    {"label": "Create protection mask image", "kind": "check", "object": "outputProtectionMask", "group": "Outputs", "visible": true, "default": "Off"},
+    {"label": "Enable preview", "kind": "check", "object": "previewCheckbox", "group": "", "visible": true, "default": "On"},
+    {"label": "Target image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

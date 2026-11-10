@@ -1,0 +1,16 @@
+{
+  "id": "geometry.actionResize",
+  "window": "Resize <{image}>",
+  "controls": [
+    {"label": "Width", "kind": "spinbox", "object": "targetWidth", "group": "", "visible": true, "min": 1, "max": 100000, "step": 1, "varies": ["default"]},
+    {"label": "Width", "kind": "spinbox", "object": "targetWidthPercent", "group": "", "visible": true, "default": "100.00", "min": 1, "max": 1000, "step": 1, "decimals": 2},
+    {"label": "Height", "kind": "spinbox", "object": "targetHeight", "group": "", "visible": true, "min": 1, "max": 100000, "step": 1, "varies": ["default"]},
+    {"label": "Height", "kind": "spinbox", "object": "targetHeightPercent", "group": "", "visible": true, "default": "100.00", "min": 1, "max": 1000, "step": 1, "decimals": 2},
+    {"label": "Keep aspect ratio", "kind": "check", "object": "keepAspectRatio", "group": "", "visible": true, "default": "On"},
+    {"label": "Interpolation", "kind": "combo", "object": "interpolation", "group": "", "visible": true, "default": "Auto (Lanczos4 to enlarge, Pixel Area Relation to reduce)", "options": ["Auto (Lanczos4 to enlarge, Pixel Area Relation to reduce)", "Nearest Neighbor", "Bilinear", "Bicubic", "Pixel Area Relation", "Lanczos4", "Bit Exact Bilinear", "Bit Exact Nearest Neighbor"]},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

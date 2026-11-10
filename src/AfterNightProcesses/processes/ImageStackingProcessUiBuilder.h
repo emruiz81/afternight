@@ -410,6 +410,8 @@ inline ImageStackingProcessUiElements buildImageStackingProcessUi(QWidget* paren
     ui.removeSelected = new QPushButton(QStringLiteral("Remove Selected"), ui.frameListCard);
     ui.moveUpButton = new QPushButton(ui.frameListCard);
     ui.moveDownButton = new QPushButton(ui.frameListCard);
+    ui.moveUpButton->setToolTip(QStringLiteral("Move frame up"));
+    ui.moveDownButton->setToolTip(QStringLiteral("Move frame down"));
     ui.clearAll = new QPushButton(QStringLiteral("Clear All"), ui.frameListCard);
     applySecondaryButton(ui.addFiles);
     applySecondaryButton(ui.addFolder);

@@ -1,0 +1,18 @@
+{
+  "id": "sharpening_enhancement.actionDark_Structure_Enhance",
+  "window": "DarkStructureEnhance <{image}>",
+  "controls": [
+    {"label": "Layers to Remove", "kind": "spinbox", "object": "layersValue", "group": "", "visible": true, "default": "8", "min": 7, "max": 10, "step": 1, "slider": true},
+    {"label": "Scaling Function", "kind": "combo", "object": "scalingFunctionComboBox", "group": "", "visible": true, "default": "5x5 B3 Spline", "options": ["3x3 Linear Interpolation", "5x5 B3 Spline"]},
+    {"label": "Amount", "kind": "spinbox", "object": "amountValue", "group": "", "visible": true, "default": "0.40", "min": 0, "max": 0.99, "step": 0.01, "decimals": 2, "slider": true},
+    {"label": "Iterations", "kind": "spinbox", "object": "iterationsValue", "group": "", "visible": true, "default": "1", "min": 1, "max": 10, "step": 1, "slider": true},
+    {"label": "Preview Mode", "kind": "combo", "object": "previewModeComboBox", "group": "", "visible": true, "default": "Processed image", "options": ["Processed image", "Generated mask"]},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Channel", "kind": "combo", "object": "channelSelector", "group": "", "visible": true, "default": "RGB", "options": ["RGB", "Red", "Green", "Blue", "CIE L* (Lightness)", "CIE a*", "CIE b*", "CIE c*", "CIE h*", "CIE X", "CIE Y (Luminance)", "CIE Z", "HSL Hue", "HSL Saturation", "HSL Lightness", "HSV Hue", "HSV Saturation", "HSV Value", "YCbCr Luma", "YCbCr Blue Chroma", "YCbCr Red Chroma"]},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "Create mask image", "kind": "check", "object": "createMaskImage", "group": "", "visible": true, "default": "Off"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

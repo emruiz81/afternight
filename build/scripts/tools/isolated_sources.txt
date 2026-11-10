@@ -2546,6 +2546,7 @@ sources Test_ProcessesShared
     unit     src/AfterNightTests/Test_ProcessesShared/ProcessChoiceMapsTest.cpp
     unit     src/AfterNightTests/Test_ProcessesShared/ProcessLauncherTest.cpp
     unit     src/AfterNightTests/Test_ProcessesShared/ProcessRegistryTest.cpp
+    unit     src/AfterNightTests/Test_ProcessesShared/ProcessUiInventoryTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -2563,8 +2564,12 @@ sources Test_ProcessesShared
     header   src/AfterNightControls/app/ProcessControlEvent.h
     header   src/AfterNightControls/app/ProcessRegistry.h
     header   src/AfterNightControls/app/SequenceOutputCleanup.h
+    header   src/AfterNightControls/components/AnCardWidget.h
+    header   src/AfterNightControls/components/AnCollapsibleSection.h
+    header   src/AfterNightControls/components/AnInputField.h
     header   src/AfterNightControls/components/AnProgressCard.h
     header   src/AfterNightControls/components/AnSectionHeader.h
+    header   src/AfterNightControls/components/AnSliderControl.h
     header   src/AfterNightControls/controls/AutostretchApply.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h

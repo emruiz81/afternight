@@ -1,0 +1,30 @@
+{
+  "id": "star_object.actionStar_Mask",
+  "window": "Star Mask <{image}>",
+  "controls": [
+    {"label": "Radius", "kind": "spinbox", "object": "radiusValue", "group": "Detection", "visible": true, "default": "5", "min": 3, "max": 32, "step": 1, "slider": true},
+    {"label": "Threshold", "kind": "spinbox", "object": "thresholdValue", "group": "Detection", "visible": true, "default": "1.00", "min": 0.01, "max": 15, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Amplitude Range", "kind": "check", "object": "amplitudeRange", "group": "Detection", "visible": true, "default": "Off"},
+    {"label": "Minimum", "kind": "spinbox", "object": "amplitudeMinimumValue", "group": "Detection > Amplitude Range", "visible": true, "default": "0.00", "min": 0, "max": 0.99, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Maximum", "kind": "spinbox", "object": "amplitudeMaximumValue", "group": "Detection > Amplitude Range", "visible": true, "default": "1.00", "min": 0.01, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Roundness Threshold", "kind": "spinbox", "object": "roundnessValue", "group": "Detection", "visible": true, "default": "0.50", "min": 0.01, "max": 0.95, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Roundness Range", "kind": "check", "object": "roundnessRange", "group": "Detection", "visible": true, "default": "Off"},
+    {"label": "Maximum", "kind": "spinbox", "object": "roundnessMaximumValue", "group": "Detection > Roundness Range", "visible": true, "default": "1.00", "min": 0.01, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Convergence", "kind": "spinbox", "object": "convergenceValue", "group": "Detection", "visible": true, "default": "1", "min": 1, "max": 3, "step": 1},
+    {"label": "Relax PSF Checks", "kind": "check", "object": "relaxChecks", "group": "Detection", "visible": true, "default": "Off"},
+    {"label": "Profile Type", "kind": "combo", "object": "profileTypeSelector", "group": "Detection", "visible": true, "default": "Gaussian", "options": ["Gaussian", "Moffat"]},
+    {"label": "Minimum Beta", "kind": "spinbox", "object": "minimumBetaValue", "group": "Detection", "visible": true, "default": "1.50", "min": 0.05, "max": 10, "step": 0.05, "decimals": 2},
+    {"label": "Use Lightness", "kind": "check", "object": "useLightness", "group": "Detection", "visible": true, "default": "Off"},
+    {"label": "Shaped Areas", "kind": "check", "object": "shapedAreas", "group": "", "visible": true, "default": "On"},
+    {"label": "Percent Increase", "kind": "spinbox", "object": "percentIncreaseValue", "group": "Shaped Areas", "visible": true, "default": "0.50", "min": 0.01, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Pixel Increase", "kind": "spinbox", "object": "pixelIncreaseValue", "group": "Shaped Areas", "visible": true, "default": "0", "min": 0, "max": 99, "step": 1, "slider": true},
+    {"label": "Min Size", "kind": "spinbox", "object": "minSizeValue", "group": "Shaped Areas", "visible": true, "default": "2", "min": 0, "max": 99, "step": 1, "slider": true},
+    {"label": "Max Size", "kind": "spinbox", "object": "maxSizeValue", "group": "Shaped Areas", "visible": true, "default": "25", "min": 0, "max": 99, "step": 1, "slider": true},
+    {"label": "Star Shape", "kind": "combo", "object": "starShapeSelector", "group": "Shaped Areas", "visible": true, "default": "Truncated Bell", "options": ["Bell", "Truncated Bell", "Linear", "Truncated Linear", "Cubic", "Quadratic"]},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

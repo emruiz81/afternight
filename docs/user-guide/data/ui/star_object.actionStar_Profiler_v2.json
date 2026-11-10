@@ -1,0 +1,30 @@
+{
+  "id": "star_object.actionStar_Profiler_v2",
+  "window": "StarProfiler <{image}>",
+  "controls": [
+    {"label": "Load Profile", "kind": "button", "object": "loadProfileButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Save Profile", "kind": "button", "object": "saveProfileButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Stars Filter", "kind": "button", "object": "starsFilterButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Create Mask", "kind": "button", "object": "createMaskButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Remove selected star", "kind": "button", "object": "deleteStarButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Clear", "kind": "button", "object": "clearProfileButton", "group": "Detected Stars", "visible": true, "default": ""},
+    {"label": "Center Selected Star", "kind": "check", "object": "centerSelectedStar", "group": "Detected Stars", "visible": true, "default": "Off"},
+    {"label": "0", "kind": "spinbox", "object": "zoomDetectedStars", "group": "Detected Stars", "visible": true, "default": "2.00", "min": 1, "max": 20, "step": 1, "decimals": 2},
+    {"label": "Radius", "kind": "spinbox", "object": "radiusValue", "group": "Star Detection", "visible": true, "default": "5", "min": 3, "max": 32, "step": 1, "slider": true},
+    {"label": "Threshold", "kind": "spinbox", "object": "thresholdValue", "group": "Star Detection", "visible": true, "default": "1.00", "min": 0.01, "max": 15, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Amplitude Range", "kind": "check", "object": "amplitudeRangeGroupBox", "group": "Star Detection", "visible": true, "default": "Off"},
+    {"label": "Minumum", "kind": "spinbox", "object": "thresholdMinimumValue", "group": "Star Detection > Amplitude Range", "visible": true, "default": "0.00", "min": 0, "max": 0.99, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Maximum", "kind": "spinbox", "object": "thresholdMaximumValue", "group": "Star Detection > Amplitude Range", "visible": true, "default": "1.00", "min": 0.01, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Roundness Threshold", "kind": "spinbox", "object": "roundnessThresholdValue", "group": "Star Detection", "visible": true, "default": "0.50", "min": 0.01, "max": 0.95, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Roundness Range", "kind": "check", "object": "roundnessRangeGroupBox", "group": "Star Detection", "visible": true, "default": "Off"},
+    {"label": "Maximum", "kind": "spinbox", "object": "roundnessThresholdMaximumValue", "group": "Star Detection > Roundness Range", "visible": true, "default": "1.00", "min": 0.01, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Convergence", "kind": "spinbox", "object": "convergenceValue", "group": "Star Detection", "visible": true, "default": "1", "min": 1, "max": 3, "step": 1},
+    {"label": "Relax PSF Checks", "kind": "check", "object": "relaxPSFChecks", "group": "Star Detection", "visible": true, "default": "Off"},
+    {"label": "Profile Type", "kind": "combo", "object": "profileTypeSelector", "group": "Star Detection", "visible": true, "default": "Gaussian", "options": ["Gaussian", "Moffat"]},
+    {"label": "Minimum Beta", "kind": "spinbox", "object": "minimumBetaValue", "group": "Star Detection", "visible": true, "default": "1.50", "min": 0.05, "max": 10, "step": 0.05, "decimals": 2},
+    {"label": "Detect Stars", "kind": "button", "object": "detectStarsButton", "group": "Star Detection", "visible": true, "default": ""},
+    {"label": "Use Lightness", "kind": "check", "object": "useLightness", "group": "Star Detection", "visible": true, "default": "Off"},
+    {"label": "Reset", "kind": "button", "object": "resetButton", "group": "Star Detection", "visible": true, "default": ""},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "color.actionSCNR",
+  "window": "SCNR <{image}>",
+  "controls": [
+    {"label": "Protection Type", "kind": "combo", "object": "protectionType", "group": "", "visible": true, "default": "Average Neutral", "options": ["Average Neutral", "Maximum Neutral", "Maximum Mask", "Additive Mask"]},
+    {"label": "Amount", "kind": "spinbox", "object": "amountValue", "group": "", "visible": true, "default": "1.00", "min": 0, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Preserve Lightness", "kind": "check", "object": "preserveLightness", "group": "", "visible": true, "default": "On"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

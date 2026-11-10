@@ -1,0 +1,26 @@
+{
+  "id": "star_object.actionStar_Reduction",
+  "window": "Star Reduction",
+  "controls": [
+    {"label": "Target image", "kind": "combo", "object": "targetImageSelector", "group": "Views", "visible": true, "varies": ["default", "options"]},
+    {"label": "Starless image", "kind": "combo", "object": "starlessImageSelector", "group": "Views", "visible": true, "default": "<--NO IMAGE-->", "options": ["<--NO IMAGE-->"]},
+    {"label": "Generator", "kind": "combo", "object": "starlessGeneratorSelector", "group": "Views", "visible": true, "default": "actionStarnet", "options": ["actionStarnet"]},
+    {"label": "Generate starless view", "kind": "button", "object": "generateStarlessView", "group": "Views", "visible": true, "default": ""},
+    {"label": "Initialise small star protection", "kind": "button", "object": "initializeSmallStarProtection", "group": "Small star protection", "visible": true, "default": ""},
+    {"label": "Enable small star protection", "kind": "check", "object": "enableSmallStarProtection", "group": "Small star protection", "visible": true, "default": "Off"},
+    {"label": "Reduction method", "kind": "combo", "object": "method", "group": "Star reduction parameters", "visible": true, "default": "Star Method", "options": ["Transfer Method", "Halo Method", "Star Method", "Lightness Method"]},
+    {"label": "Stretch factor", "kind": "spinbox", "object": "stretchFactor", "group": "Star reduction parameters", "visible": true, "default": "0.20", "min": 0.01, "max": 0.99, "step": 0.01, "decimals": 2},
+    {"label": "Mode", "kind": "combo", "object": "mode", "group": "Star reduction parameters", "visible": true, "default": "Strong", "options": ["Strong", "Moderate", "Soft"]},
+    {"label": "Iterations", "kind": "spinbox", "object": "iterations", "group": "Star reduction parameters", "visible": true, "default": "1", "min": 1, "max": 3, "step": 1},
+    {"label": "Reduce stars on target image", "kind": "check", "object": "reduceTargetImage", "group": "Output options", "visible": true, "default": "Off"},
+    {"label": "Create new star-reduced image", "kind": "check", "object": "createNewImage", "group": "Output options", "visible": true, "default": "On"},
+    {"label": "Image id", "kind": "field", "object": "newImageId", "group": "Output options", "visible": true, "default": "<Auto>"},
+    {"label": "Create reduced-stars-only image", "kind": "check", "object": "createStarsImage", "group": "Output options", "visible": true, "default": "On"},
+    {"label": "Enable reverse stretch", "kind": "check", "object": "enableReverseStretch", "group": "Output options", "visible": true, "default": "Off"},
+    {"label": "Stars id", "kind": "field", "object": "starImageId", "group": "Output options", "visible": true, "default": "<Auto>"},
+    {"label": "Show preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

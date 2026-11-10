@@ -10,6 +10,17 @@ data_out: nonlinear
 ---
 # ArcSinh Stretch
 
+```figure
+image: ../../assets/images/processes/stretching/arcsinh-stretch.webp
+alt: >-
+  The ArcSinhStretch window. On the left, the image's histogram, the Stretch Factor and Black
+  Point values with their sliders, Human-weighted luminance, Target Image and Preview. On the
+  right, the preview of the image.
+caption: >-
+  ArcSinh Stretch as it opens on a linear master, with a stretch factor of zero that changes
+  nothing yet.
+```
+
 ## Purpose and expected result
 
 ArcSinh Stretch is a display-stretch process for lifting faint linear signal while

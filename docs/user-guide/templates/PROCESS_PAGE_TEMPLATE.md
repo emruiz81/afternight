@@ -23,7 +23,7 @@ glance:
   state: <The image it is meant for.>
 derived: <true or false>          # true when another project's code, library, tool or data computes its result
 # controls_ignore:                # controls of the window that the page leaves out on purpose
-#   - {label: <label>, reason: <why>}
+#   - {label: <label>, reason: <why>}     # with `object: <object name>` when the window has the label twice
 rewritten: true
 ---
 # <Title, as the window shows it>
@@ -65,7 +65,8 @@ pins:
 
 <!-- One optional sentence, then one `controls` block per window or tab, every control in the window's order. The
      defaults and ranges live here and are not repeated in the prose. A page with several windows may give each
-     block a `### <window or tab>` heading. -->
+     block a `### <window or tab>` heading. Start from `draft_guide_controls.py <page>`: the names, kinds, defaults,
+     numbers and choices are the window's inventory (data/ui/), which the check holds the block to. -->
 
 ```controls
 window: <Window title>

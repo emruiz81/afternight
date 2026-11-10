@@ -1,0 +1,24 @@
+{
+  "id": "color.actionColorize",
+  "window": "Colorize <{image}>",
+  "controls": [
+    {"label": "Zoom in", "kind": "toolbutton", "object": "zoomIn", "group": "", "visible": true, "default": "", "shared": "rt-preview"},
+    {"label": "Zoom out", "kind": "toolbutton", "object": "zoomOut", "group": "", "visible": true, "default": "", "shared": "rt-preview"},
+    {"label": "Zoom reset", "kind": "toolbutton", "object": "zoomReset", "group": "", "visible": true, "default": "", "shared": "rt-preview"},
+    {"label": "Show grid", "kind": "toolbutton", "object": "gridButton", "group": "", "visible": true, "default": "On", "shared": "rt-preview"},
+    {"label": "Show clipping info", "kind": "toolbutton", "object": "showClippingInfo", "group": "", "visible": true, "default": "On", "shared": "rt-preview"},
+    {"label": "Absolute scales", "kind": "toolbutton", "object": "localChannelNormalization", "group": "", "visible": true, "default": "Off", "shared": "rt-preview"},
+    {"label": "Draw histogram areas", "kind": "toolbutton", "object": "showHistogramAreas", "group": "", "visible": true, "default": "Off", "shared": "rt-preview"},
+    {"label": "Show histogram", "kind": "toolbutton", "object": "showHistogram", "group": "", "visible": true, "default": "On", "shared": "rt-preview"},
+    {"label": "Plot resolution", "kind": "combo", "object": "plotResolution", "group": "", "visible": true, "default": "8-bit (256)", "options": ["6-bit (64)", "7-bit (128)", "8-bit (256)", "9-bit (512)", "10-bit (1024)", "12-bit (4096)", "14-bit (16K)", "16-bit (64K)", "100 levels", "1000 levels", "10000 levels"], "shared": "rt-preview"},
+    {"label": "Method", "kind": "combo", "object": "colorizeMethod", "group": "", "visible": true, "default": "HSV", "options": ["HSV", "HSI"]},
+    {"label": "Hue", "kind": "spinbox", "object": "hueValue", "group": "", "visible": true, "default": "0.00", "min": 0, "max": 360, "step": 1, "decimals": 2, "slider": true},
+    {"label": "Saturation", "kind": "spinbox", "object": "saturationValue", "group": "", "visible": true, "default": "1.00", "min": 0, "max": 1, "step": 0.01, "decimals": 2, "slider": true},
+    {"label": "Use lightness", "kind": "check", "object": "useLightness", "group": "", "visible": true, "default": "Off"},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

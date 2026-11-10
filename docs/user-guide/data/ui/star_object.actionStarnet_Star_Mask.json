@@ -1,0 +1,22 @@
+{
+  "id": "star_object.actionStarnet_Star_Mask",
+  "window": "Starnet++ Star Mask <{image}>",
+  "controls": [
+    {"label": "Lightness", "kind": "check", "object": "lightness", "group": "Mask Settings", "visible": true, "default": "Off"},
+    {"label": "Binary Mask", "kind": "check", "object": "binaryMask", "group": "Mask Settings", "visible": true, "default": "Off"},
+    {"label": "Lower limit", "kind": "spinbox", "object": "lowerLimitValue", "group": "Mask Settings", "visible": true, "default": "0.100000", "min": 0, "max": 1, "step": 0.01, "decimals": 6, "slider": true},
+    {"label": "Upper limit", "kind": "spinbox", "object": "upperLimitValue", "group": "Mask Settings", "visible": true, "default": "1.000000", "min": 0, "max": 1, "step": 0.05, "decimals": 6, "slider": true},
+    {"label": "Smoothness", "kind": "spinbox", "object": "smoothnessValue", "group": "Mask Settings", "visible": true, "default": "0.00", "min": 0, "max": 100, "step": 1, "decimals": 2, "slider": true},
+    {"label": "Pre-Stretch linear image", "kind": "check", "object": "preStretchLinearImage", "group": "StarNet2 Settings", "visible": true, "default": "Off"},
+    {"label": "Highlight protection", "kind": "check", "object": "highlightProtection", "group": "StarNet2 Settings", "visible": true, "default": "On"},
+    {"label": "Stride", "kind": "combo", "object": "stridePreset", "group": "StarNet2 Settings", "visible": true, "default": "Standard (256)", "options": ["Standard (256)", "Wide-field (384)", "Custom"]},
+    {"label": "Stride", "kind": "spinbox", "object": "customStrideValue", "group": "StarNet2 Settings", "visible": true, "default": "256", "min": 2, "max": 512, "step": 2},
+    {"label": "Weights", "kind": "field", "object": "weightsPath", "group": "StarNet2 Settings", "visible": true, "default": ""},
+    {"label": "Browse", "kind": "button", "object": "browseWeights", "group": "StarNet2 Settings", "visible": true, "default": ""},
+    {"label": "Upsample x2", "kind": "check", "object": "upsamplex2", "group": "StarNet2 Settings", "visible": true, "default": "Off"},
+    {"label": "Configure", "kind": "button", "object": "configureStarnet", "group": "StarNet2 Settings > StarNet2 executable path is empty.", "visible": true, "default": ""},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}
