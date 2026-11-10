@@ -1,0 +1,20 @@
+{#- "At a glance", on a process page that states `glance`: the facts of its front matter as a card - its menu paths,
+    the image it takes and leaves, its preview, sequences, masks and tools, then when it is enabled, what it reads and
+    writes, and the image state it suits. -#}
+<section class="at-a-glance" aria-labelledby="at-a-glance">
+  <h2 id="at-a-glance">At a glance</h2>
+  <dl class="glance">
+    {%- for row in gp.glance %}
+    <div{% if row.full %} class="full"{% endif %}>
+      <dt>{{ row.label }}</dt>
+      {%- if row.lines %}
+      {%- for value in row.lines %}
+      <dd{% if row.mono %} class="mono"{% endif %}>{{ value|e }}</dd>
+      {%- endfor %}
+      {%- else %}
+      <dd{% if row.mono %} class="mono"{% endif %}>{{ row.value|e }}</dd>
+      {%- endif %}
+    </div>
+    {%- endfor %}
+  </dl>
+</section>
