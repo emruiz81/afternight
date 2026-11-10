@@ -289,8 +289,9 @@ chosen one of its three components:
   stretch of the curve is flat black or white.
 - After a component choice, a floating-point image keeps the values the conversion back puts outside 0 to 1. An
   integer image stops at the ends of its range, rounded to the nearest code.
-- A signed or 32-bit integer image is read as fractions of full scale, curved through the floating-point table
-  and rounded back. A 64-bit floating-point image is computed in double precision. For a smooth curve the table is
+- A signed or 32-bit integer image is read as
+  [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale), curved through the floating-point
+  table and rounded back. A 64-bit floating-point image is computed in double precision. For a smooth curve the table is
   within a millionth of the curve.
 - A sample that is not a number stays one, without a message. Pixels the image marks as invalid are left
   unchanged.

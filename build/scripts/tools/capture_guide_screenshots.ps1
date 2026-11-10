@@ -32,6 +32,11 @@ What is captured is named in one of two ways:
 
 -MainWindow <name> adds a picture of the main window as it is when the captures are done.
 
+-MenuShot "<name>=<menu path>" adds a picture of the main window with the menus of the path open and the pointer on
+its last item, such as "convert=Image > Convert Format > Convert to unsigned 16 bit". A window's own picture leaves out
+the menus it opened, so each open menu is drawn by itself and laid over the main window's picture where it stands; the
+screen is not read, and the picture is the same with the session's screen locked.
+
 A window is captured as it opens unless -Set says what to do in it first:
 
   -Set "<control>=<value>[;<control>[=<value>]...]"
@@ -111,6 +116,7 @@ param(
     [string[]]$Page = @(),
     [string[]]$Capture = @(),
     [string]$MainWindow = '',
+    [string]$MenuShot = '',
     [string[]]$Set = @(),
     [string[]]$Prepare = @(),
     [string[]]$View = @(),
@@ -241,6 +247,13 @@ public sealed class AnScreenshots
         return false;
     }
 
+    /// Whether a window's class is one of the toolkit's windows a person works in, with or without an icon of its
+    /// own (a tool window has none), and not one of its popups - a menu, a combo's list - or a tooltip.
+    public static bool IsWorkWindowClass(string className)
+    {
+        return className.Contains("QWindow") && !className.Contains("Popup") && !className.Contains("ToolTip");
+    }
+
     /// A window that was not among `before` and is one a person works in: it has a title, and is neither the
     /// system's dialog nor one of the toolkit's popups - a menu, a tooltip, a combo's list.
     public AnShownWindow NewWindow(ICollection<IntPtr> before)
@@ -248,7 +261,7 @@ public sealed class AnScreenshots
         foreach (AnShownWindow window in Windows())
         {
             if (before.Contains(window.Handle) || window.Title.Length == 0) continue;
-            if (window.ClassName == "#32770" || !window.ClassName.EndsWith("QWindowIcon")) continue;
+            if (window.ClassName == "#32770" || !IsWorkWindowClass(window.ClassName)) continue;
             return window;
         }
         return null;
@@ -382,6 +395,56 @@ public sealed class AnScreenshots
         return frame;
     }
 
+    /// The window with the menus it opened drawn over it where they stand: each menu is its own window, which the
+    /// window's own picture leaves out, so each is drawn by itself and laid over the window's, the lowest first. The
+    /// screen is not read, so the picture is the same whether the session's screen is shown or locked.
+    public Bitmap MenuPicture(IntPtr handle)
+    {
+        AnCaptureNative.Rect frame = Frame(handle);
+        Bitmap picture = Picture(handle);
+        List<AnShownWindow> menus = new List<AnShownWindow>();
+        foreach (AnShownWindow window in Windows())
+        {
+            if (window.Handle != handle && window.ClassName.Contains("QWindowPopup")) menus.Add(window);
+        }
+        menus.Reverse();
+        using (Graphics graphics = Graphics.FromImage(picture))
+        {
+            foreach (AnShownWindow menu in menus)
+            {
+                AnCaptureNative.Rect place = Frame(menu.Handle);
+                using (Bitmap drawn = Picture(menu.Handle))
+                {
+                    graphics.DrawImageUnscaled(drawn, place.Left - frame.Left, place.Top - frame.Top);
+                }
+            }
+        }
+        return picture;
+    }
+
+    /// Rests the pointer on the middle of an element, so the toolkit draws it highlighted: the pointer is put there,
+    /// and the menu window under it is told the pointer moved, which it is not told when the screen is locked.
+    public void PointAt(AutomationElement element)
+    {
+        System.Windows.Rect box = element.Current.BoundingRectangle;
+        int x = (int)(box.Left + box.Width / 2);
+        int y = (int)(box.Top + box.Height / 2);
+        AnCaptureNative.SetCursorPos(x, y);
+        foreach (AnShownWindow window in Windows())
+        {
+            if (!window.ClassName.Contains("QWindowPopup")) continue;
+            AnCaptureNative.Rect place;
+            if (!AnCaptureNative.GetWindowRect(window.Handle, out place)) continue;
+            if (x < place.Left || x >= place.Right || y < place.Top || y >= place.Bottom) continue;
+            AnCaptureNative.Point point;
+            point.X = x;
+            point.Y = y;
+            AnCaptureNative.ScreenToClient(window.Handle, ref point);
+            AnCaptureNative.PostMessage(window.Handle, 0x0200, IntPtr.Zero, (IntPtr)((point.Y << 16) | (point.X & 0xFFFF)));
+            break;
+        }
+    }
+
     /// The window as it draws itself, cropped to its frame.
     public Bitmap Picture(IntPtr handle)
     {
@@ -497,8 +560,10 @@ public sealed class AnScreenshots
 
     /// The menu item of a name under `root`. Below the menu bar, `belowBar` looks only at the items of an open menu,
     /// never at the bar's own: the bar may have an item of the same name - View is both a menu of the bar and a
-    /// submenu of Image.
-    private AutomationElement MenuItem(AutomationElement root, string name, int timeoutMs, bool belowBar = false)
+    /// submenu of Image. Nor is it one of the items in `passed`, the path's items already opened: a submenu may hold
+    /// an item of its own name - Pixel Math in Process > Pixel Math.
+    private AutomationElement MenuItem(AutomationElement root, string name, int timeoutMs, bool belowBar = false,
+                                       IList<AutomationElement> passed = null)
     {
         Stopwatch clock = Stopwatch.StartNew();
         while (clock.ElapsedMilliseconds < timeoutMs)
@@ -514,7 +579,16 @@ public sealed class AnScreenshots
                 {
                     foreach (AutomationElement candidate in root.FindAll(TreeScope.Descendants, condition))
                     {
-                        if (!OnMenuBar(candidate)) { item = candidate; break; }
+                        if (OnMenuBar(candidate)) continue;
+                        bool opened = false;
+                        if (passed != null)
+                        {
+                            foreach (AutomationElement earlier in passed)
+                            {
+                                if (Automation.Compare(earlier, candidate)) { opened = true; break; }
+                            }
+                        }
+                        if (!opened) { item = candidate; break; }
                     }
                 }
             }
@@ -540,7 +614,7 @@ public sealed class AnScreenshots
         for (int index = 0; index < path.Length; ++index)
         {
             AutomationElement root = index == 0 ? main : AutomationElement.RootElement;
-            AutomationElement item = MenuItem(root, path[index], 10000, index > 0);
+            AutomationElement item = MenuItem(root, path[index], 10000, index > 0, items);
             items.Add(item);
             if (index < path.Length - 1)
             {
@@ -1055,7 +1129,7 @@ foreach ($given in $Capture) {
         $captures.Add(@{ name = $given.Substring(0, $at).Trim(); menu = $what; process = $false })
     }
 }
-if ($captures.Count -eq 0 -and -not $MainWindow) { throw 'nothing to capture: name a -Page, a -Capture or a -MainWindow' }
+if ($captures.Count -eq 0 -and -not $MainWindow -and -not $MenuShot) { throw 'nothing to capture: name a -Page, a -Capture, a -MenuShot or a -MainWindow' }
 $names = @($captures | ForEach-Object { $_.name }) + @($MainWindow | Where-Object { $_ })
 if (@($names | Sort-Object -Unique).Count -ne $names.Count) { throw "two captures have one name: $($names -join ', ')" }
 $images = @($Open | ForEach-Object { (Resolve-Path -LiteralPath $_).Path })
@@ -1297,7 +1371,7 @@ try {
         # What the window's run left on the screen - a message that it is complete, its progress window - is
         # dismissed first, the last one shown first: Return answers a message, Escape closes a window that is done.
         for ($pass = 0; $pass -lt 4; ++$pass) {
-            $leftOpen = @($shots.Windows() | Where-Object { $_.Handle -ne $window.Handle -and -not $before.Contains($_.Handle) -and $_.Title -and $_.ClassName.EndsWith('QWindowIcon') })
+            $leftOpen = @($shots.Windows() | Where-Object { $_.Handle -ne $window.Handle -and -not $before.Contains($_.Handle) -and $_.Title -and [AnScreenshots]::IsWorkWindowClass($_.ClassName) })
             if ($leftOpen.Count -eq 0) { break }
             $shots.Note("dismissing '$($leftOpen[0].Title)'")
             if ($shots.HasMinimizeButton($leftOpen[0].Handle)) { $shots.PostKey($leftOpen[0].Handle, 0x1B) } else { $shots.PostKey($leftOpen[0].Handle, 0x0D) }
@@ -1321,6 +1395,25 @@ try {
             if ($others.Count -gt 0) { $beside = "; the application also shows $($others -join ', ')" }
             throw "'$($window.Title)' did not close$beside"
         }
+        Start-Sleep -Milliseconds 500
+    }
+
+    # The menus open along a path, the pointer resting on its last item: the main window's picture with each open
+    # menu's own picture laid over it, since a window's own picture leaves out the menus it opened.
+    if ($MenuShot) {
+        $at = $MenuShot.IndexOf('=')
+        if ($at -lt 1) { throw "-MenuShot takes ""<name>=<menu path>"", not ""$MenuShot""" }
+        $menuName = $MenuShot.Substring(0, $at).Trim()
+        $path = [string[]]($MenuShot.Substring($at + 1) -split [regex]::Escape($menuSeparator) | ForEach-Object { $_.Trim() })
+        $items = $shots.OpenMenuPath($main, $path)
+        $shots.PointAt($items[$items.Count - 1])
+        Start-Sleep -Milliseconds 1200
+        $picture = $shots.MenuPicture($mainHandle)
+        $file = Join-Path $Output ($menuName + '.png')
+        $picture.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
+        $shots.Note("saved $file, $($picture.Width) x $($picture.Height), with the menus open")
+        $picture.Dispose()
+        $shots.CloseMenus($items)
         Start-Sleep -Milliseconds 500
     }
 

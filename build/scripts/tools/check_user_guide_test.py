@@ -1420,6 +1420,12 @@ class GlossaryRuleTests(WritingCase):
                 self.change('workflows/deep.md', 'A finished picture.', 'Open %s, then a linear picture.' % name)
                 self.assertWarns('R13', 'deep.md:33: R13 warning: "Linear"')
 
+    def test_any_word_of_a_term_may_take_the_plural(self):
+        self.change('reference/glossary.md', '## L\n',
+                    '## F\n\n### Fraction of full scale\n\nA sample as a share of its type\'s range.\n\n## L\n')
+        self.change('workflows/deep.md', 'A finished picture.', 'Values in fractions of full scale.')
+        self.assertWarns('R13', 'deep.md:33: R13 warning: "Fraction of full scale"')
+
     def test_a_name_linked_to_its_entry_is_the_linked_first_use(self):
         self.change('workflows/deep.md', 'A finished picture.',
                     'Choose **[Linear](../reference/glossary.md#linear) Fit**, then a linear picture.')

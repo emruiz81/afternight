@@ -60,6 +60,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
   preview of most processes follows the view.
 - `-MainWindow <name>` adds a picture of the main window as it is at the end. An image the captures left open -
   the master a run produced - is shown as `-Display` says first.
+- `-MenuShot "<name>=<menu path>"` adds a picture of the main window with the menus of the path open and the pointer
+  on its last item, for a page whose command acts from the menu at once. Each open menu is drawn by itself and laid
+  over the main window's picture, so the screen may be locked while it is taken.
 - `-Left`, `-Top`, `-Width` and `-Height` place the main window; a process window keeps the size it opens with.
 - `-List` prints the controls of each window it captures: their type, their object name and the name they show.
 

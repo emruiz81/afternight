@@ -159,7 +159,7 @@ controls:
     default: ""
     effect: Closes the window without applying. Its values are discarded.
     range: ++esc++ and the window's own close button do the same.
-    enabled: Disabled while a run works in most windows. Closing the window another way during a run stops a sequence, a new image or a snapshot, and an Apply that shows a progress window, as **Cancel** would. An Apply to a single image without a progress window goes on to its end. The window disappears at once and closes when the run has ended, without holding up the application.
+    enabled: Disabled while a run works in most windows. Closing the window another way during a run stops a sequence, a new image or a snapshot, and an Apply that shows a progress window, as **Cancel** would, except in the windows the [reference page](process-windows-reference.md#windows-that-differ) lists, whose run goes on to its end. An Apply to a single image without a progress window goes on to its end. The window disappears at once and closes when the run has ended, without holding up the application.
     persistence: "A window keeps none of its values after it closes, except the stacking windows: Image Calibration, Image Registration, Image Stacking, Image Integration, Image Integration Lite and Image List Analyzer. Its size, and whether it was maximized, are kept for the next window of the same process while **Remember window size and position** is on, on the Interface page of the settings, as it is unless you change it. A kept size is cut to the screen the window opens on."
     note: In most windows its tooltip reads "Close this dialog without applying any changes."
   - name: Apply
@@ -167,7 +167,7 @@ controls:
     default: ""
     effect: Runs the process over the whole target, with the values, the channel, the mask and its inversion as they are when you press it. It replaces the image, or every frame of the sequence, and returns the controls to their defaults.
     range: A preview area does not limit it. A preview on its way is stopped first.
-    enabled: In most windows it is disabled when the window opens, until a value leaves its default; the process page says when. While the run works it is disabled, with **Target Image**, **Channel**, **Reset**, **Close** and the process's own controls.
+    enabled: In most windows it is disabled when the window opens, until a value leaves its default; the process page says when. While the run works it is disabled, with **Target Image**, **Channel**, **Reset**, **Close** and the process's own controls, in most windows; the process page names the controls that stay enabled.
     tradeoff: The run needs a second copy of the image in memory, and a sequence needs the disk space of a second copy. A single image shows no progress window in most windows, and its run cannot be cancelled once it starts.
     scope: "The target, through the mask on its view. Some windows first mix their result with the original by their **Amount**, as their pages say. The mask then blends the two: white takes the result, black keeps the original, gray mixes them, and **Invert Mask** swaps the two. The mask must have the target's width and height, and one channel, which blends every channel, or one for each of the target's channels. It counts while it is enabled, whether or not it is shown over the view. While another process works on the target, Apply shows \"Another process is executing for this image, please cancel that job first before running this process\", with \"sequence\" for a sequence, and does nothing."
     persistence: The image keeps the result, and its history gets one step named after the process, recorded before the view shows the result. A result the history cannot record is not shown. A run that fails or is stopped writes nothing, and the image and its history stay as they were. One preview of the new image follows.
@@ -383,10 +383,10 @@ controls:
     kind: readout
     default: ""
     effect: Shows what the run does and how far it has come, from 0 to 100 percent. It reads "Preparing execution..." first and then, on a sequence, the frame being processed, as `Executing process in sequence. Frame 3/120`, one update a frame.
-    range: Its title names the process and the image, as `Gamma Correction <M42>`. A window that also reports the work inside a frame shows a second bar.
+    range: Its title names the process and the image, as `Gamma Correction <M42>`. A window that also reports the work inside a frame shows a second bar. The windows whose run goes on when they close title it with the process's name alone and say what the run does, as `Executing debayer to sequence M42`, in place of the frame being processed.
     enabled: For every run on a sequence, and for a single image in the windows the reference page lists. It has no close button.
     tradeoff: A sequence is written again to a temporary file whose name starts with `SEQ_SWAP`, in the session's temporary folder, which needs the disk space of a second copy until the run ends.
-    scope: The frames selected in the sequence's player, or every frame when none is selected, read with the view's automatic debayer setting. The player is disabled while the run works.
+    scope: Every frame of the sequence, read with the view's automatic debayer setting; Extract Sequence reads the frames its window names. The player is disabled while the run works.
   - name: Cancel
     kind: button
     default: ""
