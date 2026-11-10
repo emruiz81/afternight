@@ -386,7 +386,9 @@ record of that kind is pinned to the revision it was read at and is stale with t
 processing an image has no use for it. So a page carries no evidence section, no evidence column in a table and no
 comment for its authors, and a rule of the product is stated as the rule, without the file it was read in. The
 pull request that writes or rewrites a page lists, for each page, the sources read and the windows observed: that
-list is the record the page does not carry. Git keeps what earlier pages said.
+list is the record the page does not carry. Git keeps what earlier pages said: commit `fbd4b0ef81c8` removed the
+evidence from the pages, and with it the audit that had enforced it - its scripts, the completion tracker, the
+screenshot manifest, the verification prerequisites and the audit's baselines.
 
 What a page owes to others is the exception, and it stays on the page: the credits of
 [Naming other programs](#naming-other-programs).
