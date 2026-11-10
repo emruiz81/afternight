@@ -190,8 +190,9 @@ controls:
       extension sessions for this package should be closed first.". **Yes** removes the package's folder in the
       background, and the button reads **Uninstalling...**. The tab and the menus are then read again.
     enabled: >-
-      On every card whose package folder AfterNight knows. Like every button of a card, it is disabled while an
-      operation runs. **Cancel** is the default answer.
+      On every card whose package folder AfterNight knows, except a **Bundled** one: a bundled package ships with
+      AfterNight and goes only with it. Like every button of a card, it is disabled while an operation runs.
+      **Cancel** is the default answer.
     tradeoff: >-
       A host that is running keeps running. The package's settings and environment stay, and a failure leaves
       "Extension uninstall failed." or the reason in the summary.
