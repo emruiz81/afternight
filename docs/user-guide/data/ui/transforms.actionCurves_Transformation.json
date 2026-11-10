@@ -1,0 +1,20 @@
+{
+  "id": "transforms.actionCurves_Transformation",
+  "window": "Curves Transformation <{image}>",
+  "controls": [
+    {"label": "Zoom in", "kind": "toolbutton", "object": "zoomIn", "group": "", "visible": true, "default": "", "shared": "rt-preview"},
+    {"label": "Zoom out", "kind": "toolbutton", "object": "zoomOut", "group": "", "visible": true, "default": "", "shared": "rt-preview"},
+    {"label": "Zoom reset", "kind": "toolbutton", "object": "zoomReset", "group": "", "visible": true, "default": "", "shared": "rt-preview"},
+    {"label": "Show grid", "kind": "toolbutton", "object": "gridButton", "group": "", "visible": true, "default": "On", "shared": "rt-preview"},
+    {"label": "Show guide", "kind": "toolbutton", "object": "guideLine", "group": "", "visible": true, "default": "On", "shared": "rt-preview"},
+    {"label": "Draw histogram areas", "kind": "toolbutton", "object": "showHistogramAreas", "group": "", "visible": true, "default": "Off", "shared": "rt-preview"},
+    {"label": "Show histogram", "kind": "toolbutton", "object": "histogramButton", "group": "", "visible": true, "default": "On", "shared": "rt-preview"},
+    {"label": "Interpolation", "kind": "combo", "object": "interpolationSelector", "group": "", "visible": true, "default": "Cubic", "options": ["Linear", "Cubic", "Akima", "Steffen", "Monotone Cubic"]},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Channel", "kind": "combo", "object": "channelSelector2", "group": "", "visible": true, "default": "RGB", "options": ["RGB", "Red", "Green", "Blue", "CIE L* (Lightness)", "CIE a*", "CIE b*", "CIE c*", "CIE h*", "HSL Hue", "HSL Saturation", "HSL Lightness", "HSV Hue", "HSV Saturation", "HSV Value", "YCbCr Luma", "YCbCr Blue Chroma", "YCbCr Red Chroma"]},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

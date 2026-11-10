@@ -15,6 +15,8 @@ on:
       - 'docs/dev/USER_GUIDE_STYLE.md'
       - 'build/scripts/tools/check_user_guide.py'
       - 'build/scripts/tools/check_user_guide_test.py'
+      - 'build/scripts/tools/draft_guide_controls.py'
+      - 'build/scripts/tools/draft_guide_controls_test.py'
       - 'README.md'
       - 'AGENTS.md'
       - '.github/workflows/docs.yml'
@@ -125,6 +127,11 @@ jobs:
 
       - name: Test the guide check
         run: python build/scripts/tools/check_user_guide_test.py
+
+      # The drafts of a page's `controls` blocks come from the inventory of the windows' controls, which the check
+      # holds a rewritten page to.
+      - name: Test the controls draft
+        run: python build/scripts/tools/draft_guide_controls_test.py
 
       - name: Check the guide and the built site
         run: python build/scripts/tools/check_user_guide.py --site docs/user-guide/site

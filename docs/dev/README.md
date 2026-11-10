@@ -82,8 +82,10 @@ from, under which licence, and which files carry its notice ("Credit for derived
 - [USER_GUIDE_STYLE.md](USER_GUIDE_STYLE.md) - how a page of the user guide is written: who reads which kind of
   page, voice and sentences, what a page does not say, pictures, troubleshooting, credits and length.
 - The page templates under [../user-guide/templates/](../user-guide/templates/), one per kind of page, and the
-  budgets and vocabulary under [../user-guide/data/](../user-guide/data/) that `check_user_guide.py` holds a
-  rewritten page to.
+  budgets, the vocabulary and the inventory of the process windows' controls under
+  [../user-guide/data/](../user-guide/data/) that `check_user_guide.py` holds a rewritten page to.
+- [../user-guide/SCREENSHOTS.md](../user-guide/SCREENSHOTS.md) - how a picture of a window is captured from the
+  application and prepared for a page.
 
 ## Inputs the tools read
 

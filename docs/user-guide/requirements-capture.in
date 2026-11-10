@@ -1,0 +1,6 @@
+# What preparing a screenshot for the guide needs beside the documentation tooling: Pillow, which
+# build/scripts/tools/optimize_guide_image.py resizes and encodes a capture with. It is installed by hand into the
+# documentation environment of whoever captures, and never in continuous integration: building and checking the guide
+# read an image's header and need no imaging library. When updating it, update this file and regenerate
+# requirements-capture.txt.
+pillow==12.3.0

@@ -12,13 +12,16 @@ its nav label, the category is its nav group, related pages are links in its tex
 `data/limits.yml`.
 
 The module also reads a page's body as what it says - its headings, lists, tables and prose, outside code and math -
-for the rules that hold a page to its template, its budgets and its vocabulary.
+for the rules that hold a page to its template, its budgets and its vocabulary - and the inventory of the controls
+every process window opens with (`data/ui/`), which a test of the application writes and a page's `controls` blocks
+are held to.
 
 Tests: docs/user-guide/hooks/guide_model_test.py
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import struct
@@ -230,9 +233,12 @@ def validate_meta(meta, stage_ids):
     check('glance', lambda value: (isinstance(value, dict) and value
                                    and all(key in GLANCE_KEYS and _is_text(text) for key, text in value.items())),
           'a mapping of %s to text' % ', '.join(GLANCE_KEYS))
-    check('controls_ignore', is_list_of(lambda item: (isinstance(item, dict) and set(item) == {'label', 'reason'}
-                                                      and _is_text(item['label']) and _is_text(item['reason']))),
-          'a list of {label, reason}')
+    check('controls_ignore', is_list_of(lambda item: (isinstance(item, dict)
+                                                      and set(item) in ({'label', 'reason'},
+                                                                        {'label', 'object', 'reason'})
+                                                      and all(_is_text(value) for value in item.values()))),
+          'a list of {label, reason}, each with the `object` of the one control meant when the window has several of '
+          'that label')
     check('needs', is_list_of(_is_text), 'a list of short phrases, empty when nothing outside AfterNight is needed')
     check('hero', _is_hero,
           'a mapping of `lede`, `actions` (one to %d of {label, page}, the first the main one), and optionally `accent` '
@@ -502,6 +508,133 @@ def load_vocabulary(guide_dir):
     return Vocabulary(patterns=tuple(patterns), allow=tuple(allow))
 
 
+# --- The inventory of the windows' controls ---------------------------------------------------------------------------
+# One file per process window under data/ui/, named by the id the process is registered under, `<category>.<action>`.
+# The application's test suite writes them (ProcessUiInventoryTest in Test_ProcessesShared) and fails when a window no
+# longer matches its file, so they are generated, and never edited by hand.
+
+UI_INVENTORY = os.path.join('data', 'ui')
+UI_KINDS = ('spinbox', 'slider', 'combo', 'check', 'radio', 'toolbutton', 'button', 'field', 'action')
+# The numbers a spin box or a slider is recorded with, as a `controls` block states them under `widget`.
+UI_NUMBERS = ('min', 'max', 'step', 'decimals')
+UI_GROUP_SEPARATOR = ' > '
+# What stands in a recorded window title for the name of the image the window was opened on.
+UI_IMAGE_PLACEHOLDER = '{image}'
+_UI_IMAGE_IN_TITLE = re.compile(r'\s*<\{image\}>|\s*\{image\}')
+_UI_KEYS = {
+    'label': str, 'kind': str, 'object': str, 'group': str, 'visible': bool, 'default': str, 'min': (int, float),
+    'max': (int, float), 'step': (int, float), 'decimals': int, 'suffix': str, 'options': list, 'slider': bool,
+    'shared': str, 'varies': list,
+}
+_UI_REQUIRED = ('label', 'kind', 'object', 'group')
+# What a record may leave to the image the window is opened on, or to the machine it runs on.
+_UI_VARYING = ('visible', 'default', 'min', 'max', 'step', 'decimals', 'options')
+
+
+@dataclass(frozen=True)
+class UiControl:
+    """One control of a window as the inventory records it. `default`, `options` and a number are None when the
+    window does not fix them: `varies` names what follows the image the window is opened on, or the machine."""
+
+    index: int
+    label: str
+    kind: str
+    object: str
+    group: str
+    visible: bool | None
+    default: str | None
+    numbers: dict
+    suffix: str
+    options: tuple | None
+    slider: bool
+    shared: str
+    varies: tuple
+
+    @property
+    def groups(self):
+        """The titles the control sits under, outermost first: a tab, a card, a group box."""
+        return tuple(self.group.split(UI_GROUP_SEPARATOR)) if self.group else ()
+
+
+@dataclass(frozen=True)
+class UiWindow:
+    """One process window's inventory. `id` is the registered id, `action` the action's object name in it, `title`
+    the window's title as recorded and `name` that title without the image's name."""
+
+    id: str
+    action: str
+    title: str
+    name: str
+    controls: tuple
+    path: str
+
+
+def _ui_window(path, data):
+    def fail(message):
+        raise GuideDataError('%s: %s' % (path, message))
+
+    if not isinstance(data, dict) or set(data) != {'id', 'window', 'controls'} or not _is_text(data['id']) \
+            or not isinstance(data['window'], str) or not isinstance(data['controls'], list):
+        fail('an inventory states `id`, `window` and `controls`')
+    if '.' not in data['id'] or os.path.basename(path) != data['id'] + '.json':
+        fail('the file is named by its `id`, `<category>.<action>`')
+    controls = []
+    for index, record in enumerate(data['controls']):
+        who = 'control %d' % (index + 1)
+        if not isinstance(record, dict):
+            fail('%s is not a mapping' % who)
+        for key, value in record.items():
+            if key not in _UI_KEYS:
+                fail('%s states the unknown key `%s`' % (who, key))
+            if not isinstance(value, _UI_KEYS[key]) or (isinstance(value, bool) and _UI_KEYS[key] is not bool):
+                fail('%s: `%s` is %r' % (who, key, value))
+        varies = tuple(record.get('varies', ()))
+        for key in _UI_REQUIRED:
+            if key not in record:
+                fail('%s does not state `%s`' % (who, key))
+        if record['kind'] not in UI_KINDS:
+            fail('%s is of the unknown kind %r' % (who, record['kind']))
+        if any(key not in _UI_VARYING or key in record for key in varies):
+            fail('%s: `varies` names what the record does not state, among %s' % (who, ', '.join(_UI_VARYING)))
+        for key in ('visible', 'default'):
+            if key not in record and key not in varies:
+                fail('%s does not state `%s`' % (who, key))
+        options = record.get('options')
+        if options is not None and not all(isinstance(option, str) for option in options):
+            fail('%s: `options` is a list of texts' % who)
+        controls.append(UiControl(
+            index=index, label=record['label'], kind=record['kind'], object=record['object'], group=record['group'],
+            visible=record.get('visible'), default=record.get('default'),
+            numbers={key: record[key] for key in UI_NUMBERS if key in record}, suffix=record.get('suffix', ''),
+            options=tuple(options) if options is not None else None, slider=record.get('slider', False),
+            shared=record.get('shared', ''), varies=varies))
+    return UiWindow(id=data['id'], action=data['id'].split('.', 1)[1], title=data['window'],
+                    name=_UI_IMAGE_IN_TITLE.sub('', data['window']).strip(), controls=tuple(controls), path=path)
+
+
+def load_ui_inventory(guide_dir):
+    """The inventory of the process windows' controls, by the object name of the action that opens each window: the
+    files of data/ui/. Empty when the guide has no inventory."""
+    folder = os.path.join(guide_dir, UI_INVENTORY)
+    windows = {}
+    if not os.path.isdir(folder):
+        return windows
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith('.json'):
+            continue
+        path = os.path.join(folder, name)
+        try:
+            data = json.loads(read_text(path))
+        except (OSError, ValueError) as error:
+            raise GuideDataError('%s cannot be read: %s' % (path, error)) from error
+        window = _ui_window(path, data)
+        if window.action in windows:
+            raise GuideDataError('%s and %s are inventories of one action, %s' %
+                                 (windows[window.action].path, path, window.action))
+        windows[window.action] = window
+    return windows
+
+
 class _NavLoader(yaml.SafeLoader):
     """A safe loader that reads mkdocs.yml's `!!python/name:` and `!ENV` tags as nothing: only the nav matters here."""
 
@@ -626,6 +759,46 @@ def read_figure(source):
     return {'pair': pair, 'caption': text(data, 'caption'), 'pins': pins,
             'images': [{'image': text(entry, 'image'), 'alt': text(entry, 'alt'), 'label': text(entry, 'label')}
                        for entry in entries]}
+
+
+def read_controls(source):
+    """A `controls` block as written, without judging it: {'window': its name or None, 'controls': [...]}, each
+    control {'line': its line inside the block, from 1; 'name', 'kind', 'default', 'object': texts, None when not
+    stated; 'widget': {key: text}; 'options': [texts] or None}. None when the block is not YAML of that shape, which
+    the build reports."""
+    try:
+        root = yaml.compose(textwrap.dedent(source), Loader=yaml.BaseLoader)
+    except yaml.YAMLError:
+        return None
+    window = None
+    entries = root
+    if isinstance(root, yaml.MappingNode):
+        entries = None
+        for key, value in root.value:
+            if isinstance(key, yaml.ScalarNode) and key.value == 'window' and isinstance(value, yaml.ScalarNode):
+                window = value.value.strip() or None
+            elif isinstance(key, yaml.ScalarNode) and key.value == 'controls':
+                entries = value
+    if not isinstance(entries, yaml.SequenceNode):
+        return None
+    controls = []
+    for entry in entries.value:
+        if not isinstance(entry, yaml.MappingNode):
+            return None
+        control = {'line': entry.start_mark.line + 1, 'name': None, 'kind': None, 'default': None, 'object': None,
+                   'widget': {}, 'options': None}
+        for key, value in entry.value:
+            if not isinstance(key, yaml.ScalarNode):
+                continue
+            if key.value in ('name', 'kind', 'default', 'object') and isinstance(value, yaml.ScalarNode):
+                control[key.value] = value.value if key.value == 'default' else value.value.strip()
+            elif key.value == 'widget' and isinstance(value, yaml.MappingNode):
+                control['widget'] = {name.value: number.value for name, number in value.value
+                                     if isinstance(name, yaml.ScalarNode) and isinstance(number, yaml.ScalarNode)}
+            elif key.value == 'options' and isinstance(value, yaml.SequenceNode):
+                control['options'] = [option.value for option in value.value if isinstance(option, yaml.ScalarNode)]
+        controls.append(control)
+    return {'window': window, 'controls': controls}
 
 
 def figure_images(source):

@@ -1,0 +1,12 @@
+{
+  "id": "sensor_calibration.actionDebayer",
+  "window": "Debayer <{image}>",
+  "controls": [
+    {"label": "Bayer/mosaic pattern", "kind": "combo", "object": "bayerPattern", "group": "", "visible": true, "default": "From metadata", "options": ["From metadata", "RGGB", "BGGR", "GBRG", "GRBG"]},
+    {"label": "Demosaicing method", "kind": "combo", "object": "demosaicingMethod", "group": "", "visible": true, "default": "RCD", "options": ["Bilinear", "VNG4", "AHD", "AMaZE", "LMMSE", "RCD"]},
+    {"label": "Output mode", "kind": "combo", "object": "outputMode", "group": "", "visible": true, "default": "Combined RGB Color", "options": ["Combined RGB Color", "Separate RGB Channels", "RGB Color + Separate RGB Channels"]},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

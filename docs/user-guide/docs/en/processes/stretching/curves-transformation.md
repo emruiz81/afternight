@@ -9,6 +9,16 @@ data_out: nonlinear
 ---
 # Curves Transformation
 
+```figure
+image: ../../assets/images/processes/stretching/curves-transformation.webp
+alt: >-
+  The Curves Transformation window. On the left, the curve drawn over the image's histogram, the
+  Interpolation box, Target Image, Channel and Preview. On the right, the preview of the image.
+caption: >-
+  Curves Transformation as it opens, here on a linear master, with a straight curve that changes
+  nothing yet.
+```
+
 ## Purpose and expected result
 
 Curves Transformation is a point-controlled remapping tool for deliberate tone

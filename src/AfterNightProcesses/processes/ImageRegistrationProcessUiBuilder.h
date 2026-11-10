@@ -429,10 +429,12 @@ inline ImageRegistrationProcessUiElements buildImageRegistrationProcessUi(QWidge
     frameButtonRow->addWidget(ui.removeFailedImagesButton);
     ui.moveUpButton = new QPushButton(ui.frameListCard);
     ui.moveUpButton->setObjectName(QStringLiteral("moveUpButton"));
+    ui.moveUpButton->setToolTip(QStringLiteral("Move frame up"));
     applySecondaryButton(ui.moveUpButton);
     frameButtonRow->addWidget(ui.moveUpButton);
     ui.moveDownButton = new QPushButton(ui.frameListCard);
     ui.moveDownButton->setObjectName(QStringLiteral("moveDownButton"));
+    ui.moveDownButton->setToolTip(QStringLiteral("Move frame down"));
     applySecondaryButton(ui.moveDownButton);
     frameButtonRow->addWidget(ui.moveDownButton);
     ui.nextFailedButton = new QPushButton(QStringLiteral("Next Failed"), ui.frameListCard);

@@ -1,0 +1,30 @@
+{
+  "id": "transforms.actionPixel_Math_2",
+  "window": "PixelMath <{image}>",
+  "controls": [
+    {"label": "RGB/K", "kind": "field", "object": "rgbkTextEdit", "group": "RGB/K", "visible": true, "default": ""},
+    {"label": "G", "kind": "field", "object": "greenTextEdit", "group": "G", "visible": true, "default": ""},
+    {"label": "B", "kind": "field", "object": "blueTextEdit", "group": "B", "visible": true, "default": ""},
+    {"label": "A", "kind": "field", "object": "alphaTextEdit", "group": "A", "visible": true, "default": ""},
+    {"label": "Local Symbols (Comma separated list)", "kind": "field", "object": "localSymbolsTextEdit", "group": "Symbols", "visible": true, "default": ""},
+    {"label": "Global Symbols (Comma separated list)", "kind": "field", "object": "globalSymbolsTextEdit", "group": "Symbols", "visible": true, "default": ""},
+    {"label": "Use a single RGB/K expression", "kind": "check", "object": "useSingleRGBKExpression", "group": "", "visible": true, "default": "On"},
+    {"label": "Import", "kind": "button", "object": "importButton", "group": "", "visible": true, "default": ""},
+    {"label": "Export", "kind": "button", "object": "exportButton", "group": "", "visible": true, "default": ""},
+    {"label": "Single threaded", "kind": "check", "object": "singleThreaded", "group": "Settings", "visible": true, "default": "Off"},
+    {"label": "Process in 64 bits", "kind": "check", "object": "processIn64Bits", "group": "Settings", "visible": true, "default": "On"},
+    {"label": "Code optimization", "kind": "check", "object": "codeOptimization", "group": "Settings", "visible": true, "default": "On"},
+    {"label": "Rescale result", "kind": "check", "object": "rescaleResult", "group": "Settings", "visible": true, "default": "Off"},
+    {"label": "Lower bound", "kind": "spinbox", "object": "lowerBoundValue", "group": "Settings", "visible": true, "default": "0.00000000", "min": 0, "max": 1, "step": 0.01, "decimals": 8},
+    {"label": "Upper bound", "kind": "spinbox", "object": "upperBoundValue", "group": "Settings", "visible": true, "default": "1.00000000", "min": 0, "max": 1, "step": 0.01, "decimals": 8},
+    {"label": "outputModeSelector", "kind": "combo", "object": "outputModeSelector", "group": "Settings", "visible": true, "default": "Replace target image", "options": ["Replace target image", "Create new image"]},
+    {"label": "New Image Id", "kind": "field", "object": "newImadeIdEdit", "group": "Settings", "visible": true, "default": "PIXEL_MATH_IMAGE"},
+    {"label": "Width", "kind": "spinbox", "object": "widthValue", "group": "Settings", "visible": true, "default": "0", "min": 0, "max": 12000, "step": 1},
+    {"label": "Height", "kind": "spinbox", "object": "heightValue", "group": "Settings", "visible": true, "default": "0", "min": 0, "max": 12000, "step": 1},
+    {"label": "Color space", "kind": "combo", "object": "colorSpaceSelector", "group": "Settings", "visible": true, "default": "As target", "options": ["As target", "Grayscale", "RGB", "RGBA"]},
+    {"label": "Color format", "kind": "combo", "object": "colorFormatSelector", "group": "Settings", "visible": true, "default": "As target", "options": ["As target", "8 bits", "16 bits", "32 bits int", "32 bits float", "64 bits float"]},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

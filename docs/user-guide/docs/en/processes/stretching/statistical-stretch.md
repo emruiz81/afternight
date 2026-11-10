@@ -10,6 +10,17 @@ data_out: nonlinear
 ---
 # Statistical Stretch
 
+```figure
+image: ../../assets/images/processes/stretching/statistical-stretch.webp
+alt: >-
+  The Statistical Stretch window. On the left, the histogram of the stretched result, the Target
+  Median and Black Point Sigma values with their sliders, the check boxes of the stretch and the
+  Curves Boost value. On the right, the preview of the stretched image.
+caption: >-
+  Statistical Stretch as it opens on a linear master. Its starting values already stretch the
+  image, so the preview shows the nebula at once.
+```
+
 ## Purpose and expected result
 
 Statistical Stretch derives a black point and source median from the target, then

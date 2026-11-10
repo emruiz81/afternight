@@ -1,0 +1,15 @@
+{
+  "id": "denoising.actionDeepSNR",
+  "window": "DeepSNR <{image}>",
+  "controls": [
+    {"label": "Pre-Stretch linear image", "kind": "check", "object": "preStretchLinearImage", "group": "", "visible": true, "default": "Off"},
+    {"label": "Stride", "kind": "combo", "object": "stridePreset", "group": "", "visible": true, "default": "Default (480)", "options": ["Default (480)", "Conservative (256)", "Custom"]},
+    {"label": "Stride", "kind": "spinbox", "object": "customStrideValue", "group": "", "visible": true, "default": "480", "min": 2, "max": 512, "step": 2},
+    {"label": "Weights", "kind": "field", "object": "weightsPath", "group": "", "visible": true, "default": ""},
+    {"label": "Browse", "kind": "button", "object": "browseWeights", "group": "", "visible": true, "default": ""},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Configure", "kind": "button", "object": "configureDeepSNR", "group": "DeepSNR executable path is empty.", "visible": true, "default": ""},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

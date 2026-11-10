@@ -1,0 +1,15 @@
+{
+  "id": "sensor_calibration.actionBinarize",
+  "window": "Binarize <{image}>",
+  "controls": [
+    {"label": "RGB/K", "kind": "spinbox", "object": "rgbkValue", "group": "", "visible": true, "default": "0.500000", "min": 0, "max": 1, "step": 0.05, "decimals": 6, "slider": true},
+    {"label": "Green", "kind": "spinbox", "object": "greenValue", "group": "", "visible": true, "default": "0.500000", "min": 0, "max": 1, "step": 0.05, "decimals": 6, "slider": true},
+    {"label": "Blue", "kind": "spinbox", "object": "blueValue", "group": "", "visible": true, "default": "0.500000", "min": 0, "max": 1, "step": 0.05, "decimals": 6, "slider": true},
+    {"label": "Selection", "kind": "combo", "object": "selectionMode", "group": "", "visible": true, "default": "Joint RGB/K channels", "options": ["Joint RGB/K channels", "Individual RGB/K channels"]},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

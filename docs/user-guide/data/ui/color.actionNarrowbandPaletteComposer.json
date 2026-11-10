@@ -1,0 +1,20 @@
+{
+  "id": "color.actionNarrowbandPaletteComposer",
+  "window": "Narrowband Palette Composer",
+  "controls": [
+    {"label": "Ha", "kind": "combo", "object": "haSourceSelector", "group": "Sources", "visible": true, "default": "<--NO IMAGE-->", "varies": ["options"]},
+    {"label": "OIII", "kind": "combo", "object": "oiiiSourceSelector", "group": "Sources", "visible": true, "default": "<--NO IMAGE-->", "varies": ["options"]},
+    {"label": "SII", "kind": "combo", "object": "siiSourceSelector", "group": "Sources", "visible": true, "default": "<--NO IMAGE-->", "varies": ["options"]},
+    {"label": "OSC1", "kind": "combo", "object": "osc1SourceSelector", "group": "Sources", "visible": true, "default": "<--NO IMAGE-->", "varies": ["options"]},
+    {"label": "OSC2", "kind": "combo", "object": "osc2SourceSelector", "group": "Sources", "visible": true, "default": "<--NO IMAGE-->", "varies": ["options"]},
+    {"label": "Input autostretch", "kind": "check", "object": "linearInputStretch", "group": "Preparation", "visible": true, "default": "On"},
+    {"label": "Match sizes to reference", "kind": "check", "object": "resizeMismatched", "group": "Preparation", "visible": true, "default": "On"},
+    {"label": "Mode", "kind": "combo", "object": "previewModeSelector", "group": "Preview", "visible": true, "default": "Palette Grid", "options": ["Palette Grid", "Single Preview"]},
+    {"label": "Ha", "kind": "spinbox", "object": "haIntensitySpin", "group": "Adjust Selected Palette", "visible": true, "default": "100", "min": 0, "max": 200, "step": 1, "suffix": "%", "slider": true},
+    {"label": "OIII", "kind": "spinbox", "object": "oiiiIntensitySpin", "group": "Adjust Selected Palette", "visible": true, "default": "100", "min": 0, "max": 200, "step": 1, "suffix": "%", "slider": true},
+    {"label": "SII", "kind": "spinbox", "object": "siiIntensitySpin", "group": "Adjust Selected Palette", "visible": true, "default": "100", "min": 0, "max": 200, "step": 1, "suffix": "%", "slider": true},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}
