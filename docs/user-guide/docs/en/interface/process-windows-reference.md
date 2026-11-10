@@ -117,7 +117,7 @@ The [Session Console](log-viewer.md) keeps these lines of a window's work.
 | Name the two images of the preview in their own words | Image Blend (PREVIEW and BASE IMAGE), Image Compare (IMAGE 1 and IMAGE 2) and Star Reduction (PREVIEW and TARGET IMAGE) |
 
 The windows without a [real-time preview](../reference/glossary.md#real-time-preview), such as Pixel Math, Crop, Resize, Rotate,
-the color calibration windows and the windows of external tools, run their own way. They read the window, the images it names and the view's mask
+the color calibration windows and the windows of external tools, run their own way. They read the window, the images it names and, for those that use one, the view's mask,
 when you press **Apply** or **OK**, so a change made during the run does not reach it. Which controls they disable
 while they work, and what they keep, is their pages' to say. The stacking windows and the windows of extensions have
 controls and runs of their own too, and their pages say which parts of [Process Windows](process-windows.md) apply.

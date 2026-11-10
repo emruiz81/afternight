@@ -50,4 +50,40 @@ forbidden:
 #   - page: processes/calibration/image-calibration.md
 #     text: "**Validate masters**"
 #     reason: The button's label.
-allow: []
+allow:
+  - page: interface/settings-dialog.md
+    text: Verify & Repair
+    reason: The button's label.
+  - page: interface/settings-dialog.md
+    text: Validation Error
+    reason: The title of the message box.
+  - page: interface/settings-dialog-reference.md
+    text: Verify & Repair
+    reason: The button's label.
+  - page: interface/settings-dialog-reference.md
+    text: Validation Error
+    reason: The title of the message box.
+  - page: interface/settings-dialog-reference.md
+    text: Download again to verify and repair it.
+    reason: A message the catalog download shows, quoted.
+  - page: interface/settings-dialog-reference.md
+    text: Checksum verification failed for catalog chunk
+    reason: A message the catalog download shows, quoted.
+  - page: extensions/using-extensions.md
+    text: Validation Result
+    reason: The label of a row of an extension's details.
+  - page: extensions/using-extensions.md
+    text: Validation Failed
+    reason: The availability badge of an extension.
+  - page: extensions/using-extensions.md
+    text: Manifest and environment validation passed.
+    reason: A message the details of an extension show, quoted.
+  - page: extensions/using-extensions-reference.md
+    text: Validation Failed
+    reason: The availability badge of an extension.
+  - page: extensions/extension-marketplace-reference.md
+    text: Package signature verification failed, so installation is blocked.
+    reason: A message the Browse tab shows, quoted.
+  - page: extensions/extension-marketplace-reference.md
+    text: Extension environment readiness was not verified after installation.
+    reason: A message the Browse tab shows, quoted.

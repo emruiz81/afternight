@@ -119,6 +119,7 @@ nav:
       - Image Summary: interface/image-summary.md
       - FITS Header, EXIF, And Astrometry Metadata: interface/fits-header-viewer.md
       - Settings: interface/settings-dialog.md
+      - Settings Reference: interface/settings-dialog-reference.md
       - Masks: interface/masks.md
   - Processes:
       - Overview: processes/index.md
@@ -230,7 +231,9 @@ nav:
       - Mosaic Workflow: workflows/mosaic-workflow.md
   - Extensions:
       - Using Extensions: extensions/using-extensions.md
+      - Using Extensions Reference: extensions/using-extensions-reference.md
       - Extension Marketplace: extensions/extension-marketplace.md
+      - Extension Marketplace Reference: extensions/extension-marketplace-reference.md
   - Reference:
       - Keyboard Shortcuts: reference/keyboard-shortcuts.md
       - Glossary: reference/glossary.md

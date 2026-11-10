@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 import shutil
 import struct
 import sys
@@ -675,7 +676,9 @@ class UiInventoryTests(TempDir):
 
 
 LIMITS = (GUIDE_DIR / 'data' / 'limits.yml').read_text(encoding='utf-8')
-VOCABULARY = (GUIDE_DIR / 'data' / 'vocabulary.yml').read_text(encoding='utf-8')
+# The guide's own allowances name its pages, which a test's folder does not have: a test starts from none.
+VOCABULARY = re.sub(r'(?ms)^allow:.*\Z', 'allow: []\n',
+                    (GUIDE_DIR / 'data' / 'vocabulary.yml').read_text(encoding='utf-8'))
 
 
 class LimitsTests(TempDir):
@@ -784,8 +787,9 @@ class VocabularyTests(TempDir):
         for text in ('Stretch.cpp', 'Stretch.h', 'an::Stretch', 'Test_EngineImage'):
             self.assertEqual(self.found(vocabulary, text, code=True), ['tooling'])
 
-    def test_the_guide_allows_nothing_yet(self):
-        self.assertEqual(model.load_vocabulary(str(GUIDE_DIR)).allow, ())
+    def test_every_allowance_of_the_guide_names_one_of_its_pages(self):
+        for allowance in model.load_vocabulary(str(GUIDE_DIR)).allow:
+            self.assertTrue((GUIDE_DIR / 'docs' / 'en' / allowance.page).is_file(), allowance.page)
 
     def test_allowances_are_read_with_their_lines(self):
         allow = ('allow:\n  - page: processes/a.md\n    text: "**Validate**"\n    reason: A label.\n'

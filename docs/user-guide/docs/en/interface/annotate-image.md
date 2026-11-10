@@ -2,285 +2,553 @@
 kind: interface
 summary: >-
   Makes a picture of a plate-solved image with its deep-sky objects, bright stars and coordinates named on it, ready
-  to share or print.
+  to share or print, and exports it or opens it as an image.
+menu: Image > Information > Annotate Image...
+rewritten: true
 ---
 # Annotate Image
 
-## Purpose, audience, prerequisites, and expected result
+Annotate Image makes a picture of a plate-solved image with its galaxies, nebulae and clusters, the names of its bright
+stars and a grid of right ascension and declination drawn on it, with a compass, a scale bar and a panel of facts. It
+shows what an image holds, which way is north and how large the field is. The picture is the image as its view shows
+it, with the annotations drawn over it, written to a PNG, JPEG or TIFF file or opened as an image of its own. The image
+you annotate never changes. It may be gray or color, of any [pixel type](../reference/glossary.md#pixel-type), linear
+or not, and needs a [plate solution](../reference/glossary.md#plate-solution), the one the
+[Astrometry Overlays](astrometry-overlays.md) draw.
 
-**Annotate Image** makes a picture of a plate-solved image with its deep-sky
-objects, bright stars and equatorial coordinates named on it, ready to share or
-print. It is for anyone who wants to show what an image contains: the galaxies,
-nebulae and clusters in the field, the names of its bright stars, which way is
-north and how large the field is.
+```figure
+owed: true
+image: ../assets/images/interface/annotate-image.webp
+alt: >-
+  The Annotate Image window. On the left, a column of choices: four level-of-detail buttons, Essential, Standard,
+  Detailed and Complete, with Complete highlighted; six ticked check boxes for the layers; a Label text box; then the
+  Style section with a Palette box showing Aurora, and its Text and Lines settings. On the right, a preview of the
+  Carina Nebula with a blue coordinate grid, a dashed pink circle labelled NGC 3372 and Carina Nebula, white rings and
+  labels on stars, a compass at the top right, a scale bar at the bottom right and a panel of facts at the bottom left.
+  Under the preview, a line counts the objects and gives the picture's size. Reset, Open as Image, Export and Close
+  run along the bottom.
+caption: >-
+  Annotate Image over the Carina master at the Complete level of detail, with a credit typed for the panel.
+pins:
+  - {n: 1, x: 11.3, y: 17.6}
+  - {n: 2, x: 28.0, y: 24.8}
+  - {n: 3, x: 9.0, y: 39.6}
+  - {n: 4, x: 48.4, y: 14.7}
+  - {n: 5, x: 56.7, y: 92.3}
+  - {n: 6, x: 74.9, y: 96.4}
+```
 
-The image must carry a celestial World Coordinate System (WCS), the same
-solution the [Astrometry Overlays](astrometry-overlays.md) need. A
-[Plate Solve](../processes/registration-alignment/plate-solving.md) writes one.
+## What you see
 
-The result is a picture - the image as the view shows it, with the annotations
-drawn over it - written to a PNG, JPEG or TIFF file, or opened as a new image
-in a view of its own. The image you annotate is never changed.
+1. **Level of detail.** Four presets of how much of the bundled catalogs the picture names, from the objects everyone
+   knows to a dense chart.
+2. **The layers.** What the picture draws: the coordinate grid, the deep-sky objects, the stars, the compass, the scale
+   bar and the info panel.
+3. **The sections.** **Style**, **Info Panel and Placement**, **Catalogues and Limits** and **Output** hold the rest of
+   the choices. Click a section's header to open or close it, and scroll the column to reach them all.
+4. **The preview.** The picture as it will be drawn, over the image itself. It zooms and pans as an image view does,
+   and a small "Updating…" badge shows in its corner while a new layout is on its way.
+5. **The summary.** How many objects the picture marks, how many of them are labelled when some are not, and the
+   picture's size in pixels.
+6. **The buttons.** **Reset** returns the choices to their defaults, **Open as Image** and **Export…** make the
+   picture, and **Close** keeps your choices for the next time.
 
-## Reachability and availability
+## What you can do
 
-| Item | Current behavior |
-| --- | --- |
-| Path | The **Annotate Image** button in a solved image view's toolbar, beside **Astrometry Info**; `Ctrl+Shift+L` in a focused view; or **Image > Information > Annotate Image...** for the active view. |
-| Enabled/visible when | The toolbar button is visible and the menu entry enabled only for a still image (not a sequence) whose metadata holds a celestial WCS the engine reads. |
-| Supported inputs/state | Grey or colour still images of any sample type, linear or nonlinear, with a tangent-plane WCS, with or without SIP distortion. |
-| Outputs/side effects | A PNG, JPEG or TIFF file, or a new view named `<image>_annotated`. The annotated image, its metadata and its history are not changed. |
-| Persistence | Every choice except the title is kept in the global setting `annotation/settings` for the next window. The folder of the last export is remembered. |
-| External dependencies | None. The deep-sky and bright-star catalogues are bundled with AfterNight and read offline. |
+### Make a picture
 
-The window opens once per view: asking for it again raises the open window. It
-closes with its view.
+1. Make the solved image's view active and choose **Annotate Image** in the view's toolbar, press ++ctrl+shift+l++ over
+   the picture, or choose **Image > Information > Annotate Image...**. The preview fills with the image while the
+   catalogs are read.
+2. Look at the image in its view first. With **Image** at **As the view shows it**, the picture takes the view's
+   display mode and [Autostretch](../reference/glossary.md#autostretch) settings, and the image itself does not change.
+3. Choose a **Level of detail**, then the layers and **Label text**. The preview is laid out again after each change.
+4. Under **Style**, choose a **Palette**, then the text and the lines. No choice of the text changes the lines, and none
+   of the lines changes the text.
+5. Under **Info Panel and Placement**, type a **Title** or leave it empty, type a **Credit** if you want your name on
+   the picture, and choose the facts and the corners.
+6. Under **Output**, choose the **Size**, how the **Image** is presented and the **Background**.
+7. Choose **Export…** and a PNG, JPEG or TIFF file, or **Open as Image**. A progress window shows while the picture is
+   drawn, and the message strip then says where it was saved or which view it opened in.
 
-## Before you start
+### Choose how much is named
 
-- Plate solve the image, or open an image whose header carries a WCS. The
-  window says so when the image has none.
-- Stretch the image in the view as you want it shown. With **Image: As the view
-  shows it** the picture takes the view's display stretch, colour balance and
-  channel linking; nothing about the image itself changes.
-- A full-size picture of a large image holds four bytes a pixel while it is
-  drawn: a 40-megapixel image needs about 160 MB for the picture alone. A smaller
-  **Size** draws a smaller picture.
-- The **Credit** text is drawn on the picture. Leave it empty if the picture is
-  to be shared without a name.
+A level of detail writes its values into **Catalogues and Limits**. Change any of them and no level is highlighted: the
+values are then your own.
 
-## Procedure
+| Level | Deep-sky objects | Faintest magnitude | Smallest object | Stars |
+| --- | --- | --- | --- | --- |
+| Essential | Messier, Caldwell, and named NGC and IC objects | Any | Any size | Proper names to magnitude 2.5 |
+| Standard | Every catalog; of no measured magnitude only when named | 12 | 0.30 % | Names and designations to magnitude 4.5 |
+| Detailed | Every catalog, measured or not | 14 | 0.12 % | Names and designations to magnitude 6, the unnamed stars marked |
+| Complete | Every catalog, with its other entries | Any | Any size | Every star to magnitude 9, by catalog number when unnamed |
 
-1. Open the window from the view's **Annotate Image** button. The preview fills
-   with the image while the catalogues are read; the line under it counts the
-   objects found and how many of them are labelled.
-2. Choose a **Level of detail**: **Essential** for the objects everyone knows,
-   **Standard** for a balanced picture, **Detailed** or **Complete** for a dense
-   chart. The preview is laid out again for every change; a small *Updating...*
-   badge shows while a new layout is on its way.
-3. Turn layers on or off: the coordinate grid, the deep-sky objects, the stars,
-   the compass, the scale bar and the info panel.
-4. Under **Style**, choose a **Palette**. Under **Text**, choose the font, its
-   weight and the **Label size**; under **Lines**, the **Line width**, whether
-   objects are filled and how the stars are marked. The text and the lines are
-   set apart: no choice of one changes the other. The preview zooms and moves
-   as an image view does - the mouse wheel, a middle-button drag, and its
-   **Fit To Window**, **Zoom In**, **Zoom Out** and **Zoom 100%** buttons - and
-   holding the left button opens the sample lens. The labels stay sharp at
-   every zoom.
-5. Under **Info Panel and Placement**, type a **Title** - empty takes the target
-   the image header names - and a **Credit**, choose the facts the panel states
-   and the corners of the panel, the compass and the scale bar.
-6. Under **Output**, choose the picture's **Size**, how the **Image** is shown
-   and the **Background**.
-7. Click **Export...** and choose a PNG, JPEG or TIFF file, or click **Open as
-   Image**. A progress window shows while the picture is drawn; the banner then
-   says where it was saved or which view it opened in.
+Labels are placed one by one, the most prominent object first. A label that finds no room beside its object moves out
+on a leader line, or is left out, and the summary counts it.
 
-## Complete control and action reference
+### Annotate the Carina master
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Level of detail | Four exclusive buttons | Standard | Essential, Standard, Detailed, Complete | Sets the catalogues, kinds, magnitude limits, smallest object and star limit as the table below states. | None is highlighted while the values below are your own (*Custom*). | More detail adds labels; crowded fields leave some out. | Picture | `annotation/settings` |
-| Coordinate grid | Checkbox | On | On/Off | Draws lines of right ascension and declination, labelled where they meet the picture's edge. | - | - | Picture | `annotation/settings` |
-| Deep-sky objects | Checkbox | On | On/Off | Marks and labels galaxies, nebulae and clusters from the bundled catalogue. | - | - | Picture | `annotation/settings` |
-| Stars | Checkbox | On | On/Off | Marks and labels the bright stars **Faintest star**, **Star labels** and **Mark the stars left unnamed** choose. | - | - | Picture | `annotation/settings` |
-| Compass | Checkbox | On | On/Off | Draws arrows toward celestial north and east, as the solution places them in that corner. | - | - | Picture | `annotation/settings` |
-| Scale bar | Checkbox | On | On/Off | Draws a bar of a round angular length near a sixth of the picture's width, labelled such as `20′`. | - | - | Picture | `annotation/settings` |
-| Info panel | Checkbox | On | On/Off | Draws a panel with the title, the credit and the facts chosen. | A panel with nothing to state is not drawn. | - | Picture | `annotation/settings` |
-| Label text | Selector | Designation and name | Designation and name, Designation, Name | What a label says: `M 42` with `Orion Nebula` under it, the designation alone, or the name (the designation when there is none). | - | Two-line labels take more room. | Picture | `annotation/settings` |
-| Palette | Selector with swatches | Aurora | Aurora, Moonlight, Glacier, Amethyst, Amber, Verdant, Rose, Atlas, Ember, Ink, Custom | Sets every colour. **Custom** is your own colours: chosen, it brings them back and opens **Colours**; the first time it starts from the palette shown, and setting any colour makes the palette custom. Choosing another palette keeps your colours for the next time you choose Custom. Aurora gives each kind of object its own colour; Moonlight draws in white; Glacier, Amethyst, Amber, Verdant and Rose keep to blues, violets, golds, greens and pinks, each kind of object a shade of its own; Atlas takes a printed star atlas's colours - red galaxies, green nebulae, yellow clusters; Ember is red for dark-adapted eyes; Ink draws dark lines on a light halo for bright images or print. The swatch beside each shows its colours for galaxies, nebulae, planetary nebulae and open and globular clusters. | Shows *Custom* once a colour is changed. | - | Picture | `annotation/settings`, your own colours with it |
-| Font | Font list | The system's sans-serif face | The installed scalable fonts | The typeface of every text on the picture: the labels, the grid's labels, the compass, the scale bar and the panel. | A typeface missing where the settings are read again is replaced by the system's. | - | Picture | `annotation/settings` |
-| Weight | Selector | Regular | Light, Regular, Medium, Bold | How heavy the letters are; a designation and the title are drawn a step heavier than the rest. | - | - | Picture | `annotation/settings` |
-| Italic labels | Checkbox | Off | On/Off | Slants the objects' and stars' labels. | The grid's labels and the panel stay upright. | - | Picture | `annotation/settings` |
-| Colour | Selector | Each object's colour | Each object's colour, The text colour | Draws each label in its object's colour, or every label in the palette's text colour. | - | - | Picture | `annotation/settings` |
-| Backing | Selector | Halo | Halo, Badge, Plain | A soft outline around each letter, a rounded box behind the label, or the letters alone. | Only the letters: the lines keep their own dark edge. | A badge covers more of the image. | Picture | `annotation/settings` |
-| Label size | Slider, percent | 100 % | 50-250 % | Scales the labels, the grid's labels and the compass and scale bar. 100 % sets a label's height to 1.4 % of the image's reference length (the square root of its width times its height). | Never changes a line's width. | Larger text leaves fewer labels room in a crowded field. | Picture | `annotation/settings` |
-| Panel size | Slider, percent | 100 % | 50-200 % | Scales the info panel's text, as a share of the label size. | - | - | Picture | `annotation/settings` |
-| Objects | Selector | Outlines | Outlines, Brackets | Marks a deep-sky object by its outline - its catalogue size at its position angle - or by four corner brackets. | An object that fills the frame is always drawn as a dashed outline. | - | Picture | `annotation/settings` |
-| Stars (Lines) | Selector | Rings | Rings, Reticles | Marks a star by a ring around it, or by four short ticks pointing at it that leave the star itself clear. | - | - | Picture | `annotation/settings` |
-| Line width | Slider, percent | 100 % | 50-300 % | Scales every line: outlines, star markers, grid, leader lines, compass and scale bar. | Never changes the text. | - | Picture | `annotation/settings` |
-| Line opacity | Slider, percent | 100 % | 10-100 % | How opaque the outlines, star markers and leader lines are. | The grid has its own opacity; the compass and scale bar stay opaque. | - | Picture | `annotation/settings` |
-| Fill objects with their colour | Checkbox | Off | On/Off | Tints the area of every outlined galaxy, nebula and cluster in its colour, as the view's deep-sky annotations do. | Disabled with **Brackets**. An object whose outline spans more than half the picture is left unfilled, so it does not tint the whole image. | At a high opacity the tint hides some of a small object. | Picture | `annotation/settings` |
-| Fill opacity | Slider, percent | 15 % | 0-100 % | How opaque that tint is. | Enabled while **Fill objects with their colour** is on. | - | Picture | `annotation/settings` |
-| Grid opacity | Slider, percent | 45 % | 0-100 % | How opaque the grid's lines are; its labels are drawn more opaque. | - | - | Picture | `annotation/settings` |
-| Dark edge behind lines | Checkbox | Off | On/Off | Draws a soft edge in the halo colour behind every line, so it reads over a bright part of the image. | Independent of the labels' **Backing**. | - | Picture | `annotation/settings` |
-| Leader lines for crowded labels | Checkbox | On | On/Off | Lets a label that finds no room beside its object sit further away, joined to it by a line. | - | Off leaves more labels out of crowded fields. | Picture | `annotation/settings` |
-| Mark objects whose labels do not fit | Checkbox | On | On/Off | Keeps the outline or ring of an object whose label was left out. | - | - | Picture | `annotation/settings` |
-| Colours | Fourteen colour buttons | The palette's | Any colour with opacity | Sets one colour: grid, each kind of object, stars, text, halo, compass and scale, panel, panel text, accent. | - | - | Picture | `annotation/settings` |
-| Title | Text | Empty | Any text | The panel's title. Empty takes the target the header's `OBJECT` card names, else the most prominent named object; the field shows that as its placeholder. | - | - | Picture | Not kept |
-| Credit | Text | Empty | Any text | A line under the title, such as your name. | - | Drawn on the picture. | Picture | `annotation/settings` |
-| Center, Field and scale, Optics, Camera, Filter, Date, Integration | Checkboxes | On | On/Off | The facts the panel states, each only when the header states it: the field centre; the field's size, pixel scale and rotation; `TELESCOP` with `FOCALLEN` and `FOCRATIO` or `APTDIA`; `INSTRUME`; `FILTER`; the date of `DATE-OBS`; `TOTEXP` or `EXPTIME` with `STACKCNT` or `NCOMBINE` frames. | - | - | Picture | `annotation/settings` |
-| Panel, Compass, Scale bar | Selectors | Bottom left, Top right, Bottom right | The four corners | The corner each decoration takes; decorations that share a corner are stacked inward from it. | - | - | Picture | `annotation/settings` |
-| Messier, Caldwell, NGC, IC | Checkboxes | On | On/Off | The catalogues objects are taken from. | - | - | Picture | `annotation/settings` |
-| Only named NGC and IC objects | Checkbox | Off | On/Off | Keeps an NGC or IC object only when it has a common name. | Set by Essential. | - | Picture | `annotation/settings` |
-| Galaxies, Nebulae, Planetary nebulae, Open clusters, Globular clusters, Other entries | Checkboxes | On, except Other entries | On/Off | The kinds of object marked. *Other entries* are the catalogue's stars, asterisms, knots and entries of no known kind. | Other entries is set by Complete. | - | Picture | `annotation/settings` |
-| Faintest magnitude, Any | Number and checkbox | 12, Any off | -2 to 20 | Leaves out objects fainter than the limit; **Any** marks every magnitude. | - | - | Picture | `annotation/settings` |
-| Objects of no measured magnitude | Checkbox | Off | On/Off | Marks objects no catalogue measured; a named object is always marked. | - | - | Picture | `annotation/settings` |
-| Smallest object | Number, percent | 0.30 % | 0-5 % | Leaves out objects whose major axis is smaller than this share of the image's reference length. Messier, Caldwell and named objects are kept whatever their size. | Objects of no stated size are judged by magnitude alone. | - | Picture | `annotation/settings` |
-| Faintest star | Number, magnitude | 4.5 | -2 to 9 | The faintest star marked. | The bundled star catalogue stops at magnitude 9. | A faint limit adds many stars to a wide field. | Picture | `annotation/settings` |
-| Star labels | Selector | Names and designations | Proper names; Names and designations; Every star, by number when unnamed | Which stars are named and by what: a proper name such as `Sirius`; also a Bayer or Flamsteed designation such as `η Car` or `61 Cyg`; or every star, one with neither named by its catalogue number such as `HIP 52468`, as the view's star labels are. | - | Every star adds many labels to a wide field. | Picture | `annotation/settings` |
-| Mark the stars left unnamed | Checkbox | Off | On/Off | Marks the stars **Star labels** gives no name, without a label. | Set by Detailed. | - | Picture | `annotation/settings` |
-| Grid spacing | Selector | Normal | Coarse, Normal, Fine | About four, six or ten lines across the field, at round steps of time and arc. | - | - | Picture | `annotation/settings` |
-| Label the grid at the edges | Checkbox | On | On/Off | Labels each grid line where it meets the picture's edge. | - | - | Picture | `annotation/settings` |
-| Size | Selector | Full size | Full size, or a long edge of 4096, 3840, 2560, 2048, 1600, 1280 or 1024 pixels below the image's own | The picture's size; it keeps the image's aspect ratio and is never larger than the image. | - | A smaller picture is drawn faster and holds less memory. | Picture | `annotation/settings` |
-| Image | Selector | As the view shows it | As the view shows it, As stored, unstretched | Presents the image under the annotations with the view's display stretch, or every channel at full scale with nothing stretched. | A linear image *as stored* looks dark. | - | Picture | `annotation/settings` |
-| Background | Selector | The image | The image, Transparent: annotations only | Draws the annotations over the image, or alone over transparent pixels to lay over the image in another program. | JPEG cannot hold a transparent picture. | - | Picture | `annotation/settings` |
-| Reset | Button | - | - | Returns every choice to its default and keeps the credit and your own colours. | - | - | Window | Saved as changed |
-| Open as Image | Button | - | - | Draws the picture and opens it in a new view. | Disabled until the preview is ready and while a picture is drawn. | - | New view | - |
-| Export... | Button | - | PNG, JPEG, TIFF | Draws the picture and writes it to the file chosen, as the export settings write that format. | Disabled until the preview is ready and while a picture is drawn. | Overwrites the file chosen. | File | Remembers the folder |
-| Close | Button | - | - | Closes the window and keeps the choices. | - | - | Window | - |
+The [master](../reference/glossary.md#master) is a linear RGB image of the Carina Nebula, 7246 by 5429 pixels, solved at
+1.10″ a pixel and shown in its view's Autostretch display. Open Annotate Image and choose **Reset**. At **Standard**
+the preview marks one object, NGC 3372, the Carina Nebula. It is larger than much of the frame, so it is a dashed region
+labelled inside itself, which **Fill objects with their colour** never tints. No star of the field is as bright as
+magnitude 4.5, so no star is named.
 
-The levels of detail set these values:
+Open **Info Panel and Placement**, type a credit and choose **Complete**. Every star of the catalog in the frame is now
+ringed and named, η Car at the catalog's magnitude 6.2 and the others by their HIP or HR numbers. The panel is titled
+Carina Nebula, from the header's `OBJECT` card. It states the center, `10h 44m 31s   −59° 53′ 32″`, the field,
+`2.20° × 1.65°  ·  1.10″/px`, the rotation, the optics and the camera. The header gives its exposure in no card the
+panel reads, so the panel has no integration line. Trumpler 14 and 16, the Keyhole and other objects of no NGC, IC,
+Messier or Caldwell number are not in the bundled catalog and are not named.
 
-| Level | Deep-sky objects | Faintest magnitude | Smallest object | Other entries | Stars |
-| --- | --- | --- | --- | --- | --- |
-| Essential | Messier, Caldwell, and named NGC and IC objects | Any | Any size | Off | Proper names to magnitude 2.5 |
-| Standard | Every catalogue; objects of no measured magnitude only when named | 12 | 0.30 % | Off | Names and designations to magnitude 4.5 |
-| Detailed | Every catalogue | 14 | 0.12 % | Off | Names and designations to magnitude 6, the unnamed stars marked |
-| Complete | Every catalogue | Any | Any size | On | Every star to magnitude 9, by catalogue number when unnamed |
+## Controls
 
-## Behavior and state model
+### Annotations
 
-**One drawing at every size.** Every length - a label's height, a line's width,
-a marker's radius, the margins - is a fraction of the image's reference length,
-the geometric mean of its width and height. The picture at full size, a smaller
-picture and the preview are therefore the same drawing at different scales:
-what the preview shows is where the picture puts it.
+```controls
+window: Annotations
+controls:
+  - name: Level of detail
+    kind: radio
+    default: Standard
+    options: [Essential, Standard, Detailed, Complete]
+    effect: Writes a level's catalogs, kinds, magnitude limits, smallest object and stars into **Catalogues and Limits**, as the table above gives them.
+    enabled: >-
+      The chosen level's button is highlighted. While the values below are your own, none is, and the line
+      "Custom: the catalogues and limits below are your own." shows under the buttons.
+    tradeoff: More detail adds labels, and a crowded field leaves more of them out.
+    persistence: Every choice of the window but **Title** is kept under `annotation/settings` half a second after you make it and when the window closes, and the next window opens with them.
+    note: Each button's tooltip says what the level names.
+  - name: Coordinate grid
+    kind: check
+    default: "On"
+    effect: Draws lines of right ascension and declination at a round step, in seconds, minutes and hours of time and in arcseconds, arcminutes and degrees, as many as **Grid spacing** asks for across the field.
+    range: A field that holds a celestial pole draws every hour of right ascension. Labels sit just inside the picture's edge, declinations at the left and right ascensions at the bottom where the lines meet those edges, another edge otherwise.
+  - name: Deep-sky objects
+    kind: check
+    default: "On"
+    effect: Marks and labels the galaxies, nebulae and clusters of the bundled catalog that **Catalogues and Limits** keeps.
+    range: The catalogs come with AfterNight and are read without a network, once for the solution, for the field's radius and two degrees more, so a large object centered outside the frame is found. An entry is kept when its catalog and kind are chosen, it passes the magnitude and size limits, and some of it lies in the frame. Entries of one object in several catalogs, as `M 42` and `NGC 1976`, or `NGC 3372` and `C 92`, are one mark under the designation used most - Messier, then NGC, then IC, then Caldwell.
+    tradeoff: An object larger than much of the frame is labelled inside itself and outlined dashed, as a region rather than an object.
+    scope: The NGC, IC, Messier and Caldwell objects alone. Sharpless, Barnard, Collinder and Trumpler objects are not in the catalog.
+  - name: Stars
+    object: annotateStars
+    kind: check
+    default: "On"
+    effect: Marks and labels the bright stars that **Faintest star**, **Star labels** and **Mark the stars left unnamed** choose.
+    range: A star is kept when it is bright enough, lies in the frame, and **Star labels** names it - by proper name, Bayer or Flamsteed designation or catalog number - or **Mark the stars left unnamed** asks for it.
+    scope: The positions are J2000 without proper motion, and a star is drawn where the catalog puts it.
+  - name: Compass
+    kind: check
+    default: "On"
+    effect: Draws arrows toward celestial north and east, as the solution places them in the compass's corner.
+    range: Measured where it is drawn, so it stays right near a pole and in a wide field.
+  - name: Scale bar
+    kind: check
+    default: "On"
+    effect: Draws a bar of the round angle nearest a sixth of the picture's width, from an arcsecond to twenty degrees, labelled as `20′`.
+    range: Measured where it is drawn, as the compass is.
+  - name: Info panel
+    kind: check
+    default: "On"
+    effect: Draws a panel with the title, the credit and the facts chosen under **Info Panel and Placement**.
+    enabled: A panel with nothing to state is not drawn.
+  - name: Label text
+    kind: combo
+    default: Designation and name
+    options: [Designation and name, Designation, Name]
+    effect: Chooses what a label says - `M 42` with `Orion Nebula` under it, the designation alone, or the name, which is the designation when there is none.
+    tradeoff: Two-line labels take more room. The name under a designation is drawn a little smaller.
+```
 
-**What is marked.** The catalogues are read once for the solution, for the
-field's radius and two degrees more, so a large object centred outside the frame
-is found. An entry is kept when its catalogue and kind are chosen, it passes the
-magnitude and size limits, and some of it lies in the frame. Entries the
-catalogues list twice for one object - `M 42` and `NGC 1976`, `NGC 3372` and
-`C 92` - become one mark under the designation people use most: Messier, then
-NGC, then IC, then Caldwell. A star is kept when it is bright enough, lies in the
-frame and **Star labels** names it - by its proper name, its Bayer or Flamsteed
-designation, or its catalogue number - or **Mark the stars left unnamed** asks
-for it.
+### Style
 
-**Where labels go.** Labels are placed one by one, the most prominent object
-first: Messier, Caldwell and named objects before others, larger and brighter
-ones before smaller and fainter ones. Each label tries the places beside its
-object in a fixed order and takes the first one that stays inside the picture
-and covers no other label and no decoration. A place that covers a smaller
-object or crosses another object's outline is taken only when no leader line
-reaches a free one: a label with no room beside its object sits further away on
-a leader line, and one that still finds no room is left out, and the line under
-the preview counts it. An object
-larger than much of the frame is labelled inside itself and its outline is
-drawn dashed, since it is a region rather than an object.
+```controls
+window: Style
+controls:
+  - name: Palette
+    kind: combo
+    default: Aurora
+    options: [Aurora, Moonlight, Glacier, Amethyst, Amber, Verdant, Rose, Atlas, "Ember - for dark-adapted eyes", "Ink - for bright images and print", Custom]
+    effect: Sets every color of the picture. **Aurora** gives each kind of object its own color, **Moonlight** draws in white, and **Glacier**, **Amethyst**, **Amber**, **Verdant** and **Rose** keep to blues, violets, golds, greens and pinks, a shade for each kind. **Atlas** takes a printed star atlas's colors - red galaxies, green nebulae, yellow clusters. **Ember** is red for eyes adapted to the dark, and **Ink** draws dark lines on a light halo for a bright image or print.
+    range: Each palette's swatch shows its colors for galaxies, nebulae, planetary nebulae and open and globular clusters, over its panel color.
+    enabled: It shows **Custom** once you set a color.
+    persistence: "**Custom** is your own colors: chosen, it brings them back and opens **Colours**. The first time, it starts from the palette shown. Choosing another palette keeps your colors for the next time you choose **Custom**."
+  - name: Font
+    kind: combo
+    default: The system's sans-serif face
+    options: [The system's sans-serif face, Every scalable font installed]
+    effect: Sets the typeface of every text of the picture - the labels, the grid's labels, the compass, the scale bar and the panel.
+    range: The list shows the system's face under the name of the application's own font.
+    persistence: A typeface missing where the choices are read again is replaced by the system's.
+  - name: Weight
+    kind: combo
+    default: Regular
+    options: [Light, Regular, Medium, Bold]
+    effect: Sets how heavy the letters are. A designation and the title are drawn a step heavier than the rest.
+  - name: Italic labels
+    kind: check
+    default: "Off"
+    effect: Slants the labels of objects and stars. The grid's labels and the panel stay upright.
+  - name: Colour
+    kind: combo
+    default: Each object's colour
+    options: [Each object's colour, The text colour]
+    effect: Draws each label in its object's color, or every label in the palette's text color.
+  - name: Backing
+    kind: combo
+    default: Halo
+    options: [Halo, Badge, Plain]
+    effect: Sets a soft outline around each letter, a rounded box behind each label, or the letters alone.
+    tradeoff: A badge covers more of the image.
+    scope: The letters only. The lines keep their own dark edge.
+  - name: Label size
+    kind: slider
+    default: "100"
+    widget: {min: 50, max: 250, step: 1}
+    effect: Scales the labels, the grid's labels, the compass and the scale bar, in percent. At 100 a label is 1.4 % of the image's reference length, the square root of its width times its height.
+    tradeoff: Larger text leaves room for fewer labels in a crowded field.
+    scope: The text only, never the width of a line.
+  - name: Panel size
+    kind: slider
+    default: "100"
+    widget: {min: 50, max: 200, step: 1}
+    effect: Scales the info panel's text, in percent of the label size.
+  - name: Objects
+    kind: combo
+    default: Outlines
+    options: [Outlines, Brackets]
+    effect: Marks a deep-sky object by its outline, its catalog size at its position angle, or by four corner brackets.
+    range: An object that covers the frame is drawn as a dashed outline whatever you choose.
+    note: The catalog's sizes and position angles are approximations.
+  - name: Stars
+    object: annotateStarMarker
+    kind: combo
+    default: Rings
+    options: [Rings, Reticles]
+    effect: Marks a star by a ring around it, or by four short ticks pointing at it that leave the star itself clear.
+  - name: Line width
+    kind: slider
+    default: "100"
+    widget: {min: 50, max: 300, step: 1}
+    effect: Scales every line, in percent - outlines, star marks, grid, leader lines, compass and scale bar.
+    scope: The lines only, never the text.
+  - name: Line opacity
+    kind: slider
+    default: "100"
+    widget: {min: 10, max: 100, step: 1}
+    effect: Sets how opaque the outlines, the star marks and the leader lines are, in percent.
+    scope: The grid has its own opacity, and the compass and the scale bar stay opaque.
+  - name: Fill objects with their colour
+    kind: check
+    default: "Off"
+    effect: Tints the area of every outlined galaxy, nebula and cluster in its color.
+    enabled: Disabled with **Brackets**. An object whose outline is wider or taller than half the picture's shorter side is left unfilled, so it does not tint the whole image.
+    tradeoff: At a high opacity the tint hides some of a small object.
+    note: The view's deep-sky annotations are never filled.
+  - name: Fill opacity
+    kind: slider
+    default: "15"
+    widget: {min: 0, max: 100, step: 1}
+    effect: Sets how opaque that tint is, in percent.
+    enabled: While **Fill objects with their colour** is ticked.
+  - name: Grid opacity
+    kind: slider
+    default: "45"
+    widget: {min: 0, max: 100, step: 1}
+    effect: Sets how opaque the grid's lines are, in percent. Its labels are drawn more opaque.
+  - name: Dark edge behind lines
+    kind: check
+    default: "Off"
+    effect: Draws a soft edge in the halo color behind every line, so that it reads over a bright part of the image.
+    scope: Apart from the labels' **Backing**.
+  - name: Leader lines for crowded labels
+    kind: check
+    default: "On"
+    effect: Lets a label that finds no room beside its object sit farther away, joined to it by a line.
+    tradeoff: Off leaves more labels out of a crowded field.
+    note: Labels are placed most prominent first - Messier, Caldwell and named objects before the others, larger and brighter before smaller and fainter. A label tries the places beside its object in a fixed order and takes the first that stays inside the picture and covers no other label and no decoration. A place that covers a smaller object or crosses another outline is taken only when no leader line reaches a free one.
+  - name: Mark objects whose labels do not fit
+    kind: check
+    default: "On"
+    effect: Keeps the outline or ring of an object whose label was left out.
+  - name: Colours
+    kind: button
+    default: ""
+    effect: "Fourteen buttons, each showing its color: **Grid**, **Galaxies**, **Nebulae**, **Planetary nebulae**, **Open clusters**, **Globular clusters**, **Other objects**, **Stars**, **Text**, **Halo**, **Compass and scale**, **Panel**, **Panel text** and **Accent**. Each opens a color window, with opacity."
+    enabled: The section is closed until you open it, or choose **Custom** in **Palette**.
+    persistence: Setting any color makes the palette **Custom** and keeps your colors.
+```
 
-**The grid.** The spacing is a round step - seconds, minutes and hours of right
-ascension, arcseconds, arcminutes and degrees of declination - chosen to draw
-the number of lines **Grid spacing** asks for across the field. A field that
-holds a celestial pole draws every hour of right ascension. Lines are labelled
-just inside the picture's edge: declinations at the left edge and right
-ascensions at the bottom when the lines meet them, another edge otherwise.
+### Info Panel and Placement
 
-**The compass and the scale bar** are measured where they are drawn, so they
-stay right near a pole and in wide fields.
+```controls
+window: Info Panel and Placement
+controls:
+  - name: Title
+    kind: field
+    default: ""
+    effect: Sets the panel's title. Empty takes the target the header's `OBJECT` card names, else the most prominent named object, and the field shows that title, or "No title", as its placeholder.
+    persistence: Not kept, since it belongs to one image.
+  - name: Credit
+    kind: field
+    default: ""
+    effect: Sets a line under the title, such as your name. Its placeholder reads "Your name, your observatory".
+    tradeoff: It is drawn into the picture. Leave it empty to share a picture without a name.
+  - name: Center
+    kind: check
+    default: "On"
+    effect: States the field's center, as `10h 44m 31s   −59° 53′ 32″`.
+    note: Each fact is stated only when the image states it.
+  - name: Field and scale
+    kind: check
+    default: "On"
+    effect: States the field's width and height with the mean pixel scale, as `2.20° × 1.65°  ·  1.10″/px`, and on a line of its own the **Rotation** of north, to a tenth of a degree.
+  - name: Optics
+    kind: check
+    default: "On"
+    effect: States `TELESCOP`, with `FOCALLEN` in millimetres and the focal ratio of `FOCRATIO`, or of `FOCALLEN` over `APTDIA`.
+  - name: Camera
+    kind: check
+    default: "On"
+    effect: States `INSTRUME`.
+  - name: Filter
+    kind: check
+    default: "On"
+    effect: States `FILTER`.
+  - name: Date
+    kind: check
+    default: "On"
+    effect: States the date of `DATE-OBS`.
+  - name: Integration
+    kind: check
+    default: "On"
+    effect: States `TOTEXP`, else `EXPTIME`, as `2 h 30 min`, with the frames of `STACKCNT`, else `NCOMBINE`. A single frame with `EXPTIME` alone reads as **Exposure**.
+  - name: Panel
+    kind: combo
+    default: Bottom left
+    options: [Top left, Top right, Bottom left, Bottom right]
+    effect: Chooses the panel's corner.
+    note: Decorations that share a corner are stacked inward from it.
+  - name: Compass
+    kind: combo
+    default: Top right
+    options: [Top left, Top right, Bottom left, Bottom right]
+    effect: Chooses the compass's corner.
+  - name: Scale bar
+    kind: combo
+    default: Bottom right
+    options: [Top left, Top right, Bottom left, Bottom right]
+    effect: Chooses the scale bar's corner.
+```
 
-**The preview** is laid out again on a worker for each change of what is shown
-or how labels are placed; a change of colour only draws again. The image under
-it is the view's own image, shown - not copied - in a compact image view, so it
-is presented and drawn exactly as the [Image Viewer](image-viewer.md) shows an
-image at every zoom. Its toolbar offers the zoom alone: the stretch is the
-window's **Image** choice - as the view shows it, or as stored - and the
-picture is stretched as the preview shows it. A transparent picture is
-previewed over a checkerboard.
+### Catalogues and Limits
 
-## Inputs, outputs, and metadata
+```controls
+window: Catalogues and Limits
+controls:
+  - name: Messier, Caldwell, NGC, IC
+    kind: check
+    default: "On"
+    effect: Choose the catalogs objects are taken from.
+  - name: Only named NGC and IC objects
+    kind: check
+    default: "Off"
+    effect: Keeps an NGC or IC object only when it has a common name.
+    note: "**Essential** ticks it."
+  - name: Galaxies, Nebulae, Planetary nebulae, Open clusters, Globular clusters
+    kind: check
+    default: "On"
+    effect: Choose the kinds of object marked. Nebulae include dark nebulae and clusters with nebulosity.
+  - name: Other entries
+    kind: check
+    default: "Off"
+    effect: Marks the catalog's stars, asterisms, knots and entries of no known kind.
+    note: "**Complete** ticks it."
+  - name: Faintest magnitude
+    kind: spinbox
+    default: "12.0"
+    widget: {min: -2, max: 20, step: 0.5, decimals: 1}
+    effect: Leaves out objects fainter than this magnitude.
+    enabled: Disabled while **Any** is ticked, when it shows 16.0.
+  - name: Any
+    kind: check
+    default: "Off"
+    effect: Marks objects of every magnitude.
+  - name: Objects of no measured magnitude
+    kind: check
+    default: "Off"
+    effect: Marks objects no catalog measured. A named object is always marked.
+  - name: Smallest object
+    kind: spinbox
+    default: "0.30"
+    widget: {min: 0, max: 5, step: 0.05, decimals: 2}
+    effect: Leaves out objects whose major axis is smaller than this share of the image's reference length, in percent.
+    range: Messier, Caldwell and named objects are kept whatever their size, and an object of no stated size is judged by its magnitude alone.
+  - name: Faintest star
+    kind: spinbox
+    default: "4.5"
+    widget: {min: -2, max: 9, step: 0.5, decimals: 1}
+    effect: Sets the faintest star marked.
+    range: The bundled catalog stops at magnitude 9.
+    tradeoff: A faint limit adds many stars to a wide field.
+  - name: Star labels
+    kind: combo
+    default: Names and designations
+    options: [Proper names, Names and designations, "Every star, by number when unnamed"]
+    effect: Chooses which stars are named and by what - a proper name, as `Sirius`; also a Bayer or Flamsteed designation, as `η Car` or `61 Cyg`; or every star, one with neither named by its catalog number, as `HIP 52468`.
+    tradeoff: Every star adds many labels to a wide field.
+  - name: Mark the stars left unnamed
+    kind: check
+    default: "Off"
+    effect: Rings the stars **Star labels** gives no name, without a label.
+    note: "**Detailed** ticks it."
+  - name: Grid spacing
+    kind: combo
+    default: Normal
+    options: [Coarse, Normal, Fine]
+    effect: Draws about four, six or ten grid lines across the field, at round steps of time and arc.
+  - name: Label the grid at the edges
+    kind: check
+    default: "On"
+    effect: Labels each grid line where it meets the picture's edge.
+```
 
-- **Input:** the view's image and its WCS. The image is read, never written.
-- **Exported file:** PNG, JPEG or TIFF, 8-bit RGB - RGBA for a transparent
-  background - written as **Settings > Export** writes that format: its JPEG
-  quality, TIFF compression and whether a raster file carries the image's
-  metadata.
-- **Opened image:** a new view named `<image>_annotated`, holding 8-bit display
-  RGB recorded as nonlinear. It keeps what still describes it: the telescope,
-  camera, site, pointing, date and integration cards of the image, and its WCS
-  moved to the picture's size, so it can be plate solved, measured and annotated
-  again. It starts its own history.
-- **Neither** writes anything into the annotated image, its history or its
-  file.
+### Output
 
-## Performance and responsiveness
+```controls
+window: Output
+controls:
+  - name: Size
+    kind: combo
+    default: Full size
+    options: [Full size, 4096 px, 3840 px, 2560 px, 2048 px, 1600 px, 1280 px, 1024 px]
+    effect: Sets the picture's size by its long edge, each item followed by the picture's width and height. The picture keeps the image's aspect ratio and is never larger than the image.
+    range: Only the long edges below the image's own are offered. A size kept from another image is added to them when it is below the image's own, and reads as **Full size** otherwise.
+    tradeoff: A full-size picture holds four bytes a pixel while it is drawn, about 160 MB for a 40-megapixel image, counted against the session's memory for display. A smaller picture is drawn faster from a reduced copy of the whole image, stretched as the whole image is.
+  - name: Image
+    kind: combo
+    default: As the view shows it
+    options: [As the view shows it, "As stored, unstretched"]
+    effect: Presents the image under the annotations as its view shows it - its display mode and Autostretch settings, the whole image rather than the view's channel - or every channel at full scale with nothing stretched.
+    tradeoff: A linear image looks dark as stored, and so does one its view shows in **Linear**.
+  - name: Background
+    kind: combo
+    default: The image
+    options: [The image, "Transparent: annotations only"]
+    effect: Draws the annotations over the image, or alone over transparent pixels, to lay over the image in another program.
+    range: The preview shows a transparent picture over a checkerboard.
+    enabled: A JPEG file cannot hold a transparent picture, and the file window then offers PNG and TIFF alone.
+```
 
-The catalogue query, the layout, the preview's image and the picture each run
-on a worker; the window never waits for them. The layout of a field of a few
-hundred objects takes tens of milliseconds. A picture takes about as long as
-presenting the image at that size plus a fraction of a second to draw: on a
-16-thread desktop a full-size picture of a 7246 x 5429 colour image is drawn
-and written to an uncompressed TIFF file in about half a second; the
-compression the export settings choose adds its own time. Its pixels are
-counted against the session's display-buffer memory while it is drawn. A
-smaller **Size** is faster and lighter.
+### The preview and the buttons
 
-## Worked example
+```controls
+window: The preview and the buttons
+controls:
+  - name: Preview
+    kind: readout
+    default: ""
+    effect: Shows the picture the choices make over the view's own image, shared rather than copied, presented as the Image Viewer presents an image at every zoom.
+    range: Its toolbar has **Fit To Window**, **Zoom In**, **Zoom Out** and **Zoom 100%**. The mouse wheel zooms, a middle-button drag moves the picture, and holding the left button opens the lens. It stays fitted to the window until you zoom.
+    tradeoff: The catalogs, the layout, the preview's image and the picture each work in the background, and the window never waits. A field of a few hundred objects is laid out in tens of milliseconds. A change of color only draws again.
+    note: Every length - a label's height, a line's width, a mark's radius, the margins - is a share of the image's reference length, so the picture at any size and the preview are one drawing at different scales, and the labels stay sharp at every zoom.
+  - name: Summary
+    kind: readout
+    default: ""
+    effect: Reads as `18 objects  ·  picture 7246 × 5429 px`, with `3 labelled` when some labels found no room, and `5 more stars marked` for the stars ringed without a name.
+  - name: Message strip
+    kind: readout
+    default: ""
+    effect: Says "Saved" and the file, or "Opened" and the view, after a picture, and "Stopped." after a **Cancel**.
+    range: >-
+      It also reads "The image states no astrometric solution. Plate solve it first.", "The catalogues could not be
+      read:" and the reason, "The annotations could not be laid out.", "Choose a PNG, JPEG or TIFF file.", "A JPEG file
+      cannot keep transparency: choose a PNG or TIFF file.", "The picture is larger than an image may be.", "The
+      picture cannot be written there:" and the reason, "The image is being changed; try again once it is shown.",
+      "The picture could not be made:" and the reason, "No view could be opened for the picture." and "The picture
+      could not be opened:" and the reason.
+    enabled: Hidden until there is something to say.
+    note: >-
+      When the catalogs cannot be read, the catalog files that come with AfterNight are damaged: install AfterNight
+      again. Choose a file ending in `.png`, `.jpg` or `.tif` when the format is refused. When the image is being
+      changed, wait until its view shows the change, then make the picture again.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns every choice to its default, the title included, and keeps the credit and your own colors.
+  - name: Open as Image
+    kind: button
+    default: ""
+    effect: Draws the picture and opens it in a new view named `<image>_annotated`.
+    enabled: Disabled until the preview is ready, and while a picture is drawn. Asked while a layout is on its way, it waits for it and draws the choices as they are.
+    scope: The new image is 8-bit display RGB, with alpha over a transparent background, recorded as nonlinear, and its history starts with **Annotate Image**. It keeps the telescope, camera, site, pointing, date and integration cards of the image and its solution moved to the picture's size, so it can be plate solved, measured and annotated again. A picture smaller than its image may keep the solution without its distortion terms.
+    tradeoff: It is display-referred data with the annotations burned in. Keep the original for any further processing.
+  - name: Export…
+    kind: button
+    default: ""
+    effect: Draws the picture and writes it to the PNG, JPEG or TIFF file you choose in **Export Annotated Image**, which suggests `<image>_annotated.jpg`, or `.png` for a transparent background, in the folder of the last export.
+    enabled: As **Open as Image**.
+    scope: The file holds 8-bit RGB, or RGBA for a transparent background, written as the **Export** page of the settings writes that format - its JPEG quality, its TIFF compression and whether a raster file carries the image's metadata.
+    tradeoff: A full-size picture of the 7246 by 5429 Carina master is drawn and written as an uncompressed TIFF in about half a second on a 16-thread desktop, and compression adds its own time. The file chosen is overwritten without a second question once the file window has asked.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window and keeps the choices.
+    note: One window per view. Asking for it again brings it forward, and it closes with its view. Its title, `Annotate Image <name>`, follows a rename of the image. The window can be maximized, and the rest of AfterNight stays at hand while it is open.
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: A window titled **Export Annotated Image**, or **Annotate Image** when it opens the picture, with a bar that runs while the picture is drawn and written.
+    note: Its **Cancel** stops the work, and nothing is written or opened.
+```
 
-- Starting state: a 7246 x 5429 RGB composite of the Carina Nebula, plate solved
-  at 1.10″ a pixel, shown with the view's automatic stretch.
-- Actions: open **Annotate Image**, keep **Standard**, type a credit, choose
-  **Complete**.
-- Checkpoints: at Standard the preview marks NGC 3372, the Carina Nebula, as a
-  dashed region labelled inside itself, which **Fill objects with their colour**
-  leaves unfilled; at Complete it names every star to magnitude 9: Eta Carinae
-  as `η Car`, at the catalogue's magnitude 6.2, and the others by their HIP
-  numbers, the labels that find no room left out and counted. The panel states the centre `10h 44m 31s
-  -59° 53′ 32″`, the field `2.20° × 1.65°`, the scale and the rotation. A
-  full-size uncompressed TIFF export completes in about half a second.
-- Limitations: Trumpler 14 and 16, the Keyhole and other objects of catalogues
-  other than NGC, IC, Messier and Caldwell are not in the bundled catalogue and
-  are not named.
+## When it goes wrong
 
-## Warnings and limitations
+The **Annotate Image** button is missing, or the menu command is greyed
+:   **Cause.** The view shows a [sequence](../reference/glossary.md#sequence), or its image has no solution AfterNight
+    reads.
+:   **Fix.** Plate solve the image with [Plate Solving](../processes/registration-alignment/plate-solving.md), or open
+    a solved file.
 
-- The picture is display-referred 8-bit data with the annotations burned in.
-  Keep the original image for further processing.
-- Objects come from the bundled NGC, IC, Messier and Caldwell catalogue; other
-  catalogues (Sharpless, Barnard, Collinder, Trumpler...) are not included.
-  Catalogue sizes and position angles are approximations, and some Caldwell
-  rows have the provenance limitation recorded in
-  [Astrometry Overlays](astrometry-overlays.md#credits).
-- Star positions are J2000 without proper motion; they are drawn where the
-  catalogue puts them.
-- In a crowded field some labels are left out rather than overlapped. Lower the
-  **Label size**, turn **Leader lines** on, or choose a lower level of detail.
-- An export overwrites the file chosen without asking again once the file dialog
-  confirmed it.
-- The credit and title are drawn into the picture.
+"The image states no astrometric solution. Plate solve it first."
+:   **Cause.** The image lost its solution while the window was open, by an edit, an undo or **Clear Astrometry**.
+:   **Fix.** Plate solve it again. The window starts over by itself.
 
-## Troubleshooting
+"A JPEG file cannot keep transparency: choose a PNG or TIFF file."
+:   **Cause.** **Background** is **Transparent: annotations only** and the file named is a JPEG file.
+:   **Fix.** Choose a PNG or TIFF file, or **The image** as the background.
 
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| The **Annotate Image** button is missing, or the menu entry is disabled. | The view is a sequence, or its image has no WCS the engine reads. | Plate solve the image, or open a solved file. |
-| *The image states no astrometric solution. Plate solve it first.* | The image lost its WCS while the window was open. | Plate solve it again; the window starts over. |
-| *The catalogues could not be read: ...* | The bundled catalogue resource could not be read. | Reinstall AfterNight. |
-| *A JPEG file cannot keep transparency: choose a PNG or TIFF file.* | **Background** is **Transparent** and the file chosen is JPEG. | Choose a PNG or TIFF file, or the image background. |
-| *Choose a PNG, JPEG or TIFF file.* | The file chosen has another extension. | Choose a `.png`, `.jpg` or `.tif` file. |
-| *The image is being changed; try again once it is shown.* | A process was writing the image when the picture was asked for. | Wait for the view to update and export again. |
-| *The picture could not be made: ...* | The engine refused a step - memory, the file, the format. The message names it. | Choose a smaller **Size** or another folder, and try again. |
-| Some objects are marked but not labelled. | Their labels found no room. | Lower **Label size**, turn on leader lines, or choose less detail. |
-| Stars are ringed but not named. | **Mark the stars left unnamed** marks the stars **Star labels** does not name. | Choose **Every star, by number when unnamed**, or turn the marking off. |
+"The picture could not be made:" and a reason
+:   **Cause.** A step was refused, for memory, the file or the format, as the reason says.
+:   **Fix.** Choose a smaller **Size** or another folder, and try again.
 
-## Related workflow steps
+Some objects are marked but not labelled
+:   **Cause.** Their labels found no room beside them or on a leader line.
+:   **Fix.** Lower **Label size**, tick **Leader lines for crowded labels**, or choose less detail.
 
-- Before: [Plate Solving](../processes/registration-alignment/plate-solving.md)
-  writes the WCS this window needs; [Astrometry Overlays](astrometry-overlays.md)
-  check it in the view, naming the sky at this window's levels of detail, label
-  texts and palettes, chosen in the view's own menu.
-- After: [Saving & Exporting](saving-and-exporting.md) saves an opened picture in
-  any format, and the [Image Viewer](image-viewer.md) shows it.
+Stars are ringed but not named
+:   **Cause.** **Mark the stars left unnamed** marks the stars **Star labels** does not name.
+:   **Fix.** Choose **Every star, by number when unnamed**, or untick the marking.
+
+## Related
+
+- [Plate Solving](../processes/registration-alignment/plate-solving.md), which writes the solution this window needs.
+- [Astrometry Overlays](astrometry-overlays.md), to see the same annotations in the view at the levels and palettes of
+  this window.
+- [Image Viewer](image-viewer.md), for the display mode and Autostretch the picture takes.
+- [Saving And Exporting](saving-and-exporting.md), to save an opened picture in any format.
+- [Settings](settings-dialog.md), for the **Export** page an exported picture is written by.
+- [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md), for the cards the panel states.
 
 ## Credits
 
-- NASA/HEASARC, [FITS World Coordinate System papers and resources](https://fits.gsfc.nasa.gov/fits_wcs.html),
-  for the tangent-plane projection through which every position is drawn.
-- CDS/VizieR, [NGC 2000.0 catalog VII/118](https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118),
-  the primary input of AfterNight's bundled deep-sky catalogue; Messier aliases,
-  common names and selected extents are project-maintained additions.
-- Astronexus, [HYG Database 4.2](https://www.astronexus.com/projects/hyg),
-  source of the bundled bright-star subset - the 83,479 stars to visual
-  magnitude 9 - under CC BY-SA 4.0.
+- E. W. Greisen and M. R. Calabretta, and M. R. Calabretta and E. W. Greisen,
+  [the FITS World Coordinate System papers I and II](https://fits.gsfc.nasa.gov/fits_wcs.html), Astronomy &
+  Astrophysics 395 (2002), which define the tangent-plane projection through which every position is drawn.
+- [NGC 2000.0, catalog VII/118 at CDS/VizieR](https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118), by R. W. Sinnott
+  after J. L. E. Dreyer, the source of the bundled deep-sky catalog's NGC and IC rows. The Messier names, common names,
+  some sizes and the Caldwell rows are the project's additions; the Caldwell rows carry the limits
+  [Astrometry Overlays](astrometry-overlays.md) states.
+- [HYG Database 4.2](https://www.astronexus.com/projects/hyg), by Astronexus, under CC BY-SA 4.0, the source of the
+  bundled bright-star catalog: the 83,479 stars to visual magnitude 9.

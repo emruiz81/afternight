@@ -193,6 +193,8 @@ class FailingSiteTests(SiteCase):
 
 REAL_DATA = {name: (pathlib.Path(guide.REPO_ROOT) / 'docs' / 'user-guide' / 'data' / name).read_text(
     encoding='utf-8') for name in ('stages.yml', 'limits.yml', 'vocabulary.yml')}
+# The guide's own allowances name its pages, which a test's guide does not have: a test starts from none.
+REAL_DATA['vocabulary.yml'] = re.sub(r'(?ms)^allow:.*\Z', 'allow: []\n', REAL_DATA['vocabulary.yml'])
 
 UI_BUILDER = '''\
         menuProcess->setTitle(QCoreApplication::translate("AfterNightAppClass", "&Process", nullptr));
@@ -1456,6 +1458,12 @@ class GlossaryRuleTests(WritingCase):
 
     def test_the_glossary_itself_links_nothing(self):
         self.change('reference/glossary.md', 'The median absolute deviation.', 'A linear estimate of spread.')
+        self.assertPasses()
+
+    def test_the_media_provenance_links_nothing(self):
+        # A record of the guide's files, whose descriptions are no prose a reader learns the terms from.
+        self.change('assets/MEDIA_PROVENANCE.md', '| `assets/images/ht.png` | Captured by the maintainer |',
+                    '| `assets/images/ht.png` | A linear master, captured by the maintainer |')
         self.assertPasses()
 
 

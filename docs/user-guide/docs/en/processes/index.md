@@ -2,6 +2,7 @@
 kind: catalog
 summary: >-
   Every process AfterNight offers, with its menu path and the stage of the processing where it belongs.
+rewritten: true
 reach:
   - Open Process to use Favorite Processes, Recent Processes, or one of the 16 category submenus.
   - >-
