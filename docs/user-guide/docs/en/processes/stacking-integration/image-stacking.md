@@ -24,7 +24,6 @@ glance:
   state: >-
     Raw bias or dark frames, flat frames calibrated by the bias, or calibrated and registered linear lights.
 derived: true
-rewritten: true
 ---
 # Image Stacking
 

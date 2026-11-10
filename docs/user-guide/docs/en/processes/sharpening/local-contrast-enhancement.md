@@ -24,7 +24,6 @@ glance:
   state: >-
     A stretched image, after noise reduction, whose broad structures - nebula and dust lanes - need more contrast.
 derived: true
-rewritten: true
 ---
 # Local Contrast Enhancement
 

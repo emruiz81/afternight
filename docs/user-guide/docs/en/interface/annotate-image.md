@@ -4,7 +4,6 @@ summary: >-
   Makes a picture of a plate-solved image with its deep-sky objects, bright stars and coordinates named on it, ready
   to share or print, and exports it or opens it as an image.
 menu: Image > Information > Annotate Image...
-rewritten: true
 ---
 # Annotate Image
 

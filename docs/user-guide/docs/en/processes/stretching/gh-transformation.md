@@ -26,7 +26,6 @@ glance:
 derived: false
 controls_ignore:
   - {label: Human weighted luminance, reason: The window never shows it and no result reads it.}
-rewritten: true
 ---
 # Generalized Hyperbolic Transformation
 

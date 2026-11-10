@@ -26,7 +26,6 @@ glance:
     A raw or calibrated mosaic of a one-shot color camera, before the debayer, to bin for less noise in each pixel or
     to enlarge by whole blocks.
 derived: false
-rewritten: true
 ---
 # CFA Integer Resample
 

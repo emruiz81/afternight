@@ -25,7 +25,6 @@ glance:
     Two versions of one image on the same pixel grid: before and after a process, two processing choices, or two
     registered frames.
 derived: false
-rewritten: true
 ---
 # Image Compare
 

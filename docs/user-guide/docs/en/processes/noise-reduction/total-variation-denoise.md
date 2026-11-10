@@ -26,7 +26,6 @@ glance:
     A calibrated and stacked master, linear or early in the stretch, after gradient removal and color calibration and
     before a strong stretch raises its noise.
 derived: false
-rewritten: true
 ---
 # Total Variation Denoise
 

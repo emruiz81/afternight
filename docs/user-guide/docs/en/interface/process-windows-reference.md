@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   What a reader looks up about process windows: each message a window shows or logs, the windows that differ from the
   rest, how the real-time preview works while you drag, and what each kind of run leaves behind.
-rewritten: true
 ---
 # Process Windows Reference
 

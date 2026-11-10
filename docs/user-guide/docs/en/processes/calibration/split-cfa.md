@@ -26,7 +26,6 @@ glance:
     A raw or calibrated mosaic of a one-shot color camera, before the debayer. A light taken through a dual-band filter
     for Extract Ha/OIII.
 derived: false
-rewritten: true
 ---
 # Split CFA
 

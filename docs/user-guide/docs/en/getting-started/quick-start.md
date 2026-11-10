@@ -5,7 +5,6 @@ menu: Process > Preprocess > Image Integration Lite
 summary: >-
   Calibrate, register and stack your first set of frames with Image Integration Lite.
 needs: []
-rewritten: true
 ---
 # Quick Start
 

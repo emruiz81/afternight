@@ -4,7 +4,6 @@ summary: >-
   The Browse tab of the Extensions window: the extensions of AfterNight's official repository, whether each suits
   this AfterNight and is signed, and the buttons that install, update and remove them or install a package file.
 menu: Extensions > Manage Extensions...
-rewritten: true
 ---
 # Extension Marketplace
 

@@ -27,7 +27,6 @@ glance:
     Any image or mask whose fine structure should be softened, such as a mask, a support layer or one scale of the
     image. On a science master, linear data, with stars and edges protected by a mask when their profiles matter.
 derived: false
-rewritten: true
 ---
 # Gaussian Blur
 

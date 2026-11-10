@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   Where to turn when something goes wrong in AfterNight: each symptom with its cause and fix, or the page and section
   that answer it, and what to collect when you report a problem.
-rewritten: true
 ---
 # Troubleshooting And Diagnostics
 

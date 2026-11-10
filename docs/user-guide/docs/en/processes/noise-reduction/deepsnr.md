@@ -27,7 +27,6 @@ glance:
     A calibrated and stacked master, linear or stretched, after gradient removal, whose noise changes from one pixel
     to the next rather than in patterns.
 derived: true
-rewritten: true
 ---
 # DeepSNR
 

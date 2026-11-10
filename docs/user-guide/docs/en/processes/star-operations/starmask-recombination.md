@@ -26,7 +26,6 @@ glance:
     A starless image and a stars image of the same stretched image, aligned and at the same stage, each processed on
     its own.
 derived: false
-rewritten: true
 ---
 # Starmask Recombination
 

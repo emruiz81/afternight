@@ -16,7 +16,6 @@ hero:
     Start from the fresh-profile Dashboard to open images, begin an integration, or review the guided first steps.
 notice: >-
   Some of this guide's pictures are still to come: where one is missing, its page shows a frame that describes it.
-rewritten: true
 paths:
   - tag: First session
     title: Install and launch

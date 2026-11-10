@@ -27,7 +27,6 @@ glance:
   state: >-
     The raw frames of one target, grayscale or a color-filter mosaic, before any calibration.
 derived: true
-rewritten: true
 ---
 # Image Integration Lite
 

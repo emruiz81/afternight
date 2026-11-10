@@ -5,7 +5,6 @@ summary: >-
   Stack Ha, OIII and SII frames into three masters that line up, remove their gradients, map them into a color palette
   such as SHO and finish the picture.
 needs: []
-rewritten: true
 ---
 # Narrowband Imaging
 

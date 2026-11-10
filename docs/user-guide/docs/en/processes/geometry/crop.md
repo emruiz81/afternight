@@ -24,7 +24,6 @@ glance:
     Any image, linear or not: a stacked master whose edges registration left ragged, or a finished picture to frame
     for export.
 derived: false
-rewritten: true
 ---
 # Crop
 

@@ -4,7 +4,6 @@ summary: >-
   The equations and tables behind Generalized Hyperbolic Transformation: the inverse curves of Invert, the curve STF
   Transformation derives, the Colour rule, checkpoints of a curve, what too little and too much look like, and the
   history text.
-rewritten: true
 ---
 # Generalized Hyperbolic Transformation Reference
 

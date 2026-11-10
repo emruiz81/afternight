@@ -25,7 +25,6 @@ glance:
     Red, green and blue masters of one target, registered and cropped alike and still linear, or the three
     components of another color model as Extract Channel stores them.
 derived: false
-rewritten: true
 ---
 # Channel Composition
 

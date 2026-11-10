@@ -26,7 +26,6 @@ glance:
     Any image the mask is for, linear or stretched, shown under a display that lets you see the structures you
     outline.
 derived: false
-rewritten: true
 ---
 # Mask Drawing
 

@@ -28,7 +28,6 @@ glance:
     source files are not changed.
   state: Calibrated linear lights of one target, before normalization and stacking.
 derived: true
-rewritten: true
 ---
 # Image Registration
 

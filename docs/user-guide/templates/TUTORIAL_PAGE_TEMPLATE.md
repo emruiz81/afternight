@@ -11,7 +11,6 @@ summary: >-
 stages: [calibrate, register, stack]    # the stages it walks through, in pipeline order
 # menu: <Process > Submenu > Action>    # optional: the window the tutorial works in
 needs: []                               # what it needs from outside AfterNight; empty when nothing
-rewritten: true
 ---
 # <Title>
 

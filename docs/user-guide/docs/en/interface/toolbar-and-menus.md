@@ -3,7 +3,6 @@ kind: interface
 summary: >-
   The menu bar's nine menus, the toolbar and a view's right-click menu: where each kind of command lives, which image
   it acts on and why it may be greyed.
-rewritten: true
 ---
 # Toolbar & Menus
 

@@ -22,8 +22,6 @@ _H2 = re.compile(r'<h2[\s>]')
 _H2_FULL = re.compile(r'<h2(?P<attrs>[^>]*)>(?P<inner>.*?)</h2>', re.DOTALL)
 _H3 = re.compile(r'<h3[\s>]')
 _TABLE = re.compile(r'<table(?=[\s>]).*?</table>', re.DOTALL)
-_ROW = re.compile(r'<tr[\s>].*?</tr>', re.DOTALL)
-_CELL = re.compile(r'<t[hd][\s>]')
 _LIST_OPEN = {'ol': re.compile(r'<ol(?P<attrs>[^>]*)>'), 'ul': re.compile(r'<ul(?P<attrs>[^>]*)>')}
 _CLASS = re.compile(r'\bclass="([^"]*)"')
 _DL = re.compile(r'<dl>(?P<inner>.*?)</dl>', re.DOTALL)
@@ -31,9 +29,6 @@ _TERM_GROUP = re.compile(r'(?:<dt[\s>].*?</dt>\s*)+(?:<dd[\s>].*?</dd>\s*)*', re
 _FIGURE = re.compile(r'<figure class="an-figure(?P<classes>[^"]*)">.*?</figure>\s*', re.DOTALL)
 _PIN = re.compile(r'<span class="pin"[^>]*>(?:<span[^>]*>[^<]*</span>)?(\d+)</span>')
 _CONTROL = re.compile(r'<div class="ctl" id="(?P<id>[^"]+)"><div class="lab"><b>(?P<name>.*?)</b>', re.DOTALL)
-
-# A table this wide cannot be read in the page's column at the body's size.
-WIDE_TABLE_COLUMNS = 6
 
 # The sections the passes dress, by the words of their `<h2>`, lower-cased.
 STEPS = 'steps'
@@ -63,14 +58,8 @@ def lift_h1(content):
 
 def wrap_tables(content):
     """Every table inside a `.table-wrap` that scrolls sideways when the table is wider than the column, and that the
-    keyboard can reach, so a wide table never widens the page. A table of WIDE_TABLE_COLUMNS columns or more is
-    marked `wide`: the theme sets it smaller and keeps its first column in view while the rest scrolls."""
-    def wrap(match):
-        first_row = _ROW.search(match.group(0))
-        columns = len(_CELL.findall(first_row.group(0))) if first_row else 0
-        classes = 'table-wrap wide' if columns >= WIDE_TABLE_COLUMNS else 'table-wrap'
-        return '<div class="%s" tabindex="0">%s</div>' % (classes, match.group(0))
-    return _TABLE.sub(wrap, content)
+    keyboard can reach, so a table never widens the page."""
+    return _TABLE.sub(lambda match: '<div class="table-wrap" tabindex="0">%s</div>' % match.group(0), content)
 
 
 def focusable_scrollers(content):

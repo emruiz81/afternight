@@ -25,7 +25,6 @@ glance:
     A calibrated linear frame or master, before the stretch, whose bands run the whole length of its rows or of its
     columns.
 derived: false
-rewritten: true
 ---
 # Banding Reduction
 

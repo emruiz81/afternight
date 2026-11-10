@@ -25,7 +25,6 @@ glance:
     A stretched image, mono or RGB, ready for its contrast, saturation or color balance to be finished. A gentle
     first stretch is possible, but nothing here is derived from the image's statistics.
 derived: false
-rewritten: true
 ---
 # Curves Transformation
 
