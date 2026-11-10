@@ -6,6 +6,7 @@ Run with:
     python build/scripts/tools/check_user_guide_test.py
 
 Every rule has a site, or a page, that passes and one that fails; the cases plant them in a temporary directory.
+The rules of a rewritten page have a guide with a page on each template, and a copy of it broken for each rule.
 """
 
 from __future__ import annotations
@@ -13,7 +14,9 @@ from __future__ import annotations
 import io
 import os
 import pathlib
+import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -187,7 +190,8 @@ class FailingSiteTests(SiteCase):
         self.assertFinding('guide/404.html', 1, 'root-relative')
 
 
-REAL_STAGES = pathlib.Path(guide.REPO_ROOT) / 'docs' / 'user-guide' / 'data' / 'stages.yml'
+REAL_DATA = {name: (pathlib.Path(guide.REPO_ROOT) / 'docs' / 'user-guide' / 'data' / name).read_text(
+    encoding='utf-8') for name in ('stages.yml', 'limits.yml', 'vocabulary.yml')}
 
 UI_BUILDER = '''\
         menuProcess->setTitle(QCoreApplication::translate("AfterNightAppClass", "&Process", nullptr));
@@ -249,7 +253,8 @@ PAGES = {
 
 
 class GuideCase(unittest.TestCase):
-    """A repository with the application sources R4 reads and a guide of five pages that passes every rule."""
+    """A repository with the application sources R4 reads and a guide of five pages, none of them rewritten, that
+    passes every rule a page not yet rewritten is held to."""
 
     def setUp(self):
         self.root = pathlib.Path(tempfile.mkdtemp())
@@ -258,7 +263,8 @@ class GuideCase(unittest.TestCase):
         self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp', REGISTRY)
         self.write('README.md', '# Repository\n')
         self.write('docs/user-guide/mkdocs.yml', MKDOCS)
-        self.write('docs/user-guide/data/stages.yml', REAL_STAGES.read_text(encoding='utf-8'))
+        for name, text in REAL_DATA.items():
+            self.write('docs/user-guide/data/' + name, text)
         for relative, text in PAGES.items():
             self.page(relative, text)
         self.write('docs/user-guide/docs/en/assets/images/logo.png', 'png')
@@ -431,7 +437,7 @@ class ImageRuleTests(GuideCase):
         code, output = self.run_main()
         self.assertEqual(code, 0, output)
         self.assertIn('R5 images: 0 error(s), 1 warning(s)', output)
-        self.assertIn('spare.webp:1: R5 no page, README.md, logo or favicon shows this image',
+        self.assertIn('spare.webp:1: R5 warning: no page, README.md, logo or favicon shows this image',
                       output.replace('\\', '/'))
 
     def test_an_image_the_readme_shows_is_used(self):
@@ -575,6 +581,878 @@ class TokenRuleTests(GuideCase):
         code, output = self.run_main()
         self.assertIn('R16 not run', output)
         self.assertNotIn('R16 token parity', output)
+
+
+def png(width, height, weight=0):
+    """The bytes of a file that opens as a PNG image of this size, padded to `weight` bytes."""
+    data = b'\x89PNG\r\n\x1a\n' + b'\x00\x00\x00\rIHDR' + struct.pack('>II', width, height)
+    return data + b'\0' * max(0, weight - len(data))
+
+
+WRITING_NAV = '''\
+nav:
+  - Home: index.md
+  - Getting Started:
+      - First Stack: start/first.md
+  - Interface:
+      - Image Viewer: interface/viewer.md
+  - Processes:
+      - Stretching:
+          - Histogram Transformation: processes/ht.md
+  - Workflows:
+      - Deep Sky: workflows/deep.md
+  - Reference:
+      - Glossary: reference/glossary.md
+      - Media Provenance: assets/MEDIA_PROVENANCE.md
+'''
+
+HOME = '---\nkind: home\nrewritten: true\n---\n# The guide\n'
+
+PROCESS = '''\
+---
+kind: process
+stage: stretch
+menu:
+  - Process > Intensity Transformations
+  - Process > Adjustments
+summary: Stretches the image through a midtones transfer.
+data_in: linear
+data_out: nonlinear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: An image view is active.
+  inputs: One image view.
+  outputs: The same view, replaced.
+  state: A master that was never stretched.
+derived: false
+rewritten: true
+---
+# Histogram Transformation
+
+The process maps the image through a transfer. Apply replaces the target.
+
+```figure
+image: ../assets/images/ht.png
+alt: The window with its histogram.
+caption: The window as it opens.
+pins:
+  - {n: 1, x: 10, y: 10}
+  - {n: 3, x: 50, y: 50}
+```
+
+## Before you start
+
+- Work on a [linear](../reference/glossary.md#linear) master.
+
+## Steps
+
+1. **Open the window.** Choose it from the menu.
+2. **Move the midtones.** Watch the preview.
+3. **Apply.** The view is replaced.
+
+## Controls
+
+```controls
+- name: Midtones
+  kind: spinbox
+  default: "0.50"
+  widget: {min: 0, max: 1}
+  effect: Lower brightens the image.
+```
+
+## How it works
+
+1. The samples are rescaled.
+
+### Model
+
+The transfer bends the range.
+
+### Boundaries
+
+- A sample outside the range is clipped.
+
+### Worked example
+
+A master is stretched.
+
+```figure
+images:
+  - image: ../assets/images/before.png
+    alt: The master before.
+    label: Before
+  - image: ../assets/images/after.png
+    alt: The master after.
+    label: After
+caption: The same field before and after.
+```
+
+## Starting points
+
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| A dark master | Midtones 0.12 | The shadows |
+
+## When it goes wrong
+
+!!! warning "A stretch is not undone by another"
+    Use the history.
+
+The preview is black
+:   **Cause.** The shadows are too high.
+:   **Fix.** Lower them.
+
+## Related
+
+- [Image Viewer](../interface/viewer.md), where the result shows.
+
+## Credits
+
+- [A paper](https://example.org/), by its authors.
+'''
+
+INTERFACE = '''\
+---
+kind: interface
+summary: The window an image opens in.
+menu: Image > Zoom In
+rewritten: true
+---
+# Image Viewer
+
+The viewer shows one image.
+
+```figure
+image: ../assets/images/viewer.png
+alt: The viewer with its toolbar.
+caption: The parts of the viewer.
+pins:
+  - {n: 1, x: 10, y: 10}
+  - {n: 2, x: 60, y: 60}
+```
+
+## What you see
+
+1. **The toolbar.** What acts on the view.
+2. **The image.** What is shown.
+
+## What you can do
+
+- Zoom to fit.
+
+## When it goes wrong
+
+The image is black
+:   **Cause.** No display stretch is on.
+:   **Fix.** Turn it on.
+
+## Related
+
+- [Histogram Transformation](../processes/ht.md)
+'''
+
+TUTORIAL = '''\
+---
+kind: tutorial
+summary: Stack a first set of frames.
+stages: [calibrate, register, stack]
+needs: []
+rewritten: true
+---
+# First Stack
+
+You start with frames and end with one master.
+
+## What you need
+
+- [ ] The light frames of one target
+
+## Your camera
+
+- **A color camera.** Import the raw files.
+- **A mono camera.** Import one filter at a time.
+
+## Steps
+
+```figure
+image: ../assets/images/first.png
+alt: The window with its frame list.
+caption: The window once the frames are in.
+pins:
+  - {n: 1, x: 10, y: 10}
+  - {n: 2, x: 60, y: 60}
+```
+
+### Add the frames
+
+Drop the folder on the list.
+
+!!! see "You should see"
+    Every frame listed.
+
+??? wrong "If it goes wrong: a frame is missing"
+    Add it by hand.
+
+### Run
+
+Press Run.
+
+## The result
+
+One master in the output folder.
+
+## Next
+
+- [Histogram Transformation](../processes/ht.md) makes it visible.
+'''
+
+WORKFLOW = '''\
+---
+kind: workflow
+summary: From frames to a finished picture.
+stages: [calibrate, register, stack, stretch]
+needs: []
+rewritten: true
+---
+# Deep Sky
+
+You take one target through the pipeline.
+
+## What you need
+
+- [ ] A set of calibrated frames
+
+## Your data
+
+- **Broadband.** Calibrate the color.
+- **Narrowband.** Map the filters.
+
+## Steps
+
+### Stack
+
+Follow [First Stack](../start/first.md).
+
+### Stretch
+
+Use [Histogram Transformation](../processes/ht.md).
+
+## The result
+
+A finished picture.
+
+## Next
+
+- [Image Viewer](../interface/viewer.md) shows it.
+'''
+
+GLOSSARY = '''\
+---
+kind: reference
+summary: The terms of the guide.
+rewritten: true
+---
+# Glossary
+
+The terms, by letter.
+
+## L
+
+### Linear
+
+Data whose values are proportional to the light that made them.
+
+## M
+
+### MAD
+
+The median absolute deviation.
+'''
+
+PROVENANCE = '''\
+---
+kind: reference
+summary: Where every picture of the guide comes from.
+rewritten: true
+---
+# Media Provenance
+
+| Picture | Source | Date |
+| --- | --- | --- |
+| `assets/images/ht.png` | Captured by the maintainer | 2026-11-09 |
+| `assets/images/before.png` | Captured by the maintainer | 2026-11-09 |
+| `assets/images/after.png` | Captured by the maintainer | 2026-11-09 |
+| `assets/images/viewer.png` | Captured by the maintainer | 2026-11-09 |
+| `assets/images/first.png` | Captured by the maintainer | 2026-11-09 |
+'''
+
+WRITING_PAGES = {
+    'index.md': HOME,
+    'processes/ht.md': PROCESS,
+    'interface/viewer.md': INTERFACE,
+    'start/first.md': TUTORIAL,
+    'workflows/deep.md': WORKFLOW,
+    'reference/glossary.md': GLOSSARY,
+    'assets/MEDIA_PROVENANCE.md': PROVENANCE,
+}
+WRITING_RULES = ('R7 headings', 'R8 limits', 'R9 vocabulary', 'R10 figures', 'R11 image files', 'R12 process keys',
+                 'R13 glossary links')
+NOT_REWRITTEN = ('rewritten: true\n', '')
+
+
+def words(count):
+    return ' '.join(['word'] * count)
+
+
+def items(count, pattern):
+    return ''.join(pattern % number for number in range(1, count + 1))
+
+
+class WritingCase(GuideCase):
+    """A guide of seven pages, one on each template and each marked `rewritten: true`, that passes every rule."""
+
+    def setUp(self):
+        super().setUp()
+        for relative in PAGES:
+            (self.root / 'docs/user-guide/docs/en' / relative).unlink()
+        self.write('docs/user-guide/mkdocs.yml', MKDOCS[:MKDOCS.index('nav:')] + WRITING_NAV)
+        for relative, text in WRITING_PAGES.items():
+            self.page(relative, text)
+        for name in ('ht', 'before', 'after', 'viewer', 'first'):
+            self.image('assets/images/%s.png' % name, png(800, 600))
+
+    def image(self, relative, data):
+        path = self.root / 'docs/user-guide/docs/en' / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return path
+
+    def change(self, relative, old, new):
+        """The page with `old` replaced by `new`; `old` must be in it once."""
+        text = WRITING_PAGES[relative]
+        self.assertEqual(text.count(old), 1, old)
+        self.page(relative, text.replace(old, new))
+
+    def restore(self):
+        for relative, text in WRITING_PAGES.items():
+            self.page(relative, text)
+
+    def assertFails(self, rule, *fragments, count=1):
+        """The check fails, with `count` findings of the rule and none of another, all errors."""
+        code, output = self.run_main()
+        found = [line for line in output.splitlines() if re.search(r':\d+: R\d+ ', line)]
+        self.assertEqual(len(found), count, output)
+        for line in found:
+            self.assertIn(': %s ' % rule, line)
+            self.assertNotIn('warning: ', line)
+        for fragment in fragments:
+            self.assertIn(fragment, '\n'.join(found))
+        self.assertEqual(code, 1, output)
+
+    def assertWarns(self, rule, *fragments):
+        """The check passes, with one finding, a warning of the rule."""
+        code, output = self.run_main()
+        found = [line for line in output.splitlines() if re.search(r':\d+: R\d+ ', line)]
+        self.assertEqual(len(found), 1, output)
+        self.assertIn(': %s warning: ' % rule, found[0])
+        for fragment in fragments:
+            self.assertIn(fragment, found[0])
+        self.assertEqual(code, 0, output)
+
+    def assertPasses(self):
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        for rule in WRITING_RULES:
+            self.assertIn('%s: 0 error(s), 0 warning(s)' % rule, output)
+
+    def cases(self, rule, cases):
+        """Each case - (what it shows, page, old, new, a fragment of the message) - fails with one finding of the
+        rule."""
+        for name, relative, old, new, fragment in cases:
+            with self.subTest(name):
+                self.restore()
+                self.change(relative, old, new)
+                self.assertFails(rule, fragment)
+
+
+class TemplatePageTests(WritingCase):
+    def test_a_rewritten_page_on_each_template_passes_every_rule(self):
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        for rule in ('R2 front matter', 'R3 nav and H1', 'R4 menu parity', 'R5 images',
+                     'R6 credits of derived pages') + WRITING_RULES:
+            self.assertIn('%s: 0 error(s), 0 warning(s)' % rule, output)
+        self.assertIn('7 of 7 pages rewritten', output)
+        self.assertNotIn('not yet rewritten', output)
+
+    def test_a_page_not_yet_rewritten_is_counted_and_never_fails(self):
+        self.page('processes/ht.md', PROCESS.replace(*NOT_REWRITTEN).replace('## Related', '## See also')
+                  .replace('The process maps', 'The verified process maps'))
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('R7 headings: 0 error(s), 2 warning(s)', output)
+        self.assertIn('R9 vocabulary: 0 error(s), 1 warning(s)', output)
+        self.assertIn('6 of 7 pages rewritten', output)
+        self.assertIn('3 warning(s) about 1 file(s) of pages not yet rewritten are counted and not listed', output)
+        self.assertNotIn(': R7 ', output)
+
+    def test_pending_and_page_list_the_warnings_of_a_page_not_yet_rewritten(self):
+        self.page('processes/ht.md', PROCESS.replace(*NOT_REWRITTEN).replace('## Related', '## See also'))
+        for arguments in (['--pending'], ['--page', 'processes/ht.md']):
+            code, found = self.findings('R7', *arguments)
+            self.assertEqual(code, 0)
+            self.assertEqual(len(found), 2, found)
+            self.assertIn('ht.md:97: R7 warning: `## See also` is no section of a process page', found[0])
+            self.assertIn('R7 warning: the page has no `## Related`', found[1])
+
+    def test_a_page_not_yet_rewritten_is_not_held_to_figures_keys_and_glossary_links(self):
+        self.page('processes/ht.md', PROCESS.replace(*NOT_REWRITTEN).replace('derived: false\n', '')
+                  .replace('[linear](../reference/glossary.md#linear)', 'linear')
+                  .replace('  - {n: 3, x: 50, y: 50}', '  - {n: 9, x: 50, y: 50}'))
+        code, output = self.run_main('--pending')
+        self.assertEqual(code, 0, output)
+        for rule in ('R10 figures', 'R12 process keys', 'R13 glossary links'):
+            self.assertIn('%s: 0 error(s), 0 warning(s)' % rule, output)
+
+
+class HeadingRuleTests(WritingCase):
+    def test_each_break_of_the_process_template_fails(self):
+        related = '## Related\n\n- [Image Viewer](../interface/viewer.md), where the result shows.\n\n'
+        self.cases('R7', (
+            ('a section the template lacks', 'processes/ht.md', '## Starting points', '## Performance',
+             '`## Performance` is no section of a process page (docs/user-guide/templates/PROCESS_PAGE_TEMPLATE.md)'),
+            ('a missing section', 'processes/ht.md', related, '', 'the page has no `## Related`'),
+            ('a subsection the section lacks', 'processes/ht.md', '### Model', '### Theory',
+             '`### Theory` is no subsection of `## How it works`; they are Model, Boundaries, Worked example'),
+            ('a subsection where there is none', 'processes/ht.md', '## Controls\n', '### More\n\nText.\n\n'
+             '## Controls\n', '`### More` is under `## Steps`, which has no subsections'),
+            ('a heading of level four', 'processes/ht.md', '### Model', '### Model\n\n#### Detail',
+             '"Detail" is a heading of level 4'),
+            ('a heading in the opening', 'processes/ht.md', 'The process maps', '### Overview\n\nThe process maps',
+             '`### Overview` comes before the first section'),
+            ('a step without a bold lead', 'processes/ht.md', '2. **Move the midtones.**', '2. Move the midtones.',
+             'step 2 opens without a bold lead'),
+            ('an entry without a fix', 'processes/ht.md', ':   **Fix.** Lower them.\n', '',
+             'the entry "The preview is black" has no `**Fix.**`'),
+            ('controls outside a block', 'processes/ht.md', '```controls\n- name: Midtones\n  kind: spinbox\n  '
+             'default: "0.50"\n  widget: {min: 0, max: 1}\n  effect: Lower brightens the image.\n```\n',
+             'Midtones brightens.\n', '`## Controls` has no `controls` block'),
+        ))
+
+    def test_sections_out_of_order_and_repeated_fail(self):
+        related = '## Related\n\n- [Image Viewer](../interface/viewer.md), where the result shows.\n\n'
+        self.page('processes/ht.md', PROCESS.replace(related, '').replace('## Starting points', related +
+                                                                           '## Starting points'))
+        self.assertFails('R7', '`## Starting points` comes after `## Related`; the sections of a process page are, '
+                         'in order: Before you start, Steps, Controls, How it works, Starting points (optional), '
+                         'When it goes wrong, Related, Credits (optional)', count=2)
+        self.page('processes/ht.md', PROCESS.replace('### Model', '### Boundaries').replace(
+            '### Boundaries\n\n- A sample', '### Model\n\n- A sample'))
+        self.assertFails('R7', '`### Model` comes after `### Boundaries`')
+        self.restore()
+        self.change('processes/ht.md', '## Credits', '## Related\n\n- [Glossary](../reference/glossary.md)\n\n'
+                    '## Credits')
+        self.assertFails('R7', 'ht.md:102: R7 `## Related` repeats `## Related` of line 98')
+
+    def test_a_process_page_without_steps_as_a_list_fails(self):
+        self.change('processes/ht.md', '1. **Open the window.** Choose it from the menu.\n2. **Move the midtones.** '
+                    'Watch the preview.\n3. **Apply.** The view is replaced.\n', 'Open the window and apply.\n')
+        # The pins of the opening figure then match no step, which is R10's to say.
+        code, found = self.findings('R7')
+        self.assertEqual((code, len(found)), (1, 1), found)
+        self.assertIn('`## Steps` has no ordered list', found[0])
+
+    def test_each_break_of_the_other_templates_fails(self):
+        self.cases('R7', (
+            ('an interface page without its numbered list', 'interface/viewer.md',
+             '1. **The toolbar.** What acts on the view.\n2. **The image.** What is shown.\n', 'A toolbar.\n',
+             '`## What you see` has no numbered list'),
+            ('a tutorial whose steps are not headings', 'workflows/deep.md', '### Stack\n\nFollow [First Stack]'
+             '(../start/first.md).\n\n### Stretch\n', '1. Stack.\n2. Stretch.\n', '`## Steps` has no step; each step '
+             'of a workflow is a `###` heading'),
+            ('a tutorial without a task list', 'start/first.md', '- [ ] The light frames', '- The light frames',
+             '`## What you need` has no task list'),
+            ('both branch sections', 'start/first.md', '## Steps', '## Your data\n\n- **One.** Text.\n\n## Steps',
+             '`## Your data` repeats `## Your camera`'),
+            ('a subsection outside the steps', 'start/first.md', 'One master in the output folder.',
+             '### Where\n\nOne master in the output folder.', '`### Where` is under `## The result`'),
+            ('a glossary section that is no letter', 'reference/glossary.md', '## M\n', '## Measures\n',
+             '`## Measures` is no section of the glossary'),
+            ('glossary sections out of order', 'reference/glossary.md', '## M\n\n### MAD', '## A\n\n### Apex',
+             '`## A` comes after `## L`'),
+            ('a term under another letter', 'reference/glossary.md', '### MAD', '### Sigma',
+             '`### Sigma` is under `## M`'),
+            ('a home page with a body', 'index.md', '# The guide\n', '# The guide\n\nWelcome.\n',
+             'the home page is drawn from its front matter; it has nothing below its H1'),
+        ))
+
+    def test_an_interface_page_may_head_its_tasks_and_a_tutorial_its_steps(self):
+        self.change('interface/viewer.md', '- Zoom to fit.', '### Zoom\n\n- Zoom to fit.')
+        self.assertPasses()
+
+    def test_a_reference_page_is_free_in_its_sections(self):
+        self.page('assets/MEDIA_PROVENANCE.md', PROVENANCE + '\n## Anything\n\n### At all\n\n#### Deeper\n\nText.\n')
+        self.assertPasses()
+
+    def test_a_heading_in_a_code_block_is_no_heading(self):
+        self.change('processes/ht.md', 'A master is stretched.', 'A master is stretched.\n\n```markdown\n## Not a '
+                    'section\n```')
+        self.assertPasses()
+
+
+class LimitRuleTests(WritingCase):
+    def test_each_budget_of_a_process_page_is_held(self):
+        row = '| A dark master | Midtones 0.12 | The shadows |\n'
+        callout = '!!! warning "A stretch is not undone by another"\n    Use the history.\n\n'
+        entry = 'The preview is black\n:   **Cause.** The shadows are too high.\n:   **Fix.** Lower them.\n'
+        self.cases('R8', (
+            ('the summary', 'processes/ht.md', 'summary: Stretches the image through a midtones transfer.',
+             'summary: ' + words(41), '`summary` has 41 words, over the limit of 40'),
+            ('the page', 'processes/ht.md', 'The transfer bends the range.', words(1800),
+             'words, over the limit of 1800 for a process page'),
+            ('the opening', 'processes/ht.md', 'The process maps the image through a transfer. Apply replaces the '
+             'target.', words(121), 'the opening has 121 words, over the limit of 120 for a process page'),
+            ('the steps', 'processes/ht.md', '3. **Apply.** The view is replaced.\n',
+             items(8, '%d. **Again.** Once more.\n'), '`## Steps` has 10 steps, over the limit of 9'),
+            ('the bullets before you start', 'processes/ht.md', '## Steps', items(6, '- Bullet %d.\n') + '\n## Steps',
+             '`## Before you start` has 7 bullets, over the limit of 6'),
+            ('the numbered statements', 'processes/ht.md', '1. The samples are rescaled.\n',
+             items(6, '%d. A statement.\n'), '`## How it works` has 6 numbered statements, over the limit of 5'),
+            ('the boundaries', 'processes/ht.md', '- A sample outside the range is clipped.\n',
+             items(6, '- Boundary %d.\n'), '`### Boundaries` has 6 bullets, over the limit of 5'),
+            ('the rows of the starting points', 'processes/ht.md', row, row * 5,
+             'the table of `## Starting points` has 5 rows, over the limit of 4'),
+            ('the columns of the starting points', 'processes/ht.md', '| Situation | Start | Then adjust |\n| --- | '
+             '--- | --- |\n' + row, '| Situation | Start | Then adjust | Why |\n| --- | --- | --- | --- |\n'
+             '| A dark master | Midtones 0.12 | The shadows | Faint signal |\n',
+             'the table of `## Starting points` has 4 columns, over the limit of 3'),
+            ('the warning callouts', 'processes/ht.md', callout, callout * 5,
+             'the page has 5 warning and danger callouts, over the limit of 4'),
+            ('the troubleshooting entries', 'processes/ht.md', entry, (entry + '\n') * 9,
+             '`## When it goes wrong` has 9 entries, over the limit of 8'),
+            ('the related links', 'processes/ht.md', '## Credits', items(6, '- [Glossary %d](../reference/'
+             'glossary.md)\n') + '\n## Credits', '`## Related` has 7 links, over the limit of 6'),
+            ('the credits', 'processes/ht.md', '- [A paper](https://example.org/), by its authors.\n',
+             items(9, '- Credit %d.\n'), '`## Credits` has 9 entries, over the limit of 8'),
+        ))
+
+    def test_the_credits_the_blocks_and_the_math_are_not_counted_as_words(self):
+        self.change('processes/ht.md', '- [A paper](https://example.org/), by its authors.',
+                    '- [A paper](https://example.org/), by its authors. ' + words(1800))
+        self.assertPasses()
+        self.restore()
+        self.change('processes/ht.md', 'The transfer bends the range.', 'The transfer bends the range.\n\n```text\n' +
+                    words(1800) + '\n```\n\n\\[\n' + words(1800) + '\n\\]\n\nInline \\(' + words(1800) + '\\) math.')
+        self.assertPasses()
+
+    def test_a_table_of_six_columns_fails_on_any_page(self):
+        self.change('assets/MEDIA_PROVENANCE.md', '| Picture | Source | Date |\n| --- | --- | --- |',
+                    '| Picture | Source | Date | A | B | C |\n| --- | --- | --- | --- | --- | --- |')
+        self.assertFails('R8', 'MEDIA_PROVENANCE.md:8: R8 the table has 6 columns, over the limit of 5')
+
+    def test_a_bar_in_a_code_span_or_escaped_is_no_column(self):
+        self.change('assets/MEDIA_PROVENANCE.md', '| Picture | Source | Date |\n| --- | --- | --- |',
+                    '| Picture `a|b|c|d` | Source \\| more | Date |\n| --- | --- | --- |')
+        self.assertPasses()
+
+    def test_a_large_page_has_the_budgets_of_large_pages(self):
+        limits = REAL_DATA['limits.yml'].replace('large_pages:\n', 'large_pages:\n  - processes/ht.md\n')
+        self.write('docs/user-guide/data/limits.yml', limits)
+        self.change('processes/ht.md', '3. **Apply.** The view is replaced.\n',
+                    items(10, '%d. **Again.** Once more.\n'))
+        self.assertPasses()
+        self.restore()
+        self.change('processes/ht.md', '3. **Apply.** The view is replaced.\n',
+                    items(11, '%d. **Again.** Once more.\n'))
+        self.assertFails('R8', '`## Steps` has 13 steps, over the limit of 12 for a large process page')
+
+    def test_the_budgets_of_the_other_kinds_are_held(self):
+        entry = 'The image is black\n:   **Cause.** No display stretch is on.\n:   **Fix.** Turn it on.\n'
+        wrong = '??? wrong "If it goes wrong: a frame is missing"\n    Add it by hand.\n'
+        self.cases('R8', (
+            ('an interface page\'s entries', 'interface/viewer.md', entry, (entry + '\n') * 7,
+             '`## When it goes wrong` has 7 entries, over the limit of 6 for an interface page'),
+            ('an interface page\'s words', 'interface/viewer.md', 'The viewer shows one image.', words(1200),
+             'words, over the limit of 1200 for an interface page'),
+            ('a tutorial\'s steps', 'start/first.md', '### Run\n\nPress Run.\n', items(12, '### Step %d\n\nDo it.\n\n'),
+             '`## Steps` has 13 steps, over the limit of 12 for a tutorial page'),
+            ('two wrong boxes in a step', 'start/first.md', wrong, wrong + '\n' + wrong,
+             'the step "Add the frames" has 2 `wrong` boxes, over the limit of 1'),
+            ('a workflow\'s words', 'workflows/deep.md', 'A finished picture.', words(2500),
+             'over the limit of 2500 for a workflow page'),
+            ('a glossary entry', 'reference/glossary.md', 'The median absolute deviation.', words(81),
+             'the entry "MAD" has 81 words, over the limit of 80 for a glossary entry'),
+        ))
+
+    def test_there_is_no_lower_limit(self):
+        self.page('workflows/deep.md', WORKFLOW.replace('You take one target through the pipeline.\n', ''))
+        self.assertPasses()
+
+
+class VocabularyRuleTests(WritingCase):
+    def test_a_forbidden_word_fails_wherever_the_page_says_it(self):
+        self.cases('R9', (
+            ('in the prose', 'processes/ht.md', 'Watch the preview.', 'Verify the preview.', 'ht.md:43: R9 says '
+             '"Verify": what proves a sentence belongs in the repository'),
+            ('in a heading', 'assets/MEDIA_PROVENANCE.md', '# Media Provenance', '# Media Evidence',
+             'says "Evidence"'),
+            ('in the summary', 'processes/ht.md', 'summary: Stretches the image',
+             'summary: As implemented in the current build, stretches the image', 'ht.md:7: R9 says "current build"'),
+            ('in the glance', 'processes/ht.md', 'inputs: One image view.', 'inputs: One validated image view.',
+             'says "validated"'),
+            ('in a control\'s facet', 'processes/ht.md', '  effect: Lower brightens the image.',
+             '  effect: Lower brightens the image.\n  note: Source-derived.', 'ht.md:54: R9 says "Source-derived"'),
+            ('in a caption', 'processes/ht.md', 'caption: The window as it opens.',
+             'caption: The window, checked 2026-11-09.', 'says "checked 2026-11-09"'),
+            ('a function in the prose', 'processes/ht.md', 'Watch the preview.', 'Watch what applyStretch() does.',
+             'says "applyStretch()": a reader cannot use the name of a function'),
+            ('a source file in a code span', 'processes/ht.md', 'Watch the preview.',
+             'Read `HistogramProcess.cpp`.', 'says "HistogramProcess.cpp"'),
+            ('a scoped name in a code span', 'processes/ht.md', 'Watch the preview.', 'It is `an::ui::Stretch`.',
+             'says "an::ui::Stretch"'),
+            ('a test in a code span', 'processes/ht.md', 'Watch the preview.', 'See `Test_ProcessesTone`.',
+             'says "Test_ProcessesTone"'),
+            ('a comment for the authors', 'processes/ht.md', '## Related', '<!-- to be completed -->\n\n## Related',
+             'the page has an HTML comment'),
+        ))
+
+    def test_one_word_is_one_finding(self):
+        self.change('processes/ht.md', 'Watch the preview.', 'See `test_stretch.cpp` of `Test_Stretch`.')
+        self.assertFails('R9', 'says "test_stretch.cpp"', 'says "Test_Stretch"', count=2)
+
+    def test_code_math_and_addresses_are_not_what_the_page_says(self):
+        self.change('processes/ht.md', 'Watch the preview.', 'Type `mtf()` or read [the paper]'
+                    '(https://example.org/verified/evidence.html) and <https://example.org/validation>. '
+                    '\\( \\mathrm{evidence} \\)\n\n    ```text\n    verify() and validate\n    ```\n\n    \\[\n    '
+                    '\\mathrm{validation}\n    \\]')
+        self.assertPasses()
+
+    def test_a_label_of_the_window_is_not_the_pages_word(self):
+        self.change('processes/ht.md', '- name: Midtones', '- name: Validate')
+        self.assertPasses()
+
+    def test_the_allow_list_allows_a_text_on_its_page_only(self):
+        allow = ('allow:\n  - page: processes/ht.md\n    text: "**Validate masters**"\n    reason: The button\'s '
+                 'label.\n')
+        self.write('docs/user-guide/data/vocabulary.yml', REAL_DATA['vocabulary.yml'].replace('allow: []\n', allow))
+        self.change('processes/ht.md', 'Watch the preview.', 'Press **Validate masters**.')
+        self.assertPasses()
+        self.change('processes/ht.md', 'Watch the preview.', 'Press **Validate masters** to validate them.')
+        self.assertFails('R9', 'says "validate"')
+        self.restore()
+        self.change('interface/viewer.md', 'Zoom to fit.', 'Press **Validate masters**.')
+        code, output = self.run_main()
+        self.assertEqual(code, 1, output)
+        self.assertIn('viewer.md:27: R9 says "Validate"', output)
+        self.assertRegex(output.replace('\\', '/'), r'data/vocabulary\.yml:\d+: R9 warning: the allow-list allows '
+                         r'"\*\*Validate masters\*\*" on processes/ht\.md, which does not say it')
+
+    def test_an_allowance_for_a_page_the_guide_lacks_is_a_warning(self):
+        allow = 'allow:\n  - {page: processes/gone.md, text: Validate, reason: A label.}\n'
+        self.write('docs/user-guide/data/vocabulary.yml', REAL_DATA['vocabulary.yml'].replace('allow: []\n', allow))
+        self.assertWarns('R9', 'the allow-list names processes/gone.md, which is not a page')
+
+
+class FigureRuleTests(WritingCase):
+    def test_each_break_of_the_figures_fails(self):
+        opening = ('```figure\nimage: ../assets/images/ht.png\nalt: The window with its histogram.\ncaption: The '
+                   'window as it opens.\npins:\n  - {n: 1, x: 10, y: 10}\n  - {n: 3, x: 50, y: 50}\n```\n')
+        self.cases('R10', (
+            ('a picture outside a figure block', 'workflows/deep.md', 'A finished picture.',
+             'A finished picture.\n\n![The picture](../assets/images/ht.png)', 'deep.md:35: R10 the picture is not '
+             'in a `figure` block'),
+            ('a figure without a caption', 'processes/ht.md', 'caption: The window as it opens.\n', '',
+             'the figure has no `caption`'),
+            ('a picture without an alternative text', 'processes/ht.md', '    alt: The master after.\n', '',
+             'the figure has a picture without `alt`'),
+            ('a process page whose figure comes after its first section', 'processes/ht.md', opening +
+             '\n## Before you start\n', '## Before you start\n\n' + opening,
+             'A process page opens with one figure of its window, before its first section; this one has 0 figures'),
+            ('a process page with two', 'processes/ht.md', opening, opening + '\n' + opening.replace('ht.png',
+                                                                                                    'before.png'),
+             'this one has 2 figures there'),
+            ('a pin without a step', 'processes/ht.md', '{n: 3, x: 50, y: 50}', '{n: 4, x: 50, y: 50}',
+             'ht.md:27: R10 pin 4 matches no step; the page has 3 steps'),
+            ('an item without a pin', 'interface/viewer.md', '  - {n: 2, x: 60, y: 60}\n', '',
+             'item 2 of `## What you see` has no pin on the opening figure'),
+            ('a tutorial\'s pin without a step', 'start/first.md', '{n: 2, x: 60, y: 60}', '{n: 5, x: 60, y: 60}',
+             'pin 5 matches no step; the page has 2 steps'),
+        ))
+
+    def test_an_opening_pair_is_not_the_window(self):
+        self.page('interface/viewer.md', INTERFACE.replace(
+            'image: ../assets/images/viewer.png\nalt: The viewer with its toolbar.\ncaption: The parts of the '
+            'viewer.\npins:\n  - {n: 1, x: 10, y: 10}\n  - {n: 2, x: 60, y: 60}\n',
+            'images:\n  - image: ../assets/images/viewer.png\n    alt: Before.\n    label: Before\n  - image: '
+            '../assets/images/first.png\n    alt: After.\n    label: After\ncaption: A pair.\n'))
+        self.assertFails('R10', 'An interface page opens with one figure of its window', 'a before-and-after pair')
+
+    def test_a_result_centric_process_without_a_pair_is_a_warning(self):
+        pair = PROCESS[PROCESS.index('```figure\nimages:'):PROCESS.index('## Starting points')]
+        self.page('processes/ht.md', PROCESS.replace(pair, ''))
+        self.page('assets/MEDIA_PROVENANCE.md', PROVENANCE)
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('ht.md:68: R10 warning: a Stretching process is judged by its result, and the page shows no '
+                      'before-and-after pair under `### Worked example`', output)
+
+    def test_a_process_of_another_group_needs_no_pair(self):
+        pair = PROCESS[PROCESS.index('```figure\nimages:'):PROCESS.index('## Starting points')]
+        self.page('processes/ht.md', PROCESS.replace(pair, ''))
+        self.write('docs/user-guide/mkdocs.yml', MKDOCS[:MKDOCS.index('nav:')] +
+                   WRITING_NAV.replace('Stretching:', 'Geometry:'))
+        code, found = self.findings('R10')
+        self.assertEqual((code, found), (0, []))
+
+
+class ImageFileRuleTests(WritingCase):
+    def test_each_break_of_an_image_file_fails_when_a_rewritten_page_shows_it(self):
+        for name, data, fragment in (
+                ('no image', b'GIF89a' + b'\0' * 64, 'the picture is not a PNG, WebP or JPEG file'),
+                ('too large', png(1601, 900), 'the picture is 1601 px on its longest side, over the limit of 1600 px'),
+                ('too heavy', png(800, 600, 409601), 'the picture weighs 401 KB, over the limit of 400 KB'),
+        ):
+            with self.subTest(name):
+                self.image('assets/images/viewer.png', data)
+                self.assertFails('R11', 'assets/images/viewer.png:1: R11 ' + fragment,
+                                 '(shown by interface/viewer.md)')
+
+    def test_the_limits_themselves_pass(self):
+        self.image('assets/images/viewer.png', png(1600, 1600, 409600))
+        self.assertPasses()
+
+    def test_a_picture_without_a_provenance_row_fails(self):
+        self.change('assets/MEDIA_PROVENANCE.md', '| `assets/images/viewer.png` | Captured by the maintainer | '
+                    '2026-11-09 |\n', '')
+        self.assertFails('R11', 'the picture has no row in assets/MEDIA_PROVENANCE.md')
+
+    def test_a_picture_only_pages_not_yet_rewritten_show_is_counted(self):
+        self.image('assets/images/viewer.png', png(3000, 900))
+        self.page('interface/viewer.md', INTERFACE.replace(*NOT_REWRITTEN))
+        code, output = self.run_main()
+        self.assertEqual(code, 0, output)
+        self.assertIn('R11 image files: 0 error(s), 1 warning(s)', output)
+        self.assertNotIn(': R11 ', output)
+        # A rewritten page that shows it too makes it that page's picture.
+        self.change('workflows/deep.md', 'A finished picture.', 'A finished picture.\n\n```figure\nimage: '
+                    '../assets/images/viewer.png\nalt: The viewer.\ncaption: The picture in the viewer.\n```')
+        self.assertFails('R11', 'over the limit of 1600 px (shown by workflows/deep.md)')
+
+
+class ProcessKeyRuleTests(WritingCase):
+    def test_a_rewritten_process_page_states_every_key(self):
+        self.cases('R12', (
+            ('no preview', 'processes/ht.md', 'preview: real-time\n', '', 'a rewritten process page states `preview`'),
+            ('no derived', 'processes/ht.md', 'derived: false\n', '', 'a rewritten process page states `derived`'),
+            ('no glance', 'processes/ht.md', 'glance:\n  enabled: An image view is active.\n  inputs: One image '
+             'view.\n  outputs: The same view, replaced.\n  state: A master that was never stretched.\n', '',
+             'a rewritten process page states `glance`'),
+            ('a glance without its state', 'processes/ht.md', '  state: A master that was never stretched.\n', '',
+             'ht.md:15: R12 `glance` lacks `state`; it states enabled, inputs, outputs, state'),
+        ))
+
+
+class GlossaryRuleTests(WritingCase):
+    def test_the_first_use_of_a_term_without_its_link_is_a_warning(self):
+        self.change('processes/ht.md', '[linear](../reference/glossary.md#linear)', 'linear')
+        self.assertWarns('R13', 'ht.md:38: R13 warning: "Linear" is a term of the glossary; link its first use')
+
+    def test_a_later_use_needs_no_link(self):
+        self.change('processes/ht.md', 'Watch the preview.', 'The image is still linear here.')
+        self.assertPasses()
+
+    def test_a_first_use_before_the_linked_one_is_a_warning(self):
+        self.change('processes/ht.md', 'The process maps the image', 'The process maps the linear image')
+        self.assertWarns('R13', 'ht.md:25: R13 warning: "Linear"')
+
+    def test_a_plural_is_the_term_and_a_longer_word_is_not(self):
+        self.change('workflows/deep.md', 'A finished picture.', 'Nonlinear and linearized data, then linears.')
+        self.assertWarns('R13', 'deep.md:33: R13 warning: "Linear"')
+
+    def test_a_term_in_capitals_matches_only_in_capitals(self):
+        self.change('workflows/deep.md', 'A finished picture.', 'A mad rush.')
+        self.assertPasses()
+        self.change('workflows/deep.md', 'A finished picture.', 'The MAD of the background.')
+        self.assertWarns('R13', '"MAD" is a term of the glossary')
+
+    def test_code_headings_and_a_link_elsewhere_do_not_count(self):
+        self.change('workflows/deep.md', '### Stretch\n', '### Stretch the linear master\n\nSet `linear` off.\n')
+        self.assertPasses()
+        self.change('workflows/deep.md', 'A finished picture.', 'A [linear](../processes/ht.md) picture.')
+        self.assertWarns('R13', '"Linear"')
+
+    def test_the_glossary_itself_links_nothing(self):
+        self.change('reference/glossary.md', 'The median absolute deviation.', 'A linear estimate of spread.')
+        self.assertPasses()
+
+
+class WritingDataTests(WritingCase):
+    def test_limits_that_cannot_be_read_stop_the_check(self):
+        self.write('docs/user-guide/data/limits.yml', REAL_DATA['limits.yml'].replace('    steps: 9', '    stepz: 9'))
+        code, output = self.run_main()
+        self.assertEqual(code, 2)
+        self.assertIn("the guide's data cannot be read", output)
+        self.assertIn('`process.stepz` is no limit of a process page', output)
+
+    def test_a_pattern_that_is_no_expression_stops_the_check(self):
+        self.write('docs/user-guide/data/vocabulary.yml',
+                   REAL_DATA['vocabulary.yml'].replace("'source-derived'", "'source-derived('"))
+        code, output = self.run_main()
+        self.assertEqual(code, 2)
+        self.assertIn('is not a regular expression', output)
+
+    def test_a_changed_limit_is_the_limit(self):
+        self.write('docs/user-guide/data/limits.yml',
+                   REAL_DATA['limits.yml'].replace('    steps: 9', '    steps: 2', 1))
+        self.assertFails('R8', '`## Steps` has 3 steps, over the limit of 2 for a process page')
+
+
+class TemplateTests(unittest.TestCase):
+    """The templates a writer copies are held to the sections and the budgets the check holds a page to."""
+
+    TEMPLATES = (('PROCESS_PAGE_TEMPLATE.md', 'process'), ('INTERFACE_PAGE_TEMPLATE.md', 'interface'),
+                 ('TUTORIAL_PAGE_TEMPLATE.md', 'tutorial'), ('REFERENCE_PAGE_TEMPLATE.md', 'reference'))
+
+    def setUp(self):
+        self.model = guide._load_model()
+        self.guide = os.path.join(guide.REPO_ROOT, 'docs', 'user-guide')
+        self.check = guide._GuideCheck(self.model, guide.REPO_ROOT, self.guide, str)
+
+    def template(self, name):
+        path = os.path.join(self.guide, 'templates', name)
+        return path, self.model.split_front_matter(self.model.read_text(path))
+
+    def test_every_template_has_the_sections_and_shapes_of_its_kind(self):
+        for name, kind in self.TEMPLATES:
+            with self.subTest(name):
+                path, front = self.template(name)
+                self.assertIsNone(front.error)
+                self.assertEqual((front.meta['kind'], front.meta.get('rewritten')), (kind, True))
+                writing = guide._Writing(self.check, 'templates/' + name, path, front)
+                writing.check_headings()
+                self.assertEqual([str(finding) for finding in self.check.findings], [])
+                stated = [heading.title for heading in writing.sections]
+                if kind in guide.SECTIONS:
+                    # A template shows every section, the optional ones too, one title where a section has two.
+                    self.assertEqual(stated, [titles[0] for titles, _ in guide.SECTIONS[kind]])
+                self.assertEqual(guide.TEMPLATE_FILES[kind], name)
+
+    def test_the_budgets_a_template_states_are_those_of_the_limits(self):
+        limits = self.check.limits
+        shared = {'summary_words': limits.summary_words, 'table_columns': limits.table_columns,
+                  'entry_words': limits.glossary_entry_words}
+        for name, kind in self.TEMPLATES:
+            with self.subTest(name):
+                path, _ = self.template(name)
+                stated = re.findall(r'at most ([\d,]+)\s[^()]*?\((\w+)\)', self.model.read_text(path))
+                self.assertTrue(stated)
+                for number, limit in stated:
+                    expected = shared[limit] if limit in shared else limits.of(kind, limit)
+                    self.assertEqual(int(number.replace(',', '')), expected, '%s: %s' % (name, limit))
 
 
 class RepositoryTests(unittest.TestCase):

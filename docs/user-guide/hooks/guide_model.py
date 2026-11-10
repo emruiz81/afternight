@@ -11,6 +11,9 @@ and the rules it is held to. A fact that has a source elsewhere is not repeated 
 its nav label, the category is its nav group, related pages are links in its text, and its budgets live in
 `data/limits.yml`.
 
+The module also reads a page's body as what it says - its headings, lists, tables and prose, outside code and math -
+for the rules that hold a page to its template, its budgets and its vocabulary.
+
 Tests: docs/user-guide/hooks/guide_model_test.py
 """
 
@@ -307,6 +310,198 @@ def load_stages(guide_dir):
     return stages
 
 
+# The limits a page kind may state in data/limits.yml, and the ones its `large` pages may raise.
+KIND_LIMITS = {
+    'process': ('words', 'opening_words', 'before_you_start', 'steps', 'how_it_works', 'boundaries',
+                'starting_points_rows', 'starting_points_columns', 'warnings', 'troubleshooting', 'related',
+                'credits'),
+    'interface': ('words', 'troubleshooting', 'related'),
+    'tutorial': ('words', 'steps', 'wrong_per_step'),
+    'workflow': ('words', 'steps', 'wrong_per_step'),
+    'reference': (),
+}
+IMAGE_LIMITS = ('longest_side', 'max_bytes')
+
+
+def _load_data(guide_dir, name):
+    path = os.path.join(guide_dir, 'data', name)
+    try:
+        data = yaml.safe_load(read_text(path))
+    except (OSError, yaml.YAMLError) as error:
+        raise GuideDataError('%s cannot be read: %s' % (path, error)) from error
+    if not isinstance(data, dict):
+        raise GuideDataError('%s is not a mapping' % path)
+    return path, data
+
+
+def _is_count(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+@dataclass(frozen=True)
+class Limits:
+    """The budgets of data/limits.yml. A limit is an upper bound, and one a kind does not state does not apply."""
+
+    summary_words: int
+    table_columns: int
+    kinds: dict
+    large: dict
+    large_pages: frozenset
+    glossary_page: str
+    glossary_entry_words: int
+    image_longest_side: int
+    image_max_bytes: int
+    provenance_page: str
+    before_after_groups: tuple
+
+    def of(self, kind, name, page=None):
+        """The limit `name` of a page of `kind`, the `large` one when `page` is a large page; None when the kind has
+        none."""
+        if page in self.large_pages and name in self.large.get(kind, {}):
+            return self.large[kind][name]
+        return self.kinds.get(kind, {}).get(name)
+
+
+def load_limits(guide_dir):
+    """The budgets of data/limits.yml."""
+    path, data = _load_data(guide_dir, 'limits.yml')
+
+    def fail(message):
+        raise GuideDataError('%s: %s' % (path, message))
+
+    known = ('summary_words', 'table_columns', 'kinds', 'large_pages', 'glossary', 'images', 'before_after_groups')
+    for key in data:
+        if key not in known:
+            fail('unknown key `%s`' % key)
+    for key in known:
+        if key not in data:
+            fail('`%s` is missing' % key)
+    for key in ('summary_words', 'table_columns'):
+        if not _is_count(data[key]):
+            fail('`%s` is %r, not a count' % (key, data[key]))
+    if not isinstance(data['kinds'], dict):
+        fail('`kinds` is a mapping of page kinds to their limits')
+    kinds, large = {}, {}
+    for kind, limits in data['kinds'].items():
+        if kind not in KIND_LIMITS:
+            fail('`kinds` names %r; a page kind with limits is one of %s' % (kind, ', '.join(KIND_LIMITS)))
+        if not isinstance(limits, dict):
+            fail('the limits of `%s` are a mapping' % kind)
+        kinds[kind] = {}
+        for name, value in limits.items():
+            if name == 'large':
+                if not isinstance(value, dict):
+                    fail('`%s.large` is a mapping of the limits a large page raises' % kind)
+                for large_name, large_value in value.items():
+                    if large_name not in KIND_LIMITS[kind] or not _is_count(large_value):
+                        fail('`%s.large.%s` is %r; it is a count for one of %s' %
+                             (kind, large_name, large_value, ', '.join(KIND_LIMITS[kind])))
+                large[kind] = dict(value)
+            elif name not in KIND_LIMITS[kind]:
+                fail('`%s.%s` is no limit of a %s page; its limits are %s' %
+                     (kind, name, kind, ', '.join(KIND_LIMITS[kind]) or 'none'))
+            elif not _is_count(value):
+                fail('`%s.%s` is %r, not a count' % (kind, name, value))
+            else:
+                kinds[kind][name] = value
+    pages = data['large_pages']
+    if not isinstance(pages, list) or not all(_is_page_path(page) for page in pages) \
+            or len(set(pages)) != len(pages):
+        fail('`large_pages` is a list of distinct pages, each named by its path under the docs folder')
+    glossary = data['glossary']
+    if not isinstance(glossary, dict) or set(glossary) != {'page', 'entry_words'} \
+            or not _is_page_path(glossary['page']) or not _is_count(glossary['entry_words']):
+        fail('`glossary` states `page`, a path under the docs folder, and `entry_words`, a count')
+    images = data['images']
+    if not isinstance(images, dict) or set(images) != set(IMAGE_LIMITS) | {'provenance'} \
+            or not all(_is_count(images[key]) for key in IMAGE_LIMITS) or not _is_page_path(images['provenance']):
+        fail('`images` states %s, each a count, and `provenance`, a page named by its path under the docs folder' %
+             ', '.join(IMAGE_LIMITS))
+    groups = data['before_after_groups']
+    if not isinstance(groups, list) or not all(_is_text(group) for group in groups):
+        fail('`before_after_groups` is a list of nav group labels')
+    return Limits(summary_words=data['summary_words'], table_columns=data['table_columns'], kinds=kinds,
+                  large=large, large_pages=frozenset(pages), glossary_page=glossary['page'],
+                  glossary_entry_words=glossary['entry_words'], image_longest_side=images['longest_side'],
+                  image_max_bytes=images['max_bytes'], provenance_page=images['provenance'],
+                  before_after_groups=tuple(groups))
+
+
+@dataclass(frozen=True)
+class ForbiddenPattern:
+    group: str
+    why: str
+    source: str
+    regex: re.Pattern
+    code: bool = False
+
+
+@dataclass(frozen=True)
+class Allowance:
+    page: str
+    text: str
+    reason: str
+    line: int
+
+
+@dataclass(frozen=True)
+class Vocabulary:
+    """The forbidden patterns of data/vocabulary.yml and what a page may say all the same."""
+
+    patterns: tuple
+    allow: tuple
+
+
+def load_vocabulary(guide_dir):
+    """The forbidden vocabulary of data/vocabulary.yml: its patterns, compiled without regard to case, and its
+    allow-list."""
+    path, data = _load_data(guide_dir, 'vocabulary.yml')
+
+    def fail(message):
+        raise GuideDataError('%s: %s' % (path, message))
+
+    if set(data) != {'forbidden', 'allow'}:
+        fail('the file states `forbidden` and `allow`')
+    if not isinstance(data['forbidden'], dict) or not data['forbidden']:
+        fail('`forbidden` is a mapping of groups, each with `why` and `patterns`')
+    patterns = []
+    for group, entry in data['forbidden'].items():
+        if not isinstance(entry, dict) or set(entry) != {'why', 'patterns'} or not _is_text(entry['why']) \
+                or not isinstance(entry['patterns'], list) or not entry['patterns']:
+            fail('`forbidden.%s` states `why`, a sentence, and `patterns`, a list' % group)
+        for item in entry['patterns']:
+            if isinstance(item, dict) and set(item) == {'pattern', 'code'} and isinstance(item['code'], bool):
+                source, code = item['pattern'], item['code']
+            else:
+                source, code = item, False
+            if not _is_text(source):
+                fail('a pattern of `forbidden.%s` is %r; it is a regular expression, or {pattern, code}' %
+                     (group, item))
+            try:
+                regex = re.compile(source, re.IGNORECASE)
+            except re.error as error:
+                fail('the pattern %r of `forbidden.%s` is not a regular expression: %s' % (source, group, error))
+            patterns.append(ForbiddenPattern(group=group, why=entry['why'].strip(), source=source, regex=regex,
+                                             code=code))
+    if not isinstance(data['allow'], list):
+        fail('`allow` is a list of {page, text, reason}')
+    lines = read_text(path).split('\n')
+    allow = []
+    searched_from = 0
+    for entry in data['allow']:
+        if not _is_record(('page', 'text', 'reason'))(entry):
+            fail('an entry of `allow` is %r; it states `page`, a path under the docs folder, `text` and `reason`' %
+                 (entry,))
+        # The line of the entry: the next line, after the previous entry's, that names its page.
+        line = next((index for index in range(searched_from, len(lines))
+                     if not lines[index].lstrip().startswith('#') and entry['page'] in lines[index]), None)
+        if line is not None:
+            searched_from = line + 1
+        allow.append(Allowance(page=entry['page'], text=entry['text'], reason=entry['reason'],
+                               line=line + 1 if line is not None else 1))
+    return Vocabulary(patterns=tuple(patterns), allow=tuple(allow))
+
+
 class _NavLoader(yaml.SafeLoader):
     """A safe loader that reads mkdocs.yml's `!!python/name:` and `!ENV` tags as nothing: only the nav matters here."""
 
@@ -402,19 +597,69 @@ def fence_blocks(body, first_line=1):
     return blocks
 
 
-def figure_images(source):
-    """The image paths a `figure` block names, in order; none when the block is not valid YAML, which the build
-    reports."""
+def read_figure(source):
+    """A `figure` block as written, without judging it: {'pair', 'images': [{'image', 'alt', 'label'}], 'caption',
+    'pins': [numbers]}, each text stripped and empty when it is not stated. None when the block is not a YAML mapping,
+    which the build reports."""
     try:
         data = yaml.load(textwrap.dedent(source), yaml.BaseLoader)
     except yaml.YAMLError:
-        return []
+        return None
     if not isinstance(data, dict):
+        return None
+
+    def text(entry, key):
+        return entry[key].strip() if isinstance(entry.get(key), str) else ''
+
+    pair = 'images' in data
+    if not pair:
+        entries = [data]
+    elif isinstance(data['images'], list):
+        entries = [entry for entry in data['images'] if isinstance(entry, dict)]
+    else:
+        entries = []
+    pins = []
+    for pin in data.get('pins') if isinstance(data.get('pins'), list) else []:
+        number = pin.get('n') if isinstance(pin, dict) else None
+        if isinstance(number, str) and number.strip().isdigit():
+            pins.append(int(number))
+    return {'pair': pair, 'caption': text(data, 'caption'), 'pins': pins,
+            'images': [{'image': text(entry, 'image'), 'alt': text(entry, 'alt'), 'label': text(entry, 'label')}
+                       for entry in entries]}
+
+
+def figure_images(source):
+    """The image paths a `figure` block names, in order; none when the block is not valid YAML, which the build
+    reports."""
+    figure = read_figure(source)
+    return [entry['image'] for entry in figure['images'] if entry['image']] if figure else []
+
+
+def block_texts(source, keys):
+    """(line inside the block, from 1; key; text) for every scalar a `controls` or `figure` block states under one of
+    `keys`, at any depth: the sentences such a block puts on the page. None of them when the block is not valid YAML,
+    which the build reports."""
+    try:
+        root = yaml.compose(textwrap.dedent(source), Loader=yaml.BaseLoader)
+    except yaml.YAMLError:
         return []
-    entries = [data]
-    if isinstance(data.get('images'), list):
-        entries += [entry for entry in data['images'] if isinstance(entry, dict)]
-    return [entry['image'] for entry in entries if isinstance(entry.get('image'), str)]
+    found = []
+
+    def walk(node):
+        if isinstance(node, yaml.SequenceNode):
+            for item in node.value:
+                walk(item)
+        elif isinstance(node, yaml.MappingNode):
+            for key, value in node.value:
+                if isinstance(key, yaml.ScalarNode) and isinstance(value, yaml.ScalarNode):
+                    if key.value in keys:
+                        found.append((value.start_mark.line + 1, key.value, value.value))
+                else:
+                    walk(value)
+
+    if root is not None:
+        walk(root)
+    return found
 
 
 def meta_images(meta):
@@ -467,6 +712,13 @@ def image_references(body, first_line=1):
             for url in figure_images(source):
                 offset = next((index for index, text in enumerate(source_lines, start=1) if url in text), 0)
                 references.append((line + offset, url))
+    return references + inline_images(body, first_line)
+
+
+def inline_images(body, first_line=1):
+    """(line, url) for every image a page body shows without a `figure` block: Markdown images and `<img src>`,
+    outside code."""
+    references = []
     for number, line in _outside_code(body):
         for match in _MARKDOWN_IMAGE.finditer(line):
             references.append((number + first_line - 1, match.group(1) if match.group(1) is not None
@@ -475,6 +727,168 @@ def image_references(body, first_line=1):
             references.append((number + first_line - 1, match.group(1) if match.group(1) is not None
                                else match.group(2)))
     return references
+
+
+# --- A page body as what it says --------------------------------------------------------------------------------------
+
+_MATH = re.compile(r'\\\[.*?\\\]|\\\(.*?\\\)|\$\$.*?\$\$', re.DOTALL)
+_HEADING = re.compile(r'^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$')
+_HEADING_ATTRIBUTES = re.compile(r'[ \t]*\{[^{}]*\}$')
+_ORDERED_ITEM = re.compile(r'^ {0,3}\d+[.)][ \t]+(.*)$')
+_BULLET = re.compile(r'^ {0,3}[-*+][ \t]+(.*)$')
+_DEFINITION = re.compile(r'^ {0,3}:[ \t]+(.*)$')
+_TABLE_SEPARATOR = re.compile(r'^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$')
+_UNESCAPED_PIPE = re.compile(r'(?<!\\)\|')
+_CALLOUT = re.compile(r'^\s*(?:!!!|\?\?\?\+?)[ \t]+([A-Za-z0-9_-]+)')
+_LINK = re.compile(r'\[((?:[^\]\\]|\\.)*)\]\(\s*(<[^>]*>|[^)\s]*)(?:\s+(?:"[^"]*"|\'[^\']*\'))?\s*\)')
+_LINK_TARGET = re.compile(r'(?<=\])\(\s*(?:<[^>]*>|[^)\s]*)(?:\s+(?:"[^"]*"|\'[^\']*\'))?\s*\)')
+_BARE_URL = re.compile(r'<[^>\s]*>|\b[a-z][a-z0-9+.-]*://\S+', re.IGNORECASE)
+_HTML_TAG = re.compile(r'</?[A-Za-z][^>]*>')
+_WORD = re.compile(r'\w')
+_MARKUP_PREFIX = re.compile(r'^\s*(?:(?:[-*+]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?|(?:!!!|\?\?\?\+?)[ \t]+[A-Za-z0-9_-]+|'
+                            r'#{1,6}[ \t]+|:[ \t]+|>[ \t]*)')
+
+
+def _blank(match):
+    return re.sub(r'[^\n]', ' ', match.group(0))
+
+
+def prose_lines(body, first_line=1):
+    """(line number, text) for every line of a page body, as what the page says: the lines of fenced blocks are
+    empty, and HTML comments and math are blanked, each character but a line end replaced by a space, so a column
+    in the text is the column in the file."""
+    lines = body.split('\n')
+    kept = [''] * len(lines)
+    fence = None
+    for index, line in enumerate(lines):
+        opened = _FENCE.match(line)
+        if fence is None:
+            if opened:
+                fence = opened.group(1)
+            else:
+                kept[index] = line
+        elif opened and opened.group(1)[0] == fence[0] and len(opened.group(1)) >= len(fence) \
+                and line.strip() == opened.group(1):
+            fence = None
+    text = _MATH.sub(_blank, _HTML_COMMENT.sub(_blank, '\n'.join(kept)))
+    return [(number + first_line - 1, line) for number, line in enumerate(text.split('\n'), start=1)]
+
+
+def without_code_spans(text):
+    """The text with its code spans blanked."""
+    return _CODE_SPAN.sub(_blank, text)
+
+
+def without_addresses(text):
+    """The text with what it does not say blanked: the addresses of its links, bare URLs and HTML tags."""
+    return _HTML_TAG.sub(_blank, _BARE_URL.sub(_blank, _LINK_TARGET.sub(_blank, text)))
+
+
+def links(text):
+    """(start and end of the link's words, its address) for every inline link of a line of text."""
+    return [(match.start(1), match.end(1), match.group(2).strip('<>')) for match in _LINK.finditer(text)]
+
+
+def count_words(text):
+    """The words of a piece of Markdown: what white space separates and holds a letter or a digit, once the list
+    marker, the heading marker or the callout type that opens a line and the addresses of links are set aside. A
+    table's rules and a row's bars are no words."""
+    words = 0
+    for line in text.split('\n'):
+        line = _MARKUP_PREFIX.sub('', without_addresses(line), count=1)
+        words += sum(1 for token in line.split() if _WORD.search(token))
+    return words
+
+
+@dataclass(frozen=True)
+class Heading:
+    level: int
+    title: str
+    line: int
+
+
+def headings(lines):
+    """The headings among `prose_lines`, in order. A title is compared as written, without the attribute list that
+    may close it."""
+    found = []
+    for number, text in lines:
+        match = _HEADING.match(text)
+        if match:
+            found.append(Heading(level=len(match.group(1)), title=_HEADING_ATTRIBUTES.sub('', match.group(2)).strip(),
+                                 line=number))
+    return found
+
+
+def section_lines(lines, found, heading):
+    """The lines of `prose_lines` under a heading, to the next heading of its level or above."""
+    end = next((other.line for other in found if other.line > heading.line and other.level <= heading.level), None)
+    return [(number, text) for number, text in lines if number > heading.line and (end is None or number < end)]
+
+
+def ordered_items(lines):
+    """(line, text) of every top-level item of the ordered lists among some lines."""
+    return [(number, match.group(1)) for number, text in lines for match in [_ORDERED_ITEM.match(text)] if match]
+
+
+def bullets(lines):
+    """(line, text) of every top-level bullet among some lines."""
+    return [(number, match.group(1)) for number, text in lines for match in [_BULLET.match(text)] if match]
+
+
+def definitions(lines):
+    """(line, term, definitions) of every entry of the definition lists among some lines: a term is the line a
+    `:   ` line follows, and its definitions are the texts of those lines, each with the lines that continue it."""
+    entries = []
+    previous = None
+    current = None
+    for number, text in lines:
+        match = _DEFINITION.match(text)
+        if match:
+            if current is None and previous is not None:
+                current = (previous[0], previous[1].strip(), [])
+                entries.append(current)
+            if current is not None:
+                current[2].append(match.group(1))
+        elif text.strip():
+            if current is not None and text.startswith((' ', '\t')):
+                current[2][-1] += ' ' + text.strip()
+            else:
+                current = None
+                previous = (number, text)
+    return entries
+
+
+def _cells(row):
+    row = _CODE_SPAN.sub(lambda match: 'x' * len(match.group(0)), row.strip())
+    if row.startswith('|'):
+        row = row[1:]
+    if row.endswith('|') and not row.endswith('\\|'):
+        row = row[:-1]
+    return len(_UNESCAPED_PIPE.split(row))
+
+
+def tables(lines):
+    """(line of the header, columns, body rows) of every table among some lines."""
+    found = []
+    index = 0
+    while index + 1 < len(lines):
+        number, text = lines[index]
+        rule = lines[index + 1][1]
+        if '|' in text and '-' in rule and _TABLE_SEPARATOR.match(rule) and _cells(text) == _cells(rule):
+            rows = 0
+            index += 2
+            while index < len(lines) and lines[index][1].strip() and '|' in lines[index][1]:
+                rows += 1
+                index += 1
+            found.append((number, _cells(text), rows))
+        else:
+            index += 1
+    return found
+
+
+def callouts(lines):
+    """(line, type) of every callout among some lines: `!!! type` and the folded `??? type`."""
+    return [(number, match.group(1).lower()) for number, text in lines for match in [_CALLOUT.match(text)] if match]
 
 
 def image_size(path):
