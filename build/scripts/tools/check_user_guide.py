@@ -19,7 +19,9 @@ Rules, each reported with its id:
       as the path itself or under a submenu the page names.
   R5  Every image a page shows exists, spelled with the file's own case: its Markdown and HTML images, the images of
       its `figure` blocks and the picture its front matter names (the home page's `hero.image`). An image under
-      assets/images that no page, README.md or the site's logo and favicon uses is a warning.
+      assets/images that no page, README.md or the site's logo and favicon uses is a warning. A picture a `figure`
+      block states `owed: true` for is not yet taken: it must not exist, it is counted in the summary and listed by
+      --owed, and --no-owed, as a release runs it, refuses it.
   R6  Credits. A process page that states `derived: true` has a `## Credits` section that says something: the work
       its result is computed with, its authors and its licence are credited on the page itself.
 
@@ -1265,6 +1267,8 @@ class _GuideCheck:
         self.exact = _ExactCase(self.docs)
         self.pages = {}
         self.shown = {}                # image -> [(the page that shows it, whether that page is rewritten)]
+        self.owed = []                 # (page, line, url) of every picture a figure block says is not yet taken
+        self.refuse_owed = False       # a release asks for every picture: an owed one is then an R5 error
         self.used_allowances = set()
         self.word_counts = {}          # page -> (the words R8 counted, its limit or None)
         self._glossary_terms = None
@@ -1337,6 +1341,17 @@ class _GuideCheck:
         shown = model.image_references(front.body, front.body_line)
         if front.meta:
             shown += [(front.key_lines.get('hero', 1), url) for url in model.meta_images(front.meta)]
+        # A picture a figure block says is owed must not exist yet; it is counted, and refused only when a release asks
+        # for every picture.
+        for line, url in model.image_references(front.body, front.body_line, owed=True):
+            target = urllib.parse.unquote(url.strip().split('#', 1)[0].split('?', 1)[0])
+            resolved = posixpath.normpath(posixpath.join(posixpath.dirname(relative), target))
+            if self.exact.kind(resolved) in ('file', 'case'):
+                self.report('R5', path, line, 'image %s exists: remove `owed`, and the page shows it' % url)
+                continue
+            self.owed.append((relative, line, url))
+            if self.refuse_owed:
+                self.report('R5', path, line, 'image %s is owed: take it before a release' % url)
         for line, url in shown:
             resolved = self.check_image(path, relative, line, url)
             if resolved:
@@ -1583,6 +1598,9 @@ def main(argv=None, stream=None):
                         'which are otherwise only counted')
     parser.add_argument('--site', help='a built site to hold to R1, such as docs/user-guide/site')
     parser.add_argument('--tokens', help='the website\'s assets/css/tokens.css, to hold the theme\'s copy to (R16)')
+    parser.add_argument('--owed', action='store_true', help='list every picture a figure block says is not yet taken')
+    parser.add_argument('--no-owed', action='store_true', help='refuse every picture not yet taken (R5), as a release '
+                        'does')
     arguments = parser.parse_args(argv)
     stream = stream or sys.stdout
     guide = arguments.guide or os.path.join(arguments.repo, 'docs', 'user-guide')
@@ -1600,6 +1618,7 @@ def main(argv=None, stream=None):
     except model.GuideDataError as error:
         print('the guide\'s data cannot be read: %s' % error, file=stream)
         return 2
+    check.refuse_owed = arguments.no_owed
     selected = None
     if arguments.page:
         selected = []
@@ -1612,6 +1631,14 @@ def main(argv=None, stream=None):
     pages, coverage = check.run(selected)
     findings.extend(check.findings)
     summary.extend(_guide_summary(check, pages, coverage))
+    if check.owed:
+        owing = len({page for page, _, _ in check.owed})
+        summary.append('%d picture%s owed, on %d page%s%s' % (
+            len(check.owed), '' if len(check.owed) == 1 else 's', owing, '' if owing == 1 else 's',
+            '' if arguments.owed else '; --owed lists them'))
+    if arguments.owed:
+        for page, line, url in check.owed:
+            print('owed: %s:%d: %s' % (page, line, url), file=stream)
     # A page checked by name is being written: its count against its budget, which R8 states only once it is over.
     for relative in selected or []:
         if relative in check.word_counts:

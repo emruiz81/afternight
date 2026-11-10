@@ -3,282 +3,777 @@ kind: process
 stage: stack
 menu: Process > Preprocess > Image Integration Lite
 summary: >-
-  Runs the shared calibration, registration and stacking workflow from a simpler window, for a first linear master
-  with fewer decisions.
+  Calibrates, registers and stacks the frames of one target in one run, with most choices made for you, and writes
+  one linear master for each filter: the simplified front end of Image Integration.
 data_in: linear
 data_out: linear
+destructive: false
+preview: none
+sequences: false
+masks: none
+external: >-
+  Optional: a plate solver set up in the settings, for Plate solve final masters
+glance:
+  enabled: >-
+    Always. The window opens without an image and works on the files you add. Run Integration waits for the import to
+    end and for the banner to show no error.
+  inputs: >-
+    Still image files of one target as the camera wrote them: lights, and any flats, darks, dark flats and bias
+    frames. No open image, mask, sequence or video is used.
+  outputs: >-
+    Files in the output folder: calibration masters, registered lights, one linear 32-bit floating-point FITS master
+    for each size, filter and object, and the run's report and log. The frames are never changed. The masters open in
+    AfterNight.
+  state: >-
+    The raw frames of one target, grayscale or a color-filter mosaic, before any calibration.
 derived: true
+rewritten: true
 ---
 # Image Integration Lite
 
-![Image Integration Lite ready to run with a single M16 Ha dataset, calibrated-frame assignments, and the Run Integration action](../../assets/images/interface/quick-start-step1.png)
+Image Integration Lite calibrates, registers and stacks the frames of one target in one run, and writes one linear
+[master](../../reference/glossary.md#master) for each frame size, filter and object. Lite makes most choices itself,
+and **Processing Settings** holds the few you may change. It runs the workflow of
+[Image Integration](image-integration.md), which offers every choice Lite makes for you. The run writes into a folder
+you choose, never changes your frames, and opens the masters when it ends. The
+[Quick Start](../../getting-started/quick-start.md) takes you through a first run step by step.
 
-*The ready-to-run state shows the dataset summary, the planned calibration for
-each frame, and the enabled **Run Integration** action.*
-
-## Purpose and expected result
-
-Image Integration Lite turns one simple, single-target set of still light and optional calibration frames into one linear stacked master per resolution, filter, and object group. It exposes the common decisions in one window, then delegates planning, calibration, registration, alignment, normalization, stacking, reporting, cancellation, and result opening to the maintained full [Image Integration](image-integration.md) model and workflow.
-
-Lite is not a separate or reduced-quality stacking engine. It is a simplified front end with a fixed policy for choices that the full process exposes. Use the full process when you need multiple targets, manual grouping or calibration assignments, per-group settings, comet tracking, detailed diagnostics, project persistence, scoped reruns, or advanced artifacts.
-
-## At a glance
-
-| Property | Current behavior |
-| --- | --- |
-| Menu path | **Process > Preprocess > Image Integration Lite** |
-| Enabled when | The top-level window is always available; no active image is required. **Run Integration** remains disabled during import and while validation has errors. |
-| Inputs | Engine-supported still-image files added individually or recursively from a folder: FITS, TIFF, PNG, JPEG, camera RAW, XISF, and other extensions currently accepted by the image-codec registry. Frames can be Light, Flat, Dark, Dark Flat, or Bias. |
-| Outputs | Shared Image Integration products: calibration masters as needed, registered/normalization intermediates, one stacked FITS light master per integration group, workflow state, history archive, logs, and HTML/Markdown report. Optional drizzle artifacts are created when enabled. |
-| Recommended image state | Linear acquisition frames. Lite preserves the shared raw-before-demosaic calibration workflow and produces linear masters. |
-| Preview support | None. The table shows file metadata and planned calibration use, but there is no image preview or Apply-to-active-image action. |
-| Sequence support | Unsupported. SER, video, and image-list sequences are not imported; extract still frames first. |
-| Mask support | Unsupported. Lite does not read the active view or its mask. |
-| External dependencies | Deployed image codecs for the chosen input formats. A configured plate solver is needed only when **Plate solve final masters** is on and valid WCS cannot be propagated. Gaia enrichment is enabled internally for registration but does not make catalog availability a readiness prerequisite; without an installed catalog, a run whose lights hold a world-coordinate solution warns that it enriched nothing (see Troubleshooting). |
-| Source modification | Never. Input files and headers are not rewritten. |
+```figure
+image: ../../assets/images/processes/stacking-integration/image-integration-lite.png
+alt: >-
+  The Image Integration Lite window. An amber banner at the top reads Ready with 4 warnings. The Dataset card counts
+  64 light, 150 flat, 0 dark and 0 bias frames, with the filters Ha, Oiii and Sii and the object M 16. The Setup card
+  holds the Output folder with its Browse button, two check boxes, the memory limit and CPU Threads. Processing
+  Settings lists four closed lines: Calibration, Registration, Normalization and Stacking. The Frames card has the Add
+  as box, the Add Files, Add Folder, Change Type and Clear All buttons, and a table of the files with their type,
+  filter, object, exposure and calibration. Run Integration, Open Full Process and Close are at the bottom.
+caption: >-
+  Image Integration Lite after a run on Eagle Nebula narrowband lights and their flats, every setting at its default:
+  one master was stacked for each of the three filters.
+pins:
+  - {n: 2, x: 8.9, y: 30.8}
+  - {n: 3, x: 43.6, y: 71.6}
+  - {n: 4, x: 29.4, y: 18.1}
+  - {n: 5, x: 29.4, y: 51.4}
+  - {n: 6, x: 21.4, y: 10.9}
+  - {n: 7, x: 66.0, y: 97.3}
+```
 
 ## Before you start
 
-- Keep all source files at stable paths and choose a dedicated writable output directory with enough space for calibration masters, registered lights, optional drizzle data, final masters, and history.
-- Use one target object. Lite treats more than one nonblank effective object name as a blocking error and directs multi-object projects to the full process.
-- Prefer complete and correct dimensions, frame type, filter, object, exposure, and capture metadata. **Auto-detect** falls back to Light when type discovery cannot establish another role; use **Add as** or **Change Type** to correct it.
-- Supply matching calibration frames when possible. A lights-only run is allowed but is explicitly warned as uncalibrated. Flats without Bias or Dark Flat frames also produce a warning.
-- Do not mix geometrically incompatible frames in one effective object group. Registration is hidden, but it still needs enough usable stars and compatible geometry.
-- Use **Open Full Process** before running if the table's automatic calibration plan is not appropriate. That handoff copies the current model; it does not turn Lite into a persistent full-process project.
+- Lite stacks one target at a time: the [light frames](../../reference/glossary.md#light-frame) must name one object in
+  their headers, or none. Flats, darks and [bias frames](../../reference/glossary.md#bias-frame) may name any.
+- Add the files as the camera wrote them, in a format [Supported Formats](../../getting-started/supported-formats.md)
+  lists, and do not [debayer](../../reference/glossary.md#debayer) color frames. A video, a
+  [SER](../../reference/glossary.md#ser) file or a [sequence](../../reference/glossary.md#sequence) is not taken:
+  extract its frames with [Extract Sequence](../utility/extract-sequence.md).
+- Give each set a new, empty output folder, on a disk with room for several times the size of the lights.
+- Add [dark-flat](../../reference/glossary.md#dark-flat) frames with **Dark Flat** chosen in **Add as**: **Auto-detect**
+  adds them as darks.
+- **Plate solve final masters** needs a plate solver set up in [Settings](../../interface/settings-dialog.md).
+- For several targets, calibration matched by hand, a chosen reference, a comet or a saved project, use
+  [Image Integration](image-integration.md). **Open Full Process** takes your frames there.
 
-## Procedure
+## Steps
 
-1. Open **Process > Preprocess > Image Integration Lite**.
-2. Set **Output** to a writable folder. The last valid output folder is restored on later openings.
-3. Choose **Add as: Auto-detect** for reliable headers, or force a role for the next import. Select **Add Files** or **Add Folder**; folder import is recursive.
-4. Review **Frames**, **Filters**, and **Object**, then inspect every row's Type, Exposure, and **Calibration** plan. Hover a Calibration cell for the actual master filenames and uses.
-5. Select misclassified rows and choose **Change Type**, or right-click and choose **Set as Light/Flat/Dark/Dark Flat/Bias**.
-6. Expand the four processing sections. Start with the defaults, changing only settings justified by the dataset.
-7. Resolve every red readiness message. Warnings permit execution, but review them before continuing.
-8. Optionally select **Open Full Process** for manual assignments or advanced settings. Otherwise select **Run Integration**.
-9. If the output folder holds registration records in a format this version does not read, the run does not start and they are left unchanged. Follow the shared workflow progress dialog. A successful run reports the number of generated light masters and, when requested, opens them in AfterNight.
+1. **Open the window.** Choose **Process > Preprocess > Image Integration Lite**. No image needs to be open. The red
+   banner reads "No light frames available.", after "Output directory is required." while **Output** is empty.
+2. **Choose the output folder.** Choose **Browse** beside **Output** and pick a new, empty folder, or type its path.
+3. **Add the frames.** Leave **Add as** at **Auto-detect**, or choose **Dark Flat** for dark flats, then choose **Add
+   Folder** or **Add Files**. The table lists one row for each file.
+4. **Check what was found.** Read **Frames**, **Filters** and **Object** in the **Dataset** card, and the **Type** and
+   **Calibration** columns. Correct a wrong type with **Change Type**.
+5. **Change a setting only for a reason.** Click a line of **Processing Settings** to open it. Its title then names
+   your choice.
+6. **Read the banner.** Green or amber lets you run, and red names what to correct. Hover over amber to read its
+   warnings.
+7. **Run.** Choose **Run Integration**. A progress window names each stage, and a box titled **Complete** reads
+   "Workflow completed successfully." at the end.
+8. **Look at the masters.** Choose **Open Report** in the progress window for the report, then **Close**. Each master
+   is open in a view of its own, nearly black until you choose
+   [**Autostretch**](../../reference/glossary.md#autostretch) in its display mode box. Check stars, corners and dust
+   shadows at 100 %.
 
-## Complete parameter and action reference
+## Controls
 
-### Dataset, setup, and resources
+The window has no preview, target, **Apply** or **Reset**: **Run Integration** runs it, on files. Its header, its
+message strip, ++esc++ and its kept size work as in [Process Windows](../../interface/process-windows.md). Only
+**Output** is kept for the next window, and **Clear All** keeps every value.
 
-The tables in this section account for the same ten evidence fields. Later compact tables combine effect with dependencies and trade-off with scope where that keeps closely related behavior readable; a control has no persisted-default exception unless its Persistence cell says it is restored.
+### The banner and Dataset
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Readiness banner | Derived status | Blocking validation text with an empty dataset | None | Error, warning, success, import/preparation/result messages | Reports current model/run state | Errors disable **Run Integration**; warning details are in the tooltip | Diagnostic only | One Lite still-file model; no preview/apply/mask | Run only |
-| **Frames**, **Filters**, **Object** | Read-only summary | No frames; `-`; `-` | None | Counts all role buckets; filter/object lists use included Lights and unique case-insensitive sort | Summarizes loaded data | Multiple real object names block execution; Lite exposes no include/exclude action | Diagnostic only | Loaded still records | Derived from Model |
-| **Output** / **Browse** | Directory text/action | Last valid remembered Lite output, otherwise empty | A valid prior output is restored | Existing or new writable workflow directory; model validation checks suitability | Selects every generated path and incremental/history root | Required for execution | Existing matching products can be reused unless reprocessing is requested | Whole workflow; no active-image scope | Saved with window state and remembered for chooser |
-| **Reprocess existing outputs** | Checkbox | Off | None; resets off on each window | On/off | Forces required stages despite matching files | Enabled outside import | More time and I/O; useful after replacing inputs or assumptions | Whole workflow | Run only |
-| **Open results when complete** | Checkbox | On | None; resets on each window | On/off | Opens generated light masters after success | Enabled outside import | Display convenience only | Successful final still masters | Run only |
-| **Limit memory usage** | Checkbox | Off | None | On/off | Selects tiled stacking and enables Maximum memory | Enabled outside import | Lower peak stacking RAM can increase overhead | All stack groups | Run only |
-| Maximum memory | Integer MB | 2048 MB, disabled | None | 512–1,048,576 MB, step 1 | Raises or lowers the stacker's memory ceiling | Enabled with **Limit memory usage** outside import | Too low can slow tiling; it does not cap every codec/registration allocation | All stack groups | Run only |
-| **CPU Threads** | Integer thread count | Detected parallel core count | None | 1 through detected parallel core count | Caps shared parallel stage admission | Enabled outside import | Lower values reduce CPU pressure and may increase runtime | Whole workflow | Run only |
-
-### Calibration and registration
-
-| UI label/action | Type and unit | Runtime default | Valid values or constraints | Effect and dependencies | Trade-off and scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Matching** | Selector | **Automatic** | Automatic; Strict metadata match; Adaptive | Automatic allows Dark exposure fallback within 20%; Strict disables that fallback; Adaptive uses the same matching policy as Automatic and also forces dark optimization on. Although the shared policy carries a 30-day Flat-session fallback flag, Lite disables session grouping, so that flag is inert and all three choices match Flats without date/session separation | Strict can leave Dark groups unmatched; Flat matching is unchanged because Lite ignores Flat sessions | Run/model only |
-| **Optimize dark frames** | Checkbox | Off | On/off | Enables Light dark scaling; Adaptive forces it on internally even if this checkbox is off. Only a single-channel light of at least 512×512 pixels whose dark varies over its central 512×512 square is optimized; any other light is scaled by the fixed factor 1 instead, and the run's warnings say so once per dark | Useful for near-matching dark signal; inappropriate scaling can distort calibration | Run/model only |
-| **Normalize master flat** | Checkbox | On | On/off | Divides each channel of the selected/built master flat - each colour of a filter-array mosaic - by its mean over the central third of the frame before applying it to Lights, as the full process's **Enable flat auto-level** does | Prevents the flat from changing the overall level; disabling is specialized | Run/model only |
-| **Transform** | Selector | **Homography** | Similarity; Affine; Homography; Polynomial 2; Polynomial 3; Polynomial 4; Auto | Similarity permits shift/rotation/scale; Affine adds shear; Homography is projective; Polynomial choices run a homography base plus the chosen refinement; Auto starts at homography and conditionally refines | More flexible transforms need more reliable matched stars and cost more; over-flexible fits can model bad matches | Run/model only |
-| **Auto-select reference** | Checkbox | On | On/off | Lets registration choose its reference. Off does not expose a manual reference control in Lite | Turn it off only after handing off to the full process and setting references there; otherwise registration may lack an intended anchor | Run/model only |
-| **Auto crop to common area** | Checkbox | Off | On/off | Changes alignment from standard geometry to the intersection common to all registered Lights; when no area is common to every light, the run uses the standard geometry instead and says so | Removes border wedges but reduces field of view | Run/model only |
-
-### Normalization and stacking
-
-| UI label/action | Type and unit | Runtime default | Valid values or constraints | Effect and dependencies | Trade-off and scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Lights** normalization | Selector | **Global Additive Scaling** | Global Additive Scaling; Global Additive; Global Multiplicative Scaling; Global Multiplicative; Local Normalization; None | Maps directly to the shared normalization mode; Local enables the shared local model with its hidden defaults | Local is slower and easier to overfit; None assumes already consistent frames | Every Light integration group; run/model only |
-| **Calibration** normalization | Read-only policy | Bias/Dark: none, Flat: multiplicative scaling | Fixed | Calibration-master stacks ignore the Lights selector | Flat scaling equalizes flat levels; Bias/Dark retain their native scale | Hidden Lite policy |
-| **Method** | Selector | **Average** | Average; Sum; Maximum; Minimum; Median; Auto-Adaptive Weighted Average | Selects the shared pixel combination. Only Average enables rejection | Average normally gives the best noise reduction; extrema and Sum are specialized and disable outlier rejection | Every group; run/model only |
-| **Rejection** | Selector | **Auto** | Auto; None; Sigma Clipping; MAD Clipping; Median Sigma; Winsorized Sigma Clipping; Percentile; GESDT; Linear Fit | Enabled only for Average. Auto resolves separately for each group from frame type/count | Robust methods need enough frames; rejection adds compute and can remove real signal when thresholds are too aggressive | Every group; run/model only |
-| Dynamic rejection low/high fields | Floating thresholds | Hidden for Auto/None; defaults depend on selected method | Sigma/MAD/Median/Winsorized: 0.01–10, step 0.1, default 3/3; Linear Fit: 5/4; Percentile: 0.20/0.10; GESDT: max-outlier fraction 0.30/significance 0.05; fraction controls range 0.01–1, step 0.01 | Labels become **Sigma Low/High**, **Linear Low/High**, **Low/High Fraction of Median**, or **ESD Outliers/Significance**; Percentile rejects a sample further below the median than the low fraction of the median, or further above it than the high fraction - a fraction of the median, not a percentile rank | Lower sigma-style thresholds reject more; fraction semantics are method-specific. Changing method resets both values | Every group; run/model only |
-| **Weighting** | Selector | **None** | None; Number of stars; Weighted FWHM; Noise | Chooses shared per-frame weighting for Light stacks; calibration stacks always use None. A group where some light lacks the figure the weighting reads is stacked unweighted, with a warning | Quality weighting can improve a heterogeneous stack but depends on valid measurements | Light groups; run/model only |
-| **Plate solve final masters** | Checkbox | Off | On/off | Propagates valid WCS when possible; otherwise invokes the configured solver on final masters only | Adds solver time and any configured catalog/network requirements; never solves every input frame | Final Light masters; run/model only |
-| **Enable drizzle** | Checkbox | Off | On/off | Replaces normal registered-image stacking with the shared drizzle stage and drizzle stacking; the stage writes one small drizzle descriptor per light, and dense coordinates only when checkpoints are kept | Needs reliable registration and dithering; greatly increases disk, RAM, and runtime | Light groups; run/model only |
-| **Drizzle scale** | Selector | 2x, disabled | 2x or 3x; enabled with drizzle | Multiplies output width and height; the drizzled master keeps its lights' level at either scale, and the group's normalization applies at that level | 3x has about 2.25 times the pixel count of 2x and requires stronger sampling/resources | Light groups; run/model only |
-| **Drizzle pixfrac** | Selector | 0.9, disabled | 0.9; 0.8; 1.0; enabled with drizzle | Sets the square input-pixel footprint fraction | Lower values can preserve detail but need stronger dither coverage to avoid holes; 1.0 is smoother | Light groups; run/model only |
-
-### Frames and window actions
-
-| UI label/action | Type and unit | Runtime default | Valid values or constraints | Effect and dependencies | Trade-off and scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Add as** | Selector | Auto-detect | Auto-detect; Light; Flat; Dark; Dark Flat; Bias | Applies to the next import. **Auto-detect** reads the frame type from the file's header cards (`IMAGETYP`, or INDI's `FRAME` card when `IMAGETYP` names no kind; `OFFSET` anywhere in the value, as in `MasterOffset`, names a bias), then from a folder on its path named for a frame type (flat(s), dark(s), bias(es) or offset(s), light(s)), and adds any other file as a Light; it never reads a file name. Its tooltip says the same. Forced roles override detected type; Dark Flat is stored as Dark plus a hidden `Dark Flat` tag | Forcing the wrong role causes bad grouping/calibration | Run only |
-| **Add Files** | Multi-file action | — | Supported still-image extensions | Reads metadata asynchronously; remembers chooser directory; duplicate absolute paths in one batch are ignored | Large batches take time; unsupported/unreadable files are skipped and reported | Adds to Model |
-| **Add Folder** | Directory action | — | One directory; recursive scan | Adds every supported still file in the folder tree | May import unrelated supported images; review the table | Adds to Model; chooser directory remembered |
-| **Change Type** | Selection menu | Disabled without selected rows | Light; Flat; Dark; Dark Flat; Bias | Reclassifies selected rows, rebuilds groups/defaults, and reruns single-frame master detection | Can change calibration routing and invalidate assumptions | Model for this window only |
-| Frames context menu | Selection action | — | Set as Light/Flat/Dark/Dark Flat/Bias | Same role reassignment as **Change Type** | Same trade-off | Model for this window only |
-| **Clear All** | Confirmed action | Disabled for an empty model | Yes/No confirmation | Removes all loaded frames while preserving Output and resetting Lite defaults | Does not delete source or output files | Model for this window only |
-| Frames table | Read-only sortable table | Empty | Type, File, Filter, Object, Exposure, Calibration | Calibration shows the planned Bias/Dark/Flat use for Lights and calibration-frame use/build relationships; filenames/details are in tooltips | A plan is not proof that the selected data are scientifically suitable | Derived from Model/manifest |
-| **Run Integration** | Primary action | Disabled | Requires no validation errors and no import in progress | Snapshots the model/options, reapplies Lite defaults, auto-detects one-frame calibration masters, builds the shared manifest, and starts asynchronous execution | Writes outputs and can be resource-intensive; cancellation is cooperative | Run/artifacts |
-| **Open Full Process** | Action | Enabled outside import | Current model | Opens a new full Image Integration window, copies the model JSON, and names it `Lite handoff` | Lite-only UI flags such as Open Results are not transferred; use the full process for further changes | New full-process model |
-| **Close** | Window action | — | — | Closes without starting a new run | An already running shared workflow follows its controller/window ownership behavior | Window size and Output persist; other Lite controls reset next launch |
-
-## Hidden Lite policy
-
-The following choices are not editable in Lite. They are the principal behavioral difference from the full process.
-
-| Area | Fixed behavior |
-| --- | --- |
-| Source grouping | Resolution is always used. Bias groups have no filter/object/exposure/temperature split. Darks also split by exposure and the hidden custom tag used for Dark Flats. Flats split by filter. Lights split by filter, object, and exposure. Session and temperature are ignored. ISO/Gain is off, so the internally enabled Offset flag is also ineffective. |
-| Final integration grouping | Resolution, filter, and object are mandatory. Session, exposure, temperature, and custom tag are ignored. This can produce multiple masters for multiple filters, but more than one real object blocks Lite readiness. |
-| Calibration matching | Lite ignores session while grouping Flats, so Flat matching is by the remaining enabled compatibility keys and the shared 30-day session-fallback flag is never consulted. Dark exposure fallback is allowed within 20%, fallback warnings are off, and Bias is not subtracted from Dark masters, so a Flat with a matching Dark Flat is calibrated by the Dark Flat alone - it already holds the bias - and a Flat with none by the Bias. Strict Matching disables Dark-exposure fallback; it does not change Flat matching. |
-| Single calibration frame | A group with exactly one included Bias, Dark, or Flat is automatically treated as an existing master instead of being stacked. |
-| Dark Flats | Stored as a tagged Dark group, built/reused in the Dark stage, routed only into matching Flat groups, removed from Light dark assignments, and inserted before Flat processing. Ordinary Darks do not calibrate Flats in Lite. |
-| Light calibration | Cosmetic correction is on with hidden cold/hot sigma defaults of 3/3; pedestal is 0; dark multiplication factor is 1; in-memory calibrated-light cache is used; flat auto-level follows the visible checkbox. |
-| Registration | Star matching; no per-frame auto plate solving; Gaia enrichment on; Auto interpolation; no comet tracking; chromatic-aberration correction off. Polynomial and Auto choices use a two-pass refinement; Similarity/Affine/Homography use a linear pass. **Minimum Star Pairs** is 10 and **Maximum Stars per Frame** 2000, the full process's defaults. Star detection runs at the full process's defaults (radius 5, threshold 1.0, roundness 0.5, Gaussian profile), and the CFA pattern is read from each light's header (Auto) with the default demosaic. |
-| Normalization | IKSS is the hidden scale estimator. The reference is chosen automatically and overlap normalization is off. Local Normalization uses the shared full-process defaults because Lite exposes no local-model controls. |
-| Calibration stacking | Same visible combination/rejection/resource policy as appropriate, but no weighting, drizzle, final solve, local normalization, rejection maps, or quality maps. Flat masters use global multiplicative normalization; Bias and Dark masters use none. |
-| Light stacking | Rejection maps, merged rejection maps, and quality maps are off, as are the spatial rejection-cluster analysis and the re-stack that excludes flagged frames. Registered images are always kept. There is no HDR exposure merge and no comet stack: every master is a stack of the stars. The weighting's options stay at their defaults: Quadratic star-count scaling, a minimum weight floor of 0.01, and no per-pixel weighting. Drizzle uses the Square kernel and is never CFA-aware. Final-master solving follows the visible checkbox. |
-| Workflow/project features | Lite uses the full manifest, executor, artifact state, history, report, and cancellation pipeline, but exposes no project open/save, presets, undo, per-group run, session notes, history browser, or plan editor. Only Output/window state persist in the Lite UI. |
-
-### Automatic rejection tiers
-
-**Auto** resolves per generated group after counting frames:
-
-| Group | Frame count | Actual method and parameters |
-| --- | ---: | --- |
-| Light | Fewer than 8 | Percentile, low 0.20 / high 0.10 |
-| Light | 8–14 | Sigma Clipping, dynamic equal low/high sigma |
-| Light | 15–24 | Winsorized Sigma Clipping, dynamic equal low/high sigma |
-| Light | 25–39 | Linear Fit, low 5 / high 4 |
-| Light | 40 or more | GESDT, max outlier fraction 0.30 / significance 0.05 |
-| Bias or Dark | Fewer than 8 | None |
-| Bias or Dark | 8–19 | Sigma Clipping, dynamic equal low/high sigma |
-| Bias or Dark | 20 or more | Winsorized Sigma Clipping, dynamic equal low/high sigma |
-| Flat | Fewer than 8 | None |
-| Flat | 8 or more | Sigma Clipping, dynamic equal low/high sigma |
-
-For groups with fewer than 10 frames, the dynamic threshold is fixed at 3.0. Otherwise it is `clamp(round10(base - 0.5 log10(N)), 2.0, 3.5)`, where `N` is the group frame count, `base` is 3.5 for Bias/Dark/Light and 3.8 for Flat, and `round10` rounds to one decimal place. The special branch therefore gives 8- and 9-frame Flat groups a 3.0/3.0 threshold. If **Method** is not Average, Auto becomes None regardless of frame count.
-
-## How the algorithm works
-
-```mermaid
-flowchart TB
-    accTitle: Image Integration Lite algorithm flow
-    accDescr: Lite branches after registration: standard groups materialize aligned lights, while drizzle groups retain transforms and resample during stacking.
-    Import[Read still metadata and assign roles] --> Group[Apply fixed Lite grouping]
-    Group --> Match[Build or select calibration masters]
-    Match --> Cal[Calibrate lights]
-    Cal --> Reg[Measure registration transforms]
-    Reg --> Mode{Drizzle?}
-    Mode -- No --> Align[Write aligned<br/>lights]
-    Mode -- Yes --> Keep[Retain<br/>transforms]
-    Align --> Norm[Optional normalization<br/>coefficients]
-    Keep --> Norm
-    Norm --> StackMode{Drizzle?}
-    StackMode -- No --> Standard[Standard rejection<br/>and stacking]
-    StackMode -- Yes --> Descriptors[Drizzle<br/>descriptors]
-    Descriptors --> Drizzle[Drizzle resampling<br/>and stacking]
-    Standard --> Report[Commit artifacts, history, and report]
-    Drizzle --> Report
+```controls
+window: Image Integration Lite
+controls:
+  - name: Banner
+    kind: readout
+    default: Output directory is required. No light frames available.
+    effect: >-
+      Says whether the run can start. Red is an error, disables **Run Integration**, and lists up to three errors.
+      Amber is a warning, and its tooltip lists every warning. Green reads "Ready."
+    range: >-
+      Lights alone give the amber "No calibration frames provided. Lights will be integrated without bias, dark, or
+      flat calibration." Otherwise warnings read "Ready with 4 warning(s).", with such lines in the tooltip as
+      "Missing dark/bias calibration match", "Missing flat calibration match" or "Flat frames have no bias or Dark
+      Flat calibration. Master flats will be uncalibrated and may over-correct lights."
+    enabled: >-
+      The errors: "Output directory is required.", "Output directory path is not a directory.", "Output directory is
+      not writable.", "Output directory cannot be created (parent directory is not writable).", "No light frames
+      available." and "Image Integration Lite expects one target object. Use the full Image Integration process for
+      multi-object projects."
+    tradeoff: It checks that the run can be planned, not that the matches are good or the frames sharp.
+    persistence: >-
+      Counted again after every change. "Importing frames...", "Preparing integration...", "Updated 3 frame type(s)
+      to Dark Flat." and the like stand until the next change.
+    note: >-
+      When a run ends, the banner shows the readiness again, not the result. Read the result in the progress window.
+      The message strip over the window reads "Importing: Reading frame metadata." during an import, and "Preparing:
+      Preparing Image Integration Lite workflow." until a run ends.
+  - name: Frames
+    kind: readout
+    default: 0 light, 0 flat, 0 dark, 0 bias
+    effect: Counts the table's rows by type. Dark flats count among the darks.
+  - name: Filters
+    kind: readout
+    default: "-"
+    effect: >-
+      Lists the filters the lights' headers name, sorted, with `-` for a light whose header names none. Each filter
+      makes a master of its own.
+  - name: Object
+    kind: readout
+    default: "-"
+    effect: >-
+      Lists the object names the lights' headers give, with `-` for a light that gives none. Two names other than
+      `-` are an error.
+    scope: The lights alone. The object name of a flat, a dark or a bias frame does not count.
 ```
 
-1. Import accepts supported still files, canonicalizes paths, reads metadata off the UI thread, applies a forced role when selected, sorts detected frames, and adds them to the shared `IntegrationDataModel`.
-2. Lite applies its hidden grouping, matching, calibration, registration, and stacking settings to every current group. The Frames table constructs the same manifest used for execution to show planned master relationships.
-3. On Run, Lite snapshots the model so later UI changes cannot mutate the in-flight preparation. It reapplies the policy, marks one-frame calibration groups as supplied masters, validates again, and calls the shared `ManifestBuilder` with rejection-map generation disabled.
-4. The shared executor builds/reuses Bias, Dark, Dark Flat, and Flat masters; calibrates Lights; and measures registration transforms. Non-drizzle groups materialize aligned lights before standard stacking. Drizzle groups retain transforms, prepare or reuse one drizzle descriptor per light, and perform resampling during stacking. Optional normalization precedes either stacking path. Pixel equations, invalid-sample rules, metadata propagation, partial-commit behavior, and exact stage details are the same as documented in [Image Integration](image-integration.md#how-the-algorithm-works).
-5. Successful stages update artifact state. A successful run or a failed/cancelled run with completed Light groups can produce a history archive and report under the output root. Cancellation is cooperative; completed groups are not described as rolled back.
+### Setup
 
-## Parameter interactions and starting points
+```controls
+window: Setup
+controls:
+  - name: Output
+    kind: field
+    default: ""
+    effect: >-
+      The folder every file of the run is written to: the masters, the registered lights, the run's records and its
+      report. The box reads `Output directory` while it is empty.
+    range: A folder that does not exist yet is made when its parent folder can be written to.
+    enabled: Disabled while frames are imported.
+    tradeoff: >-
+      A folder that holds the results of an earlier run of the same frames lets the run reuse them, unless
+      **Reprocess existing outputs** is on. The masters of another set of the same target, filter and size are
+      replaced, and only the copy in that run's folder under `history` remains.
+    scope: The whole run.
+    persistence: >-
+      Kept when the window closes, and in the box when the next Lite window opens. Left empty, the next window opens
+      with the last folder chosen with **Browse**, if it still exists. **Clear All** keeps it.
+    note: >-
+      Besides the masters and `registered_lights`, the folder receives `registration_metrics.db`, the folder
+      `.afternight\image_integration` with `artifacts.db`, the normalization documents and, with drizzle, the
+      drizzle documents, and `history\<run>` for each run, named by its date and time. That folder holds
+      `workflow_report.html`, `workflow_report.md`, `workflow_log.txt`, `workflow_manifest.json` and, under
+      `groups`, a copy of each stacked master with a preview. Calibrated lights are kept in memory and never
+      written.
+  - name: Browse
+    kind: button
+    default: ""
+    effect: >-
+      Opens a folder chooser titled "Output Directory", at the folder in **Output** or the last one chosen. The
+      folder you pick replaces the box's text.
+    enabled: Disabled while frames are imported.
+  - name: Reprocess existing outputs
+    kind: check
+    default: "Off"
+    effect: >-
+      On computes and writes every file of the run again. Off reuses each file of an earlier run in the folder whose
+      frames and settings still match, and computes only what changed or is missing.
+    enabled: Disabled while frames are imported.
+    tradeoff: On costs the whole run's time again. Turn it on when you want everything computed afresh, as after you edit a file the run wrote.
+    persistence: Off in every new window. **Open Full Process** does not take it.
+  - name: Open results when complete
+    kind: check
+    default: "On"
+    effect: On opens each stacked master in a view of its own when the run succeeds. Off leaves them in the folder.
+    enabled: Disabled while frames are imported.
+    scope: The stacked masters, not the calibration masters. A failed or cancelled run opens none.
+    persistence: On in every new window. **Open Full Process** does not take it.
+  - name: Limit memory usage
+    object: liteLimitMemoryCheck
+    kind: check
+    default: "Off"
+    effect: On stacks in tiles that keep to the amount in the box beside it, and enables that box.
+    enabled: Disabled while frames are imported.
+    tradeoff: >-
+      Smaller tiles take longer. It bounds the stacking alone: reading, calibration and registration use what they
+      need.
+    scope: Every stack of the run, calibration masters included.
+  - name: Limit memory usage
+    object: liteMaxMemorySpin
+    kind: spinbox
+    default: "2048"
+    widget: {min: 512, max: 1048576, step: 1}
+    effect: The most memory, in megabytes, one stack may use. Lower makes more, smaller tiles.
+    enabled: With the **Limit memory usage** check box on, outside an import.
+  - name: CPU Threads
+    kind: spinbox
+    default: The computer's thread count
+    widget: {min: 1, step: 1}
+    effect: The most threads the run's stages use at once. Lower leaves more of the computer to other work, and the run takes longer.
+    range: Up to the number of threads the computer offers, where it opens.
+    enabled: Disabled while frames are imported.
+    persistence: At the computer's count in every new window. **Open Full Process** does not take it.
+```
 
-- Begin with Automatic matching, Homography, auto reference, Global Additive Scaling, Average, Auto rejection, no weighting, and drizzle off. These are implementation defaults, not a guarantee of best scientific output.
-- Select Strict metadata match when fallback calibration would be worse than leaving a group visibly unmatched. Inspect the Calibration column before running.
-- Adaptive currently differs from Automatic mainly by forcing dark optimization. Do not select it merely to obtain a broader fallback policy: Automatic already enables the same Dark-exposure fallback, while Lite disables session grouping so no matching choice provides an effective Flat-session fallback.
-- Non-Average combinations force rejection off. If outlier removal matters, return to Average or use the full process for a more deliberate plan.
-- Weighting requires reliable registration measurements. If star counts/FWHM/noise are untrustworthy, None avoids turning a bad metric into a strong frame weight.
-- Enable Local Normalization only for frames that need spatial correction; Lite hides the local-model diagnostics and tuning available in the full process.
-- Enable drizzle only for well-dithered data with reliable transforms. Try 2x/0.9 before 3x or a smaller pixfrac, and set a realistic memory cap.
+### Processing Settings
 
-## Inputs, outputs, and metadata
+Each line opens with a click, and its title sums up its choices, as "Calibration: Automatic, flat auto-level".
 
-Lite consumes still files only. Metadata determines automatic roles, grouping, matching, registration context, and output metadata, but source headers are unchanged. Reclassifying a row changes only the in-memory model.
+```controls
+window: Processing Settings
+controls:
+  - name: Matching
+    kind: combo
+    default: Automatic
+    options: [Automatic, Strict metadata match, Adaptive]
+    effect: >-
+      Chooses how a dark is matched to the lights. **Automatic** takes a dark of the lights' exposure, or else the
+      dark closest to it within 20 %. **Strict metadata match** takes a dark of the same exposure only. **Adaptive**
+      matches as **Automatic** does and turns on **Optimize dark frames** for the run.
+    range: >-
+      Flats are matched by frame size and filter, bias frames by frame size, with every choice. Dates, temperature,
+      gain and offset are never compared.
+    tradeoff: >-
+      **Strict metadata match** can leave lights without a dark, which the **Calibration** column shows. A dark
+      matched within 20 % raises no warning.
+    scope: The masters each light is calibrated with, and the **Calibration** column, which follows the choice at once.
+    note: >-
+      A light with a dark is not given the bias as well, since the dark master holds it. A light without a dark takes
+      the bias. Cosmetic correction is always on: it finds hot and cold pixels at 3 deviations in the dark master and
+      corrects them in the lights, and finds none without a dark. No pedestal is added. The choices' tooltips speak
+      of gain and binning: gain is not compared, and binning only through the frame size.
+  - name: Optimize dark frames
+    kind: check
+    default: "Off"
+    effect: On scales the dark master for each light to match its thermal signal. Off subtracts it as it is.
+    range: >-
+      Only a one-channel light of at least 512 × 512 pixels, a mosaic among them, whose dark varies over its central
+      square is optimized. Any other light gets the factor 1, and the run's warnings say so once for each dark.
+    enabled: "**Adaptive** turns it on for the run whatever the box says."
+    tradeoff: It helps when the darks are close to the lights but not equal. A wrong scale leaves thermal signal or adds noise.
+  - name: Normalize master flat
+    kind: check
+    default: "On"
+    effect: >-
+      On divides each channel of the flat master by its mean over the central third of the frame, each color of a
+      mosaic on its own, before the lights are divided by it. Off divides the lights by the master as it is.
+    tradeoff: Off changes the lights' level by the flat's own level. Leave it on.
+    note: It is the full process's **Enable flat auto-level**.
+  - name: Transform
+    kind: combo
+    default: Homography
+    options: [Similarity, Affine, Homography, Polynomial 2, Polynomial 3, Polynomial 4, Auto]
+    effect: >-
+      Chooses how a light may be warped onto the reference. **Similarity** shifts, turns and scales it, **Affine**
+      also shears it, and **Homography** also corrects perspective. **Polynomial 2**, **3** and **4** refine a
+      homography for optical distortion. **Auto** starts from a homography and refines it only where the stars fit
+      clearly better.
+    range: The polynomials and **Auto** fit in two passes, the other choices in one.
+    tradeoff: A more flexible transform needs more matched stars and more time, and can bend to bad matches.
+    note: >-
+      The rest of the registration is fixed: star matching with at least 10 pairs and up to 2,000 stars a frame,
+      stars found with a radius of 5, a threshold of 1.0, a roundness of 0.5 and a Gaussian profile, Auto
+      interpolation, the mosaic's pattern read from each light's header and the default debayer method, no plate
+      solve of the frames, no comet and no chromatic correction. Gaia enrichment is on. Without a Gaia catalog, a run
+      whose lights carry a plate solution warns "Gaia enrichment is on, but no Gaia catalog is configured: ..." and
+      names **Enrich with Gaia catalog**, a control of the full process. Lite reads no catalog figure, so the stack is
+      the same. Install a catalog under **Settings > Plate Solving**, or turn enrichment off after **Open Full
+      Process**.
+  - name: Auto-select reference
+    kind: check
+    default: "On"
+    effect: On lets the registration choose the reference frame from the lights' stars.
+    range: Lite has no control to name a reference. To choose one, use **Open Full Process** and set it there.
+    tradeoff: Off asks for a reference set by hand, which Lite cannot give. Leave it on in Lite.
+  - name: Auto crop to common area
+    kind: check
+    default: "Off"
+    effect: >-
+      On writes the registered lights onto the area every light covers, so the masters have no empty border. Off
+      keeps the reference's frame, where a shifted light leaves an empty border.
+    range: When no area is common to every light, the run keeps the reference's frame and says so.
+    tradeoff: It narrows the field.
+  - name: Lights
+    kind: combo
+    default: Global Additive Scaling
+    options: [Global Additive Scaling, Global Additive, Global Multiplicative Scaling, Global Multiplicative, Local Normalization, None]
+    effect: >-
+      Chooses how each light of a group is brought to the level of the group's reference before the stack, by
+      equation (1). **Local Normalization** corrects the level region by region instead, and **None** stacks the
+      lights as they are.
+    range: The scale is measured with IKSS, and the reference is chosen among the group's best lights. Overlap normalization is off.
+    tradeoff: >-
+      **Local Normalization** is slower and can overcorrect, with the full process's settings, which Lite does not
+      show. **None** suits only lights already at one level.
+    scope: The light stacks.
+  - name: Calibration
+    kind: readout
+    default: "Bias/Dark: none, Flat: multiplicative scaling"
+    effect: >-
+      States how the calibration frames are brought to one level before their masters are stacked. Bias and dark
+      frames are stacked as they are. Each flat is matched by one factor, as **Global Multiplicative** does.
+    note: The label reads "multiplicative scaling", and the flats are matched as **Global Multiplicative** matches lights.
+  - name: Method
+    kind: combo
+    default: Average
+    options: [Average, Sum, Maximum, Minimum, Median, Auto-Adaptive Weighted Average]
+    effect: >-
+      Chooses how the samples of one pixel are combined. **Average** takes the mean of those **Rejection** keeps.
+      **Sum** adds them, **Maximum** and **Minimum** keep the extreme one and **Median** the middle one.
+      **Auto-Adaptive Weighted Average** weighs each sample, in a few rounds, by its distance from the others' mean.
+    tradeoff: >-
+      **Average** leaves the least noise. Every other choice stacks without rejection, and **Rejection** is disabled.
+      The extremes and **Sum** are for special masters.
+    scope: Every stack of the run, the bias, dark and flat masters included.
+  - name: Rejection
+    kind: combo
+    default: Auto
+    options: [Auto, None, Sigma Clipping, MAD Clipping, Median Sigma, Winsorized Sigma Clipping, Percentile, GESDT, Linear Fit]
+    effect: >-
+      Chooses how the samples that disagree with the rest are left out: satellite trails, cosmic rays, hot pixels.
+      **Auto** picks a method for each group by its type and its number of frames, as the table under Model shows.
+      **None** keeps every sample. The other methods are those of the Image Stacking page.
+    enabled: With **Method** at **Average**, outside an import.
+    tradeoff: A method needs enough frames, and a low threshold also removes real signal.
+    scope: Every stack of the run, the calibration masters included, with **Auto** decided for each group.
+    note: >-
+      Choosing a method sets both thresholds to its own defaults. Lite never runs the analysis of rejected clusters,
+      nor the stack again without the frames it flags.
+  - name: Sigma Low
+    kind: spinbox
+    default: "3.00"
+    widget: {min: 0.01, max: 10, step: 0.1, decimals: 2}
+    effect: The lower threshold of the method. Lower leaves more of the dark samples out.
+    range: >-
+      Its label and range follow **Rejection**: **Sigma Low** for **Sigma Clipping**, **MAD Clipping**, **Median
+      Sigma** and **Winsorized Sigma Clipping**, **Linear Low** for **Linear Fit**, and, from 0.01 to 1 in steps of
+      0.01, **Low Fraction of Median** for **Percentile** and **ESD Outliers** for **GESDT**.
+    enabled: Shown only for a method with thresholds, not at **Auto** or **None**.
+    note: >-
+      The method's defaults: 3 for the four sigma methods, 5 for **Linear Fit**, 0.20 for **Percentile** and 0.30 for
+      **GESDT**. **Percentile** leaves out a sample further below the median than this fraction of the median, a
+      fraction and not a rank. For **GESDT** it is the largest share of samples that may be outliers.
+  - name: Sigma High
+    kind: spinbox
+    default: "3.00"
+    widget: {min: 0.01, max: 10, step: 0.1, decimals: 2}
+    effect: The upper threshold of the method. Lower leaves more of the bright samples out.
+    range: >-
+      **Sigma High**, **Linear High**, **High Fraction of Median** or **ESD Significance**, with the ranges of
+      **Sigma Low**.
+    enabled: Shown with **Sigma Low**.
+    note: >-
+      The method's defaults: 3 for the four sigma methods, 4 for **Linear Fit**, 0.10 for **Percentile** and 0.05, the
+      test's significance level, for **GESDT**.
+  - name: Weighting
+    kind: combo
+    default: None
+    options: [None, Number of stars, Weighted FWHM, Noise]
+    effect: >-
+      Chooses how much each light counts. **None** weighs them alike. **Number of stars** favors lights with more
+      stars, **Weighted FWHM** lights with smaller stars and **Noise** lights with less noise.
+    range: >-
+      The figures are the registration's. The star count weighs by its square, no weight is below 0.01, and each
+      light has one weight for all its pixels.
+    tradeoff: A wrong measurement becomes a wrong weight.
+    scope: The light stacks. Calibration masters are never weighted.
+    note: A group where a light lacks the figure is stacked without weights, and the run warns.
+  - name: Plate solve final masters
+    kind: check
+    default: "Off"
+    effect: >-
+      On solves each stacked master that carries no WCS, with the plate solver set up in the settings. A master
+      carries the registration's WCS whenever the reference frame had a plate solution, on or off.
+    range: Only the stacked masters are solved, never the frames.
+    tradeoff: It adds the solver's time, and whatever catalog or network the solver needs.
+    note: >-
+      Off, the log says "Saved ... without WCS because no registration output-plane WCS was available and fallback
+      plate solving is disabled."
+  - name: Enable drizzle
+    kind: check
+    default: "Off"
+    effect: On stacks the lights by drizzle onto a finer grid, with the scale and pixfrac below, instead of stacking the registered lights.
+    range: The kernel is square, and the drizzle works on debayered lights, never on the mosaic.
+    tradeoff: It needs dithered lights and a good registration, and takes far more memory, disk and time.
+    scope: The light stacks.
+    note: >-
+      The stage writes one small descriptor for each light under `.afternight\image_integration\artifacts\drizzle`,
+      and dense coordinate maps only when checkpoints are kept.
+  - name: Drizzle scale
+    kind: combo
+    default: 2x
+    options: [2x, 3x]
+    effect: Multiplies the master's width and height.
+    enabled: With **Enable drizzle** on.
+    tradeoff: 3x has 2.25 times the pixels of 2x, with the memory and disk that go with them, and needs more dithered lights.
+    note: The master keeps its lights' level at either scale, and the group's normalization applies at that level.
+  - name: Drizzle pixfrac
+    kind: combo
+    default: "0.9"
+    options: ["0.9", "0.8", "1.0"]
+    effect: >-
+      Sets the side of each input pixel's drop, as a fraction of a pixel. Smaller keeps more detail and needs better
+      dither coverage to avoid holes. **1.0** is the smoothest.
+    enabled: With **Enable drizzle** on.
+```
 
-Its shared output naming contract includes:
+### Frames
 
-- `<output>/master_bias_<group>.fit`, `master_dark_<group>.fit`, and `master_flat_<group>.fit` for generated calibration masters, each a 32-bit floating-point file stamped with the manifest entry it satisfies and the run that wrote it;
-- `<output>/registered_lights/<registration-group>/..._reg.fit[s]` where standard alignment materializes registered frames;
-- `<output>/.afternight/image_integration/artifacts/normalization/` and optional `artifacts/drizzle/` intermediates;
-- `<output>/stacked_<integration-group>.fit` for each successful Light integration group, with a stable short hash added on filename collision;
-- `<output>/.afternight/image_integration/` state, `registration_metrics.db`, and `artifacts.db` as required; and
-- `<output>/history/<execution-id>/` with the manifest, Markdown/HTML report, log, group summaries, and retained outputs for an archived run.
+```controls
+window: Frames
+controls:
+  - name: Add as
+    kind: combo
+    default: Auto-detect
+    options: [Auto-detect, Light, Flat, Dark, Dark Flat, Bias]
+    effect: >-
+      Chooses the type the next files are added as. **Auto-detect** reads the `IMAGETYP` card, else `FRAME`, else an
+      XISF file's image type. Failing those, the nearest folder on the file's path named `flat`, `flats`, `dark`,
+      `darks`, `bias`, `biases`, `offset`, `offsets`, `light` or `lights`, in any case, decides. Failing that, the
+      file is a light. Another choice adds every file as that type.
+    range: >-
+      A card names a type by the first of these words it holds anywhere, in any case: BIAS, ZERO or OFFSET, then
+      DARK, FLAT, LIGHT or SCIENCE. `MasterOffset` names a bias. File names are never read.
+    enabled: Disabled while frames are imported.
+    note: "**Auto-detect** never gives **Dark Flat**: a dark flat's card reads DARK, so it is added as a dark."
+  - name: Add Files
+    kind: button
+    default: ""
+    effect: >-
+      Opens a chooser titled "Add Frames" for one file or more, filtered to the image formats AfterNight reads, at
+      the folder you last added files from. The headers are read in the background.
+    range: FITS, XISF, TIFF, PNG, JPEG and camera raw files.
+    enabled: Disabled while frames are imported. The other controls are disabled until the import ends.
+    tradeoff: >-
+      Many files, or a slow disk, take a while. A file in another format is skipped. A file whose header cannot be
+      read is added without its size, filter or exposure. A file the list already holds as the same type is
+      replaced, not listed twice.
+  - name: Add Folder
+    kind: button
+    default: ""
+    effect: >-
+      Opens a folder chooser titled "Add Folder", at the folder you last added, and adds every file of a format
+      AfterNight reads in it and in every folder under it.
+    enabled: Disabled while frames are imported.
+    tradeoff: It adds every other image the folders hold too. Review the table.
+  - name: Change Type
+    kind: button
+    default: ""
+    effect: Opens a menu of the five types for the selected rows.
+    enabled: With a row selected, outside an import.
+    note: >-
+      Right-clicking a row offers the same, from **Set as Light** to **Set as Bias**, and selects the row first. A
+      new type changes how the run uses the file, never the file.
+  - name: Light
+    kind: action
+    default: ""
+    effect: Makes the selected rows lights.
+  - name: Flat
+    kind: action
+    default: ""
+    effect: Makes them flats.
+  - name: Dark
+    kind: action
+    default: ""
+    effect: Makes them darks, which calibrate the lights.
+  - name: Dark Flat
+    kind: action
+    default: ""
+    effect: >-
+      Makes them dark flats: darks kept apart from the others, which calibrate only the flats of their frame size,
+      matched by exposure as **Matching** says.
+    note: >-
+      Their master is stacked with the darks, before the flats, and never calibrates a light. A flat with a dark
+      flat takes no bias, since the dark flat's master holds it. A flat without one takes the bias. Ordinary darks
+      never calibrate flats.
+  - name: Bias
+    kind: action
+    default: ""
+    effect: Makes them bias frames.
+    note: >-
+      After any change of type, the groups are formed again, a group of one calibration frame takes it as its
+      master, and the banner reads, for example, "Updated 3 frame type(s) to Dark Flat."
+  - name: Clear All
+    kind: button
+    default: ""
+    effect: Asks "Remove all frames?" in a box titled **Clear All**, and on **Yes** empties the list.
+    range: "**Output** and the processing settings stay. No file is deleted."
+    enabled: Outside an import. With an empty list it does nothing.
+  - name: Table
+    kind: readout
+    default: ""
+    effect: >-
+      Lists one row for each file, with its **Type**, **File**, **Filter**, **Object**, **Exposure** in seconds, and
+      **Calibration**. Click a header to sort by that column, and hover over **File** for the whole path.
+    range: A figure the header does not state reads `-`.
+    scope: >-
+      For a light, **Calibration** names the masters it will be calibrated with, as `Flat` or `Dark + Flat`, or
+      `None`, and its tooltip names their files. For a calibration frame, it names what calibrates its own master,
+      and the tooltip says what the master is used for, as "Used by lights as flat".
+    persistence: The list lasts while the window is open. Closing the window discards it.
+    note: Lite cannot leave a row out or remove one. **Clear All** empties the whole list.
+```
 
-Lite disables rejection maps and quality maps. It does not modify, rename, or delete source files. See [Image Integration outputs](image-integration.md#output-names-and-locations) for the full shared naming and report contract.
+### Run Integration and Open Full Process
 
-## Performance
+```controls
+window: Image Integration Lite
+controls:
+  - name: Run Integration
+    kind: button
+    default: ""
+    effect: Starts the run with the list and the settings as they are, in a progress window.
+    enabled: When the banner shows no error and no import is under way. Disabled while a run is prepared.
+    tradeoff: >-
+      A large set takes long and needs much memory and disk space. Try a few frames in a folder of their own first.
+      Keep the frames and the folder where they are while the run works.
+    scope: >-
+      Every group of the list. The Lite window takes no input until the progress window closes, and the rest of
+      AfterNight stays usable.
+    note: >-
+      A run is refused before it starts when the folder's `registration_metrics.db` is in a format this version
+      does not read: a box titled **Registration Records** says so, and nothing is changed.
+  - name: Open Full Process
+    kind: button
+    default: ""
+    effect: >-
+      Opens a new Image Integration window with the frames, their types, the output folder and the settings of each
+      group, as a project named `Lite handoff`.
+    enabled: Outside an import.
+    range: "**Reprocess existing outputs**, **Open results when complete** and **CPU Threads** stay behind."
+    scope: >-
+      The Lite window stays open with its list, and its banner reads "Opened the current Lite setup in the full Image
+      Integration process." A change in either window does not reach the other.
+    note: >-
+      Lite has none of these, which the full process is for: frames left out, groups and calibration chosen by hand,
+      pre-calibrated groups, settings for each group, a chosen reference, comets, rejection and quality maps, runs of
+      one group, a preview of calibrated frames, presets, undo, session notes, a plan editor, a history browser and a
+      project you save.
+```
 
-- Import metadata reading is asynchronous; recursive folders and slow storage increase discovery time.
-- Calibration, registration, alignment, normalization, and stacking scale with frame count and pixel count. Polynomial transforms, Local Normalization, drizzle, and plate solving add work.
-- Drizzle output memory and disk grow approximately with the square of scale: 3x contains 2.25 times as many pixels as 2x for the same field.
-- **CPU Threads** limits shared parallel admission. **Limit memory usage** selects tiled stacking but does not cap every allocation in codecs, registration, or reporting.
-- Prototype with a representative subset and a separate output directory. This is guidance only; this guide records no production-scale timing result.
+### The progress window
 
-## Worked example
+```controls
+window: Image Integration - Processing
+controls:
+  - name: Stages
+    kind: readout
+    default: Preparing
+    effect: Names the run's stages in order, and marks each one done, current or failed.
+  - name: Current operation
+    kind: readout
+    default: Initializing...
+    effect: >-
+      Says what the run does, with a progress bar and the **Current File** under it. It ends as "Workflow Completed
+      Successfully", "Workflow Completed with Warnings", "Workflow Cancelled" or "Workflow Failed".
+  - name: Process Output
+    kind: readout
+    default: ""
+    effect: Shows the run's log as it is written, with every warning, and the elapsed time under it.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Asks the run to stop at its next stop point, and reads "Cancelling...". Closing the window or ++esc++ does the same.
+    persistence: What was finished is kept and reported.
+  - name: Open Report
+    kind: button
+    default: ""
+    effect: Opens the run's `workflow_report.html` in your web browser.
+    enabled: Once the run has ended with a report.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the progress window.
+    enabled: Once the run has ended. It replaces **Cancel**.
+  - name: Complete
+    kind: readout
+    default: Workflow completed successfully.
+    effect: A box that ends a successful run.
+    note: >-
+      A run whose groups partly failed ends with **Completed with Errors**, "Workflow completed, but 1 frame(s)/group(s)
+      had errors:" and the list, a stopped one with **Cancelled**, "Workflow was cancelled.", and a failed one with
+      **Failed**, "Workflow failed:" and the reason.
+```
 
-**Source-and-test-derived; not an approved-data execution.** Consider one object with two filters, several Lights per filter, matching Flats, mixed-exposure Darks, and Bias frames. Import with Auto-detect, correct any roles, retain the defaults, and inspect the table. The model tests establish that Lights remain separated by exposure for calibration source groups but final stacks split only by resolution/filter/object; mixed-exposure Dark groups produce separate masters; Flats match Lights by filter without object/date grouping; a one-frame calibration group is treated as a supplied master; and Dark Flats calibrate Flats rather than Lights.
+## How it works
 
-Before a real run, expect the readiness banner to allow execution only when shared validation has no errors. After an executed run, inspect final masters at 100% zoom, compare background statistics between filters, check corners and dust correction, inspect star shape and registered borders, and read the generated report's calibration, registration, normalization, rejection, and warning sections. No visual result or numeric improvement is asserted by this source/test example.
+1. **Add Files** and **Add Folder** read each file's header in the background and give it a type. The frames are
+   sorted into groups: every type by frame size, the darks also by exposure with dark flats apart, the flats by
+   filter, the lights by filter, object and exposure. A group of one
+   [calibration frame](../../reference/glossary.md#calibration-frame) uses it as its master.
+2. **Run Integration** plans the run as Image Integration would, with Lite's settings, and stacks the bias, dark and
+   flat masters the groups need. Dark flats calibrate only the flats.
+3. Each light is calibrated in memory, never written. The lights of one frame size and object are registered to one
+   [reference frame](../../reference/glossary.md#reference-frame), whatever their filter, so the masters of a run line
+   up. Each light is written aligned under `registered_lights`.
+4. The lights of each [integration group](../../reference/glossary.md#integration-group), one frame size, filter and
+   object, are brought to one level, combined with **Method** and **Rejection**, and written as
+   `stacked_<size>_<filter>_<object>.fit` in 32-bit floating point. The calibration masters are
+   `master_bias_<group>.fit`, `master_dark_<group>.fit` and `master_flat_<group>.fit`. A name used twice gets a
+   short code.
+5. `.afternight` keeps what a later run reuses, and `history` a folder for each run with its report, its log, its plan
+   and a copy of each master. A later run reuses every file whose frames and settings still match.
 
-## Warnings and limitations
+### Model
 
-- Lite blocks multiple real object names but permits multiple filters and produces a master per final group.
-- A Ready banner proves structural validation, not good calibration matches, star registration, or scientific quality.
-- Automatic and Adaptive both allow the same fallback policy; Adaptive additionally forces dark optimization.
-- Turning off **Auto-select reference** supplies no alternate reference control in Lite.
-- Local Normalization, weighting, high-order transforms, and drizzle expose only a small common subset. Use the full process for diagnostics and per-group tuning.
-- Lite has no include/exclude, manual master assignment, pre-calibrated-group, comet, rejection-map, quality-map, calibrated-preview, project, preset, or history UI.
-- The captured ready state and opened linear-result presentation are validated. They do not establish scientific output quality, representative performance, or identical rendering on every platform.
+With \(x\) a sample of light \(i\), \(m\) a median, \(s\) the IKSS scale and \(r\) the group's reference, the
+**Lights** choices write
 
-## Troubleshooting
+\[ x' = \begin{cases} x + (m_r - m_i) & \text{Global Additive} \\ x\,m_r / m_i & \text{Global Multiplicative} \\ \dfrac{s_r}{s_i}\,(x - m_i) + m_r & \text{Global Additive Scaling} \\ \dfrac{s_r}{s_i}\,\dfrac{m_r}{m_i}\,x & \text{Global Multiplicative Scaling} \end{cases} \tag{1} \]
 
-| Symptom | Cause | Fix |
+for each channel. **Auto** in **Rejection** picks a [rejection](../../reference/glossary.md#rejection) method for each
+group by its type and its number of frames \(N\):
+
+| Group | Frames | Auto uses |
 | --- | --- | --- |
-| Run Integration is disabled | Import is active or shared validation has an error such as missing Lights, invalid output, incompatible data, or multiple objects | Read the red banner, correct roles/paths/object metadata, or use **Open Full Process** for a complex project |
-| No calibration warning | Lights exist but Bias, Dark, and Flat buckets are all empty | Add calibration frames or knowingly continue with an uncalibrated Light stack |
-| Flats have no Bias or Dark Flat warning | Flats are present, Bias is empty, and no tagged Dark Flat exists | Add Bias/Dark Flat frames, reclassify them correctly, or evaluate an intentionally uncalibrated Flat master |
-| Calibration cell says None or shows an unexpected master | Hidden grouping/matching found no compatible group or used fallback | Verify Type, Filter, Exposure, dimensions, and role; select Strict matching to forbid fallbacks or hand off for manual assignment |
-| Imported files were skipped | Unsupported extension, duplicate path, unreadable metadata/image, or another import issue | Read the banner detail, verify codec support and file integrity, then retry the affected files |
-| Rejection controls disappeared | Method is not Average, or Rejection is Auto/None | Select Average and an explicit parameterized rejection method if manual thresholds are required |
-| Drizzle controls are disabled | **Enable drizzle** is off | Enable it only for dithered, reliably registered data |
-| The run warns that cosmetic correction corrects nothing | Lite always asks for cosmetic correction, which finds its defective pixels in a dark master, and no dark matched the lights | Add darks that match the lights, or use **Open Full Process** to turn cosmetic correction off; the stack is otherwise unaffected |
-| The run warns that Gaia enrichment enriched nothing | Lite turns Gaia enrichment on, and no Gaia catalog is installed; the warning names the full process's **Enrich with Gaia catalog** control, which Lite does not offer | Install a catalog in **Settings > Plate Solving**, or use **Open Full Process** to turn enrichment off; Lite reads no photometric figure, so its stack is unaffected |
-| Final master was not plate solved | Valid WCS could not be propagated and the configured solver was unavailable or failed, or the checkbox was off | Review the workflow report and configure Plate Solving; the stack itself may still be usable |
-| The run does not start and names the registration records | The output folder's `registration_metrics.db` is in a format this version does not read; it is left unchanged | Choose another output folder |
-| Existing output was reused unexpectedly | Reprocess is off and matching workflow state/artifacts exist | Enable **Reprocess existing outputs** or use a fresh output directory |
-| Need a manual reference, per-group settings, or diagnostics | Lite intentionally hides those controls | Select **Open Full Process** before execution |
-| Run failed or was cancelled | A shared stage returned a structured error or cancellation was requested | Read the progress/error message and archived report/log; preserve any completed-group outputs and rerun after correction |
+| Lights | fewer than 8 | Percentile, 0.20 and 0.10 |
+| Lights | 8 to 14 | [Sigma Clipping](../../reference/glossary.md#sigma-clipping) at \(k\) |
+| Lights | 15 to 24 | Winsorized Sigma Clipping at \(k\) |
+| Lights | 25 to 39 | Linear Fit, 5 and 4 |
+| Lights | 40 or more | GESDT, 0.30 and 0.05 |
+| Bias, darks | fewer than 8, 8 to 19, 20 or more | None, Sigma Clipping at \(k\), Winsorized Sigma Clipping at \(k\) |
+| Flats | fewer than 8, 8 or more | None, Sigma Clipping at \(k\) |
 
-## Related workflow steps
+With \(b\) at 3.8 for flats and 3.5 for the others, and \(\mathrm{round}_{0.1}\) rounding to one decimal, the
+threshold \(k\) is
 
-- Use [Image Integration](image-integration.md) for persistent projects, advanced diagnostics, manual matching, and per-group control.
-- Review shared stacking mathematics and advanced options in [Image Stacking](image-stacking.md).
-- Prepare calibration frames with [Image Calibration](../calibration/image-calibration.md).
-- Extract stills from a sequence with [Extract Sequence](../utility/extract-sequence.md).
-- Inspect a still list before integration with [Image List Analyzer](image-list-analyzer.md).
-- Continue with [Image Viewer](../../interface/image-viewer.md) and [Image Statistics](../../interface/image-statistics.md) after opening a master.
+\[ k = \begin{cases} 3.0 & N < 10 \\ \min\Bigl(3.5,\ \max\bigl(2.0,\ \mathrm{round}_{0.1}(b - 0.5 \log_{10} N)\bigr)\Bigr) & N \ge 10 \end{cases} \tag{2} \]
+
+### Boundaries
+
+- Lights that name two objects are refused before the run. Lights of another frame size or filter make a master of
+  their own, and lights of another exposure are calibrated apart and stacked with the rest.
+- A light group no master matches is stacked without it, and the banner warns.
+- **Cancel** stops the run at its next stop point. Groups finished by then keep their masters, and the report says
+  what was done.
+- Each image the run writes is renamed into place only when complete, so a stopped run leaves no half-written file.
+  It carries the cards `ANARTID`, which a later run checks before it reuses the file, and `ANRUNID`, the run that
+  wrote it.
+- No rejection map, quality map, comet stack or HDR merge is made. The registered lights are always kept.
+
+### Worked example
+
+The data are narrowband lights of the Eagle Nebula, M 16, from a QHY533M camera through Ha, OIII and SII filters: 64
+lights of 300 seconds, 3008 × 3004 pixels, in a folder `LIGHT`, and 150 flats, 50 for each filter, in a folder
+`FLAT`. There are no darks and no bias frames.
+
+Type a new folder in **Output**, then choose **Add Folder** for `LIGHT` and again for `FLAT`. The **Dataset** card
+reads 64 light and 150 flat, the filters Ha, Oiii and Sii, and the object M 16. Each light's **Calibration** reads
+`Flat`, and the banner is amber: no dark or bias matches the lights, and the flats have no bias.
+
+Choose **Run Integration**, every setting at its default. The run took under a minute on 32 threads. The
+registration chose one OIII light as the reference of all 64, so the three masters line up. For the flats, with
+\(N = 50\), equation (2) gives \(3.8 - 0.8495 = 2.9505\), so \(k = 3.0\). The 20 OIII lights give
+\(3.5 - 0.6505 = 2.8495\), so Winsorized Sigma Clipping at 2.8, and the 19 SII lights 2.9. The 25 Ha lights take
+Linear Fit at 5 and 4. The report's rejection rows say the same.
+
+The folder then holds three flat masters such as `master_flat_3008x3004_Ha.fit`, the aligned lights under
+`registered_lights\reg_3008x3004_M_16`, and `stacked_3008x3004_Ha_M_16.fit` with its Oiii and Sii twins. The Ha
+master's header reads `STACKCNT` 25 and `EXPTIME` 7500, the 25 exposures added. Its median is 0.038, as one light's
+is: the stack keeps the level and lowers the noise.
+
+```figure
+owed: true
+images:
+  - image: ../../assets/images/processes/stacking-integration/image-integration-lite-before.webp
+    alt: >-
+      A 100 % crop of one registered Ha light: the pillars of the Eagle Nebula lying across the left half, a small
+      star cluster beside them, all in gray under a coarse grain with scattered white and dark specks.
+    label: One light
+  - image: ../../assets/images/processes/stacking-integration/image-integration-lite-after.webp
+    alt: >-
+      The same crop of the Ha master, a little darker: the pillars and the nebula around them smooth, the specks gone,
+      the same stars in the same places.
+    label: Master of 25
+caption: >-
+  The middle of one registered Ha light and of the Ha master, at 100 % in the Linear display, both stretched with
+  Histogram Transformation at Shadows 0.03 and Midtones 0.02.
+```
+
+## Starting points
+
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| A first run, or lights with flats only | Every setting at its default | Read the **Calibration** column and the banner's warnings. |
+| Darks of a nearby exposure or temperature | **Automatic** with **Optimize dark frames** | **Strict metadata match** to require the lights' exposure. |
+| Many dithered, undersampled lights | **Enable drizzle** at **2x** and **0.9** | **3x** or **0.8** only with many well-dithered lights. |
+| A wide field whose corners do not line up | **Transform** at **Polynomial 2** | **Auto**, or a higher order, while the corners stay off. |
+
+## When it goes wrong
+
+!!! warning "The list is not saved"
+    Closing the window discards the list, and Lite saves no project. To keep the work, choose **Open Full Process**
+    and save it there.
+
+"Image Integration Lite expects one target object. Use the full Image Integration process for multi-object projects."
+:   **Cause.** The lights name more than one object, as when the capture program named part of the night otherwise.
+:   **Fix.** Choose **Clear All** and add the lights of one object, or use **Open Full Process**.
+
+"Flat frames have no bias or Dark Flat calibration. Master flats will be uncalibrated and may over-correct lights."
+:   **Cause.** The list holds flats and neither bias frames nor dark flats.
+:   **Fix.** Add bias frames, or dark flats with **Add as** at **Dark Flat**. Without them the flats keep the camera's
+    offset.
+
+"Missing dark/bias calibration match" in the banner's tooltip
+:   **Cause.** No dark or bias frame matches a group of lights in frame size, or a dark in exposure within 20 %.
+:   **Fix.** Add darks of the lights' exposure or bias frames, or set **Matching** to **Automatic**.
+
+The dark flats are listed as **Dark**
+:   **Cause.** **Auto-detect** adds a dark flat as a dark, and darks never calibrate flats.
+:   **Fix.** Select their rows and choose **Change Type** > **Dark Flat**.
+
+The log warns "Cosmetic correction is on for the lights calibrated with ..., which have no dark master to find defective pixels in, so none is corrected."
+:   **Cause.** Lite always asks for cosmetic correction, which finds its pixels in the dark master, and no dark
+    matched the lights.
+:   **Fix.** Add matching darks, or use **Open Full Process** to turn it off. The stack is otherwise unaffected.
+
+A box titled **Registration Records**, and the run does not start
+:   **Cause.** The output folder's `registration_metrics.db` was written in a format this version does not read.
+:   **Fix.** Choose another output folder.
+
+The run is over in seconds and writes nothing new
+:   **Cause.** The folder holds results of the same frames and settings, which the run reuses.
+:   **Fix.** Turn on **Reprocess existing outputs**, or choose a new folder.
+
+A master is missing, or there is one too many
+:   **Cause.** Lights of another frame size, or whose filter is spelt otherwise, form groups of their own.
+:   **Fix.** Read **Filters**, then choose **Clear All** and add only the lights you mean.
+
+## Related
+
+- [Quick Start](../../getting-started/quick-start.md), a first run with Lite, step by step.
+- [Image Integration](image-integration.md), the full process, for every choice Lite makes for you.
+- [Image Stacking](image-stacking.md), for the rejection methods and the stacking of registered lights.
+- [Narrowband Imaging](../../workflows/narrowband-imaging.md), for what to do with Ha, OIII and SII masters.
+- [Image Viewer](../../interface/image-viewer.md), to inspect a master with Autostretch.
+- [Process Windows](../../interface/process-windows.md), for what every process window shares.
 
 ## Credits
 
-Lite runs the workflow of [Image Integration](image-integration.md), and owes the same credits:
+Lite runs the workflow of Image Integration, and owes the same credits:
 
-- Color-camera frames are demosaiced by methods adapted from RawTherapee's
-  demosaic code as [librtprocess](https://github.com/CarVac/librtprocess)
-  packages it, under GPL-3.0-or-later.
-- The star detection and its point-spread-function fit are adapted from
-  [Siril](https://gitlab.com/free-astro/siril)'s star finder and PSF fit, by
-  Francois Meyer and team free-astro, under GPL-3.0-or-later.
-- The drizzle corner interpolation is adapted from Siril's routine, which
-  follows the [STScI drizzle library](https://github.com/spacetelescope/drizzle)'s,
-  under the BSD 3-Clause notice of the Association of Universities for Research
-  in Astronomy (AURA).
-- The auto-adaptive weighted mean is adapted from
-  [DeepSkyStacker](https://github.com/deepskystacker/DSS)'s routine, by David C.
-  Partridge with Michael A. Covington and Simon C. Smith, under the BSD 3-Clause
-  License of Luc Coiffier and the DeepSkyStacker contributors.
-- The median selection networks the normalization analysis uses are
-  [RawTherapee](https://github.com/Beep6581/RawTherapee)'s, by Flössie and Ingo
-  Weyrich, under GPL-3.0-or-later.
-- **About > About AfterNight** credits these works and reproduces the BSD
-  notices.
+- Color-filter frames are debayered by methods adapted from [RawTherapee](https://github.com/Beep6581/RawTherapee)'s
+  demosaic code as [librtprocess](https://github.com/CarVac/librtprocess) packages it, under GPL-3.0-or-later.
+- The star detection and its point-spread-function fit are adapted from the star finder and the profile fit of
+  [Siril](https://gitlab.com/free-astro/siril), Copyright (C) 2005-2011 Francois Meyer and Copyright (C) 2012-2026
+  team free-astro, under GPL-3.0-or-later.
+- The [drizzle](../../reference/glossary.md#drizzle) corner interpolation is adapted from Siril's routine, which
+  follows the [STScI drizzle library](https://github.com/spacetelescope/drizzle)'s, under the BSD 3-Clause notice of
+  the Association of Universities for Research in Astronomy (AURA).
+- The auto-adaptive weighted mean is adapted from [DeepSkyStacker](https://github.com/deepskystacker/DSS)'s routine,
+  by David C. Partridge with Michael A. Covington and Simon C. Smith, under the BSD 3-Clause License of Luc Coiffier
+  and the DeepSkyStacker contributors.
+- The median selection networks the normalization analysis uses are RawTherapee's, by Flössie and Ingo Weyrich, under
+  GPL-3.0-or-later.
+- **About > About AfterNight** credits these works and reproduces the BSD notices.

@@ -106,7 +106,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_
   | `curvesEditorScrollArea@28,69>28,82` | Drags in such a control, from the first place to the second: what adds a point to a curve and moves it. |
   | `liteAddFolderButton?C:\frames\lights` | Presses a button that opens the system's file or folder dialog, answers it with the path and waits for what is loaded. Several files are written as the dialog takes them: `"C:\a.fits" "C:\b.fits"`. |
   | `liteRunIntegrationButton!` | Presses a button that starts a run and waits until the button is enabled again, up to `-RunTimeoutSeconds`. |
-  | `spccProcessAssignImageStateButton^Yes` | Presses a button that opens a message asking a question, and answers it with the button of that name. |
+  | `spccProcessAssignImageStateButton^Yes` | Presses a button that opens a message or a dialog, and answers it with the button of that name, in the first new window that has one: Image Integration's `btnExecute^Run` waits past its "Preparing Execution Plan" window. |
+  | `%wait=Complete` | Waits, up to `-RunTimeoutSeconds`, for a run to end with a window whose title begins so, and answers it with OK; a window titled "Failed" or "Completed with Errors" stops the capture. |
 
 - `-Apply` takes the pair. After the window's picture it saves the main window as `<name>-before.png`, presses the
   window's **Apply**, waits for the run to end and saves the main window again as `<name>-after.png`. A message the run
@@ -182,6 +183,10 @@ pins:
 
 A pin is placed in percent of the picture's width and height, and its number is the step's. Then run
 `check_user_guide.py --page <page>` and the strict build.
+
+A picture written before it is taken adds `owed: true` to its block, and the page shows a frame holding its
+description until then. `check_user_guide.py --owed` lists the pictures still owed; when one is committed, its block
+drops `owed`, and the check refuses a block that is owed and whose picture exists.
 
 **When to capture.** At the start of a batch of pages, so that the writer describes the window they are looking at.
 And again whenever a window changes: the inventory test of the application's windows fails when a control is added,

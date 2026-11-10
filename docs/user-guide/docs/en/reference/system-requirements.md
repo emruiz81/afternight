@@ -229,7 +229,7 @@ If the same project also selects the Gaia G <= 14 starter pack, budget its rough
 - [File Formats](file-formats.md)
 - [External Tools settings](../interface/settings-dialog.md#external-tools-settings)
 - [Catalogs & Data settings](../interface/settings-dialog.md#catalogs-data-settings)
-- [Image Integration performance](../processes/stacking-integration/image-integration.md#performance)
+- [Image Integration performance](../processes/stacking-integration/image-integration-reference.md#what-a-run-costs)
 - [Installation troubleshooting](../getting-started/installation.md)
 - [Session Console](../interface/log-viewer.md)
 - [Troubleshooting And Diagnostics](troubleshooting.md)

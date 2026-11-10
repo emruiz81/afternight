@@ -233,6 +233,21 @@
 .shotwrap { position: relative; overflow: hidden; border: 1px solid var(--border-strong); border-radius: var(--radius); line-height: 0; }
 .shotwrap > a { display: block; }
 .prose .shotwrap img { display: block; width: 100%; height: auto; border: 0; border-radius: 0; }
+.shotwrap.owed {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    min-height: 160px;
+    padding: 24px;
+    line-height: 1.5;
+    border-style: dashed;
+    background: var(--surface);
+    color: var(--text-2);
+}
+.shotwrap.owed .owed-label { font: 600 12px var(--font-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
+.shotwrap.owed .owed-alt { font-size: 14px; }
+.shotwrap.owed .pair-label { position: static; align-self: flex-start; }
 .prose figure.an-figure figcaption { margin-top: 8px; }
 .pin {
     position: absolute;

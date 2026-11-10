@@ -676,7 +676,11 @@ written, links, credits and length.
   SHA-256 of its source with LF line endings: the complete Mermaid fence and its trailing newline. A picture is
   committed with its row, in the same change.
 - **A page shows only a picture that exists,** in a `figure` block, with a caption and an alternative text written
-  for the reader. A picture that is still owed is an issue, not a comment in the page.
+  for the reader. A picture not yet taken states `owed: true` on its block, which keeps its caption, alternative
+  text and pins for it: the page draws a frame that says the picture is to come and holds its description,
+  `check_user_guide.py` counts it (`--owed` lists every one), and `--no-owed` refuses it, as a release runs the check.
+  Each owed picture is also an issue with its capture recipe, and the block drops `owed` in the change that commits
+  the picture.
 - **Recapture with the window.** A change that alters a window recaptures its picture in the same pull request.
 - **What may be committed.** Captures and processed examples made by the maintainer from data the project may
   publish. No third-party astrophotography images, catalog screenshots, captures of other applications or

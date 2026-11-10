@@ -35,6 +35,10 @@ pins:
 ```
 ````
 
+A picture not yet taken states `owed: true`, on a figure or on a pair: the block keeps its alternative text, caption
+and pins for the picture to come, the page draws a frame that says so and holds the description instead, and no pin
+is drawn. The picture must not exist: once it is taken, the block no longer states `owed`.
+
 The hooks register the two formatters with pymdownx.superfences in `on_config` and call `begin_page` before each
 page renders, so a formatter knows the page it is on and the line of its block. SuperFences swallows whatever a
 formatter raises and leaves the block as stray text, so a formatter never raises: a block that cannot render becomes
@@ -94,8 +98,8 @@ WIDGET_KEYS = ('min', 'max', 'step', 'decimals')
 RANGED_KINDS = ('spinbox', 'slider')
 CHOICE_KINDS = ('combo', 'radio')
 CHECKED_WORDS = ('on', 'checked', 'true', 'yes', 'selected', 'enabled')
-FIGURE_KEYS = ('image', 'alt', 'caption', 'pins')
-PAIR_KEYS = ('images', 'caption')
+FIGURE_KEYS = ('image', 'alt', 'caption', 'pins', 'owed')
+PAIR_KEYS = ('images', 'caption', 'owed')
 PAIR_ENTRY_KEYS = ('image', 'alt', 'label')
 PIN_KEYS = ('n', 'x', 'y')
 
@@ -338,13 +342,24 @@ def parse_figure(source, folder, docs):
                 raise FenceError('an entry of `images` has no `label`, such as Before or After', entry.line)
     else:
         entries = [data]
+    # A picture not yet taken: the block keeps what the picture will show, and the page draws its description.
+    owed = data.get('owed', 'false')
+    if owed not in ('true', 'false'):
+        raise FenceError('`owed` is true or false, not %r' % owed, data.line)
+    owed = owed == 'true'
     images = []
     for entry in entries:
         if not _text(entry.get('image')):
             raise FenceError('`image` is missing', entry.line)
         if not _text(entry.get('alt')):
             raise FenceError('`alt` is missing: describe the picture for a reader who cannot see it', entry.line)
-        width, height = _image_size(entry['image'].strip(), folder, docs, entry.line)
+        if owed:
+            if _exists(entry['image'].strip(), folder, docs):
+                raise FenceError('image %s exists: remove `owed`, and the page shows it' % entry['image'].strip(),
+                                 entry.line)
+            width, height = None, None
+        else:
+            width, height = _image_size(entry['image'].strip(), folder, docs, entry.line)
         images.append({'image': entry['image'].strip(), 'alt': entry['alt'].strip(),
                        'label': entry.get('label', '').strip() if pair else '', 'width': width, 'height': height})
     pins = []
@@ -363,7 +378,15 @@ def parse_figure(source, folder, docs):
             if any(int(number) == other[0] for other in pins):
                 raise FenceError('pin %d is placed twice' % number, pin.line)
             pins.append((int(number), x, y))
-    return {'images': images, 'caption': data['caption'].strip(), 'pins': pins, 'pair': pair}
+    return {'images': images, 'caption': data['caption'].strip(), 'pins': pins, 'pair': pair, 'owed': owed}
+
+
+def _exists(image, folder, docs):
+    """Whether a picture a block names relative to its page is a file inside the docs folder."""
+    if _SCHEME.match(image) or image.startswith('/'):
+        return False
+    path = os.path.normpath(os.path.join(folder, image.replace('/', os.sep)))
+    return not os.path.relpath(path, docs).startswith('..') and os.path.isfile(path)
 
 
 def _image_size(image, folder, docs, line):
@@ -511,7 +534,12 @@ def render_controls(block, used_ids=None):
     return '<section class="ctls" aria-label="%s">%s%s</section>' % (_e(label), head, ''.join(rows))
 
 
-def _shot(image, pins=()):
+def _shot(image, pins=(), owed=False):
+    if owed:
+        # Its description stands in its place; a pin marks a place on a picture, and there is none yet.
+        label = '<span class="pair-label">%s</span>' % _e(image['label']) if image['label'] else ''
+        return ('<div class="shotwrap owed" role="img" aria-label="%s"><span class="owed-label">Picture to come</span>'
+                '<span class="owed-alt">%s</span>%s</div>' % (_e(image['alt']), _e(image['alt']), label))
     marks = ''.join('<span class="pin" style="left:%.4g%%;top:%.4g%%"><span class="visually-hidden">Step </span>%d'
                     '</span>' % (x, y, number) for number, x, y in pins)
     label = '<span class="pair-label">%s</span>' % _e(image['label']) if image['label'] else ''
@@ -525,10 +553,11 @@ def _shot(image, pins=()):
 def render_figure(figure):
     """A parsed `figure` block as HTML: `<figure class="an-figure">` with the picture, its pins and its caption."""
     if figure['pair']:
-        inner = '<div class="pair">%s</div>' % ''.join(_shot(image) for image in figure['images'])
+        inner = '<div class="pair">%s</div>' % ''.join(_shot(image, owed=figure.get('owed', False))
+                                                       for image in figure['images'])
         classes = 'an-figure an-pair'
     else:
-        inner = _shot(figure['images'][0], figure['pins'])
+        inner = _shot(figure['images'][0], figure['pins'], figure.get('owed', False))
         classes = 'an-figure'
     return '<figure class="%s">%s<figcaption>%s</figcaption></figure>' % (classes, inner, inline(figure['caption']))
 
