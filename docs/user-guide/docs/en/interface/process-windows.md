@@ -67,8 +67,8 @@ pins:
 
 Make the image or sequence the active view and choose the process from the **Process** menu. **Target Image** names
 the view, and the preview shows the image unchanged until the first result lands. A window does not open twice on one
-image, and some processes need the image to themselves. A process that cannot open is disabled in the menu, and its
-tooltip says why.
+image, and some processes need the image to themselves. A process that cannot open says why in a message when you
+choose it. A process an extension adds is disabled in the menu instead, with the reason as its tooltip.
 
 ### Preview and compare
 
@@ -197,12 +197,12 @@ controls:
   - name: Zoom In
     kind: toolbutton
     default: ""
-    effect: Shows the preview larger, up to 6,400 percent.
+    effect: Shows the preview a quarter larger at each press, a factor of 1.25, up to 6,400 percent.
     scope: The pane only, apart from the histogram's zoom. The mouse gestures of an image's view work here too.
   - name: Zoom Out
     kind: toolbutton
     default: ""
-    effect: Shows the preview smaller, down to 1 percent.
+    effect: Shows the preview smaller at each press, a factor of 0.8, down to 1 percent.
   - name: Zoom 100%
     kind: toolbutton
     default: ""
@@ -397,7 +397,7 @@ controls:
 
 ## When it goes wrong
 
-The process is disabled in the menu: "An existing process of this type is already running for the target image"
+"An existing process of this type is already running for the target image"
 :   **Cause.** A window of the same process is already open on that image, perhaps behind another window.
 :   **Fix.** Use that window, or close it first.
     [Process Windows Reference](process-windows-reference.md) explains every other reason a process gives.
