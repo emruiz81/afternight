@@ -154,7 +154,6 @@ proportional to the short report text.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations: For a
   saved SER sequence, the selected source path produces **SER sequence** plus
   common resolution, channels, CFA, frame count, FPS, pixel type and per-frame
@@ -188,14 +187,14 @@ proportional to the short report text.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Summary is disabled | No active image exists, or this parent view already has an open Summary dialog. | Activate a loaded view, or close the existing Summary dialog. | `ActionStateCoordinator.cpp`; `ImageSummaryViewerControl.cpp` |
-| File fields show `-` | The image is unsaved/temporary-backed, or metadata/filesystem information is unavailable. | Save to a durable path, reopen if disk verification matters, and open Summary again. | `common.h` |
-| A video/raw-AVI sequence shows image fields | Only SER and image-list sequence checks select sequence reports; other backends use current-frame image metadata. | Use the sequence workspace/status for backend/frame context; do not infer sequence totals from this summary. | `ImageInspectorContent.cpp` |
-| The report did not change while an edit ran | The window never waits for an edit; it keeps the report it showed until the edit lands. | Wait for the edit to finish; the report rebuilds on the image's update. | `ImageSummaryViewerControl.cpp`; `ImageInspectorContent.cpp` |
-| Copy produces no visible feedback | The action writes plain text without a success notification. | Paste into a trusted text field to verify, while considering metadata privacy. | `ImageSummaryViewerControl.cpp` |
-| Expected FITS/EXIF/WCS fields are missing | Summary intentionally formats only its fixed common-field set. | Open [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md). | `common.h`; `ImageSummaryViewerControl.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Summary is disabled | No active image exists, or this parent view already has an open Summary dialog. | Activate a loaded view, or close the existing Summary dialog. |
+| File fields show `-` | The image is unsaved/temporary-backed, or metadata/filesystem information is unavailable. | Save to a durable path, reopen if disk verification matters, and open Summary again. |
+| A video/raw-AVI sequence shows image fields | Only SER and image-list sequence checks select sequence reports; other backends use current-frame image metadata. | Use the sequence workspace/status for backend/frame context; do not infer sequence totals from this summary. |
+| The report did not change while an edit ran | The window never waits for an edit; it keeps the report it showed until the edit lands. | Wait for the edit to finish; the report rebuilds on the image's update. |
+| Copy produces no visible feedback | The action writes plain text without a success notification. | Paste into a trusted text field to verify, while considering metadata privacy. |
+| Expected FITS/EXIF/WCS fields are missing | Summary intentionally formats only its fixed common-field set. | Open [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md). |
 
 ## Related workflow steps
 
@@ -209,20 +208,3 @@ proportional to the short report text.
   backend behavior.
 - Use [Saving And Exporting](saving-and-exporting.md) to create a durable file,
   then reopen it when the summary is part of output verification.
-
-## References and provenance
-
-- `common.h` is authoritative for every still/SER/image-list field, unit,
-  placeholder, timestamp format, and temporary-path rule.
-- `ImageSummaryViewerControl.cpp` defines report parsing, refresh,
-  rename, empty/fallback behavior, and clipboard conversion.
-- `ImageInspectorContent.cpp` reads the view's document under a lease that never
-  waits and chooses the report; the engine's `SequenceDescriptor.h` and
-  `CodecMetadataProjection.h` define the sequence description and the
-  acquisition facts the report reads.
-- `ImageReportTest.cpp` in `Test_ControlsServices` holds every report's fields,
-  labels and placeholders; `InspectorContentTest.cpp` and
-  `InspectorWindowsTest.cpp` in `Test_ControlsDialogs` hold the dispatch, the
-  window, its clipboard copy and its rename; `test_image_metadata_viewers_ui.cpp`
-  verifies the structured summary view, scroll/content widgets, and primary close
-  action. Live layout was not inspected.

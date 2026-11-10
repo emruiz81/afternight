@@ -255,26 +255,27 @@ or repeated samples participate.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Check or correction | Evidence |
-| --- | --- | --- | --- |
-| Faint stars disappear with hot pixels | Both are small neighborhood minorities | Reduce Kernel/Iterations or Modulation; use Cosmetic Correction or a protection mask | Order-statistic rule |
-| Smooth background becomes patchy | Repeated nonlinear passes create flat regions | Reduce Iterations first, then Kernel or Modulation | Recursive pass path |
-| Border differs from the interior | Neighborhood coordinates are clipped | Inspect the full frame; do not assume reflection padding | Truncated-window border |
-| Colors shift around small features | RGB channels select medians independently | Try a luminance component and inspect chroma channels before Apply | Shared Channel loop |
-| Modulation `0` is still slow | Blend is identity, but median selection still runs | Disable Preview or close the process when no effect is wanted | Per-pass blend after rank selection |
-| NaN or infinity survives filtering | Non-finite samples are treated as missing and left in place | Repair or reject non-finite samples first if the result must be finite | Missing-sample rule |
-| Kernel remains after Reset | Reset changes only Iterations and Modulation | Re-select `3x3` manually if needed | `resetSettings()` |
-| Preview differs from Apply | Preview area, mask, target/channel, or display stretch changed | Match all controls and one Display Mode; Apply always processes the full target | Shared preview/process path |
-| Large kernel is slow | `11x11` and wider windows use the general rank selection over up to 225 samples per pixel | Use a smaller kernel or a Preview area while tuning; Cancel stops between groups of rows | Rank selection cost |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Faint stars disappear with hot pixels | Both are small neighborhood minorities | Reduce Kernel/Iterations or Modulation; use Cosmetic Correction or a protection mask |
+| Smooth background becomes patchy | Repeated nonlinear passes create flat regions | Reduce Iterations first, then Kernel or Modulation |
+| Border differs from the interior | Neighborhood coordinates are clipped | Inspect the full frame; do not assume reflection padding |
+| Colors shift around small features | RGB channels select medians independently | Try a luminance component and inspect chroma channels before Apply |
+| Modulation `0` is still slow | Blend is identity, but median selection still runs | Disable Preview or close the process when no effect is wanted |
+| NaN or infinity survives filtering | Non-finite samples are treated as missing and left in place | Repair or reject non-finite samples first if the result must be finite |
+| Kernel remains after Reset | Reset changes only Iterations and Modulation | Re-select `3x3` manually if needed |
+| Preview differs from Apply | Preview area, mask, target/channel, or display stretch changed | Match all controls and one Display Mode; Apply always processes the full target |
+| Large kernel is slow | `11x11` and wider windows use the general rank selection over up to 225 samples per pixel | Use a smaller kernel or a Preview area while tuning; Cancel stops between groups of rows |
 
-## References and provenance
+## Credits
 
 - [Huang, Yang, and Tang, “A Fast Two-Dimensional Median Filtering Algorithm,” IEEE TASSP 27(1), 1979](https://doi.org/10.1109/TASSP.1979.1163188)
   is a primary reference for two-dimensional median filtering and its
   neighborhood-order-statistic model.
-- AfterNight's engine order-statistic filter is authoritative for the current
-  sorting paths, clipped boundaries, per-pass modulation, missing-sample rule,
-  working precision, and cancellation.
+- The fixed selection networks of the `3x3` to `9x9` windows are
+  [RawTherapee](https://github.com/Beep6581/RawTherapee)'s, by Flössie and Ingo
+  Weyrich, as [librtprocess](https://github.com/CarVac/librtprocess) carries them,
+  under GPL-3.0-or-later; **About > About AfterNight** credits them.
 
 ## Related workflow steps
 

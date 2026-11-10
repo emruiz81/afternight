@@ -208,7 +208,6 @@ path to recent files.
 
 ## Worked lookup example
 
-- Evidence mode: Source-and-test-derived.
 - Question, lookup path, verified conclusion, and revision/platform/data
   limitation: "Which output should retain a float RGB processing master and
   which should be sent for web sharing?" The still matrix shows FITS, TIFF, and
@@ -253,22 +252,22 @@ path to recent files.
 
 ## Troubleshooting
 
-| Symptom/question | Verified interpretation or cause | Resolution/next page | Evidence source |
-| --- | --- | --- | --- |
-| Which format keeps float samples? | FITS, TIFF, and XISF map 32/64-bit float; PNG/JPEG do not. | Keep an astronomy-native/interchange master, then make delivery copies. | FITS/TIFF/XISF/PNG/JPEG codec sources and round-trip tests |
-| Save rejects a filename | Extension is missing/unsupported even if a broad filter was selected; a still save names only FITS, XISF, TIFF, PNG and JPEG. | Use a recognized still extension; see [Saving And Exporting](../interface/saving-and-exporting.md). | `FilePolicies.cpp`; `CodecFormat.cpp` |
-| TIFF used LZW instead of JPEG | The written samples were not 8-bit; the session console says so. | Keep LZW/ZIP for lossless high-depth output or deliberately make an 8-bit delivery copy. | `FilePolicies.cpp` |
-| FITS has no new HISTORY cards | No save writes a processing history. | Preserve provenance separately and inspect existing header records. | `FilePolicies.cpp`; `ExportSettingsPage.cpp` |
-| EXIF field disappeared | Field was outside the format's allowed subset, an embedded XMP packet, a field the metadata library could not write, or Embed EXIF was off. | Retain source metadata; verify after reopening; use FITS/XISF for astronomy fields. | `CodecMetadataPolicy.h`; `ExifCards.cpp` |
-| `.anseq` works only on the original machine/path | Manifest frame paths or sibling directory are missing; **New Sequence** names its files by absolute path. | Move the whole artifact or rebuild the list from available frames. | `ImageListManifest.h`; `NewSequenceControl.cpp` |
-| A saved image list's frames have another sample type than some sources | A save writes every frame in the first frame's representation, with its header cards. | Make the first frame the one whose representation the list should keep, or save the frames individually. | `SequenceContainers.cpp`; `SequenceContainersTest.AnImageListWrittenKeepsEachFramesCards` |
-| Video opens but export dimensions change | An odd width or height is cropped by one column or row, or the chosen resize preset applies. | Use an even width and height; verify output. | `SequenceContainers.cpp`; `ExportSequenceControl.cpp` |
-| Video sequence Save is refused for a `.mpg` or `.mpeg` file | AfterNight writes no MPEG stream. | Save with an `.mp4`, `.mkv` or `.webm` name, or use [Sequence Export](../interface/saving-and-exporting.md#export-a-sequence) to a new file. | `SequenceContainers.cpp`; `SequenceCompanions.cpp` |
-| A TIFF does not open, naming its photometric interpretation | Palette, white-is-zero, separated-ink and subsampled-chroma TIFFs are refused. | Convert it to an RGB or grey TIFF with another tool. | `TiffCodec.h` |
-| A 64-bit integer FITS does not open | A stored value lies beyond ±2^53. | Convert it to a 32-bit or floating FITS with another tool. | `FitsCodec.h` |
-| A JPEG or TIFF opens unrotated | No still codec applies an orientation. | Turn it with the view's rotate commands or a geometry process. | `JpegCodec.h`; `TiffCodec.h`; `ImageViewFiles.cpp` |
-| A video does not open although another player shows it | Its container or decoder is outside AfterNight's admission lists. | Convert it to a listed container and codec with another tool. | `FfmpegSequence.h`; `SequenceContainers.cpp` |
-| An X-Trans mosaic is refused for a FITS save, naming XISF or TIFF | FITS states a mosaic's filters in one two-by-two pattern card, which cannot describe an X-Trans array. | Save as XISF or TIFF, or demosaic the mosaic first. | `FilePolicies.cpp`; `FilePoliciesTest.AnXTransMosaicIsRefusedForFitsWhichStatesATwoByTwoPatternOnly` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Which format keeps float samples? | FITS, TIFF, and XISF map 32/64-bit float; PNG/JPEG do not. | Keep an astronomy-native/interchange master, then make delivery copies. |
+| Save rejects a filename | Extension is missing/unsupported even if a broad filter was selected; a still save names only FITS, XISF, TIFF, PNG and JPEG. | Use a recognized still extension; see [Saving And Exporting](../interface/saving-and-exporting.md). |
+| TIFF used LZW instead of JPEG | The written samples were not 8-bit; the session console says so. | Keep LZW/ZIP for lossless high-depth output or deliberately make an 8-bit delivery copy. |
+| FITS has no new HISTORY cards | No save writes a processing history. | Preserve provenance separately and inspect existing header records. |
+| EXIF field disappeared | Field was outside the format's allowed subset, an embedded XMP packet, a field the metadata library could not write, or Embed EXIF was off. | Retain source metadata; verify after reopening; use FITS/XISF for astronomy fields. |
+| `.anseq` works only on the original machine/path | Manifest frame paths or sibling directory are missing; **New Sequence** names its files by absolute path. | Move the whole artifact or rebuild the list from available frames. |
+| A saved image list's frames have another sample type than some sources | A save writes every frame in the first frame's representation, with its header cards. | Make the first frame the one whose representation the list should keep, or save the frames individually. |
+| Video opens but export dimensions change | An odd width or height is cropped by one column or row, or the chosen resize preset applies. | Use an even width and height; verify output. |
+| Video sequence Save is refused for a `.mpg` or `.mpeg` file | AfterNight writes no MPEG stream. | Save with an `.mp4`, `.mkv` or `.webm` name, or use [Sequence Export](../interface/saving-and-exporting.md#export-a-sequence) to a new file. |
+| A TIFF does not open, naming its photometric interpretation | Palette, white-is-zero, separated-ink and subsampled-chroma TIFFs are refused. | Convert it to an RGB or grey TIFF with another tool. |
+| A 64-bit integer FITS does not open | A stored value lies beyond ±2^53. | Convert it to a 32-bit or floating FITS with another tool. |
+| A JPEG or TIFF opens unrotated | No still codec applies an orientation. | Turn it with the view's rotate commands or a geometry process. |
+| A video does not open although another player shows it | Its container or decoder is outside AfterNight's admission lists. | Convert it to a listed container and codec with another tool. |
+| An X-Trans mosaic is refused for a FITS save, naming XISF or TIFF | FITS states a mosaic's filters in one two-by-two pattern card, which cannot describe an X-Trans array. | Save as XISF or TIFF, or demosaic the mosaic first. |
 
 ## Related pages
 
@@ -287,24 +286,26 @@ path to recent files.
 - [Troubleshooting And Diagnostics](troubleshooting.md) routes open, save,
   metadata, sequence, and external-tool symptoms to the specific remedies.
 
-## References and provenance
+## Credits
 
 - [FITS Standard 4.0](https://fits.gsfc.nasa.gov/fits_standard.html), official
-  IAU FITS Working Group reference, rechecked 2026-07-20.
-- [XISF 1.0 Specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html),
-  PixInsight primary specification, reviewed on 2026-07-19.
-- [TIFF specification index](https://libtiff.gitlab.io/libtiff/specification/index.html)
-  and [TIFF/JPEG Technical Note 2](https://libtiff.gitlab.io/libtiff/specification/technote2.html),
-  primary LibTIFF-hosted references, accessed 2026-07-19.
-- [PNG Specification, Second Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html),
-  primary specification, accessed 2026-07-19.
-- [Independent JPEG Group](https://ijg.org/) and
-  [JPEG Still Picture Compression Standard](https://www.ijg.org/files/Wallace.JPEG.pdf),
-  primary implementation/technical references, accessed 2026-07-19.
-- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html), primary
-  libavformat documentation, rechecked 2026-07-20.
-- [SER format description, version 3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf),
-  primary format description, reviewed on 2026-07-19.
-- AfterNight source and tests, reconciled 2026-10-18.
-
-<!-- No screenshot is required for this reference matrix. -->
+  IAU FITS Working Group reference.
+- [XISF 1.0
+  Specification](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html),
+  PixInsight primary specification.
+- [TIFF specification
+  index](https://libtiff.gitlab.io/libtiff/specification/index.html) and
+  [TIFF/JPEG Technical Note
+  2](https://libtiff.gitlab.io/libtiff/specification/technote2.html), primary
+  LibTIFF-hosted references.
+- [PNG Specification, Second
+  Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html), primary
+  specification.
+- [Independent JPEG Group](https://ijg.org/) and [JPEG Still Picture Compression
+  Standard](https://www.ijg.org/files/Wallace.JPEG.pdf), primary
+  implementation/technical references.
+- [FFmpeg Formats Documentation](https://ffmpeg.org/ffmpeg-formats.html),
+  primary libavformat documentation.
+- [SER format description, version
+  3b](https://free-astro.org/images/5/51/SER_Doc_V3b.pdf), primary format
+  description.

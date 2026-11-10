@@ -2,22 +2,18 @@
 
 > **Audience:** contributors who write, review, build or publish the end-user guide in `docs/user-guide/`.
 >
-> **Source of truth:** for the site, the configuration, templates, records and scripts this document names; for what
+> **Source of truth:** for the site, the configuration, templates, data and scripts this document names; for what
 > a page says, the product's current source and tests.
 
 The user guide is a MkDocs site in a theme of its own, written in Markdown. It is built from a locked toolchain,
 works when opened from disk, ships inside the installers and is published to GitHub Pages with each release. This document states the
-rules a change to the guide follows: where its parts live, how it is built and shipped, how a page's claims are
-verified, what a complete page contains, how it is written and how its media is handled.
+rules a change to the guide follows: where its parts live, how it is built and shipped, what a page's statements
+are read from, what a complete page contains, how it is written and how its media is handled.
 
-> **Frozen while the guide is rebuilt ([#37](https://github.com/emruiz81/afternight/issues/37)).** The audit
-> apparatus - `build/scripts/audit_user_guide.ps1`, `validate_user_guide_media.ps1`,
-> `validate_ug00_user_guide_foundation.ps1`, `validate_ug01_user_guide_audits.ps1` and
-> `validate_ug65_user_guide_diagrams.cjs`, the completion tracker, the screenshot request manifest, the
-> content-verification prerequisites, `docs/user-guide/audits/` and `docs/dev/USER_GUIDE_SCREENSHOT_TRIAGE.md` - is
-> frozen: nobody runs or updates it, no CI job runs it, and the rebuild removes it. What this document asks of a
-> tracker row, a manifest row, a `MEDIA_SLOT` comment or an audit run is suspended with it. The strict build,
-> `check_user_guide.py` and the render tool hold the guide meanwhile ([Checks](#checks)).
+> **The guide is being rebuilt ([#37](https://github.com/emruiz81/afternight/issues/37)).** Its theme, metadata and
+> checks are the ones this document describes. Its pages still have the structure of the templates under
+> `docs/user-guide/templates/`, which the rebuild replaces kind by kind as it rewrites them; the sections on page
+> kinds, complete pages, style and media describe that structure until then.
 
 ## Contents
 
@@ -53,10 +49,6 @@ verified, what a complete page contains, how it is written and how its media is 
 | `docs/user-guide/docs/en/assets/javascripts/` | The vendored MathJax runtime with its fonts and configuration, and the Mermaid runtime with its initializer. |
 | `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` | The provenance of every committed image and retained diagram, and the offline runtime policy. |
 | `docs/user-guide/templates/` | The four page templates. |
-| `docs/user-guide/DOCUMENTATION_COMPLETION_TRACKER.md` | One row per navigated page with its states and evidence, the state model and the phase ledger. |
-| `docs/user-guide/SCREENSHOT_REQUEST_MANIFEST.md` | The canonical media manifest, the only capture brief. |
-| `docs/user-guide/CONTENT_VERIFICATION_PREREQUISITES.md` | The evidence modes, and the data, tools, catalogs and platforms a verification needs. |
-| `docs/user-guide/audits/` | The audit's configuration and baseline, the media contract and retained validation evidence; its `README.md` explains the audit. |
 | `docs/user-guide/site/` | The built site. Git ignores it, as it ignores the helpers' environment in `docs/user-guide/.venv/`. |
 
 ## Building
@@ -282,12 +274,12 @@ that is not beside it). It loads neither MathJax nor Mermaid, which are checked 
   becomes of the target, its preview, sequences, masks and tools, then `glance`'s `enabled`, `inputs`, `outputs`
   and `state`. A page not yet rewritten keeps the "At a glance" section it wrote. The head's chips show the same
   facts in short: "Replaces the target" when `destructive` is true.
-- **The catalog** ignores its own body. It lists every process page in the lane of its `stage`, the lanes in pipeline
-  order with Any time last; inside a lane, by nav group - the Process menu's category - in nav order. A row is the
-  nav label, the page's `summary`, its `menu` paths and `data_in` and `data_out`. A stage per category would teach
-  the wrong order, so the category is the tag and the stage is the lane. Its `reach` sentences follow its summary.
-  A link to a lane is `processes/index.md#stage-<id>`.
-- **The home page** ignores its own body too:
+- **The catalog** has no body: its page is its front matter and its H1. It lists every process page in the lane of
+  its `stage`, the lanes in pipeline order with Any time last; inside a lane, by nav group - the Process menu's
+  category - in nav order. A row is the nav label, the page's `summary`, its `menu` paths and `data_in` and
+  `data_out`. A stage per category would teach the wrong order, so the category is the tag and the stage is the
+  lane. Its `reach` sentences follow its summary. A link to a lane is `processes/index.md#stage-<id>`.
+- **The home page** is drawn from its front matter, and ignores the body it still has until it is rewritten:
 
   ```yaml
   hero:
@@ -368,7 +360,7 @@ The installers bundle the built site, and it works opened from disk without a ne
 
 ## Sources of truth
 
-A page states what the product does, and each claim is verified against the product in this order:
+A page states what the product does, and each statement is read from the product, in this order:
 
 1. **Reachability and labels:** `src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp`,
    `src/AfterNightControls/app/AfterNightAppUiBuilder.h`, `src/AfterNightControls/app/MenuActionManager.cpp`, the
@@ -388,36 +380,36 @@ Existing guide prose and old plans help find what to read; they are not sources.
 behavior only: a control, page or option that exists in source but that the product does not register or reach is
 not described as available, and the discrepancy is recorded as a finding.
 
-A review is recorded in the page's tracker row: the source files and tests read, the review date, the full `HEAD`
-SHA reviewed, and whether a reviewed file had uncommitted changes. When one did, the row lists the affected paths and
-the diff that matters is kept as evidence. `build/scripts/audit_user_guide.ps1` reads these records to report which
-reviewed sources have changed since.
+**A page explains; it does not prove.** What shows a sentence to be true - source files and tests, review dates
+and revisions, the data a run used, hashes - belongs to the repository and to the pull request, not to the page. A
+record of that kind is pinned to the revision it was read at and is stale with the next commit, and a reader
+processing an image has no use for it. So a page carries no evidence section, no evidence column in a table and no
+comment for its authors, and a rule of the product is stated as the rule, without the file it was read in. The
+pull request that writes or rewrites a page lists, for each page, the sources read and the windows observed: that
+list is the record the page does not carry. Git keeps what earlier pages said.
+
+What a page owes to others is the exception, and it stays on the page: the credits of
+[Naming other programs](#naming-other-programs).
 
 ## Verifying in the application
 
-Source and focused tests come first; the running application is an escalation for what they cannot prove.
+Source and focused tests come first; the running application is for what they cannot show.
 
-1. Derive the control and action inventory, labels, defaults, ranges, static dependencies, validation, persistence
+1. Read the control and action inventory, labels, defaults, ranges, static dependencies, validation, persistence
    and algorithm behavior from source and focused tests before launching AfterNight.
-2. Write a short unresolved-GUI checklist that holds only the claims source and tests cannot prove: visibility on a
-   platform or build, dynamic enablement, runtime-populated state, layout, clipping and responsiveness, or an
-   interaction the page must show.
-3. Launch the application only when that checklist is not empty and a claim needs GUI evidence (mode `G`), or when an
-   execution or a capture (modes `E` and `C`) uses the GUI. Batch the checklist into one session where feasible, use
-   an isolated profile and output location, and reach each state by the most deterministic route: a menu action, a
-   shortcut, a known starting state or a focused test harness. Do not explore dialogs to enumerate controls or copy
-   labels that source already gives.
-4. After two failed automated attempts to reach the same state, stop retrying. Use a deterministic alternative route
-   or a short recorded manual inspection. A claim with enough source and test evidence is labelled mode `S`, without
-   claiming a GUI check that did not happen; when mode `G` is mandatory and still cannot be produced, the blocker is
-   recorded.
+2. Write a short list of what source and tests leave open: visibility on a platform or build, dynamic enablement,
+   state filled in at run time, layout, clipping and responsiveness, or an interaction the page must show.
+3. Launch the application only when that list is not empty, or to take a picture. Work through the list in one
+   session where feasible, with an isolated profile and output location (`AFTERNIGHT_TEST_STORAGE_ROOT`), and reach
+   each state by the most deterministic route: a menu action, a shortcut, a known starting state or a focused test
+   harness. Do not explore dialogs to enumerate controls or copy labels that source already gives.
+4. After two failed automated attempts to reach the same state, stop retrying. Use a deterministic alternative
+   route or a short manual inspection, and state nothing the inspection did not show.
 
-Opening a dialog does not prove persistence, algorithm execution, output quality or the readiness of an external
-tool. Screenshots are taken through the media workflow below, not during a content review.
-
-`docs/user-guide/CONTENT_VERIFICATION_PREREQUISITES.md` defines the evidence modes (`S`, `A`, `E`, `B`, `G`, `C`,
-`P`, `H-T`, `H-U`), what each can and cannot prove, and the data, tools, catalogs and platforms each area of the guide
-needs. A claim about an external tool's contract, a supported version, a standard or a licence also needs mode `A`.
+Opening a dialog does not show persistence, algorithm execution, output quality or the readiness of an external
+tool. A statement about an external tool's contract, a supported version, a standard or a licence is read from that
+tool's or standard's own documentation, which the page then credits. The pull request says which windows were
+observed, as it says which sources were read.
 
 ## Page kinds and templates
 
@@ -428,19 +420,14 @@ needs. A claim about an external tool's contract, a supported version, a standar
 | Workflow | `docs/user-guide/templates/WORKFLOW_PAGE_TEMPLATE.md` | `workflows/` |
 | Reference | `docs/user-guide/templates/REFERENCE_PAGE_TEMPLATE.md` | `reference/` |
 
-The audit decides a page's kind by its directory; `pageKindOverrides` in
-`docs/user-guide/audits/user-guide-audit-config.json` names the exceptions. The templates are frozen: a required
-heading may be added, never removed. The audit reports a navigated page that lacks a heading its template requires,
-and a process page whose parameter table lacks the canonical columns;
-`build/scripts/validate_ug00_user_guide_foundation.ps1` holds the templates to their rubric.
+These are the templates the pages were written on, and they describe the pages as they stand: process pages under
+`processes/`, workflows under `workflows/`, reference pages under `reference/`, and the component template for
+every other page. They are not the `kind` of a page's front matter ([Page metadata](#page-metadata)), which picks
+its layout. A page keeps the headings of its template until it is rewritten, because the theme finds some of its
+components by their headings ([Components and blocks](#components-and-blocks)).
 
-A page renders no authoring evidence. Its owner, review date and revision, dirty reviewed sources, sources and tests,
-coverage checks, content, review and media states and last strict build are recorded in its tracker row alone, and
-each template opens with a comment that sends the author there; `build/scripts/validate_ug00_user_guide_foundation.ps1`
-refuses an evidence section or row in a template or a page, and `build/scripts/validate_user_guide_media.ps1` checks
-the tracker's media states. What a reader needs - provenance, compatibility and version statements, references, the
-limits of a worked example, troubleshooting evidence - stays in the page's reader-facing sections, and a citation of
-the implementation stays only where it explains behavior.
+A page carries what its reader needs and nothing about how it was written ([Sources of truth](#sources-of-truth)).
+Credits, compatibility and version statements and the limits of a worked example are for the reader, and stay.
 
 ## What a complete page contains
 
@@ -487,22 +474,14 @@ A process page also has:
    files, and whether the source changes.
 7. **Performance:** the main costs and safe ways to prototype.
 8. **A worked example:** the input condition, the settings, the expected observation, and what to inspect at 100%
-   zoom or in statistics and history. It says whether it was executed with project-owned data or is
-   source-and-test-derived, and gives no unverified quantitative or visual result.
+   zoom or in statistics and history. It gives no quantitative or visual result that was not computed or observed.
 9. **Troubleshooting:** the process's errors and how to diagnose its artifacts.
-10. **References:** the primary papers, upstream algorithm documentation, standards and project provenance that
-    support the explanation.
+10. **Credits:** under `## Credits`, the upstream work a derived process is computed with, its authors and its
+    licence, and the primary papers, standards and upstream documentation behind the explanation, each with a link.
+    A page with nothing to credit has no such section.
 
 An equation helps the reader predict behavior: every symbol is defined, and the equation is paired with a
 plain-language reading. Incidental C++ detail stays out unless it affects results, compatibility or performance.
-
-### States
-
-The tracker's "Independent state model" defines a page's states. A page that meets the rubric above is a
-review-ready `Draft`. It becomes `Content complete` only after a human technical review and a human user review, each
-of the page itself or of a recorded review cohort, and a current strict build. Media is a separate dimension: a page
-can be `Content complete` while required media is still missing, and it is fully complete only when that media is
-`Validated`.
 
 ## Writing style
 
@@ -523,57 +502,36 @@ can be `Content complete` while required media is still missing, and it is fully
 
 ## Media
 
-`docs/user-guide/SCREENSHOT_REQUEST_MANIFEST.md` is the only capture brief. Each retained asset has one row: a stable
-Media ID, the owning capture phase, the canonical repository path, the consumer pages, the editorial role, the
-disposition (`Keep` or `Deferred`), the reader question, the distinctive state to show, the evidence gate, the
-privacy boundary, the capture status and the replacement trigger.
-
-- A consumer page of a retained asset that does not exist yet carries only `<!-- MEDIA_SLOT: UG-MEDIA-### -->` with
-  the asset's Media ID, and never links the missing file. Capture instructions belong in the manifest row, not in page
-  comments.
-- A page whose media was triaged as not needed has no slot. A deferred asset has no slot on a release page unless the
-  page explains the deferral, and is never presented as verified.
-- Pages that share a visual use the same Media ID and canonical file; there is no alias or duplicate file.
-- When the asset exists, replace the slot on every consumer page with a Markdown image and a caption written for the
-  reader, record its provenance, and only then advance the manifest's capture status (`Planned`, `Ready`, `Blocked`,
-  `Captured`, `Placed`, `Validated`) and the tracker's media state. The tracker's ledger row for the owning capture
-  phase follows the manifest: `Not started` while every kept asset the phase owns is `Planned` or `Blocked`,
-  `In progress` once one is `Ready` or further, and `Agent complete` when all are `Validated`.
-- `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` records every committed screenshot, result image, diagram, GIF,
-  WebM or other asset with its Media ID (or `Not applicable`), path, creator or source, licence or permission, date,
-  SHA-256, update procedure and sample-data boundary. A retained inline diagram is recorded by the SHA-256 of its
-  source with LF line endings: the complete Mermaid fence and its trailing newline.
+- `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` records every committed screenshot, result image, diagram,
+  GIF, WebM or other asset with its path, creator or source, licence or permission, date, SHA-256, update procedure
+  and sample-data boundary; a row keeps the Media ID its picture was captured under, and a row without one says
+  `Not applicable`. A retained inline diagram is recorded by the SHA-256 of its source with LF line endings: the
+  complete Mermaid fence and its trailing newline. An image is committed with its row, in the same change.
+- A page links only an image that exists, with a caption written for the reader. A picture that is still owed is
+  an issue, not a comment in the page.
 - Prefer captures and processed examples made by the maintainer from data the project may publish. A capture that
-  depicts a result also needs reproducible settings, approved data and a bounded claim. Do not commit third-party
+  depicts a result also needs reproducible settings and a bounded claim. Do not commit third-party
   astrophotography images, catalog screenshots, captures of other applications or downloaded media unless
-  redistribution in the repository and the installers is explicitly allowed. Unknown permission or missing evidence
-  keeps the row `Blocked`; it never justifies a linked file or a capture brief in a page.
-- A capture shows only what its row's privacy boundary allows: never credentials, tokens, licence secrets, private
-  repositories or endpoints, device serials or unrelated personal data.
-- `docs/user-guide/audits/user-guide-media-contract.json` states the expected counts: the original requests and the
-  canonical rows, the `Keep` and `Deferred` rows, each capture phase's kept, deferred and still-missing assets, the
-  merged and not-needed decisions, and the negative fixtures. A change to a row's disposition, phase or capture status
-  updates the contract in the same change; `build/scripts/validate_user_guide_media.ps1` fails while the manifest,
-  the pages, the tracker, the provenance and the contract disagree.
-- Whether a page needs an image at all follows the rubric in `docs/dev/USER_GUIDE_SCREENSHOT_TRIAGE.md`: by default no
-  screenshot, at most one on a typical page, and a second only for mutually exclusive states, a meaningful
-  before-and-after comparison or a setup-and-completion sequence. A readable crop of the distinctive region is
-  preferred to a full-window inventory of controls.
-- Prefer a Mermaid diagram for a pipeline, a data flow, an algorithm or a decision.
-  `build/scripts/validate_ug65_user_guide_diagrams.cjs` renders the built pages that carry a retained diagram in a
-  Chromium-based browser at phone, tablet and desktop widths in both color schemes, and fails on small text,
-  overflow, clipping, low contrast, page errors or a Mermaid request that leaves the site. A page that gains or loses
-  a retained diagram is added to or removed from its page list.
+  redistribution in the repository and the installers is explicitly allowed; unknown permission keeps an image out.
+- A capture never shows credentials, tokens, licence secrets, private repositories or endpoints, device serials or
+  unrelated personal data.
+- Prefer a Mermaid diagram for a pipeline, a data flow, an algorithm or a decision. The render tool fails a page
+  whose diagram does not render ([Checks](#checks)).
 - Media is committed as ordinary files. Git LFS is not used; adopting it is a separate change to `.gitattributes`, CI
   and contributor setup together.
 
 ## Naming other programs
 
 A page names another astrophotography program only to credit derived work or to state compatibility with a file
-format or a behavior the product reproduces; it never compares AfterNight with one. The page of a derived process
-credits the upstream work, its authors and its licence in its references and provenance section, as "Credit for
-derived code" in `AGENTS.md` requires, and the sentence that names the program says why it is named - "derived
-from", "ported from", "reads the files it writes".
+format or a behavior the product reproduces; it never compares AfterNight with one. The sentence that names the
+program says why it is named - "derived from", "ported from", "reads the files it writes".
+
+**Credits stay on the page.** The page of a derived process - one that states `derived: true`
+([Page metadata](#page-metadata)) - credits the upstream work, its authors and its licence, with a link, under
+`## Credits`, as "Credit for derived code" in `AGENTS.md` requires; rule R6 of `check_user_guide.py` refuses such a
+page without one. Any page credits there the papers, standards and upstream documentation its explanation rests
+on. A credit links outside the repository: it names no AfterNight file or test, says nothing of which source is
+authoritative, and carries no date on which a link was checked. A page with nothing to credit has no such section.
 
 ## Scope of a change
 
@@ -583,13 +541,9 @@ from", "ported from", "reads the files it writes".
   approval.
 - Use primary sources for external algorithms and standards, and keep verified implementation behavior apart from
   general recommendations.
-- The pages a change sets out to write are its deliverables. Navigation, the process index, the glossary, the
-  tracker, the manifest, provenance and reciprocal links are synchronized as far as the change requires, without
-  pulling another page into a rewrite; a deficit outside the change stays recorded in the tracker.
-- The audit changes deliberately. `build/scripts/audit_user_guide.ps1`, its configuration and its baseline change
-  only for an intentional change of structure, navigation, tracker metadata, headings, parity or coverage, after the
-  report has been generated and the difference reviewed ("Baseline policy" in `docs/user-guide/audits/README.md`).
-  Its output stays deterministic, and `build/scripts/validate_ug01_user_guide_audits.ps1` runs with the change.
+- The pages a change sets out to write are its deliverables. Navigation, front matter, the glossary, the media
+  provenance and reciprocal links are synchronized as far as the change requires, without pulling another page
+  into a rewrite; a deficit outside the change is recorded as an issue.
 
 ## Definition of done
 
@@ -602,16 +556,14 @@ A change to the guide is done when:
 3. Each algorithm explanation is verified against the engine's source and tests.
 4. Menu paths, enabling conditions, image state, sequence support, mask behavior, external prerequisites, errors and
    performance statements are accurate.
-5. Any GUI evidence comes from a recorded unresolved-GUI checklist and a targeted inspection.
-6. Navigation, the process index, the glossary, related links, the tracker, the manifest rows, their consumer lists
-   and the `MEDIA_SLOT` placements agree.
+5. What was observed in the application was observed by a targeted inspection of what source and tests left open.
+6. Navigation, front matter, the glossary, related links and the media provenance agree.
 7. No generic placeholder prose remains in new or rewritten content.
 8. The strict build passes.
 9. `git diff --check` passes and the diff holds nothing unrelated.
-10. The page carries no authoring evidence; its tracker row does.
-11. The tracker records the sources and tests reviewed, the reviewed SHA and dirty-source state, the content and media
-    states, the build command and date, and the reviews still owed.
-12. The checks below pass.
+10. The page carries no record of how it was written, and the pull request lists the sources read and the windows
+    observed for each page.
+11. The checks below pass.
 
 ## Checks
 
@@ -620,7 +572,7 @@ Run from the repository root:
 | Command | Checks |
 | --- | --- |
 | `build\scripts\msvc\build_user_guide_docs.bat`, `build/scripts/linux/build_user_guide_docs.sh` | The strict build from the lock. |
-| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the hooks' `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths and images, and what the built site references; `docs.yml` runs all three after the strict build. |
+| `python build/scripts/tools/check_user_guide.py --site docs/user-guide/site`, with its test `python build/scripts/tools/check_user_guide_test.py` and the hooks' `python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"`, all run with the toolchain's Python | Each page's front matter, nav entry, H1, menu paths, images and credits, and what the built site references; `docs.yml` runs all three after the strict build. |
 | `python build/scripts/tools/check_user_guide.py --tokens <the website's assets/css/tokens.css>` | That the theme's tokens are still the website's (R16), where the website's sources are at hand; not in CI. |
 | `node build/scripts/render_user_guide.cjs --offline` | What a reader sees in the copy the installers bundle; the script's header gives its setup, which keeps its Node packages and browsers outside the repository. |
 
@@ -636,6 +588,8 @@ whole guide - nav entries, menu coverage and unused images - then do not run.
   Process menu, to some page's `menu` ([Page metadata](#page-metadata)).
 - R5 holds every image a page shows to a file spelled in its own case, and warns about an image under
   `assets/images` that no page, `README.md`, logo or favicon shows.
+- R6 holds every page that states `derived: true` to a `## Credits` section that says something
+  ([Naming other programs](#naming-other-programs)).
 
 Rule R1 holds the built site: every relative reference in its pages and stylesheets names a file inside the
 site, spelled in the file's own case, and nothing the site loads comes from the network; a link a reader follows may
@@ -654,14 +608,3 @@ violations, `--search` times queries from the first focus of the search box, `--
 per load and prints its width, so that overflow shows up as a wider image, and the JSON report records every load.
 `404.html` is left out unless `--pages` names it, and is then served from the site's root by a web server on the
 loopback address. `--help` lists the options.
-
-Frozen while the guide is rebuilt, with the rest of the audit apparatus (see the note at the top); the PowerShell
-scripts take Windows PowerShell:
-
-| Command | Checks |
-| --- | --- |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\validate_user_guide_media.ps1 -RunFixtures` | The media contract: manifest rows, slots and links, tracker media states and capture-phase rows, provenance hashes and the per-phase counts; the fixtures inject eight known failures and require each to be refused for its reason. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\validate_ug00_user_guide_foundation.ps1` | The tracker's page rows and phase ledger, the templates' rubric and their pointer to the tracker, that no template or page carries authoring evidence, the prerequisite inventory, and that these files and this document carry no trailing whitespace. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\validate_ug01_user_guide_audits.ps1` | The media validator with its fixtures, the audit against its structural baseline, and the audit's parity and source-drift fixtures. |
-| `powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\audit_user_guide.ps1 -OutputPath <report.md>` | Writes the audit report: registry and menu parity, required headings, source-review records and drift, boilerplate and parameter tables. |
-| `node build\scripts\validate_ug65_user_guide_diagrams.cjs` | The rendering of retained diagrams in the built site; the script's header gives its setup, which keeps its Node packages outside the repository. |

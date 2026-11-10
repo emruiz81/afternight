@@ -305,26 +305,25 @@ in codes as `0.10 × 65535 = 6553.5`.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Check or correction | Evidence |
-| --- | --- | --- | --- |
-| Edges blur almost like Gaussian smoothing at defaults | Sigma Color `30` is extremely broad as a fraction of full scale | Reduce Sigma Color independently; leave Link off; compare one edge at 100% | Bilateral equation |
-| Link makes the result ineffective or overly broad | Spatial and range sigmas have different units | Uncheck Link and tune pixels separately from the fraction of full scale | Process link handler |
-| Changing Diameter from `5.0` to `5.5` does nothing | Positive double value is truncated, and the radius is half the integer | Use deliberate odd values; remember that `4` and `5` both use effective diameter `5` | Process radius mapping |
-| A positive Diameter below `1` becomes unexpectedly slow | Truncation produces integer `0`, which selects automatic support | Use Diameter `1` or greater for fixed support; prefer an odd displayed value | Process radius mapping |
-| Raising Sigma Space with Diameter `0` stops widening the effect | The derived radius is held to `32` | Expected; the weights inside the window still change | Derived-radius limit |
-| Sigma at `0` produces no visible effect | The process returns the source when either sigma is at or below its epsilon | Set both sigmas to positive values, then tune them independently | Zero-sigma endpoint |
-| Preview becomes unexpectedly slow | Automatic Diameter lets a large Sigma Space choose a large neighborhood | Restore Diameter `5`, reduce Sigma Space, or use Preview area | Derived radius |
-| Faint stars become flat or blotchy | Range/spatial support is too broad or Amount too high | Reduce Diameter/Sigma Space/Amount or narrow Sigma Color; compare original | Bilateral weighting and Amount blend |
-| Colors shift | Separate per-channel range smoothing or a derived-component round trip | Compare RGB with a deliberate luminance component on a duplicate; inspect View Channel | Per-channel filtering and Channel dispatcher |
-| Preview differs from Apply | Preview area, mask, target/channel, or display stretch changed | Match all controls and one Display Mode; Apply always processes the full target | Shared preview/process path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Edges blur almost like Gaussian smoothing at defaults | Sigma Color `30` is extremely broad as a fraction of full scale | Reduce Sigma Color independently; leave Link off; compare one edge at 100% |
+| Link makes the result ineffective or overly broad | Spatial and range sigmas have different units | Uncheck Link and tune pixels separately from the fraction of full scale |
+| Changing Diameter from `5.0` to `5.5` does nothing | Positive double value is truncated, and the radius is half the integer | Use deliberate odd values; remember that `4` and `5` both use effective diameter `5` |
+| A positive Diameter below `1` becomes unexpectedly slow | Truncation produces integer `0`, which selects automatic support | Use Diameter `1` or greater for fixed support; prefer an odd displayed value |
+| Raising Sigma Space with Diameter `0` stops widening the effect | The derived radius is held to `32` | Expected; the weights inside the window still change |
+| Sigma at `0` produces no visible effect | The process returns the source when either sigma is at or below its epsilon | Set both sigmas to positive values, then tune them independently |
+| Preview becomes unexpectedly slow | Automatic Diameter lets a large Sigma Space choose a large neighborhood | Restore Diameter `5`, reduce Sigma Space, or use Preview area |
+| Faint stars become flat or blotchy | Range/spatial support is too broad or Amount too high | Reduce Diameter/Sigma Space/Amount or narrow Sigma Color; compare original |
+| Colors shift | Separate per-channel range smoothing or a derived-component round trip | Compare RGB with a deliberate luminance component on a duplicate; inspect View Channel |
+| Preview differs from Apply | Preview area, mask, target/channel, or display stretch changed | Match all controls and one Display Mode; Apply always processes the full target |
 
-## References and provenance
+## Credits
 
-- [OpenCV `bilateralFilter` documentation](https://docs.opencv.org/master/d4/d86/group__imgproc__filter.html)
+- [OpenCV `bilateralFilter`
+  documentation](https://docs.opencv.org/master/d4/d86/group__imgproc__filter.html)
   defines the filter AfterNight's engine reproduces: Diameter behavior, both
   sigma effects, the circular window, and the default border argument.
-  AfterNight's process and engine code remain authoritative for the values
-  actually supplied, the per-channel filtering, and the radius limit of `32`.
 - [OpenCV border types](https://docs.opencv.org/master/d2/de8/group__core__array.html)
   defines `BORDER_DEFAULT` as `BORDER_REFLECT_101` and illustrates the reflected
   sample pattern.

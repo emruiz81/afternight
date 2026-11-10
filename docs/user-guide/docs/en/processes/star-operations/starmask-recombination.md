@@ -210,8 +210,6 @@ work to the area. No production timing or peak-memory measurement was made.
 
 ## Worked example
 
-- Evidence mode: Source-and-synthetic-test-derived; no approved astronomical
-  pair was executed.
 - Float checkpoint: `B=0.36` and `S=0.14` give unmasked `R=0.50`.
 - Mask checkpoint: with `A=0.25`, non-inverted output is
   `0.36 + 0.25x0.14 = 0.395`; inverted output is
@@ -244,12 +242,12 @@ work to the area. No production timing or peak-memory measurement was made.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **the star image does not have the starless image's size and channels** | Width/height or channel count differs | Match geometry and channel count before reopening/previewing | `StarmaskRecombinationProcess::executeTypedProcessImpl` |
-| The result appeared in a new view and the window closed | **OK** opens `<starless> - <stars> - MERGED` and closes the window after success | Inspect the new view; the starless image is unchanged | `StarmaskRecombinationProcess::getBatchExecutionParameters` |
-| A run with a Mask is refused | The mask's width, height, or channel count does not fit the pair | Resize/crop the mask to the pair's geometry; use one channel or the pair's channel count | `an::recombineStarMask` |
-| Bright cores are held at one | The pair includes an integer or normalized image, so both are read as fractions of full scale | Expected for such a pair; two floating-point images read from files keep their sum above one | `process_utils::recombinationReading` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **the star image does not have the starless image's size and channels** | Width/height or channel count differs | Match geometry and channel count before reopening/previewing |
+| The result appeared in a new view and the window closed | **OK** opens `<starless> - <stars> - MERGED` and closes the window after success | Inspect the new view; the starless image is unchanged |
+| A run with a Mask is refused | The mask's width, height, or channel count does not fit the pair | Resize/crop the mask to the pair's geometry; use one channel or the pair's channel count |
+| Bright cores are held at one | The pair includes an integer or normalized image, so both are read as fractions of full scale | Expected for such a pair; two floating-point images read from files keep their sum above one |
 
 ## Related workflow steps
 
@@ -260,11 +258,3 @@ geometry and range, remembering that this dialog's Mask selector is separate
 from the ordinary active-mask system. [Profiled Starmask Recombination](profiled-starmask-recomb.md)
 builds a new analytical stars layer from saved profiles before applying the same
 addition/blend stage.
-
-## References and provenance
-
-- The exact addition, optional-mask equations, type/geometry behavior,
-  metadata/state, preview limitations, button wiring, and sequence boundary come
-  from AfterNight's source and its focused tests.
-- This process implements direct additive reconstruction. No external paper,
-  model, catalog, service, or network operation is involved.

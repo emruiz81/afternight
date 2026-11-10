@@ -7,8 +7,6 @@ summary: >-
 ---
 # Channel Composition
 
-<!-- MEDIA_SLOT: UG-MEDIA-086 -->
-
 ## Purpose and expected result
 
 Channel Composition creates a new three-channel RGB view from up to three open
@@ -259,7 +257,6 @@ but use the full registered geometry for the final composition.
 
 ## Worked example
 
-- Evidence mode: **Source-and-test-derived**.
 - Input condition/provenance and settings: the behavior records
   (`src/AfterNightTests/fixtures/common/expectations/behavior/`) hold each
   space's composition of three planes, and `CombinationsRecordTest` reproduces
@@ -307,19 +304,19 @@ but use the full registered geometry for the final composition.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **OK** is disabled | The first selector is `<--NO IMAGE-->`, or its selected view closed/changed away from grayscale. Later-only selections do not enable execution. | Open a monochrome view and select it in the first component. | Process selector/update source. |
-| A desired view is absent | The view's current image is not grayscale. | Extract the intended scalar component or open a monochrome master; do not select RGB directly. | View-list filtering source. |
-| **All the images must have the same size** | Selected stills have different width/height. Linear Match does not waive the final composition check. | Register/resample and crop all components to exactly matching geometry, then rerun from backups. | Process geometry validation. |
-| **All the selected images must be either sequences or images** | At least one selected view is a sequence and another is a still. | Use only stills or only compatible sequences. | Worker compatibility source. |
-| The output sequence is shorter than a component, or a channel is black at the end | The output has the first component's frame count; a shorter later component gives zero planes for its missing frames. | Put the sequence with the wanted frame count first and give every component the same frame range. | `ChannelCompositionProcess::executeChannelComposition` frame loop. |
-| A composed 16-bit sequence comes back at 8 bits | The first component is an AVI or video sequence, whose container holds 8 bits. | Use a SER or image-list sequence as the first component. | `SequenceWriter` (`controls/SequenceContainers.h`). |
-| Output component is black | A component was omitted, so its plane is zero. | Assign the intended plane. | Dummy-plane source. |
-| Linear Match fails the run | A component and the reference share no sample inside `[1e-7, 0.875]`. | Turn matching off or use a broad, varying comparable source/reference pair. | `measureLinearChannelMatch`. |
-| Lab/YCbCr output has a severe cast | Missing/wrong component, or chroma was supplied with zero instead of its normalized neutral value near `0.5`. | Use all correctly ordered planes from the matching extraction/conversion path. | Encoding and inverse-conversion source/tests. |
-| Output stars/edges have colored offsets | Inputs share dimensions but were not actually registered. | Register every channel to one reference and use a common crop before composition. | Exact-coordinate composition source. |
-| Sequence Cancel leaves no output | Cancel stops the run; an unfinished sequence leaves no file and nothing is opened. | Run again when ready. | `SequenceWriter` and the run's stop. |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **OK** is disabled | The first selector is `<--NO IMAGE-->`, or its selected view closed/changed away from grayscale. Later-only selections do not enable execution. | Open a monochrome view and select it in the first component. |
+| A desired view is absent | The view's current image is not grayscale. | Extract the intended scalar component or open a monochrome master; do not select RGB directly. |
+| **All the images must have the same size** | Selected stills have different width/height. Linear Match does not waive the final composition check. | Register/resample and crop all components to exactly matching geometry, then rerun from backups. |
+| **All the selected images must be either sequences or images** | At least one selected view is a sequence and another is a still. | Use only stills or only compatible sequences. |
+| The output sequence is shorter than a component, or a channel is black at the end | The output has the first component's frame count; a shorter later component gives zero planes for its missing frames. | Put the sequence with the wanted frame count first and give every component the same frame range. |
+| A composed 16-bit sequence comes back at 8 bits | The first component is an AVI or video sequence, whose container holds 8 bits. | Use a SER or image-list sequence as the first component. |
+| Output component is black | A component was omitted, so its plane is zero. | Assign the intended plane. |
+| Linear Match fails the run | A component and the reference share no sample inside `[1e-7, 0.875]`. | Turn matching off or use a broad, varying comparable source/reference pair. |
+| Lab/YCbCr output has a severe cast | Missing/wrong component, or chroma was supplied with zero instead of its normalized neutral value near `0.5`. | Use all correctly ordered planes from the matching extraction/conversion path. |
+| Output stars/edges have colored offsets | Inputs share dimensions but were not actually registered. | Register every channel to one reference and use a common crop before composition. |
+| Sequence Cancel leaves no output | Cancel stops the run; an unfinished sequence leaves no file and nothing is opened. | Run again when ready. |
 
 ## Related workflow steps
 
@@ -338,18 +335,13 @@ separate luminance master to an existing RGB target, and the
 [Narrowband Imaging](../../workflows/narrowband-imaging.md) workflow for palette
 choices and ordering.
 
-## References and provenance
+## Credits
 
-- AfterNight implementation and focused tests are
-  authoritative for selector behavior, normalized encodings, fit boundaries,
-  source non-mutation, metadata, sequence dispatch, and current failure paths.
-- International Color Consortium, [How to interpret the sRGB color space](https://www.color.org/sRGB.pdf),
-  checked 2026-07-14. Used to contextualize the sRGB transfer, D65 white, and
-  RGB/XYZ relationship implemented by AfterNight; the process does not perform
-  ICC color management.
-- CIE, [Colorimetry — Part 4: CIE 1976 L\*a\*b\* Colour Space](https://cie.co.at/publications/colorimetry-part-4-cie-1976-lab-colour-space-1),
-  checked 2026-07-14. Used for CIELAB/LCh terminology; AfterNight's storage
-  normalization and conversion constants remain project implementation details.
-- Linear Match is the engine's normalization scaling match
-  (`Algorithms/Normalization/GlobalNormalization.h`) inside the limits
-  `src/AfterNightProcesses/processes/core/LinearChannelMatch.h` states.
+- International Color Consortium, [How to interpret the sRGB color
+  space](https://www.color.org/sRGB.pdf). Used to contextualize the sRGB
+  transfer, D65 white, and RGB/XYZ relationship implemented by AfterNight; the
+  process does not perform ICC color management.
+- CIE, [Colorimetry — Part 4: CIE 1976 L\*a\*b\* Colour
+  Space](https://cie.co.at/publications/colorimetry-part-4-cie-1976-lab-colour-space-1).
+  Used for CIELAB/LCh terminology; AfterNight's storage normalization and
+  conversion constants remain project implementation details.

@@ -39,7 +39,7 @@ geometry, match PSFs, solve WCS, or derive a physically calibrated spectrum.
 | Preview support | Always-on asynchronous preview with histogram, pixel-changing Preview STF, and separate viewer display autostretch; starts on the full image with **Preview area** unchecked |
 | Sequence support | Not supported: the registered action needs still images, and a sequence run is refused by name |
 | Mask support | Not applied: the result is a new image, not an edit of the active view |
-| External dependencies | No runtime external tool, model, catalog, or network service; the native port's source lineage is recorded under [References and provenance](#references-and-provenance) |
+| External dependencies | No runtime external tool, model, catalog, or network service; the native port's source lineage is recorded under [Credits](#credits) |
 
 ## Before you start
 
@@ -336,8 +336,6 @@ than only unchecking Include. No approved astronomical set was timed.
 
 ## Worked example
 
-- **Evidence mode:** Source- and focused-test-derived; not executed on
-  project-owned astronomical data.
 - **Target row:** one mono sample `t=0.20`, identity Midtones/Blackpoint, hue
   `0`, saturation `1`, **Mode: Add**, Factor `0.5`.
 - **Modifier row:** one mono sample `u=0.50`, identity tonal controls,
@@ -379,7 +377,7 @@ than only unchecking Include. No approved astronomical set was timed.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Menu action is disabled | No active still, same process already attached, or an exclusive process is attached | Activate a still and close the conflicting process |
 | Expected source is absent from Image | It is a sequence, not mono/RGB, or differs from the first resolvable row's dimensions | Convert/extract a still and register/crop it to exact dimensions |
@@ -415,12 +413,11 @@ than only unchecking Include. No approved astronomical set was timed.
 - [Glossary](../../reference/glossary.md) — midtones transfer function, HSV,
   background neutralization, and palette terminology.
 
-## References and provenance
+## Credits
 
-- AfterNight source and focused tests.
-- `docs/dev/NBCOLORMAPPER_PROVENANCE.md` records the reviewed Cosmic Photons
-  NBColorMapper v2.2 source snapshot, file hashes, Mike Cranfield authorship,
-  and GPLv3 license. The native AfterNight port uses engine primitives and Qt
-  controls; the upstream PixInsight/PJSR APIs, generated resources, and script
-  bitmap assets are not included.
-- The same attribution and port boundary are exposed in **About > Licenses**.
+- The process is a native port of Cosmic Photons' NBColorMapper 2.2, a
+  PixInsight script by Mike Cranfield, under the GNU General Public License
+  version 3. It uses AfterNight's engine and controls; the upstream
+  PixInsight/PJSR APIs, generated resources, and script bitmap assets are not
+  included.
+- The licence page of **About > About AfterNight** carries the same credit.

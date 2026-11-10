@@ -276,8 +276,6 @@ arithmetic. No approved astronomical target was timed.
 
 ## Worked example
 
-- **Evidence mode:** Source-, focused-test-, and calculator-derived; not executed
-  on project-owned astronomical data.
 - **Input condition and settings:** A normalized mono row
   `[0.02, 0.08, 0.15, 0.22, 0.30, 0.42, 0.62, 0.85]`, with **Target Median**
   `0.25`, **Black Point Sigma** `0.5`, and both optional post-stages off.
@@ -328,19 +326,19 @@ arithmetic. No approved astronomical target was timed.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Error: "a statistical stretch needs a mono or RGB source" | The image has other than one or three channels | Extract or combine to a mono or RGB image first | `stretchImageStatistically` input validation, reached from `StatisticalStretch::executeTypedProcessImpl` |
-| Error: "no pixel participates in this statistical-stretch analysis" | Every sample of the image is marked as holding no data, so there is nothing to measure | Check the image's validity, for example a registration border covering the frame | `analyzeImageStatisticalStretch` |
-| Darker background than the readout suggests | Every sample at or below a raised black point becomes black | Select **No Black Clipping** or raise Black Point Sigma | `stretchImageStatistically`; `computeStatisticalStretchClipStatistics` |
-| Final median differs from Target Median | Curves, normalization, mask blending, quantization/clamp, or even-sample statistics change the final distribution | Disable post-stages, compare unmasked float output, and regard the control as the rational anchor | Statistical transfer and post-stage order |
-| RGB color balance changes in Linked Stretch | One nonlinear function is applied independently to R/G/B values rather than as a common scale | Compare unlinked carefully or use a color-preserving stretch model; inspect star colors | `analyzeImageStatisticalStretch` (linked); `stretchImageStatistically` |
-| RGB background becomes unexpectedly neutral/shifted with Linked off | Each channel receives its own median/black-point transfer toward the same target | Re-enable Linked Stretch or recalibrate/reassess channel intent | `analyzeImageStatisticalStretch` (unlinked); `stretchImageStatistically` |
-| Curves Boost has no effect | **Apply Curves Adjustment** is clear, or boost is `0` | Select the checkbox and increase boost cautiously | UI dependency; the highlight curve in `stretchImageStatistically` |
-| Normalize changes brightness more than expected | Global post-curve maximum was below `1`, so every sample was divided by it | Clear Normalize or judge it only after final curve settings | normalization in `stretchImageStatistically` |
-| Histogram clipping and text clipping disagree | Histogram counts samples at or below `0` and at or above `1` in the source or mask-aware preview, over every channel; text counts source pixels at/below statistical thresholds | Use each diagnostic for its stated purpose and confirm output statistics after Apply | Histogram widget; statistical clip readout |
-| History cannot reproduce the result | Step description omits Linked Stretch and Curves Boost | Record those values externally or preserve a duplicate result | `StatisticalStretch::executeTypedProcessImpl` |
-| Apply resets the controls | Shared successful-commit path calls Statistical Stretch Reset | This is expected; re-enter settings for another still | `resetSettingsAsync`; `StatisticalStretch::resetSettings` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Error: "a statistical stretch needs a mono or RGB source" | The image has other than one or three channels | Extract or combine to a mono or RGB image first |
+| Error: "no pixel participates in this statistical-stretch analysis" | Every sample of the image is marked as holding no data, so there is nothing to measure | Check the image's validity, for example a registration border covering the frame |
+| Darker background than the readout suggests | Every sample at or below a raised black point becomes black | Select **No Black Clipping** or raise Black Point Sigma |
+| Final median differs from Target Median | Curves, normalization, mask blending, quantization/clamp, or even-sample statistics change the final distribution | Disable post-stages, compare unmasked float output, and regard the control as the rational anchor |
+| RGB color balance changes in Linked Stretch | One nonlinear function is applied independently to R/G/B values rather than as a common scale | Compare unlinked carefully or use a color-preserving stretch model; inspect star colors |
+| RGB background becomes unexpectedly neutral/shifted with Linked off | Each channel receives its own median/black-point transfer toward the same target | Re-enable Linked Stretch or recalibrate/reassess channel intent |
+| Curves Boost has no effect | **Apply Curves Adjustment** is clear, or boost is `0` | Select the checkbox and increase boost cautiously |
+| Normalize changes brightness more than expected | Global post-curve maximum was below `1`, so every sample was divided by it | Clear Normalize or judge it only after final curve settings |
+| Histogram clipping and text clipping disagree | Histogram counts samples at or below `0` and at or above `1` in the source or mask-aware preview, over every channel; text counts source pixels at/below statistical thresholds | Use each diagnostic for its stated purpose and confirm output statistics after Apply |
+| History cannot reproduce the result | Step description omits Linked Stretch and Curves Boost | Record those values externally or preserve a duplicate result |
+| Apply resets the controls | Shared successful-commit path calls Statistical Stretch Reset | This is expected; re-enter settings for another still |
 
 ## Related workflow steps
 
@@ -354,10 +352,3 @@ before nonlinear work. Compare Statistical Stretch with
 [Curves Transformation](curves-transformation.md) and deliberate nonlinear
 finishing while monitoring [Image History](../../interface/image-history.md) and
 [Image Statistics](../../interface/image-statistics.md).
-
-## References and provenance
-
-- AfterNight project source — authoritative for the
-  custom estimator, rational transfer, curve anchors, normalization, UI,
-  masks, state, history, the whole-image statistics rule, and the sequence and
-  below-black-point behavior.

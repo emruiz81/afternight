@@ -247,8 +247,6 @@ feature scale, and the intended downstream blend.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-equation-derived; not executed on approved
-  astronomical data.
 - **Constant checkpoint:** If `I=0.20` throughout a region, `B=0.20`, so
   `H=0.20-0.20+0.50=0.50`. The same is true for any constant normalized level.
 - **Edge checkpoint:** If a local source sample is `0.80` and its blurred base is
@@ -288,17 +286,17 @@ feature scale, and the intended downstream blend.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Result is gray instead of sharpened | The output is `source-blur+0.5`, not source plus detail | Undo or use a duplicate/snapshot; composite the layer deliberately elsewhere | High-pass equation |
-| Radius `0.1` gives almost uniform gray | A Gaussian that narrow barely blurs, so the residual is near zero | Raise Radius | Exact Gaussian base |
-| Bright/dark rings surround stars | A high-pass residual naturally has opposite-sign edge lobes; larger Radius broadens them | Reduce Radius; inspect before downstream blending | Residual equation |
-| Colored edges appear | R, G, and B are processed independently with no luminance option | Extract a luminance component before High Pass | Process initialization and channel loop |
-| Histogram reaches black/white | Residual exceeded the fixed ±`0.5` representable range | Reduce Radius or handle high-contrast transitions before filtering | Fixed offset and clamp |
-| Masked result looks partly normal and partly gray | Shared mask crossfades original and detail layer | Create an unmasked layer and use an intentional later composite | Mask equation |
-| Preview is different from an autostretched target | High Pass preview exposes Linear mode only | Compare under matched Linear display conditions | Process initialization |
-| Apply, or the preview after the slider is released, is slow at a large Radius | The kernel's radius is `4 × Radius`, and on an image less than twice that wide or high the blur is composed of several exact passes | Reduce Radius; while the slider is dragged the preview shows a faster approximation, and a smaller Preview area reduces the settled frame's work | Composed exact passes |
-| An error is reported | Invalid data or insufficient memory | Verify finite normalized data and memory; retry on a smaller duplicate | Engine/process error path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Result is gray instead of sharpened | The output is `source-blur+0.5`, not source plus detail | Undo or use a duplicate/snapshot; composite the layer deliberately elsewhere |
+| Radius `0.1` gives almost uniform gray | A Gaussian that narrow barely blurs, so the residual is near zero | Raise Radius |
+| Bright/dark rings surround stars | A high-pass residual naturally has opposite-sign edge lobes; larger Radius broadens them | Reduce Radius; inspect before downstream blending |
+| Colored edges appear | R, G, and B are processed independently with no luminance option | Extract a luminance component before High Pass |
+| Histogram reaches black/white | Residual exceeded the fixed ±`0.5` representable range | Reduce Radius or handle high-contrast transitions before filtering |
+| Masked result looks partly normal and partly gray | Shared mask crossfades original and detail layer | Create an unmasked layer and use an intentional later composite |
+| Preview is different from an autostretched target | High Pass preview exposes Linear mode only | Compare under matched Linear display conditions |
+| Apply, or the preview after the slider is released, is slow at a large Radius | The kernel's radius is `4 × Radius`, and on an image less than twice that wide or high the blur is composed of several exact passes | Reduce Radius; while the slider is dragged the preview shows a faster approximation, and a smaller Preview area reduces the settled frame's work |
+| An error is reported | Invalid data or insufficient memory | Verify finite normalized data and memory; retry on a smaller duplicate |
 
 ## Related workflow steps
 
@@ -310,7 +308,6 @@ multiscale alpha reconstruction. Use [Image History](../../interface/image-histo
 to revert an accidental destructive Apply and [Saving and Exporting](../../interface/saving-and-exporting.md)
 to preserve a snapshot layer for an external/compositing workflow.
 
-## References and provenance
+## Credits
 
 - [Peter Kovesi, “Fast Almost-Gaussian Filtering”](https://www.peterkovesi.com/papers/FastGaussianSmoothing.pdf) — the repeated-box approximation of a Gaussian, which the preview runs while Radius is dragged beyond `32`; Apply and the settled preview use the exact Gaussian.
-- AfterNight engine and process sources — authoritative for the exact Gaussian and its composed passes, mirror border, fixed `0.5` offset, clipping, type behavior, live controls, histogram, preview, mask, metadata/history, and sequence path.

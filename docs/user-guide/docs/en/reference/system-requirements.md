@@ -183,7 +183,6 @@ share inside that width, not an extra pool of threads.
 
 ## Worked lookup example
 
-- Evidence mode: **Source-and-test-derived plus transparent arithmetic**.
 - Question: what lower-bound memory and catalog storage should be considered for
   100 6000 x 4000 RGB float buffers with the Gaia G <= 14 starter pack, or with
   SPCC Full 2026b?
@@ -211,7 +210,7 @@ If the same project also selects the Gaia G <= 14 starter pack, budget its rough
 
 ## Troubleshooting
 
-| Symptom | Check | Action |
+| Symptom | Check | Fix |
 | --- | --- | --- |
 | Windows installer or executable will not run | Architecture, AVX2 support, and Windows version | Use an x86-64 CPU with AVX2. Prefer current Windows 11; the bundled Qt boundary is Windows 10 1809 or later. Reinstall the matching MSVC release package. |
 | AppImage will not mount or start | Execute bit and FUSE availability | Run `chmod +x` on the AppImage. Install the distribution's FUSE 2 compatibility runtime, or try `--appimage-extract-and-run`. |
@@ -236,21 +235,8 @@ If the same project also selects the Gaia G <= 14 starter pack, budget its rough
 - [Troubleshooting And Diagnostics](troubleshooting.md)
 - [Glossary](glossary.md)
 
-## References and provenance
+## Credits
 
-- [AfterNight repository README](https://github.com/emruiz81/afternight/blob/main/README.md) — release/platform and source-build overview; reconciled 2026-07-20.
-- [AfterNight shared Premake configuration](https://github.com/emruiz81/afternight/blob/main/build/premake/afternight-common.lua) — x64 configuration and authoritative Qt version; reconciled 2026-07-20.
-- [AfterNight main Premake configuration](https://github.com/emruiz81/afternight/blob/main/build/premake/afternight-pm5.lua) — AVX2 compile target and platform-specific compiler flags; reconciled 2026-07-20.
-- [AfterNight Windows installer definition](https://github.com/emruiz81/afternight/blob/main/installer/win_installer.iss) — architecture, package source, and install privilege modes; reconciled 2026-07-20.
-- [AfterNight Linux packager](https://github.com/emruiz81/afternight/blob/main/installer/linux_packager.sh) — x86_64 AppImage packaging and bundled runtime behavior; reconciled 2026-07-20.
-- [Qt 6.10 supported platforms](https://doc.qt.io/qt-6.10/supported-platforms.html) — Qt's Windows and Linux platform boundaries; rechecked 2026-07-20.
-- [AppImage FUSE documentation](https://docs.appimage.org/user-guide/troubleshooting/fuse.html) — FUSE requirements, Ubuntu 24.04 package naming, and extract-and-run fallback; rechecked 2026-07-20.
-- [AppImage quickstart](https://docs.appimage.org/introduction/quickstart.html) — executable permission and launch procedure; rechecked 2026-07-20.
-- `src/AfterNightControls/controls/SystemInformationDialog.cpp` and `SystemInformationDialogUiBuilder.h` — diagnostic fields, copy/export actions, and exported-report contents; `src/AfterNightControls/controls/EngineVersionReport.cpp` — the engine's version and library list shown there and in About.
-- `src/AfterNightControls/controls/settings/ProcessingLimits.h`, `ProcessingLimits.cpp`, and `ProcessingSettingsPage.cpp`, with `src/AfterNightApp/app/ApplicationSession.cpp` — the stored limits, the session AfterNight builds from them at start, and the page's notices; `src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h`, `OperationScope.h`, and `ConsumerMemory.h` — admission, the preview reservation, and AfterNight's own memory allowances; `src/AfterNightTests/Test_ControlsDialogs/ProcessingLimitsTest.cpp` and `EngineVersionReportTest.cpp` hold them.
-- `build/scripts/tools/package_profiles.txt` and `build/scripts/tools/dependencies.txt` — what the packagers ship and which library each program loads; `src/AfterNightEngine/include/AfterNightEngine/Runtime/CpuCapabilities.h` — the AVX2 floor and the run-time instruction-set choice.
-- `src/AfterNightControls/controls/settings/StarNetCliTools.cpp` and `DeepSNRCliTools.cpp` — minimum accepted external-tool versions.
-- `src/AfterNightControls/app/GaiaCatalogSettings.h` and `SpccCatalogSettings.h` — catalog descriptors, recommendations, record counts, and storage values.
-- Original focused validation evidence and claim limits, and the consistency and diagnostic checks, are kept in the guide's validation records.
-
-Evidence record: this page was reconciled on 2026-07-20 and re-reviewed on 2026-10-18.
+- [Qt 6.10 supported platforms](https://doc.qt.io/qt-6.10/supported-platforms.html) — Qt's Windows and Linux platform boundaries.
+- [AppImage FUSE documentation](https://docs.appimage.org/user-guide/troubleshooting/fuse.html) — FUSE requirements, Ubuntu 24.04 package naming, and extract-and-run fallback.
+- [AppImage quickstart](https://docs.appimage.org/introduction/quickstart.html) — executable permission and launch procedure.

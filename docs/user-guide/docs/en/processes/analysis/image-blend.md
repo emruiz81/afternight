@@ -293,7 +293,6 @@ timing or peak-memory measurement was made.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Input condition/provenance and settings: same-size registered pair; identity
   stretches; Filter None; Difference; Opacity `1`; Preview on; no active mask;
   Preview area off.
@@ -325,16 +324,16 @@ timing or peak-memory measurement was made.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Blend image is absent | It is the base itself or has different width/height | Register/crop/resize first, then reopen selector | `isViewControlSupportedCustom()` |
-| Blend controls are disabled | Blend image is No image, closed, missing, or null | Select a valid equal-size B | `validateParameters()` |
-| Preview area shows misaligned structure | Both images are cropped to the same pixel area, but B is not registered to A | Register and crop the pair first | `process_utils::LeasedImage::read` |
-| Preserve lightness is disabled | Mode is Color/Lightness, or both inputs are grayscale | This is intentional; select another compatible RGB mode if needed | `validateParameters()` |
-| Result is black where B is pure white in Color Dodge | Current exact-`B=1` special case writes zero | Avoid exact white in B or use another dodge/lighten mode | `an::BlendMode::ColorDodge` |
-| Colors/edges double or smear | Inputs share dimensions but are not registered/normalized | Register and match scale/background before blending | selector and worker validate dimensions only |
-| Output intensity metadata looks implausible | Exposure metadata is summed independent of mode/opacity/mask | Treat combined exposure as implementation metadata, not photometric proof; correct downstream if needed | `process_utils::combinedResultMetadata` |
-| OK with no B only stretches A, or appears to do nothing | Without a blend image the run applies Base Stretch alone; at its identity values it leaves A as it was | Select B before OK to blend; undo the step in the image's history if the stretch was not meant | `ImageBlendProcess::executeTypedProcessImpl` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Blend image is absent | It is the base itself or has different width/height | Register/crop/resize first, then reopen selector |
+| Blend controls are disabled | Blend image is No image, closed, missing, or null | Select a valid equal-size B |
+| Preview area shows misaligned structure | Both images are cropped to the same pixel area, but B is not registered to A | Register and crop the pair first |
+| Preserve lightness is disabled | Mode is Color/Lightness, or both inputs are grayscale | This is intentional; select another compatible RGB mode if needed |
+| Result is black where B is pure white in Color Dodge | Current exact-`B=1` special case writes zero | Avoid exact white in B or use another dodge/lighten mode |
+| Colors/edges double or smear | Inputs share dimensions but are not registered/normalized | Register and match scale/background before blending |
+| Output intensity metadata looks implausible | Exposure metadata is summed independent of mode/opacity/mask | Treat combined exposure as implementation metadata, not photometric proof; correct downstream if needed |
+| OK with no B only stretches A, or appears to do nothing | Without a blend image the run applies Base Stretch alone; at its identity values it leaves A as it was | Select B before OK to blend; undo the step in the image's history if the stretch was not meant |
 
 ## Related workflow steps
 
@@ -345,8 +344,3 @@ normalization before blending data that must correspond pixel-for-pixel. Use
 specific star/starless addition path, and [Pixel Math](../pixel-math/pixel-math.md)
 for explicit formulas or output naming. Use [Masks](../../interface/masks.md) to
 prepare and inspect the active base mask.
-
-## References and provenance
-
-This page documents AfterNight's current blend functions and focused tests. The equations are implementation contracts rather
-than claims of conformance to an external compositing standard.

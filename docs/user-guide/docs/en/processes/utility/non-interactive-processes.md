@@ -400,7 +400,6 @@ a detached sequence job is active.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Input condition/provenance and settings: An RGB sequence with known first and
   last frames; choose **Image > Extract Channel > Extract RGB Channels**. No
   project-owned dataset was executed.
@@ -442,19 +441,19 @@ a detached sequence job is active.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Extract Channel is disabled | Active image is not RGB. | Select an RGB view, or use Convert to RGB for a monochrome image before extracting. | `ActionStateCoordinator::setEnableImageColorActions` |
-| A precision-conversion item is disabled | The image already has that type, or the selected SER/video sequence cannot store the requested type. | Inspect the active type; choose a compatible destination or Convert to Image List. | `ActionStateCoordinator::updateActiveImageActions` |
-| Convert to FITS is disabled | Current action-state code always disables it for sequences. | Use Convert to Image List, which writes the supported image-list/FITS frame path. | `ActionStateCoordinator::updateActiveImageActions`; `ImageOperationsCoordinator::convertToFITSSeq` |
-| Coordinates no longer solve after mirror/rotate | The operation intentionally invalidates WCS/SIP and drops every header card but the frame's observing context and integration cards. | Plate-solve the transformed result again. | `ImageViewControl::orientImage`; `orientViewImage`; `ImageTurnsTest` |
-| A still mirror or turn did nothing, with an **Image History** message | Image History could not keep the image the edit replaces; it says so once and nothing changes. | Free memory or close other views, and retry. | `ImageHistoryTracker.cpp`; `GeometryProcessCase.AnEditTheHistoryCannotKeepIsSaidOnceAndChangesNothing` |
-| A still mirror or turn did nothing and no message appeared | A failure of the view's own: the turn could not be computed, or the view could not show a result the history had recorded; the reason is only in the Session Console. | Read the Session Console, free memory or close other views, and retry. | `ImageViewControl::startNextEdit` |
-| "Another process is executing for this sequence, please cancel that job first before running this process" after a mirror or turn | Another run holds the sequence view. | Wait for or cancel that run, then retry. | `NonInteractiveProcesses.cpp` (`replaceSequence`); `ImageTurnsTest` |
-| “Could NOT extract frame ... because it is not a sequence” | Extract Frame was invoked for a still. | Activate a sequence and navigate to the wanted frame first. | `NonInteractiveProcesses::extractFrame` |
-| “No selected image to process” | A mask action resolved no active view. | Activate the intended target and retry. | `ProcessLauncher::executeSelectMask`; `MaskOverlayCoordinator::activeControlOrNotify` |
-| Rendering mode will not uncheck | The selected mask rendering action is forced checked so exactly one mode remains active. | Select another rendering mode rather than trying to clear the current one. | `MaskOverlayCoordinator::applyOverlayMode` |
-| Sequence job ends with no output | The view lock failed (a warning says so), the job was cancelled, or a failure ended it - which a message titled as the action names. | Wait for other processing, read the message, verify source access and free space, retry on a short extracted sequence, and inspect Session Console. | `NonInteractiveProcesses.cpp`; `ChannelSequenceTest`; `ImageOperationTest` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Extract Channel is disabled | Active image is not RGB. | Select an RGB view, or use Convert to RGB for a monochrome image before extracting. |
+| A precision-conversion item is disabled | The image already has that type, or the selected SER/video sequence cannot store the requested type. | Inspect the active type; choose a compatible destination or Convert to Image List. |
+| Convert to FITS is disabled | Current action-state code always disables it for sequences. | Use Convert to Image List, which writes the supported image-list/FITS frame path. |
+| Coordinates no longer solve after mirror/rotate | The operation intentionally invalidates WCS/SIP and drops every header card but the frame's observing context and integration cards. | Plate-solve the transformed result again. |
+| A still mirror or turn did nothing, with an **Image History** message | Image History could not keep the image the edit replaces; it says so once and nothing changes. | Free memory or close other views, and retry. |
+| A still mirror or turn did nothing and no message appeared | A failure of the view's own: the turn could not be computed, or the view could not show a result the history had recorded; the reason is only in the Session Console. | Read the Session Console, free memory or close other views, and retry. |
+| "Another process is executing for this sequence, please cancel that job first before running this process" after a mirror or turn | Another run holds the sequence view. | Wait for or cancel that run, then retry. |
+| “Could NOT extract frame ... because it is not a sequence” | Extract Frame was invoked for a still. | Activate a sequence and navigate to the wanted frame first. |
+| “No selected image to process” | A mask action resolved no active view. | Activate the intended target and retry. |
+| Rendering mode will not uncheck | The selected mask rendering action is forced checked so exactly one mode remains active. | Select another rendering mode rather than trying to clear the current one. |
+| Sequence job ends with no output | The view lock failed (a warning says so), the job was cancelled, or a failure ended it - which a message titled as the action names. | Wait for other processing, read the message, verify source access and free space, retry on a short extracted sequence, and inspect Session Console. |
 
 ## Related workflow steps
 
@@ -468,20 +467,3 @@ a detached sequence job is active.
   difference between a new view and a modified active view.
 - [File Formats](../../reference/file-formats.md) is the codec capability matrix
   for choosing SER, FITS/image-list, or another saved format.
-
-## References and provenance
-
-- AfterNight action inventory and exact labels: `AfterNightAppUiBuilder.h`,
-  `MenuActionManager.cpp`, `ProcessRegistryBuiltins.cpp`.
-- Active-view, type, sequence, and mask availability: `ActionStateCoordinator.cpp`.
-- Immediate-operation behavior and temporary-output cleanup:
-  `NonInteractiveProcesses.cpp`, `ProcessCommonUtils.h`, `ChannelExtractor.cpp`,
-  `ImageOperationsCoordinator.cpp`, and `MaskOverlayCoordinator.cpp`.
-- Pixel conversion, grayscale/RGB equations, negative transform, and metadata
-  defaults: `ChannelActions.cpp` over the engine's `ImageConversion.h`,
-  `SampleConversion.h`, `ChannelScope.h`, `ColorTransform.h`, `Geometry.h` and
-  `PointwiseProgramBuilder.h`.
-- Sequence-container coercion, FPS finalization, and image-list publication:
-  `SequenceContainers.cpp` over the engine's `SerSequence.h`,
-  `ImageListManifest.h` and `SequenceOutput.h`.
-- Verification provenance: the focused GoogleTest sources.

@@ -11,8 +11,6 @@ derived: true
 ---
 # Auto Gradient Removal
 
-<!-- MEDIA_SLOT: UG-MEDIA-078 -->
-
 ## Purpose and expected result
 
 Auto Gradient Removal estimates an uneven large-scale background without a
@@ -312,7 +310,6 @@ the model for the full field.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Input condition/provenance and settings: The process test suite builds a
   300 × 220 grayscale floating image whose background rises to the right and
   downwards from `0.1` (`0.1 + 0.0004x + 0.0002y`) with a bright 60 × 60 square
@@ -362,19 +359,19 @@ the model for the full field.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Process action is unavailable, or its tooltip says `This process supports still images only, not sequences.` | Registry and launch guards require an active still image and exclusive access to it; a run on a sequence is also refused. | Extract/open a still frame, or close other process windows attached to the image. | `ProcessRegistryBuiltins.cpp`; `ProcessRegistry.cpp`; `AutoGradientRemovalProcess.cpp`; `MasksInPlaceWindowTest` |
-| Preview shows the unchanged image | No preview has been computed for the current settings: the preview shows the target until **Preview** is clicked, and any setting or target change returns it there. | Keep **Enable preview** on and click **Preview**; wait for the request to finish. | `AutoGradientRemovalProcess.cpp`; `BackgroundPreviewsShowTheTargetUntilAsked` |
-| A model or protection preview looks like a mix of the image and the model | An enabled image-view mask is blended into every computed preview display. | Disable the image-view mask and click **Preview** again before comparing diagnostics. Re-enable it only to inspect the final corrected blend. | `ImageRTPreviewControl.cpp` |
-| **Protection mask** cannot be selected, or output checkbox clears | **Protect bright structures** is off. Its dependent preview/output controls are disabled and a selected protection display or output is cleared. | Enable **Protect bright structures**, then click **Preview**. | `AutoGradientRemovalDependentControlsFollowTheirSwitches`; process source |
-| Gradient contains stars, nebula, or a galaxy halo | Scale/protection/model choices allowed real positive or smaller-scale structure into the fit. | Inspect the protection mask; lower Threshold or raise Amount conservatively; increase Scale or compare the multiscale model. | Engine structure-protection and model code |
-| Corrected image has clipped shadows/highlights or noisy dark regions | Correction is clamped; Division uses a `10⁻⁶` model floor and can strongly scale weak-background pixels. | Try Subtraction when the gradient is additive, reduce estimator aggressiveness, and inspect matched statistics. | Correction equations |
-| Warning says `The image is too small to be downsampled by N; it was downsampled by M.` | The selected factor exceeds the shorter dimension of a very small target. | Use a smaller factor. The run has already continued with the largest factor that fits. | `AutoGradientRemovalProcess.cpp`; engine plan code |
-| Apply reports that the accepted samples determine no background surface, or that structure protection leaves no working sample to fit | Robust and protection rejection left the polynomial nothing it could fit, or protection covered every working pixel. Nothing is changed. | Lower protection (raise Threshold, lower Amount), lower the degree, or use the multiscale model. | Engine fit and protection code |
-| Apply reports that the model radius is larger than the working picture can usefully carry | **Scale** at a low **Downsample** implies a working radius above 1,024 pixels on a very large frame. | Raise Downsample or lower Scale. | Engine plan code |
-| Apply reports the memory budget, or is cancelled | The session's memory budget cannot hold the run, or **Cancel** was clicked. Nothing is published either way. | Raise Downsample, close other images, or rerun; cancellation needs no recovery. | `MasksEngineRefusalTest`; `MasksWindowTest` |
-| Requested diagnostic does not open | The Apply did not succeed, or protection output is unavailable because protection is off. | Confirm the corresponding checkbox and protection state, rerun Apply, and read the error dialog/session log. | Success-only output publication in `AutoGradientRemovalProcess.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Process action is unavailable, or its tooltip says `This process supports still images only, not sequences.` | Registry and launch guards require an active still image and exclusive access to it; a run on a sequence is also refused. | Extract/open a still frame, or close other process windows attached to the image. |
+| Preview shows the unchanged image | No preview has been computed for the current settings: the preview shows the target until **Preview** is clicked, and any setting or target change returns it there. | Keep **Enable preview** on and click **Preview**; wait for the request to finish. |
+| A model or protection preview looks like a mix of the image and the model | An enabled image-view mask is blended into every computed preview display. | Disable the image-view mask and click **Preview** again before comparing diagnostics. Re-enable it only to inspect the final corrected blend. |
+| **Protection mask** cannot be selected, or output checkbox clears | **Protect bright structures** is off. Its dependent preview/output controls are disabled and a selected protection display or output is cleared. | Enable **Protect bright structures**, then click **Preview**. |
+| Gradient contains stars, nebula, or a galaxy halo | Scale/protection/model choices allowed real positive or smaller-scale structure into the fit. | Inspect the protection mask; lower Threshold or raise Amount conservatively; increase Scale or compare the multiscale model. |
+| Corrected image has clipped shadows/highlights or noisy dark regions | Correction is clamped; Division uses a `10⁻⁶` model floor and can strongly scale weak-background pixels. | Try Subtraction when the gradient is additive, reduce estimator aggressiveness, and inspect matched statistics. |
+| Warning says `The image is too small to be downsampled by N; it was downsampled by M.` | The selected factor exceeds the shorter dimension of a very small target. | Use a smaller factor. The run has already continued with the largest factor that fits. |
+| Apply reports that the accepted samples determine no background surface, or that structure protection leaves no working sample to fit | Robust and protection rejection left the polynomial nothing it could fit, or protection covered every working pixel. Nothing is changed. | Lower protection (raise Threshold, lower Amount), lower the degree, or use the multiscale model. |
+| Apply reports that the model radius is larger than the working picture can usefully carry | **Scale** at a low **Downsample** implies a working radius above 1,024 pixels on a very large frame. | Raise Downsample or lower Scale. |
+| Apply reports the memory budget, or is cancelled | The session's memory budget cannot hold the run, or **Cancel** was clicked. Nothing is published either way. | Raise Downsample, close other images, or rerun; cancellation needs no recovery. |
+| Requested diagnostic does not open | The Apply did not succeed, or protection output is unavailable because protection is off. | Confirm the corresponding checkbox and protection state, rerun Apply, and read the error dialog/session log. |
 
 ## Related workflow steps
 
@@ -388,21 +385,10 @@ After a satisfactory linear correction, continue to
 [Background Neutralization](../color-calibration/background-neutralization.md)
 as appropriate.
 
-## References and provenance
+## Credits
 
 - The native implementation is based on
   [Siril AutoGradientRemoval 1.0.0 at the linked commit](https://gitlab.com/free-astro/siril-scripts/-/blob/ca21c1425b14eeaff2f94e315e683240e28b86ce/processing/AutoGradientRemoval.py),
   authored by Cyril Richard in 2026 and declared
   [GPL-3.0-or-later](https://spdx.org/licenses/GPL-3.0-or-later.html) at file
   level.
-- `docs/dev/AUTO_GRADIENT_REMOVAL_PROVENANCE.md` records the reviewed upstream
-  commit, source SHA-256, the translation map, and its characterization
-  coverage. The estimate runs in AfterNight's processing engine, which departs
-  from the upstream script in places.
-- **Help > About AfterNight** includes the user-visible Siril license
-  attribution, with the process version and author. The native port uses
-  AfterNight image containers and Qt controls; it carries no upstream Siril UI or
-  runtime objects.
-- Engine and process behavior in this page was verified against the exact source
-  and tests. Recommendations are labeled as starting
-  guidance rather than implementation guarantees.

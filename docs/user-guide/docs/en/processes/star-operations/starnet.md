@@ -11,8 +11,6 @@ derived: true
 ---
 # Starnet++
 
-<!-- MEDIA_SLOT: UG-MEDIA-080 -->
-
 ## Purpose and expected result
 
 Starnet++ sends the current image, or every frame of the current sequence,
@@ -330,20 +328,20 @@ result:
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Recovery | Evidence boundary |
-| --- | --- | --- | --- |
-| Process options and OK are disabled | Empty/missing/non-executable path, wrong machine-info product, unparseable/old version, or readiness probing exceeding the shared 3-second budget | Click **Configure**, select StarNet2 2.5.3+, save Settings, and return. For 2.5.4+, verify `starnet2 --machine-info`; for older supported versions, verify `--version` | AfterNight readiness source/tests |
-| OK is disabled although the message is green | A run of this window is still in flight | Wait for the progress window to close, or cancel the run | Window source |
-| "Could not start" or crash message | Executable/runtime files are missing, blocked, or incompatible | Keep the complete package files in their official layout; current FITS-capable packages also require their bundled CFITSIO/zlib runtime files | AfterNight QProcess handling; official package layout |
-| Error says the image is a colour filter array mosaic | The target is an undemosaiced camera frame | Demosaic the image (or enable demosaicing for the sequence) and run again | Refusal source/tests |
-| Nonzero exit mentions input size/layout | Image is below normal-mode minimum or has an unsupported layout after external decoding | Use at least `512 x 512`; use grayscale/RGB | Official CLI 2.5.4 contract |
-| Nonzero exit mentions weights/model | Custom path is wrong/incompatible, or default package model cannot be found | Clear **Weights** and restore the official model/runtime layout; or select a known-compatible ONNX model | AfterNight passes path verbatim; model internals upstream |
-| Busy warning instead of a run | The target's image is being written by another process or edit | Wait until the view shows the result, then run again | Run source |
-| Result looks permanently stretched | Pre-stretch was used on already nonlinear data, or the stretch's shadow clipping removed detail the inverse cannot restore | Rerun from an unchanged duplicate with the checkbox off for nonlinear input | Hand-off source/tests |
-| Star mask and stars layer do not match | They are separate native subtractive and unscreen outputs; only unscreen receives the inverse stretch and the range mapping | Choose the representation required by the next workflow and do not compare as identical pixel layers | CLI output contract and AfterNight postprocessing |
-| The whole sequence was processed when one frame was wanted | Starnet++ runs over every frame of a sequence view | Extract the intended frame to a still image first | Run source/tests |
-| Cancel closes progress without output | The subprocess was killed before normal publication | This is expected; rerun when ready | Cancellation source/tests |
-| The process window vanished while the run continued | Close was pressed during a run; the window hides until the run lands | Wait for the outputs to open, or cancel from the progress window | Process window source |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Process options and OK are disabled | Empty/missing/non-executable path, wrong machine-info product, unparseable/old version, or readiness probing exceeding the shared 3-second budget | Click **Configure**, select StarNet2 2.5.3+, save Settings, and return. For 2.5.4+, verify `starnet2 --machine-info`; for older supported versions, verify `--version` |
+| OK is disabled although the message is green | A run of this window is still in flight | Wait for the progress window to close, or cancel the run |
+| "Could not start" or crash message | Executable/runtime files are missing, blocked, or incompatible | Keep the complete package files in their official layout; current FITS-capable packages also require their bundled CFITSIO/zlib runtime files |
+| Error says the image is a colour filter array mosaic | The target is an undemosaiced camera frame | Demosaic the image (or enable demosaicing for the sequence) and run again |
+| Nonzero exit mentions input size/layout | Image is below normal-mode minimum or has an unsupported layout after external decoding | Use at least `512 x 512`; use grayscale/RGB |
+| Nonzero exit mentions weights/model | Custom path is wrong/incompatible, or default package model cannot be found | Clear **Weights** and restore the official model/runtime layout; or select a known-compatible ONNX model |
+| Busy warning instead of a run | The target's image is being written by another process or edit | Wait until the view shows the result, then run again |
+| Result looks permanently stretched | Pre-stretch was used on already nonlinear data, or the stretch's shadow clipping removed detail the inverse cannot restore | Rerun from an unchanged duplicate with the checkbox off for nonlinear input |
+| Star mask and stars layer do not match | They are separate native subtractive and unscreen outputs; only unscreen receives the inverse stretch and the range mapping | Choose the representation required by the next workflow and do not compare as identical pixel layers |
+| The whole sequence was processed when one frame was wanted | Starnet++ runs over every frame of a sequence view | Extract the intended frame to a still image first |
+| Cancel closes progress without output | The subprocess was killed before normal publication | This is expected; rerun when ready |
+| The process window vanished while the run continued | Close was pressed during a run; the window hides until the run lands | Wait for the outputs to open, or cancel from the progress window |
 
 ## Related workflow steps
 
@@ -357,7 +355,7 @@ or a composition method appropriate to the chosen native star layer. Configure
 the executable under [Settings Dialog](../../interface/settings-dialog.md) and
 assign any output used as a processing mask through [Masks](../../interface/masks.md).
 
-## References and provenance
+## Credits
 
 - [StarNet command-line tool reference](https://starnetastro.com/documentation/starnet/command-line-tool/)
   documents the CLI options, input/output layouts, minimum size, model/package
@@ -369,14 +367,3 @@ assign any output used as a processing mask through [Masks](../../interface/mask
   [CLI installer locations](https://starnetastro.com/documentation/cli-installers/)
   define the current 2.5.4 platform packages, runtime/backend lanes, and native
   installer layouts. AfterNight accepts 2.5.3 as its compatible minimum.
-- The reviewed Windows 2.5.4-0214 archive has SHA-256
-  `1495E64058C8FC84430CBB847FE1932A2285F2E9C29CF143363193D0CC4DF26C`.
-  Its shipped `starnet2.exe` has SHA-256
-  `2B53532B5D4048389C21272B93BFA30C385D0F59EE6D907A3D2060C8E2E436E9`.
-  The default weights and license hashes are unchanged from the reviewed 2.5.3
-  install.
-- The exact AfterNight hand-off, automatic stretch and inverse, conversion,
-  state, metadata, progress, cancellation, and publication behavior comes from
-  AfterNight's source and its tests. StarNet2 inference and
-  native-output equations remain upstream implementation details and are not
-  inferred here.

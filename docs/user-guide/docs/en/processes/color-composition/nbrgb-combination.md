@@ -294,8 +294,6 @@ set was timed.
 
 ## Worked example
 
-- **Evidence mode:** Source- and focused-test-derived; not executed on
-  project-owned astronomical data.
 - **Input condition:** Red broadband samples are `(0.20, 0.40, 0.60)` and the
   registered mono red samples are `(0.326, 0.562, 0.798)`.
 - **Settings:** RGB bandwidth `100`, Red bandwidth `10`, Red Scale `1.20`,
@@ -340,7 +338,7 @@ set was timed.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Menu action is disabled | Active view is grayscale or a sequence, no image is active, the same process is attached, or an exclusive process is attached | Activate an RGB still and close the conflicting process |
 | Narrowband image is absent from a selector | It is RGB, a sequence, a different size, the target itself, closed, or not updated | Extract/convert to grayscale, register/crop to exact dimensions, and reopen/update it |
@@ -368,10 +366,3 @@ set was timed.
   snapshots, Apply, Reset, and image-history behavior.
 - [Image Viewer](../../interface/image-viewer.md) — display stretch, masks, and
   image-state inspection.
-
-## References and provenance
-
-- AfterNight source and focused tests.
-- The in-app **About > Licenses** text records this native NBRGB implementation
-  as original AfterNight GPL code. No external process source was copied or
-  translated for the engine API.

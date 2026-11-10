@@ -329,6 +329,18 @@ class BodyTests(unittest.TestCase):
                 'Text with `# not a heading`.\n<h1 class="x">HTML title</h1>\n#\n')
         self.assertEqual(model.h1_lines(body, first_line=10), [10, 22, 23])
 
+    def test_a_section_is_found_by_its_heading_with_its_line_and_text(self):
+        body = ('# Title\n\nOpening.\n\n## Steps\n\n1. One.\n\n```markdown\n## Credits\n- Not this one.\n```\n\n'
+                '## Credits ##\n\n- The upstream work.\n\n### Papers\n\n- A paper.\n\n## Related\n\n- A page.\n')
+        self.assertEqual(model.section(body, 'Credits', first_line=10),
+                         (23, '- The upstream work.\n\n### Papers\n\n- A paper.'))
+        self.assertEqual(model.section(body, 'Related'), (22, '- A page.'))
+        self.assertIsNone(model.section(body, 'Controls'))
+
+    def test_a_section_of_comments_and_blank_lines_has_no_text(self):
+        body = '# Title\n\n## Credits\n\n<!-- to be\nwritten -->\n\n# Another title\n\nText.\n'
+        self.assertEqual(model.section(body, 'Credits'), (3, ''))
+
     def test_image_references_read_markdown_and_html_outside_code(self):
         body = ('![A window](../../assets/images/a.png)\n'
                 'Inline ![b](b.webp "Title") and `![not](code.png)`.\n'

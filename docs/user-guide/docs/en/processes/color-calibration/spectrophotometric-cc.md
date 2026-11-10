@@ -10,8 +10,6 @@ derived: true
 ---
 # Spectrophotometric Color Calibration
 
-<!-- MEDIA_SLOT: UG-MEDIA-050 -->
-
 ## Purpose and expected result
 
 Spectrophotometric Color Calibration (SPCC) calibrates a plate-solved, linear
@@ -424,7 +422,6 @@ packaged-performance measurement has been made for this page.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Input condition/provenance and settings: the `SpectrophotometricWindowTest`
   field, a 768×576 Float32 RGB image of 140 stars on a 48-pixel grid, each with
   a linear sampled XP spectrum, under a TAN plate solution of 2.4-arcsecond
@@ -497,23 +494,23 @@ packaged-performance measurement has been made for this page.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Apply** stays disabled just after opening or after a change | The readiness decision is still on its way on a worker. | Wait for it to land; an **Apply** asked for before then does nothing. | `SpectrophotometricWindowTest.ApplyWaitsForTheReadinessDecidedOnAWorker` |
-| **Select an RGB target image to evaluate SPCC readiness.** | No supported RGB image is selected. | Select the linear RGB still or sequence; mono views are unsupported. | process support/availability source |
-| **SPCC input image state is not compatible: …** | Linearity is unknown or nonlinear, the channel basis is unknown or incompatible, an attestation is incomplete, or the filter name is narrowband. | Use the correct linear RGB master. Assign state only when independently known true. | `WhatTheRunLacksIsRefusedByName`; image-state readiness tests |
-| **SPCC input image is already color calibrated. Choose a linear RGB image to run SPCC again.** | The cards or meaning record a color calibration. | Use the uncalibrated linear master; no assignment is offered. | `WhatTheRunLacksIsRefusedByName`; `TheResultIsColourCalibratedAndRecordsTheRecipe` |
-| **SPCC requires a plate-solved image.** | The image's cards state no usable solution, or a sequence frame carries none. | Plate solve the final master, save/reopen if needed, and confirm WCS metadata; use sequence frames that each carry a solution. | `WhatTheRunLacksIsRefusedByName`; `ASequenceWhoseFramesCarryNoSolutionIsRefused` |
-| Catalog missing/incomplete/footprint message | Selected spectral pack is absent, invalid, unapproved, partially cached without preparation, or does not cover this WCS. | Open **Catalogs & Data**; install/repair a complete approved pack or request/download a covering region. | catalog readiness tests |
-| **SPCC catalog readiness rejected the installed catalog: …** | At **Apply**, a chunk checksum failed or the install lags its manifest, the rights are not approved, the access profile is not local, or the field's chunks are not declared. | Repair or reinstall the pack from **Catalogs & Data**. | process source |
-| Response repository/profile unresolved, ambiguous, or **…uses private or unreviewed response assets.** | Assets are absent/invalid or unreviewed, no exact alias matches, several aliases match, or the profile is incompatible with the image's basis. | Download/select reviewed response data, then choose the exact sensor/filter/profile and white reference. | `WhatTheRunLacksIsRefusedByName`; response readiness/resolution tests |
-| **Error executing the process** naming **the world-coordinate quality gate refused: …** | `TooFewMatchedStars`, `PoorSkyCoverage`, `IncompleteProjection`, `UnsupportedDistortion`, `IncompleteResiduals`, `RmsResidualExceeded`, or `MaximumResidualExceeded`. | Re-solve; verify scale/SIP and star detection; adjust match/residual settings only with diagnostic justification. | WCS preflight source/tests |
-| **Error executing the process** naming **the green channel yielded no star to calibrate on** or **the preflight matched no source to a catalog record** | Detection, source selection, or rematching found nothing. | Check the image, the SNR floor, the solution, and catalog coverage. | engine calibration source |
-| **Error executing the process** naming **the spectrophotometric fit was refused: …** | `InsufficientSamples`, `InsufficientCatalogSpan`, `InsufficientInliers`, `ExcessiveGainUncertainty` (above 5%), or `NonFiniteFit`. | Check coverage, the photometry, and the response; use a wider/deeper valid field before lowering minimum or loosening clipping. | `AFitTheFieldCannotSupportSaysWhyAndChangesNothing`; fit tests |
-| Background color becomes implausible, or highlights/floor clip | Global shared-pedestal estimate was biased by gradient/structure, or an integer result was held to its range. | Undo the step; correct gradients or rerun without neutralization. | background-neutralization source/tests |
-| **SPCC cancelled.** | User closed/cancelled or a cooperative stop ended a download, a stage, or the apply. | Wait for the run to end, then rerun when prerequisites are stable. Verified cached pieces may be reused. | `AStoppedRunPublishesNothing` |
-| **SPCC completed, but the target image was closed or changed before the result could be applied.** | The run computed a result the view did not show. | Reselect the intended unchanged target and rerun. | process finalization source/tests |
-| **The image was not marked linear: it changed after it was attested, or it was closed. Attest it again.** | Another edit changed the image before the attestation landed, or the view closed, so the attestation was refused. | Attest the image again as it is now. | `AnAttestationOfAnImageThatChangedSinceIsRefused` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Apply** stays disabled just after opening or after a change | The readiness decision is still on its way on a worker. | Wait for it to land; an **Apply** asked for before then does nothing. |
+| **Select an RGB target image to evaluate SPCC readiness.** | No supported RGB image is selected. | Select the linear RGB still or sequence; mono views are unsupported. |
+| **SPCC input image state is not compatible: …** | Linearity is unknown or nonlinear, the channel basis is unknown or incompatible, an attestation is incomplete, or the filter name is narrowband. | Use the correct linear RGB master. Assign state only when independently known true. |
+| **SPCC input image is already color calibrated. Choose a linear RGB image to run SPCC again.** | The cards or meaning record a color calibration. | Use the uncalibrated linear master; no assignment is offered. |
+| **SPCC requires a plate-solved image.** | The image's cards state no usable solution, or a sequence frame carries none. | Plate solve the final master, save/reopen if needed, and confirm WCS metadata; use sequence frames that each carry a solution. |
+| Catalog missing/incomplete/footprint message | Selected spectral pack is absent, invalid, unapproved, partially cached without preparation, or does not cover this WCS. | Open **Catalogs & Data**; install/repair a complete approved pack or request/download a covering region. |
+| **SPCC catalog readiness rejected the installed catalog: …** | At **Apply**, a chunk checksum failed or the install lags its manifest, the rights are not approved, the access profile is not local, or the field's chunks are not declared. | Repair or reinstall the pack from **Catalogs & Data**. |
+| Response repository/profile unresolved, ambiguous, or **…uses private or unreviewed response assets.** | Assets are absent/invalid or unreviewed, no exact alias matches, several aliases match, or the profile is incompatible with the image's basis. | Download/select reviewed response data, then choose the exact sensor/filter/profile and white reference. |
+| **Error executing the process** naming **the world-coordinate quality gate refused: …** | `TooFewMatchedStars`, `PoorSkyCoverage`, `IncompleteProjection`, `UnsupportedDistortion`, `IncompleteResiduals`, `RmsResidualExceeded`, or `MaximumResidualExceeded`. | Re-solve; verify scale/SIP and star detection; adjust match/residual settings only with diagnostic justification. |
+| **Error executing the process** naming **the green channel yielded no star to calibrate on** or **the preflight matched no source to a catalog record** | Detection, source selection, or rematching found nothing. | Check the image, the SNR floor, the solution, and catalog coverage. |
+| **Error executing the process** naming **the spectrophotometric fit was refused: …** | `InsufficientSamples`, `InsufficientCatalogSpan`, `InsufficientInliers`, `ExcessiveGainUncertainty` (above 5%), or `NonFiniteFit`. | Check coverage, the photometry, and the response; use a wider/deeper valid field before lowering minimum or loosening clipping. |
+| Background color becomes implausible, or highlights/floor clip | Global shared-pedestal estimate was biased by gradient/structure, or an integer result was held to its range. | Undo the step; correct gradients or rerun without neutralization. |
+| **SPCC cancelled.** | User closed/cancelled or a cooperative stop ended a download, a stage, or the apply. | Wait for the run to end, then rerun when prerequisites are stable. Verified cached pieces may be reused. |
+| **SPCC completed, but the target image was closed or changed before the result could be applied.** | The run computed a result the view did not show. | Reselect the intended unchanged target and rerun. |
+| **The image was not marked linear: it changed after it was attested, or it was closed. Attest it again.** | Another edit changed the image before the attestation landed, or the view closed, so the attestation was refused. | Attest the image again as it is now. |
 
 ## Related workflow steps
 
@@ -527,12 +524,8 @@ Use [Photometric Color Calibration](photometric-cc.md) or another supported
 workflow when SPCC's image-state, response, catalog, or validation envelope is
 not satisfied.
 
-## References and provenance
+## Credits
 
-- AfterNight implementation, tests and engine contracts, validation manifest,
-  and production checklist are
-  authoritative for current UI, thresholds, data formats, provenance, and
-  limitations.
 - [Gaia DR3 documentation](https://gea.esac.esa.int/archive/documentation/GDR3/)
   defines the release products, including externally calibrated sampled BP/RP
   mean spectra and DataLink access.
@@ -546,8 +539,4 @@ not satisfied.
   A3 (2023), describe XP processing and flux calibration.
 - [Gaia DR3 credit and citation instructions](https://gea.esac.esa.int/archive/documentation/GDR3/Miscellaneous/sec_credit_and_citation_instructions/)
   require ESA/Gaia/DPAC credit and the applicable mission/release/product
-  citations. AfterNight's catalog manifest/provenance gate preserves that review.
-- Response data is versioned scientific input. The reviewed AfterNight response
-  manifest records source/license/attribution/transformation/checksum metadata;
-  private or unreviewed assets are blocked according to the local repository
-  contract.
+  citations.

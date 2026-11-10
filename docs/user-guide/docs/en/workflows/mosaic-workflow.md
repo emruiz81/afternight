@@ -6,7 +6,6 @@ summary: >-
 ---
 # Mosaic Workflow
 
-
 A mosaic combines multiple overlapping panels into one larger field. The key is consistency: each panel should be calibrated, integrated, background-corrected, stretched, and color-balanced in a way that does not create visible seams.
 
 Use this workflow for:
@@ -107,7 +106,7 @@ Before calling the mosaic finished, inspect:
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Panels do not align | Too little overlap, weak WCS, different scale/rotation, or bad reference | Solve panels, choose a stronger reference, or align externally before returning |
 | Visible seams after stretch | Background or normalization mismatch | Rework background extraction and linear matching before stretch |

@@ -318,7 +318,6 @@ before processing a long sequence.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; not run on approved astronomical data.
 - Input condition and settings: an RGB image whose background rectangle reads
   `0.125`, `0.25`, `0.125` and whose white rectangle reads `0.625`, `0.75`,
   `0.375` in red, green and blue; automatic mode with those two rectangles,
@@ -358,20 +357,20 @@ before processing a long sequence.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **The selected white reference image is no longer available.** / **The selected background reference image is no longer available.** | The chosen view holds no image at Apply | Select an open RGB view or `<--TARGET IMAGE-->` | `ColorCalibrationProcess::executeColorCalibration()` |
-| **The white reference ROI must be fully inside the reference image and have a non-zero size.** (or background) | An ROI that is on is empty or overhangs its reference | Turn the ROI off, use **From Selection**, or correct Left/Top/Width/Height | `rectangleInside`, `ColorToolsUnitsTest.ARectangleIsTheWholeImageOrARegionInsideIt` |
-| **Error running color calibration**: `No <channel> sample of the white reference lies between the limits ...` | No white sample of that channel lies within the limits, or the limits cross | Widen the limits or choose another reference | `ColorToolsUnitsTest.AChannelThatKeepsNothingIsRefusedByName` |
-| **Error running color calibration**: `... sits on its background level, so no gain balances it ...` | The channel's white mean equals its background median, as on a flat reference | Choose a white reference that stands above the background, or other limits | `ColorToolsCase.AWhiteThatSitsOnItsBackgroundIsRefused` |
-| **Error running color calibration** with another reason | The engine refused the run, for example for memory | Read the message and the log, free memory, and retry | `ColorToolsWindowTest.ARunTheEngineRefusesSaysWhyAndChangesNothing` |
-| Result has a strong cast or one channel is boosted many times | The white reference barely stands above the background, so the gaps are tiny | Choose a distinct white region and a clean sky rectangle; inspect the white mask | `ColorToolsRecordTest.EveryRecordOfTheProcessIsReproducedThroughItsWindow` |
-| Changing the background limits does not change the result | The background level is the median of every sample of the rectangle; the limits shape only the mask | Move or resize the background rectangle; use Background Neutralization for a limited-range offset | `ColorToolsUnitsTest.TheBackgroundLevelIsTheMedianOfEverySample` |
-| Mask is empty or sparse | A pixel is selected only when all three channels lie within the limits and inside the rectangle | Widen the limits and check the rectangle | `ColorToolsCase.AnAutomaticCalibrationWritesEverySampleOfBothMasks` |
-| No white mask opens | Manual mode measures no white reference | Expected; use automatic mode to see the white mask | `ColorToolsCase.AManualCalibrationWritesEverySampleOfTheBackgroundMaskAndNoWhiteMask` |
-| An **Image History** error, nothing changes and no mask opens | Image History could not keep the image the calibration replaces | Free memory and run again | `ColorToolsCase.MasksOfACalibrationThatIsNotShownAreNotOpened` |
-| Busy warning titled **Color Calibration** | Another run holds the sequence view | Wait for it to finish, then run again | `runInPlace` busy path |
-| Nothing changes and the window is still open | The image changed while a still run worked, or a sequence run was cancelled | Run again | `ColorToolsWindowTest.AStoppedRunPublishesNothing` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **The selected white reference image is no longer available.** / **The selected background reference image is no longer available.** | The chosen view holds no image at Apply | Select an open RGB view or `<--TARGET IMAGE-->` |
+| **The white reference ROI must be fully inside the reference image and have a non-zero size.** (or background) | An ROI that is on is empty or overhangs its reference | Turn the ROI off, use **From Selection**, or correct Left/Top/Width/Height |
+| **Error running color calibration**: `No <channel> sample of the white reference lies between the limits ...` | No white sample of that channel lies within the limits, or the limits cross | Widen the limits or choose another reference |
+| **Error running color calibration**: `... sits on its background level, so no gain balances it ...` | The channel's white mean equals its background median, as on a flat reference | Choose a white reference that stands above the background, or other limits |
+| **Error running color calibration** with another reason | The engine refused the run, for example for memory | Read the message and the log, free memory, and retry |
+| Result has a strong cast or one channel is boosted many times | The white reference barely stands above the background, so the gaps are tiny | Choose a distinct white region and a clean sky rectangle; inspect the white mask |
+| Changing the background limits does not change the result | The background level is the median of every sample of the rectangle; the limits shape only the mask | Move or resize the background rectangle; use Background Neutralization for a limited-range offset |
+| Mask is empty or sparse | A pixel is selected only when all three channels lie within the limits and inside the rectangle | Widen the limits and check the rectangle |
+| No white mask opens | Manual mode measures no white reference | Expected; use automatic mode to see the white mask |
+| An **Image History** error, nothing changes and no mask opens | Image History could not keep the image the calibration replaces | Free memory and run again |
+| Busy warning titled **Color Calibration** | Another run holds the sequence view | Wait for it to finish, then run again |
+| Nothing changes and the window is still open | The image changed while a still run worked, or a sequence run was cancelled | Run again |
 
 ## Related workflow steps
 
@@ -385,11 +384,3 @@ Calibration](photometric-cc.md) and [Spectrophotometric Color
 Calibration](spectrophotometric-cc.md). Continue to [Histogram
 Transformation](../stretching/histogram-transformation.md) only after the linear
 colour workflow is complete.
-
-## References and provenance
-
-- AfterNight's Color Calibration window, the colour tools' shared support, the
-  shared in-place run, the engine's colour calibration apply, and the
-  focused tests are authoritative for this page.
-- This is a project-specific mean/median channel-balancing method. No paper,
-  standards document or external algorithm is used for the gain model.

@@ -244,7 +244,6 @@ benchmark was executed for this page.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Input condition/provenance and settings: the window cases open a small
   16-bit RGGB mosaic in a view named `target` and run Debayer with RCD in each
   output mode; a 32-bit float grey image is run with **From metadata** and then
@@ -291,16 +290,16 @@ benchmark was executed for this page.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Colors are swapped or a 2×2 checkerboard repeats | The selected named pattern does not match the mosaic, or does not account for a crop's phase. | Use **From metadata** when the image states its filter array; otherwise verify the acquisition record and choose the layout. | `resolveBayerPattern`; Debayer window |
-| **This file doesn't have a CFA...** | The selected view is not shown as a mosaic, and is not a sequence the view shows demosaiced. | Choose **No** unless independent metadata proves the samples are CFA; correct the import/RAW settings or select the pattern manually. | `DebayerProcess::executeImageDebayer`; `GeometryProcessCase.DebayerAsksNothingOfAMosaicSequenceItsViewDemosaics` |
-| `the image states no colour filter array to demosaic under` | **From metadata** on an image that states none. | Choose the camera's named pattern. | `resolveBayerPattern` |
-| `the image has more than one channel; only a one-channel mosaic is debayered` | The target is a colour image. | Run Debayer only on the original single-channel CFA source. | `debayerImage` |
-| **Error running Debayer** with `the image states an X-Trans filter array, which a two-by-two Bayer pattern does not describe; From metadata demosaics it under its own` | A named pattern (RGGB, BGGR, GBRG or GRBG) was chosen for an image that states an X-Trans array. | Choose **From metadata**; the chosen method then runs as its X-Trans counterpart. | `resolveBayerPattern`; `GeometryUnits.DebayerReadsAnXTransArrayFromTheImageAndRefusesANamedBayerPatternOverIt` |
-| **Error running Debayer** with another reason | The engine refused the run, for example for memory. | Retry a representative still, check available memory, then try a lighter method or a shorter sequence. | `reportRunFailure` |
-| The busy warning | Another run holds the sequence, or an edit of the still image is still being written. | Wait for the other run to land, then press **OK** again. | `runToNewViews` |
-| Combined sequence has no saved file | The new sequence lives in the temporary directory. | Use Save or Sequence Export to create a durable file. | sequence run path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Colors are swapped or a 2×2 checkerboard repeats | The selected named pattern does not match the mosaic, or does not account for a crop's phase. | Use **From metadata** when the image states its filter array; otherwise verify the acquisition record and choose the layout. |
+| **This file doesn't have a CFA...** | The selected view is not shown as a mosaic, and is not a sequence the view shows demosaiced. | Choose **No** unless independent metadata proves the samples are CFA; correct the import/RAW settings or select the pattern manually. |
+| `the image states no colour filter array to demosaic under` | **From metadata** on an image that states none. | Choose the camera's named pattern. |
+| `the image has more than one channel; only a one-channel mosaic is debayered` | The target is a colour image. | Run Debayer only on the original single-channel CFA source. |
+| **Error running Debayer** with `the image states an X-Trans filter array, which a two-by-two Bayer pattern does not describe; From metadata demosaics it under its own` | A named pattern (RGGB, BGGR, GBRG or GRBG) was chosen for an image that states an X-Trans array. | Choose **From metadata**; the chosen method then runs as its X-Trans counterpart. |
+| **Error running Debayer** with another reason | The engine refused the run, for example for memory. | Retry a representative still, check available memory, then try a lighter method or a shorter sequence. |
+| The busy warning | Another run holds the sequence, or an edit of the still image is still being written. | Wait for the other run to land, then press **OK** again. |
+| Combined sequence has no saved file | The new sequence lives in the temporary directory. | Use Save or Sequence Export to create a durable file. |
 
 ## Related workflow steps
 
@@ -313,10 +312,8 @@ RGB workflow, then perform [Spectrophotometric Color Calibration](../color-calib
 while the result remains linear. A CFA-aware integration or drizzle workflow
 can instead keep the mosaic through alignment/stacking and reconstruct later.
 
-## References and provenance
+## Credits
 
-- AfterNight's implementation is
-  authoritative for the offered methods, their reach and the border rule.
 - The methods descend from implementations distributed with
   [librtprocess](https://github.com/CarVac/librtprocess); the derived engine
   sources carry their own GPL-3.0-or-later and method-specific attribution

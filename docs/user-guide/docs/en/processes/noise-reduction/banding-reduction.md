@@ -263,28 +263,25 @@ Sigma `2` lowers the threshold to `0.207413` and rejects more samples.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Check or correction | Evidence |
-| --- | --- | --- | --- |
-| Horizontal bands remain | Vertical Banding is selected or offsets vary within rows | Clear Vertical Banding; if residual varies along a row, use a different model | Row-median path |
-| Vertical bands remain | Default row orientation is active | Select Vertical Banding | Column-median path |
-| Gradient or nebula is flattened | Genuine line-median change is treated as banding | Reduce Amount, use a mask, or do not use this process on that target | Per-line constant model |
-| Highlights still change with protection | Option excludes estimator samples only | Protect output pixels with a mask and reduce Amount | Rejected-median then line-wide add |
-| More highlights are rejected when Sigma increases | Threshold divides by Sigma | Lower Sigma to raise threshold; keep it above zero | `median + 1.4826 MAD / Sigma` |
-| A band remains on flat data with protection | Protection rejected every sample of that line, so it was left uncorrected | Lower Sigma or disable protection; inspect full-frame Preview | Unmeasured-line rule |
-| Color balance shifts | Each channel's rows are lifted by that channel's own banding | Try CIE Y/Lightness or process channels deliberately; compare chroma | Per-channel correction |
-| Preview differs from Apply | Selected-area medians differ from full-image medians | Uncheck Preview area and recompute before Apply | Scope-dependent estimator |
-| Amount `0` remains slow | Line estimation still runs | Disable Preview/close process when no effect is wanted | Engine order |
-| NaN or infinity survives | Non-finite samples are treated as missing and left in place | Repair them first if the result must be finite | Missing-sample rule |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Horizontal bands remain | Vertical Banding is selected or offsets vary within rows | Clear Vertical Banding; if residual varies along a row, use a different model |
+| Vertical bands remain | Default row orientation is active | Select Vertical Banding |
+| Gradient or nebula is flattened | Genuine line-median change is treated as banding | Reduce Amount, use a mask, or do not use this process on that target |
+| Highlights still change with protection | Option excludes estimator samples only | Protect output pixels with a mask and reduce Amount |
+| More highlights are rejected when Sigma increases | Threshold divides by Sigma | Lower Sigma to raise threshold; keep it above zero |
+| A band remains on flat data with protection | Protection rejected every sample of that line, so it was left uncorrected | Lower Sigma or disable protection; inspect full-frame Preview |
+| Color balance shifts | Each channel's rows are lifted by that channel's own banding | Try CIE Y/Lightness or process channels deliberately; compare chroma |
+| Preview differs from Apply | Selected-area medians differ from full-image medians | Uncheck Preview area and recompute before Apply |
+| Amount `0` remains slow | Line estimation still runs | Disable Preview/close process when no effect is wanted |
+| NaN or infinity survives | Non-finite samples are treated as missing and left in place | Repair them first if the result must be finite |
 
-## References and provenance
+## Credits
 
 - [GNU Scientific Library statistics reference](https://www.gnu.org/software/gsl/doc/html/statistics.html)
   defines the sorted-data median and normalized median-absolute-deviation that
   the highlight-rejection path computes; the engine computes them exactly
   itself.
-- AfterNight's engine banding suppression and the shared Channel/sequence path
-  are authoritative for the exact correction equation, orientation, threshold,
-  per-channel baseline, missing-sample rule, cancellation, and output behavior.
 
 ## Related workflow steps
 

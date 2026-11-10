@@ -10,8 +10,6 @@ data_out: nonlinear
 ---
 # Generalized Hyperbolic Transformation
 
-<!-- MEDIA_SLOT: UG-MEDIA-056 -->
-
 ## Purpose and expected result
 
 Generalized Hyperbolic Transformation (GHT) is a permanent display stretch for
@@ -438,8 +436,6 @@ No production timing was measured.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-test-derived; no project-owned linear master was
-  executed.
 - **Input condition and settings:** normalized grayscale samples with
   **Generalized Hyperbolic**, displayed strength `ln(D+1)=1.252763` (`D=2.5`),
   `b=0`, `LP=0.10`, `SP=0.35`, `HP=0.90`, and **Invert** cleared. This is the
@@ -506,22 +502,22 @@ No production timing was measured.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| GHT is disabled in the menu | No active image/sequence view exists | Activate the intended view, then reopen **Process > Intensity Transformations** | Registry/launcher/action-state source |
-| A second window will not open | The same process is already open for the target, or an exclusive process owns it | Use/close the existing process or finish the exclusive operation | ProcessLauncher source |
-| Apply cannot start | The selected target is closed or its processing lock is busy | Re-select an open idle target and retry | ImageProcessControl execution source |
-| Strength changes do nothing | Displayed strength is `0`, or a special combination is effectively identity; an STF whose statistics cannot be derived fails with an error instead | Raise strength for GHT/Histogram/Arcsinh; for STF verify a valid nonempty mono/RGB target and statistics | Engine GHT/STF source |
-| LP or HP seems to clip data | LP/HP are tangent boundaries, while actual endpoint clipping may come from input clamping, Linear BP/WP, color conversion, or output conversion | Inspect the transfer and real output statistics; do not infer clipping from protection-point location | GHT equations/parity tests |
-| Colour mode shifts bright color | Clip clamps channels independently, or chosen luminance weights drive a large common scale | Compare **Rescale** and check manual coefficients; inspect channels at 100% | Colour model source/parity test |
-| **Image** coefficients look identical to **Default** | Both currently resolve to equal RGB weights | Use **Manual** for explicit weights; record this limitation in the workflow | Parameter mapping/engine source |
-| Histogram clipping reads zero or an implausible percentage | A bin-remapped prediction counts its first and last bins after the remap, and every figure is a share of all the channels a plot holds, an auxiliary component included | Measure the applied/preview image independently; use the overlay only for orientation | `HistogramWidget::updateClippingInfo`; `remapHistogramThroughStretch` |
-| Sequence frames receive different STF curves | STF statistics are recomputed for every input frame | Use a manual GHT/Histogram/Arcsinh curve when a fixed transfer across frames is required | Engine sequence execution source |
-| A CFA sequence becomes RGB after Apply | Automatic sequence CFA debayer was enabled, so frames were decoded to three channels before transformation | Disable automatic sequence debayer before Apply when the output must remain a one-channel CFA sequence | RT-preview, ImageViewControl, demosaic, and concrete sequence sources |
-| Unlinked STF in a component mode follows red statistics | Lightness/Saturation/Colour evaluate STF slot 0 after RGB statistics are prepared | Select **Linked STF** for one shared RGB curve, or choose RGB/a named channel for true per-channel behavior | Engine special-component and STF source |
-| Linear center handle has no effect | Linear mode maps only the outside handles to Black/White point | Use the numeric BP/WP fields or outside handles | Process range-handler source |
-| Preview and Apply differ | Active mask, target, picker source, stale preview generation, or sequence per-frame STF adaptation differs | Confirm target/mask, wait for current preview, and remember that sequence STF is per frame | RT-preview/process/engine source |
-| Inverse does not restore original state | Float conversion, clipping, quantization, component conversion, or prior unmatched settings prevent exact reversal; state is always marked nonlinear | Apply inverse only with matching parameters to a suitable copy and compare numerically | Parity/state tests and engine source |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| GHT is disabled in the menu | No active image/sequence view exists | Activate the intended view, then reopen **Process > Intensity Transformations** |
+| A second window will not open | The same process is already open for the target, or an exclusive process owns it | Use/close the existing process or finish the exclusive operation |
+| Apply cannot start | The selected target is closed or its processing lock is busy | Re-select an open idle target and retry |
+| Strength changes do nothing | Displayed strength is `0`, or a special combination is effectively identity; an STF whose statistics cannot be derived fails with an error instead | Raise strength for GHT/Histogram/Arcsinh; for STF verify a valid nonempty mono/RGB target and statistics |
+| LP or HP seems to clip data | LP/HP are tangent boundaries, while actual endpoint clipping may come from input clamping, Linear BP/WP, color conversion, or output conversion | Inspect the transfer and real output statistics; do not infer clipping from protection-point location |
+| Colour mode shifts bright color | Clip clamps channels independently, or chosen luminance weights drive a large common scale | Compare **Rescale** and check manual coefficients; inspect channels at 100% |
+| **Image** coefficients look identical to **Default** | Both currently resolve to equal RGB weights | Use **Manual** for explicit weights; record this limitation in the workflow |
+| Histogram clipping reads zero or an implausible percentage | A bin-remapped prediction counts its first and last bins after the remap, and every figure is a share of all the channels a plot holds, an auxiliary component included | Measure the applied/preview image independently; use the overlay only for orientation |
+| Sequence frames receive different STF curves | STF statistics are recomputed for every input frame | Use a manual GHT/Histogram/Arcsinh curve when a fixed transfer across frames is required |
+| A CFA sequence becomes RGB after Apply | Automatic sequence CFA debayer was enabled, so frames were decoded to three channels before transformation | Disable automatic sequence debayer before Apply when the output must remain a one-channel CFA sequence |
+| Unlinked STF in a component mode follows red statistics | Lightness/Saturation/Colour evaluate STF slot 0 after RGB statistics are prepared | Select **Linked STF** for one shared RGB curve, or choose RGB/a named channel for true per-channel behavior |
+| Linear center handle has no effect | Linear mode maps only the outside handles to Black/White point | Use the numeric BP/WP fields or outside handles |
+| Preview and Apply differ | Active mask, target, picker source, stale preview generation, or sequence per-frame STF adaptation differs | Confirm target/mask, wait for current preview, and remember that sequence STF is per frame |
+| Inverse does not restore original state | Float conversion, clipping, quantization, component conversion, or prior unmatched settings prevent exact reversal; state is always marked nonlinear | Apply inverse only with matching parameters to a suitable copy and compare numerically |
 
 ## Related workflow steps
 
@@ -538,17 +534,13 @@ No production timing was measured.
 - See [Image History](../../interface/image-history.md) before experimenting
   with destructive variations.
 
-## References and provenance
+## Credits
 
-- Mike Cranfield,
-  [Generalized Hyperbolic Stretch tool documentation](https://www.ghsastro.co.uk/doc/tools/GeneralizedHyperbolicStretch/GeneralizedHyperbolicStretch.html):
+- Mike Cranfield, [Generalized Hyperbolic Stretch tool
+  documentation](https://www.ghsastro.co.uk/doc/tools/GeneralizedHyperbolicStretch/GeneralizedHyperbolicStretch.html):
   primary background for the five-parameter GHS construction, transfer families,
   inverse, protection points, and color models. The document credits David
-  Payne's 2021 proposal and his collaboration with Mike Cranfield. Checked
-  2026-07-13.
-- GHS Astro,
-  [Generalized Hyperbolic Stretch information and publication history](https://ghsastro.co.uk/information/):
-  authorship and algorithm-publication context. Checked 2026-07-13.
-- Current AfterNight process, engine, histogram, framework, and focused test
-  sources are authoritative for the shipped UI,
-  float precision, defaults, metadata, masks, previews, and sequence behavior.
+  Payne's 2021 proposal and his collaboration with Mike Cranfield.
+- GHS Astro, [Generalized Hyperbolic Stretch information and publication
+  history](https://ghsastro.co.uk/information/): authorship and
+  algorithm-publication context.

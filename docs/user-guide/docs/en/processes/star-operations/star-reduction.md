@@ -314,8 +314,6 @@ production timing or peak-memory measurement is claimed.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; no approved astronomical pair was
-  executed.
 - Synthetic checkpoint: for mono `t=0.82`, `s=0.43`, Star/Strong/3 iterations
   evaluates the recurrence three times: `v1 = 0.7498`, `v2 ~ 0.6698`,
   `v3 ~ 0.5906`. The six behavior records (default mono and RGB,
@@ -347,15 +345,15 @@ production timing or peak-memory measurement is claimed.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **OK** is disabled | Starless selector is **No Image**, or a run is in progress | Select a compatible starless view before clicking OK | `validateParameters` in the window; `MasksProcessCase` |
-| Desired starless view is absent | It is the target itself or differs in width, height, channel count, or grayscale/RGB layout | Generate/reopen a matching view; align/crop before retry | `isStarlessViewSupported` |
-| `the starless image does not have the target's size and channels` | The selected image no longer matches the target when the run reads it | Reselect a matching view | run validation |
-| `star reduction has no meaning on an unresolved colour filter array` | The target is an undebayered mosaic | Debayer the target and starless image first | `planStarReduction` |
-| Small stars still disappear | Mask missing/disabled/inverted or does not cover them with low values | Inspect current mask, use non-inverted black protection, regenerate if needed | generated-mask pipeline and generic blend |
-| Protection mask never appears | The window was closed before the mask was ready, or building it failed and an error was shown | Keep the window open until the mask view opens; retry | background mask landing |
-| Reduced-stars image is missing | Preview/snapshot/sequence run, option off, or a cancelled/failed execution | Use a successful still OK execution with the option enabled and a compatible starless view selected | staged-output gate |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **OK** is disabled | Starless selector is **No Image**, or a run is in progress | Select a compatible starless view before clicking OK |
+| Desired starless view is absent | It is the target itself or differs in width, height, channel count, or grayscale/RGB layout | Generate/reopen a matching view; align/crop before retry |
+| `the starless image does not have the target's size and channels` | The selected image no longer matches the target when the run reads it | Reselect a matching view |
+| `star reduction has no meaning on an unresolved colour filter array` | The target is an undebayered mosaic | Debayer the target and starless image first |
+| Small stars still disappear | Mask missing/disabled/inverted or does not cover them with low values | Inspect current mask, use non-inverted black protection, regenerate if needed |
+| Protection mask never appears | The window was closed before the mask was ready, or building it failed and an error was shown | Keep the window open until the mask view opens; retry |
+| Reduced-stars image is missing | Preview/snapshot/sequence run, option off, or a cancelled/failed execution | Use a successful still OK execution with the option enabled and a compatible starless view selected |
 
 ## Related workflow steps
 
@@ -367,15 +365,8 @@ The reduced-stars-only output can be inspected or passed to a later
 [Starmask Recombination](starmask-recombination.md) workflow; that process is
 documented on its own page and is not redefined here.
 
-## References and provenance
+## Credits
 
-- The exact four equation families, mode postprocessing, mask construction,
-  unscreen/reverse-stretch extraction, normalization, clipping, types,
-  cancellation, metadata, and output behavior come from AfterNight's source and
-  its tests.
 - [StarNet command-line tool reference](https://starnetastro.com/documentation/starnet/command-line-tool/)
   applies only when native Starnet++ is chosen as the helper generator; Star
   Reduction itself does not call StarNet2.
-- Star/Lightness mode tooltips describe Star as the general-purpose
-  starting method and Moderate/Soft as progressively gentler choices. These are
-  implementation-provided starting guidance, not quality measurements.

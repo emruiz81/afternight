@@ -338,8 +338,6 @@ whole batch.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived; no approved astrophotography dataset
-  or visual-quality run was used.
 - Input condition/provenance and settings: a small set of same-size, same-type
   synthetic/known linear stills with one prepared compatible bias, dark, and
   flat; FITS, 32-bit float, source filename, `_cal`, dark scaling 1.0,
@@ -377,22 +375,22 @@ whole batch.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Calibrate Images is disabled | No rows; no enabled correction/pedestal; or a checked master has an empty path | Add rows, select every checked master path, and enable a real correction or positive pedestal | Process button-state source |
-| **You need to define an output directory before executing image calibration** | Output path is empty when Calibrate is selected | Choose a writable output directory | Launch guard |
-| **Some images in the list have different size** | Target widths/heights differ | Split batches or resample upstream | List validation source |
-| **Some images in the list have different color depth** | Target pixel type or channel count differs | Split/convert into compatible batches | List validation source |
-| **Could NOT load calibration ... frame** | A selected master could not be read; the run stops before any light is read | Check the path and that the file opens in AfterNight | Master read |
-| **Calibration ... file size/depth is different than the target images** | A master's size, then channel count, differs from the first light; the run stops before any light is read and the message names the master | Select a compatible master | Master validation source/tests |
-| Every light fails with an incompatibility error | A bias or dark differs from the lights in filter-array layout (mosaic or not, or its pattern) | Choose a master made from the same kind of frames and rerun | Engine calibration plan |
-| Output is too dark or has negative residuals | Bias/dark mismatch, excessive manual scaling, or misleading optimization factor | Verify master preparation and metadata; return scaling to 1.0; inspect float statistics/logged factor before adding pedestal | Calibration equation/float residual tests |
-| Flat produces bright corners, gradients, or invalid pixels | Wrong optical flat, unsuitable central-region normalization, or zero/near-zero flat samples | Rebuild/select the correct flat; inspect the master; compare normalization only after compatibility is proven | Flat normalization/division source/tests |
-| Auto-estimate did not change sigma | By design it only counts detections using current values | Adjust one sigma value manually, rerun the count, then verify an output | UI handler/cosmetic source |
-| Cosmetic correction changed nothing | Both **Cold sigma** and **Hot sigma** are off, or the thresholds select no dark pixel | Enable at least one polarity and check the count with **Auto-estimate** | Calibration batch |
-| Every light fails to write with **Original input format** | The lights are camera RAW files, which cannot be written back as RAW | Select FITS or TIFF | Output writer/File Formats |
-| Calibration completed with warnings | At least one image failed while others succeeded; the message gives how many succeeded and the first error | Inspect Failed rows/log errors, preserve good outputs, correct only failing inputs, and rerun with collision-safe names | Batch result/UI completion path |
-| Stopping or closing left some rows uncalibrated | Completed outputs remain; the light in progress leaves no partial file and later rows are not calibrated | Verify the completed outputs, then rerun the remaining rows | Batch cancellation source/tests |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Calibrate Images is disabled | No rows; no enabled correction/pedestal; or a checked master has an empty path | Add rows, select every checked master path, and enable a real correction or positive pedestal |
+| **You need to define an output directory before executing image calibration** | Output path is empty when Calibrate is selected | Choose a writable output directory |
+| **Some images in the list have different size** | Target widths/heights differ | Split batches or resample upstream |
+| **Some images in the list have different color depth** | Target pixel type or channel count differs | Split/convert into compatible batches |
+| **Could NOT load calibration ... frame** | A selected master could not be read; the run stops before any light is read | Check the path and that the file opens in AfterNight |
+| **Calibration ... file size/depth is different than the target images** | A master's size, then channel count, differs from the first light; the run stops before any light is read and the message names the master | Select a compatible master |
+| Every light fails with an incompatibility error | A bias or dark differs from the lights in filter-array layout (mosaic or not, or its pattern) | Choose a master made from the same kind of frames and rerun |
+| Output is too dark or has negative residuals | Bias/dark mismatch, excessive manual scaling, or misleading optimization factor | Verify master preparation and metadata; return scaling to 1.0; inspect float statistics/logged factor before adding pedestal |
+| Flat produces bright corners, gradients, or invalid pixels | Wrong optical flat, unsuitable central-region normalization, or zero/near-zero flat samples | Rebuild/select the correct flat; inspect the master; compare normalization only after compatibility is proven |
+| Auto-estimate did not change sigma | By design it only counts detections using current values | Adjust one sigma value manually, rerun the count, then verify an output |
+| Cosmetic correction changed nothing | Both **Cold sigma** and **Hot sigma** are off, or the thresholds select no dark pixel | Enable at least one polarity and check the count with **Auto-estimate** |
+| Every light fails to write with **Original input format** | The lights are camera RAW files, which cannot be written back as RAW | Select FITS or TIFF |
+| Calibration completed with warnings | At least one image failed while others succeeded; the message gives how many succeeded and the first error | Inspect Failed rows/log errors, preserve good outputs, correct only failing inputs, and rerun with collision-safe names |
+| Stopping or closing left some rows uncalibrated | Completed outputs remain; the light in progress leaves no partial file and later rows are not calibrated | Verify the completed outputs, then rerun the remaining rows |
 
 ## Related workflow steps
 
@@ -407,16 +405,3 @@ whole batch.
 - Verify sample/container behavior in
   [File Formats](../../reference/file-formats.md) and inspect results with
   [Image Statistics](../../interface/image-statistics.md).
-
-## References and provenance
-
-- The equations, cosmetic neighborhoods, precision paths, and failure behavior on this page are derived
-  from AfterNight's engine/process sources and focused synthetic
-  tests.
-- [File Formats](../../reference/file-formats.md) is the guide's authoritative
-  reference for FITS, TIFF, XISF, PNG, JPEG, RAW, precision, compression, and
-  metadata behavior. This process page narrows that contract to its own output
-  options.
-- [Image Integration](../stacking-integration/image-integration.md) documents
-  the maintained workflow's distinct master-building and metadata-matching
-  policies; those policies are not inherited by this standalone window.

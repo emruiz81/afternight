@@ -323,8 +323,6 @@ or peak-memory measurement was made.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-calculator-derived; not executed on
-  project-owned astronomical data.
 - **Input condition:** Suppose a normalized mono crop has median clipped row
   difference standard deviation `7.21/255`. Automatic Sigma reports about
   `7.21/sqrt(2)=5.10` tuning units. Use SOS `2`, Rho `0.8`, Amount `0.5`.
@@ -376,20 +374,20 @@ or peak-memory measurement was made.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Sigma cannot be edited | Automatic Sigma is checked | Clear **Automatic Sigma Estimation**; remember the value remains DA3D's sigma even while disabled | process UI/dependency source |
-| DA3D or SOS controls are disabled | Anscombe is checked and execution forces DA3D off/SOS `1` | Clear Anscombe for those modes | process sanitization/UI tests |
-| Manual Sigma appears ineffective under Anscombe | The transformed input noise is always re-estimated before NL-Bayes | Tune Amount or clear Anscombe; do not use Sigma as an Anscombe strength control | engine patch denoiser |
-| DA3D result is unexpectedly strong with Auto Sigma | DA3D uses numeric Sigma, initially `5`, not measured automatic Sigma | Clear Auto, set Sigma deliberately, compare DA3D off/on, then reduce Amount | process/engine call path |
-| Reset leaves optional modes checked | Reset initializes only Sigma, Auto, SOS, Rho, and Amount | Clear Homogeneous Area/DA3D/Anscombe manually or reopen process | `NLBayesProcess::initialize` |
-| Background becomes flat/patchy | Homogeneous shortcut, high Sigma/profile, repeated SOS, or DA3D classified/suppressed real variation | Disable stage 2 then stage 1, reduce Sigma/SOS, turn off DA3D, lower Amount | engine patch denoiser |
-| Color shifts or fine chroma disappears | Shared automatic Sigma, opponent/joint RGB model, or component reconstruction affects channels differently | Compare RGB and luminance/chroma paths on a duplicate; reduce Sigma/Amount | color/patch source and shared channel framework |
-| Error says the noise level needs a frame at least one search window across | The frame or Preview area is narrower than the search window the Sigma selects | Use a larger target or Preview area, or a lower Sigma; the image is left unchanged | engine frame-size check |
-| SOS Iterations stops at `8` | Eight strengthen-and-subtract passes is the engine's limit | Expected; more passes would mostly add time | dialog limit |
-| Negative background becomes zero, or float highlights above `1` are capped | The result is held inside `[0, full scale]` | Rescale or offset the image into `[0,1]` before denoising | engine output range |
-| Non-finite input is refused or produces unreliable output | Noise estimation reads NaN/Inf | Repair NaN/Inf first | engine noise estimate |
-| Cancelled sequence leaves original unchanged | Temporary output is removed and commit skipped | Expected; restart Apply when ready | shared sequence executor |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Sigma cannot be edited | Automatic Sigma is checked | Clear **Automatic Sigma Estimation**; remember the value remains DA3D's sigma even while disabled |
+| DA3D or SOS controls are disabled | Anscombe is checked and execution forces DA3D off/SOS `1` | Clear Anscombe for those modes |
+| Manual Sigma appears ineffective under Anscombe | The transformed input noise is always re-estimated before NL-Bayes | Tune Amount or clear Anscombe; do not use Sigma as an Anscombe strength control |
+| DA3D result is unexpectedly strong with Auto Sigma | DA3D uses numeric Sigma, initially `5`, not measured automatic Sigma | Clear Auto, set Sigma deliberately, compare DA3D off/on, then reduce Amount |
+| Reset leaves optional modes checked | Reset initializes only Sigma, Auto, SOS, Rho, and Amount | Clear Homogeneous Area/DA3D/Anscombe manually or reopen process |
+| Background becomes flat/patchy | Homogeneous shortcut, high Sigma/profile, repeated SOS, or DA3D classified/suppressed real variation | Disable stage 2 then stage 1, reduce Sigma/SOS, turn off DA3D, lower Amount |
+| Color shifts or fine chroma disappears | Shared automatic Sigma, opponent/joint RGB model, or component reconstruction affects channels differently | Compare RGB and luminance/chroma paths on a duplicate; reduce Sigma/Amount |
+| Error says the noise level needs a frame at least one search window across | The frame or Preview area is narrower than the search window the Sigma selects | Use a larger target or Preview area, or a lower Sigma; the image is left unchanged |
+| SOS Iterations stops at `8` | Eight strengthen-and-subtract passes is the engine's limit | Expected; more passes would mostly add time |
+| Negative background becomes zero, or float highlights above `1` are capped | The result is held inside `[0, full scale]` | Rescale or offset the image into `[0,1]` before denoising |
+| Non-finite input is refused or produces unreliable output | Noise estimation reads NaN/Inf | Repair NaN/Inf first |
+| Cancelled sequence leaves original unchanged | Temporary output is removed and commit skipped | Expected; restart Apply when ready |
 
 ## Related workflow steps
 
@@ -406,22 +404,19 @@ installed learned model in [DeepSNR](deepsnr.md). Continue to
 verify [Image History](../../interface/image-history.md),
 [Image Statistics](../../interface/image-statistics.md), and critical metadata.
 
-## References and provenance
+## Credits
 
-- [Lebrun, Buades, and Morel, “Implementation of the Non-Local Bayes Image Denoising Algorithm”](https://www.ipol.im/pub/art/2013/16/)
-  — primary algorithm article, detailed implementation, and source provenance
-  for patch grouping and two Gaussian estimates. AfterNight's engine patch
-  denoiser and process remain authoritative for
-  current profiles, tiling, conversions, and optional modes.
+- [Lebrun, Buades, and Morel, “Implementation of the Non-Local Bayes Image
+  Denoising Algorithm”](https://www.ipol.im/pub/art/2013/16/) — primary
+  algorithm article, detailed implementation, and source provenance for patch
+  grouping and two Gaussian estimates.
 - [Romano and Elad, “Boosting of Image Denoising Algorithms”](https://epubs.siam.org/doi/10.1137/140990978)
   — primary SOS method background. AfterNight implements the exact recurrence
   and divergence guard documented above.
 - [Pierazzo and Facciolo, “Data Adaptive Dual Domain Denoising: a Method to Boost State of the Art Denoising Algorithms”](https://www.ipol.im/pub/art/2017/203/)
   — primary DA3D algorithm and implementation provenance.
 - [Mäkitalo and Foi, “A Closed-Form Approximation of the Exact Unbiased Inverse of the Anscombe Variance-Stabilizing Transformation”](https://doi.org/10.1109/TIP.2011.2121085)
-  — primary inverse-transform reference. The engine's expression and fixed
-  unit-gain request determine current behavior.
-- AfterNight sources/tests —
-  authoritative for automatic Sigma, hidden profiles, color treatment,
-  homogeneous shortcuts, Anscombe/DA3D integration, Amount/masks, preview,
-  metadata/history, cancellation, and sequences.
+  — primary inverse-transform reference.
+- The engine's patch estimator is adapted from Marc Lebrun's implementation
+  published with the first article, under GPL-3.0-or-later;
+  **About > About AfterNight** credits it.

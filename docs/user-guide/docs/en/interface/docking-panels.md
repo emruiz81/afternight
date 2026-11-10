@@ -199,7 +199,6 @@ four-item runs; use smaller manual groups when relative placement matters.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state: three standard docked views named `linear`, `processed`, and
   `mask`; `processed` is active and the layout is unlocked.
 - Choose **Group All Images**. Check that one tab group contains all three and
@@ -240,19 +239,19 @@ four-item runs; use smaller manual groups when relative placement matters.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Window** and layout toolbar are unavailable | The Dashboard is current; the toolbar is disabled and the Window menu is disabled until the dock workspace is selected | Open/create a valid image or sequence | `UiBootstrapCoordinator.cpp`, `WindowLayoutCoordinator.cpp` |
-| A dock cannot be dragged, reordered, detached, or changed by double-click | Layout lock inhibits drag/drop and consumes double-click layout gestures | Use **Window > Unlock Layout** or the layout-toolbar toggle | `AfterNightApp.cpp`, `KDDockWidgetsHelper.cpp` |
-| Group or Split still changes a locked layout | Lock affects interactive movement, not those connected programmatic actions | Avoid Group/Split while preserving a locked arrangement; there is no undo-layout command | `MenuActionManager.cpp`, `WindowLayoutCoordinator.cpp` |
-| A context Group/Split command ignores images in another window | Context commands intentionally select only docks with the same floating-window owner | Use the global Window/toolbar command, or invoke a context command inside the other window | `WindowLayoutCoordinator.cpp` |
-| Group All Images unexpectedly redocks floating views | The global command rebuilds the group in the main dock window | Use **Current Window > Group All Images** for floating-local grouping | `WindowLayoutCoordinator.cpp` |
-| **Maximize View** is disabled | The active standard view is floating, or no active image view is available | Dock/select a standard view first | `ActionStateCoordinator.cpp`, `ImageViewControl.cpp` |
-| Lock/Group/Split become disabled after maximizing | Maximize temporarily locks layout and disables arrangement actions | Use **Restore View** or `F11` on the maximized view | `WindowLayoutCoordinator.cpp` |
-| Restore leaves both Window lock actions disabled | The layout was already locked before maximize, so restore preserves the lock but does not re-enable the QAction pair | Click the toolbar lock button once to restore normal locked-state actions, then click it again or choose **Window > Unlock Layout** | `WindowLayoutCoordinator.cpp`, `AfterNightApp.cpp` |
-| Closing a tab group stops before all tabs close | One image's pending-change or attached-process confirmation was cancelled | Resolve/save that view, then close the group again | `KDDockWidgetsHelper.cpp`, `ImageViewControl.cpp` |
-| A restored session does not reproduce the prior dock layout | No application layout serialization/restore implementation exists | Recreate the grouping manually; use the startup lock preference only after arranging | repository-wide `LayoutSaver`/layout serialization audit; `InterfaceSettingsPage.cpp` |
-| Fine detail looks different after Fit | Fit changed display magnification and resampling, not source pixels | Inspect at 100% and compare the image history/pending state | `ImageOperationsCoordinator.cpp`, `ImageViewControl.cpp` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Window** and layout toolbar are unavailable | The Dashboard is current; the toolbar is disabled and the Window menu is disabled until the dock workspace is selected | Open/create a valid image or sequence |
+| A dock cannot be dragged, reordered, detached, or changed by double-click | Layout lock inhibits drag/drop and consumes double-click layout gestures | Use **Window > Unlock Layout** or the layout-toolbar toggle |
+| Group or Split still changes a locked layout | Lock affects interactive movement, not those connected programmatic actions | Avoid Group/Split while preserving a locked arrangement; there is no undo-layout command |
+| A context Group/Split command ignores images in another window | Context commands intentionally select only docks with the same floating-window owner | Use the global Window/toolbar command, or invoke a context command inside the other window |
+| Group All Images unexpectedly redocks floating views | The global command rebuilds the group in the main dock window | Use **Current Window > Group All Images** for floating-local grouping |
+| **Maximize View** is disabled | The active standard view is floating, or no active image view is available | Dock/select a standard view first |
+| Lock/Group/Split become disabled after maximizing | Maximize temporarily locks layout and disables arrangement actions | Use **Restore View** or `F11` on the maximized view |
+| Restore leaves both Window lock actions disabled | The layout was already locked before maximize, so restore preserves the lock but does not re-enable the QAction pair | Click the toolbar lock button once to restore normal locked-state actions, then click it again or choose **Window > Unlock Layout** |
+| Closing a tab group stops before all tabs close | One image's pending-change or attached-process confirmation was cancelled | Resolve/save that view, then close the group again |
+| A restored session does not reproduce the prior dock layout | No application layout serialization/restore implementation exists | Recreate the grouping manually; use the startup lock preference only after arranging |
+| Fine detail looks different after Fit | Fit changed display magnification and resampling, not source pixels | Inspect at 100% and compare the image history/pending state |
 
 ## Related workflow steps
 
@@ -267,10 +266,8 @@ four-item runs; use smaller manual groups when relative placement matters.
   redo rather than layout changes.
 - Use [Settings](settings-dialog.md) for the persisted startup lock preference.
 
-## References and provenance
+## Credits
 
-- AfterNight application layout, dock helper, active-view, lifecycle, settings,
-  and focused regression sources.
 - [KDDockWidgets documentation](https://docs.kdab.com/kddockwidgets/): upstream
   docking framework behavior. AfterNight overrides tab sizing/tooltips,
   close-group safety, theming, activation, and lock-aware double-click handling.

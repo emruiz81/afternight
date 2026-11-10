@@ -16,8 +16,6 @@ derived: true
 *The ready-to-run state shows the dataset summary, the planned calibration for
 each frame, and the enabled **Run Integration** action.*
 
-Source and focused tests establish the claims made here. The retained ready-state capture illustrates the current layout, but does not establish output quality or production runtime.
-
 ## Purpose and expected result
 
 Image Integration Lite turns one simple, single-target set of still light and optional calibration frames into one linear stacked master per resolution, filter, and object group. It exposes the common decisions in one window, then delegates planning, calibration, registration, alignment, normalization, stacking, reporting, cancellation, and result opening to the maintained full [Image Integration](image-integration.md) model and workflow.
@@ -235,7 +233,7 @@ Before a real run, expect the readiness banner to allow execution only when shar
 
 ## Troubleshooting
 
-| Symptom | Source-backed cause | Action |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
 | Run Integration is disabled | Import is active or shared validation has an error such as missing Lights, invalid output, incompatible data, or multiple objects | Read the red banner, correct roles/paths/object metadata, or use **Open Full Process** for a complex project |
 | No calibration warning | Lights exist but Bias, Dark, and Flat buckets are all empty | Add calibration frames or knowingly continue with an uncalibrated Light stack |
@@ -261,8 +259,26 @@ Before a real run, expect the readiness banner to allow execution only when shar
 - Inspect a still list before integration with [Image List Analyzer](image-list-analyzer.md).
 - Continue with [Image Viewer](../../interface/image-viewer.md) and [Image Statistics](../../interface/image-statistics.md) after opening a master.
 
-## References and provenance
+## Credits
 
-- The maintained Lite contract is defined by `ImageIntegrationLiteProcess` and `ImageIntegration/lite/LiteIntegrationProfile`.
-- Delegated workflow, engine, output, and boundary behavior is documented in [Image Integration](image-integration.md), which records its exhaustive shared source/test inventory.
-- Registration transform and drizzle terminology follows the corresponding AfterNight engine implementations; no external quantitative claim is made here.
+Lite runs the workflow of [Image Integration](image-integration.md), and owes the same credits:
+
+- Color-camera frames are demosaiced by methods adapted from RawTherapee's
+  demosaic code as [librtprocess](https://github.com/CarVac/librtprocess)
+  packages it, under GPL-3.0-or-later.
+- The star detection and its point-spread-function fit are adapted from
+  [Siril](https://gitlab.com/free-astro/siril)'s star finder and PSF fit, by
+  Francois Meyer and team free-astro, under GPL-3.0-or-later.
+- The drizzle corner interpolation is adapted from Siril's routine, which
+  follows the [STScI drizzle library](https://github.com/spacetelescope/drizzle)'s,
+  under the BSD 3-Clause notice of the Association of Universities for Research
+  in Astronomy (AURA).
+- The auto-adaptive weighted mean is adapted from
+  [DeepSkyStacker](https://github.com/deepskystacker/DSS)'s routine, by David C.
+  Partridge with Michael A. Covington and Simon C. Smith, under the BSD 3-Clause
+  License of Luc Coiffier and the DeepSkyStacker contributors.
+- The median selection networks the normalization analysis uses are
+  [RawTherapee](https://github.com/Beep6581/RawTherapee)'s, by Flössie and Ingo
+  Weyrich, under GPL-3.0-or-later.
+- **About > About AfterNight** credits these works and reproduces the BSD
+  notices.

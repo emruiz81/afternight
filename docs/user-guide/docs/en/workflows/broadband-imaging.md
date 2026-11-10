@@ -6,10 +6,6 @@ summary: >-
 ---
 # Broadband Imaging
 
-<!-- MEDIA_SLOT: UG-MEDIA-114 -->
-<!-- MEDIA_SLOT: UG-MEDIA-115 -->
-<!-- MEDIA_SLOT: UG-MEDIA-116 -->
-
 ## Purpose, audience, prerequisites, and expected result
 
 Use this workflow to turn calibrated one-shot-color (OSC), mono RGB, or mono
@@ -40,22 +36,6 @@ The expected result is one of these branch products:
 Keep the linear OSC/RGB masters and the separate L/R/G/B masters. They are the
 safe restart points when a later background, color, noise, stretch, or LRGB
 decision needs to be changed.
-
-## Verification data and evidence mode
-
-| Item | Record |
-| --- | --- |
-| Project-owned sample set | The one-shot-color NGC 253 data set (QHY183C, 2023-10-09): QHY183C RGGB OSC lights with bias, dark, flat, and dark-flat data. The RGB/LRGB M83 data set (QHY533M, 2025-04-29): QHY533M L/R/G/B lights with per-filter flats. The owner approved documentation validation and sanitized evidence/derivative retention. |
-| Branches covered | OSC, mono RGB, and mono LRGB. Eight inputs per selected group were used: 40 OSC frames and 64 mono frames, 104 total. |
-| External tools/models | None. The run did not use StarNet2, DeepSNR, ASTAP, Astrometry.net, or another optional executable/model. |
-| Catalogs/network | None. Gaia, photometric/spectrophotometric catalogs, response packs, online solving, and network access were not used. |
-| Platform/application build | Windows MSVC x64 Release, Qt 6.10.3. The numbered main and test build scripts passed with zero warnings/errors. |
-| Evidence artifacts | Sanitized input IDs and SHA-256 values, binary/driver hashes, exact stage summaries, warnings, workflow report hashes, master/export hashes, geometry/channel checks, and save/reopen results are in the guide's validation record. Private manifests, paths, full logs, reports, and generated files remain only in the approved isolated output tree. |
-| Unverified claims excluded | No claim that eight-frame subsets or the recorded checkpoint values are production recommendations; no polished/full-frame aesthetic approval, photometric color accuracy, final-print result, general timing/peak-memory result, catalog/tool result, or non-Windows result. |
-
-Mode E proves that the recorded build, inputs, settings, and native stages
-produced the recorded artifacts. It does not prove that the same settings are
-best for another camera, sky, target, or frame count.
 
 ## Inputs and outputs
 
@@ -548,21 +528,21 @@ for that run only, not performance promises.
 
 ## Troubleshooting and recovery
 
-| Stage/symptom | Verified cause or failed checkpoint | Recovery | Resume/restart consequence | Evidence |
-| --- | --- | --- | --- | --- |
-| Frames enter the wrong group | Missing/wrong metadata or grouping fields | Correct metadata/grouping or isolate the frame; revalidate | Manifest diff should recompute affected masters/downstream groups | Image Integration model/grouping source |
-| Light has no or wrong calibration match | No compatible master, fallback policy, ambiguity, or override | Fix camera/exposure/filter/session grouping or assign the intended master; do not hide the warning | Calibration and dependent registration/stacking become dirty | `CalibrationMatcher.cpp`; report warnings |
-| Flat reports no bias/dark master | Approved calibration set is incomplete or no match exists | Supply compatible flat calibration and rebuild, or explicitly retain the limitation | Flat master and dependent lights/stacks must be recomputed | Worked mono run: four warnings |
-| OSC has implausible color/checker artifacts | Wrong CFA pattern or demosaic before correct raw calibration | Return to raw frames, set verified CFA, rebuild calibration/registration | Recompute OSC downstream stages | OSC source settings and Image Integration contract |
-| Registration fails or stars double | Weak/wrong reference, insufficient stars, incompatible field, or over-complex transform | Choose a better reference, filter weak frames, verify overlap, simplify/retune transform | Recompute registration/alignment and dependent stages | Registration stage/source tests |
-| Stack has borders or color gradients | Resampling canvas plus field drift; gradients/channel levels remain | Crop common region, model background, then color-calibrate before stretch | Keep original linear master and create a corrected branch | RGB worked-run checkpoint |
-| RGB composition is tinted/black | Wrong R/G/B mapping, channel mismatch, or inappropriate Linear Match | Reopen channel masters; verify assignments/geometry/statistics; retry with Linear Match off | Composition only; channel masters remain reusable | Channel Composition process contract |
-| LRGB has doubled stars or harsh seams | L/RGB mismatch, mixed crop/type, or Lightness too strong | Fix alignment/crop/type/background upstream; then reduce Lightness if needed | Reopen RGB checkpoint and recombine | LRGB source/process page |
-| Background model contains target structure | Samples cover real signal or fit is too flexible | Remove contaminated samples; start RBF 0.5 or low polynomial order; compare model | Restore linear checkpoint and reapply | Background Extraction source |
-| Color calibration creates a cast | Nonrepresentative white/background ROI or sparse/contaminated pixels | Inspect output masks, choose clean ROIs, adjust limits one at a time | Restore pre-calibration linear image | Color Calibration validation paths |
-| Stretch clips shadows/highlights | Endpoint or transfer change is too aggressive | Restore linear/pre-stretch copy; reset `0/0.5/1`; adjust in small steps | Redo nonlinear branch only | Histogram Transformation source |
-| Saved image looks unstretched | Viewer autostretch is display-only | Apply an intentional stretch to a duplicate, then save the duplicate | Linear working master stays correct | File/save and viewer contracts |
-| Save reports success but output is suspect | Standard still save does not prove readback/content | Reopen; verify geometry/channels/precision/metadata; resave to a new path | No upstream recomputation if working master is intact | Worked save/reopen evidence |
+| Symptom | Cause | Fix | Resume or restart |
+| --- | --- | --- | --- |
+| Frames enter the wrong group | Missing/wrong metadata or grouping fields | Correct metadata/grouping or isolate the frame; revalidate | Manifest diff should recompute affected masters/downstream groups |
+| Light has no or wrong calibration match | No compatible master, fallback policy, ambiguity, or override | Fix camera/exposure/filter/session grouping or assign the intended master; do not hide the warning | Calibration and dependent registration/stacking become dirty |
+| Flat reports no bias/dark master | Approved calibration set is incomplete or no match exists | Supply compatible flat calibration and rebuild, or explicitly retain the limitation | Flat master and dependent lights/stacks must be recomputed |
+| OSC has implausible color/checker artifacts | Wrong CFA pattern or demosaic before correct raw calibration | Return to raw frames, set verified CFA, rebuild calibration/registration | Recompute OSC downstream stages |
+| Registration fails or stars double | Weak/wrong reference, insufficient stars, incompatible field, or over-complex transform | Choose a better reference, filter weak frames, verify overlap, simplify/retune transform | Recompute registration/alignment and dependent stages |
+| Stack has borders or color gradients | Resampling canvas plus field drift; gradients/channel levels remain | Crop common region, model background, then color-calibrate before stretch | Keep original linear master and create a corrected branch |
+| RGB composition is tinted/black | Wrong R/G/B mapping, channel mismatch, or inappropriate Linear Match | Reopen channel masters; verify assignments/geometry/statistics; retry with Linear Match off | Composition only; channel masters remain reusable |
+| LRGB has doubled stars or harsh seams | L/RGB mismatch, mixed crop/type, or Lightness too strong | Fix alignment/crop/type/background upstream; then reduce Lightness if needed | Reopen RGB checkpoint and recombine |
+| Background model contains target structure | Samples cover real signal or fit is too flexible | Remove contaminated samples; start RBF 0.5 or low polynomial order; compare model | Restore linear checkpoint and reapply |
+| Color calibration creates a cast | Nonrepresentative white/background ROI or sparse/contaminated pixels | Inspect output masks, choose clean ROIs, adjust limits one at a time | Restore pre-calibration linear image |
+| Stretch clips shadows/highlights | Endpoint or transfer change is too aggressive | Restore linear/pre-stretch copy; reset `0/0.5/1`; adjust in small steps | Redo nonlinear branch only |
+| Saved image looks unstretched | Viewer autostretch is display-only | Apply an intentional stretch to a duplicate, then save the duplicate | Linear working master stays correct |
+| Save reports success but output is suspect | Standard still save does not prove readback/content | Reopen; verify geometry/channels/precision/metadata; resave to a new path | No upstream recomputation if working master is intact |
 
 ## Related workflows and references
 

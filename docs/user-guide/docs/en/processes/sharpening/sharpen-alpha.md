@@ -258,8 +258,6 @@ change the useful scale range.
 
 ## Worked example
 
-- **Evidence mode:** Source-and-equation-derived; not executed on approved
-  astronomical data.
 - **Input condition and settings:** Finite normalized data; Scales `4`,
   Amplitude `1`, Anisotropy `0`, Amount `0.5`.
 - **Scale checkpoint:** G'MIC forms three recursive Gaussian bases with nominal
@@ -299,19 +297,19 @@ change the useful scale range.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Amount `0` is unchanged but slow | The full G'MIC decomposition/clamp runs before the shared Amount blend restores the source | Disable Preview or close the process when no filter is wanted | Typed modulation order |
-| Scales `1` is unchanged | `split_alpha` only decomposes when the effective scale count is greater than one | Raise Scales to at least `2` | Bundled `split_alpha` branch |
-| Broad halos surround stars | High Scales and Amplitude boost broad alpha-detail layers | Reduce Scales first, then Amplitude or Amount; use a mask | Scale supports and opacity boost |
-| Noise becomes crunchy | Fine alpha layers boost noise with signal | Denoise first; reduce Amplitude/Amount; protect background | Alpha-detail model |
-| Colors shift or rims appear | RGB layers use shared opacity derived from multichannel comparisons | Try CIE Y/L*; inspect View Channel; lower strength | Bundled `sub_alpha`; component dispatcher |
-| Anisotropy behaves unexpectedly | Every nonzero value selects the bilateral-plus-extra-Gaussian branch and fixed range constants act on normalized data | Compare exact `0` with modest nonzero values; do not copy standalone plug-in presets blindly | Bundled `split_alpha`; normalized hand-off |
-| Preview looks darker than target | This process preview has no execution autostretch controls | Compare in Linear mode or use a snapshot/duplicate under matched display settings | Sharpen process initialization |
-| Cancel waits briefly | G'MIC abort handling is cooperative | Wait for its next polling point; use a smaller Preview area next time | G'MIC adapter abort flag |
-| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged | `GmicProcessSupport.cpp` |
-| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another sharpening process | `GmicProcessSupport.cpp` |
-| A G'MIC error is reported | G'MIC command failure, invalid data, or memory exhaustion | Verify finite normalized data and memory; retry on a duplicate | Process error path |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Amount `0` is unchanged but slow | The full G'MIC decomposition/clamp runs before the shared Amount blend restores the source | Disable Preview or close the process when no filter is wanted |
+| Scales `1` is unchanged | `split_alpha` only decomposes when the effective scale count is greater than one | Raise Scales to at least `2` |
+| Broad halos surround stars | High Scales and Amplitude boost broad alpha-detail layers | Reduce Scales first, then Amplitude or Amount; use a mask |
+| Noise becomes crunchy | Fine alpha layers boost noise with signal | Denoise first; reduce Amplitude/Amount; protect background |
+| Colors shift or rims appear | RGB layers use shared opacity derived from multichannel comparisons | Try CIE Y/L*; inspect View Channel; lower strength |
+| Anisotropy behaves unexpectedly | Every nonzero value selects the bilateral-plus-extra-Gaussian branch and fixed range constants act on normalized data | Compare exact `0` with modest nonzero values; do not copy standalone plug-in presets blindly |
+| Preview looks darker than target | This process preview has no execution autostretch controls | Compare in Linear mode or use a snapshot/duplicate under matched display settings |
+| Cancel waits briefly | G'MIC abort handling is cooperative | Wait for its next polling point; use a smaller Preview area next time |
+| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged |
+| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another sharpening process |
+| A G'MIC error is reported | G'MIC command failure, invalid data, or memory exhaustion | Verify finite normalized data and memory; retry on a duplicate |
 
 ## Related workflow steps
 
@@ -323,10 +321,9 @@ detail layer is required. Use [Image History](../../interface/image-history.md)
 to compare/revert Apply and [Saving and Exporting](../../interface/saving-and-exporting.md)
 only after the final output scale has been checked.
 
-## References and provenance
+## Credits
 
 - [G'MIC `sharpen_alpha` command reference](https://gmic.eu/reference/sharpen_alpha.html) — official command purpose, arguments, and upstream defaults.
 - [G'MIC `split_alpha` command reference](https://gmic.eu/reference/split_alpha.html) — official alpha-detail decomposition and reconstruction contract.
 - [G'MIC `sub_alpha` command reference](https://gmic.eu/reference/sub_alpha.html) — official minimal-opacity difference definition used by the decomposition.
 - [G'MIC `blur` command reference](https://gmic.eu/reference/blur.html) — official Gaussian/Deriche and boundary-condition defaults; the bundled script selects the default Gaussian and Neumann behavior.
-- AfterNight and bundled G'MIC 3.5.4 sources — authoritative for the shipped script, live controls, normalized float32 hand-off, clamp, channel/mask order, preview, history, sequences, and cancellation.

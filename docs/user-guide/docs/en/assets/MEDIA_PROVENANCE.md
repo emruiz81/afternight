@@ -6,7 +6,7 @@ summary: >-
 # Media Provenance
 
 Every committed documentation asset must be listed here before merge. Screenshot
-and result rows use the stable Media ID from the canonical manifest; other local
+and result rows keep the stable Media ID they were captured under; other local
 assets use `Not applicable`. Do not add third-party astrophotography images, UI
 captures from other applications, or downloaded media unless redistribution in
 the repository and installer bundles is explicitly permitted.
@@ -66,41 +66,10 @@ the repository and installer bundles is explicitly permitted.
 | Not applicable | `getting-started/quick-start.md#behavior-and-state-model` (inline Mermaid source) | AfterNight documentation maintainers; current Image Integration Lite source/tests | Project content, distributed with AfterNight under the repository license | 2026-07-20 | `20771cf98285c2ddaf70ae7c18cc907c15c6d28c443abccf806e38da5d3ff0ac` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Not applicable |
 | Not applicable | `getting-started/supported-formats.md#behavior-and-state-model` (inline Mermaid source) | AfterNight documentation maintainers; current file workflow, codec, and export source/tests | Project content, distributed with AfterNight under the repository license | 2026-07-20 | `956670363d73d06e3fe26435ef763bff492030f44693e0278b709e4d911882d4` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Not applicable |
 | Not applicable | `interface/overview.md#behavior-and-state-model` (inline Mermaid source) | AfterNight documentation maintainers; current dashboard/dock-workspace lifecycle source/tests | Project content, distributed with AfterNight under the repository license | 2026-07-20 | `32fa46a4090bae16f5beaee808c9e7e5cc28e4b4100683924b24986514cbdbcc` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Not applicable |
-| Not applicable | `processes/index.md#processing-map` (inline Mermaid source) | AfterNight documentation maintainers; current registry/menu source and process catalog | Project content, distributed with AfterNight under the repository license | 2026-07-20 | `650422843a3cfb6f51d18b7149e117879a148a275d12b7e6bdf3b6255fb35863` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Not applicable |
 | Not applicable | `processes/stacking-integration/image-integration-lite.md#how-the-algorithm-works` (inline Mermaid source) | AfterNight documentation maintainers; current Lite profile and workflow-stage source/tests | Project content, distributed with AfterNight under the repository license | 2026-07-21 | `7349d7883c6615d1352edbb8ab0203b6c38a728b368c8c5c20f918565a918de6` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Not applicable |
 | Not applicable | `processes/stacking-integration/image-list-analyzer.md#how-the-algorithm-works` (inline Mermaid source) | AfterNight documentation maintainers; current Image List Analyzer source/tests | Project content, distributed with AfterNight under the repository license | 2026-07-20 | `2308eaa8d3e10dbbbf06a4ef0252e3a56b2353dbadd7bc647a07659a80e0f330` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Not applicable |
 | Not applicable | `processes/stacking-integration/image-integration.md#conceptual-pipeline` (inline Mermaid source) | AfterNight documentation maintainers; current manifest, executor, stage, report, and focused-test sources | Project content, distributed with AfterNight under the repository license | 2026-07-21 | `e11556c105b1383c046867223eda660c0f5ea55eb2706caf9435950805fab9b2` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Not applicable |
 | Not applicable | `workflows/broadband-imaging.md#workflow-map-and-decision-points` (inline Mermaid source) | AfterNight documentation maintainers; current workflow/process sources and retained execution evidence | Project content, distributed with AfterNight under the repository license | 2026-07-20 | `5465b05cc9d1ddc623b21bd89a95e12a4b3a39906a71d895c15001356ab1306d` | Edit the complete Mermaid fence, rerun the strict build and the diagram browser validator, then regenerate the normalized block hash. | Approved broadband sets support the flow; no sample pixels are embedded in the diagram. |
-
-## Pending Media
-
-Canonical screenshots and final example images are tracked by stable Media ID
-in `docs/user-guide/SCREENSHOT_REQUEST_MANIFEST.md`. Until a retained asset is
-captured and listed in the table above, each eligible consumer page uses only a
-compact `MEDIA_SLOT` comment and never links the missing file.
-
-The 2026-07-10 content-depth reassessment added planned captures for Auto
-Gradient Removal, DeepSNR, sequences, save/export, astrometry overlays,
-histogram/summary tools, catalogs, and external-tool settings; the manifest
-tracks them with the other retained media. `Planned`, `Ready`, or `Blocked`
-manifest rows do not receive provenance entries until real assets are
-committed. A captured row cannot advance to `Placed` or `Validated` until the
-file hash, permission, capture source, sample-data boundary, and replacement
-procedure are recorded here.
-
-A revision of the guide added a richer process catalog and glossary updates
-without adding new media files. The process catalog's retained inline Mermaid
-source was later recorded as diagram media.
-
-A later revision updated release packaging, installer/AppImage, and
-Help -> User Guide documentation paths without adding new media files. No
-provenance rows are needed for the packaging/help integration itself.
-
-The guide retains eight inline Mermaid diagrams. The
-three diagrams that belonged only to deferred Narrowband, Planetary, and Mosaic
-workflow claims were removed from release-scope diagram media. The exact audit,
-source mapping, normalized hashes, and browser measurements are in the diagram
-validation record.
 
 ## Offline Runtime Policy
 

@@ -11,8 +11,6 @@ derived: true
 ---
 # Background Extraction
 
-<!-- MEDIA_SLOT: UG-MEDIA-077 -->
-
 ## Purpose and expected result
 
 Background Extraction lets you choose background samples, fit a smooth surface,
@@ -267,7 +265,6 @@ crop for cheap experimentation.
 
 ## Worked example
 
-- Evidence mode: Source- and test-derived.
 - Input condition/provenance and settings: A hypothetical calibrated linear
   master with an additive smooth gradient; RBF, 20 samples per line, tolerance
   2.0, smoothing 0.50, Subtraction, dither off.
@@ -308,21 +305,21 @@ crop for cheap experimentation.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Apply and Preview remain disabled | The window holds no samples; Preview also needs **Enable preview**. | Generate samples or left-click valid background locations away from edges. | `updateActionButtons()`; sample controller |
-| Generate Samples reports `this many boxes of this size do not fit across the picture` | Samples per Line × 25 pixels is wider than the image less 2 pixels. Nothing is placed. | Lower **Samples per Line** to at most (image width − 2) / 25. | `planBackgroundSampleGrid()` |
-| Generate Samples produces none or very few | Every candidate had a nonpositive lightness median or sat above `level + tolerance × MAD`. | Use a positive linear representation, raise tolerance carefully, or place manual samples. | `generateSamples()`; `sampleImageBackground()` |
-| Error `a polynomial of degree … needs samples that determine its … terms` | The samples do not determine every term of the selected order. The run is refused and the image is unchanged. | Add well-distributed samples, lower Degree Order, or use RBF. | `executeTypedProcessImpl()`; `MasksRecordTest` |
-| Error `the thin-plate system these sites describe is singular` | Too few RBF samples, samples all on one line, or two samples at one position. | Add samples spread across the image, or remove duplicates. | `fitBackgroundModel()` |
-| Error naming a thin-plate spline that `accepts fewer` sites | More than 1,024 samples with RBF. | Lower Samples per Line or use Polynomial. | `backgroundModelTermCount()` |
-| Gradient model contains stars or target structure | Grid tolerance was too permissive or manual samples cover real signal. | Lower tolerance, reduce density, or remove/relocate samples; preview again. | Sample rejection and median-fit source |
-| Preview shows an older result or the unprocessed target | The preview is computed only when **Preview** is clicked, and a change of samples, Interpolation Method, Smoothing, Correction, or target marks it out of date. | Click **Preview**. | `invalidatePreview()`; `BackgroundPreviewsShowTheTargetUntilAsked` |
-| Division produces clipped, black, or white pixels | The model is zero/near zero or Division is the wrong physical correction. | Return to Subtraction or rebuild a strictly positive representative model. | Division equation; `applyImageBackground()` |
-| Corrected preview changes when a mask is enabled | The estimator ignores the mask; the framework post-blends the result afterward. | Tune samples/model with the mask disabled, then enable it only to inspect the intended final blend. | `ImageRTPreviewControl.cpp` |
-| Output Background Model does not open for a sequence or a preview | The model is kept only by a still-image Apply. | Apply to a representative still frame for model diagnosis; the process does not create a model sequence. | `executeTypedProcessImpl()`; `executeProcessCompletedImpl()` |
-| Error mentions the memory budget | The engine refused the run's working memory; nothing was published. | Close other images, or use a smaller crop or fewer samples. | `MasksEngineRefusalTest` |
-| Process was cancelled | The run observed the stop; nothing was published and the history is unchanged. | Reduce grid density or image size for prototyping, then rerun. | Engine cancellation checks; `MasksWindowTest` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Apply and Preview remain disabled | The window holds no samples; Preview also needs **Enable preview**. | Generate samples or left-click valid background locations away from edges. |
+| Generate Samples reports `this many boxes of this size do not fit across the picture` | Samples per Line × 25 pixels is wider than the image less 2 pixels. Nothing is placed. | Lower **Samples per Line** to at most (image width − 2) / 25. |
+| Generate Samples produces none or very few | Every candidate had a nonpositive lightness median or sat above `level + tolerance × MAD`. | Use a positive linear representation, raise tolerance carefully, or place manual samples. |
+| Error `a polynomial of degree … needs samples that determine its … terms` | The samples do not determine every term of the selected order. The run is refused and the image is unchanged. | Add well-distributed samples, lower Degree Order, or use RBF. |
+| Error `the thin-plate system these sites describe is singular` | Too few RBF samples, samples all on one line, or two samples at one position. | Add samples spread across the image, or remove duplicates. |
+| Error naming a thin-plate spline that `accepts fewer` sites | More than 1,024 samples with RBF. | Lower Samples per Line or use Polynomial. |
+| Gradient model contains stars or target structure | Grid tolerance was too permissive or manual samples cover real signal. | Lower tolerance, reduce density, or remove/relocate samples; preview again. |
+| Preview shows an older result or the unprocessed target | The preview is computed only when **Preview** is clicked, and a change of samples, Interpolation Method, Smoothing, Correction, or target marks it out of date. | Click **Preview**. |
+| Division produces clipped, black, or white pixels | The model is zero/near zero or Division is the wrong physical correction. | Return to Subtraction or rebuild a strictly positive representative model. |
+| Corrected preview changes when a mask is enabled | The estimator ignores the mask; the framework post-blends the result afterward. | Tune samples/model with the mask disabled, then enable it only to inspect the intended final blend. |
+| Output Background Model does not open for a sequence or a preview | The model is kept only by a still-image Apply. | Apply to a representative still frame for model diagnosis; the process does not create a model sequence. |
+| Error mentions the memory budget | The engine refused the run's working memory; nothing was published. | Close other images, or use a smaller crop or fewer samples. |
+| Process was cancelled | The run observed the stop; nothing was published and the history is unchanged. | Reduce grid density or image size for prototyping, then rerun. |
 
 ## Related workflow steps
 
@@ -337,15 +334,11 @@ clean manual sample set is impractical. Continue to
 [Background Neutralization](../color-calibration/background-neutralization.md)
 only after the background model is acceptable.
 
-## References and provenance
+## Credits
 
 - The sample-grid workflow follows the upstream Siril sample-grid implementation
   ([Siril `background_extraction.c` at the linked revision](https://gitlab.com/free-astro/siril/-/blob/ef048278814067d24178f01067870d8896d9633d/src/algos/background_extraction.c)):
   AfterNight's engine keeps its 25×25 sample box, its median-plus-tolerance
   grid rejection, and its RBF smoothing mapping. That code is derived from
   Siril's under its GPL-3.0-or-later licence, by Francois Meyer and team
-  free-astro, and **Help > About AfterNight** credits it.
-- The fits are computed by AfterNight's own engine code; no external
-  linear-algebra library is involved.
-- Implementation claims and limitations were verified against AfterNight's source. Starting guidance is explicitly not a measured
-  result for real astrophotography data.
+  free-astro, and **About > About AfterNight** credits it.

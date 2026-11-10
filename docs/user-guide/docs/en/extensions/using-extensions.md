@@ -6,9 +6,6 @@ summary: >-
 ---
 # Using Extensions
 
-<!-- MEDIA_SLOT: UG-MEDIA-112 -->
-<!-- MEDIA_SLOT: UG-MEDIA-113 -->
-
 ## Purpose, audience, prerequisites, and expected result
 
 Extensions add optional processes to AfterNight without running Python inside the
@@ -381,7 +378,6 @@ Do not delete active shared-buffer or environment directories manually.
 
 ## Worked example
 
-- Evidence mode: Source-and-test-derived.
 - Starting state, actions, settings, checkpoints, result, and limitations: An
   approved managed package is already installed. Open **Installed**; its Missing
   environment appears as **Install Needed** with **Install Environment**. Complete
@@ -417,24 +413,24 @@ Do not delete active shared-buffer or environment directories manually.
 
 ## Troubleshooting
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **No bundled or user-installed extension packages were discovered.** | No valid manifest was found in active discovery roots | Install an approved package, verify `extension.json`, then **Refresh Status** | `ExtensionStatusPage.cpp`; status-page tests |
-| Card shows **Install Needed** | Managed package receipt exists but its environment is Missing | Select **Install Environment** and wait for Ready | `ExtensionStatusPage.cpp`; `ManagerInstalledPackageWithMissingEnvironmentStillNeedsInstall` |
-| Card shows **Repair Needed** | Dependency/package/host fingerprint no longer matches Ready markers | Select **Repair Environment**; reinstall if repair fails validation | environment manager; stale-environment tests |
-| Card shows **Validation Failed** | Manifest or environment validation stored a failure diagnostic | Expand **Details**, fix the named package/dependency/runtime problem, then repair/reinstall | status page; provisioning-failure tests |
-| **Settings** is absent | Schema is unavailable, empty, failed, or not cached in Ready state | Reach Ready, **Refresh Status**, then inspect validation/schema diagnostics | status-page/settings-section tests |
-| **Reveal Package** is disabled | Package root is empty or no longer exists | Refresh; reinstall or remove the stale package record | `ExtensionStatusPage.cpp` |
-| Extension action is absent/disabled | Package is not Ready, backend/launch mode is incompatible, active image fails the descriptor guard, or package is development-only | Read card/tooltip diagnostics; repair, select a compatible target, or install a compatible release | `ExtensionManager.cpp`; manager/registry tests |
-| Host becomes **Unresponsive** or disconnects | Heartbeat threshold was missed or the local channel closed | Let AfterNight stop the session, inspect termination diagnostics/logs, reduce workload, then relaunch | host manager; heartbeat/disconnect tests |
-| **Last Launch** or the log shows **Extension runtime bootstrap failed**, **Extension runtime did not finish bootstrapping within 60 seconds**, **The extension host exited before it connected**, or **Timed out waiting for the extension host to connect** | The host connected but could not start Python or import the extension (the reason follows the message), its start outlasted 60 seconds, or the host process ended or stalled before it connected; a slow first start alone does not cause any of them | Read the reason and the host output after the message; repair the environment when it names a missing or broken dependency, then relaunch | `ExtensionHostManager.cpp`; `ExtensionHostManagerTest.ARuntimeExtensionWhoseImportOutlastsTheHandshakeLaunchesAndExecutes`; `ExtensionHostManagerTest.AProtocolExtensionWhoseImportOutlastsTheHandshakeLaunchesWithoutWaitingForIt`; `ExtensionHostManagerTest.AHostThatExitsBeforeItConnectsIsReportedWithWhatItPrinted` |
-| Execution completes without changing the view | No valid host commit/presentation was received | Review extension logs and package docs; do not treat a written destination buffer as committed output | host manager shared-buffer/commit tests |
-| Secret appears in an action message | Package marked the field incorrectly or emitted data outside supported redaction | Stop using the package, sanitize the report, and contact its author; correctly marked secret/sensitive settings are filtered/redacted | settings-section tests |
-| A package's files are installed but it has no card and no menu action | Its `extension.json` cannot be read, including one that declares a package format, protocol, or SDK version other than 1 | Install a release of the package made for this AfterNight, then **Refresh Status** | `ExtensionManager.cpp`; `ExtensionRegression.APackageOfAnotherFormatProtocolOrSdkVersionIsRefused` |
-| **Last Launch** or the log shows **Extension host requested unsupported SDK version** or **Peer protocol version is older than the supported host version** (or newer) | The extension host executable is from another AfterNight build; the application refuses its greeting before the session starts | Reinstall AfterNight so its hosts match the application | `ExtensionHostManager.cpp`; `ExtensionRegression.AHostThatSpeaksAnotherSdkVersionIsRefused` |
-| A Full hosted extension fails to start; **Last Launch** or the log shows **Failed to load the runtime backend module**, **Runtime backend module reported interface version**, or **The runtime backend's engine session could not be borrowed** | The Full host could not load or start the runtime backend installed beside it: the module is missing, damaged, or from another build | Reinstall AfterNight; Lite hosted extensions do not use the module | `HostRuntimeSession.cpp`; `src/AfterNightExtensionHost/main.cpp` |
-| A preview or execution is refused with a message beginning **the shared-buffer protocol** | The image cannot be lent: a signed or 32-bit unsigned integer image, an X-Trans mosaic, or an alpha or non-RGB colour model | Convert the image to a supported sample type, demosaic it, or make it grey or RGB, then run again | `SharedBufferManager.cpp`; shared-buffer seam tests |
-| A message titled with the extension process's name says **This extension already has an active host session for the selected image.** | A session of the same extension over that image is still running: its window or its own dialog is open, or its work has not finished | Close the extension's window or dialog, or let its run finish, then launch it again; a host that stops responding is stopped by AfterNight after missed heartbeats | `ExtensionHostManager.cpp`; `ExtensionNativeProcessWindowTest.ARequestedCloseEndsTheSessionWhetherOrNotTheWindowWasShown`; `ExtensionRegression.TheStandaloneDemosDialogClosedCommitsNothing` |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **No bundled or user-installed extension packages were discovered.** | No valid manifest was found in active discovery roots | Install an approved package, verify `extension.json`, then **Refresh Status** |
+| Card shows **Install Needed** | Managed package receipt exists but its environment is Missing | Select **Install Environment** and wait for Ready |
+| Card shows **Repair Needed** | Dependency/package/host fingerprint no longer matches Ready markers | Select **Repair Environment**; reinstall if repair fails validation |
+| Card shows **Validation Failed** | Manifest or environment validation stored a failure diagnostic | Expand **Details**, fix the named package/dependency/runtime problem, then repair/reinstall |
+| **Settings** is absent | Schema is unavailable, empty, failed, or not cached in Ready state | Reach Ready, **Refresh Status**, then inspect validation/schema diagnostics |
+| **Reveal Package** is disabled | Package root is empty or no longer exists | Refresh; reinstall or remove the stale package record |
+| Extension action is absent/disabled | Package is not Ready, backend/launch mode is incompatible, active image fails the descriptor guard, or package is development-only | Read card/tooltip diagnostics; repair, select a compatible target, or install a compatible release |
+| Host becomes **Unresponsive** or disconnects | Heartbeat threshold was missed or the local channel closed | Let AfterNight stop the session, inspect termination diagnostics/logs, reduce workload, then relaunch |
+| **Last Launch** or the log shows **Extension runtime bootstrap failed**, **Extension runtime did not finish bootstrapping within 60 seconds**, **The extension host exited before it connected**, or **Timed out waiting for the extension host to connect** | The host connected but could not start Python or import the extension (the reason follows the message), its start outlasted 60 seconds, or the host process ended or stalled before it connected; a slow first start alone does not cause any of them | Read the reason and the host output after the message; repair the environment when it names a missing or broken dependency, then relaunch |
+| Execution completes without changing the view | No valid host commit/presentation was received | Review extension logs and package docs; do not treat a written destination buffer as committed output |
+| Secret appears in an action message | Package marked the field incorrectly or emitted data outside supported redaction | Stop using the package, sanitize the report, and contact its author; correctly marked secret/sensitive settings are filtered/redacted |
+| A package's files are installed but it has no card and no menu action | Its `extension.json` cannot be read, including one that declares a package format, protocol, or SDK version other than 1 | Install a release of the package made for this AfterNight, then **Refresh Status** |
+| **Last Launch** or the log shows **Extension host requested unsupported SDK version** or **Peer protocol version is older than the supported host version** (or newer) | The extension host executable is from another AfterNight build; the application refuses its greeting before the session starts | Reinstall AfterNight so its hosts match the application |
+| A Full hosted extension fails to start; **Last Launch** or the log shows **Failed to load the runtime backend module**, **Runtime backend module reported interface version**, or **The runtime backend's engine session could not be borrowed** | The Full host could not load or start the runtime backend installed beside it: the module is missing, damaged, or from another build | Reinstall AfterNight; Lite hosted extensions do not use the module |
+| A preview or execution is refused with a message beginning **the shared-buffer protocol** | The image cannot be lent: a signed or 32-bit unsigned integer image, an X-Trans mosaic, or an alpha or non-RGB colour model | Convert the image to a supported sample type, demosaic it, or make it grey or RGB, then run again |
+| A message titled with the extension process's name says **This extension already has an active host session for the selected image.** | A session of the same extension over that image is still running: its window or its own dialog is open, or its work has not finished | Close the extension's window or dialog, or let its run finish, then launch it again; a host that stops responding is stopped by AfterNight after missed heartbeats |
 
 ## Related workflow steps
 
@@ -449,16 +445,3 @@ Do not delete active shared-buffer or environment directories manually.
   diagnostics; package-specific support may also require its own log files.
 - [Settings Dialog](../interface/settings-dialog.md) — global settings including
   **Check for extension updates on startup**.
-
-## References and provenance
-
-- AfterNight's implementation and its focused tests are the primary sources.
-- `docs/dev/EXTENSION_HOST_MODES_AND_LICENSING.md` defines the maintained host
-  modes - the host each `sdk_backend` uses and the licensing boundary between
-  them - and the Full hosted native process-window boundary; implemented source
-  and tests take precedence.
-- Every bundled extension and author template is held to package format 1,
-  protocol 1, and SDK 1.
-- `docs/extension-examples/PACKAGE_AUTHOR_GUIDE.md` and
-  `docs/extension-examples/README.md` are author-facing package contracts, not a
-  substitute for the user procedures on this page.
