@@ -4478,6 +4478,9 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_stacking_defaults.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_ug60_real_data.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/test_workflow_report_builder.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportFormatTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenarios.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenariosTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/test_gaia_catalog_settings.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_image_integration_lite_process.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_image_integration_process.cpp
@@ -4636,6 +4639,7 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/core/RegistrationWorkState.h
     header   src/AfterNightProcesses/processes/core/WorkflowSettingsRecords.h
     header   src/AfterNightTests/Test_ImageIntegration/ImportSession.h
+    header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenarios.h
     header   src/AfterNightWorkflowDriver/ResidentMemory.h
     header   src/AfterNightWorkflowDriver/WorkflowDriver.h
     header   src/AfterNightTests/Test_ImageIntegration/workflow/CalibrationRun.h
@@ -4720,6 +4724,7 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/RegistrationMetricsRepository.h
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/SessionDocument.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/MarkdownHtmlRenderer.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportFormat.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/WorkflowReportBuilder.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/BaseCalibrationPanel.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/CalibrationGroupTable.h
