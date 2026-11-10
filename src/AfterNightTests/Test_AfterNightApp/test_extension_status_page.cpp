@@ -15,6 +15,7 @@
 #include <QMargins>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QStringList>
 #include <QThread>
 #include <QThreadPool>
 #include <QTimer>
@@ -610,6 +611,49 @@ TEST_F(ExtensionStatusPageTest, UninstallRequiresConfirmationAndRefreshesAfterRe
     EXPECT_EQ(confirmation_calls, 2);
     ASSERT_TRUE(waitFor([&]() { return uninstall_calls == 1; }));
     ASSERT_TRUE(waitFor([&]() { return discovery_calls == 2; }));
+}
+
+TEST_F(ExtensionStatusPageTest, UninstallAnnouncesTheRemovedExtensionOnlyWhenItSucceeds)
+{
+    std::atomic_bool uninstall_succeeds = false;
+    std::atomic_int uninstall_calls = 0;
+
+    ExtensionStatusPage page(nullptr);
+    page.setDiscoveryProvider([]() {
+        return std::vector<ExtensionLoadResult>{
+            makeReadyResult("removable_ext", "Removable Extension", "/tmp/extensions/removable_ext",
+                            "/tmp/extensions/removable_ext/.venv", ExtensionPackageSource::User)};
+    });
+    page.setUninstallConfirmationProvider([](const ExtensionLoadResult&) { return true; });
+    page.setUninstallProvider([&](const ExtensionLoadResult&) {
+        ++uninstall_calls;
+        return an::ui::ExtensionStatusPageUninstallResult{uninstall_succeeds.load(), {}};
+    });
+
+    QStringList announced;
+    QObject::connect(&page, &ExtensionStatusPage::extensionUninstalled, &page,
+                     [&announced](const QString& extension_id) { announced << extension_id; });
+    auto* summary_banner =
+        dynamic_cast<an::ui::AnInfoBanner*>(page.findChild<QWidget*>(QStringLiteral("anExtensionStatusSummaryBanner")));
+    ASSERT_NE(summary_banner, nullptr);
+
+    page.loadSettings();
+    const QString uninstall_button_name = QStringLiteral("anExtensionStatusButton_uninstall_removable_ext");
+    auto* uninstall_button = page.findChild<QPushButton*>(uninstall_button_name);
+    ASSERT_NE(uninstall_button, nullptr);
+
+    // A package that could not be removed is still installed, so nothing is announced.
+    uninstall_button->click();
+    ASSERT_TRUE(waitFor([&]() { return summary_banner->message().contains(QStringLiteral("uninstall failed")); }));
+    EXPECT_TRUE(announced.isEmpty());
+
+    uninstall_succeeds = true;
+    uninstall_button = page.findChild<QPushButton*>(uninstall_button_name);
+    ASSERT_NE(uninstall_button, nullptr);
+    uninstall_button->click();
+    ASSERT_TRUE(waitFor([&]() { return !announced.isEmpty(); }));
+    EXPECT_EQ(announced, QStringList{QStringLiteral("removable_ext")});
+    EXPECT_EQ(uninstall_calls.load(), 2);
 }
 
 TEST_F(ExtensionStatusPageTest, UninstallShowsImmediateBusyState)

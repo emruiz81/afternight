@@ -2783,9 +2783,13 @@ void ExtensionManagerPage::refreshRepository(const bool preserveCurrentCards)
 
     if (m_RepositoryRefreshWatcher)
     {
+        // The refresh in flight may have read the installed packages before the change that asked for this one, so
+        // what it brings back is not shown: it is read again when it lands.
+        m_RepositoryRefreshOutdated = true;
         return;
     }
 
+    m_RepositoryRefreshOutdated = false;
     m_RepositoryRefreshInProgress = true;
     if (!preserveCurrentCards)
     {
@@ -2817,6 +2821,11 @@ void ExtensionManagerPage::refreshRepository(const bool preserveCurrentCards)
                              m_RepositoryRefreshWatcher = nullptr;
                          }
                          m_RepositoryRefreshInProgress = false;
+                         if (m_RepositoryRefreshOutdated)
+                         {
+                             refreshRepository(preserveCurrentCards);
+                             return;
+                         }
                          if (!snapshot.success && preserveCurrentCards && m_LastSnapshot.from_cache &&
                              !m_LastSnapshot.entries.empty())
                          {
@@ -3646,8 +3655,51 @@ void ExtensionManagerPage::persistCurrentRepositorySnapshotCache() const
     snapshot.cache_updated_at_utc = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
     if (saveRepositorySnapshotCache(snapshot))
     {
-        logExtensionManagerPageDebug("repository cache", tr("Repository snapshot cache updated after package install"));
+        logExtensionManagerPageDebug("repository cache", tr("Repository snapshot cache updated after package change"));
     }
+}
+
+void ExtensionManagerPage::markEntryUninstalled(const std::string& extensionId)
+{
+    // What an install recorded for this package would otherwise be laid over every later snapshot.
+    if (m_InstalledEntryOverride && m_InstalledEntryOverride->id == extensionId)
+    {
+        m_InstalledEntryOverride.reset();
+    }
+
+    const auto entry_iter =
+        std::find_if(m_LastSnapshot.entries.begin(), m_LastSnapshot.entries.end(),
+                     [&extensionId](const ExtensionRepositoryBrowseEntry& entry) { return entry.id == extensionId; });
+    if (entry_iter == m_LastSnapshot.entries.end() || entry_iter->installed_version.empty())
+    {
+        return;
+    }
+
+    const ExtensionRepositoryBrowseEntry not_installed;
+    entry_iter->installed_version.clear();
+    entry_iter->installed_source_available = not_installed.installed_source_available;
+    entry_iter->installed_source = not_installed.installed_source;
+    entry_iter->installed_status_available = not_installed.installed_status_available;
+    entry_iter->installed_load_status = not_installed.installed_load_status;
+    entry_iter->installed_status_diagnostic.clear();
+    entry_iter->installed_environment_available = not_installed.installed_environment_available;
+    entry_iter->installed_environment_state = not_installed.installed_environment_state;
+    entry_iter->installed_environment_diagnostic.clear();
+    entry_iter->install_state = installStateForCurrentInstalledVersion(*entry_iter);
+    // The cache is what the page shows first the next time it loads, and all it shows while the repository is offline.
+    persistCurrentRepositorySnapshotCache();
+}
+
+void ExtensionManagerPage::noteExtensionUninstalled(const std::string& extensionId)
+{
+    if (extensionId.empty())
+    {
+        return;
+    }
+
+    markEntryUninstalled(extensionId);
+    renderCards();
+    refreshRepository(true);
 }
 
 void ExtensionManagerPage::clearActiveInstallEntry()
@@ -3762,11 +3814,9 @@ void ExtensionManagerPage::completeRemoveOperation(const ExtensionManagerPageRem
 
     if (result.success)
     {
-        if (m_InstalledEntryOverride && m_InstalledEntryOverride->id == m_ActiveOperationEntryId)
-        {
-            m_InstalledEntryOverride.reset();
-        }
+        markEntryUninstalled(m_ActiveOperationEntryId);
         finishActiveOperationState();
+        renderCards();
         refreshRepository(true);
         emit installedExtensionsChanged();
         m_SummaryBanner->setTone(AnInfoBanner::Tone::Success);

@@ -163,6 +163,10 @@ public:
     void setEnvironmentCleanupProvider(EnvironmentCleanupProvider cleanupProvider);
     void setExtensionSettingsOpener(ExtensionSettingsOpener settingsOpener);
 
+    /// Records that the package of `extensionId` was removed from disk by something other than this page: its card
+    /// stops showing an installed version at once, and the repository is read again for what else the removal changed.
+    void noteExtensionUninstalled(const std::string& extensionId);
+
 signals:
     void installedExtensionsChanged() W_SIGNAL(installedExtensionsChanged);
 
@@ -216,6 +220,7 @@ private:
     [[nodiscard]] bool markActiveInstallEntryInstalled(const ExtensionManagerPageInstallResult& result);
     void applyInstalledEntryOverride(extensions::ExtensionRepositoryBrowseEntry& entry) const;
     void applyInstalledEntryOverrides(ExtensionManagerPageRepositorySnapshot& snapshot) const;
+    void markEntryUninstalled(const std::string& extensionId);
     void persistCurrentRepositorySnapshotCache() const;
     void clearActiveInstallEntry();
     void startRemoveOperation(const extensions::ExtensionRepositoryBrowseEntry& entry);
@@ -303,6 +308,7 @@ private:
     bool m_PromptCancelPendingAfterActiveCancellation = false;
     bool m_OperationInProgress = false;
     bool m_RepositoryRefreshInProgress = false;
+    bool m_RepositoryRefreshOutdated = false;
 };
 
 } // namespace an::ui
