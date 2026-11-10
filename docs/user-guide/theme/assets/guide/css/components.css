@@ -136,12 +136,12 @@
 
 /* What you need: a checklist, ticked as the reader gathers things (checklist.js), with its progress under it. */
 .prose ul.need { list-style: none; max-width: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+/* The box sits beside the item's text rather than as a column of a flex row: every link and text run of an item would
+   be a column of its own, and an item with three links did not wrap at a phone's width. */
 .prose ul.need > li {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
+    position: relative;
     margin: 0;
-    padding: 12px 14px;
+    padding: 12px 14px 12px 44px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--card);
@@ -149,7 +149,7 @@
 }
 .prose ul.need.live > li { cursor: pointer; }
 .prose ul.need > li.done { border-color: color-mix(in srgb, var(--ok) 50%, transparent); color: var(--text); }
-.prose ul.need .task-list-control { position: relative; flex: none; width: 18px; height: 18px; margin-top: 2px; }
+.prose ul.need .task-list-control { position: absolute; left: 14px; top: 14px; width: 18px; height: 18px; }
 .prose ul.need .task-list-control input { inset: 0; width: 100%; height: 100%; margin: 0; }
 .prose ul.need .task-list-control .task-list-indicator::before {
     content: "";
@@ -205,6 +205,9 @@
 .prose .result > :last-child { margin-bottom: 0; }
 /* A caption on the box's tint: the muted caption color falls under 4.5:1 there in the light theme. */
 .prose .result figcaption { color: var(--text-2); }
+/* A link on the tint: the accent falls under 4.5:1 there in the light theme, and its hover shade is darker in the
+   light theme and lighter in the dark one. */
+.prose .result a { color: var(--accent-hover); }
 
 /* Next: where to go from here, as cards. The whole card is the link's target. */
 .prose ul.nextg { list-style: none; max-width: none; margin: 0 0 20px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }

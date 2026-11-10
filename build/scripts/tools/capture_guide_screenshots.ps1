@@ -27,6 +27,8 @@ What is captured is named in one of two ways:
                              after the page (`gamma-correction.md` gives `gamma-correction.png`)
   -Capture "<name>=<menu>"   any menu path, such as "curves=Process > Intensity Transformations > Curves
                              Transformation"; the picture is `<name>.png`
+  -Capture "<name>=@<button>" a button of the main window, by the name it shows - a button of the active image
+                             view's toolbar, such as "settings=@Autostretch Settings" - for a window no menu opens
 
 -MainWindow <name> adds a picture of the main window as it is when the captures are done.
 
@@ -53,6 +55,12 @@ A window is captured as it opens unless -Set says what to do in it first:
                              works on a stretched image is captured on the linear master after the stretch its own
                              worked example names, so the guide's data stays one file.
 
+-View "<menu path>[;<menu path>...]" chooses menu items that act on the active image or the main window without a
+window of their own - "Image > View > Zoom 100%", "View > Session Console", or `@<button>` for a button of the
+main window such as "@Clear Session" - once the preparations are done and before the first capture, and waits until the view has
+redrawn. A process judged by its detail shows its pair at 100 %: the view zooms around its middle, so the pair is the
+middle of the image.
+
 -Apply takes a before-and-after pair of the image the process works on: once the window's picture is saved it saves
 the main window as `<name>-before.png`, presses the window's Apply, waits for the run to end and for the view to
 rest, and saves the main window again as `<name>-after.png`. Both show the image under the display mode it was
@@ -75,7 +83,8 @@ Usage (Windows PowerShell 5.1, which carries UI Automation):
     powershell -NoProfile -ExecutionPolicy Bypass -File build\scripts\tools\capture_guide_screenshots.ps1
         -Application bin\msvc\release\AfterNight.exe -Output <folder for the PNGs> [-Open <image>[,<image>...]]
         [-Display <mode>] [-Page <page.md>[,...]] [-Capture "<name>=<menu path>[;...]"] [-MainWindow <name>]
-        [-Set "<control>=<value>[;...]"] [-Prepare "<menu path>|<control>=<value>[;...]"] [-Apply] [-List]
+        [-Set "<control>=<value>[;...]"] [-Prepare "<menu path>|<control>=<value>[;...]"]
+        [-View "<menu path>[;...]"] [-Apply] [-List]
         [-Storage <new folder>]
         [-Guide docs\user-guide] [-Left 80] [-Top 60] [-Width 1600] [-Height 1000] [-SettleSeconds 20]
         [-OpenTimeoutSeconds 180] [-RunTimeoutSeconds 3600]
@@ -92,6 +101,7 @@ param(
     [string]$MainWindow = '',
     [string[]]$Set = @(),
     [string[]]$Prepare = @(),
+    [string[]]$View = @(),
     [switch]$Apply,
     [switch]$List,
     [string]$Storage = '',
@@ -630,6 +640,40 @@ public sealed class AnScreenshots
         });
     }
 
+    /// Presses a button of the main window by the name it shows, once it is there and enabled: a button of the active
+    /// image view's toolbar. It is looked for by its type and its name only, because walking the whole main window
+    /// with a large image open times out.
+    public Task PressMainButton(AutomationElement main, string name, int timeoutMs)
+    {
+        Stopwatch clock = Stopwatch.StartNew();
+        while (true)
+        {
+            AutomationElement button = null;
+            try
+            {
+                button = main.FindFirst(TreeScope.Descendants, new AndCondition(
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
+                    new PropertyCondition(AutomationElement.NameProperty, name)));
+            }
+            catch (ElementNotAvailableException) { button = null; }
+            if (button != null && IsEnabled(button))
+            {
+                return Task.Run(delegate
+                {
+                    object pattern;
+                    try
+                    {
+                        if (button.TryGetCurrentPattern(InvokePattern.Pattern, out pattern)) ((InvokePattern)pattern).Invoke();
+                    }
+                    catch (Exception) { }
+                });
+            }
+            if (clock.ElapsedMilliseconds > timeoutMs) throw new TimeoutException("the main window has no enabled button '" + name + "'");
+            CheckAlive();
+            Thread.Sleep(500);
+        }
+    }
+
     /// Gives a control a value the way its kind takes one: a combo box one of its choices, a check box or a
     /// checkable button `On` or `Off`, a spin box or a slider a number, a text field a text. Returns what was done.
     public string SetControl(IntPtr window, string name, string value)
@@ -863,6 +907,13 @@ foreach ($given in @($Prepare | Where-Object { $_ -and $_.Trim() })) {
     $preparations.Add(@{ name = $null; menu = $menu.Trim(); process = $true; prepare = $true
                          changes = (Read-Changes @($rest) '-Prepare') })
 }
+# What -View chooses on the image view once the preparations are done: menu paths, each acting at once.
+$viewActions = New-Object System.Collections.Generic.List[object]
+foreach ($given in @($View | ForEach-Object { $_ -split ';' } | Where-Object { $_ -and $_.Trim() })) {
+    $action = @{ name = $null; menu = $given.Trim(); process = $false; prepare = $false; view = $true; changes = @() }
+    if ($action.menu.StartsWith('@')) { $action.button = $action.menu.Substring(1).Trim() }
+    $viewActions.Add($action)
+}
 
 $Application = (Resolve-Path -LiteralPath $Application).Path
 $deployment = Split-Path $Application
@@ -883,7 +934,13 @@ foreach ($given in $Page) {
 foreach ($given in $Capture) {
     $at = $given.IndexOf('=')
     if ($at -lt 1 -or $at -eq $given.Length - 1) { throw "-Capture takes ""<name>=<menu path>"", not ""$given""" }
-    $captures.Add(@{ name = $given.Substring(0, $at).Trim(); menu = $given.Substring($at + 1).Trim(); process = $false })
+    $what = $given.Substring($at + 1).Trim()
+    if ($what.StartsWith('@')) {
+        $captures.Add(@{ name = $given.Substring(0, $at).Trim(); menu = $what; button = $what.Substring(1).Trim(); process = $false })
+    }
+    else {
+        $captures.Add(@{ name = $given.Substring(0, $at).Trim(); menu = $what; process = $false })
+    }
 }
 if ($captures.Count -eq 0 -and -not $MainWindow) { throw 'nothing to capture: name a -Page, a -Capture or a -MainWindow' }
 $names = @($captures | ForEach-Object { $_.name }) + @($MainWindow | Where-Object { $_ })
@@ -947,6 +1004,7 @@ try {
     # The preparations run first, each as a capture that saves nothing and applies what it set.
     $steps = New-Object System.Collections.Generic.List[object]
     foreach ($preparation in $preparations) { $steps.Add($preparation) }
+    foreach ($action in $viewActions) { $steps.Add($action) }
     foreach ($shot in $captures) { $shot.prepare = $false; $shot.changes = $changes; $steps.Add($shot) }
 
     foreach ($shot in $steps) {
@@ -954,7 +1012,7 @@ try {
         # The item is enabled once the image it works on has opened.
         $clock = [System.Diagnostics.Stopwatch]::StartNew()
         $item = $null
-        while (-not $item) {
+        while (-not $item -and -not $shot.button) {
             $items = $shots.OpenMenuPath($main, $path)
             $last = $items[$items.Count - 1]
             if ($shots.IsEnabled($last)) { $item = $last; break }
@@ -962,9 +1020,19 @@ try {
             if ($clock.Elapsed.TotalSeconds -gt $OpenTimeoutSeconds) { throw "'$($shot.menu)' stayed disabled; does it need an image the run did not open?" }
             Start-Sleep -Milliseconds 1000
         }
+        # A view action opens nothing: the view redraws, and the next step finds it so.
+        if ($shot.view) {
+            if ($shot.button) { [void]$shots.PressMainButton($main, $shot.button, $OpenTimeoutSeconds * 1000) }
+            else { [void]$shots.Choose($item) }
+            $rested = $false
+            $shots.SettledPicture($mainHandle, $SettleSeconds * 1000, [ref]$rested).Dispose()
+            $shots.Note("chose '$($shot.menu)'")
+            continue
+        }
         $before = New-Object 'System.Collections.Generic.HashSet[IntPtr]'
         foreach ($window in $shots.Windows()) { [void]$before.Add($window.Handle) }
-        [void]$shots.Choose($item)
+        if ($shot.button) { [void]$shots.PressMainButton($main, $shot.button, $OpenTimeoutSeconds * 1000) }
+        else { [void]$shots.Choose($item) }
 
         # The window, once it is shown. A message in place of a page's process - the process refuses the image, or
         # is open on it already - is answered with Return, and is no picture of the process.

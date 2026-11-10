@@ -11,18 +11,18 @@ rewritten: true
 This page holds what [Generalized Hyperbolic Transformation](gh-transformation.md) leaves out to stay readable
 beside its window. It gives the curve again with its slopes, the inverse that **Invert** applies, the curve **STF
 Transformation** derives, the factor of **Colour**, a table of checkpoints, what too little and too much of each
-value look like, and the text the history records. Each section can be read on its own, and the equations are
+value look like, and the text the [history](../../reference/glossary.md#history) records. Each section can be read on its own, and the equations are
 numbered through the page.
 
 ## Symbols
 
 | Symbol | Meaning | Where it comes from |
 | --- | --- | --- |
-| \(s\) | The stretch factor | **Stretch factor(In(D+1))** |
+| \(s\) | The [stretch](../../reference/glossary.md#stretch) factor | **Stretch factor(In(D+1))** |
 | \(D\) | The strength of the curve | Equation (1) |
 | \(b\) | The local intensity | **Local intensity (b)** |
-| \(S\) | The [symmetry point (SP)](../../reference/glossary.md) | **Symmetry point (SP)** |
-| \(L\), \(H\) | The two [protection points (LP/HP)](../../reference/glossary.md) | **Protect shadows (LP)**, **Protect highlights (HP)** |
+| \(S\) | The [symmetry point (SP)](../../reference/glossary.md#symmetry-point) | **Symmetry point (SP)** |
+| \(L\), \(H\) | The two [protection points (LP/HP)](../../reference/glossary.md#protection-point) | **Protect shadows (LP)**, **Protect highlights (HP)** |
 | \(x\) | A sample of the image, cut to the range 0 to 1 | The image |
 | \(y\) | A sample of the result, from 0 to 1 | The curve |
 | \(t\) | The distance of a sample from the symmetry point | \(S - x\) below it, \(x - S\) above it |
@@ -135,15 +135,17 @@ H + \dfrac{z - g(H - S)}{g'(H - S)}, & y > y_H
   the forward curve.
 - With \(D = 0\) the inverse changes nothing.
 - The inverse undoes the curve, not the Apply. Samples that the first stretch cut at 0 or 1, the rounding to the
-  pixel type and a color conversion are not brought back, and the values must be the ones of the first stretch.
+  [pixel type](../../reference/glossary.md#pixel-type) and a color conversion are not brought back, and the values must be the ones of the first stretch.
 - The history names the type with `(Inverse)` after it, and the result is recorded as nonlinear.
 
 ## The curve STF Transformation derives
 
-**STF Transformation** measures the image and derives a midtones curve from what it finds. For each channel \(j\)
-it takes the median \(v_j\) and the deviation \(\sigma_j\), which is 1.4826 times the median absolute deviation, or
-0.001 when that is zero. A curve has a black point \(c\), a white point \(w\) and a balance \(m\). With \(u\) the
-place of the sample between the two points, it is
+**STF Transformation** measures the image and derives a [midtones](../../reference/glossary.md#midtones) curve from
+what it finds. For each channel \(j\) it takes the median \(v_j\) and the deviation \(\sigma_j\), which is 1.4826
+times the [median absolute deviation](../../reference/glossary.md#median-absolute-deviation), or 0.001 when that is
+zero. A curve has a [black point](../../reference/glossary.md#black-point) \(c\), a
+[white point](../../reference/glossary.md#white-point) \(w\) and a balance \(m\). With \(u\) the place of the sample
+between the two points, it is
 
 \[
 F(x) =
@@ -181,16 +183,17 @@ and linked:
 - The choice between equations (13) and (15) is made once for the image, from all its medians, also when the
   channels are derived one by one.
 - The median and the deviation are those of every valid sample of the whole image, measured exactly, once for each
-  state of the image. An integer image is measured as fractions of its full range. A **Preview area** is stretched
-  with the statistics of the whole image, and each frame of a sequence with its own.
+  state of the image. An integer image is measured as fractions of its full range. A
+  [**Preview area**](../../reference/glossary.md#preview-area) is stretched with the statistics of the whole image,
+  and each frame of a [sequence](../../reference/glossary.md#sequence) with its own.
 - An image without a valid sample is refused, and so is one whose median lies outside 0 to 1: "automatic stretch
-  statistics must have normalized medians and nonnegative MADs".
+  statistics must have normalized medians and nonnegative [MADs](../../reference/glossary.md#mad)".
 - With **Lightness**, **Saturation** or **Colour** in **Channel** and **Linked STF** off, the component is
   stretched with the curve derived from the red channel, not with one derived from the component.
 - The derived \(c\), \(w\) and \(m\) are shown nowhere and are not recorded. Both histograms draw the curve: the
   green or the blue channel's when **Channel** names that channel, the red channel's otherwise.
 
-As an example, the master of the process page has a median of 0.02766 and a median absolute deviation of 0.00175 in
+As an example, the [master](../../reference/glossary.md#master) of the process page has a median of 0.02766 and a median absolute deviation of 0.00175 in
 every channel. The deviation is 0.0026, equation (14) gives \(c = 0.0204\) and \(m = 0.0215\), and equation (12)
 sends the median to 0.25, a sample of 0.10 to 0.80 and one of 0.50 to 0.98.
 
@@ -274,9 +277,10 @@ Stretch factor
 :   The value of the box, not the strength \(D\).
 
 Not recorded
-:   The mask, **Colour clip**, **Luminance coeffs** and the three weights, **Linked STF**, the curve an STF
-    derived, and the choices of the histogram toolbar.
+:   The [mask](../../reference/glossary.md#mask), **Colour clip**, **Luminance coeffs** and the three weights,
+    **Linked STF**, the curve an STF derived, and the choices of the histogram toolbar.
 
-The image itself keeps its header, its acquisition data and its plate solution. It no longer states a transfer
-function, and its processing state is recorded as nonlinear with the operation `ght-stretch`, whichever type was
-applied.
+The image itself keeps its header, its acquisition data and its
+[plate solution](../../reference/glossary.md#plate-solution). It no longer states a transfer function, and its
+[processing state](../../reference/glossary.md#processing-state) is recorded as nonlinear with the operation
+`ght-stretch`, whichever type was applied.
