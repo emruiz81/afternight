@@ -26,7 +26,6 @@ glance:
     A stretched image, mono or RGB, whose tones need a small last correction. A linear image is accepted too, and its
     result is recorded as nonlinear all the same.
 derived: false
-rewritten: true
 ---
 # Adjust Brightness/Contrast
 

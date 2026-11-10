@@ -27,7 +27,6 @@ glance:
     A calibrated image, linear or stretched, in the geometry later steps use, with sharp and unsaturated stars: a
     master or a single frame.
 derived: true
-rewritten: true
 ---
 # Plate Solving
 

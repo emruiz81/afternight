@@ -26,7 +26,6 @@ glance:
     A stretched image, or one plane of it, after calibration and color calibration. A linear image is accepted, and its
     result is recorded as nonlinear all the same.
 derived: false
-rewritten: true
 ---
 # Colorize
 

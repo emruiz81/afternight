@@ -4,7 +4,6 @@ summary: >-
   The Session Console lists AfterNight's messages since it started, each with its time and severity, so that you can
   follow what it did and read why a step failed: filter, search, export or clear them.
 menu: View > Session Console
-rewritten: true
 ---
 # Session Console
 

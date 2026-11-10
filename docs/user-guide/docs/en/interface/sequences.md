@@ -4,7 +4,6 @@ summary: >-
   A sequence view shows a SER capture, a video or an image list one frame at a time, with a player under the picture.
   New Sequence gathers still images into a sequence.
 menu: File > New Sequence...
-rewritten: true
 ---
 # Sequences
 

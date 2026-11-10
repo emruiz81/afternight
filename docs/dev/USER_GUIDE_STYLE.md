@@ -61,7 +61,7 @@ Explain what AfterNight does with a thing; do not teach the thing from the begin
 
 ## What a page does not say
 
-`docs/user-guide/data/vocabulary.yml` lists the words below as patterns, and rule R9 refuses them on a rewritten
+`docs/user-guide/data/vocabulary.yml` lists the words below as patterns, and rule R9 refuses them on every
 page. The file's allow-list takes a label of the application that holds one of them, with the page and the reason.
 
 - **No proof.** Not "evidence", "verified", "validated", "authoritative", "source-derived", "focused tests", or a
@@ -80,7 +80,8 @@ page. The file's allow-list takes a label of the application that holds one of t
   version. Delete "current", "currently", "the current application", "present behavior" and "as implemented": "the
   current build clamps the result" is "the result is clamped".
 - **No hedging about the guide.** A page does not say that it is incomplete, provisional or under review, and does
-  not say what it "does not promise". The home page carries the guide's one notice that it is being rewritten.
+  not say what it "does not promise". The home page carries the guide's one notice of what it still lacks:
+  its pictures not yet taken.
 - **No note for the authors.** A page has no HTML comment: a picture that is owed, a doubt and a task are issues.
   The comments of a template are deleted with its placeholders.
 
@@ -189,8 +190,7 @@ the interface pages - have budgets of their own.
 
 ## What the check holds
 
-`build/scripts/tools/check_user_guide.py` holds a page that states `rewritten: true` to this document, as far as a
-program can:
+`build/scripts/tools/check_user_guide.py` holds every page to this document, as far as a program can:
 
 | Rule | Holds |
 | --- | --- |
@@ -199,7 +199,7 @@ program can:
 | R9 | The words of `vocabulary.yml`, and no HTML comment. |
 | R10 | The opening figure, captions and alternative texts, pins that match steps, the before-and-after pair. |
 | R11 | The format, size and weight of each picture, and its provenance row. |
-| R12 | The front matter a rewritten process page states. |
+| R12 | The front matter a process page states. |
 | R13 | Glossary terms linked on first use. |
 
 It cannot tell whether a sentence is true, whether a step can be followed or whether a caption fits its picture.

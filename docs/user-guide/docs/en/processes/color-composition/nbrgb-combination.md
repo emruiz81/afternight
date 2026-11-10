@@ -26,7 +26,6 @@ glance:
     A linear color master and linear narrowband masters of one target, registered and cropped alike, with gradients
     removed and their levels brought together.
 derived: false
-rewritten: true
 ---
 # NBRGB Combination
 

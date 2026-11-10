@@ -6,7 +6,7 @@ Run with:
     python build/scripts/tools/check_user_guide_test.py
 
 Every rule has a site, or a page, that passes and one that fails; the cases plant them in a temporary directory.
-The rules of a rewritten page have a guide with a page on each template, and a copy of it broken for each rule.
+The rules of the writing system have a guide with a page on each template, and a copy of it broken for each rule.
 """
 
 from __future__ import annotations
@@ -195,6 +195,9 @@ REAL_DATA = {name: (pathlib.Path(guide.REPO_ROOT) / 'docs' / 'user-guide' / 'dat
     encoding='utf-8') for name in ('stages.yml', 'limits.yml', 'vocabulary.yml')}
 # The guide's own allowances name its pages, which a test's guide does not have: a test starts from none.
 REAL_DATA['vocabulary.yml'] = re.sub(r'(?ms)^allow:.*\Z', 'allow: []\n', REAL_DATA['vocabulary.yml'])
+# So do the pages the guide excuses from a before-and-after pair.
+REAL_DATA['limits.yml'] = re.sub(r'(?ms)^before_after_exempt:.*\Z', 'before_after_exempt: []\n',
+                                 REAL_DATA['limits.yml'])
 
 UI_BUILDER = '''\
         menuProcess->setTitle(QCoreApplication::translate("AfterNightAppClass", "&Process", nullptr));
@@ -247,24 +250,96 @@ nav:
       - Curves Transformation: processes/curves.md
       - Adjustments: processes/adjustments.md
   - Glossary: reference/glossary.md
+  - Media Provenance: assets/MEDIA_PROVENANCE.md
 '''
 
+def small_process(title, stage, menu, summary, picture, shown=''):
+    """A process page with the least its template asks for: `shown` goes under its `## How it works`."""
+    return '''\
+---
+kind: process
+stage: %s
+menu: %s
+summary: %s
+data_in: either
+data_out: either
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance: {enabled: An image is open., inputs: One image., outputs: The same image., state: Any image.}
+derived: false
+---
+# %s
+
+The process changes the image.
+
+```figure
+image: ../assets/images/%s
+alt: The window.
+caption: The window as it opens.
+```
+
+## Before you start
+
+- Open an image.
+
+## Steps
+
+1. **Open the window.** Choose it from the menu.
+
+## Controls
+
+```controls
+- name: Amount
+  kind: check
+  default: "On"
+  effect: Switches the change on.
+```
+
+## How it works
+
+1. The samples are mapped.
+%s
+## When it goes wrong
+
+Nothing changes
+:   **Cause.** The amount is off.
+:   **Fix.** Switch it on.
+
+## Related
+
+- [Glossary](../reference/glossary.md), for the terms.
+''' % (stage, menu, summary, title, picture, shown)
+
+
 PAGES = {
-    'index.md': '---\nkind: home\n---\n# The guide\n\nWelcome.\n',
-    'processes/ht.md': '---\nkind: process\nstage: stretch\nmenu: Process > Intensity Transformations > Histogram '
-                       'Transformation\nsummary: Stretches the image.\n---\n# Histogram Transformation\n\n'
-                       '![The window](../assets/images/ht.png)\n',
-    'processes/curves.md': '---\nkind: process\nstage: finish\nmenu: Process > Intensity Transformations > Curves '
-                           'Transformation\nsummary: Reshapes tone.\n---\n# Curves Transformation\n',
-    'processes/adjustments.md': '---\nkind: process\nstage: any\nmenu: Process > Adjustments\nsummary: Immediate '
-                                'actions.\n---\n# Adjustments\n\n```bash\n# not a heading\n![x](missing.png)\n```\n',
+    'index.md': '---\nkind: home\n---\n# The guide\n',
+    'processes/ht.md': small_process('Histogram Transformation', 'stretch', 'Process > Intensity Transformations > '
+                                     'Histogram Transformation', 'Stretches the image.', 'ht.png'),
+    'processes/curves.md': small_process('Curves Transformation', 'finish', 'Process > Intensity Transformations > '
+                                         'Curves Transformation', 'Reshapes tone.', 'window.png'),
+    'processes/adjustments.md': small_process('Adjustments', 'any', 'Process > Adjustments', 'Immediate actions.',
+                                              'window.png', '\n```bash\n# not a heading\n![x](missing.png)\n```\n'),
     'reference/glossary.md': '---\nkind: reference\nsummary: The terms.\n---\n# Glossary\n',
+    'assets/MEDIA_PROVENANCE.md': '---\nkind: reference\nsummary: Where the pictures come from.\n---\n'
+                                  '# Media Provenance\n\n| Picture | Source |\n| --- | --- |\n'
+                                  '| `assets/images/ht.png` | Captured |\n| `assets/images/window.png` | Captured |\n',
 }
+# The lines of a small process page that the cases name.
+DERIVED_LINE = 14
+
+
+def png(width, height, weight=0):
+    """The bytes of a file that opens as a PNG image of this size, padded to `weight` bytes."""
+    data = b'\x89PNG\r\n\x1a\n' + b'\x00\x00\x00\rIHDR' + struct.pack('>II', width, height)
+    return data + b'\0' * max(0, weight - len(data))
 
 
 class GuideCase(unittest.TestCase):
-    """A repository with the application sources R4 reads and a guide of five pages, none of them rewritten, that
-    passes every rule a page not yet rewritten is held to."""
+    """A repository with the application sources R4 reads and a guide of six pages that passes every rule: a home
+    page, three process pages with the least their template asks for, the glossary and the media provenance."""
 
     def setUp(self):
         self.root = pathlib.Path(tempfile.mkdtemp())
@@ -278,7 +353,8 @@ class GuideCase(unittest.TestCase):
         for relative, text in PAGES.items():
             self.page(relative, text)
         self.write('docs/user-guide/docs/en/assets/images/logo.png', 'png')
-        self.write('docs/user-guide/docs/en/assets/images/ht.png', 'png')
+        self.image('assets/images/ht.png', png(800, 600))
+        self.image('assets/images/window.png', png(800, 600))
 
     def write(self, relative, text):
         path = self.root / relative
@@ -288,6 +364,18 @@ class GuideCase(unittest.TestCase):
 
     def page(self, relative, text):
         return self.write('docs/user-guide/docs/en/' + relative, text)
+
+    def image(self, relative, data):
+        path = self.root / 'docs/user-guide/docs/en' / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return path
+
+    def picture(self, relative):
+        """Plants a picture a page may show: a PNG file with its row in the media provenance."""
+        self.image(relative, png(800, 600))
+        self.page('assets/MEDIA_PROVENANCE.md', PAGES['assets/MEDIA_PROVENANCE.md'] + '| `%s` | Captured |\n' %
+                  relative)
 
     def run_main(self, *arguments):
         stream = io.StringIO()
@@ -312,9 +400,10 @@ class CleanGuideTests(GuideCase):
         code, output = self.run_main()
         self.assertEqual(code, 0, output)
         for rule in ('R2 front matter', 'R3 nav and H1', 'R4 menu parity', 'R5 images',
-                     'R6 credits of derived pages', 'R15 help pages'):
+                     'R6 credits of derived pages', 'R15 help pages') + WRITING_RULES:
             self.assertIn('%s: 0 error(s), 0 warning(s)' % rule, output)
-        self.assertIn('5 pages: 1 home, 3 process, 1 reference', output)
+        self.assertNotRegex(output, r':\d+: R\d+ ')
+        self.assertIn('6 pages: 1 home, 3 process, 2 reference', output)
         self.assertIn('help: 2 of 2 registered actions open a page of their own, 0 the page of the non-interactive '
                       'operations', output)
         self.assertIn('process pages by stage: stretch 1, finish 1, any 1; 0 derived', output)
@@ -517,16 +606,16 @@ class ImageRuleTests(GuideCase):
         self.assertOneFinding('R5', 'reference/glossary.md', 7, 'root-relative')
 
     def test_a_figure_blocks_image_is_held_and_counts_as_shown(self):
-        self.write('docs/user-guide/docs/en/assets/images/spare.webp', 'webp')
+        self.picture('assets/images/spare.png')
         page = ('---\nkind: reference\nsummary: The terms.\n---\n# Glossary\n\n```figure\n'
                 'image: ../assets/images/%s\nalt: A.\ncaption: C.\n```\n')
-        self.page('reference/glossary.md', page % 'spare.webp')
+        self.page('reference/glossary.md', page % 'spare.png')
         code, output = self.run_main()
         self.assertEqual(code, 0, output)
         self.assertIn('R5 images: 0 error(s), 0 warning(s)', output)
-        (self.root / 'docs/user-guide/docs/en/assets/images/spare.webp').unlink()
-        self.page('reference/glossary.md', page % 'gone.webp')
-        self.assertOneFinding('R5', 'reference/glossary.md', 8, 'gone.webp does not exist')
+        (self.root / 'docs/user-guide/docs/en/assets/images/spare.png').unlink()
+        self.page('reference/glossary.md', page % 'gone.png')
+        self.assertOneFinding('R5', 'reference/glossary.md', 8, 'gone.png does not exist')
 
     def test_an_owed_picture_is_counted_and_refused_only_when_every_picture_is_asked_for(self):
         page = ('---\nkind: reference\nsummary: The terms.\n---\n# Glossary\n\n```figure\n'
@@ -552,16 +641,16 @@ class ImageRuleTests(GuideCase):
         self.assertIn('no page, README.md, logo or favicon shows this image', found[1])
 
     def test_the_home_pages_picture_is_held_and_counts_as_shown(self):
-        self.write('docs/user-guide/docs/en/assets/images/spare.webp', 'webp')
+        self.picture('assets/images/spare.png')
         page = ('---\nkind: home\nhero:\n  lede: The guide.\n  actions:\n    - {label: Terms, page: '
                 'reference/glossary.md}\n  image: assets/images/%s\n  alt: A.\n  caption: C.\n---\n# Guide\n')
-        self.page('index.md', page % 'spare.webp')
+        self.page('index.md', page % 'spare.png')
         code, output = self.run_main()
         self.assertEqual(code, 0, output)
         self.assertIn('R5 images: 0 error(s), 0 warning(s)', output)
-        (self.root / 'docs/user-guide/docs/en/assets/images/spare.webp').unlink()
-        self.page('index.md', page % 'gone.webp')
-        self.assertOneFinding('R5', 'index.md', 3, 'gone.webp does not exist')
+        (self.root / 'docs/user-guide/docs/en/assets/images/spare.png').unlink()
+        self.page('index.md', page % 'gone.png')
+        self.assertOneFinding('R5', 'index.md', 3, 'gone.png does not exist')
 
     def test_an_unused_image_is_a_warning(self):
         self.write('docs/user-guide/docs/en/assets/images/spare.webp', 'webp')
@@ -579,8 +668,7 @@ class ImageRuleTests(GuideCase):
 
 
 class CreditsRuleTests(GuideCase):
-    DERIVED = PAGES['processes/curves.md'].replace('summary: Reshapes tone.\n', 'summary: Reshapes tone.\n'
-                                                                              'derived: true\n')
+    DERIVED = PAGES['processes/curves.md'].replace('derived: false\n', 'derived: true\n')
 
     def test_a_derived_page_with_credits_passes(self):
         self.page('processes/curves.md', self.DERIVED + '\n## Credits\n\n- [The upstream work](https://example.org/), '
@@ -591,18 +679,18 @@ class CreditsRuleTests(GuideCase):
         self.assertIn('finish 1, any 1; 1 derived', output)
 
     def test_a_derived_page_without_a_credits_section_fails_where_it_says_it_is_derived(self):
-        self.page('processes/curves.md', self.DERIVED + '\n## Related\n\n- Another page.\n')
-        self.assertEqual(self.assertOneFinding('R6', 'processes/curves.md', 6, '`derived: true`',
+        self.page('processes/curves.md', self.DERIVED)
+        self.assertEqual(self.assertOneFinding('R6', 'processes/curves.md', DERIVED_LINE, '`derived: true`',
                                                'no `## Credits` section'), 1)
 
     def test_an_empty_credits_section_fails_on_its_heading(self):
-        self.page('processes/curves.md', self.DERIVED + '\n## Credits\n\n<!-- to be written -->\n\n## Related\n\n'
-                  '- Another page.\n')
-        self.assertOneFinding('R6', 'processes/curves.md', 10, '`## Credits` section is empty')
+        self.page('processes/curves.md', self.DERIVED + '\n## Credits\n')
+        self.assertOneFinding('R6', 'processes/curves.md', self.DERIVED.count('\n') + 2,
+                              '`## Credits` section is empty')
 
     def test_a_credits_heading_inside_a_code_block_is_no_section(self):
         self.page('processes/curves.md', self.DERIVED + '\n```markdown\n## Credits\n\n- An example.\n```\n')
-        self.assertOneFinding('R6', 'processes/curves.md', 6, 'no `## Credits` section')
+        self.assertOneFinding('R6', 'processes/curves.md', DERIVED_LINE, 'no `## Credits` section')
 
     def test_a_page_that_is_not_derived_needs_no_credits(self):
         code, found = self.findings('R6')
@@ -714,12 +802,6 @@ class TokenRuleTests(GuideCase):
         self.assertNotIn('R16 token parity', output)
 
 
-def png(width, height, weight=0):
-    """The bytes of a file that opens as a PNG image of this size, padded to `weight` bytes."""
-    data = b'\x89PNG\r\n\x1a\n' + b'\x00\x00\x00\rIHDR' + struct.pack('>II', width, height)
-    return data + b'\0' * max(0, weight - len(data))
-
-
 WRITING_NAV = '''\
 nav:
   - Home: index.md
@@ -737,7 +819,7 @@ nav:
       - Media Provenance: assets/MEDIA_PROVENANCE.md
 '''
 
-HOME = '---\nkind: home\nrewritten: true\n---\n# The guide\n'
+HOME = '---\nkind: home\n---\n# The guide\n'
 
 PROCESS = '''\
 ---
@@ -760,7 +842,6 @@ glance:
   outputs: The same view, replaced.
   state: A master that was never stretched.
 derived: false
-rewritten: true
 ---
 # Histogram Transformation
 
@@ -851,7 +932,6 @@ INTERFACE = '''\
 kind: interface
 summary: The window an image opens in.
 menu: Image > Zoom In
-rewritten: true
 ---
 # Image Viewer
 
@@ -892,7 +972,6 @@ kind: tutorial
 summary: Stack a first set of frames.
 stages: [calibrate, register, stack]
 needs: []
-rewritten: true
 ---
 # First Stack
 
@@ -947,7 +1026,6 @@ kind: workflow
 summary: From frames to a finished picture.
 stages: [calibrate, register, stack, stretch]
 needs: []
-rewritten: true
 ---
 # Deep Sky
 
@@ -985,7 +1063,6 @@ GLOSSARY = '''\
 ---
 kind: reference
 summary: The terms of the guide.
-rewritten: true
 ---
 # Glossary
 
@@ -1008,7 +1085,6 @@ PROVENANCE = '''\
 ---
 kind: reference
 summary: Where every picture of the guide comes from.
-rewritten: true
 ---
 # Media Provenance
 
@@ -1050,7 +1126,6 @@ HT_WINDOW = [
     ui_control('Midtones', 'spinbox', 'midtonesValue', default='0.50', min=0, max=1),
     ui_control('Apply', 'button', '', shared='process-window'),
 ]
-NOT_REWRITTEN = ('rewritten: true\n', '')
 
 
 def words(count):
@@ -1062,11 +1137,11 @@ def items(count, pattern):
 
 
 class WritingCase(GuideCase):
-    """A guide of seven pages, one on each template and each marked `rewritten: true`, that passes every rule."""
+    """A guide of seven pages, one on each template, that passes every rule."""
 
     def setUp(self):
         super().setUp()
-        for relative in PAGES:
+        for relative in list(PAGES) + ['assets/images/window.png']:
             (self.root / 'docs/user-guide/docs/en' / relative).unlink()
         # Help opens the one process page of this guide from every action.
         self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp',
@@ -1082,12 +1157,6 @@ class WritingCase(GuideCase):
         """Plants the inventory of a window: the file the application's test writes for it."""
         return self.write('docs/user-guide/data/ui/%s.json' % identifier,
                           json.dumps({'id': identifier, 'window': title, 'controls': controls}, indent=2) + '\n')
-
-    def image(self, relative, data):
-        path = self.root / 'docs/user-guide/docs/en' / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
-        return path
 
     def change(self, relative, old, new):
         """The page with `old` replaced by `new`; `old` must be in it once."""
@@ -1138,43 +1207,26 @@ class WritingCase(GuideCase):
 
 
 class TemplatePageTests(WritingCase):
-    def test_a_rewritten_page_on_each_template_passes_every_rule(self):
+    def test_a_page_on_each_template_passes_every_rule(self):
         code, output = self.run_main()
         self.assertEqual(code, 0, output)
         for rule in ('R2 front matter', 'R3 nav and H1', 'R4 menu parity', 'R5 images',
                      'R6 credits of derived pages') + WRITING_RULES:
             self.assertIn('%s: 0 error(s), 0 warning(s)' % rule, output)
-        self.assertIn('7 of 7 pages rewritten', output)
-        self.assertNotIn('not yet rewritten', output)
+        self.assertNotRegex(output, r':\d+: R\d+ ')
 
-    def test_a_page_not_yet_rewritten_is_counted_and_never_fails(self):
-        self.page('processes/ht.md', PROCESS.replace(*NOT_REWRITTEN).replace('## Related', '## See also')
-                  .replace('The process maps', 'The verified process maps'))
-        code, output = self.run_main()
-        self.assertEqual(code, 0, output)
-        self.assertIn('R7 headings: 0 error(s), 2 warning(s)', output)
-        self.assertIn('R9 vocabulary: 0 error(s), 1 warning(s)', output)
-        self.assertIn('6 of 7 pages rewritten', output)
-        self.assertIn('3 warning(s) about 1 file(s) of pages not yet rewritten are counted and not listed', output)
-        self.assertNotIn(': R7 ', output)
-
-    def test_pending_and_page_list_the_warnings_of_a_page_not_yet_rewritten(self):
-        self.page('processes/ht.md', PROCESS.replace(*NOT_REWRITTEN).replace('## Related', '## See also'))
-        for arguments in (['--pending'], ['--page', 'processes/ht.md']):
-            code, found = self.findings('R7', *arguments)
-            self.assertEqual(code, 0)
-            self.assertEqual(len(found), 2, found)
-            self.assertIn('ht.md:97: R7 warning: `## See also` is no section of a process page', found[0])
-            self.assertIn('R7 warning: the page has no `## Related`', found[1])
-
-    def test_a_page_not_yet_rewritten_is_not_held_to_figures_keys_and_glossary_links(self):
-        self.page('processes/ht.md', PROCESS.replace(*NOT_REWRITTEN).replace('derived: false\n', '')
-                  .replace('[linear](../reference/glossary.md#linear)', 'linear')
+    def test_every_page_is_held_to_every_rule_whatever_it_is_checked_with(self):
+        self.page('processes/ht.md', PROCESS.replace('## Related', '## See also')
+                  .replace('The process maps', 'The verified process maps').replace('derived: false\n', '')
                   .replace('  - {n: 3, x: 50, y: 50}', '  - {n: 9, x: 50, y: 50}'))
-        code, output = self.run_main('--pending')
-        self.assertEqual(code, 0, output)
-        for rule in ('R10 figures', 'R12 process keys', 'R13 glossary links'):
-            self.assertIn('%s: 0 error(s), 0 warning(s)' % rule, output)
+        for arguments in ([], ['--page', 'processes/ht.md']):
+            with self.subTest(arguments=arguments):
+                code, output = self.run_main(*arguments)
+                self.assertEqual(code, 1, output)
+                self.assertIn('ht.md:96: R7 `## See also` is no section of a process page', output)
+                for rule, errors in (('R7 headings', 2), ('R9 vocabulary', 1), ('R10 figures', 1),
+                                     ('R12 process keys', 1)):
+                    self.assertIn('%s: %d error(s), 0 warning(s)' % (rule, errors), output)
 
 
 class HeadingRuleTests(WritingCase):
@@ -1214,7 +1266,7 @@ class HeadingRuleTests(WritingCase):
         self.restore()
         self.change('processes/ht.md', '## Credits', '## Related\n\n- [Glossary](../reference/glossary.md)\n\n'
                     '## Credits')
-        self.assertFails('R7', 'ht.md:102: R7 `## Related` repeats `## Related` of line 98')
+        self.assertFails('R7', 'ht.md:101: R7 `## Related` repeats `## Related` of line 97')
 
     def test_a_process_page_without_steps_as_a_list_fails(self):
         self.change('processes/ht.md', '1. **Open the window.** Choose it from the menu.\n2. **Move the midtones.** '
@@ -1310,7 +1362,7 @@ class LimitRuleTests(WritingCase):
     def test_a_table_of_six_columns_fails_on_any_page(self):
         self.change('assets/MEDIA_PROVENANCE.md', '| Picture | Source | Date |\n| --- | --- | --- |',
                     '| Picture | Source | Date | A | B | C |\n| --- | --- | --- | --- | --- | --- |')
-        self.assertFails('R8', 'MEDIA_PROVENANCE.md:8: R8 the table has 6 columns, over the limit of 5')
+        self.assertFails('R8', 'MEDIA_PROVENANCE.md:7: R8 the table has 6 columns, over the limit of 5')
 
     def test_a_bar_in_a_code_span_or_escaped_is_no_column(self):
         self.change('assets/MEDIA_PROVENANCE.md', '| Picture | Source | Date |\n| --- | --- | --- |',
@@ -1354,7 +1406,7 @@ class LimitRuleTests(WritingCase):
 class VocabularyRuleTests(WritingCase):
     def test_a_forbidden_word_fails_wherever_the_page_says_it(self):
         self.cases('R9', (
-            ('in the prose', 'processes/ht.md', 'Watch the preview.', 'Verify the preview.', 'ht.md:43: R9 says '
+            ('in the prose', 'processes/ht.md', 'Watch the preview.', 'Verify the preview.', 'ht.md:42: R9 says '
              '"Verify": what proves a sentence belongs in the repository'),
             ('in a heading', 'assets/MEDIA_PROVENANCE.md', '# Media Provenance', '# Media Evidence',
              'says "Evidence"'),
@@ -1363,7 +1415,7 @@ class VocabularyRuleTests(WritingCase):
             ('in the glance', 'processes/ht.md', 'inputs: One image view.', 'inputs: One validated image view.',
              'says "validated"'),
             ('in a control\'s facet', 'processes/ht.md', '  effect: Lower brightens the image.',
-             '  effect: Lower brightens the image.\n  note: Source-derived.', 'ht.md:54: R9 says "Source-derived"'),
+             '  effect: Lower brightens the image.\n  note: Source-derived.', 'ht.md:53: R9 says "Source-derived"'),
             ('in a caption', 'processes/ht.md', 'caption: The window as it opens.',
              'caption: The window, checked 2026-11-09.', 'says "checked 2026-11-09"'),
             ('a function in the prose', 'processes/ht.md', 'Watch the preview.', 'Watch what applyStretch() does.',
@@ -1407,7 +1459,7 @@ class VocabularyRuleTests(WritingCase):
         self.change('interface/viewer.md', 'Zoom to fit.', 'Press **Validate masters**.')
         code, output = self.run_main()
         self.assertEqual(code, 1, output)
-        self.assertIn('viewer.md:27: R9 says "Validate"', output)
+        self.assertIn('viewer.md:26: R9 says "Validate"', output)
         self.assertRegex(output.replace('\\', '/'), r'data/vocabulary\.yml:\d+: R9 warning: the allow-list allows '
                          r'"\*\*Validate masters\*\*" on processes/ht\.md, which does not say it')
 
@@ -1418,12 +1470,17 @@ class VocabularyRuleTests(WritingCase):
 
 
 class FigureRuleTests(WritingCase):
+    def exempt(self, page):
+        """Excuses a page from its before-and-after pair in the guide's limits."""
+        self.write('docs/user-guide/data/limits.yml', REAL_DATA['limits.yml'].replace(
+            'before_after_exempt: []\n', 'before_after_exempt:\n  - {page: %s, reason: Its licence.}\n' % page))
+
     def test_each_break_of_the_figures_fails(self):
         opening = ('```figure\nimage: ../assets/images/ht.png\nalt: The window with its histogram.\ncaption: The '
                    'window as it opens.\npins:\n  - {n: 1, x: 10, y: 10}\n  - {n: 3, x: 50, y: 50}\n```\n')
         self.cases('R10', (
             ('a picture outside a figure block', 'workflows/deep.md', 'A finished picture.',
-             'A finished picture.\n\n![The picture](../assets/images/ht.png)', 'deep.md:35: R10 the picture is not '
+             'A finished picture.\n\n![The picture](../assets/images/ht.png)', 'deep.md:34: R10 the picture is not '
              'in a `figure` block'),
             ('a figure without a caption', 'processes/ht.md', 'caption: The window as it opens.\n', '',
              'the figure has no `caption`'),
@@ -1436,7 +1493,7 @@ class FigureRuleTests(WritingCase):
                                                                                                     'before.png'),
              'this one has 2 figures there'),
             ('a pin without a step', 'processes/ht.md', '{n: 3, x: 50, y: 50}', '{n: 4, x: 50, y: 50}',
-             'ht.md:27: R10 pin 4 matches no step; the page has 3 steps'),
+             'ht.md:26: R10 pin 4 matches no step; the page has 3 steps'),
             ('an item without a pin', 'interface/viewer.md', '  - {n: 2, x: 60, y: 60}\n', '',
              'item 2 of `## What you see` has no pin on the opening figure'),
             ('a tutorial\'s pin without a step', 'start/first.md', '{n: 2, x: 60, y: 60}', '{n: 5, x: 60, y: 60}',
@@ -1457,8 +1514,26 @@ class FigureRuleTests(WritingCase):
         self.page('assets/MEDIA_PROVENANCE.md', PROVENANCE)
         code, output = self.run_main()
         self.assertEqual(code, 0, output)
-        self.assertIn('ht.md:68: R10 warning: a Stretching process is judged by its result, and the page shows no '
+        self.assertIn('ht.md:67: R10 warning: a Stretching process is judged by its result, and the page shows no '
                       'before-and-after pair under `### Worked example`', output)
+
+    def test_a_page_excused_from_its_pair_needs_none(self):
+        pair = PROCESS[PROCESS.index('```figure\nimages:'):PROCESS.index('## Starting points')]
+        self.page('processes/ht.md', PROCESS.replace(pair, ''))
+        self.exempt('processes/ht.md')
+        code, found = self.findings('R10')
+        self.assertEqual((code, found), (0, []))
+
+    def test_an_excuse_that_excuses_nothing_is_a_warning(self):
+        self.exempt('processes/ht.md')
+        self.assertWarns('R10', 'ht.md:71: R10 warning: `before_after_exempt` of data/limits.yml excuses the page '
+                         'from a before-and-after pair, and the page shows one; remove the entry')
+        self.write('docs/user-guide/mkdocs.yml', MKDOCS[:MKDOCS.index('nav:')] +
+                   WRITING_NAV.replace('Stretching:', 'Geometry:'))
+        self.assertWarns('R10', 'excuses the page from a before-and-after pair, and no pair is asked of it')
+        self.exempt('processes/gone.md')
+        self.assertWarns('R10', 'data/limits.yml:%d: R10 warning: `before_after_exempt` names processes/gone.md, '
+                         'which is not a page' % (REAL_DATA['limits.yml'].count('\n') + 1))
 
     def test_a_process_of_another_group_needs_no_pair(self):
         pair = PROCESS[PROCESS.index('```figure\nimages:'):PROCESS.index('## Starting points')]
@@ -1470,7 +1545,7 @@ class FigureRuleTests(WritingCase):
 
 
 class ImageFileRuleTests(WritingCase):
-    def test_each_break_of_an_image_file_fails_when_a_rewritten_page_shows_it(self):
+    def test_each_break_of_an_image_file_fails(self):
         for name, data, fragment in (
                 ('no image', b'GIF89a' + b'\0' * 64, 'the picture is not a PNG, WebP or JPEG file'),
                 ('too large', png(1601, 900), 'the picture is 1601 px on its longest side, over the limit of 1600 px'),
@@ -1490,27 +1565,21 @@ class ImageFileRuleTests(WritingCase):
                     '2026-11-09 |\n', '')
         self.assertFails('R11', 'the picture has no row in assets/MEDIA_PROVENANCE.md')
 
-    def test_a_picture_only_pages_not_yet_rewritten_show_is_counted(self):
+    def test_a_finding_names_every_page_that_shows_the_picture(self):
         self.image('assets/images/viewer.png', png(3000, 900))
-        self.page('interface/viewer.md', INTERFACE.replace(*NOT_REWRITTEN))
-        code, output = self.run_main()
-        self.assertEqual(code, 0, output)
-        self.assertIn('R11 image files: 0 error(s), 1 warning(s)', output)
-        self.assertNotIn(': R11 ', output)
-        # A rewritten page that shows it too makes it that page's picture.
         self.change('workflows/deep.md', 'A finished picture.', 'A finished picture.\n\n```figure\nimage: '
                     '../assets/images/viewer.png\nalt: The viewer.\ncaption: The picture in the viewer.\n```')
-        self.assertFails('R11', 'over the limit of 1600 px (shown by workflows/deep.md)')
+        self.assertFails('R11', 'over the limit of 1600 px (shown by interface/viewer.md, workflows/deep.md)')
 
 
 class ProcessKeyRuleTests(WritingCase):
-    def test_a_rewritten_process_page_states_every_key(self):
+    def test_a_process_page_states_every_key(self):
         self.cases('R12', (
-            ('no preview', 'processes/ht.md', 'preview: real-time\n', '', 'a rewritten process page states `preview`'),
-            ('no derived', 'processes/ht.md', 'derived: false\n', '', 'a rewritten process page states `derived`'),
+            ('no preview', 'processes/ht.md', 'preview: real-time\n', '', 'a process page states `preview`'),
+            ('no derived', 'processes/ht.md', 'derived: false\n', '', 'a process page states `derived`'),
             ('no glance', 'processes/ht.md', 'glance:\n  enabled: An image view is active.\n  inputs: One image '
              'view.\n  outputs: The same view, replaced.\n  state: A master that was never stretched.\n', '',
-             'a rewritten process page states `glance`'),
+             'a process page states `glance`'),
             ('a glance without its state', 'processes/ht.md', '  state: A master that was never stretched.\n', '',
              'ht.md:15: R12 `glance` lacks `state`; it states enabled, inputs, outputs, state'),
         ))
@@ -1519,7 +1588,7 @@ class ProcessKeyRuleTests(WritingCase):
 class GlossaryRuleTests(WritingCase):
     def test_the_first_use_of_a_term_without_its_link_is_a_warning(self):
         self.change('processes/ht.md', '[linear](../reference/glossary.md#linear)', 'linear')
-        self.assertWarns('R13', 'ht.md:38: R13 warning: "Linear" is a term of the glossary; link its first use')
+        self.assertWarns('R13', 'ht.md:37: R13 warning: "Linear" is a term of the glossary; link its first use')
 
     def test_a_later_use_needs_no_link(self):
         self.change('processes/ht.md', 'Watch the preview.', 'The image is still linear here.')
@@ -1527,11 +1596,11 @@ class GlossaryRuleTests(WritingCase):
 
     def test_a_first_use_before_the_linked_one_is_a_warning(self):
         self.change('processes/ht.md', 'The process maps the image', 'The process maps the linear image')
-        self.assertWarns('R13', 'ht.md:25: R13 warning: "Linear"')
+        self.assertWarns('R13', 'ht.md:24: R13 warning: "Linear"')
 
     def test_a_plural_is_the_term_and_a_longer_word_is_not(self):
         self.change('workflows/deep.md', 'A finished picture.', 'Nonlinear and linearized data, then linears.')
-        self.assertWarns('R13', 'deep.md:33: R13 warning: "Linear"')
+        self.assertWarns('R13', 'deep.md:32: R13 warning: "Linear"')
 
     def test_a_term_in_capitals_matches_only_in_capitals(self):
         self.change('workflows/deep.md', 'A finished picture.', 'A mad rush.')
@@ -1551,13 +1620,13 @@ class GlossaryRuleTests(WritingCase):
                 self.change('workflows/deep.md', 'A finished picture.', 'Open %s.' % name)
                 self.assertPasses()
                 self.change('workflows/deep.md', 'A finished picture.', 'Open %s, then a linear picture.' % name)
-                self.assertWarns('R13', 'deep.md:33: R13 warning: "Linear"')
+                self.assertWarns('R13', 'deep.md:32: R13 warning: "Linear"')
 
     def test_any_word_of_a_term_may_take_the_plural(self):
         self.change('reference/glossary.md', '## L\n',
                     '## F\n\n### Fraction of full scale\n\nA sample as a share of its type\'s range.\n\n## L\n')
         self.change('workflows/deep.md', 'A finished picture.', 'Values in fractions of full scale.')
-        self.assertWarns('R13', 'deep.md:33: R13 warning: "Fraction of full scale"')
+        self.assertWarns('R13', 'deep.md:32: R13 warning: "Fraction of full scale"')
 
     def test_a_name_linked_to_its_entry_is_the_linked_first_use(self):
         self.change('workflows/deep.md', 'A finished picture.',
@@ -1579,8 +1648,12 @@ CONTROLS_BLOCK = ('```controls\n- name: Midtones\n  kind: spinbox\n  default: "0
                   'effect: Lower brightens the image.\n```\n')
 CHANNEL_ENTRY = ('- name: Channel\n  kind: combo\n  default: RGB\n  options: [RGB, Red]\n  effect: Chooses what the '
                  'transfer acts on.\n')
-CURVES_PAGE = ('---\nkind: process\nstage: finish\nmenu: Process > Intensity Transformations > Curves Transformation\n'
-               'summary: Reshapes tone.\n---\n# Curves Transformation\n')
+# A second process page, of the one action its `menu` names, whose window has one list.
+CURVES_PAGE = (PROCESS.replace('menu:\n  - Process > Intensity Transformations\n  - Process > Adjustments\n',
+                               'menu: Process > Intensity Transformations > Curves Transformation\n')
+               .replace('# Histogram Transformation', '# Curves Transformation')
+               .replace(CONTROLS_BLOCK, '```controls\n- name: Interpolation\n  kind: combo\n  default: Cubic\n  '
+                        'options: [Linear, Cubic]\n  effect: Chooses how the curve joins its points.\n```\n'))
 
 
 class ControlsRuleTests(WritingCase):
@@ -1597,12 +1670,12 @@ class ControlsRuleTests(WritingCase):
     def test_the_page_is_held_to_its_window_and_shared_controls_are_not_asked_for(self):
         self.assertPasses()
         code, output = self.run_main()
-        self.assertIn('controls: 1 of the 1 windows of the inventory described by rewritten pages', output)
+        self.assertIn('controls: 1 of the 1 windows of the inventory described', output)
 
     def test_each_break_of_a_control_fails_on_its_line(self):
         self.cases('R14', (
             ('a label in another case', 'processes/ht.md', '- name: Midtones', '- name: midtones',
-             'ht.md:49: R14 "midtones" is no control of the window "Histogram Transformation"; the window labels it '
+             'ht.md:48: R14 "midtones" is no control of the window "Histogram Transformation"; the window labels it '
              '"Midtones"'),
             ('another kind', 'processes/ht.md', 'kind: spinbox', 'kind: slider',
              '"Midtones" is a spin box in the window, and the block says `kind: slider`'),
@@ -1630,7 +1703,7 @@ class ControlsRuleTests(WritingCase):
 
     def test_a_control_the_window_lacks_fails_and_leaves_the_windows_own_unlisted(self):
         self.change('processes/ht.md', '- name: Midtones', '- name: Middle')
-        self.assertFails('R14', 'ht.md:49: R14 "Middle" is no control of the window "Histogram Transformation"',
+        self.assertFails('R14', 'ht.md:48: R14 "Middle" is no control of the window "Histogram Transformation"',
                          'has the spin box "Midtones", which no `controls` block lists', count=2)
         self.change('processes/ht.md', '- name: Midtones', '- name: Midtones\n  object: midValue')
         self.assertFails('R14', '"Midtones" states `object: midValue`, and the window "Histogram Transformation" has '
@@ -1656,7 +1729,7 @@ class ControlsRuleTests(WritingCase):
 
     def test_a_control_no_block_lists_fails_unless_the_page_says_why(self):
         self.window(ui_control('Shadows', 'spinbox', 'shadowsValue', 'Clipping', default='0.00', min=0, max=1))
-        self.assertFails('R14', 'ht.md:46: R14 the window "Histogram Transformation" has the spin box "Shadows" (under '
+        self.assertFails('R14', 'ht.md:45: R14 the window "Histogram Transformation" has the spin box "Shadows" (under '
                          '"Clipping"), which no `controls` block lists')
         self.change('processes/ht.md', 'derived: false\n', 'derived: false\ncontrols_ignore:\n  - {label: Shadows, '
                     'reason: Moved by the same handle as Midtones.}\n')
@@ -1686,7 +1759,7 @@ class ControlsRuleTests(WritingCase):
     def test_a_control_listed_twice_fails(self):
         self.block(CONTROLS_BLOCK.replace('```\n', '- name: Midtones\n  object: midtonesValue\n  kind: spinbox\n  '
                                           'default: "0.50"\n  widget: {min: 0, max: 1}\n  effect: The same.\n```\n'))
-        self.assertFails('R14', 'ht.md:54: R14 "Midtones" is the control "Midtones" of line 49 again')
+        self.assertFails('R14', 'ht.md:53: R14 "Midtones" is the control "Midtones" of line 48 again')
 
     def test_a_control_is_called_by_its_label_unless_the_window_gives_it_none(self):
         self.change('processes/ht.md', '- name: Midtones', '- name: Middle tones\n  object: midtonesValue')
@@ -1741,7 +1814,7 @@ class ControlsRuleTests(WritingCase):
         self.block(CONTROLS_BLOCK.replace('- name: Midtones', 'window: Histogram\ncontrols:\n  - name: Midtones')
                    .replace('\n  kind', '\n    kind').replace('\n  default', '\n    default')
                    .replace('\n  widget', '\n    widget').replace('\n  effect', '\n    effect'))
-        self.assertFails('R14', 'ht.md:46: R14 no `controls` block is of the window "Histogram Transformation"')
+        self.assertFails('R14', 'ht.md:45: R14 no `controls` block is of the window "Histogram Transformation"')
 
     def test_controls_in_another_order_than_the_windows_are_a_warning(self):
         self.window(ui_control('Channel', 'combo', 'channelSelector', default='RGB', options=['RGB', 'Red']))
@@ -1769,13 +1842,11 @@ class ControlsRuleTests(WritingCase):
         code, output = self.run_main()
         self.assertEqual(code, 0, output)
         self.assertIn('R14 controls of the windows: 0 error(s), 0 warning(s)', output)
-        self.assertIn('controls: 1 of the 2 windows of the inventory described by rewritten pages', output)
-
-    def test_a_page_not_yet_rewritten_is_not_held_to_its_window(self):
-        self.page('processes/ht.md', PROCESS.replace(*NOT_REWRITTEN).replace('- name: Midtones', '- name: Middle'))
-        code, output = self.run_main('--pending')
-        self.assertEqual(code, 0, output)
-        self.assertIn('R14 controls of the windows: 0 error(s), 0 warning(s)', output)
+        self.assertIn('controls: 2 of the 2 windows of the inventory described', output)
+        # Held to the wrong window, either page would name a control its window lacks.
+        self.page('processes/curves.md', CURVES_PAGE.replace('- name: Interpolation', '- name: Midtones'))
+        self.assertFails('R14', 'curves.md:46: R14 "Midtones" is no control of the window "Curves Transformation"',
+                         'has the combo box "Interpolation", which no `controls` block lists', count=2)
 
     def test_an_inventory_that_cannot_be_read_stops_the_check(self):
         self.write('docs/user-guide/data/ui/tone_brightness.actionHT.json', '{"id": "tone_brightness.actionHT"}\n')
@@ -1826,7 +1897,7 @@ class TemplateTests(unittest.TestCase):
             with self.subTest(name):
                 path, front = self.template(name)
                 self.assertIsNone(front.error)
-                self.assertEqual((front.meta['kind'], front.meta.get('rewritten')), (kind, True))
+                self.assertEqual(front.meta['kind'], kind)
                 writing = guide._Writing(self.check, 'templates/' + name, path, front)
                 writing.check_headings()
                 self.assertEqual([str(finding) for finding in self.check.findings], [])

@@ -26,7 +26,6 @@ glance:
     A calibrated and stacked linear master, after gradient removal and color calibration, for noise reduction by scale.
     Detail work by scale suits a stretched image too.
 derived: false
-rewritten: true
 ---
 # Multiscale Linear Transform
 

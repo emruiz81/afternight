@@ -26,7 +26,6 @@ glance:
     A stretched copy of an image after noise reduction, from which you want a detail layer to blend with the image
     afterwards.
 derived: false
-rewritten: true
 ---
 # High Pass Filter
 

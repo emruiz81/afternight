@@ -3,7 +3,6 @@ kind: interface
 summary: >-
   What every process window shares: the image and channel it works on, the real-time preview and its toolbar, the
   histogram toolbar, Reset, Close and Apply, masks, and the progress of a run.
-rewritten: true
 ---
 # Process Windows
 

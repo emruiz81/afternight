@@ -26,7 +26,6 @@ glance:
     A calibrated and stacked linear master, after gradient removal and color calibration, with its hot pixels already
     removed.
 derived: false
-rewritten: true
 ---
 # Bilateral Filter
 

@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   The files AfterNight opens and the files it writes, by format and extension, with what each keeps of an image and
   where in the menus each is written.
-rewritten: true
 ---
 # Supported Formats
 

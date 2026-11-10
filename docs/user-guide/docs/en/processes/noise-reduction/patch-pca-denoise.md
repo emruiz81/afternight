@@ -25,7 +25,6 @@ glance:
   state: >-
     A calibrated and stacked linear master after gradient removal and color calibration, before the stretch.
 derived: true
-rewritten: true
 ---
 # Patch PCA Denoise
 

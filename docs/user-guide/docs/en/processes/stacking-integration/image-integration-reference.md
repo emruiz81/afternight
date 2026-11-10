@@ -4,7 +4,6 @@ summary: >-
   What Image Integration leaves to look up: the stages of a run, how frames are grouped and masters matched, the
   details of calibration, registration, normalization, stacking and drizzle, the files a run writes, how it reuses
   work, and its messages.
-rewritten: true
 ---
 # Image Integration Reference
 

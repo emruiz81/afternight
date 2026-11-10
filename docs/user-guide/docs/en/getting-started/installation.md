@@ -4,7 +4,6 @@ summary: >-
   Install AfterNight on Windows with its installer or on Linux as an AppImage, start it, and open the copy of this
   guide that comes with it.
 needs: [the package for your system, from the Releases page]
-rewritten: true
 ---
 # Installation
 

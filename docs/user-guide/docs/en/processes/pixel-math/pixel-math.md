@@ -26,7 +26,6 @@ glance:
     Any image. Arithmetic on the signal belongs on linear images, and every result is recorded as nonlinear, whatever
     the expression computes.
 derived: false
-rewritten: true
 ---
 # Pixel Math
 

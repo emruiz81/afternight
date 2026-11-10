@@ -25,7 +25,6 @@ glance:
   state: >-
     Linear masters of one field, registered and cropped alike, before they are combined or stacked together.
 derived: false
-rewritten: true
 ---
 # Linear Match
 

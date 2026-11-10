@@ -26,7 +26,6 @@ glance:
     A raw or calibrated light, or a master, with isolated hot and cold pixels, before the debayer and registration. A
     stretched image is accepted too.
 derived: true
-rewritten: true
 ---
 # Cosmetic Correction
 

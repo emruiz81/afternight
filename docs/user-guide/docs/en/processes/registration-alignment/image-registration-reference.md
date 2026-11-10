@@ -3,7 +3,6 @@ kind: reference
 summary: >-
   What Image Registration does in detail: how stars are matched and transforms fitted, how Auto chooses the reference,
   what the registration database holds and when it is reused, what Align writes, the comet run, and every message.
-rewritten: true
 ---
 # Image Registration Reference
 

@@ -25,7 +25,6 @@ glance:
   state: >-
     Any image, preferably debayered, whose framing needs a turn other than a quarter or a half turn.
 derived: false
-rewritten: true
 ---
 # Rotate
 

@@ -26,7 +26,6 @@ glance:
     Any image: a calibrated linear image to bin for less noise in each pixel, or a duplicate to enlarge by whole
     blocks.
 derived: false
-rewritten: true
 ---
 # Integer Resample
 

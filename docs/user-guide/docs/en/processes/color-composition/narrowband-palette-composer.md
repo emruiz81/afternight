@@ -26,7 +26,6 @@ glance:
     Registered linear narrowband masters of one target, cropped alike, after gradient removal and the noise reduction
     that needs linear data.
 derived: true
-rewritten: true
 ---
 # Narrowband Palette Composer
 

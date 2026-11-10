@@ -63,10 +63,6 @@ Another term
 | FITS | Yes | Yes |
 | XISF | Yes | Yes |
 
-| One | Two | Three | Four | Five | Six | Seven |
-| --- | --- | --- | --- | --- | --- | --- |
-| A table of six columns or more | is set smaller | and keeps | its first column | in view | while the rest | scrolls |
-
 ## Code
 
 ```python

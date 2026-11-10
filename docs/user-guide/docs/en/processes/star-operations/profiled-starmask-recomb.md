@@ -26,7 +26,6 @@ glance:
     A starless image and a stars image of the same stretched image, aligned and at the same stage, with a profile
     detected before anything cropped, resized or rotated that image.
 derived: true
-rewritten: true
 ---
 # Profiled Starmask Recombination
 

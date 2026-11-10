@@ -25,7 +25,6 @@ glance:
   state: >-
     A linear RGB master after gradient removal, before the color calibration that sets the channels' gains.
 derived: false
-rewritten: true
 ---
 # Background Neutralization
 

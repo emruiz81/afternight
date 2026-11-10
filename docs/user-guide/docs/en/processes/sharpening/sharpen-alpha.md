@@ -26,7 +26,6 @@ glance:
     A stretched image after noise reduction, whose detail at several scales, from single pixels to broad structure,
     needs more contrast.
 derived: true
-rewritten: true
 ---
 # Sharpen Alpha
 

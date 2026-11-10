@@ -24,7 +24,6 @@ glance:
     A calibrated linear master, mono or RGB, after gradient removal, color calibration and every measurement,
     deconvolution or noise reduction that needs linear data.
 derived: false
-rewritten: true
 ---
 # Histogram Transformation
 

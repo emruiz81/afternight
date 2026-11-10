@@ -60,7 +60,6 @@ controls_ignore:
   - {label: Enable maximum FWHM filter, object: chkMaxFwhm, reason: "The check box without text before FWHM ≤, which switches that filter on; the FWHM ≤ entry says so."}
   - {label: FWHM ≤, object: chkMaxEccentricity, reason: "The check box without text before Ecc ≤, which the inventory names after the label before it; the Ecc ≤ entry says so."}
   - {label: Go to, reason: "One button for each issue of the Summary that has a place to fix it; the Issues readout describes it."}
-rewritten: true
 ---
 # Image Integration
 

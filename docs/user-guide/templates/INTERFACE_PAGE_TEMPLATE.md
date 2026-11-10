@@ -7,7 +7,6 @@ kind: interface
 summary: >-
   <What the part is and what it is for.>
 # menu: <Menu > Action>          # optional: where the application opens it
-rewritten: true
 ---
 # <Title, as the application shows it>
 
