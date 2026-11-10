@@ -98,19 +98,22 @@ page. The file's allow-list takes a label of the application that holds one of t
 ## Numbers
 
 A control's default, range, step and choices live in its row of the `controls` block, where rule R14 compares
-them with the window. The prose quotes a number only when the reader must type it: "Set **Midtones** to 0.25."
+them with the window. What the window shows beside a control - a count, a status - is a `readout` row there too. The prose quotes a number only when the reader must type it: "Set **Midtones** to 0.25."
 Prose that repeats a default goes stale when the default moves, and nothing notices.
 
 ## Pictures
 
 - Every process page and every interface page opens with its window, as a `figure` block, before the first
-  section. The picture is taken as "Media" in [USER_GUIDE_AUTHORING.md](USER_GUIDE_AUTHORING.md) says.
+  section. The picture is taken as "Media" in [USER_GUIDE_AUTHORING.md](USER_GUIDE_AUTHORING.md) says. A process
+  window is shown at work, with the settings of the page's worked example, and the caption names them.
+- A pin sits just left of the control it points at, or of its label when the two touch, never over a value.
 - A tutorial step that points at a control has a pin on the picture, with the step's number. On an interface page
   every item of "What you see" has its pin.
 - A caption says in one sentence what the picture shows. The alternative text describes the picture for a reader
   who cannot see it; it is not the caption again.
-- A process that is judged by its result shows the result: a before-and-after pair in its worked example, two
-  crops of the same region at 100 %, under the same display stretch, which the caption names.
+- A process that is judged by its result shows the result: a before-and-after pair in its worked example, the
+  same region under the same display mode, which the caption names. A process that changes the tone of the whole
+  picture shows the whole frame; one whose effect is in the detail shows a crop at 100 %.
 - A change that alters a window recaptures the window's picture in the same pull request.
 - Every picture is a `figure` block. A Markdown image has no caption.
 

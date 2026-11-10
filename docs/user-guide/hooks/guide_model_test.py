@@ -322,11 +322,15 @@ class NavTests(TempDir):
             model.NavEntry('Curves', 'processes/curves.md', ('Processes', 'Stretching')),
         ])
 
-    def test_the_guide_navigates_113_pages(self):
+    def test_the_guide_navigates_each_of_its_pages_once(self):
+        # The number of pages is not held: a page that outgrows its budget splits off a reference page.
         config = model.load_config(str(GUIDE_DIR))
         entries = model.nav_entries(config)
-        self.assertEqual(len(entries), 113)
-        self.assertEqual(len({entry.path for entry in entries}), 113)
+        paths = [entry.path for entry in entries]
+        self.assertGreaterEqual(len(paths), 113)
+        self.assertEqual(len(set(paths)), len(paths))
+        docs = pathlib.Path(model.docs_dir(str(GUIDE_DIR), config))
+        self.assertEqual([path for path in paths if not (docs / path).is_file()], [])
 
 
 class BodyTests(unittest.TestCase):

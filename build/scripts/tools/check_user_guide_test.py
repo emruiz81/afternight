@@ -1454,6 +1454,22 @@ class ControlsRuleTests(WritingCase):
              '"Midtones": `widget.max` is 2, and the window has 1'),
         ))
 
+    def test_a_page_checked_by_name_says_how_many_words_it_has(self):
+        code, output = self.run_main('--page', 'processes/ht.md')
+        self.assertEqual(code, 0, output)
+        self.assertRegex(output, r'(?m)^processes/ht\.md: \d+ words, of a limit of 1800$')
+        code, output = self.run_main()
+        self.assertNotIn(' words, of a limit of ', output)
+
+    def test_a_readout_is_no_control_of_the_inventory(self):
+        readout = ('- name: Clipped\n  kind: readout\n  default: "0 - 0.000000%"\n  effect: Counts the samples the '
+                   'transfer sends to black.\n')
+        self.block(CONTROLS_BLOCK[:-len('```\n')] + readout + '```\n')
+        self.assertPasses()
+        # The same entry as a control is one the window lacks.
+        self.block(CONTROLS_BLOCK[:-len('```\n')] + readout.replace('kind: readout', 'kind: field') + '```\n')
+        self.assertFails('R14', '"Clipped" is no control of the window "Histogram Transformation"')
+
     def test_a_control_the_window_lacks_fails_and_leaves_the_windows_own_unlisted(self):
         self.change('processes/ht.md', '- name: Midtones', '- name: Middle')
         self.assertFails('R14', 'ht.md:49: R14 "Middle" is no control of the window "Histogram Transformation"',
