@@ -105,6 +105,26 @@ AFTERNIGHTPROCESSES_API ReportMasterPreviews generateReportMasterPreviews(
     const an::consumer::EngineSession& session, const QString& outputPath, const QString& outputDir,
     const QString& wholeName, const QString& detailName, std::optional<QSize> maxSize = std::nullopt, int quality = 90);
 
+/// Writes a master's two report previews as `generateReportMasterPreviews` does, presented through the display
+/// stretch of another image rather than its own: the stretch that image's own whole-frame preview is presented
+/// through. Two masters pictured under one stretch differ in the pictures as they differ in the samples, where
+/// each under its own stretch would look alike however much brighter one is. Each file is read once.
+///
+/// @param session the session the files are read and the previews are worked out in.
+/// @param stretchPath the image whose stretch is used.
+/// @param outputPath the master to picture.
+/// @param outputDir the folder the previews are written into, made when it is not there.
+/// @param wholeName the whole-frame preview's file name.
+/// @param detailName the detail's file name.
+/// @param maxSize the whole frame's bound; 2048 pixels on a side when none is given.
+/// @param quality the JPEG quality of both.
+/// @return the names of what was written; nothing when either file does not read or the stretch cannot present the
+///         master.
+AFTERNIGHTPROCESSES_API ReportMasterPreviews generateReportMasterPreviewsUnderStretchOf(
+    const an::consumer::EngineSession& session, const QString& stretchPath, const QString& outputPath,
+    const QString& outputDir, const QString& wholeName, const QString& detailName,
+    std::optional<QSize> maxSize = std::nullopt, int quality = 90);
+
 /// Writes an autostretched report-grade preview of an output file as a PNG, no larger than `maxSize` when given and
 /// than 2048 pixels on a side otherwise.
 AFTERNIGHTPROCESSES_API std::optional<QString> generateReportPreviewPng(const an::consumer::EngineSession& session,

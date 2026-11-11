@@ -214,12 +214,17 @@ TEST_F(ReportHtmlWriterTest, EachMasterTheRunMadeStandsBesideTheLatestEarlierRun
 {
     const Rendered* report = reportOf(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
     ASSERT_NE(report, nullptr);
-    // This case is of each master beside the latest earlier run that made it; the runs before that one have a
-    // case of their own.
+    // This case is of each master beside the latest earlier run that made it, by each run's own preview; the runs
+    // before that one, and the earlier master under this run's stretch, have cases of their own.
     ReportModel model = report->model;
     for (ReportMaster& master : model.masters)
     {
         master.earlierBaselines.clear();
+        if (master.baseline.has_value())
+        {
+            master.baseline->matchedPreview.clear();
+            master.baseline->matchedDetail.clear();
+        }
     }
     const std::vector<const ReportMaster*> masters = comparedOf(model);
     ASSERT_EQ(masters.size(), 6u);
@@ -429,11 +434,13 @@ TEST_F(ReportHtmlWriterTest, TheDetailIsOfferedOnlyWhereBothRunsHaveOne)
     ReportModel none = report->model;
     for (ReportMaster& master : none.masters)
     {
-        // The case is of the latest earlier run alone.
+        // The case is of the latest earlier run alone, by each run's own preview.
         master.earlierBaselines.clear();
         if (master.baseline.has_value())
         {
             master.baseline->detail.clear();
+            master.baseline->matchedPreview.clear();
+            master.baseline->matchedDetail.clear();
         }
     }
     const ParsedDocument without = linkedDocument(none, report->scenario.runDirectory);
@@ -884,4 +891,56 @@ TEST_F(ReportHtmlWriterTest, AMasterSeveralEarlierRunsMadeIsSetBesideOneOfThemAt
     ASSERT_NE(embedded, nullptr);
     EXPECT_TRUE(report->embeddedParsed.ofClassInside(*embedded, "against").empty());
     EXPECT_TRUE(report->embeddedParsed.ofClassInside(*embedded, "cmprun").empty());
+}
+
+// Where a baseline names the earlier master pictured under this run's stretch, that is the picture the comparison
+// shows left of the divider, and the caption says the two share a stretch; otherwise it shows the earlier run's
+// own preview and says each has its own.
+TEST_F(ReportHtmlWriterTest, TheComparisonShowsTheEarlierMasterUnderThisRunsStretchWhereItHasIt)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFiltersAfterEarlierRun);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    const auto compared = std::find_if(model.masters.begin(), model.masters.end(), [](const ReportMaster& master) {
+        return master.baseline.has_value() && master.baseline->made && !master.baseline->sideBySide &&
+               !master.baseline->preview.isEmpty() && !master.preview.isEmpty();
+    });
+    ASSERT_NE(compared, model.masters.end());
+    const QString own = compared->baseline->preview;
+    const auto beforeSources = [](const ParsedDocument& parsed) {
+        QStringList sources;
+        for (const DocumentElement* before : parsed.ofClass("before"))
+        {
+            for (const DocumentElement* picture : namedInside(parsed, *before, "img"))
+            {
+                sources.append(picture->attribute("src"));
+            }
+        }
+        return sources;
+    };
+    const auto captions = [](const ParsedDocument& parsed) {
+        const DocumentElement* block = only(parsed, "before-after");
+        return block == nullptr ? QString() : block->text;
+    };
+
+    // Every baseline under its own stretch.
+    for (ReportMaster& master : model.masters)
+    {
+        if (master.baseline.has_value())
+        {
+            master.baseline->matchedPreview.clear();
+            master.baseline->matchedDetail.clear();
+        }
+    }
+    const ParsedDocument apart = linkedDocument(model, report->scenario.runDirectory);
+    EXPECT_TRUE(beforeSources(apart).contains(own));
+    EXPECT_TRUE(captions(apart).contains(QStringLiteral("under its own display stretch")));
+    EXPECT_FALSE(captions(apart).contains(QStringLiteral("under this run's display stretch")));
+
+    // One master's earlier picture under this run's stretch: a file of the run's folder stands in for it.
+    compared->baseline->matchedPreview = compared->preview;
+    const ParsedDocument shared = linkedDocument(model, report->scenario.runDirectory);
+    EXPECT_TRUE(beforeSources(shared).contains(compared->preview));
+    EXPECT_FALSE(beforeSources(shared).contains(own)) << "the earlier run's own preview is still shown";
+    EXPECT_TRUE(captions(shared).contains(QStringLiteral("under this run's display stretch")));
 }

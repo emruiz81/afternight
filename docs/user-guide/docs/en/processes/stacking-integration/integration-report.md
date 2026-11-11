@@ -285,8 +285,11 @@ reports and no image of theirs, so the figures of an earlier run are the ones th
 - The two pictures of a master lie under one divider: the earlier run is left of it and this run right of it. Drag
   the divider, or move it with the arrow keys. **Whole frame** and **Detail** choose the picture, and with several
   masters a button for each chooses the master. Two frames of different shapes stand side by side instead.
-- Each picture is its own run's, under its own display stretch, so a difference in brightness between the two says
-  nothing. The figures under the pictures are measured on the linear masters.
+- The line under the pictures says which display stretch the earlier picture has. While `history` still holds the
+  earlier run's copy of the master, that master is shown under this run's stretch, so a difference between the
+  two pictures is a difference between the masters. Otherwise each picture is its own run's, under its own
+  stretch, and a difference in brightness between the two says nothing. The figures under the pictures are
+  measured on the linear masters either way.
 - A change for the better or for the worse is said in words beside the figure. The share of samples rejected is
   marked neither way: it follows the lights and the settings.
 - A master that the run reused is left out of **Before and after**, since it is the earlier run's own master. A

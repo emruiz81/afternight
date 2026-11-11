@@ -767,6 +767,13 @@ struct ReportBaseline
     QString preview;
     QString detail;
 
+    /// The earlier run's master pictured again under this run's display stretch, whole and at full scale, in this
+    /// run's folder: with them a difference between the two runs' pictures is the masters' and not the stretches'.
+    /// Empty when the history holds no copy of that master, when the two frames are of different shapes, and for a
+    /// run before the latest.
+    QString matchedPreview;
+    QString matchedDetail;
+
     friend bool operator==(const ReportBaseline&, const ReportBaseline&) = default;
 };
 

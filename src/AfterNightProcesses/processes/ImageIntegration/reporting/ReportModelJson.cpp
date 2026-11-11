@@ -778,6 +778,8 @@ template <> struct Fields<ReportBaseline>
         v("sideBySide", s.sideBySide);
         v("preview", s.preview);
         v("detail", s.detail);
+        v("matchedPreview", s.matchedPreview);
+        v("matchedDetail", s.matchedDetail);
     }
 };
 
