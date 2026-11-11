@@ -331,6 +331,6 @@ window does not offer.
   feathered.
 - Drizzle, after the [method](https://arxiv.org/abs/astro-ph/9808087) of Fruchter and Hook, with its scale, pixel
   fraction, kernels, filter-array mapping, canvas, [SIP](../../reference/glossary.md#sip) correction and trim offsets.
-- The quality report, the coverage, variance, SNR gain and weight maps, the report of clustered rejections and a
-  second stack without the frames it flags.
+- The quality report, the coverage, variance, [SNR gain](../../reference/glossary.md#snr-gain) and weight maps, the
+  report of clustered rejections and a second stack without the frames it flags.
 - Weights for **Sum**, and a debayer of each frame before the stack.

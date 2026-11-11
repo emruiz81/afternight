@@ -172,8 +172,10 @@ With **Open results when complete** on, the master opens in the workspace. It is
 display only, not the image.
 
 Zoom to 100 % and look at the stars and the background. Then open the report of the run, `workflow_report.html`
-under `history` in the output folder, and check that the frames, the calibration and the warnings are what you
-intended.
+under `history` in the output folder. Its header says how many lights the master combines, and **Needs attention**
+lists what the run could not do as asked: check that the frames, the calibration and the warnings are what you
+intended. [Image Integration Report](../processes/stacking-integration/integration-report.md) says how to read the
+rest.
 
 !!! see "You should see"
     The master open in its own view, named after its file, and the window's banner back at "Ready."
@@ -191,7 +193,7 @@ frames untouched. Beside it are the masters the run built - `master_bias_<group>
 and `master_flat_<group>.fit` - and the calibrated and registered frames it went through. A short code is added to
 a name that would otherwise be used twice.
 
-Each run leaves its record under `history`, in a folder of its own: the report as HTML and as Markdown, the log and
+Each run leaves its record under `history`, in a folder of its own: the report with its pictures, the log and
 the settings it ran with. The folder `.afternight` holds what a later run needs to reuse this one. All of it takes
 disk space, and a later run in the same folder reuses or replaces what matches.
 
