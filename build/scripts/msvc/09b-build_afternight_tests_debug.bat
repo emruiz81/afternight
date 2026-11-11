@@ -37,8 +37,6 @@ xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\lcms2-2.dll ..\..\..\bin
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\opencv_imgproc4d.dll ..\..\..\bin\msvc\debug\
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\opencv_core4d.dll ..\..\..\bin\msvc\debug\
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\libsodium.dll ..\..\..\bin\msvc\debug\
-xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\cmark-gfm.dll ..\..\..\bin\msvc\debug\
-xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\cmark-gfm-extensions.dll ..\..\..\bin\msvc\debug\
 
 if not exist "..\..\..\bin\msvc\debug\platforms" mkdir "..\..\..\bin\msvc\debug\platforms"
 REM Qt 6.10.3 package naming remains msvc2022_64 for MSVC toolchains

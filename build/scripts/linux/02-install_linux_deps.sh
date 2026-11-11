@@ -95,7 +95,6 @@ if [ ! -x "./vcpkg" ]; then
     ./bootstrap-vcpkg.sh -disableMetrics || exit 1
 fi
 ./vcpkg install crashpad --triplet x64-linux --overlay-ports=../build/scripts/linux/vcpkg/overlay-ports || exit 1
-./vcpkg install cmark-gfm --triplet x64-linux || exit 1
 # The portable vector abstraction the engine writes its CPU kernels against. It comes
 # from vcpkg on both platforms rather than from a distribution package, so both compile the same
 # port version; the contrib feature carries the vectorized transcendentals a later kernel family

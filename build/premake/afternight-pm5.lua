@@ -1327,13 +1327,11 @@ workspace "AfterNight"
         -- docking framework every dockable window derives from.
         filter { "system:linux" }
             includedirs { "../../src/AfterNightConsumerRuntime/include", "../../src/AfterNightEngine/include", "../../src/AfterNightPlatform/include", "../../src/AfterNightControls", "../../3rdparty/src", "../../kddockwidgets/build-clang-install/include/kddockwidgets-qt6", "../../vcpkg/installed/x64-linux/include", "../../vcpkg/installed/x64-linux-release/include" }
-            defines { "AN_MARKDOWN_BACKEND_CMARK_GFM" }
             -- The engine's contraction policy: the library compiles the engine's public headers.
             buildoptions { "-ffp-contract=off" }
 
         filter {"action:vs*"}
             includedirs { "../../src/AfterNightConsumerRuntime/include", "../../src/AfterNightEngine/include", "../../src/AfterNightPlatform/include", "../../src/AfterNightControls", "../../3rdparty/src", "../../kddockwidgets/build-msvc-install/include/kddockwidgets-qt6", "../../vcpkg/installed/x64-windows/include", "../../vcpkg/installed/x64-windows-release/include" }
-            defines { "AN_MARKDOWN_BACKEND_CMARK_GFM" }
             buildoptions { "/Zc:__cplusplus", "/utf-8", "/FS" }
 
         filter {}
@@ -1388,7 +1386,7 @@ workspace "AfterNight"
         filter {"action:vs*", "configurations:Debug"}
             targetdir ("../../bin/" .. common.WindowsOutputDir .. "/debug")
             libdirs { "../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib", ("../../lib/" .. common.WindowsOutputDir), "../../3rdparty/lib/msvc/debug", "../../kddockwidgets/build-msvc-install/lib", "../../vcpkg/installed/x64-windows/debug/lib", "../../vcpkg/installed/x64-windows-release/lib" }
-            links { "AfterNightConsumerRuntime_d.lib", "AfterNightEngine_d.lib", "AfterNightPlatform_d.lib", "AfterNightExtensionProtocol_d.lib", "kddockwidgets-qt6d.lib", "tbb12_debug.lib", "cmark-gfm.lib", "cmark-gfm-extensions.lib", "zstd.lib", "libsodium.lib" }
+            links { "AfterNightConsumerRuntime_d.lib", "AfterNightEngine_d.lib", "AfterNightPlatform_d.lib", "AfterNightExtensionProtocol_d.lib", "kddockwidgets-qt6d.lib", "tbb12_debug.lib", "zstd.lib", "libsodium.lib" }
             qtincludepath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/include")
             qtlibpath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib")
             qtbinpath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/bin")
@@ -1398,7 +1396,7 @@ workspace "AfterNight"
         filter {"action:vs*", "configurations:Release"}
             targetdir ("../../bin/" .. common.WindowsOutputDir .. "/release")
             libdirs { "../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib", ("../../lib/" .. common.WindowsOutputDir), "../../3rdparty/lib/msvc/release", "../../kddockwidgets/build-msvc-install/lib", "../../vcpkg/installed/x64-windows/lib", "../../vcpkg/installed/x64-windows-release/lib" }
-            links { "AfterNightConsumerRuntime.lib", "AfterNightEngine.lib", "AfterNightPlatform.lib", "AfterNightExtensionProtocol.lib", "kddockwidgets-qt6.lib", "tbb12.lib", "cmark-gfm.lib", "cmark-gfm-extensions.lib", "zstd.lib", "libsodium.lib" }
+            links { "AfterNightConsumerRuntime.lib", "AfterNightEngine.lib", "AfterNightPlatform.lib", "AfterNightExtensionProtocol.lib", "kddockwidgets-qt6.lib", "tbb12.lib", "zstd.lib", "libsodium.lib" }
             qtincludepath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/include")
             qtlibpath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib")
             qtbinpath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/bin")
@@ -1419,7 +1417,7 @@ workspace "AfterNight"
             targetname "AfterNightControls_d"
             targetdir "../../bin/clang/debug"
             libdirs { "../../bin/clang/debug", "../../3rdparty/bin/clang/debug", "../../kddockwidgets/build-clang-install/lib", "../../vcpkg/installed/x64-linux/debug/lib", "../../vcpkg/installed/x64-linux-release/lib" }
-            linkoptions { "-lAfterNightConsumerRuntime_d", "-lAfterNightEngine_d", "-lAfterNightPlatform_d", "-lAfterNightExtensionProtocol_d", "-lkddockwidgets-qt6", "-ltbb", "-lzstd", "-lsodium", "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic", "-Wl,-rpath,'$$ORIGIN'" }
+            linkoptions { "-lAfterNightConsumerRuntime_d", "-lAfterNightEngine_d", "-lAfterNightPlatform_d", "-lAfterNightExtensionProtocol_d", "-lkddockwidgets-qt6", "-ltbb", "-lzstd", "-lsodium", "-Wl,-rpath,'$$ORIGIN'" }
 
         filter {"system:linux","configurations:Release"}
             defines { "NDEBUG","linux", "__linux__", "KDDW_FRONTEND_QT", "KDDW_FRONTEND_QTWIDGETS" }
@@ -1428,7 +1426,7 @@ workspace "AfterNight"
             targetname "AfterNightControls"
             targetdir "../../bin/clang/release"
             libdirs { "../../bin/clang/release", "../../3rdparty/bin/clang/release", "../../kddockwidgets/build-clang-install/lib", "../../vcpkg/installed/x64-linux/lib", "../../vcpkg/installed/x64-linux-release/lib" }
-            linkoptions { "-lAfterNightConsumerRuntime", "-lAfterNightEngine", "-lAfterNightPlatform", "-lAfterNightExtensionProtocol", "-lkddockwidgets-qt6", "-ltbb", "-lzstd", "-lsodium", "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic", "-Wl,-rpath,'$$ORIGIN'" }
+            linkoptions { "-lAfterNightConsumerRuntime", "-lAfterNightEngine", "-lAfterNightPlatform", "-lAfterNightExtensionProtocol", "-lkddockwidgets-qt6", "-ltbb", "-lzstd", "-lsodium", "-Wl,-rpath,'$$ORIGIN'" }
             postbuildcommands {
                 "objcopy --only-keep-debug \"%{cfg.buildtarget.relpath}\" \"%{cfg.buildtarget.relpath}.debug\"",
                 "objcopy --strip-debug --strip-unneeded \"%{cfg.buildtarget.relpath}\"",
@@ -1504,13 +1502,11 @@ workspace "AfterNight"
         ------------- Source code -------------
         filter { "system:linux" }
             includedirs { "../../src/AfterNightConsumerRuntime/include", "../../src/AfterNightEngine/include", "../../src/AfterNightEngineGmicAdapter/include", "../../src/AfterNightPlatform/include", "../../src/AfterNightProcesses", "../../src/AfterNightControls", "../../3rdparty/src", "../../kddockwidgets/build-clang-install/include/kddockwidgets-qt6", "../../vcpkg/installed/x64-linux/include", "../../vcpkg/installed/x64-linux-release/include" }
-            defines { "AN_MARKDOWN_BACKEND_CMARK_GFM" }
             -- The engine's contraction policy: the library compiles the engine's public headers.
             buildoptions { "-ffp-contract=off" }
 
         filter {"action:vs*"}
             includedirs { "../../src/AfterNightConsumerRuntime/include", "../../src/AfterNightEngine/include", "../../src/AfterNightEngineGmicAdapter/include", "../../src/AfterNightPlatform/include", "../../src/AfterNightProcesses", "../../src/AfterNightControls", "../../3rdparty/src", "../../kddockwidgets/build-msvc-install/include/kddockwidgets-qt6", "../../vcpkg/installed/x64-windows/include", "../../vcpkg/installed/x64-windows-release/include" }
-            defines { "AN_MARKDOWN_BACKEND_CMARK_GFM" }
             buildoptions { "/Zc:__cplusplus", "/utf-8", "/FS", "/bigobj" }
 
         filter {}
@@ -1554,7 +1550,7 @@ workspace "AfterNight"
             targetdir ("../../bin/" .. common.WindowsOutputDir .. "/debug")
             implibdir ("../../lib/" .. common.WindowsOutputDir)
             libdirs { "../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib", ("../../lib/" .. common.WindowsOutputDir), "../../3rdparty/lib/msvc/debug", "../../kddockwidgets/build-msvc-install/lib", "../../vcpkg/installed/x64-windows/debug/lib", "../../vcpkg/installed/x64-windows-release/lib" }
-            links { "AfterNightControls_d.lib", "AfterNightConsumerRuntime_d.lib", "AfterNightEngine_d.lib", "AfterNightEngineGmicAdapter_d.lib", "AfterNightPlatform_d.lib", "AfterNightExtensionProtocol_d.lib", "kddockwidgets-qt6d.lib", "tbb12_debug.lib", "cmark-gfm.lib", "cmark-gfm-extensions.lib", "zstd.lib", "libsodium.lib" }
+            links { "AfterNightControls_d.lib", "AfterNightConsumerRuntime_d.lib", "AfterNightEngine_d.lib", "AfterNightEngineGmicAdapter_d.lib", "AfterNightPlatform_d.lib", "AfterNightExtensionProtocol_d.lib", "kddockwidgets-qt6d.lib", "tbb12_debug.lib", "zstd.lib", "libsodium.lib" }
             qtincludepath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/include")
             qtlibpath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib")
             qtbinpath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/bin")
@@ -1565,7 +1561,7 @@ workspace "AfterNight"
             targetdir ("../../bin/" .. common.WindowsOutputDir .. "/release")
             implibdir ("../../lib/" .. common.WindowsOutputDir)
             libdirs { "../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib", ("../../lib/" .. common.WindowsOutputDir), "../../3rdparty/lib/msvc/release", "../../kddockwidgets/build-msvc-install/lib", "../../vcpkg/installed/x64-windows/lib", "../../vcpkg/installed/x64-windows-release/lib" }
-            links { "AfterNightControls.lib", "AfterNightConsumerRuntime.lib", "AfterNightEngine.lib", "AfterNightEngineGmicAdapter.lib", "AfterNightPlatform.lib", "AfterNightExtensionProtocol.lib", "kddockwidgets-qt6.lib", "tbb12.lib", "cmark-gfm.lib", "cmark-gfm-extensions.lib", "zstd.lib", "libsodium.lib" }
+            links { "AfterNightControls.lib", "AfterNightConsumerRuntime.lib", "AfterNightEngine.lib", "AfterNightEngineGmicAdapter.lib", "AfterNightPlatform.lib", "AfterNightExtensionProtocol.lib", "kddockwidgets-qt6.lib", "tbb12.lib", "zstd.lib", "libsodium.lib" }
             qtincludepath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/include")
             qtlibpath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib")
             qtbinpath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/bin")
@@ -1586,7 +1582,7 @@ workspace "AfterNight"
             targetname "AfterNightProcesses_d"
             targetdir "../../bin/clang/debug"
             libdirs { "../../bin/clang/debug", "../../3rdparty/bin/clang/debug", "../../kddockwidgets/build-clang-install/lib", "../../vcpkg/installed/x64-linux/debug/lib", "../../vcpkg/installed/x64-linux-release/lib" }
-            linkoptions { "-lAfterNightControls_d", "-lAfterNightConsumerRuntime_d", "-lAfterNightEngine_d", "-lAfterNightEngineGmicAdapter_d", "-lAfterNightPlatform_d", "-lAfterNightExtensionProtocol_d", "-lkddockwidgets-qt6", "-ltbb", "-lzstd", "-lsodium", "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic", "-Wl,-rpath,'$$ORIGIN'" }
+            linkoptions { "-lAfterNightControls_d", "-lAfterNightConsumerRuntime_d", "-lAfterNightEngine_d", "-lAfterNightEngineGmicAdapter_d", "-lAfterNightPlatform_d", "-lAfterNightExtensionProtocol_d", "-lkddockwidgets-qt6", "-ltbb", "-lzstd", "-lsodium", "-Wl,-rpath,'$$ORIGIN'" }
 
         filter {"system:linux","configurations:Release"}
             defines { "NDEBUG","linux", "__linux__", "KDDW_FRONTEND_QT", "KDDW_FRONTEND_QTWIDGETS" }
@@ -1595,7 +1591,7 @@ workspace "AfterNight"
             targetname "AfterNightProcesses"
             targetdir "../../bin/clang/release"
             libdirs { "../../bin/clang/release", "../../3rdparty/bin/clang/release", "../../kddockwidgets/build-clang-install/lib", "../../vcpkg/installed/x64-linux/lib", "../../vcpkg/installed/x64-linux-release/lib" }
-            linkoptions { "-lAfterNightControls", "-lAfterNightConsumerRuntime", "-lAfterNightEngine", "-lAfterNightEngineGmicAdapter", "-lAfterNightPlatform", "-lAfterNightExtensionProtocol", "-lkddockwidgets-qt6", "-ltbb", "-lzstd", "-lsodium", "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic", "-Wl,-rpath,'$$ORIGIN'" }
+            linkoptions { "-lAfterNightControls", "-lAfterNightConsumerRuntime", "-lAfterNightEngine", "-lAfterNightEngineGmicAdapter", "-lAfterNightPlatform", "-lAfterNightExtensionProtocol", "-lkddockwidgets-qt6", "-ltbb", "-lzstd", "-lsodium", "-Wl,-rpath,'$$ORIGIN'" }
             postbuildcommands {
                 "objcopy --only-keep-debug \"%{cfg.buildtarget.relpath}\" \"%{cfg.buildtarget.relpath}.debug\"",
                 "objcopy --strip-debug --strip-unneeded \"%{cfg.buildtarget.relpath}\"",
@@ -1717,7 +1713,7 @@ workspace "AfterNight"
 
         ------------- MSVC Qt Configuration -------------
         filter {"action:vs*", "configurations:Debug"}
-            links { "AfterNightProcesses_d.lib", "AfterNightControls_d.lib", "AfterNightConsumerRuntime_d.lib", "AfterNightEngine_d.lib", "AfterNightPlatform_d.lib", "AfterNightExtensionProtocol_d.lib", "kddockwidgets-qt6d.lib", "tbb12_debug.lib", "cmark-gfm.lib", "cmark-gfm-extensions.lib" }
+            links { "AfterNightProcesses_d.lib", "AfterNightControls_d.lib", "AfterNightConsumerRuntime_d.lib", "AfterNightEngine_d.lib", "AfterNightPlatform_d.lib", "AfterNightExtensionProtocol_d.lib", "kddockwidgets-qt6d.lib", "tbb12_debug.lib" }
             targetdir ("../../bin/" .. common.WindowsOutputDir .. "/debug")
             debugdir ("../../bin/" .. common.WindowsOutputDir .. "/debug")
             libdirs { "../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib", ("../../lib/" .. common.WindowsOutputDir), "../../3rdparty/lib/msvc/debug", "../../kddockwidgets/build-msvc-install/lib", "../../vcpkg/installed/x64-windows/debug/lib", "../../vcpkg/installed/x64-windows-release/lib" }
@@ -1730,7 +1726,7 @@ workspace "AfterNight"
             postbuildcommands { "call \"$(VCInstallDir)Auxiliary\\Build\\vcvars64.bat\"", "..\\..\\Qt6\\" .. common.QT_VERSION .. "\\msvc2022_64\\bin\\windeployqt $(TargetPath) --no-translations" }
 
         filter {"action:vs*", "configurations:Release"}
-            links { "AfterNightProcesses.lib", "AfterNightControls.lib", "AfterNightConsumerRuntime.lib", "AfterNightEngine.lib", "AfterNightPlatform.lib", "AfterNightExtensionProtocol.lib", "kddockwidgets-qt6.lib", "tbb12.lib", "cmark-gfm.lib", "cmark-gfm-extensions.lib" }
+            links { "AfterNightProcesses.lib", "AfterNightControls.lib", "AfterNightConsumerRuntime.lib", "AfterNightEngine.lib", "AfterNightPlatform.lib", "AfterNightExtensionProtocol.lib", "kddockwidgets-qt6.lib", "tbb12.lib" }
             targetdir ("../../bin/" .. common.WindowsOutputDir .. "/release")
             debugdir ("../../bin/" .. common.WindowsOutputDir .. "/release")
             libdirs { "../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib", ("../../lib/" .. common.WindowsOutputDir), "../../3rdparty/lib/msvc/release", "../../kddockwidgets/build-msvc-install/lib", "../../vcpkg/installed/x64-windows/lib", "../../vcpkg/installed/x64-windows-release/lib" }
@@ -1745,7 +1741,6 @@ workspace "AfterNight"
         ------------- Clang (Linux) Qt Configuration -------------
         filter {"system:linux"}
             buildoptions { "-fPIC" }
-            defines { "AN_MARKDOWN_BACKEND_CMARK_GFM" }
             objdir  "../../obj/AfterNightApp/clang"
             qtincludepath("../../Qt6/" .. common.QT_VERSION .. "/gcc_64/include")
             qtlibpath("../../Qt6/" .. common.QT_VERSION .. "/gcc_64/lib")
@@ -1767,7 +1762,7 @@ workspace "AfterNight"
             targetdir "../../bin/clang/debug"
             debugdir "../../bin/clang/debug"
             libdirs { "../../bin/clang/debug", "../../3rdparty/bin/clang/debug", "../../kddockwidgets/build-clang-install/lib", "../../vcpkg/installed/x64-linux/debug/lib", "../../vcpkg/installed/x64-linux-release/lib" }
-            linkoptions  { "-lAfterNightProcesses_d", "-lAfterNightControls_d", "-lAfterNightConsumerRuntime_d", "-lAfterNightEngine_d", "-lAfterNightPlatform_d", "-lAfterNightExtensionProtocol_d", "-lkddockwidgets-qt6", "-ltbb", "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic", "-Wl,-z,noexecstack", "-Wl,-rpath,'$$ORIGIN'" }
+            linkoptions  { "-lAfterNightProcesses_d", "-lAfterNightControls_d", "-lAfterNightConsumerRuntime_d", "-lAfterNightEngine_d", "-lAfterNightPlatform_d", "-lAfterNightExtensionProtocol_d", "-lkddockwidgets-qt6", "-ltbb", "-Wl,-z,noexecstack", "-Wl,-rpath,'$$ORIGIN'" }
 
         filter {"system:linux","configurations:Release"}
             defines { "NDEBUG", "linux", "__linux__", "KDDW_FRONTEND_QT", "KDDW_FRONTEND_QTWIDGETS" }
@@ -1777,7 +1772,7 @@ workspace "AfterNight"
             targetdir "../../bin/clang/release"
             debugdir "../../bin/clang/release"
             libdirs { "../../bin/clang/release", "../../3rdparty/bin/clang/release", "../../kddockwidgets/build-clang-install/lib", "../../vcpkg/installed/x64-linux/lib", "../../vcpkg/installed/x64-linux-release/lib" }
-            linkoptions  { "-lAfterNightProcesses", "-lAfterNightControls", "-lAfterNightConsumerRuntime", "-lAfterNightEngine", "-lAfterNightPlatform", "-lAfterNightExtensionProtocol", "-lkddockwidgets-qt6", "-ltbb", "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic", "-Wl,-z,noexecstack", "-Wl,-rpath,'$$ORIGIN'" }
+            linkoptions  { "-lAfterNightProcesses", "-lAfterNightControls", "-lAfterNightConsumerRuntime", "-lAfterNightEngine", "-lAfterNightPlatform", "-lAfterNightExtensionProtocol", "-lkddockwidgets-qt6", "-ltbb", "-Wl,-z,noexecstack", "-Wl,-rpath,'$$ORIGIN'" }
             postbuildcommands {
                 "objcopy --only-keep-debug \"%{cfg.buildtarget.relpath}\" \"%{cfg.buildtarget.relpath}.debug\"",
                 "objcopy --strip-debug --strip-unneeded \"%{cfg.buildtarget.relpath}\"",
@@ -1842,7 +1837,6 @@ workspace "AfterNight"
                 "../../3rdparty/src",
                 "../../kddockwidgets/build-clang-install/include/kddockwidgets-qt6"
             }
-            defines { "AN_MARKDOWN_BACKEND_CMARK_GFM" }
             buildoptions { "-fPIC", "-fvisibility=hidden" }
 
         filter {"action:vs*"}
@@ -1852,7 +1846,6 @@ workspace "AfterNight"
                 "../../3rdparty/src",
                 "../../kddockwidgets/build-msvc-install/include/kddockwidgets-qt6"
             }
-            defines { "AN_MARKDOWN_BACKEND_CMARK_GFM" }
             buildoptions { "/Zc:__cplusplus", "/utf-8", "/FS" }
             multiprocessorcompile "On"
             disablewarnings { "4251" }
@@ -1898,7 +1891,7 @@ workspace "AfterNight"
             targetname "qafternight_d"
             targetdir "../../bin/clang/debug/styles"
             libdirs { "../../bin/clang/debug", "../../3rdparty/bin/clang/debug", "../../kddockwidgets/build-clang-install/lib", "../../vcpkg/installed/x64-linux/debug/lib", "../../vcpkg/installed/x64-linux-release/lib" }
-            linkoptions { "-lAfterNightControls_d", "-lkddockwidgets-qt6", "-ltbb", "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic" }
+            linkoptions { "-lAfterNightControls_d", "-lkddockwidgets-qt6", "-ltbb" }
 
         filter {"system:linux","configurations:Release"}
             defines { "NDEBUG","linux", "__linux__", "KDDW_FRONTEND_QT", "KDDW_FRONTEND_QTWIDGETS" }
@@ -1907,7 +1900,7 @@ workspace "AfterNight"
             targetname "qafternight"
             targetdir "../../bin/clang/release/styles"
             libdirs { "../../bin/clang/release", "../../3rdparty/bin/clang/release", "../../kddockwidgets/build-clang-install/lib", "../../vcpkg/installed/x64-linux/lib", "../../vcpkg/installed/x64-linux-release/lib" }
-            linkoptions { "-lAfterNightControls", "-lkddockwidgets-qt6", "-ltbb", "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic" }
+            linkoptions { "-lAfterNightControls", "-lkddockwidgets-qt6", "-ltbb" }
             postbuildcommands {
                 "objcopy --only-keep-debug \"%{cfg.buildtarget.relpath}\" \"%{cfg.buildtarget.relpath}.debug\"",
                 "objcopy --strip-debug --strip-unneeded \"%{cfg.buildtarget.relpath}\"",
@@ -2115,7 +2108,6 @@ workspace "AfterNight"
                 "../../vcpkg/installed/x64-linux/include",
                 "../../vcpkg/installed/x64-linux-release/include"
             }
-            defines { "AN_MARKDOWN_BACKEND_CMARK_GFM" }
             -- The engine's contraction policy: the host compiles the engine's public headers.
             buildoptions { "-ffp-contract=off" }
 
@@ -2135,7 +2127,6 @@ workspace "AfterNight"
                 "../../vcpkg/installed/x64-windows/include",
                 "../../vcpkg/installed/x64-windows-release/include"
             }
-            defines { "AN_MARKDOWN_BACKEND_CMARK_GFM" }
             buildoptions { "/Zc:__cplusplus", "/utf-8", "/FS" }
 
         filter { "action:vs*" }
@@ -2169,7 +2160,7 @@ workspace "AfterNight"
             libdirs { "../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib", ("../../lib/" .. common.WindowsOutputDir), "../../3rdparty/lib/msvc/debug", "../../kddockwidgets/build-msvc-install/lib", "../../python/python/tools_msvc/libs", "../../vcpkg/installed/x64-windows/debug/lib", "../../vcpkg/installed/x64-windows/lib", "../../vcpkg/installed/x64-windows-release/lib" }
             linkoptions { "/STACK:4194304"}
             objdir  ("../../obj/AfterNightExtensionHost/" .. common.WindowsOutputDir)
-            links { "kddockwidgets-qt6d.lib", "tbb12_debug.lib", "cmark-gfm.lib", "cmark-gfm-extensions.lib" }
+            links { "kddockwidgets-qt6d.lib", "tbb12_debug.lib" }
             disablewarnings { "4251" }
             qtincludepath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/include")
             qtlibpath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib")
@@ -2183,7 +2174,7 @@ workspace "AfterNight"
             libdirs { "../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib", ("../../lib/" .. common.WindowsOutputDir), "../../3rdparty/lib/msvc/release", "../../kddockwidgets/build-msvc-install/lib", "../../python/python/tools_msvc/libs", "../../vcpkg/installed/x64-windows/lib", "../../vcpkg/installed/x64-windows-release/lib" }
             linkoptions { "/STACK:4194304"}
             objdir  ("../../obj/AfterNightExtensionHost/" .. common.WindowsOutputDir)
-            links { "kddockwidgets-qt6.lib", "tbb12.lib", "cmark-gfm.lib", "cmark-gfm-extensions.lib" }
+            links { "kddockwidgets-qt6.lib", "tbb12.lib" }
             disablewarnings { "4251" }
             qtincludepath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/include")
             qtlibpath("../../Qt6/" .. common.QT_VERSION .. "/msvc2022_64/lib")
@@ -2221,7 +2212,7 @@ workspace "AfterNight"
                 "../../vcpkg/installed/x64-linux-release/lib"
             }
             defines { "_DEBUG", "DEBUG", "linux", "__linux__", "KDDW_FRONTEND_QT", "KDDW_FRONTEND_QTWIDGETS" }
-            linkoptions  { "-lAfterNightProcesses_d", "-lAfterNightControls_d", "-lAfterNightConsumerRuntime_d", "-lAfterNightEngine_d", "-lAfterNightPlatform_d", "-lAfterNightExtensionProtocol_d", "-lkddockwidgets-qt6", "-ltbb", "-lpython3.14", "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic", "-Wl,-z,noexecstack", "-Wl,-rpath,'$$ORIGIN':'$$ORIGIN/lib'" }
+            linkoptions  { "-lAfterNightProcesses_d", "-lAfterNightControls_d", "-lAfterNightConsumerRuntime_d", "-lAfterNightEngine_d", "-lAfterNightPlatform_d", "-lAfterNightExtensionProtocol_d", "-lkddockwidgets-qt6", "-ltbb", "-lpython3.14", "-Wl,-z,noexecstack", "-Wl,-rpath,'$$ORIGIN':'$$ORIGIN/lib'" }
             symbols "On"
             targetname "AfterNightExtensionHost_d"
 
@@ -2235,7 +2226,7 @@ workspace "AfterNight"
                 "../../vcpkg/installed/x64-linux-release/lib"
             }
             defines { "NDEBUG","linux", "__linux__", "KDDW_FRONTEND_QT", "KDDW_FRONTEND_QTWIDGETS" }
-            linkoptions  { "-lAfterNightProcesses", "-lAfterNightControls", "-lAfterNightConsumerRuntime", "-lAfterNightEngine", "-lAfterNightPlatform", "-lAfterNightExtensionProtocol", "-lkddockwidgets-qt6", "-ltbb", "-lpython3.14", "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic", "-Wl,-z,noexecstack", "-Wl,-rpath,'$$ORIGIN':'$$ORIGIN/lib'" }
+            linkoptions  { "-lAfterNightProcesses", "-lAfterNightControls", "-lAfterNightConsumerRuntime", "-lAfterNightEngine", "-lAfterNightPlatform", "-lAfterNightExtensionProtocol", "-lkddockwidgets-qt6", "-ltbb", "-lpython3.14", "-Wl,-z,noexecstack", "-Wl,-rpath,'$$ORIGIN':'$$ORIGIN/lib'" }
             symbols "On"
             optimize "Speed"
             targetname "AfterNightExtensionHost"
@@ -2243,13 +2234,13 @@ workspace "AfterNight"
         filter {"action:vs*","configurations:Debug"}
             defines { "_DEBUG","DEBUG", "WIN32", "KDDW_FRONTEND_QT", "KDDW_FRONTEND_QTWIDGETS" }
             symbols "On"
-            links { "AfterNightProcesses_d.lib", "AfterNightControls_d.lib", "AfterNightConsumerRuntime_d.lib", "AfterNightEngine_d.lib", "AfterNightPlatform_d.lib", "AfterNightExtensionProtocol_d.lib", "kddockwidgets-qt6d.lib", "tbb12_debug.lib", "cmark-gfm.lib", "cmark-gfm-extensions.lib" }
+            links { "AfterNightProcesses_d.lib", "AfterNightControls_d.lib", "AfterNightConsumerRuntime_d.lib", "AfterNightEngine_d.lib", "AfterNightPlatform_d.lib", "AfterNightExtensionProtocol_d.lib", "kddockwidgets-qt6d.lib", "tbb12_debug.lib" }
             targetname "AfterNightExtensionHost_d"
 
         filter {"action:vs*","configurations:Release"}
             defines { "NDEBUG", "WIN32", "KDDW_FRONTEND_QT", "KDDW_FRONTEND_QTWIDGETS" }
             symbols "On"
-            links { "AfterNightProcesses.lib", "AfterNightControls.lib", "AfterNightConsumerRuntime.lib", "AfterNightEngine.lib", "AfterNightPlatform.lib", "AfterNightExtensionProtocol.lib", "kddockwidgets-qt6.lib", "tbb12.lib", "cmark-gfm.lib", "cmark-gfm-extensions.lib" }
+            links { "AfterNightProcesses.lib", "AfterNightControls.lib", "AfterNightConsumerRuntime.lib", "AfterNightEngine.lib", "AfterNightPlatform.lib", "AfterNightExtensionProtocol.lib", "kddockwidgets-qt6.lib", "tbb12.lib" }
             optimize "Speed"
             targetname "AfterNightExtensionHost"
 

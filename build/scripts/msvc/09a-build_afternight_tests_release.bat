@@ -41,8 +41,6 @@ xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\lcms2-2.dll ..\
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\opencv_imgproc4.dll ..\..\..\bin\msvc\release\
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\opencv_core4.dll ..\..\..\bin\msvc\release\
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\libsodium.dll ..\..\..\bin\msvc\release\
-xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\cmark-gfm.dll ..\..\..\bin\msvc\release\
-xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\cmark-gfm-extensions.dll ..\..\..\bin\msvc\release\
 
 if not exist "..\..\..\bin\msvc\release\platforms" mkdir "..\..\..\bin\msvc\release\platforms"
 REM Qt 6.10.3 package naming remains msvc2022_64 for MSVC toolchains
