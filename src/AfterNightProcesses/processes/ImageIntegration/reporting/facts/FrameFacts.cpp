@@ -93,87 +93,8 @@ namespace ImageIntegration::Reporting
     return 0.0;
 }
 
-/// The weight the stack gave each sample: the engine's own weighting over the measurements the stacking stage builds
-/// from the registration's records (`deriveStackWeights`), under the group's settings as its stack reads them and
-/// against the group's reference, derived in the session the builder is given. The photometric weights are shown at the
-/// engine's mean of one, every other weighting's relative to the heaviest frame - the scale the group's floor is stated
-/// on. Every frame weighs one where the stack weighs them equally - no weighting, a figure some frame lacks - and
-/// without a session.
-///
-/// @param session the session the weights are derived and the headers read in, or null.
-/// @param samples the group's measured frames.
-/// @param group the group.
-/// @return one weight per sample.
-[[nodiscard]] QList<double> computeWeightsForSamples(const an::consumer::EngineSession* session,
-                                                     const QList<QualityWeightSample>& samples,
-                                                     const WorkflowManifest::IntegrationGroup& group)
-{
-    QList<double> weights(samples.size(), 1.0);
-    const StackingSettings sanitized = ImageIntegration::sanitizeStackingSettings(group.stacking);
-    const an::Result<ImageIntegration::IntegrationStackChoice> choice =
-        ImageIntegration::integrationStackChoice(sanitized);
-    if (session == nullptr || samples.isEmpty() || !choice.hasValue() ||
-        choice->weighting == an::StackWeighting::Uniform)
-    {
-        return weights;
-    }
-
-    const an::StackWeighting source = choice->weighting;
-    // One operation reads every header an image count needs and derives the weights.
-    an::Result<an::consumer::OperationScope> scope = session->admit(
-        an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch, .maxConcurrency = 1u});
-    if (!scope.hasValue())
-    {
-        return weights;
-    }
-    std::vector<FrameId> frames;
-    std::vector<an::StackFrameMeasurement> measurements;
-    frames.reserve(static_cast<std::size_t>(samples.size()));
-    measurements.reserve(static_cast<std::size_t>(samples.size()));
-    for (const auto& sample : samples)
-    {
-        frames.emplace_back(sample.frameId);
-        an::StackFrameMeasurement measurement =
-            ImageIntegration::stackFrameMeasurementFor(sample.metrics, sample.noise);
-        if (source == an::StackWeighting::ImageCount)
-        {
-            // How many frames the light's header says it combines, as the stack reads it; one where it cannot be read.
-            const std::string utf8Path = sample.frameId.toUtf8().toStdString();
-            const an::Result<an::CodecImageInfo> probed = an::probeImage(
-                scope->engine(), scope->execution(), an::CodecReadRequest{.path = utf8Path, .validatePayload = false});
-            measurement.integratedFrameCount =
-                probed.hasValue() ? ImageIntegration::combinedFrameCount(probed->metadata.codec().cards()) : 1u;
-        }
-        else if (!ImageIntegration::carriesWeightingFigure(source, measurement))
-        {
-            // The stack weighs a set by a figure only when every frame carries it.
-            return weights;
-        }
-        measurements.push_back(std::move(measurement));
-    }
-    const std::optional<FrameId> reference = group.normalizationReferenceFrames.empty()
-                                                 ? std::nullopt
-                                                 : std::optional<FrameId>(group.normalizationReferenceFrames.front());
-    const an::Result<ImageIntegration::DerivedStackWeights> derived = ImageIntegration::deriveStackWeights(
-        scope->execution(), ImageIntegration::stackWeightingRequestFor(sanitized, source, choice->starCountScaling),
-        measurements, ImageIntegration::stackWeightingReferenceIndex(frames, reference));
-    if (!derived.hasValue())
-    {
-        LOG_WARNING("IntegrationReport: frame weights not derived: {}", derived.status().message());
-        return weights;
-    }
-    const double heaviest = *std::max_element(derived->weights.begin(), derived->weights.end());
-    const bool relative = source != an::StackWeighting::Photometric && heaviest > 0.0;
-    for (qsizetype i = 0; i < weights.size(); ++i)
-    {
-        const double weight = derived->weights[static_cast<std::size_t>(i)];
-        weights[i] = relative ? weight / heaviest : weight;
-    }
-    return weights;
-}
-
-/// The weight the stack recorded combining each sample with, on the scale `computeWeightsForSamples` shows: relative
-/// to the heaviest light, the photometric model's at its mean of one. A light the master does not combine - one a
+/// The weight the stack recorded combining each sample with, relative to the heaviest light, the photometric
+/// model's at its mean of one. A light the master does not combine - one a
 /// spatial re-stack left out - weighs nothing, and the others are as the stack weighed them among the lights it kept.
 ///
 /// @param samples the group's measured frames.

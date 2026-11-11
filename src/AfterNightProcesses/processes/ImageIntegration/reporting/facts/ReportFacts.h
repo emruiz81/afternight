@@ -412,9 +412,6 @@ struct QualityWeightSample
 [[nodiscard]] bool showsWeightFloor(const QString& weighting);
 [[nodiscard]] std::optional<double> medianOf(QList<double> values);
 [[nodiscard]] double resolveLightExposureSeconds(const WorkflowManifest::IntegrationGroup& group, int index);
-[[nodiscard]] QList<double> computeWeightsForSamples(const an::consumer::EngineSession* session,
-                                                     const QList<QualityWeightSample>& samples,
-                                                     const WorkflowManifest::IntegrationGroup& group);
 [[nodiscard]] QList<double> recordedWeightsForSamples(const QList<QualityWeightSample>& samples,
                                                       const StackQualityRecord& quality,
                                                       const WorkflowManifest::IntegrationGroup& group);
