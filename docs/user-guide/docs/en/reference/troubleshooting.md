@@ -396,7 +396,8 @@ Lights stay unregistered, or their stars do not match
 A run failed or was cancelled
 :   **Cause.** A stage stopped for the reason its log gives. Groups finished before it are kept.
 :   **Fix.** Keep the output folder as it is, and read the progress window's log. A run that kept a finished group
-    also leaves `workflow_report.html` and `workflow_log.txt` in its `history` folder. See
+    also leaves `workflow_report.html` and `workflow_log.txt` in its `history` folder, and the report opens with
+    what happened, what was kept and what to do. See
     [When a run stops or fails](../processes/stacking-integration/image-integration-reference.md#when-a-run-stops-or-fails).
 
 A run is over in seconds and writes nothing new, or reuses an older result
@@ -573,9 +574,10 @@ of **About > About AfterNight** also names. Send what lets a maintainer follow t
 5. **Add the computer** when the failure can depend on it: memory, disk, display or a library. Export **About >
    System Information**.
 6. **Add the log file's lines** around the failure when the console no longer has them.
-7. **For Image Integration,** add the run's `workflow_report.html` and `workflow_log.txt` from its `history` folder,
+7. **For Image Integration,** add the run's report and `workflow_log.txt` from its `history` folder,
    which [What a run writes](../processes/stacking-integration/image-integration-reference.md#what-a-run-writes)
-   describes.
+   describes. Send the report as one file, which **Save As...** in the run history writes:
+   `workflow_report.html` alone shows none of its pictures away from its folder.
 8. **Keep a crash dump** for when a maintainer asks for it, and send it then by a private route.
 
 What each source says, and what to remove before you share it:
@@ -605,7 +607,9 @@ The log file
 
 The Image Integration report and log
 :   The inputs, stages, settings, choices, results, warnings and failures of one run. They name your files and folders,
-    your equipment, the target's coordinates and your session notes.
+    your equipment, the target's coordinates and your session notes. The report saved as one file names your files
+    without their folders. See
+    [Image Integration Report](../processes/stacking-integration/integration-report.md#the-two-forms).
 
 A crash dump
 :   What AfterNight had in memory when it crashed. Never attach one to a public issue.

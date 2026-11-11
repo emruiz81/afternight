@@ -144,7 +144,8 @@ pins:
 11. **Follow the run.** The progress window names each stage and file, and **Cancel** stops at the next safe point.
     A box titled **Complete** reads "Workflow completed successfully." at the end.
 12. **Look at the masters.** With **Open integrated files** on, each master opens in its own view, nearly black until
-    you choose [Autostretch](../../reference/glossary.md#autostretch). **Open Report** shows the run's report.
+    you choose [Autostretch](../../reference/glossary.md#autostretch). **Open Report** shows the run's
+    [report](integration-report.md).
 
 ## Controls
 
@@ -792,7 +793,7 @@ controls:
       Marks the group's lights as calibrated already. No master, cosmetic correction, dark scaling, flat
       normalization or pedestal is applied, and no calibration warning is given for it.
     tradeoff: On for raw lights leaves every sensor defect in the master.
-    note: The run's report lists the group under **Calibration Summary**, so it is not read as one no master matched.
+    note: The run's report notes the group as calibrated already, so it is not read as one no master matched.
   - name: Bias, Dark or Flat cell menu
     kind: readout
     default: ""
@@ -1798,7 +1799,7 @@ controls:
   - name: Analyze Spatial Rejection Clusters
     kind: check
     default: "Off"
-    effect: Measures where rejected samples gather, and names the lights with the most in the report.
+    effect: Measures where rejected samples gather. The report outlines the clusters on the rejection map and lists them.
     enabled: For light groups with a rejection.
   - name: Re-Stack Excluding Flagged Frames
     kind: check
@@ -2079,10 +2080,14 @@ controls:
       Lists each run kept under `history`, newest first, with its date, mode, masters and time, and each group's
       master with a thumbnail. Hover a row for its details.
     range: >-
-      A run offers **Open All**, **Report**, **Log**, **Re-run** and **Delete**, and a master **Open** and **Compare**.
+      A run offers **Open All**, **Report**, **Save As...**, **Log**, **Re-run** and **Delete**, and a master **Open**
+      and **Compare**. **Save As...** writes the report as one file that opens on its own, and is offered for a run
+      that keeps its report as data.
       **Re-run** runs the archived settings in the window's output directory without a plan, and opens nothing.
       **Delete** removes the run's folder for good, after a question.
-    note: '**Report** writes the report again from the run''s record, then opens it.'
+    note: >-
+      **Report** writes the report again from the record the run kept, then opens it. For a run made by an earlier
+      version it says that the report cannot be written again, and opens the report that run wrote.
   - name: Disk space
     kind: readout
     default: "Disk: --"
@@ -2359,7 +2364,8 @@ An **Execution Error** box that reads "Unknown", a setting and "in group", and t
 - [Image Integration Lite](image-integration-lite.md) and the [Quick Start](../../getting-started/quick-start.md),
   the same workflow with its choices made for you.
 - [Image Integration Reference](image-integration-reference.md), for the matching rules, the files a run writes, how
-  a run decides what to reuse, and every message.
+  a run decides what to reuse, and every message, and [Image Integration Report](integration-report.md), for how to
+  read a run's report.
 - [Image Calibration](../calibration/image-calibration.md), [Image Registration](../registration-alignment/image-registration.md)
   and [Image Stacking](image-stacking.md), one step at a time on files you list.
 - [Plate Solving](../registration-alignment/plate-solving.md), to set up the solver some options need.

@@ -271,7 +271,8 @@ command writes back over the master in the output folder, which the steps never 
 You have the finished picture in the two files you saved. The output folder holds the linear master,
 `stacked_5544x3684_NGC253.fit`, which a new try at the later steps starts from, and the bias, dark and flat masters.
 Keep the separate masters of a mono camera too. Beside them are the registered lights, which you may delete once you
-are done, and under `history` a folder for each run with its report, `workflow_report.html`, its log and its settings.
+are done, and under `history` a folder for each run with its
+[report](../processes/stacking-integration/integration-report.md), `workflow_report.html`, its log and its settings.
 `history` keeps the newest runs only, within 20 runs and 5 GiB. To keep a run, copy the frames and the whole output
 folder, with `.afternight`, which lets a later run reuse this one.
 

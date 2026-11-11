@@ -176,6 +176,13 @@ Lite offer it.
 
 ## E
 
+### Effective frames
+
+How many [light frames](#light-frame) of equal weight, with no sample rejected, would give a
+[master](#master) the noise it has. A stack that weighs its lights unevenly, or rejects many samples, is worth
+fewer frames than it combined. The Image Integration report gives the figure for each master, beside the number of
+lights combined. See [Image Integration Report](../processes/stacking-integration/integration-report.md).
+
 ### Erosion
 
 A [morphology](#morphology) operation that takes the smallest value of each neighborhood: bright structures shrink
@@ -296,6 +303,13 @@ A [color model](#color-model) that states a color as a hue, a saturation and a v
 channels.
 
 ## I
+
+### Inherited solution
+
+A [plate solution](#plate-solution) that a stacked [master](#master) takes from the
+[reference frame](#reference-frame) of its registration, in place of a plate solve of its own. It holds because
+every light was aligned to that frame. The Image Integration report marks such a master **Astrometry inherited**,
+and one that was plate-solved after the stack **Astrometry solved**.
 
 ### Instrumental magnitude
 
@@ -448,6 +462,13 @@ A value in stated units, such as electrons or a flux, held in floating point. A 
 floating-point XISF image that declares a range other than 0 to 1, open as physical quantities and are not rescaled.
 The viewer and the processes read them as a [fraction of full scale](#fraction-of-full-scale).
 
+### Pixel coverage
+
+How many [light frames](#light-frame) gave a sample to one pixel of a stacked [master](#master). It is lower at
+the edges, where [dithering](#dithering) and registration leave fewer lights, and wherever
+[rejection](#rejection) removed samples. The Image Integration report gives the fewest, the median and the most
+over the master, and a coverage map shows it pixel by pixel.
+
 ### Pixel scale
 
 The angle of sky one pixel covers, in arcseconds per pixel: 206.265 times the pixel size in micrometers, divided by
@@ -599,6 +620,13 @@ distortion of the optics.
 ### SNR
 
 Signal-to-noise ratio: how strong the real signal is against the noise around it. Stacking more frames raises it.
+
+### SNR gain
+
+How much a stack raises the [SNR](#snr) over that of one frame. For frames of equal weight it is the square root
+of their number: nine frames give three times the signal to noise. The Image Integration report sets the gain a
+stack measured, the square root of its [effective frames](#effective-frames), beside the gain its number of
+lights promises.
 
 ### SPCC
 

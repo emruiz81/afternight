@@ -938,6 +938,13 @@ and no colour, a tip per mark, a sentence for nothing to draw. Give its classes 
 than a phone goes through `writeScrollingChart`; one drawn for a narrow place has a `max-width` in the stylesheet,
 so it keeps its size where a narrower window gives it the whole width.
 
+**The user guide.** `docs/user-guide/docs/en/processes/stacking-integration/integration-report.md` tells a reader
+how to read a report, in the report's own words: the names of its parts and blocks, of a light's states, of the
+pills and of the history row's two actions, and the messages those actions show. A change to any of those words, a
+new block, a new state or a new refusal changes that page in the same pull request, and a change to what the report
+looks like retakes the page's three pictures, which are renders of a report the application wrote
+(`docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md` has their rows).
+
 ## The suites, and the runs they build
 
 `Test_ImageIntegration` holds the report in `reporting/`, and what the archiver does with it in `workflow/`:
