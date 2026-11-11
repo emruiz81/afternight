@@ -25,8 +25,11 @@
 #include <QFileInfo>
 #include <QSet>
 #include <QTimeZone>
+#include <QtMath>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <utility>
 
 /**
@@ -149,7 +152,59 @@ namespace
     return frame;
 }
 
-void stateMetrics(const RegistrationMetricRow& row, ReportFrame& frame)
+/// A turn from which a transform's translation says nothing of where the light sat without the frame's size.
+constexpr double kTurnedDegrees = 1.0;
+
+/// States where a light sat against its reference and how far it is turned, from its transform's matrix.
+///
+/// The shift is how far the transform moves the frame's centre. The matrix's own translation is where the frame's
+/// corner goes: a light taken after a meridian flip is turned half a turn about its centre, so its corner lands a
+/// frame's width and height away though the light sits on the reference to within its dither.
+///
+/// @param matrix the transform's matrix, row by row.
+/// @param frameSize the light's width and height; nothing when the group states no size that reads.
+/// @param frame the light.
+void statePlacement(const std::array<double, 9>& matrix, const std::optional<QPair<int, int>>& frameSize,
+                    ReportFrame& frame)
+{
+    const double rotation = qRadiansToDegrees(std::atan2(matrix[3], matrix[0]));
+    if (std::isfinite(rotation))
+    {
+        frame.rotationDegrees = rotation;
+    }
+    if (!frameSize.has_value() && !(std::abs(rotation) < kTurnedDegrees))
+    {
+        // Without the frame's size a turned light's shift cannot be told from its turn.
+        return;
+    }
+    const double centreX = frameSize.has_value() ? 0.5 * static_cast<double>(frameSize->first) : 0.0;
+    const double centreY = frameSize.has_value() ? 0.5 * static_cast<double>(frameSize->second) : 0.0;
+    double shiftX = 0.0;
+    double shiftY = 0.0;
+    if (matrix[6] == 0.0 && matrix[7] == 0.0 && matrix[8] == 1.0)
+    {
+        // Written so that a transform that turns and scales nothing states its translation exactly.
+        shiftX = (matrix[0] - 1.0) * centreX + matrix[1] * centreY + matrix[2];
+        shiftY = matrix[3] * centreX + (matrix[4] - 1.0) * centreY + matrix[5];
+    }
+    else
+    {
+        const double scale = matrix[6] * centreX + matrix[7] * centreY + matrix[8];
+        if (!(std::abs(scale) > 1.0e-12))
+        {
+            return;
+        }
+        shiftX = (matrix[0] * centreX + matrix[1] * centreY + matrix[2]) / scale - centreX;
+        shiftY = (matrix[3] * centreX + matrix[4] * centreY + matrix[5]) / scale - centreY;
+    }
+    if (std::isfinite(shiftX) && std::isfinite(shiftY))
+    {
+        frame.shiftX = shiftX;
+        frame.shiftY = shiftY;
+    }
+}
+
+void stateMetrics(const RegistrationMetricRow& row, const std::optional<QPair<int, int>>& frameSize, ReportFrame& frame)
 {
     frame.registered = row.succeeded;
     frame.stars = row.stars;
@@ -170,10 +225,9 @@ void stateMetrics(const RegistrationMetricRow& row, ReportFrame& frame)
         frame.catalogMatches = row.catalogMatchedStars;
     }
     frame.transformKind = row.transformKind;
-    if (row.succeeded)
+    if (row.succeeded && row.transformMatrix.has_value())
     {
-        frame.shiftX = row.shiftX;
-        frame.shiftY = row.shiftY;
+        statePlacement(*row.transformMatrix, frameSize, frame);
     }
 }
 
@@ -593,6 +647,9 @@ void fillMetrics(ReportBuild& build, const WorkflowManifest::IntegrationGroup& g
         return;
     }
 
+    // The size of the group's lights, which says where the centre of one is.
+    const std::optional<QPair<int, int>> frameSize = parseResolutionDimensions(group.resolution);
+
     // The weighting the group's stack applied: none beside a combination that takes no weights or a merge.
     const StackingSettings applied = ImageIntegration::sanitizeStackingSettings(group.stacking);
     ReportMasterWeighting weighting;
@@ -620,7 +677,7 @@ void fillMetrics(ReportBuild& build, const WorkflowManifest::IntegrationGroup& g
             continue;
         }
         ++weighting.framesWithMetrics;
-        stateMetrics(*metric, frame);
+        stateMetrics(*metric, frameSize, frame);
         if (!frame.backgroundNoise.has_value() && noiseByFrame.contains(frame.path))
         {
             frame.backgroundNoise = positive(noiseByFrame.value(frame.path).background_noise);
@@ -813,9 +870,11 @@ void fillLeftOut(ReportBuild& build, const QHash<QString, ReportMaster*>& master
         }
     }
     QHash<QString, QString> registrationKeyOfGroup;
+    QHash<QString, QString> resolutionOfGroup;
     for (const auto& group : manifest.integrationGroups)
     {
         registrationKeyOfGroup.insert(group.groupKey.toString(), group.registrationGroupKey.toString().trimmed());
+        resolutionOfGroup.insert(group.groupKey.toString(), group.resolution);
     }
 
     const int utcOffsetSeconds = build.utcOffsetSeconds();
@@ -864,7 +923,7 @@ void fillLeftOut(ReportBuild& build, const QHash<QString, ReportMaster*>& master
             const QHash<QString, RegistrationMetricRow>& metrics = build.metrics(registrationKey);
             if (const auto metric = metrics.constFind(frame.path); metric != metrics.cend())
             {
-                stateMetrics(*metric, frame);
+                stateMetrics(*metric, parseResolutionDimensions(resolutionOfGroup.value(key)), frame);
             }
         }
 

@@ -31,6 +31,7 @@
 #include <QString>
 #include <QStringList>
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -61,10 +62,10 @@ struct RegistrationMetricRow
     bool succeeded = false;
     QString transformKind;
 
-    /// The translation of the transform that brought the light to the reference, for a kind whose record carries a
-    /// matrix; nothing for a polynomial kind, whose matrix is not the whole transform.
-    std::optional<double> shiftX;
-    std::optional<double> shiftY;
+    /// The matrix of the transform that brought the light to the reference, row by row, for a kind whose record
+    /// carries one; nothing for a polynomial kind, whose matrix is not the whole transform. Where the light sat is
+    /// read from it with the frame's size, which a metrics record does not state.
+    std::optional<std::array<double, 9>> transformMatrix;
 
     /// The background noise the detection measured, whether or not the registration succeeded; zero when the
     /// database states none.

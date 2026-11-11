@@ -681,9 +681,17 @@ struct ReportFrame
     std::optional<double> limitingMagnitude;
     std::optional<int> catalogMatches;
 
-    /// The translation that brought the light to the reference, and the kind of the transform.
+    /// How far the light sat from the reference, in pixels: where the transform that brought it there puts the
+    /// frame's centre, less the centre. Not the transform's own translation, which is where the frame's corner
+    /// goes and is about the frame's size for a light turned half a turn, whatever its dither.
     std::optional<double> shiftX;
     std::optional<double> shiftY;
+
+    /// How far the light is turned against the reference, in degrees between -180 and 180. A light taken after a
+    /// meridian flip is turned half a turn.
+    std::optional<double> rotationDegrees;
+
+    /// The kind of the transform.
     QString transformKind;
 
     /// The normalization's scale and offset, per channel.

@@ -928,6 +928,11 @@ void writeStateName(ReportMarkup& out, const ChartState state)
     out.text(stateName(state));
 }
 
+bool isTurned(const ReportFrame& frame)
+{
+    return frame.rotationDegrees.has_value() && std::abs(*frame.rotationDegrees) > 1.0;
+}
+
 QString fateLine(const ReportFrame& frame)
 {
     if (!frame.state.has_value())
@@ -1174,6 +1179,10 @@ std::optional<ReportDither> ditherOf(const ReportDocumentContext& context,
             }
             point.tip.lines
                 << documentText("Shift %1, %2 px").arg(formatFigure(*frame.shiftX), formatFigure(*frame.shiftY));
+            if (isTurned(frame))
+            {
+                point.tip.lines << documentText("Turned %1 degrees").arg(formatFigure(frame.rotationDegrees));
+            }
             point.tip.lines << fateLine(frame);
             chart.nights[series].points.push_back(point);
             if (point.state != ChartState::Used &&

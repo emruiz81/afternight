@@ -1281,10 +1281,20 @@ struct LightColumn
     columns.push_back(figureColumn(documentText("Residual"),
                                    documentText("How far the light's stars lie from the catalog's, in arcseconds."),
                                    [](const ReportFrame& frame) { return frame.astrometricRmsArcsec; }));
-    columns.push_back(figureColumn(documentText("Shift x"), documentText("The shift to the reference, in pixels."),
+    columns.push_back(figureColumn(documentText("Shift x"),
+                                   documentText("How far the light sat from the reference, in pixels."),
                                    [](const ReportFrame& frame) { return frame.shiftX; }));
-    columns.push_back(figureColumn(documentText("Shift y"), documentText("The shift to the reference, in pixels."),
+    columns.push_back(figureColumn(documentText("Shift y"),
+                                   documentText("How far the light sat from the reference, in pixels."),
                                    [](const ReportFrame& frame) { return frame.shiftY; }));
+    // A light's turn is a column only where it says something: a light taken after a meridian flip, a camera
+    // put back at another angle. The fraction of a degree every light is turned by is no column.
+    columns.push_back(figureColumn(documentText("Turn"),
+                                   documentText("How far the light is turned against the reference, in degrees. "
+                                                "Half a turn is a light taken after a meridian flip."),
+                                   [](const ReportFrame& frame) {
+                                       return isTurned(frame) ? frame.rotationDegrees : std::nullopt;
+                                   }));
     columns.push_back(figureColumn(documentText("Scale"),
                                    documentText("The normalization's scale, of the first channel."),
                                    [](const ReportFrame& frame) {

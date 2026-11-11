@@ -1953,3 +1953,44 @@ TEST_F(ReportHtmlWriterTest, TheEffectiveFramesHaveOneNameWhereverTheyArePrinted
     ASSERT_NE(stack, nullptr);
     EXPECT_TRUE(stack->text.contains(QStringLiteral("Effective frames"))) << stack->text.left(400).toStdString();
 }
+
+// A light's turn is a column of the table of lights only where it says something: a master with a light turned by
+// more than a degree. The fraction of a degree every light is turned by is no column.
+TEST_F(ReportHtmlWriterTest, ATurnedLightGivesTheTableOfLightsATurnColumn)
+{
+    const Rendered* report = reportOf(ReportScenarioId::OneMonoMaster);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    ASSERT_FALSE(model.masters.empty());
+    ReportMaster& master = model.masters.front();
+    ASSERT_GE(master.frames.size(), 2u);
+    const QString anchor = fileAnchor(master) + QStringLiteral("-lights");
+
+    const auto headings = [&anchor](const ParsedDocument& parsed) {
+        QStringList found;
+        const DocumentElement* lights = one(parsed, anchor);
+        if (lights != nullptr)
+        {
+            for (const DocumentElement* heading : namedInside(parsed, *lights, "th"))
+            {
+                found.append(heading->text.trimmed());
+            }
+        }
+        return found;
+    };
+
+    // No light is turned by a degree: no column.
+    for (ReportFrame& frame : master.frames)
+    {
+        frame.rotationDegrees = 0.02;
+    }
+    EXPECT_FALSE(headings(writtenAgain(model, *report)).contains(QStringLiteral("Turn")));
+
+    // One light was taken after a meridian flip.
+    master.frames[1].rotationDegrees = 180.0;
+    const ParsedDocument turned = writtenAgain(model, *report);
+    EXPECT_TRUE(headings(turned).contains(QStringLiteral("Turn")));
+    const DocumentElement* lights = one(turned, anchor);
+    ASSERT_NE(lights, nullptr);
+    EXPECT_TRUE(lights->text.contains(QStringLiteral("180")));
+}

@@ -1093,3 +1093,63 @@ TEST(ReportFrameFacts, TheLightsAStackRaisedToItsMinimumWeightAreCounted)
     EXPECT_DOUBLE_EQ(master.weighting->minimumWeight, 0.2);
     EXPECT_EQ(master.weighting->framesAtFloor, 2);
 }
+
+// A light taken after a meridian flip is turned half a turn about its centre. Its transform's translation is then
+// about the frame's width and height, though the light sits on the reference to within its dither: the shift a
+// report states is how far the frame's centre moves, and the turn is a fact of its own.
+TEST(ReportFrameFacts, ALightTurnedHalfATurnStatesItsDitherAndItsTurnNotTheFramesSize)
+{
+    const auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    const WorkflowManifest::RegistrationGroup& registration = scenario->manifest.registrationGroups.front();
+    const QStringList size =
+        scenario->manifest.integrationGroups.front().resolution.split(QLatin1Char('x'), Qt::SkipEmptyParts);
+    ASSERT_EQ(size.size(), 2);
+    const double width = size[0].toDouble();
+    const double height = size[1].toDouble();
+    ASSERT_GT(width, 0.0);
+    ASSERT_GT(height, 0.0);
+
+    // Every light sat 3.5 px right of and 2.25 px above the reference; every other one is turned half a turn.
+    const auto number = [](const double value) { return QString::number(value, 'g', 17); };
+    QList<QJsonObject> rows;
+    for (std::size_t light = 0; light < registration.lightFiles.size(); ++light)
+    {
+        QJsonObject row;
+        row.insert(QStringLiteral("frame_id"), registration.lightFiles[light].canonicalPath());
+        row.insert(QStringLiteral("stars"), 400);
+        row.insert(QStringLiteral("fwhm"), 2.5);
+        row.insert(QStringLiteral("snr"), 30.0);
+        row.insert(QStringLiteral("eccentricity"), 0.4);
+        row.insert(QStringLiteral("succeeded"), true);
+        row.insert(QStringLiteral("transform_json"),
+                   light % 2u == 0u
+                       ? QStringLiteral(R"({"kind":"similarity","matrix":[[-1,0,%1],[0,-1,%2],[0,0,1]]})")
+                             .arg(number(width + 3.5), number(height - 2.25))
+                       : QStringLiteral(R"({"kind":"similarity","matrix":[[1,0,3.5],[0,1,-2.25],[0,0,1]]})"));
+        rows.append(row);
+    }
+    const QString database = QDir(scenario->outputDirectory).filePath(QStringLiteral("turned_metrics.db"));
+    ASSERT_TRUE(writeRegistrationMetricsDb(database, registration.groupKey.toString(), 3, rows));
+    const ProductionReportSources production(scenario->session(), database);
+    const ReportModel model = buildReportModel(ReportModelInputs{.manifest = scenario->manifest,
+                                                                 .result = scenario->result,
+                                                                 .runDirectory = {},
+                                                                 .context = scenario->context,
+                                                                 .counters = std::nullopt},
+                                               production.sources());
+
+    const ReportMaster& master = model.masters.front();
+    ASSERT_GE(master.frames.size(), 2u);
+    for (std::size_t light = 0; light < master.frames.size(); ++light)
+    {
+        const ReportFrame& frame = master.frames[light];
+        SCOPED_TRACE(frame.fileName.toStdString());
+        ASSERT_TRUE(frame.shiftX.has_value());
+        ASSERT_TRUE(frame.shiftY.has_value());
+        EXPECT_NEAR(*frame.shiftX, 3.5, 1e-9);
+        EXPECT_NEAR(*frame.shiftY, -2.25, 1e-9);
+        ASSERT_TRUE(frame.rotationDegrees.has_value());
+        EXPECT_NEAR(std::abs(*frame.rotationDegrees), light % 2u == 0u ? 180.0 : 0.0, 1e-9);
+    }
+}
