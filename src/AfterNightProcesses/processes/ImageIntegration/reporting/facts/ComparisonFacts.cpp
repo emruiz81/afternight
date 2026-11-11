@@ -181,8 +181,12 @@ const char* const kStageRun = QT_TRANSLATE_NOOP("ImageIntegrationReport", "The r
     return QStringLiteral("report_previews/%1/%2").arg(master.previewFolder, QLatin1String(name));
 }
 
-/// Each master the run made beside the latest earlier run that made it. A master no earlier run made is new; a
-/// master the run reused is the earlier run's own and is compared with nothing; with no earlier run nothing is.
+/// The most earlier runs a master is set beside, the latest among them: what the document's switch holds.
+constexpr std::size_t kBaselinesAtMost = 6;
+
+/// Each master the run made beside the latest earlier run that made it, and the runs that made it before that
+/// one. A master no earlier run made is new; a master the run reused is the earlier run's own and is compared
+/// with nothing; with no earlier run nothing is.
 void fillBaselines(ReportBuild& build, ReportModel& model)
 {
     const std::vector<StoredRun>& runs = build.earlierRuns();
@@ -198,6 +202,7 @@ void fillBaselines(ReportBuild& build, ReportModel& model)
             continue;
         }
         ReportBaseline baseline;
+        std::vector<ReportBaseline> earlier;
         for (const StoredRun& run : runs)
         {
             const auto made =
@@ -208,26 +213,49 @@ void fillBaselines(ReportBuild& build, ReportModel& model)
             {
                 continue;
             }
-            baseline = masterFigures(*made);
-            baseline.runId = run.runId;
-            baseline.archivedAt = run.model.run.archivedAt;
-            baseline.made = true;
-            baseline.sideBySide = shapesDiffer(master, *made);
-            // The pictures are the ones that run archived, each under its own display stretch; they are copied into
-            // this run's folder when its report is stored, so the report stays whole once the history drops that
-            // run.
+            ReportBaseline figures = masterFigures(*made);
+            figures.runId = run.runId;
+            figures.archivedAt = run.model.run.archivedAt;
+            figures.made = true;
+            figures.sideBySide = shapesDiffer(master, *made);
             const QDir archive(history.filePath(run.runId));
-            if (!made->preview.trimmed().isEmpty() && build.exists(archive.filePath(made->preview)))
+            const bool hasPreview = !made->preview.trimmed().isEmpty() && build.exists(archive.filePath(made->preview));
+            const bool hasDetail = !made->detail.trimmed().isEmpty() && build.exists(archive.filePath(made->detail));
+            if (!baseline.made)
             {
-                baseline.preview = copiedPicture(master, kPreviousMasterPictureName);
+                // The latest run that made the master. Its pictures are the ones that run archived, each under its
+                // own display stretch; they are copied into this run's folder when its report is stored, so the
+                // report stays whole once the history drops that run.
+                if (hasPreview)
+                {
+                    figures.preview = copiedPicture(master, kPreviousMasterPictureName);
+                }
+                if (hasDetail)
+                {
+                    figures.detail = copiedPicture(master, kPreviousDetailPictureName);
+                }
+                baseline = std::move(figures);
+                continue;
             }
-            if (!made->detail.trimmed().isEmpty() && build.exists(archive.filePath(made->detail)))
+            // A run that made the master before that one. Its pictures stay where its own archive holds them, beside
+            // this run's folder: copying every earlier run's pictures into every run would fill the history with
+            // copies.
+            if (hasPreview)
             {
-                baseline.detail = copiedPicture(master, kPreviousDetailPictureName);
+                figures.preview = QStringLiteral("../%1/%2").arg(run.runId, made->preview.trimmed());
             }
-            break;
+            if (hasDetail)
+            {
+                figures.detail = QStringLiteral("../%1/%2").arg(run.runId, made->detail.trimmed());
+            }
+            earlier.push_back(std::move(figures));
+            if (earlier.size() + 1u == kBaselinesAtMost)
+            {
+                break;
+            }
         }
         master.baseline = std::move(baseline);
+        master.earlierBaselines = std::move(earlier);
     }
 }
 

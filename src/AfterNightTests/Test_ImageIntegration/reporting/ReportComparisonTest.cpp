@@ -840,3 +840,59 @@ TEST(ReportComparison, WhyALightFailedRegistrationIsStatedByTheRunThatRegistered
     }
     EXPECT_TRUE(saysWhyNot(alone));
 }
+
+// ---- The runs that made a master before the latest one.
+
+// A master several earlier runs made can be set beside each of them. The latest is its baseline, whose pictures
+// are copied into this run's folder; the runs before it are listed after, the latest first, each with its own
+// figures and its pictures named where that run's archive holds them. A master one earlier run made has none.
+TEST(ReportComparison, AMasterIsAlsoSetBesideTheRunsThatMadeItBeforeTheLatest)
+{
+    const auto scenario = archived(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_EQ(scenario->earlierRunDirectories.size(), 3);
+    const QString firstRun = runIdOf(scenario->earlierRunDirectories.at(0));
+    const QString secondRun = runIdOf(scenario->earlierRunDirectories.at(1));
+    const ReportModel first = storedReport(scenario->earlierRunDirectories.at(0));
+
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+
+    // The first run made the luminance master and the second made it again.
+    const ReportMaster* luminance = masterOfFilter(model, QStringLiteral("Luminance"));
+    ASSERT_NE(luminance, nullptr);
+    ASSERT_TRUE(luminance->baseline.has_value());
+    EXPECT_EQ(luminance->baseline->runId, secondRun);
+    ASSERT_EQ(luminance->earlierBaselines.size(), 1u);
+    const ReportBaseline& older = luminance->earlierBaselines.front();
+    EXPECT_TRUE(older.made);
+    EXPECT_EQ(older.runId, firstRun);
+    EXPECT_EQ(older.archivedAt, first.run.archivedAt);
+    const ReportMaster* made = masterOfFilter(first, QStringLiteral("Luminance"));
+    ASSERT_NE(made, nullptr);
+    EXPECT_EQ(older.frames, usedOf(*made));
+    EXPECT_EQ(older.backgroundNoise, made->snapshot.backgroundNoise);
+    EXPECT_EQ(older.snr, made->snapshot.snr);
+
+    // Its pictures are the first run's own files, named from this run's folder.
+    const QDir run(scenario->runDirectory);
+    ASSERT_FALSE(older.preview.isEmpty());
+    EXPECT_TRUE(older.preview.startsWith(QStringLiteral("../%1/").arg(firstRun))) << older.preview.toStdString();
+    EXPECT_TRUE(QFileInfo(run.filePath(older.preview)).isFile()) << older.preview.toStdString();
+    EXPECT_EQ(QFileInfo(run.filePath(older.preview)).canonicalFilePath(),
+              QFileInfo(QDir(scenario->earlierRunDirectories.at(0)).filePath(made->preview)).canonicalFilePath());
+    EXPECT_NE(older.preview, luminance->baseline->preview);
+
+    // The red master was made once, by the first run: there is no run before the latest.
+    const ReportMaster* red = masterOfFilter(model, QStringLiteral("Red"));
+    ASSERT_NE(red, nullptr);
+    ASSERT_TRUE(red->baseline.has_value());
+    EXPECT_EQ(red->baseline->runId, firstRun);
+    EXPECT_TRUE(red->earlierBaselines.empty());
+
+    // The stored document keeps them.
+    const ReportModelRead read = ReportModelJson::fromJson(ReportModelJson::toJson(model));
+    ASSERT_TRUE(read.model.has_value());
+    const ReportMaster* stored = masterOfFilter(*read.model, QStringLiteral("Luminance"));
+    ASSERT_NE(stored, nullptr);
+    EXPECT_EQ(stored->earlierBaselines, luminance->earlierBaselines);
+}

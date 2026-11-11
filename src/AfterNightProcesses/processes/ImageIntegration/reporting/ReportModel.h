@@ -912,6 +912,12 @@ struct ReportMaster
 
     std::optional<ReportBaseline> baseline;
 
+    /// The earlier runs that made the master before the one `baseline` names, the latest first: what the master
+    /// can be set beside when it is not the latest. Each names its pictures where that run's own archive holds
+    /// them, beside this run's folder, since only the latest run's are copied into it; a run the history has
+    /// dropped keeps its figures and loses its pictures.
+    std::vector<ReportBaseline> earlierBaselines;
+
     friend bool operator==(const ReportMaster&, const ReportMaster&) = default;
 };
 

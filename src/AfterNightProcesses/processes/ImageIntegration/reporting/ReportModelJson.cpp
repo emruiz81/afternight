@@ -872,6 +872,7 @@ template <> struct Fields<ReportMaster>
         v("weighting", s.weighting);
         v("frames", s.frames);
         v("baseline", s.baseline);
+        v("earlierBaselines", s.earlierBaselines);
     }
 };
 

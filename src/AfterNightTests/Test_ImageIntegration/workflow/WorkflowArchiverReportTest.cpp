@@ -579,3 +579,34 @@ TEST(WorkflowArchiverReport, TheArchiveKeepsWhyEachLightFailedRegistration)
     }
     EXPECT_GT(stated, 0);
 }
+
+// The pictures of the runs that made a master before the latest are in those runs' own folders. Once the history
+// drops such a run, a report written again names none of its pictures, and still sets the master beside it by
+// its figures.
+TEST(WorkflowArchiverReport, AReportWrittenAgainNamesNoPictureOfAnEarlierRunThatIsGone)
+{
+    std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+    const std::optional<ReportModel> model = storedModel(scenario->runDirectory);
+    ASSERT_TRUE(model.has_value());
+    const auto several = std::find_if(model->masters.begin(), model->masters.end(), [](const ReportMaster& master) {
+        return !master.earlierBaselines.empty() && !master.earlierBaselines.front().preview.isEmpty();
+    });
+    ASSERT_NE(several, model->masters.end());
+    const QString earlierRun = several->earlierBaselines.front().runId;
+    const QString pictures = QStringLiteral("../%1/report_previews/").arg(earlierRun);
+    ASSERT_TRUE(QString::fromUtf8(bytesOf(QDir(scenario->runDirectory).filePath(QLatin1String(kDocumentName))))
+                    .contains(pictures));
+
+    // The history drops that run.
+    const QDir history = QFileInfo(scenario->runDirectory).dir();
+    ASSERT_TRUE(QDir(history.filePath(earlierRun)).removeRecursively());
+
+    const WorkflowReportWritten again = rerenderWorkflowReport(scenario->runDirectory);
+    ASSERT_TRUE(again.isWritten()) << again.error.toStdString();
+    EXPECT_TRUE(again.faults.isEmpty());
+    const QString document = QString::fromUtf8(bytesOf(again.path));
+    EXPECT_FALSE(document.contains(pictures)) << "a picture of a run that is gone is still named";
+    EXPECT_TRUE(document.contains(QStringLiteral("cmprun-1"))) << "the run is still one the master is set beside";
+}
