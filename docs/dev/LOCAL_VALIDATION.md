@@ -239,6 +239,31 @@ place where a compiled kernel above the packaged floor is compared with its orac
 that reports one candidate backend and a Linux run that reports two is the expected result rather
 than a discrepancy.
 
+### The Image Integration report in browsers
+
+`Test_ImageIntegration` reads a report back as XML and proves its structure; what a reader sees is proved by
+opening it. A change to the report's document, its stylesheet, its script or its charts
+(`src/AfterNightProcesses/processes/ImageIntegration/reporting/`) writes the suite's sample reports and opens them
+in Chrome and Firefox:
+
+```text
+set AFTERNIGHT_WRITE_REPORT_SAMPLES=<folder>
+bin\msvc\release\Test_ImageIntegration.exe --gtest_filter=ReportSamples.*:ReportChartSamples.*
+set NODE_PATH=%TEMP%\afternight-guide-render\node_modules
+node build/scripts/render_integration_report.cjs --samples <folder> --shots <folder>
+```
+
+The two cases are skipped unless `AFTERNIGHT_WRITE_REPORT_SAMPLES` names a folder, so an ordinary run of the suite
+writes nothing there; set `AFTERNIGHT_TEST_STORAGE_ROOT` for it as for any suite. The first writes every scenario's
+report as the product's archiver stores it, in both forms; the second writes `report_charts.html`, a page of every
+chart. The render tool opens each report from disk with the network blocked, at three widths and in both themes,
+with axe-core and a print render, and exits 1 when a load fails. It uses the Node packages and the browsers of
+`build/scripts/render_user_guide.cjs`, kept outside the repository; that script's header gives the setup. Record the
+browsers' versions, the loads and how many failed, and attach the renders of what the change altered. Run it with
+nothing else loading the host: a load is held to a time bound. A report a real run wrote is opened the same way -
+`--samples` takes a folder that holds one output folder's `history/` per subfolder.
+[The Image Integration report](IMAGE_INTEGRATION_REPORT.md) says what the tool fails a load on.
+
 ## Linux validation supplied by the maintainer
 
 The agent provides the exact applicable command list. The maintainer runs it on the Linux machine and
