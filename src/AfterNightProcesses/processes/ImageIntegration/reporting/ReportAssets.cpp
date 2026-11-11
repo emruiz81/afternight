@@ -164,7 +164,27 @@ QString ReportAssets::image(const QString& relativePath)
     {
         return relative;
     }
-    const auto known = m_embedded.constFind(relative);
+    return embedded(relative, kEmbeddedImageLongestSide);
+}
+
+QString ReportAssets::thumbnail(const QString& relativePath)
+{
+    const QString relative = withForwardSlashes(relativePath.trimmed());
+    if (relative.isEmpty())
+    {
+        return {};
+    }
+    if (m_form == ReportForm::Linked)
+    {
+        return relative;
+    }
+    return embedded(relative, kEmbeddedThumbnailLongestSide);
+}
+
+QString ReportAssets::embedded(const QString& relative, const int longestSide)
+{
+    const QString key = QString::number(longestSide) + QLatin1Char('|') + relative;
+    const auto known = m_embedded.constFind(key);
     if (known != m_embedded.constEnd())
     {
         return *known;
@@ -173,13 +193,13 @@ QString ReportAssets::image(const QString& relativePath)
     if (!m_runDirectory.trimmed().isEmpty())
     {
         const QByteArray jpeg =
-            boundedJpeg(QDir(m_runDirectory).filePath(relative), kEmbeddedImageLongestSide, kEmbeddedImageQuality);
+            boundedJpeg(QDir(m_runDirectory).filePath(relative), longestSide, kEmbeddedImageQuality);
         if (!jpeg.isEmpty())
         {
             source = QStringLiteral("data:image/jpeg;base64,") + QString::fromLatin1(jpeg.toBase64());
         }
     }
-    m_embedded.insert(relative, source);
+    m_embedded.insert(key, source);
     return source;
 }
 

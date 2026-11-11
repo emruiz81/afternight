@@ -10,7 +10,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstring>
+#include <limits>
 #include <string_view>
 
 namespace ImageIntegration::Reporting
@@ -431,6 +433,19 @@ void writeMasterLink(ReportMarkup& out, const ReportDocumentContext& context, co
     }
 }
 
+void writeAnchorLink(ReportMarkup& out, const ReportDocumentContext& context, const QString& anchor,
+                     const QString& text)
+{
+    if (!anchor.isEmpty() && context.hasAnchor(anchor))
+    {
+        out.element("a", {{"href", QStringLiteral("#") + anchor}}, text);
+    }
+    else
+    {
+        out.text(text);
+    }
+}
+
 void writeSentence(ReportMarkup& out, const QString& pattern, const QStringList& values)
 {
     static const QRegularExpression kPlace(QStringLiteral("%([1-9])"));
@@ -490,6 +505,684 @@ QString dotSeparator()
     return QStringLiteral(" · ");
 }
 
+void openPart(ReportMarkup& out, const char* anchor, const int number, const QString& title, const QString& lead)
+{
+    out.open("section", {{"class", QStringLiteral("part")}, {"id", QLatin1String(anchor)}});
+    out.open("div", {{"class", QStringLiteral("parthead")}});
+    out.element("span", {{"class", QStringLiteral("eyebrow")}}, documentText("Part %1").arg(number));
+    out.element("h2", title);
+    if (!lead.isEmpty())
+    {
+        out.element("p", lead);
+    }
+    out.close("div");
+}
+
+void openBlock(ReportMarkup& out, const char* anchor, const QString& title, const QString& aside, const QString& lead)
+{
+    out.open("section", {{"class", QStringLiteral("block")}, {"id", QLatin1String(anchor)}});
+    out.open("h3");
+    out.text(title);
+    if (!aside.isEmpty())
+    {
+        out.text(QStringLiteral(" "));
+        out.element("small", aside);
+    }
+    out.close("h3");
+    if (!lead.isEmpty())
+    {
+        out.element("p", {{"class", QStringLiteral("lead")}}, lead);
+    }
+}
+
+void openCard(ReportMarkup& out, const QString& title, const QString& aside)
+{
+    out.open("div", {{"class", QStringLiteral("card")}});
+    if (title.isEmpty())
+    {
+        return;
+    }
+    out.open("h4");
+    out.element("span", title);
+    if (!aside.isEmpty())
+    {
+        out.element("small", aside);
+    }
+    out.close("h4");
+}
+
+void writePanelTitle(ReportMarkup& out, const char* heading, const QString& title, const QString& aside)
+{
+    out.open(heading, {{"class", QStringLiteral("ptitle")}});
+    out.element("span", title);
+    if (!aside.isEmpty())
+    {
+        out.element("small", aside);
+    }
+    out.close(heading);
+}
+
+void openPanel(ReportMarkup& out, const char* heading, const QString& title, const QString& aside)
+{
+    out.open("div", {{"class", QStringLiteral("inner")}});
+    if (!title.isEmpty())
+    {
+        writePanelTitle(out, heading, title, aside);
+    }
+}
+
+void writeCaption(ReportMarkup& out, const QString& text)
+{
+    out.element("p", {{"class", QStringLiteral("cap")}}, text);
+}
+
+void openFold(ReportMarkup& out, const QString& title, const QString& aside)
+{
+    out.open("details", {{"class", QStringLiteral("fold")}});
+    out.open("summary");
+    out.icon("chevron", QStringLiteral("chev"));
+    out.element("span", title);
+    if (!aside.isEmpty())
+    {
+        out.element("small", aside);
+    }
+    out.close("summary");
+}
+
+void closeFold(ReportMarkup& out)
+{
+    out.close("details");
+}
+
+void openFacts(ReportMarkup& out)
+{
+    out.open("dl", {{"class", QStringLiteral("facts")}});
+}
+
+void openFact(ReportMarkup& out, const QString& name, const QString& meaning)
+{
+    out.open("div");
+    out.open("dt");
+    if (meaning.isEmpty())
+    {
+        out.text(name);
+    }
+    else
+    {
+        writeTerm(out, name, meaning);
+    }
+    out.close("dt");
+    out.open("dd");
+}
+
+void closeFact(ReportMarkup& out)
+{
+    out.close("dd");
+    out.close("div");
+}
+
+void writeFact(ReportMarkup& out, const QString& name, const QString& value, const QString& meaning)
+{
+    if (value.trimmed().isEmpty())
+    {
+        return;
+    }
+    openFact(out, name, meaning);
+    out.text(value);
+    closeFact(out);
+}
+
+void closeFacts(ReportMarkup& out)
+{
+    out.close("dl");
+}
+
+void writeFacts(ReportMarkup& out, const std::vector<ReportFact>& facts)
+{
+    const bool any =
+        std::any_of(facts.begin(), facts.end(), [](const ReportFact& fact) { return !fact.value.trimmed().isEmpty(); });
+    if (!any)
+    {
+        return;
+    }
+    openFacts(out);
+    for (const ReportFact& fact : facts)
+    {
+        writeFact(out, fact.name, fact.value, fact.meaning);
+    }
+    closeFacts(out);
+}
+
+// ---- Settings.
+
+namespace
+{
+/// What a setting is counted under: its block's title and its own name.
+[[nodiscard]] QString settingKey(const QString& block, const QString& setting)
+{
+    return block + QChar(0x001F) + setting;
+}
+} // namespace
+
+void ReportSettingsMajority::add(const std::vector<ReportSettingsBlock>& blocks)
+{
+    ++m_groups;
+    for (const ReportSettingsBlock& block : blocks)
+    {
+        for (const ReportSettingsRow& row : block.rows)
+        {
+            ++m_uses[settingKey(block.title, row.name)][row.value];
+        }
+    }
+}
+
+std::optional<QString> ReportSettingsMajority::common(const QString& block, const QString& setting) const
+{
+    const auto uses = m_uses.constFind(settingKey(block, setting));
+    if (uses == m_uses.constEnd())
+    {
+        return std::nullopt;
+    }
+    for (auto value = uses->constBegin(); value != uses->constEnd(); ++value)
+    {
+        // More than half of the stage's groups, the ones that do not state the setting counted among them.
+        if (value.value() * 2 > m_groups)
+        {
+            return value.key();
+        }
+    }
+    return std::nullopt;
+}
+
+void openSettings(ReportMarkup& out, const QString& title, const char* heading)
+{
+    out.open("div", {{"class", QStringLiteral("setcard")}});
+    out.open(heading, {{"class", QStringLiteral("ptitle")}});
+    out.element("span", title);
+    out.close(heading);
+    out.open("dl");
+}
+
+void closeSettings(ReportMarkup& out)
+{
+    out.close("dl");
+    out.close("div");
+}
+
+void writeSettingLink(ReportMarkup& out, const ReportDocumentContext& context, const QString& name,
+                      const QString& anchor, const QString& text, const QString& note)
+{
+    out.open("div");
+    out.element("dt", name);
+    out.open("dd");
+    if (text.trimmed().isEmpty())
+    {
+        out.element("span", {{"class", QStringLiteral("muted")}}, documentText("none"));
+    }
+    else
+    {
+        writeAnchorLink(out, context, anchor, text);
+    }
+    if (!note.isEmpty())
+    {
+        out.text(QStringLiteral(" "));
+        out.element("span", {{"class", QStringLiteral("muted")}}, note);
+    }
+    out.close("dd");
+    out.close("div");
+}
+
+void writeSettingsBlock(ReportMarkup& out, const ReportDocumentContext& context, const ReportSettingsBlock& block,
+                        const QString& title, const char* heading, const ReportSettingsMajority* majority)
+{
+    openSettings(out, title.isEmpty() ? block.title : title, heading);
+    writeSettingRows(out, context, block, majority);
+    closeSettings(out);
+}
+
+void writeSettingRows(ReportMarkup& out, const ReportDocumentContext& context, const ReportSettingsBlock& block,
+                      const ReportSettingsMajority* majority)
+{
+    for (const ReportSettingsRow& row : block.rows)
+    {
+        const QString value = context.said(row.value);
+        const std::optional<QString> common =
+            majority != nullptr ? majority->common(block.title, row.name) : std::nullopt;
+        const bool differs = common.has_value() && *common != row.value;
+
+        QStringList tip;
+        if (differs)
+        {
+            tip << documentText("This group: %1").arg(value.isEmpty() ? noValueText() : value)
+                << documentText("Most groups: %1").arg(common->isEmpty() ? noValueText() : context.said(*common));
+        }
+        if (!row.requested.trimmed().isEmpty())
+        {
+            tip << documentText("Asked for: %1").arg(context.said(row.requested));
+            if (!row.reason.trimmed().isEmpty())
+            {
+                tip << context.said(row.reason);
+            }
+        }
+
+        out.open("div");
+        out.element("dt", row.name);
+        out.open("dd", {{"class", differs ? QStringLiteral("diff") : QString()},
+                        {"tabindex", tip.isEmpty() ? QString() : QStringLiteral("0")},
+                        {"data-tip",
+                         tip.isEmpty() ? QString() : row.name + QLatin1Char('\n') + tip.join(QLatin1Char('\n'))}});
+        if (differs)
+        {
+            out.element("span", {{"class", QStringLiteral("ne")}}, QStringLiteral("≠"));
+            out.text(QStringLiteral(" "));
+        }
+        out.text(value.isEmpty() ? noValueText() : value);
+        out.close("dd");
+        out.close("div");
+    }
+}
+
+void writeMarkKey(ReportMarkup& out, const QString& text)
+{
+    out.open("p", {{"class", QStringLiteral("keyline")}});
+    out.element("span", {{"class", QStringLiteral("ne")}}, QStringLiteral("≠"));
+    out.text(QStringLiteral(" "));
+    out.text(text);
+    out.close("p");
+}
+
+// ---- The groups of a model, by key.
+
+const ReportMaster* masterOfKey(const ReportModel& model, const QString& key)
+{
+    const auto found = std::find_if(model.masters.begin(), model.masters.end(),
+                                    [&key](const ReportMaster& master) { return master.key == key; });
+    return found == model.masters.end() ? nullptr : &*found;
+}
+
+const ReportLightGroup* lightGroupOfKey(const ReportModel& model, const QString& key)
+{
+    const auto found = std::find_if(model.lightGroups.begin(), model.lightGroups.end(),
+                                    [&key](const ReportLightGroup& group) { return group.key == key; });
+    return found == model.lightGroups.end() ? nullptr : &*found;
+}
+
+const ReportRegistrationGroup* registrationOfKey(const ReportModel& model, const QString& key)
+{
+    const auto found = std::find_if(model.registrationGroups.begin(), model.registrationGroups.end(),
+                                    [&key](const ReportRegistrationGroup& group) { return group.key == key; });
+    return found == model.registrationGroups.end() ? nullptr : &*found;
+}
+
+const ReportCalibrationMaster* calibrationOfSlug(const ReportModel& model, const QString& slug)
+{
+    if (slug.isEmpty())
+    {
+        return nullptr;
+    }
+    const auto found = std::find_if(model.calibrationMasters.begin(), model.calibrationMasters.end(),
+                                    [&slug](const ReportCalibrationMaster& master) { return master.slug == slug; });
+    return found == model.calibrationMasters.end() ? nullptr : &*found;
+}
+
+// ---- Lights and masters, in words.
+
+QString ReportDocumentContext::said(const QString& text) const
+{
+    QString shown = assets.message(text);
+    if (!shown.contains(QLatin1Char('|')))
+    {
+        return shown;
+    }
+    // A group's key reads as nothing to a person: where the run wrote one, the group's name stands. The longest key
+    // first, since one group's key may begin another's.
+    std::vector<std::pair<QString, QString>> named;
+    for (const ReportMaster& master : model.masters)
+    {
+        named.emplace_back(master.key, master.name);
+    }
+    for (const ReportRegistrationGroup& group : model.registrationGroups)
+    {
+        named.emplace_back(group.key, group.name);
+    }
+    std::stable_sort(named.begin(), named.end(),
+                     [](const auto& left, const auto& right) { return left.first.size() > right.first.size(); });
+    for (const auto& [key, name] : named)
+    {
+        if (key.contains(QLatin1Char('|')) && !name.isEmpty())
+        {
+            shown.replace(key, name);
+        }
+    }
+    return shown;
+}
+
+ChartState chartStateOf(const ReportFrame& frame)
+{
+    if (!frame.state.has_value())
+    {
+        return ChartState::Used;
+    }
+    switch (*frame.state)
+    {
+    case ReportFrameState::Used:
+        return ChartState::Used;
+    case ReportFrameState::ExcludedByUser:
+    case ReportFrameState::StackExcludedByUser:
+        return ChartState::ExcludedByUser;
+    case ReportFrameState::RegistrationFailed:
+        return ChartState::RegistrationFailed;
+    case ReportFrameState::LeftOutByStack:
+        return ChartState::LeftOutByStack;
+    case ReportFrameState::ExcludedOnRestack:
+        return ChartState::ExcludedOnRestack;
+    case ReportFrameState::NotStacked:
+        return ChartState::NotStacked;
+    }
+    return ChartState::Used;
+}
+
+QString stateName(const ChartState state)
+{
+    switch (state)
+    {
+    case ChartState::Used:
+        return documentText("Used");
+    case ChartState::ExcludedByUser:
+        return documentText("Excluded by you");
+    case ChartState::RegistrationFailed:
+        return documentText("Registration failed");
+    case ChartState::LeftOutByStack:
+        return documentText("Left out by the stack");
+    case ChartState::ExcludedOnRestack:
+        return documentText("Excluded on the restack");
+    case ChartState::NotStacked:
+        return documentText("Not stacked");
+    }
+    return {};
+}
+
+QString stateClass(const ChartState state)
+{
+    switch (state)
+    {
+    case ChartState::Used:
+        return QStringLiteral("s-used");
+    case ChartState::ExcludedByUser:
+        return QStringLiteral("s-user");
+    case ChartState::RegistrationFailed:
+        return QStringLiteral("s-registration");
+    case ChartState::LeftOutByStack:
+        return QStringLiteral("s-stack");
+    case ChartState::ExcludedOnRestack:
+        return QStringLiteral("s-restack");
+    case ChartState::NotStacked:
+        return QStringLiteral("s-notstacked");
+    }
+    return {};
+}
+
+void writeStateName(ReportMarkup& out, const ChartState state)
+{
+    out.element("i", {{"class", QStringLiteral("dot ") + stateClass(state)}}, QString());
+    out.text(stateName(state));
+}
+
+QString fateLine(const ReportFrame& frame)
+{
+    if (!frame.state.has_value())
+    {
+        return documentText("Fate not recorded");
+    }
+    const QString name = stateName(chartStateOf(frame));
+    return frame.stateDetail.trimmed().isEmpty() ? name : name + QStringLiteral(": ") + frame.stateDetail.trimmed();
+}
+
+ReportStateWords masterStateWords(const ReportMasterState state)
+{
+    switch (state)
+    {
+    case ReportMasterState::Made:
+        return {};
+    case ReportMasterState::Reused:
+        return {"reused", documentText("Reused")};
+    case ReportMasterState::Failed:
+        return {"critical", documentText("Failed")};
+    case ReportMasterState::NotReached:
+        return {"skipped", documentText("Not reached")};
+    case ReportMasterState::Cancelled:
+        return {"skipped", documentText("Cancelled")};
+    }
+    return {};
+}
+
+ReportStateWords astrometryWords(const ReportAstrometryOutcome outcome)
+{
+    switch (outcome)
+    {
+    case ReportAstrometryOutcome::Inherited:
+        return {"good", documentText("Inherited")};
+    case ReportAstrometryOutcome::Solved:
+        return {"good", documentText("Solved")};
+    case ReportAstrometryOutcome::None:
+        return {"warning", documentText("None")};
+    case ReportAstrometryOutcome::NotRecorded:
+        return {};
+    }
+    return {};
+}
+
+QString calibrationStateNote(const ReportCalibrationState state)
+{
+    switch (state)
+    {
+    case ReportCalibrationState::Reused:
+        return documentText("reused");
+    case ReportCalibrationState::Supplied:
+        return documentText("supplied by you");
+    case ReportCalibrationState::Failed:
+        return documentText("failed");
+    case ReportCalibrationState::Made:
+        return {};
+    }
+    return {};
+}
+
+QHash<QString, QString> masterLabels(const ReportModel& model)
+{
+    const bool severalTargets = model.run.targets.size() > 1;
+    QHash<QString, QString> labels;
+    QHash<QString, int> uses;
+    for (const ReportMaster& master : model.masters)
+    {
+        QString label = master.filter.trimmed();
+        if (master.kind == ReportMasterKind::CombinedRgb)
+        {
+            label = documentText("RGB");
+        }
+        if (label.isEmpty())
+        {
+            label = master.name;
+        }
+        else if (severalTargets && !master.target.trimmed().isEmpty())
+        {
+            label = master.target.trimmed() + QLatin1Char(' ') + label;
+        }
+        labels.insert(master.key, label);
+        ++uses[label];
+    }
+    for (const ReportMaster& master : model.masters)
+    {
+        if (uses.value(labels.value(master.key)) > 1)
+        {
+            labels.insert(master.key, master.name);
+        }
+    }
+    return labels;
+}
+
+MasterUse useOf(const ReportMaster& master)
+{
+    MasterUse use;
+    use.taken = static_cast<int>(master.frames.size());
+    bool stated = false;
+    int used = 0;
+    double seconds = 0.0;
+    for (const ReportFrame& frame : master.frames)
+    {
+        stated = stated || frame.state.has_value();
+        if (frame.state == ReportFrameState::Used)
+        {
+            ++used;
+            seconds += frame.exposureSeconds.value_or(0.0);
+        }
+    }
+    if (stated)
+    {
+        use.used = used;
+        use.integratedMs = static_cast<qint64>(std::llround(seconds * 1000.0));
+    }
+    return use;
+}
+
+bool isThere(const ReportMaster& master)
+{
+    return master.state == ReportMasterState::Made || master.state == ReportMasterState::Reused;
+}
+
+bool runStopped(const ReportModel& model)
+{
+    return model.run.outcome == ReportOutcome::Partial || model.run.outcome == ReportOutcome::Failed ||
+           model.run.outcome == ReportOutcome::Cancelled;
+}
+
+double valueOf(const std::optional<double>& value)
+{
+    return value.has_value() ? *value : std::numeric_limits<double>::quiet_NaN();
+}
+
+std::optional<double> medianOfValues(std::vector<double> values)
+{
+    const std::optional<ChartRange> range = chartRange(std::move(values));
+    return range.has_value() ? std::optional<double>(range->median) : std::nullopt;
+}
+
+QString percentText(const double fraction)
+{
+    return formatFigure(100.0 * fraction) + QStringLiteral(" %");
+}
+
+QString clockText(const QDateTime& instant, const ReportTimeZone& zone)
+{
+    return instant.toTimeZone(zone.resolved()).time().toString(QStringLiteral("HH:mm"));
+}
+
+double minutesIntoNight(const QDate& night, const QDateTime& instant, const ReportTimeZone& zone)
+{
+    const QDateTime local = instant.toTimeZone(zone.resolved());
+    return static_cast<double>(night.daysTo(local.date())) * 1440.0 +
+           static_cast<double>(local.time().msecsSinceStartOfDay()) / 60000.0;
+}
+
+std::optional<ReportDither> ditherOf(const ReportDocumentContext& context,
+                                     const std::vector<const ReportMaster*>& masters, const int size)
+{
+    // The nights in order; the lights that state none are a series of their own, last.
+    std::vector<QDate> nights;
+    bool anyWithoutNight = false;
+    for (const ReportMaster* master : masters)
+    {
+        for (const ReportFrame& frame : master->frames)
+        {
+            if (!frame.shiftX.has_value() || !frame.shiftY.has_value())
+            {
+                continue;
+            }
+            if (!frame.night.has_value())
+            {
+                anyWithoutNight = true;
+            }
+            else if (std::find(nights.begin(), nights.end(), *frame.night) == nights.end())
+            {
+                nights.push_back(*frame.night);
+            }
+        }
+    }
+    std::sort(nights.begin(), nights.end());
+    if (nights.empty() && !anyWithoutNight)
+    {
+        return std::nullopt;
+    }
+
+    DitherChart chart;
+    chart.description = {documentText("Where each light sat against the registration reference"),
+                         documentText("No light states where it sat.")};
+    chart.xAxis.title = documentText("Shift in x (px)");
+    chart.yAxis.title = documentText("Shift in y (px)");
+    chart.size = size;
+    for (const QDate& night : nights)
+    {
+        chart.nights.push_back(ChartSeries{.name = formatDate(night), .points = {}});
+    }
+    if (anyWithoutNight)
+    {
+        chart.nights.push_back(ChartSeries{.name = documentText("No capture time"), .points = {}});
+    }
+
+    std::vector<ChartState> leftOut;
+    for (const ReportMaster* master : masters)
+    {
+        const QString label = context.labelOf(*master);
+        for (const ReportFrame& frame : master->frames)
+        {
+            if (!frame.shiftX.has_value() || !frame.shiftY.has_value())
+            {
+                continue;
+            }
+            const std::size_t series =
+                frame.night.has_value()
+                    ? static_cast<std::size_t>(std::find(nights.begin(), nights.end(), *frame.night) - nights.begin())
+                    : nights.size();
+            ChartPoint point;
+            point.x = *frame.shiftX;
+            point.y = *frame.shiftY;
+            point.state = chartStateOf(frame);
+            // Where several masters share the chart a light is named by its master and its time: its file's name
+            // is in the master's own chart and table.
+            point.tip.heading = masters.size() > 1 ? label : frame.fileName;
+            if (frame.capturedAt.has_value())
+            {
+                point.tip.lines << formatDateTime(*frame.capturedAt, context.zone);
+            }
+            point.tip.lines
+                << documentText("Shift %1, %2 px").arg(formatFigure(*frame.shiftX), formatFigure(*frame.shiftY));
+            point.tip.lines << fateLine(frame);
+            chart.nights[series].points.push_back(point);
+            if (point.state != ChartState::Used &&
+                std::find(leftOut.begin(), leftOut.end(), point.state) == leftOut.end())
+            {
+                leftOut.push_back(point.state);
+            }
+        }
+    }
+
+    std::vector<ChartLegendItem> legend;
+    for (std::size_t night = 0; night < chart.nights.size(); ++night)
+    {
+        legend.push_back(ChartLegendItem{.mark = ChartLegendItem::Mark::Night,
+                                         .state = ChartState::Used,
+                                         .night = static_cast<int>(night),
+                                         .label = chart.nights[night].name,
+                                         .value = formatCount(static_cast<qint64>(chart.nights[night].points.size()))});
+    }
+    for (const ChartState state : leftOut)
+    {
+        legend.push_back(ChartLegendItem{
+            .mark = ChartLegendItem::Mark::Cross, .state = state, .night = 0, .label = stateName(state), .value = {}});
+    }
+    return ReportDither{.chart = ditherChart(chart), .legend = chartLegend(legend)};
+}
+
 // ---- The document.
 
 QString reportStylesheet()
@@ -511,16 +1204,26 @@ ReportDocument writeReportDocument(const ReportModel& model, const ReportDocumen
         .model = model,
         .assets = assets,
         .zone = ReportTimeZone{.id = model.run.timeZoneId, .utcOffsetSeconds = model.run.utcOffsetSeconds},
-        .anchors = {}};
+        .anchors = {},
+        .labels = masterLabels(model)};
+    // Every part states its anchors before any part is written, so a link is made only to a place that exists.
     context.anchors.insert(QStringLiteral("top"));
-    for (const QString& anchor : summaryAnchors(model))
+    for (const QStringList& anchors : {summaryAnchors(model), mastersAnchors(model), sharedAnchors(model),
+                                       runAnchors(model), provenanceAnchors(model)})
     {
-        context.anchors.insert(anchor);
+        for (const QString& anchor : anchors)
+        {
+            context.anchors.insert(anchor);
+        }
     }
 
     const ReportMarkup header = writeReportHeader(context);
     std::vector<ReportPart> parts;
     parts.push_back(writeReportSummary(context));
+    parts.push_back(writeReportMasters(context));
+    parts.push_back(writeReportShared(context));
+    parts.push_back(writeReportRun(context));
+    parts.push_back(writeReportProvenance(context));
 
     ReportMarkup body;
     body.open("div", {{"class", QStringLiteral("shell")}});

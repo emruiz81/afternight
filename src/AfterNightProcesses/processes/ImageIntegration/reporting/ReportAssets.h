@@ -37,6 +37,9 @@ enum class ReportForm
 /// The longest side, in pixels, of a picture inside an embedded document.
 inline constexpr int kEmbeddedImageLongestSide = 1280;
 
+/// The longest side, in pixels, of a picture an embedded document shows small.
+inline constexpr int kEmbeddedThumbnailLongestSide = 480;
+
 /// The JPEG quality a picture inside an embedded document is written at.
 inline constexpr int kEmbeddedImageQuality = 82;
 
@@ -78,6 +81,17 @@ public:
     ///     an embedded document never names a file outside itself.
     [[nodiscard]] QString image(const QString& relativePath);
 
+    /// What an `img` element takes as its source where the picture is shown small: on a card of the gallery, in
+    /// the heading of a master's file, in a row of a table.
+    ///
+    /// Linked: the same file `image` names, which the browser reduces. Embedded: a `data:` address holding the
+    /// picture bounded to `kEmbeddedThumbnailLongestSide`, so that a picture shown small and whole in one document
+    /// is not carried in it twice at its whole size.
+    ///
+    /// @param relativePath the picture's path under the run's folder, as the model states it.
+    /// @return the source; empty when the model states no picture or an embedded document cannot read it.
+    [[nodiscard]] QString thumbnail(const QString& relativePath);
+
     /// A file's path as the document prints it: as given in a linked document, its name alone in an embedded one.
     [[nodiscard]] QString path(const QString& path) const;
 
@@ -96,6 +110,9 @@ private:
 
     /// The folders dropped from a message, longest first.
     QStringList m_hiddenFolders;
+
+    /// A picture's source inside an embedded document, bounded to a longest side; a picture is read once per bound.
+    [[nodiscard]] QString embedded(const QString& relative, int longestSide);
 
     QHash<QString, QString> m_embedded;
 };
