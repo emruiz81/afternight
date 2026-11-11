@@ -139,6 +139,7 @@ nav:
       - Stacking & Integration:
           - Image Integration: processes/stacking-integration/image-integration.md
           - Image Integration Reference: processes/stacking-integration/image-integration-reference.md
+          - Image Integration Report: processes/stacking-integration/integration-report.md
           - Image Integration Lite: processes/stacking-integration/image-integration-lite.md
           - Image Stacking: processes/stacking-integration/image-stacking.md
           - Image Stacking Reference: processes/stacking-integration/image-stacking-reference.md

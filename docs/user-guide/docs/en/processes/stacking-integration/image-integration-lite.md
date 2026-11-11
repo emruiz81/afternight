@@ -88,7 +88,8 @@ pins:
    warnings.
 7. **Run.** Choose **Run Integration**. A progress window names each stage, and a box titled **Complete** reads
    "Workflow completed successfully." at the end.
-8. **Look at the masters.** Choose **Open Report** in the progress window for the report, then **Close**. Each master
+8. **Look at the masters.** Choose **Open Report** in the progress window for the
+   [report](integration-report.md), then **Close**. Each master
    is open in a view of its own, nearly black until you choose
    [**Autostretch**](../../reference/glossary.md#autostretch) in its display mode box. Check stars, corners and dust
    shadows at 100 %.
@@ -172,9 +173,9 @@ controls:
       Besides the masters and `registered_lights`, the folder receives `registration_metrics.db`, the folder
       `.afternight\image_integration` with `artifacts.db`, the normalization documents and, with drizzle, the
       drizzle documents, and `history\<run>` for each run, named by its date and time. That folder holds
-      `workflow_report.html`, `workflow_report.md`, `workflow_log.txt`, `workflow_manifest.json` and, under
-      `groups`, a copy of each stacked master with a preview. Calibrated lights are kept in memory and never
-      written.
+      `workflow_report.html`, `workflow_report.json`, `workflow_log.txt`, `workflow_manifest.json`, the report's
+      pictures under `report_previews` and, under `groups`, a copy of each stacked master with a preview.
+      Calibrated lights are kept in memory and never written.
   - name: Browse
     kind: button
     default: ""
@@ -590,6 +591,9 @@ controls:
     default: ""
     effect: Opens the run's `workflow_report.html` in your web browser.
     enabled: Once the run has ended with a report.
+    note: >-
+      Lite does not list earlier runs. To write the report again or to save it as one file, open Image
+      Integration with the same output directory and use the run's row under **Run History**.
   - name: Close
     kind: button
     default: ""
@@ -675,7 +679,7 @@ Choose **Run Integration**, every setting at its default. The run took under a m
 registration chose one OIII light as the reference of all 64, so the three masters line up. For the flats, with
 \(N = 50\), equation (2) gives \(3.8 - 0.8495 = 2.9505\), so \(k = 3.0\). The 20 OIII lights give
 \(3.5 - 0.6505 = 2.8495\), so Winsorized Sigma Clipping at 2.8, and the 19 SII lights 2.9. The 25 Ha lights take
-Linear Fit at 5 and 4. The report's rejection rows say the same.
+Linear Fit at 5 and 4. The report's **Left to the application** table says the same.
 
 The folder then holds three flat masters such as `master_flat_3008x3004_Ha.fit`, the aligned lights under
 `registered_lights\reg_3008x3004_M_16`, and `stacked_3008x3004_Ha_M_16.fit` with its Oiii and Sii twins. The Ha

@@ -185,7 +185,8 @@ in the stacking settings before the run.
 ## The result
 
 You have one linear master for each filter that holds the whole field, in the output folder, and the cropped,
-corrected copy you saved. Under `history` the run keeps a folder with its report, `workflow_report.html`, and its log.
+corrected copy you saved. Under `history` the run keeps a folder with its
+[report](../processes/stacking-integration/integration-report.md), `workflow_report.html`, and its log.
 The registered lights, unless you let them be discarded, take the most room, and you may delete them once the master
 is right.
 
