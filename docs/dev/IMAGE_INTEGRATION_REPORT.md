@@ -90,20 +90,22 @@ first because of what the Markdown cannot give:
 | `ReportModel` | `reportSchema`, `run`, `issues`, `targets`, `masters`, `calibrationMasters`, `lightGroups`, `registrationGroups`, `stages`, `decisions`, `comparison`, `history`, `notStated` |
 | `ReportRun` | How the run ended and that in one sentence; the title, process and profile; the targets; mode, scope and the groups an incremental run found changed; the masters by what became of them; lights and exposure; warnings and errors counted; the executor's interval with the preparation and executor phases when timed; the counters when collected; the session's notes; nights, lights by filter, equipment, what the lights' headers state; the application's version, the execution, when and where it was archived, the host; the archive's and the manifest's formats; the three fingerprints; the output folder; the settings stated once; the log |
 | `ReportMaster` | One per master the run planned, a combined colour image among them: key, anchor, preview folder, name, target, filter, kind, state; file, size and whether the archive kept a copy; lights and exposures; the calibration masters its lights take; registration group; the solution's origin; stacking and drizzle in a line each; time and finalization phases; what one read measured, per channel, and the headline figures taken from it; the stack's record; its picture and maps; its own settings; how its lights were weighed; its lights |
-| `ReportFrame` | One per light of a master's group, in the order of the group's lights: file, exposure, whether its registration succeeded and what it recorded, the weight the stack gave it, its quality score and its share of the stack |
-| `ReportCalibrationMaster` | Kind, key, anchor, file, what became of it (`Made`, `Reused`, `Supplied`, `Failed`), the frames it is stacked from, the masters a flat is calibrated with, its stacking settings |
-| `ReportLightGroup` | A group of lights the user marked as calibrated already |
+| `ReportFrame` | One per light of a master's group, in the order of the group's lights: file, exposure, when it was taken and on which night, what became of it and why, whether its registration succeeded and what it recorded, its shift against the reference, the normalization's scale and offset, the weight the stack gave it, its quality score, its share of the stack, the share of its samples the stack rejected, and the gain, offset and temperature its header states |
+| `ReportCalibrationMaster` | Kind, key, anchor, file, its size and when it changed, what became of it (`Made`, `Reused`, `Supplied`, `Failed`), the frames it is stacked from, its exposure, the masters a flat is calibrated with and their anchors, its stacking settings, its level and noise per channel with the share of the frame they were measured over, and the masters whose lights it calibrates |
+| `ReportLightGroup` | The lights of one master that share a calibration: the master they are stacked into, how many they are, the masters they take with their anchors, their calibration settings, or that they were marked as calibrated already |
 | `ReportRegistrationGroup` | Key, anchor, lights and how many registered, the reference and who chose it, the transform and the kinds the registration recorded, the alignment's correction counts, the comet fits, the catalog sources kept for the colour calibration, its settings, the masters it serves |
 | `ReportStage` | A stage as the run timed it: name, state, the run's own status word, time, the groups it works on |
 | `ReportDecision` | A setting the application decided: what, for which group, what was asked, what it resolved to, why |
 | `ReportTarget` | A target's lights, exposure, filters, masters and the mean of what its masters measured |
+| `ReportIssue` | Kind, severity, title, detail, what to do where there is something true to say, the group it concerns and the anchor of the place that shows it |
+| `ReportNotStated` | Something the report could not state, and why |
 | `ReportComparison` | The run's totals beside those of the most recent earlier run of the folder that completed |
 
-The builder states today what the Markdown report states. The model also defines what the Markdown has no word
-for, which nothing fills yet: a light's state and the reason for it, its capture time, shift and normalization
-coefficients; the issues; a master's sample distribution, full-scale picture and baseline; a calibration master's
-level, noise and picture; the lights grouped by the calibration they share; the engine's memory, the cache's figures
-and what was written to disk; the runs of the folder; and what the report could not state.
+The model states more than the Markdown report does: each light's fate, the issues, the spread of a master's
+samples, the calibration masters' levels, the lineage and what it could not state. It defines four things nothing
+fills yet, each waiting for a record a run does not write or for the document: a master's full-scale picture and
+its baseline in an earlier run, a calibration master's picture, the runs of the folder, and the two states of a
+light the user left out, which the manifest does not name.
 
 ### What the builder reads through
 
@@ -112,33 +114,41 @@ stand in for any of them:
 
 | Source | Answers |
 | --- | --- |
-| `IReportMetrics` | A registration group's latest settings version, its lights' metrics and noise at a version, the comet fits and the matched catalog sources |
+| `IReportMetrics` | A registration group's latest settings version, its lights' metrics and noise at a version, the reference it brought them to, the comet fits and the matched catalog sources |
 | `IReportHeaders` | A file's header, read without its pixels |
-| `IReportImages` | One read of an image, measured per channel |
-| `IReportFiles` | Whether a file is there, its size, when it changed, a text file's contents |
+| `IReportImages` | One read of an image, measured per channel with the spread of its samples; or measured for its level and noise alone |
+| `IReportFiles` | Whether a file is there, its size, when it changed, a text file's contents, the folders inside a folder |
 | `IReportHost` | The time, the time zone and the platform |
 
 `ProductionReportSources` holds the product's implementations: the metrics database opened once and closed with the
 object, headers probed and images measured in the engine session it is given, the host's files and clock. **The
-caller names the metrics database**, not the builder: a model of the run being committed reads the output folder's,
-and a model of a run read later must read that run's own snapshot, since the output folder's holds today's metrics.
+caller names the metrics database**, not the builder: `committedRunMetricsDatabase(manifest)` for the run being
+committed, which is the output folder's, and `archivedRunMetricsDatabase(runDirectory)` for a run read later, which
+is that run's own snapshot. The output folder's database is never read for another run: it holds the metrics of the
+folder's latest run, and a case builds a model for an archive while the folder holds a different database and finds
+the snapshot's figures. The caller also says whether the run is read from its archive
+(`ReportModelInputs::readFromArchive`): then nothing a later run may have replaced outside the archive is read, and
+the normalization's coefficients are named among what is not stated.
+
 The builder asks for each image and each header once however many facts need it (`ReportBuild`); a case counts the
-reads.
+reads and finds one per master and one per calibration master. A file that is not there is not probed.
 
 ### How it is built
 
 `buildReportModel` calls one function per area, in an order that matters: the lights and the settings are stated on
-the masters and the groups, and the run's rollups read what the masters measured.
+the masters and the groups, the lineage joins what three areas state, the run's rollups read what the masters
+measured, and the issues read everything.
 
 | Unit (`reporting/facts/`) | States |
 | --- | --- |
-| `MasterFacts.cpp` | The masters: state, file, measurement, stack, maps, pictures |
-| `FrameFacts.cpp` | Each master's lights and how they were weighed |
-| `CalibrationFacts.cpp` | The calibration masters and the pre-calibrated groups |
+| `MasterFacts.cpp` | The masters: state, file, measurement and spread, the solution's facts, stack, maps, pictures; a reused master from the run that made it |
+| `FrameFacts.cpp` | Each master's lights: when they were taken, what their headers and their registration state, how they were weighed, what became of them, their photometry |
+| `CalibrationFacts.cpp` | The calibration masters with their levels; the groups of lights and the lineage (`fillLineage`) |
 | `RegistrationFacts.cpp` | The registration groups |
 | `SettingsFacts.cpp` | Every group's settings, the run's own, and the decisions |
-| `RunFacts.cpp` | The run: outcome, totals, stages, timings, counters, nights, equipment, headers, provenance, targets |
+| `RunFacts.cpp` | The run: outcome, totals, stages, timings, counters, memory, nights, acquisition, equipment, headers, provenance, targets; what was written to disk (`fillDisk`) |
 | `ComparisonFacts.cpp` | The totals of this run and of the earlier one |
+| `IssueFacts.cpp` | The issues, and the outcome they settle |
 
 `facts/ReportFacts.h` is private to the reporting units. It declares those functions and every function that reads
 a fact out of a run's records - an exposure breakdown, a target's name, a transform's name, a light's weight, the
@@ -158,9 +168,10 @@ Rules the builder keeps:
   said to have reused a master it may never have reached.
 - **A result that is no group of the manifest is a master of its own.** The combined colour image is keyed by
   `combinedRgbGroupKey` of its registration group; it has a file, a measurement and no lights of its own.
-- **The outcome is one of five.** A run the user stopped is `Cancelled`. A run that failed is `Partial` when it
-  made a master, since those are kept, and `Failed` otherwise. A run that completed is `Partial` when a group
-  failed inside it, `CompletedWithWarnings` when it warned, and `Completed` otherwise.
+- **The outcome is one of five, and a run that completed is held to its issues.** A run the user stopped is
+  `Cancelled`. A run that failed is `Partial` when it made a master, since those are kept, and `Failed` otherwise.
+  A run that completed is `Partial` when a group failed inside it or one of its issues is critical,
+  `CompletedWithWarnings` when one is a warning, and `Completed` otherwise: notes alone leave a run clean.
 - **The lights are in the order of the group's lights.** The stack's records are in the stack's own order, so a
   weight is matched to its light by the light's identity, never by its place. A recorded weight is shown relative
   to the heaviest light, and a photometric one at its mean of one. A stack that recorded none is weighed as its
@@ -188,6 +199,110 @@ named once, in one function a writer and a reader both walk, so the two cannot d
   format it met and which it reads. A document that states no format is refused the same way.
 - A number that is not finite is written as text, since JSON has no form for it; a time is written with its offset
   from UTC, to the millisecond; an enumerator is written by name.
+
+## Where each fact comes from
+
+| Fact | Source | When the source is absent |
+| --- | --- | --- |
+| A master's state | `Made`: a result that succeeded. `Failed`: one that did not. `Reused`: a planned group with no result, in a run that completed, whose file is there. `NotReached`, `Cancelled`: any other planned group with no result | - |
+| A light's state | "A light's states", below | No metrics database: a registration failure is not told from a light the stack left out |
+| The metrics | The database the caller names | No per-light metric; the model says so once |
+| Capture time and night | The registration group's `lightCaptureTimestampsUtc`; else the start the light's header states. A night is the local date twelve hours before the capture, in the zone the archive states its times in | The light is on no night, and the model says how many are not |
+| Stars, FWHM, SNR, eccentricity, background noise, zero point, RMS, limiting magnitude, matches | `registration_metrics`, at the group's latest settings version | Not stated |
+| Shift and transform kind | `transform_json`: the kind, and the translation of its matrix | A polynomial kind states the kind only: its matrix is not the whole transform |
+| Weight | `StackQualityRecord::lightWeights`, by the light's identity | The weighting the settings imply, derived in the session; else every light weighs the same |
+| Rejected fraction | `frameRejectionRates[i]` belongs to the light `lightWeights[i]` names, when the two lists have one length. A light excluded on a restack takes its rate from `spatialRestackExcludedFrameRates`, whose places are among the group's lights | The lengths differ: no rate is given to any light, and the model says so |
+| Normalization scale and offset | The group's `coefficients.json`, when it holds one match per light | A local normalization, which gives a light a surface: not stated. A run read from its archive: not stated, and named |
+| Gain, offset, temperature | The light's header, in the one probe each light gets; the temperature falls back to the one the file's name states | Not stated, and counted as absent in what the headers state |
+| A master's statistics and the spread of its samples | One read of the master in one admitted operation | No session, or the file is gone: not measured, and named |
+| A reused master's figures, stack and lights | The stored report of the latest earlier run that made it, marked by `madeByRun` | That run's report is not kept: the statistics and the spread from one read of the file, the rest named as not stated |
+| A master's solution facts | The solution in the master's header, through `an::ui::readImageWcsSolution` | No header read or no solution that reads: the outcome and its detail only |
+| A master's photometry | The medians of what the registration recorded of the lights it combines | Not stated |
+| A calibration master's level and noise | The stored report of the latest earlier run that states them for the same file, size and modification time; else one read of the file, measured over the centre of a large frame | Not measured, and named |
+| A registration group's reference | The manifest's; else the registration's own group state | Not stated |
+| A registration group's overlap | The smallest share of the capture's area its masters keep, since they share its output plane | Not stated |
+| Stage states and times | `Result::stageResults`, in the order of the manifest's `stageSequence`. A stage with no result was not reached in a run that stopped; in a run that completed it was reused when the run is incremental and the stage has groups, and skipped otherwise | - |
+| Engine memory, cache figures | `Result::engineMemory`, `Result::workflowCacheDiagnostics` | Not stated |
+| Written to disk | Masters: their sizes. Maps and calibration masters the run made: their files. Registered lights: the size the registration recorded of each whose file is there | A kind with nothing is not listed |
+
+No fact comes from `Result::capturedLog`. The log is printed, never parsed: a case builds each scenario's model with
+its log and with another and finds the two equal.
+
+### A light's states
+
+A light has one state. The first rule that applies decides (`FrameFacts.cpp`):
+
+1. `ExcludedByUser`, `StackExcludedByUser`: the manifest does not name the lights the user left out, so no light has
+   either state yet.
+2. `RegistrationFailed`: its registration record says it did not succeed. Such a light is still in its group's
+   lights; its detail states the stars the detection found. No reason is stored, and storing one would change the
+   metrics database's format, which makes a folder's database unreadable to the version before.
+3. `LeftOutByStack`: the stack recorded its lights' weights and does not name this one, and no restack excluded it.
+4. `ExcludedOnRestack`: its place among the group's lights is one a second stack was made without.
+5. `NotStacked`: its master failed, was not reached or was cancelled.
+6. `Used`: the stack's weights name it. A stack that recorded no weights combined every light no other state
+   claims.
+
+The lights the model counts as used are checked against the count the run recorded for the stack; a difference is
+named among what is not stated. A light that is not used has no weight and no share. The lights of a reused master
+take their fates from the stored report of the run that made it, and have none when that report is not kept, except
+a failed registration, which the metrics still state.
+
+### The spread of a master's samples
+
+One call of `computeImageHistogram` per channel counts the samples the image's validity admits into 65,536 linear
+bins over the display range: a bin per code of a sixteen-bit image, and narrower than the narrowest bin of the
+result. The counts are folded by each bin's centre into 96 bins of equal width on a logarithmic axis, from one
+thousandth of the range to its top. The samples under a thousandth, those under the range among them, are counted
+in the first bin; the ones above the range, and those that are not a number, are counted beside the bins
+(`outside`), so the bins and that count add up to the samples admitted. The count is in the same admitted operation
+as the statistics, over the image as it is already in memory.
+
+### The issues
+
+Each kind is computed from what the model states (`IssueFacts.cpp`); no message of the run is matched to a kind, so
+a fact may appear once as a kind and once in the run's words. The computed kinds come first, the most severe first
+and each severity in the order below; then every string of `Result::errors` and `Result::warnings`, as written.
+
+| Kind | Raised when | Severity |
+| --- | --- | --- |
+| `RunFailed`, `RunCancelled` | The run did not succeed, or was cancelled. The action says what was kept and what a new run makes | Critical |
+| `MasterFailed` | A group result that did not succeed; the detail is the finalization phase it failed in | Critical |
+| `MasterNotReached` | A planned group with no result in a run that stopped | Critical |
+| `OutputNotRetained` | The archive could not write its copy of a master | Warning |
+| `LightsWithoutFlat`, `LightsWithoutDark` | A group of lights, not pre-calibrated, that takes no flat, or neither a dark nor a bias, while another group of the run takes one | Warning |
+| `NoFlats`, `NoDarks` | No group of lights takes one: a choice, not an oversight | Note |
+| `FlatMasterUncalibrated` | A flat the run stacked or reused whose frames take neither a bias nor a dark | Warning |
+| `CosmeticCorrectionWithoutDark` | Cosmetic correction is on for lights that take no dark, so nothing is corrected | Warning |
+| `RegistrationFailures` | A registration group with lights whose registration failed | Warning |
+| `MasterWithoutAstrometry` | A master the run made and saved without a solution | Warning |
+| `LowFrameUse` | The lights the masters combine over the lights of the masters the run made, under 80 %; worded more strongly under 60 % | Warning |
+| `RegistrationSuccessLow` | The lights registered over the lights of the registration groups with a record, under 90 % (75 %) | Warning |
+| `LightsLeftOutByStack` | A master with lights in the state `LeftOutByStack` | Warning |
+| `ExposureMetadataIncomplete` | The lights that state an exposure, under 95 % (80 %) | Warning |
+| `StackedTwice` | A master whose restack was applied | Note |
+| `MasterReused`, `CalibrationMasterReused` | A master, or a calibration master, that was still valid | Note |
+| `PreCalibratedLights` | A group of lights marked as calibrated already | Note |
+| `OutputNotRetainedByPolicy` | The history had no room for a copy of a master | Note |
+| `RunMessage` | Every warning and error of the run | Warning, Critical |
+
+The three ratios are the thresholds the report always held a run to, on figures the records define: the Markdown
+report read them out of a log line the stage no longer writes.
+
+### What a model costs
+
+Reading a master is quick; measuring it is not. On a run of 714 lights, four masters of 8,288 by 5,644 pixels and
+twelve calibration masters of 187 MB each, reading an image took about 45 ms and its full statistics 0.7 to 1.3
+seconds. So a calibration master is measured for its level and its noise alone, and a frame of more than four
+million pixels over a rectangle at its centre of the frame's own shape (`measureReportImageLevels`); the model
+states the share of the frame measured beside the figures. On that run the model builds in 5.1 seconds, 3.2 of them
+the four masters' statistics and 1.6 the twelve calibration masters, where measuring the calibration masters whole
+took 11.6 seconds on their own. A calibration master an earlier run of the folder measured is not read again while
+its file is the same, once that run's archive keeps its report.
+
+`ReportRealRun.WhatBuildingTheModelOfARealRunCosts` prints these figures for the run whose folder under `history/`
+the variable `AFTERNIGHT_REPORT_REAL_RUN` names, and is skipped without it. Point it at a copy: building a model
+opens the artifact store of the folder the manifest names as its output.
 
 ## How a value is printed
 

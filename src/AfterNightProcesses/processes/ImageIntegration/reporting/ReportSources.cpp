@@ -19,6 +19,7 @@
 
 #include <AfterNightEngine/Algorithms/Statistics/AdvancedStatistics.h>
 #include <AfterNightEngine/Algorithms/Statistics/BasicStatistics.h>
+#include <AfterNightEngine/Algorithms/Statistics/Histogram.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightEngine/Core/ImageLayout.h>
 #include <AfterNightEngine/Core/Result.h>
@@ -33,7 +34,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QJsonParseError>
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -168,6 +171,74 @@ void completeSquareFigures(RawChannelStats& figures)
     return figures;
 }
 
+/// The bins a channel's samples are first counted into, linear over the display range: one bin per code of a
+/// sixteen-bit image, and narrower than the narrowest of the bins the counts are folded into.
+constexpr std::size_t kDistributionSourceBins = 65536u;
+
+/// The bins a distribution is stated in, equal on a logarithmic axis from a thousandth of the display range to its
+/// top.
+constexpr std::size_t kDistributionBins = 96u;
+constexpr double kDistributionLowest = 1.0e-3;
+
+/// How one channel's samples are spread: the samples the image's validity admits, counted into linear bins over the
+/// display range and folded by each bin's centre into the logarithmic ones. The samples under a thousandth of the
+/// range, those under the range itself among them, are counted in the first bin; those above the range, and the ones
+/// that are not a number, in none.
+///
+/// @return the distribution; nothing when the engine refused the count.
+template <class ImageT, class ViewT>
+[[nodiscard]] std::optional<ReportSampleDistribution>
+channelDistribution(const an::consumer::OperationScope& scope, const ViewT& view, const an::ImageLayout& layout,
+                    const std::uint32_t channel, const an::ValidityDescriptor& validity,
+                    std::vector<std::uint64_t>& linear)
+{
+    const an::ui::DisplayNormalization normalization = an::ui::displayNormalization(ImageT::kSampleType);
+    an::StatisticsSelection selection;
+    selection.validity = validity;
+    const an::ImageHistogramRequest request{.domain = an::HistogramDomain::Stated,
+                                            .lowest = normalization.lowest,
+                                            .highest = normalization.lowest + normalization.range};
+    linear.assign(kDistributionSourceBins, 0u);
+    const an::Result<an::ImageHistogram> histogram = an::computeImageHistogram(
+        scope.execution(), ImageT::kSampleType, view.data(), layout, channel, selection, request, linear);
+
+    ReportSampleDistribution distribution;
+    distribution.lowest = kDistributionLowest;
+    distribution.highest = 1.0;
+    distribution.counts.assign(kDistributionBins, 0u);
+    if (!histogram.hasValue())
+    {
+        if (histogram.status().code() == an::ErrorCode::EmptySelection)
+        {
+            return distribution;
+        }
+        LOG_WARNING("WorkflowReportBuilder: the samples of channel {} could not be counted: {}", channel,
+                    histogram.status().message());
+        return std::nullopt;
+    }
+
+    const double decades = std::log(distribution.highest / distribution.lowest);
+    for (std::size_t bin = 0; bin < linear.size(); ++bin)
+    {
+        if (linear[bin] == 0u)
+        {
+            continue;
+        }
+        const double centre = (static_cast<double>(bin) + 0.5) / static_cast<double>(linear.size());
+        std::size_t target = 0u;
+        if (centre > distribution.lowest)
+        {
+            target = (std::min)(kDistributionBins - 1u,
+                                static_cast<std::size_t>(static_cast<double>(kDistributionBins) *
+                                                         std::log(centre / distribution.lowest) / decades));
+        }
+        distribution.counts[target] += linear[bin];
+    }
+    distribution.counts.front() += histogram->belowRange;
+    distribution.outside = histogram->aboveRange + histogram->notANumber;
+    return distribution;
+}
+
 /// How a measurement of an image read under its lease ended.
 enum class RawMeasurement
 {
@@ -181,9 +252,11 @@ enum class RawMeasurement
     Failed
 };
 
-/// Measures every channel of an image read under its lease, over its unclipped samples, into `stats`.
+/// Measures every channel of an image read under its lease, over its unclipped samples, into `stats`, and counts
+/// how each channel's samples are spread into `distribution`.
 [[nodiscard]] RawMeasurement measureRawChannels(const an::consumer::OperationScope& scope,
-                                                const an::consumer::AssetReadLease& lease, RawImageStats& stats)
+                                                const an::consumer::AssetReadLease& lease, RawImageStats& stats,
+                                                std::vector<ReportSampleDistribution>& distribution)
 {
     return lease.visit([&](const auto& typed) -> RawMeasurement {
         using ImageT = std::decay_t<decltype(typed)>;
@@ -243,8 +316,151 @@ enum class RawMeasurement
             }
             stats.channelStats.push_back(channelStatsFrom(normalization, samples, *basic, *advanced));
         }
+
+        // The spread of the samples, in the same operation as the figures: the image is in memory once.
+        std::vector<std::uint64_t> linear;
+        distribution.clear();
+        distribution.reserve(channelCount);
+        for (std::uint32_t channel = 0u; channel < channelCount; ++channel)
+        {
+            std::optional<ReportSampleDistribution> spread = channelDistribution<ImageT>(
+                scope, *view, layout, channel, typed.metadata().semantics().validity(), linear);
+            if (!spread.has_value())
+            {
+                distribution.clear();
+                break;
+            }
+            distribution.push_back(std::move(*spread));
+        }
         return RawMeasurement::Measured;
     });
+}
+
+/// The most pixels a level is measured over. A larger frame is measured over a rectangle at its centre.
+constexpr std::uint64_t kLevelSampleLimit = 4'000'000u;
+
+/// The rectangle at the centre of a frame, of the frame's own shape, that holds at most `kLevelSampleLimit` pixels;
+/// nothing for a frame that holds no more than that.
+[[nodiscard]] std::optional<an::StatisticsRegion> centredSample(const std::uint32_t width, const std::uint32_t height)
+{
+    const std::uint64_t pixels = static_cast<std::uint64_t>(width) * height;
+    if (pixels <= kLevelSampleLimit)
+    {
+        return std::nullopt;
+    }
+    const double scale = std::sqrt(static_cast<double>(kLevelSampleLimit) / static_cast<double>(pixels));
+    const std::uint32_t sampleWidth = (std::max)(1u, static_cast<std::uint32_t>(std::floor(width * scale)));
+    const std::uint32_t sampleHeight = (std::max)(1u, static_cast<std::uint32_t>(std::floor(height * scale)));
+    return an::StatisticsRegion{.originX = (width - sampleWidth) / 2u,
+                                .originY = (height - sampleHeight) / 2u,
+                                .width = sampleWidth,
+                                .height = sampleHeight};
+}
+
+/// Measures the level and the noise of every channel of an image read under its lease, over its unclipped samples
+/// inside the centred sample of a large frame.
+[[nodiscard]] RawMeasurement measureLevelChannels(const an::consumer::OperationScope& scope,
+                                                  const an::consumer::AssetReadLease& lease, ReportImageLevels& levels)
+{
+    return lease.visit([&](const auto& typed) -> RawMeasurement {
+        using ImageT = std::decay_t<decltype(typed)>;
+        const auto view = typed.view();
+        if (!view.has_value())
+        {
+            return RawMeasurement::Failed;
+        }
+        const an::ImageLayout layout = view->layout();
+        std::optional<UnclippedSelection> selected =
+            unclippedSelection(ImageT::kSampleType, typed.metadata().semantics().validity());
+        if (!selected.has_value())
+        {
+            return RawMeasurement::NeedsWindowFigures;
+        }
+        const std::uint32_t width = layout.extent().width();
+        const std::uint32_t height = layout.extent().height();
+        if (const std::optional<an::StatisticsRegion> sample = centredSample(width, height); sample.has_value())
+        {
+            selected->selection.region = sample;
+            levels.measuredFraction =
+                (static_cast<double>(sample->width) * sample->height) / (static_cast<double>(width) * height);
+        }
+
+        const an::ui::DisplayNormalization normalization = an::ui::displayNormalization(ImageT::kSampleType);
+        const std::uint32_t channelCount = layout.extent().channelCount();
+        for (std::uint32_t channel = 0u; channel < channelCount; ++channel)
+        {
+            if (selected->admitsNothing)
+            {
+                levels.level.push_back(0.0);
+                levels.noise.push_back(0.0);
+                continue;
+            }
+            const an::Result<an::BasicStatistics> basic = an::computeImageBasicStatistics(
+                scope.execution(), ImageT::kSampleType, view->data(), layout, channel, selected->selection);
+            if (!basic.hasValue())
+            {
+                if (basic.status().code() == an::ErrorCode::EmptySelection)
+                {
+                    levels.level.push_back(0.0);
+                    levels.noise.push_back(0.0);
+                    continue;
+                }
+                LOG_WARNING("WorkflowReportBuilder: the level of channel {} could not be measured: {}", channel,
+                            basic.status().message());
+                return RawMeasurement::Failed;
+            }
+            const an::Result<an::AdvancedStatistics> advanced = an::computeImageAdvancedStatistics(
+                scope.execution(), ImageT::kSampleType, view->data(), layout, channel, selected->selection);
+            if (!advanced.hasValue())
+            {
+                LOG_WARNING("WorkflowReportBuilder: the noise of channel {} could not be measured: {}", channel,
+                            advanced.status().message());
+                return RawMeasurement::Failed;
+            }
+            levels.level.push_back(an::ui::displayFraction(normalization, basic->mean));
+            levels.noise.push_back(advanced->backgroundNoise / normalization.range);
+        }
+        return RawMeasurement::Measured;
+    });
+}
+
+/// Reads an image in the session, takes its read lease and an admitted operation of the given width, and hands both
+/// to `measure`; `measure` is not called without a session, for a file that is not there or cannot be read, or when
+/// no operation is admitted.
+template <class MeasureT>
+void measureUnderLease(const an::consumer::EngineSession* session, const QString& path, const std::uint32_t width,
+                       MeasureT&& measure)
+{
+    if (session == nullptr || path.trimmed().isEmpty())
+    {
+        return;
+    }
+    const QFileInfo fi(path);
+    if (!fi.exists() || !fi.isFile())
+    {
+        return;
+    }
+    an::Result<an::ui::ViewReadResult> read =
+        an::ui::readViewImage(*session, an::ui::ViewReadRequest{.path = path}, std::stop_token{}, nullptr);
+    if (!read.hasValue())
+    {
+        LOG_WARNING("WorkflowReportBuilder: '{}' could not be read: {}", path.toStdString(), read.status().message());
+        return;
+    }
+    // The read lease is taken before the admission, as every reader of an asset takes it.
+    an::Result<an::consumer::AssetReadLease> lease = read->asset.read(std::stop_token{});
+    if (!lease.hasValue())
+    {
+        return;
+    }
+    an::Result<an::consumer::OperationScope> scope = session->admit(
+        an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch, .maxConcurrency = width});
+    if (!scope.hasValue())
+    {
+        LOG_WARNING("WorkflowReportBuilder: '{}' was not measured: {}", path.toStdString(), scope.status().message());
+        return;
+    }
+    measure(*scope, *lease);
 }
 
 [[nodiscard]] QList<an::ui::CometTrackingRunRecord>
@@ -362,66 +578,96 @@ queryCometTrackingRunsForReport(const QString& metricsDbPath, const WorkflowMani
 [[nodiscard]] std::optional<RawImageStats> analyzeRawImage(const an::consumer::EngineSession* session,
                                                            const QString& path, std::uint32_t width)
 {
-    if (session == nullptr || path.trimmed().isEmpty())
-    {
-        return std::nullopt;
-    }
+    std::optional<ReportImageMeasurement> measured = measureReportImage(session, path, width);
+    return measured.has_value() ? std::optional<RawImageStats>(std::move(measured->statistics)) : std::nullopt;
+}
 
-    const QFileInfo fi(path);
-    if (!fi.exists() || !fi.isFile())
-    {
-        return std::nullopt;
-    }
+/// Reads an image in the session once and measures it: each channel's figures over its unclipped samples, and how
+/// each channel's samples are spread, in one admitted operation.
+///
+/// @param session the session the image is read and measured in, or null.
+/// @param path the image.
+/// @param width the most threads the measurement may use.
+/// @return what was measured; nothing without a session, for a file that is not there or cannot be read, or when the
+///         engine refused a measurement.
+[[nodiscard]] std::optional<ReportImageMeasurement> measureReportImage(const an::consumer::EngineSession* session,
+                                                                       const QString& path, std::uint32_t width)
+{
+    std::optional<ReportImageMeasurement> result;
+    measureUnderLease(session, path, width,
+                      [&](const an::consumer::OperationScope& scope, const an::consumer::AssetReadLease& lease) {
+                          ReportImageMeasurement measurement;
+                          RawImageStats& rawStats = measurement.statistics;
+                          const RawMeasurement measured =
+                              measureRawChannels(scope, lease, rawStats, measurement.distribution);
+                          if (measured == RawMeasurement::Failed)
+                          {
+                              return;
+                          }
+                          if (measured == RawMeasurement::NeedsWindowFigures)
+                          {
+                              const an::Result<an::ui::ImageStatisticsReport> report =
+                                  an::ui::computeImageStatisticsReport(scope, lease, true);
+                              if (!report.hasValue())
+                              {
+                                  LOG_WARNING("WorkflowReportBuilder: '{}' could not be measured: {}",
+                                              path.toStdString(), report.status().message());
+                                  return;
+                              }
+                              rawStats.channelStats.clear();
+                              rawStats.channelStats.reserve(report->channels.size());
+                              for (const an::ui::ImageStatisticsChannel& channel : report->channels)
+                              {
+                                  rawStats.channelStats.push_back(channelStatsFrom(channel));
+                              }
+                          }
+                          if (!rawStats.channelStats.empty())
+                          {
+                              result = std::move(measurement);
+                          }
+                      });
+    return result;
+}
 
-    an::Result<an::ui::ViewReadResult> read =
-        an::ui::readViewImage(*session, an::ui::ViewReadRequest{.path = path}, std::stop_token{}, nullptr);
-    if (!read.hasValue())
+/// Reads an image in the session once and measures its level and its noise per channel over its unclipped samples:
+/// over the whole frame, or over a rectangle at its centre of the frame's own shape when the frame holds more than
+/// `kLevelSampleLimit` pixels. An image whose validity a range cannot state is measured whole, as its figures are.
+///
+/// @param session the session the image is read and measured in, or null.
+/// @param path the image.
+/// @param width the most threads the measurement may use.
+/// @return what was measured; nothing without a session, for a file that is not there or cannot be read, or when the
+///         engine refused a measurement.
+[[nodiscard]] std::optional<ReportImageLevels> measureReportImageLevels(const an::consumer::EngineSession* session,
+                                                                        const QString& path, std::uint32_t width)
+{
+    std::optional<ReportImageLevels> result;
+    bool needsWholeFigures = false;
+    measureUnderLease(session, path, width,
+                      [&](const an::consumer::OperationScope& scope, const an::consumer::AssetReadLease& lease) {
+                          ReportImageLevels levels;
+                          const RawMeasurement measured = measureLevelChannels(scope, lease, levels);
+                          needsWholeFigures = measured == RawMeasurement::NeedsWindowFigures;
+                          if (measured == RawMeasurement::Measured && !levels.level.empty())
+                          {
+                              result = std::move(levels);
+                          }
+                      });
+    if (needsWholeFigures)
     {
-        LOG_WARNING("WorkflowReportBuilder: '{}' could not be read: {}", path.toStdString(), read.status().message());
-        return std::nullopt;
-    }
-    // The read lease is taken before the admission, as every reader of an asset takes it.
-    an::Result<an::consumer::AssetReadLease> lease = read->asset.read(std::stop_token{});
-    if (!lease.hasValue())
-    {
-        return std::nullopt;
-    }
-    an::Result<an::consumer::OperationScope> scope = session->admit(
-        an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch, .maxConcurrency = width});
-    if (!scope.hasValue())
-    {
-        LOG_WARNING("WorkflowReportBuilder: '{}' was not measured: {}", path.toStdString(), scope.status().message());
-        return std::nullopt;
-    }
-
-    RawImageStats rawStats;
-    const RawMeasurement measured = measureRawChannels(*scope, *lease, rawStats);
-    if (measured == RawMeasurement::Failed)
-    {
-        return std::nullopt;
-    }
-    if (measured == RawMeasurement::NeedsWindowFigures)
-    {
-        const an::Result<an::ui::ImageStatisticsReport> report =
-            an::ui::computeImageStatisticsReport(*scope, *lease, true);
-        if (!report.hasValue())
+        const std::optional<ReportImageMeasurement> whole = measureReportImage(session, path, width);
+        if (whole.has_value())
         {
-            LOG_WARNING("WorkflowReportBuilder: '{}' could not be measured: {}", path.toStdString(),
-                        report.status().message());
-            return std::nullopt;
-        }
-        rawStats.channelStats.clear();
-        rawStats.channelStats.reserve(report->channels.size());
-        for (const an::ui::ImageStatisticsChannel& channel : report->channels)
-        {
-            rawStats.channelStats.push_back(channelStatsFrom(channel));
+            ReportImageLevels levels;
+            for (const ReportChannelStatistics& channel : whole->statistics.channelStats)
+            {
+                levels.level.push_back(channel.mean);
+                levels.noise.push_back(channel.backgroundNoise);
+            }
+            result = std::move(levels);
         }
     }
-    if (rawStats.channelStats.empty())
-    {
-        return std::nullopt;
-    }
-    return rawStats;
+    return result;
 }
 
 /// Reads a file's header in the session.
@@ -476,6 +722,32 @@ queryCometTrackingRunsForReport(const QString& metricsDbPath, const WorkflowMani
     }
     return kind;
 }
+
+namespace
+{
+/// States the translation of a transform record whose kind carries a matrix: the last column of its first two rows.
+void statesShift(const QString& transformJson, RegistrationMetricRow& row)
+{
+    if (isPolynomialTransformKind(row.transformKind))
+    {
+        return;
+    }
+    const QJsonArray matrix =
+        QJsonDocument::fromJson(transformJson.toUtf8()).object().value(QStringLiteral("matrix")).toArray();
+    if (matrix.size() != 3)
+    {
+        return;
+    }
+    const QJsonArray first = matrix.at(0).toArray();
+    const QJsonArray second = matrix.at(1).toArray();
+    if (first.size() != 3 || second.size() != 3 || !first.at(2).isDouble() || !second.at(2).isDouble())
+    {
+        return;
+    }
+    row.shiftX = first.at(2).toDouble();
+    row.shiftY = second.at(2).toDouble();
+}
+} // namespace
 
 [[nodiscard]] std::optional<int> queryRegistrationSettingsVersion(QSqlDatabase& db, const QString& groupKey,
                                                                   WorkflowExecutionCounterAccumulator* counters)
@@ -537,15 +809,59 @@ loadRegistrationMetricsByFrame(QSqlDatabase& db, const QString& groupKey, int se
         row.limitingMagnitude = query.value(9).toDouble();
         row.catalogMatchedStars = query.value(10).toInt();
         row.succeeded = query.value(11).toInt() == 1;
-        const auto transformKind = transformKindFromJson(query.value(12).toString());
+        const QString transformJson = query.value(12).toString();
+        const auto transformKind = transformKindFromJson(transformJson);
         if (transformKind.has_value())
         {
             row.transformKind = transformKind->trimmed().toLower();
+            statesShift(transformJson, row);
         }
         byFrame.insert(frameId, row);
     }
 
+    // What a database of the bare columns does not hold is asked for apart, so such a database still states the rest.
+    QSqlQuery extras(db);
+    extras.prepare(QStringLiteral(
+        "SELECT frame_id, background_noise, output_path, output_size_bytes "
+        "FROM registration_metrics WHERE group_key = :group_key AND settings_version = :settings_version"));
+    extras.bindValue(QStringLiteral(":group_key"), groupKey);
+    extras.bindValue(QStringLiteral(":settings_version"), settingsVersion);
+    if (core::executeSqliteStatement(extras, counters))
+    {
+        while (extras.next())
+        {
+            const auto row = byFrame.find(FrameId(extras.value(0).toString()).canonicalPath());
+            if (row == byFrame.end())
+            {
+                continue;
+            }
+            row->backgroundNoise = extras.value(1).toDouble();
+            row->outputPath = extras.value(2).toString();
+            row->outputSizeBytes = extras.value(3).toLongLong();
+        }
+    }
+
     return byFrame;
+}
+
+/// The light a registration group's lights were brought to, as the registration's group state names it.
+///
+/// @return the light's canonical path; empty when the database holds no state for the group, or none at all.
+[[nodiscard]] QString queryRegistrationReferenceFrame(QSqlDatabase& db, const QString& groupKey,
+                                                      const int settingsVersion,
+                                                      WorkflowExecutionCounterAccumulator* counters)
+{
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral("SELECT reference_frame_id FROM registration_group_state "
+                                 "WHERE group_key = :group_key AND settings_version = :settings_version"));
+    query.bindValue(QStringLiteral(":group_key"), groupKey);
+    query.bindValue(QStringLiteral(":settings_version"), settingsVersion);
+    if (!core::executeSqliteStatement(query, counters) || !query.next())
+    {
+        return {};
+    }
+    const QString reference = query.value(0).toString().trimmed();
+    return reference.isEmpty() ? QString() : FrameId(reference).canonicalPath();
 }
 
 [[nodiscard]] QString registrationMetricsDatabasePath(const WorkflowManifest& manifest, const QString& reportBaseDir)
@@ -881,6 +1197,16 @@ public:
         return loadSpccHandoffSummaries(db, manifest, m_counters);
     }
 
+    [[nodiscard]] QString referenceFrame(const QString& groupKey, const int settingsVersion) override
+    {
+        if (!open())
+        {
+            return {};
+        }
+        QSqlDatabase db = QSqlDatabase::database(m_connectionName, false);
+        return queryRegistrationReferenceFrame(db, groupKey, settingsVersion, m_counters);
+    }
+
 private:
     /// Opens the database once; a file that is not there or cannot be opened is asked no further.
     [[nodiscard]] bool open()
@@ -928,9 +1254,15 @@ class SessionReportImages final : public IReportImages
 public:
     explicit SessionReportImages(const an::consumer::EngineSession* session) : m_session(session) {}
 
-    [[nodiscard]] std::optional<ReportImageStatistics> measure(const QString& path, const std::uint32_t width) override
+    [[nodiscard]] std::optional<ReportImageMeasurement> measure(const QString& path, const std::uint32_t width) override
     {
-        return analyzeRawImage(m_session, path, width);
+        return measureReportImage(m_session, path, width);
+    }
+
+    [[nodiscard]] std::optional<ReportImageLevels> measureLevels(const QString& path,
+                                                                 const std::uint32_t width) override
+    {
+        return measureReportImageLevels(m_session, path, width);
     }
 
 private:
@@ -967,6 +1299,12 @@ public:
             return std::nullopt;
         }
         return QString::fromUtf8(file.readAll());
+    }
+
+    [[nodiscard]] QStringList folders(const QString& path) override
+    {
+        const QDir folder(path);
+        return folder.exists() ? folder.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name) : QStringList{};
     }
 };
 
@@ -1005,6 +1343,19 @@ struct ProductionReportSources::Impl
     HostReportFiles files;
     HostReportHost host;
 };
+
+QString committedRunMetricsDatabase(const WorkflowManifest& manifest)
+{
+    const QString outputDirectory = manifest.outputDirectory.trimmed();
+    return outputDirectory.isEmpty() ? QString()
+                                     : QDir(outputDirectory).filePath(QStringLiteral("registration_metrics.db"));
+}
+
+QString archivedRunMetricsDatabase(const QString& runDirectory)
+{
+    const QString folder = runDirectory.trimmed();
+    return folder.isEmpty() ? QString() : QDir(folder).filePath(QStringLiteral("registration_metrics.db"));
+}
 
 ProductionReportSources::ProductionReportSources(const an::consumer::EngineSession* session,
                                                  QString metricsDatabasePath,
