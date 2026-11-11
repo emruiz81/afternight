@@ -7,6 +7,7 @@
 #include "stdafx.hpp"
 #include "processes/ImageIntegration/workflow/stages/StackOutputFinalization.h"
 
+#include "processes/ImageIntegration/workflow/PreviewThumbnailGenerator.h"
 #include "processes/ImageIntegration/workflow/WorkflowFileOperations.h"
 
 #include <AfterNightConsumerRuntime/OperationScope.h>
@@ -117,9 +118,86 @@ valueMap(an::ImageStorageBytes&& values, const an::ImageDescriptor& described, c
     return an::Image<float>::fromStorage(std::move(*storage), described, metadata);
 }
 
-/// The master presented for display, reduced so its longer side is at most the report's bound.
-[[nodiscard]] std::optional<QImage> presentedPreview(const an::consumer::OperationScope& scope,
-                                                     const an::Image<float>& master)
+/// A master's two pictures: the whole frame, and the detail when one could be made.
+struct PresentedMaster
+{
+    QImage whole;
+    QImage detail;
+};
+
+/// The part of the master its report shows at full scale - the region `reportDetailRegion` names - presented through
+/// the analysis the whole frame was presented through, so the two pictures share one stretch.
+[[nodiscard]] QImage presentedDetail(const an::consumer::OperationScope& scope, const an::ImageDescriptor& descriptor,
+                                     const an::ImageView<const float>& view,
+                                     const an::DisplayPresentationRequest& request,
+                                     const an::DisplayPresentationAnalysis& analysis)
+{
+    const std::uint32_t width = descriptor.extent().width();
+    const std::uint32_t height = descriptor.extent().height();
+    constexpr auto kLargest = static_cast<std::uint32_t>((std::numeric_limits<int>::max)());
+    if (width > kLargest || height > kLargest)
+    {
+        return {};
+    }
+    const QRect region = ImageIntegration::reportDetailRegion(QSize(static_cast<int>(width), static_cast<int>(height)));
+    if (region.isEmpty())
+    {
+        return {};
+    }
+    // The region shares the master's memory: the view is kept for as long as its layout is read.
+    const std::optional<an::ImageView<const float>> part =
+        view.subview(static_cast<std::uint32_t>(region.x()), static_cast<std::uint32_t>(region.y()),
+                     static_cast<std::uint32_t>(region.width()), static_cast<std::uint32_t>(region.height()));
+    if (!part.has_value())
+    {
+        return {};
+    }
+    an::ImageDescriptorRequest described = descriptor.toRequest();
+    described.extent = part->extent();
+    const std::optional<an::ImageDescriptor> partDescriptor = an::ImageDescriptor::create(described);
+    if (!partDescriptor.has_value())
+    {
+        return {};
+    }
+    const an::Result<an::RealtimePreviewDisplayPresentationPlan> plan =
+        an::planRealtimePreviewDisplayPresentation(request, 1u);
+    if (!plan.hasValue())
+    {
+        return {};
+    }
+    const an::Result<an::ImageLayoutRequest> layoutRequest =
+        an::realtimePreviewDisplayPresentationLayout(*plan, *partDescriptor);
+    if (!layoutRequest.hasValue())
+    {
+        return {};
+    }
+    const std::optional<an::ImageLayout> layout = an::ImageLayout::create(*layoutRequest, scope.engine().limits());
+    if (!layout.has_value())
+    {
+        return {};
+    }
+    std::vector<std::byte> bytes(static_cast<std::size_t>(layout->totalBytes()));
+    const an::DisplayPresentationSource source{.descriptor = &*partDescriptor,
+                                               .samples = part->data(),
+                                               .layout = &part->layout(),
+                                               .validity = an::KernelValidityView{}};
+    const an::Result<an::DisplayPresentationResult> presented =
+        an::presentImageRealtimePreview(scope.execution(), *plan, source, bytes.data(), *layout, &analysis);
+    if (!presented.hasValue())
+    {
+        LOG_WARNING("LightsStackingStage: the master's detail was not presented: {}", presented.status().message());
+        return {};
+    }
+    const QImage shared(reinterpret_cast<const uchar*>(bytes.data()), static_cast<int>(presented->width),
+                        static_cast<int>(presented->height), static_cast<qsizetype>(layout->rowStrideBytes()),
+                        QImage::Format_RGBA8888);
+    return shared.copy();
+}
+
+/// The master presented for display: the whole frame reduced so its longer side is at most the report's bound, and
+/// its detail.
+[[nodiscard]] std::optional<PresentedMaster> presentedPreview(const an::consumer::OperationScope& scope,
+                                                              const an::Image<float>& master)
 {
     const std::optional<an::ImageDescriptor> descriptor = master.descriptor();
     const auto view = master.view();
@@ -166,7 +244,23 @@ valueMap(an::ImageStorageBytes&& values, const an::ImageDescriptor& described, c
     const QImage shared(reinterpret_cast<const uchar*>(bytes.data()), static_cast<int>(presented->width),
                         static_cast<int>(presented->height), static_cast<qsizetype>(layout->rowStrideBytes()),
                         QImage::Format_RGBA8888);
-    return shared.copy();
+    PresentedMaster pictures;
+    pictures.whole = shared.copy();
+    pictures.detail = presentedDetail(scope, *descriptor, *view, request, presented->analysis);
+    return pictures;
+}
+
+/// A picture as the JPEG bytes a report keeps; empty when it cannot be encoded.
+[[nodiscard]] QByteArray reportJpegOf(const QImage& picture)
+{
+    QByteArray jpeg;
+    QBuffer jpeg_buffer(&jpeg);
+    const QImage opaque = picture.convertToFormat(QImage::Format_RGB888);
+    if (!jpeg_buffer.open(QIODevice::WriteOnly) || !opaque.save(&jpeg_buffer, "JPEG", kStackReportPreviewJpegQuality))
+    {
+        jpeg.clear();
+    }
+    return jpeg;
 }
 
 } // namespace
@@ -288,25 +382,27 @@ an::Result<LocalOutputTransaction> stageOutputsForOverwrite(const QString& outpu
 StackPreviewAssets generateResidentStackPreviewAssets(const an::consumer::OperationScope& scope,
                                                       const an::Image<float>& master, const QString& thumbnail_path)
 {
-    const std::optional<QImage> preview = presentedPreview(scope, master);
-    if (!preview.has_value() || preview->isNull())
+    const std::optional<PresentedMaster> pictures = presentedPreview(scope, master);
+    if (!pictures.has_value() || pictures->whole.isNull())
     {
         return {};
     }
+    const QImage* preview = &pictures->whole;
 
     StackPreviewAssets assets;
-    {
-        QBuffer jpeg_buffer(&assets.reportPreviewJpeg);
-        const QImage opaque = preview->convertToFormat(QImage::Format_RGB888);
-        if (!jpeg_buffer.open(QIODevice::WriteOnly) ||
-            !opaque.save(&jpeg_buffer, "JPEG", kStackReportPreviewJpegQuality))
-        {
-            assets.reportPreviewJpeg.clear();
-        }
-    }
+    assets.reportPreviewJpeg = reportJpegOf(*preview);
     if (!assets.reportPreviewJpeg.isEmpty())
     {
         assets.reportPreviewSize = preview->size();
+        // A detail is kept beside the whole frame it shares a stretch with, never alone.
+        if (!pictures->detail.isNull())
+        {
+            assets.reportDetailJpeg = reportJpegOf(pictures->detail);
+            if (!assets.reportDetailJpeg.isEmpty())
+            {
+                assets.reportDetailSize = pictures->detail.size();
+            }
+        }
     }
 
     const QImage thumbnail = preview->scaled(kStackUiPreviewMaximumSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -328,6 +424,8 @@ void clearPreparedStackPreviewAssets(IntegrationGroupResult& group_result)
     }
     group_result.reportPreviewJpeg.clear();
     group_result.reportPreviewSize = {};
+    group_result.reportDetailJpeg.clear();
+    group_result.reportDetailSize = {};
 }
 
 void prepareResidentStackPreviewAssets(const StackPreviewGenerator& preview_generator,
@@ -349,6 +447,13 @@ void prepareResidentStackPreviewAssets(const StackPreviewGenerator& preview_gene
         {
             group_result.reportPreviewJpeg = assets.reportPreviewJpeg;
             group_result.reportPreviewSize = assets.reportPreviewSize;
+            if (!assets.reportDetailJpeg.isEmpty() && assets.reportDetailSize.isValid() &&
+                assets.reportDetailSize.width() <= ImageIntegration::kReportDetailRegionSize.width() &&
+                assets.reportDetailSize.height() <= ImageIntegration::kReportDetailRegionSize.height())
+            {
+                group_result.reportDetailJpeg = assets.reportDetailJpeg;
+                group_result.reportDetailSize = assets.reportDetailSize;
+            }
         }
     }
     catch (const std::exception& ex)

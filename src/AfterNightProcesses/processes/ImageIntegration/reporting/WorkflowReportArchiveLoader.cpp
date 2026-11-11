@@ -139,6 +139,7 @@ std::optional<ArchivedWorkflowRun> readArchivedWorkflowRun(const QString& runDir
         group.finalizationTiming =
             stackGroupFinalizationTimingFromJson(obj.value(QStringLiteral("finalizationTiming")).toObject());
         group.qualityReport = stackingQualityReportFromJson(obj.value(QStringLiteral("qualityReport")).toObject());
+        group.droppedLights = droppedLightsFromJson(obj.value(QStringLiteral("droppedLights")).toArray());
 
         const QJsonArray rejectionMaps = obj.value(QStringLiteral("rejectionMaps")).toArray();
         for (const auto& mapValue : rejectionMaps)
@@ -164,6 +165,9 @@ std::optional<ArchivedWorkflowRun> readArchivedWorkflowRun(const QString& runDir
 
         result.integrationGroupResults.push_back(std::move(group));
     }
+
+    result.reusedIntegrationGroups =
+        reusedIntegrationGroupsFromJson(archiveRoot.value(QStringLiteral("reusedIntegrationGroups")).toArray());
 
     const QJsonArray calibrationResults = archiveRoot.value(QStringLiteral("calibrationGroupResults")).toArray();
     for (const auto& value : calibrationResults)

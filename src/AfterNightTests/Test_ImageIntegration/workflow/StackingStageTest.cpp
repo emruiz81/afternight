@@ -54,6 +54,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QImage>
 #include <QPointF>
 #include <QTemporaryDir>
 
@@ -69,6 +70,7 @@
 #include <limits>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -3059,6 +3061,152 @@ TEST_F(CometStackingTest, AStarsPlusCometGroupIsNotDrizzled)
     EXPECT_TRUE(result.error.toLogString().contains(QStringLiteral("does not drizzle")))
         << result.error.toLogString().toStdString();
     EXPECT_FALSE(QFileInfo::exists(masterPath()));
+}
+
+// A group whose master is still what the run would make is not stacked again: it leaves no result, and the stage
+// names it among the groups it reused, with the master it left as it is.
+TEST_F(LightsStackingTest, AGroupWhoseOutputIsValidIsNamedAsReusedAndHasNoResult)
+{
+    useUnregisteredLights({writeFlatLight(QStringLiteral("a"), 0.1, 0.0, 1u),
+                           writeFlatLight(QStringLiteral("b"), 0.2, 0.0, 2u),
+                           writeFlatLight(QStringLiteral("c"), 0.3, 0.0, 3u)});
+    updateGroup([](auto& group) { group.skipIfExists = true; });
+
+    const StageResult made = stack();
+    ASSERT_TRUE(made.isSuccess()) << made.error.toLogString().toStdString();
+    EXPECT_EQ(made.groupResults.size(), 1u);
+    EXPECT_TRUE(made.reusedGroups.empty()) << "a master the run made is not one it reused";
+
+    const StageResult reused = stack();
+    ASSERT_TRUE(reused.isSuccess()) << reused.error.toLogString().toStdString();
+    EXPECT_TRUE(reused.groupResults.empty());
+    ASSERT_EQ(reused.reusedGroups.size(), 1u);
+    EXPECT_EQ(reused.reusedGroups.front().groupKey, m_integration.groupKey.toString());
+    EXPECT_EQ(QDir::cleanPath(reused.reusedGroups.front().outputPath), QDir::cleanPath(masterPath()));
+
+    // A run told to stack everything again reuses nothing.
+    m_manifest.reprocessExisting = true;
+    const StageResult again = stack();
+    ASSERT_TRUE(again.isSuccess()) << again.error.toLogString().toStdString();
+    EXPECT_EQ(again.groupResults.size(), 1u);
+    EXPECT_TRUE(again.reusedGroups.empty());
+}
+
+// A light the alignment wrote no registered image of is left out of the stack: the group's result names it with the
+// reason, and the stage's warning still says so in its own words.
+TEST_F(LightsStackingTest, ALightWithNoRegisteredOutputIsNamedAmongTheLightsTheStackDropped)
+{
+    registerTranslatedPair(4.0, -3.0);
+    const QString third =
+        writeStarLight(QStringLiteral("light_003"),
+                       movedStars(m_stars, [](double x, double y) { return std::pair{x - 2.0, y + 5.0}; }), 73u);
+    m_registration.lightFiles.push_back(FrameId(third));
+    m_integration.lightFiles = m_registration.lightFiles;
+    m_integration.lightExposureSeconds = {60.0, 60.0, 60.0};
+    m_manifest.registrationGroups = {m_registration};
+    m_manifest.integrationGroups = {m_integration};
+    LightsRegistrationStage registration;
+    const StageResult registered = m_run.run(registration, m_manifest);
+    ASSERT_TRUE(registered.isSuccess()) << registered.error.toLogString().toStdString();
+    ASSERT_FALSE(registered.isPartialSuccess()) << "the third light was left unregistered";
+    LightsAlignmentStage alignment;
+    const StageResult aligned = m_run.run(alignment, m_manifest);
+    ASSERT_TRUE(aligned.isSuccess()) << aligned.error.toLogString().toStdString();
+
+    // Every light has its registered image: the stack drops none.
+    const StageResult whole = stack();
+    ASSERT_TRUE(whole.isSuccess()) << whole.error.toLogString().toStdString();
+    ASSERT_EQ(whole.groupResults.size(), 1u);
+    EXPECT_EQ(whole.groupResults.front().lightFrameCount, 3);
+    EXPECT_TRUE(whole.groupResults.front().droppedLights.empty());
+
+    const QString registeredThird =
+        QDir(m_manifest.outputDirectory)
+            .filePath(QStringLiteral("registered_lights/%1/light_003_reg.fits")
+                          .arg(ImageIntegration::sanitizeFilename(m_registration.groupKey.toString())));
+    ASSERT_TRUE(QFileInfo::exists(registeredThird));
+    ASSERT_TRUE(QFile::remove(registeredThird));
+    m_manifest.reprocessExisting = true;
+
+    const StageResult result = stack();
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    ASSERT_EQ(result.groupResults.size(), 1u);
+    const IntegrationGroupResult& group = result.groupResults.front();
+    EXPECT_EQ(group.lightFrameCount, 2);
+    ASSERT_EQ(group.droppedLights.size(), 1u);
+    EXPECT_EQ(FrameId(group.droppedLights.front().light).identityKey(), FrameId(third).identityKey());
+    EXPECT_EQ(group.droppedLights.front().reason, DroppedLightReason::NoRegisteredOutput);
+    EXPECT_TRUE(anyContains(result.warnings, QStringLiteral("Skipping 1 light frame(s): ")))
+        << result.warnings.join(QLatin1Char('\n')).toStdString();
+    EXPECT_TRUE(anyContains(result.warnings, QStringLiteral("(no registered output)")))
+        << result.warnings.join(QLatin1Char('\n')).toStdString();
+    // The stack's own record of the lights it combined does not name the light either.
+    for (const StackLightWeight& weight : group.qualityReport.lightWeights)
+    {
+        EXPECT_NE(FrameId(weight.light).identityKey(), FrameId(third).identityKey());
+    }
+}
+
+// The detail is the master's centre at full scale: 960 by 540 pixels of a master larger than that, and the whole of a
+// smaller one, which is its own detail.
+TEST_F(LightsStackingTest, TheResultCarriesADetailOfTheMastersCentreBesideItsWholeFramePreview)
+{
+    useUnregisteredLights(
+        {writeFlatLight(QStringLiteral("a"), 0.1, 0.01, 1u), writeFlatLight(QStringLiteral("b"), 0.2, 0.01, 2u)});
+    const StageResult small = stack();
+    ASSERT_TRUE(small.isSuccess()) << small.error.toLogString().toStdString();
+    ASSERT_EQ(small.groupResults.size(), 1u);
+    const IntegrationGroupResult& smallGroup = small.groupResults.front();
+    const QSize own(static_cast<int>(kLightWidth), static_cast<int>(kLightHeight));
+    EXPECT_EQ(smallGroup.reportPreviewSize, own);
+    EXPECT_EQ(smallGroup.reportDetailSize, own);
+    EXPECT_EQ(QImage::fromData(smallGroup.reportDetailJpeg, "JPEG").size(), own);
+    // The same pixels through the same stretch: a small master's detail is its whole-frame preview.
+    EXPECT_EQ(smallGroup.reportDetailJpeg, smallGroup.reportPreviewJpeg);
+
+    constexpr std::uint32_t kWide = 1100u;
+    constexpr std::uint32_t kTall = 600u;
+    m_integration.outputFilename = QStringLiteral("master_Large.fits");
+    useUnregisteredLights({writeFlatLight(QStringLiteral("large_a"), 0.1, 0.01, 11u, {}, {}, kWide, kTall),
+                           writeFlatLight(QStringLiteral("large_b"), 0.2, 0.01, 12u, {}, {}, kWide, kTall)});
+    const StageResult large = stack();
+    ASSERT_TRUE(large.isSuccess()) << large.error.toLogString().toStdString();
+    ASSERT_EQ(large.groupResults.size(), 1u);
+    const IntegrationGroupResult& largeGroup = large.groupResults.front();
+    EXPECT_EQ(largeGroup.reportPreviewSize, QSize(static_cast<int>(kWide), static_cast<int>(kTall)));
+    EXPECT_EQ(largeGroup.reportDetailSize, QSize(960, 540));
+    EXPECT_EQ(QImage::fromData(largeGroup.reportDetailJpeg, "JPEG").size(), QSize(960, 540));
+}
+
+TEST_F(LightsStackingTest, AMasterWhosePreviewCannotBeMadeHasNoDetail)
+{
+    useUnregisteredLights(
+        {writeFlatLight(QStringLiteral("a"), 0.1, 0.01, 1u), writeFlatLight(QStringLiteral("b"), 0.2, 0.01, 2u)});
+    LightsStackingStage failing(
+        {}, {}, [](const an::consumer::OperationScope&, const an::Image<float>&, const QString&) -> StackPreviewAssets {
+            throw std::runtime_error("the preview could not be made");
+        });
+    const StageResult result = m_run.run(failing, m_manifest);
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    ASSERT_EQ(result.groupResults.size(), 1u);
+    EXPECT_TRUE(result.groupResults.front().success) << "a master is made whether or not its pictures are";
+    EXPECT_TRUE(result.groupResults.front().reportPreviewJpeg.isEmpty());
+    EXPECT_TRUE(result.groupResults.front().reportDetailJpeg.isEmpty());
+    EXPECT_FALSE(result.groupResults.front().reportDetailSize.isValid());
+
+    // A generator that gives a detail and no whole frame gives nothing the result keeps: a detail is never alone.
+    m_manifest.reprocessExisting = true;
+    LightsStackingStage detailOnly(
+        {}, {}, [](const an::consumer::OperationScope&, const an::Image<float>&, const QString&) -> StackPreviewAssets {
+            StackPreviewAssets assets;
+            assets.reportDetailJpeg = QByteArrayLiteral("not a picture");
+            assets.reportDetailSize = QSize(8, 8);
+            return assets;
+        });
+    const StageResult alone = m_run.run(detailOnly, m_manifest);
+    ASSERT_TRUE(alone.isSuccess()) << alone.error.toLogString().toStdString();
+    ASSERT_EQ(alone.groupResults.size(), 1u);
+    EXPECT_TRUE(alone.groupResults.front().reportDetailJpeg.isEmpty());
 }
 
 } // namespace

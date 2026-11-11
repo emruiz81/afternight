@@ -963,11 +963,14 @@ public:
             ++m_facts.mastersNotReached;
             break;
         case MasterOutcome::Reused:
-            // The master an earlier run made is still valid: the stage returns before any result is made.
+            // The master an earlier run made is still valid: the stage returns before any result is made, and the
+            // run names the group among the ones it reused.
             if (!QFileInfo::exists(masterPath))
             {
                 (void)writeMaster(masterPath, plan, masterScale);
             }
+            m_result.reusedIntegrationGroups.push_back(
+                ReusedIntegrationGroup{.groupKey = key, .outputPath = masterPath});
             ++m_facts.mastersReused;
             break;
         }
@@ -1068,6 +1071,16 @@ public:
         m_scenario.context = context;
 
         m_result.warningCount = static_cast<int>(m_result.warnings.size());
+        // The manifest names the lights the user left out, as the manifest builder lists them.
+        m_manifest.leftOutLights.clear();
+        for (const ReportScenarioLeftOutLight& light : m_leftOut)
+        {
+            m_manifest.leftOutLights.push_back(WorkflowManifest::LeftOutLight{
+                .light = FrameId(light.path),
+                .kind = light.fromStackOnly ? WorkflowManifest::LeftOutLight::Kind::StackExcluded
+                                            : WorkflowManifest::LeftOutLight::Kind::Excluded,
+                .groupKey = IntegrationGroupKey{GroupKey{light.integrationGroupKey}}});
+        }
         m_scenario.manifest = m_manifest;
         m_scenario.result = m_result;
         m_scenario.facts = m_facts;
@@ -1494,6 +1507,8 @@ private:
             else if (light.state == LightState::DroppedByStack)
             {
                 dropped.append(QStringLiteral("%1 (no registered output)").arg(light.id.canonicalPath()));
+                result.droppedLights.push_back(
+                    DroppedLight{.light = light.id.canonicalPath(), .reason = DroppedLightReason::NoRegisteredOutput});
             }
             else if (light.state == LightState::Used)
             {
@@ -1503,7 +1518,7 @@ private:
         }
         if (!dropped.isEmpty())
         {
-            // The stage's own sentence, which is the only place a dropped light is named.
+            // The stage's own sentence, beside the group result's record of the lights it dropped.
             m_result.warnings.append(QStringLiteral("Skipping %1 light frame(s): %2")
                                          .arg(dropped.size())
                                          .arg(dropped.join(QStringLiteral("; "))));

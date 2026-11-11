@@ -163,9 +163,29 @@ void addMasterOutcomes(const ReportModel& model, Issues& issues, const ReportIss
         case ReportIssueKind::LightsLeftOutByStack:
             if (const int leftOut = countOfState(master, ReportFrameState::LeftOutByStack); leftOut > 0)
             {
+                // The reasons the group's result recorded, each with the lights it left out.
+                QStringList reasons;
+                QHash<QString, int> lightsByReason;
+                for (const ReportFrame& frame : master.frames)
+                {
+                    if (frame.state != ReportFrameState::LeftOutByStack)
+                    {
+                        continue;
+                    }
+                    if (!lightsByReason.contains(frame.stateDetail))
+                    {
+                        reasons.append(frame.stateDetail);
+                    }
+                    ++lightsByReason[frame.stateDetail];
+                }
+                QStringList stated;
+                for (const QString& reason : reasons)
+                {
+                    stated.append(reportText("%1 lights: %2").arg(lightsByReason.value(reason)).arg(reason));
+                }
                 issues.add(kind, ReportIssueSeverity::Warning,
                            reportText("The stack of %1 left %2 registered lights out").arg(master.name).arg(leftOut),
-                           reportText("The run recorded no reason for them."), {}, master.key, masterAnchor(master));
+                           stated.join(QLatin1Char(' ')), {}, master.key, masterAnchor(master));
             }
             break;
         case ReportIssueKind::StackedTwice:
@@ -336,7 +356,9 @@ void addRatios(const ReportModel& model, Issues& issues, const ReportIssueKind k
             {
                 continue;
             }
-            taken += static_cast<int>(master.frames.size());
+            // A light the user left out was never offered to the stack either.
+            taken += static_cast<int>(master.frames.size()) - countOfState(master, ReportFrameState::ExcludedByUser) -
+                     countOfState(master, ReportFrameState::StackExcludedByUser);
             used += countOfState(master, ReportFrameState::Used);
         }
         if (taken > 0 && static_cast<double>(used) / taken < kFrameUseWarning)

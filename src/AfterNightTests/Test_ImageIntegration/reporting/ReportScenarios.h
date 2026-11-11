@@ -202,13 +202,15 @@ struct ReportScenarioFacts
     /// The lights the run's groups took, the ones the user left out included.
     int lightsTaken = 0;
 
-    /// The lights the user left out: excluded in the lights' list, or from one stack. The manifest names none of them.
+    /// The lights the user left out: excluded in the lights' list, or from one stack. No group of the manifest names
+    /// them; its list of the lights left out does.
     int lightsLeftOutByUser = 0;
 
     /// The lights whose registration failed. They are still in their groups' lists.
     int registrationFailures = 0;
 
-    /// The registered lights a stack dropped on its own, for want of a registered output.
+    /// The registered lights a stack dropped on its own, for want of a registered output: its group's result names
+    /// each with the reason.
     int lightsDroppedByStack = 0;
 
     /// The lights a stack flagged and combined its master without.

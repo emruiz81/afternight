@@ -1225,6 +1225,48 @@ WorkflowManifest ManifestBuilder::buildInternal(std::optional<IntegrationGroupKe
         manifest.registrationGroups.push_back(std::move(reg_group));
     }
 
+    // The lights the user left out, which no group names: a light excluded in the lights' list under the group it
+    // would have joined, a light excluded from a stack under the group whose stack leaves it out. Stated for the
+    // run's report; nothing below reads the list.
+    if (integration_group.has_value() || m_includeLightFrames)
+    {
+        for (const auto& frame : all_light_frames)
+        {
+            if (!frame.excluded)
+            {
+                continue;
+            }
+            const IntegrationGroupKey key = IntegrationGroupEngine::groupKeyFor(frame, light_integration_options);
+            if (integration_group.has_value() && !(key == *integration_group))
+            {
+                continue;
+            }
+            manifest.leftOutLights.push_back(WorkflowManifest::LeftOutLight{
+                .light = frame.id, .kind = WorkflowManifest::LeftOutLight::Kind::Excluded, .groupKey = key});
+        }
+    }
+    for (const auto& group : integration_sets)
+    {
+        for (const auto& frame : group.frames)
+        {
+            if (m_model.isFrameStackExcluded(group.key, frame.id))
+            {
+                manifest.leftOutLights.push_back(
+                    WorkflowManifest::LeftOutLight{.light = frame.id,
+                                                   .kind = WorkflowManifest::LeftOutLight::Kind::StackExcluded,
+                                                   .groupKey = IntegrationGroupKey{group.key}});
+            }
+        }
+    }
+    std::sort(manifest.leftOutLights.begin(), manifest.leftOutLights.end(),
+              [](const WorkflowManifest::LeftOutLight& lhs, const WorkflowManifest::LeftOutLight& rhs) {
+                  if (!(lhs.groupKey == rhs.groupKey))
+                  {
+                      return lhs.groupKey.key < rhs.groupKey.key;
+                  }
+                  return lhs.light < rhs.light;
+              });
+
     QSet<QString> usedIntegrationOutputFilenames;
     for (const auto& group : integration_sets)
     {

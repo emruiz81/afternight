@@ -4,6 +4,8 @@
 #include "stdafx.hpp"
 #include "ReportFacts.h"
 
+#include "processes/ImageIntegration/workflow/WorkflowArchiver.h"
+
 #include "processes/ImageIntegration/workflow/stages/StageUtilities.h"
 
 #include <AfterNightEngine/IO/CodecMetadataProjection.h>
@@ -119,6 +121,8 @@ void fillStage(ReportBuild& build, const std::optional<WorkflowManifest::Calibra
     }
     const WorkflowManifest& manifest = build.manifest();
     const QString type = QString::fromLatin1(names.type);
+    const std::vector<ImageIntegration::ArchivedCalibrationPreview> previews =
+        ImageIntegration::archivedCalibrationPreviews(manifest);
     for (const auto& group : stage->groups)
     {
         const QString key = group.groupKey.toString();
@@ -172,6 +176,19 @@ void fillStage(ReportBuild& build, const std::optional<WorkflowManifest::Calibra
         master.stackingSummary = stage_utils::describeStackingSettings(group.stacking);
         fillFile(build, master);
         fillLevels(build, master);
+        // The picture the archive keeps of the master, named as the archive names it.
+        for (const ImageIntegration::ArchivedCalibrationPreview& preview : previews)
+        {
+            if (preview.groupKey == key && preview.type.compare(type, Qt::CaseInsensitive) == 0)
+            {
+                const QString picture = QStringLiteral("report_previews/calibration/%1").arg(preview.fileName);
+                if (build.exists(picture))
+                {
+                    master.preview = picture;
+                }
+                break;
+            }
+        }
         model.calibrationMasters.push_back(std::move(master));
     }
 }

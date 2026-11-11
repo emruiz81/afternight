@@ -207,40 +207,17 @@ template <typename SampleT> [[nodiscard]] float fractionOf(const SampleT sample)
     return preview;
 }
 
-[[nodiscard]] std::optional<QImage> previewFromPath(const an::consumer::EngineSession& session, const QString& path,
-                                                    const std::optional<QSize>& maxSize)
+/// A bounded preview and the balance and statistics it was presented through.
+struct PresentedPreview
 {
-    an::Result<an::ui::ViewReadResult> read =
-        an::ui::readViewImage(session, an::ui::ViewReadRequest{.path = path}, std::stop_token{}, nullptr);
-    if (!read.hasValue())
-    {
-        LOG_WARNING("PreviewThumbnailGenerator: '{}' could not be read: {}", path.toStdString(),
-                    read.status().message());
-        return std::nullopt;
-    }
-    an::Result<an::consumer::AssetReadLease> lease = read->asset.read(std::stop_token{});
-    if (!lease.hasValue())
-    {
-        return std::nullopt;
-    }
-    return generateBoundedPreview(session, lease->image(), maxSize.value_or(kDefaultMaximumReportPreviewSize));
-}
+    QImage image;
+    an::DisplayPresentationAnalysis analysis{};
+};
 
-[[nodiscard]] bool prepareOutputDirectory(const QString& outputPath, const QString& outputDir, const QString& fileName)
-{
-    if (outputPath.trimmed().isEmpty() || outputDir.trimmed().isEmpty() || fileName.trimmed().isEmpty() ||
-        !QFileInfo::exists(outputPath))
-    {
-        return false;
-    }
-    QDir outDir(outputDir);
-    return outDir.exists() || outDir.mkpath(QStringLiteral("."));
-}
-} // namespace
-
-std::optional<QImage> generateBoundedPreview(const an::consumer::EngineSession& session,
-                                             const an::consumer::AnyImage& image, const QSize& maxSize,
-                                             PreviewGenerationDiagnostics* diagnostics)
+/// The bounded preview of an image, as `generateBoundedPreview` states it, with what it was presented through.
+[[nodiscard]] std::optional<PresentedPreview> boundedPreview(const an::consumer::EngineSession& session,
+                                                             const an::consumer::AnyImage& image, const QSize& maxSize,
+                                                             PreviewGenerationDiagnostics* diagnostics)
 {
     if (diagnostics)
     {
@@ -302,8 +279,10 @@ std::optional<QImage> generateBoundedPreview(const an::consumer::EngineSession& 
                     presented.hasValue() ? "nothing was presented" : presented.status().message());
         return std::nullopt;
     }
-    QImage result = an::ui::presentedQImage(presented->image).copy();
-    if (result.isNull())
+    PresentedPreview preview;
+    preview.image = an::ui::presentedQImage(presented->image).copy();
+    preview.analysis = presented->analysis;
+    if (preview.image.isNull())
     {
         return std::nullopt;
     }
@@ -313,7 +292,148 @@ std::optional<QImage> generateBoundedPreview(const an::consumer::EngineSession& 
         diagnostics->usedUnlinkedRgbStretch = channelCount == 3u && !settings.request.linked;
         diagnostics->interleavedDisplayBufferBytes = workingPixels * channelCount;
     }
-    return result;
+    return preview;
+}
+
+/// The detail of an image under a read lease: the region at its centre at full scale, presented through the analysis
+/// its whole-frame preview was presented through. An analysis the presentation refuses is set aside and the whole
+/// image measured, as a view measures it.
+[[nodiscard]] std::optional<QImage> detailPreview(const an::consumer::EngineSession& session,
+                                                  const an::consumer::AssetReadLease& source,
+                                                  const an::DisplayPresentationAnalysis& analysis)
+{
+    const std::optional<an::ImageDescriptor> descriptor = descriptorOf(source.image());
+    if (!descriptor.has_value())
+    {
+        return std::nullopt;
+    }
+    constexpr auto kLargest = static_cast<std::uint32_t>((std::numeric_limits<int>::max)());
+    const std::uint32_t width = descriptor->extent().width();
+    const std::uint32_t height = descriptor->extent().height();
+    const std::uint32_t channelCount = descriptor->extent().channelCount();
+    if (width > kLargest || height > kLargest || (channelCount != 1u && channelCount != 3u))
+    {
+        return std::nullopt;
+    }
+    const QRect region = reportDetailRegion(QSize(static_cast<int>(width), static_cast<int>(height)));
+    if (region.isEmpty())
+    {
+        return std::nullopt;
+    }
+    an::Result<an::consumer::OperationScope> scope = session.admit(
+        an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch, .maxConcurrency = 1u});
+    if (!scope.hasValue())
+    {
+        return std::nullopt;
+    }
+    an::ui::ViewPresentationSettings settings{};
+    settings.region = an::ui::ViewRegion{.x = static_cast<std::uint32_t>(region.x()),
+                                         .y = static_cast<std::uint32_t>(region.y()),
+                                         .width = static_cast<std::uint32_t>(region.width()),
+                                         .height = static_cast<std::uint32_t>(region.height())};
+    an::Result<an::ui::ViewPresentationOutcome> presented =
+        an::ui::presentForView(scope->engine(), scope->execution(), source, settings, &analysis, &session.memory());
+    if (!presented.hasValue() || !presented->image)
+    {
+        LOG_WARNING("PreviewThumbnailGenerator: the detail was not presented: {}",
+                    presented.hasValue() ? "nothing was presented" : presented.status().message());
+        return std::nullopt;
+    }
+    QImage detail = an::ui::presentedQImage(presented->image).copy();
+    if (detail.isNull())
+    {
+        return std::nullopt;
+    }
+    return detail;
+}
+
+/// The pictures one read of a file gives.
+struct FilePreviews
+{
+    std::optional<QImage> whole;
+    std::optional<QImage> detail;
+};
+
+/// Reads a file once and previews it: the whole frame within `maxSize`, and its detail when asked.
+[[nodiscard]] FilePreviews previewsFromPath(const an::consumer::EngineSession& session, const QString& path,
+                                            const std::optional<QSize>& maxSize, const bool withDetail)
+{
+    FilePreviews previews;
+    an::Result<an::ui::ViewReadResult> read =
+        an::ui::readViewImage(session, an::ui::ViewReadRequest{.path = path}, std::stop_token{}, nullptr);
+    if (!read.hasValue())
+    {
+        LOG_WARNING("PreviewThumbnailGenerator: '{}' could not be read: {}", path.toStdString(),
+                    read.status().message());
+        return previews;
+    }
+    an::Result<an::consumer::AssetReadLease> lease = read->asset.read(std::stop_token{});
+    if (!lease.hasValue())
+    {
+        return previews;
+    }
+    std::optional<PresentedPreview> whole =
+        boundedPreview(session, lease->image(), maxSize.value_or(kDefaultMaximumReportPreviewSize), nullptr);
+    if (!whole.has_value())
+    {
+        return previews;
+    }
+    if (withDetail)
+    {
+        previews.detail = detailPreview(session, *lease, whole->analysis);
+    }
+    previews.whole = std::move(whole->image);
+    return previews;
+}
+
+[[nodiscard]] std::optional<QImage> previewFromPath(const an::consumer::EngineSession& session, const QString& path,
+                                                    const std::optional<QSize>& maxSize)
+{
+    return previewsFromPath(session, path, maxSize, false).whole;
+}
+
+/// Writes a picture as a JPEG of the quality stated.
+[[nodiscard]] bool writeJpeg(const QImage& image, const QString& path, const int quality)
+{
+    QImageWriter writer(path, "JPG");
+    writer.setQuality(std::clamp(quality, 1, 100));
+    writer.setOptimizedWrite(true);
+    return writer.write(image);
+}
+
+[[nodiscard]] bool prepareOutputDirectory(const QString& outputPath, const QString& outputDir, const QString& fileName)
+{
+    if (outputPath.trimmed().isEmpty() || outputDir.trimmed().isEmpty() || fileName.trimmed().isEmpty() ||
+        !QFileInfo::exists(outputPath))
+    {
+        return false;
+    }
+    QDir outDir(outputDir);
+    return outDir.exists() || outDir.mkpath(QStringLiteral("."));
+}
+} // namespace
+
+std::optional<QImage> generateBoundedPreview(const an::consumer::EngineSession& session,
+                                             const an::consumer::AnyImage& image, const QSize& maxSize,
+                                             PreviewGenerationDiagnostics* diagnostics)
+{
+    std::optional<PresentedPreview> preview = boundedPreview(session, image, maxSize, diagnostics);
+    if (!preview.has_value())
+    {
+        return std::nullopt;
+    }
+    return std::move(preview->image);
+}
+
+QRect reportDetailRegion(const QSize& imageSize)
+{
+    if (imageSize.width() <= 0 || imageSize.height() <= 0)
+    {
+        return {};
+    }
+    const int width = (std::min)(imageSize.width(), kReportDetailRegionSize.width());
+    const int height = (std::min)(imageSize.height(), kReportDetailRegionSize.height());
+    return QRect((imageSize.width() - width) / 2, (imageSize.height() - height) / 2, width, height);
 }
 
 std::optional<QString> generatePreviewThumbnail(const an::consumer::EngineSession& session, const QString& outputPath,
@@ -345,18 +465,33 @@ std::optional<QString> generateReportPreviewJpeg(const an::consumer::EngineSessi
         return std::nullopt;
     }
     const auto preview = previewFromPath(session, outputPath, maxSize);
-    if (!preview.has_value())
-    {
-        return std::nullopt;
-    }
-    QImageWriter writer(QDir(outputDir).filePath(fileName), "JPG");
-    writer.setQuality(std::clamp(quality, 1, 100));
-    writer.setOptimizedWrite(true);
-    if (!writer.write(*preview))
+    if (!preview.has_value() || !writeJpeg(*preview, QDir(outputDir).filePath(fileName), quality))
     {
         return std::nullopt;
     }
     return fileName;
+}
+
+ReportMasterPreviews generateReportMasterPreviews(const an::consumer::EngineSession& session, const QString& outputPath,
+                                                  const QString& outputDir, const QString& wholeName,
+                                                  const QString& detailName, std::optional<QSize> maxSize, int quality)
+{
+    ReportMasterPreviews written;
+    if (!prepareOutputDirectory(outputPath, outputDir, wholeName) || detailName.trimmed().isEmpty())
+    {
+        return written;
+    }
+    const FilePreviews previews = previewsFromPath(session, outputPath, maxSize, true);
+    if (!previews.whole.has_value() || !writeJpeg(*previews.whole, QDir(outputDir).filePath(wholeName), quality))
+    {
+        return written;
+    }
+    written.whole = wholeName;
+    if (previews.detail.has_value() && writeJpeg(*previews.detail, QDir(outputDir).filePath(detailName), quality))
+    {
+        written.detail = detailName;
+    }
+    return written;
 }
 
 std::optional<QString> generateReportPreviewPng(const an::consumer::EngineSession& session, const QString& outputPath,

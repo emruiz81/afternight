@@ -37,6 +37,8 @@ struct StackPreviewAssets
 {
     QByteArray reportPreviewJpeg; ///< Bounded JPEG bytes; no resident master is retained.
     QSize reportPreviewSize; ///< Pixel dimensions of reportPreviewJpeg.
+    QByteArray reportDetailJpeg; ///< JPEG bytes of the master's centre at full scale, stretched as the whole frame is.
+    QSize reportDetailSize; ///< Pixel dimensions of reportDetailJpeg; empty when there is no detail.
 };
 
 /// Makes a master's preview: its report JPEG, and the thumbnail written at the path given.

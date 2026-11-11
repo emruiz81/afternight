@@ -139,9 +139,18 @@ namespace
         {
             groupMetadata[QStringLiteral("qualityReport")] = stackingQualityReportToJson(group.qualityReport);
         }
+        if (!group.droppedLights.empty())
+        {
+            groupMetadata[QStringLiteral("droppedLights")] = droppedLightsToJson(group.droppedLights);
+        }
         groups.append(groupMetadata);
     }
     variableMetadata[QStringLiteral("groups")] = groups;
+    if (!result.reusedIntegrationGroups.empty())
+    {
+        variableMetadata[QStringLiteral("reusedIntegrationGroups")] =
+            reusedIntegrationGroupsToJson(result.reusedIntegrationGroups);
+    }
 
     QJsonArray stages;
     for (const auto& stage : result.stageResults)
@@ -266,6 +275,10 @@ struct ArchiveRetentionPreflight
 }
 
 constexpr QSize kMaximumReportPreviewSize{2048, 2048};
+
+/// The bound of a calibration master's picture: a report shows it small, and a frame of noise at a master's bound is
+/// a megabyte of JPEG in every run's archive.
+constexpr QSize kMaximumCalibrationPreviewSize{1024, 1024};
 
 [[nodiscard]] bool isValidPreparedReportPreview(const QByteArray& jpegBytes, const QSize& declaredSize)
 {
@@ -572,6 +585,110 @@ std::vector<QualityMapResult> detectQualityMapsForOutput(const QString& outputPa
     return RejectionClusterMapKind::Merged;
 }
 
+/// The integration group results of an earlier run's archive and the folders it keeps their pictures in.
+struct EarlierRunPictures
+{
+    QString runPath;
+    QJsonArray groupResults;
+    std::vector<QString> groupKeys;
+    std::vector<QString> folders;
+};
+
+/// Reads what an earlier run's archive states of its groups; nothing for an archive whose manifest does not read.
+[[nodiscard]] std::optional<EarlierRunPictures> readEarlierRunPictures(const QString& runPath)
+{
+    QFile file(QDir(runPath).filePath(QStringLiteral("workflow_manifest.json")));
+    if (!file.open(QIODevice::ReadOnly))
+    {
+        return std::nullopt;
+    }
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+    if (!document.isObject())
+    {
+        return std::nullopt;
+    }
+    const QJsonObject root = document.object();
+    EarlierRunPictures run;
+    run.runPath = runPath;
+    run.groupResults = root.value(QStringLiteral("integrationGroupResults")).toArray();
+    // The folders are named over the archive's results and then its reused groups, as it named them.
+    for (const auto& value : run.groupResults)
+    {
+        run.groupKeys.push_back(value.toObject().value(QStringLiteral("groupKey")).toString());
+    }
+    std::vector<QString> named = run.groupKeys;
+    for (const ReusedIntegrationGroup& reused :
+         reusedIntegrationGroupsFromJson(root.value(QStringLiteral("reusedIntegrationGroups")).toArray()))
+    {
+        named.push_back(reused.groupKey);
+    }
+    run.folders = ImageIntegration::archiveGroupFolderNames(named);
+    return run;
+}
+
+/// Copies a reused master's pictures from the archive of the run that made it: the latest earlier run of the history
+/// whose result for the group succeeded. The master on disk must still be the size that run recorded, and that run
+/// must keep the whole-frame picture; the detail is copied when it keeps one.
+///
+/// @param earlierRuns the history's earlier runs, latest first; an entry is read the first time it is asked for.
+/// @return whether the whole-frame picture was copied.
+[[nodiscard]] bool
+copyPicturesOfTheRunThatMade(std::vector<std::pair<QString, std::optional<EarlierRunPictures>>>& earlierRuns,
+                             const ReusedIntegrationGroup& reused, const QString& destinationDir)
+{
+    for (auto& [runPath, pictures] : earlierRuns)
+    {
+        if (runPath.isEmpty())
+        {
+            continue;
+        }
+        if (!pictures.has_value())
+        {
+            pictures = readEarlierRunPictures(runPath);
+            if (!pictures.has_value())
+            {
+                // An archive that does not read is not asked again.
+                runPath.clear();
+                continue;
+            }
+        }
+        for (std::size_t index = 0; index < pictures->groupKeys.size(); ++index)
+        {
+            if (pictures->groupKeys[index] != reused.groupKey)
+            {
+                continue;
+            }
+            const QJsonObject made = pictures->groupResults.at(static_cast<qsizetype>(index)).toObject();
+            if (made.value(QStringLiteral("result")).toString() != QStringLiteral("success"))
+            {
+                continue;
+            }
+            // The latest run that made the master is the one to copy from, or none is.
+            const qint64 recordedBytes = made.value(QStringLiteral("outputBytes")).toVariant().toLongLong();
+            const QFileInfo master(reused.outputPath);
+            const QDir source(
+                QDir(pictures->runPath).filePath(QStringLiteral("report_previews/%1").arg(pictures->folders[index])));
+            const QString whole = source.filePath(QStringLiteral("master.jpg"));
+            if (!master.exists() || master.size() != recordedBytes || !QFile::exists(whole))
+            {
+                return false;
+            }
+            if (!QDir().mkpath(destinationDir) ||
+                !QFile::copy(whole, QDir(destinationDir).filePath(QStringLiteral("master.jpg"))))
+            {
+                return false;
+            }
+            const QString detail = source.filePath(QStringLiteral("detail.jpg"));
+            if (QFile::exists(detail))
+            {
+                (void)QFile::copy(detail, QDir(destinationDir).filePath(QStringLiteral("detail.jpg")));
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRecord& qualityReport,
                                 const RejectionClusterMapKind mapKind)
 {
@@ -632,6 +749,99 @@ void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRe
     preview.save(previewPath);
 }
 } // namespace
+
+namespace ImageIntegration
+{
+std::vector<QString> archiveGroupFolderNames(const std::vector<QString>& groupKeys)
+{
+    QHash<QString, int> baseCounts;
+    for (const QString& key : groupKeys)
+    {
+        ++baseCounts[sanitizeFilename(key)];
+    }
+    std::vector<QString> folders;
+    folders.reserve(groupKeys.size());
+    QSet<QString> used;
+    for (const QString& key : groupKeys)
+    {
+        const QString base = sanitizeFilename(key);
+        QString folder = base;
+        if (baseCounts.value(base, 0) > 1)
+        {
+            const QString hash = stableShortHash(key, 8);
+            folder = QStringLiteral("%1_%2").arg(base, hash);
+            for (int index = 2; used.contains(folder); ++index)
+            {
+                folder = QStringLiteral("%1_%2_%3").arg(base, hash).arg(index);
+            }
+            LOG_WARNING("WorkflowArchiver: group directory collision detected for '{}'; using '{}'", key.toStdString(),
+                        folder.toStdString());
+        }
+        used.insert(folder);
+        folders.push_back(folder);
+    }
+    return folders;
+}
+
+std::vector<ArchivedCalibrationPreview> archivedCalibrationPreviews(const WorkflowManifest& manifest)
+{
+    std::vector<ArchivedCalibrationPreview> previews;
+    const auto collect = [&](const std::optional<WorkflowManifest::CalibrationStage>& stage, const QString& type) {
+        if (!stage.has_value())
+        {
+            return;
+        }
+        for (const auto& group : stage->groups)
+        {
+            ArchivedCalibrationPreview preview;
+            preview.type = type;
+            preview.groupKey = group.groupKey.toString();
+            if (group.existingMaster.has_value())
+            {
+                preview.masterPath = group.existingMaster->canonicalPath();
+            }
+            else if (!group.outputFilename.trimmed().isEmpty() && !manifest.outputDirectory.trimmed().isEmpty())
+            {
+                preview.masterPath =
+                    QFileInfo(QDir(manifest.outputDirectory).filePath(group.outputFilename)).absoluteFilePath();
+            }
+            previews.push_back(std::move(preview));
+        }
+    };
+    collect(manifest.biasStage, QStringLiteral("Bias"));
+    collect(manifest.darkStage, QStringLiteral("Dark"));
+    collect(manifest.flatStage, QStringLiteral("Flat"));
+
+    const auto baseOf = [](const ArchivedCalibrationPreview& preview) {
+        const QString base = sanitizeFilename(QFileInfo(preview.masterPath).completeBaseName());
+        return base.isEmpty() ? sanitizeFilename(preview.type.toLower()) : base;
+    };
+    QHash<QString, int> baseCounts;
+    for (const ArchivedCalibrationPreview& preview : previews)
+    {
+        ++baseCounts[baseOf(preview).toLower()];
+    }
+    QSet<QString> used;
+    for (ArchivedCalibrationPreview& preview : previews)
+    {
+        const QString base = baseOf(preview);
+        QString name = base;
+        if (baseCounts.value(base.toLower(), 0) > 1)
+        {
+            const QString hash =
+                stableShortHash(QStringLiteral("%1|%2").arg(preview.type.toLower(), preview.groupKey), 8);
+            name = QStringLiteral("%1_%2").arg(base, hash);
+            for (int index = 2; used.contains(name.toLower()); ++index)
+            {
+                name = QStringLiteral("%1_%2_%3").arg(base, hash).arg(index);
+            }
+        }
+        used.insert(name.toLower());
+        preview.fileName = name + QStringLiteral(".jpg");
+    }
+    return previews;
+}
+} // namespace ImageIntegration
 
 WorkflowArchiver::WorkflowArchiver(const QString& outputDir, WorkflowExecutionCounterAccumulator* counters)
     : m_outputDir(outputDir), m_maxHistoryEntries(ImageIntegration::Config::kRunHistoryMaxEntries),
@@ -885,38 +1095,31 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         return false;
     };
 
-    QHash<QString, int> groupDirBaseCounts;
+    // The groups the archive names a folder for: the ones the run has a result for, then the ones it reused, which
+    // have none.
+    std::vector<QString> archivedGroupKeys;
+    archivedGroupKeys.reserve(result.integrationGroupResults.size() + result.reusedIntegrationGroups.size());
     for (const auto& groupResult : result.integrationGroupResults)
     {
-        const QString baseName = ImageIntegration::sanitizeFilename(groupResult.groupKey);
-        groupDirBaseCounts[baseName] = groupDirBaseCounts.value(baseName, 0) + 1;
+        archivedGroupKeys.push_back(groupResult.groupKey);
     }
+    std::vector<const ReusedIntegrationGroup*> reusedGroups;
+    for (const ReusedIntegrationGroup& reused : result.reusedIntegrationGroups)
+    {
+        if (std::find(archivedGroupKeys.begin(), archivedGroupKeys.end(), reused.groupKey) == archivedGroupKeys.end())
+        {
+            archivedGroupKeys.push_back(reused.groupKey);
+            reusedGroups.push_back(&reused);
+        }
+    }
+    const std::vector<QString> archivedGroupFolders = ImageIntegration::archiveGroupFolderNames(archivedGroupKeys);
 
-    QSet<QString> usedGroupDirNames;
     for (int groupIndex = 0; groupIndex < static_cast<int>(result.integrationGroupResults.size()); ++groupIndex)
     {
         auto& groupResult = result.integrationGroupResults[groupIndex];
         auto& reportGroupResult = reportResult.integrationGroupResults[groupIndex];
 
-        const QString baseGroupDirName = ImageIntegration::sanitizeFilename(groupResult.groupKey);
-        QString groupDirName = baseGroupDirName;
-        if (groupDirBaseCounts.value(baseGroupDirName, 0) > 1)
-        {
-            groupDirName = QStringLiteral("%1_%2").arg(baseGroupDirName,
-                                                       ImageIntegration::stableShortHash(groupResult.groupKey, 8));
-            int dedupeIndex = 2;
-            while (usedGroupDirNames.contains(groupDirName))
-            {
-                groupDirName = QStringLiteral("%1_%2_%3")
-                                   .arg(baseGroupDirName, ImageIntegration::stableShortHash(groupResult.groupKey, 8))
-                                   .arg(dedupeIndex);
-                ++dedupeIndex;
-            }
-
-            LOG_WARNING("WorkflowArchiver: group directory collision detected for '{}'; using '{}'",
-                        groupResult.groupKey.toStdString(), groupDirName.toStdString());
-        }
-        usedGroupDirNames.insert(groupDirName);
+        const QString groupDirName = archivedGroupFolders[static_cast<std::size_t>(groupIndex)];
         groupDirNames.push_back(groupDirName);
         const QString groupDirPath = runDir.filePath("groups/" + groupDirName);
         QDir groupDir(groupDirPath);
@@ -962,6 +1165,24 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
                 LOG_WARNING("WorkflowArchiver: Failed to write prepared report preview for group {}",
                             groupResult.groupKey.toStdString());
             }
+            // The detail the run prepared beside it: the master's centre at full scale, stretched as the whole
+            // frame is. One that is not a picture of at most the detail's size is not written.
+            if (isValidPreparedReportPreview(groupResult.reportDetailJpeg, groupResult.reportDetailSize) &&
+                groupResult.reportDetailSize.width() <= ImageIntegration::kReportDetailRegionSize.width() &&
+                groupResult.reportDetailSize.height() <= ImageIntegration::kReportDetailRegionSize.height())
+            {
+                if (!writeAtomicFile(reportPreviewDir.filePath(QStringLiteral("detail.jpg")),
+                                     groupResult.reportDetailJpeg))
+                {
+                    LOG_WARNING("WorkflowArchiver: Failed to write prepared report detail for group {}",
+                                groupResult.groupKey.toStdString());
+                }
+            }
+            else if (!groupResult.reportDetailJpeg.isEmpty())
+            {
+                LOG_WARNING("WorkflowArchiver: Ignoring invalid prepared report detail for group {}",
+                            groupResult.groupKey.toStdString());
+            }
         }
         else if (!groupResult.reportPreviewJpeg.isEmpty())
         {
@@ -973,13 +1194,19 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         if (m_session != nullptr && !preparedPreviewIsValid && !groupResult.reportPreviewPreparedForCurrentRun &&
             !groupResult.outputPath.trimmed().isEmpty() && QFile::exists(groupResult.outputPath))
         {
-            ImageIntegration::generateReportPreviewJpeg(*m_session, groupResult.outputPath, reportPreviewDirPath,
-                                                        QStringLiteral("master.jpg"), kMaximumReportPreviewSize);
+            // One read of the master gives both of its pictures.
+            (void)ImageIntegration::generateReportMasterPreviews(
+                *m_session, groupResult.outputPath, reportPreviewDirPath, QStringLiteral("master.jpg"),
+                QStringLiteral("detail.jpg"), kMaximumReportPreviewSize);
         }
         groupResult.reportPreviewJpeg.clear();
         groupResult.reportPreviewSize = {};
+        groupResult.reportDetailJpeg.clear();
+        groupResult.reportDetailSize = {};
         reportGroupResult.reportPreviewJpeg.clear();
         reportGroupResult.reportPreviewSize = {};
+        reportGroupResult.reportDetailJpeg.clear();
+        reportGroupResult.reportDetailSize = {};
 
         archivedFilesByGroup.insert(groupResult.groupKey, archivedFilesJson);
 
@@ -1061,6 +1288,52 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
 
         reportGroupResult.qualityMaps = std::move(reportQualityMaps);
         archivedQualityMapsByGroup.insert(groupResult.groupKey, qualityMapsJson);
+    }
+
+    // The pictures a report shows that no result brings: a reused master's, copied from the archive of the run that
+    // made it or made from one read of the file, and each calibration master's. They are written before the run's
+    // size is measured, so the retention decision counts them; a preview is a picture, never a workflow image.
+    if (shouldGenerateWorkflowReport(persistedManifest, result))
+    {
+        std::vector<std::pair<QString, std::optional<EarlierRunPictures>>> earlierRuns;
+        if (!reusedGroups.empty())
+        {
+            const std::vector<QFileInfo> runs = sortedHistoryRunDirectories(historyDir, runDirPath);
+            for (auto run = runs.rbegin(); run != runs.rend(); ++run)
+            {
+                earlierRuns.emplace_back(run->absoluteFilePath(), std::nullopt);
+            }
+        }
+        for (std::size_t index = 0; index < reusedGroups.size(); ++index)
+        {
+            const ReusedIntegrationGroup& reused = *reusedGroups[index];
+            const QString folder = archivedGroupFolders[result.integrationGroupResults.size() + index];
+            const QString picturesDir = runDir.filePath(QStringLiteral("report_previews/%1").arg(folder));
+            if (copyPicturesOfTheRunThatMade(earlierRuns, reused, picturesDir))
+            {
+                continue;
+            }
+            if (m_session != nullptr && !reused.outputPath.trimmed().isEmpty() && QFile::exists(reused.outputPath))
+            {
+                (void)ImageIntegration::generateReportMasterPreviews(
+                    *m_session, reused.outputPath, picturesDir, QStringLiteral("master.jpg"),
+                    QStringLiteral("detail.jpg"), kMaximumReportPreviewSize);
+            }
+        }
+
+        if (m_session != nullptr)
+        {
+            const QString calibrationDir = runDir.filePath(QStringLiteral("report_previews/calibration"));
+            for (const ImageIntegration::ArchivedCalibrationPreview& preview :
+                 ImageIntegration::archivedCalibrationPreviews(persistedManifest))
+            {
+                if (!preview.masterPath.isEmpty() && QFile::exists(preview.masterPath))
+                {
+                    (void)ImageIntegration::generateReportPreviewJpeg(*m_session, preview.masterPath, calibrationDir,
+                                                                      preview.fileName, kMaximumCalibrationPreviewSize);
+                }
+            }
+        }
     }
 
     qint64 knownCurrentRunBytes = directorySizeBytes(runDirPath);
@@ -1147,6 +1420,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         if (groupResult.qualityReport.valid)
         {
             groupSummary[QStringLiteral("qualityReport")] = stackingQualityReportToJson(groupResult.qualityReport);
+        }
+        if (!groupResult.droppedLights.empty())
+        {
+            groupSummary[QStringLiteral("droppedLights")] = droppedLightsToJson(groupResult.droppedLights);
         }
 
         const QString groupSummaryPath =
@@ -1484,12 +1761,20 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
             {
                 g["qualityReport"] = stackingQualityReportToJson(gr.qualityReport);
             }
+            if (!gr.droppedLights.empty())
+            {
+                g["droppedLights"] = droppedLightsToJson(gr.droppedLights);
+            }
 
             groupResultsJson.append(g);
         }
         return groupResultsJson;
     };
     root["integrationGroupResults"] = build_group_results_json();
+    if (!result.reusedIntegrationGroups.empty())
+    {
+        root[QStringLiteral("reusedIntegrationGroups")] = reusedIntegrationGroupsToJson(result.reusedIntegrationGroups);
+    }
 
     QJsonArray calibrationResultsJson;
     for (const auto& calibrationResult : result.calibrationGroupResults)

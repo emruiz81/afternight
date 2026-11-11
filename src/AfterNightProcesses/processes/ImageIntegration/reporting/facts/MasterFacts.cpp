@@ -4,6 +4,8 @@
 #include "stdafx.hpp"
 #include "ReportFacts.h"
 
+#include "processes/ImageIntegration/workflow/WorkflowArchiver.h"
+
 #include "processes/ImageIntegration/core/FilenameUtils.h"
 #include "processes/ImageIntegration/core/RejectionMapUtils.h"
 #include "processes/ImageIntegration/core/StackingParamsUtils.h"
@@ -149,35 +151,49 @@ namespace
     return ReportClusterMap::Merged;
 }
 
-/// The folder each result's pictures are archived in, by the result's place: the group key made a file name, with a
-/// hash of the key appended where two keys give the same name - as the archive names the folders it writes.
-[[nodiscard]] std::vector<QString> previewFolders(const std::vector<IntegrationGroupResult>& results)
+/// The folder each group's pictures are archived in, by the group's key: the run's results first, then the groups
+/// it reused, named as the archive names the folders it writes.
+[[nodiscard]] QHash<QString, QString> previewFolders(const WorkflowExecutor::Result& result)
 {
-    QHash<QString, int> baseCounts;
-    for (const IntegrationGroupResult& group : results)
+    std::vector<QString> keys;
+    keys.reserve(result.integrationGroupResults.size() + result.reusedIntegrationGroups.size());
+    for (const IntegrationGroupResult& group : result.integrationGroupResults)
     {
-        ++baseCounts[ImageIntegration::sanitizeFilename(group.groupKey)];
+        keys.push_back(group.groupKey);
     }
-    std::vector<QString> folders;
-    folders.reserve(results.size());
-    QSet<QString> used;
-    for (const IntegrationGroupResult& group : results)
+    for (const ReusedIntegrationGroup& reused : result.reusedIntegrationGroups)
     {
-        const QString base = ImageIntegration::sanitizeFilename(group.groupKey);
-        QString folder = base;
-        if (baseCounts.value(base, 0) > 1)
+        if (std::find(keys.begin(), keys.end(), reused.groupKey) == keys.end())
         {
-            const QString hash = ImageIntegration::stableShortHash(group.groupKey, 8);
-            folder = QStringLiteral("%1_%2").arg(base, hash);
-            for (int index = 2; used.contains(folder); ++index)
-            {
-                folder = QStringLiteral("%1_%2_%3").arg(base, hash).arg(index);
-            }
+            keys.push_back(reused.groupKey);
         }
-        used.insert(folder);
-        folders.push_back(folder);
+    }
+    const std::vector<QString> names = ImageIntegration::archiveGroupFolderNames(keys);
+    QHash<QString, QString> folders;
+    for (std::size_t i = 0; i < keys.size(); ++i)
+    {
+        // Two results of one key share the first one's folder, as the archive's records of them do.
+        if (!folders.contains(keys[i]))
+        {
+            folders.insert(keys[i], names[i]);
+        }
     }
     return folders;
+}
+
+/// A master's two pictures in the run's folder, each stated where the archive holds it.
+void fillPictures(const ReportBuild& build, ReportMaster& master)
+{
+    const QString whole = QStringLiteral("report_previews/%1/master.jpg").arg(master.previewFolder);
+    if (build.exists(whole))
+    {
+        master.preview = whole;
+    }
+    const QString detail = QStringLiteral("report_previews/%1/detail.jpg").arg(master.previewFolder);
+    if (build.exists(detail))
+    {
+        master.detail = detail;
+    }
 }
 
 /// The calibration masters a group's lights take, by file name, each kind's names in order.
@@ -564,8 +580,11 @@ void fillFromResult(ReportBuild& build, const IntegrationGroupResult& group,
         master.stack = stackOf(group.qualityReport, group.lightFrameCount, definition);
     }
 
-    const QString archivedPreview = QStringLiteral("report_previews/%1/master.jpg").arg(master.previewFolder);
-    master.preview = build.exists(archivedPreview) ? archivedPreview : group.previewPath.trimmed();
+    fillPictures(build, master);
+    if (master.preview.isEmpty())
+    {
+        master.preview = group.previewPath.trimmed();
+    }
     fillMaps(build, group, definition, master);
 }
 } // namespace
@@ -582,11 +601,17 @@ void fillMasters(ReportBuild& build, ReportModel& model)
         calibrationByLight.insert(calibration.lightPath.canonicalPath(), &calibration);
     }
 
-    const std::vector<QString> folders = previewFolders(result.integrationGroupResults);
+    const QHash<QString, QString> folders = previewFolders(result);
     QHash<QString, std::size_t> resultByKey;
     for (std::size_t i = 0; i < result.integrationGroupResults.size(); ++i)
     {
         resultByKey.insert(result.integrationGroupResults[i].groupKey, i);
+    }
+    // The groups the run left as they are, by the run's own record of them: nothing else makes a master reused.
+    QHash<QString, const ReusedIntegrationGroup*> reusedByKey;
+    for (const ReusedIntegrationGroup& reused : result.reusedIntegrationGroups)
+    {
+        reusedByKey.insert(reused.groupKey, &reused);
     }
     QSet<QString> combinedKeys;
     for (const auto& registrationGroup : manifest.registrationGroups)
@@ -627,22 +652,38 @@ void fillMasters(ReportBuild& build, ReportModel& model)
 
         if (const auto found = resultByKey.constFind(key); found != resultByKey.constEnd())
         {
-            master.previewFolder = folders[*found];
+            master.previewFolder = folders.value(key, master.previewFolder);
             fillFromResult(build, result.integrationGroupResults[*found], &group, master);
         }
-        else if (!stopped && build.exists(master.file))
+        else if (const auto reused = reusedByKey.constFind(key); reused != reusedByKey.constEnd())
         {
-            // A group whose output is still valid leaves no result: in a run that completed, a planned master whose
-            // file is there was reused.
+            // A group whose output is still valid leaves no result: the run names it among the groups it reused,
+            // however the run ended.
             master.state = ReportMasterState::Reused;
+            master.previewFolder = folders.value(key, master.previewFolder);
+            if (!(*reused)->outputPath.trimmed().isEmpty())
+            {
+                master.file = (*reused)->outputPath;
+            }
             master.bytes = build.fileSize(master.file);
             fillReused(build, master);
+            fillPictures(build, master);
         }
-        else
+        else if (stopped)
         {
             master.state = result.cancelled ? ReportMasterState::Cancelled : ReportMasterState::NotReached;
             master.failure = result.cancelled ? reportText("The run was cancelled before it reached this master.")
                                               : reportText("The run stopped before it reached this master.");
+        }
+        else
+        {
+            // Neither made nor reused in a run that completed: the run recorded nothing of the master, and the
+            // report infers nothing from the file being there.
+            master.state = ReportMasterState::NotReached;
+            master.failure = reportText("The run completed without a record of this master.");
+            build.notStated(reportText("What became of the master %1").arg(master.name),
+                            reportText("The run completed with neither a result for it nor a record of having reused "
+                                       "it."));
         }
         model.masters.push_back(std::move(master));
     }
@@ -658,7 +699,7 @@ void fillMasters(ReportBuild& build, ReportModel& model)
         ReportMaster master;
         master.key = group.groupKey;
         master.slug = build.slugs().slugFor(group.groupKey);
-        master.previewFolder = folders[i];
+        master.previewFolder = folders.value(group.groupKey, ImageIntegration::sanitizeFilename(group.groupKey));
         master.name = friendlyGroupKey(group.groupKey);
         master.kind = combinedKeys.contains(group.groupKey) ? ReportMasterKind::CombinedRgb : ReportMasterKind::Stack;
         for (const auto& registrationGroup : manifest.registrationGroups)
