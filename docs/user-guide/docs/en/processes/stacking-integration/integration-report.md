@@ -214,10 +214,13 @@ What the stack recorded of itself:
 | Figure | Says |
 | --- | --- |
 | **Coverage** | The [pixel coverage](../../reference/glossary.md#pixel-coverage): the fewest, the median and the most lights that reached a pixel, as one bar. |
-| **Effective lights** | The effective frames of the master, of the lights combined. |
+| **Effective frames** | The [effective frames](../../reference/glossary.md#effective-frames) of the master, of the lights combined. |
 | **SNR gain** | The gain the stack measured, of the gain its number of lights promises. |
 | **Rejected**, **Rejected per light** | The share of all samples the stack rejected, then the range and the median over the lights. |
 | **Weighting**, **Weighted integration** | How the lights were weighed, and their exposure with each light counted at its weight. |
+
+A stack that writes no quality maps may record no coverage, no effective frames and no measured gain. The
+section then leaves those out and Part 6 lists them under **What the report could not state**.
 
 The section also names what brought the lights to one level, the share of the capture's area the master covers,
 the astrometry with the center, the scale, the field and the rotation of the solution, the time each phase of
@@ -242,7 +245,9 @@ caption: >-
   rejected samples and the quality score, each where a light states it. Point at a light for all its figures.
 - **Where each light sat** plots the shift of each light against the
   [reference frame](../../reference/glossary.md#reference-frame), a mark a light and a shape a night. A spread of
-  marks is the [dithering](../../reference/glossary.md#dithering).
+  marks is the [dithering](../../reference/glossary.md#dithering). The shift is that of the middle of the frame,
+  so a light taken after a meridian flip sits among the others; the table of lights then has a **Turn** column,
+  where such a light reads 180.
 - **Left out** lists the lights of the group that did not go into the master, each with its state and its reason.
 - The last line opens a table of every light with every measure, its weight, its share of the stack, its state and
   its file.
@@ -273,19 +278,25 @@ reports and no image of theirs, so the figures of an earlier run are the ones th
 
 | Block | Compares |
 | --- | --- |
-| **Before and after** | Each master this run made with the latest earlier run that made the same master: the two pictures, then the lights used, the integration, the noise, the signal to noise, the median FWHM, the effective frames and the samples rejected. |
+| **Before and after** | Each master this run made with the latest earlier run that made the same master: the two pictures, then the lights used, the integration, the noise, the signal to noise, the median FWHM, the effective frames and the samples rejected. Where several earlier runs made the master, **Against the run of** picks which of them it stands beside. |
 | **What changed** | The run as a whole with the latest earlier run that completed: the totals, the application's version and the fingerprints, the settings that differ, and the frames each group gained and lost. |
 | **Over the runs of this folder** | The runs the folder keeps, the oldest first: the integration, the lights used and the noise of the first master as a column for each of the latest eight runs, then a table of every run with a link to its report. |
 
 - The two pictures of a master lie under one divider: the earlier run is left of it and this run right of it. Drag
   the divider, or move it with the arrow keys. **Whole frame** and **Detail** choose the picture, and with several
   masters a button for each chooses the master. Two frames of different shapes stand side by side instead.
-- Each picture is its own run's, under its own display stretch, so a difference in brightness between the two says
-  nothing. The figures under the pictures are measured on the linear masters.
+- The line under the pictures says which display stretch the earlier picture has. While `history` still holds the
+  earlier run's copy of the master, that master is shown under this run's stretch, so a difference between the
+  two pictures is a difference between the masters. Otherwise each picture is its own run's, under its own
+  stretch, and a difference in brightness between the two says nothing. The figures under the pictures are
+  measured on the linear masters either way.
 - A change for the better or for the worse is said in words beside the figure. The share of samples rejected is
   marked neither way: it follows the lights and the settings.
 - A master that the run reused is left out of **Before and after**, since it is the earlier run's own master. A
   master no earlier run made is marked as new.
+- **Against the run of** offers up to six earlier runs, the latest first. The pictures of the runs before the
+  latest are read from those runs' folders in `history`, so a report saved as one file offers the latest run
+  alone, and a run that `history` removed keeps its figures and loses its pictures.
 - A setting changed the same way in several groups is one row that names the groups. A line under the table says
   how many other settings were compared and are the same.
 - The fingerprints tell what differs at a glance: a run with the same settings and the same input files has the
@@ -298,7 +309,7 @@ reports and no image of theirs, so the figures of an earlier run are the ones th
 | Block | Shows |
 | --- | --- |
 | **What made each master** | A row a master, read from left to right: its lights, its bias, dark and flat masters, its registration, then the master. A cell that spans several rows is one group those masters share. |
-| **Calibration masters** | Each bias, dark and flat master with a small picture, its frames, its level and noise, the masters it was calibrated with, the masters that use it and whether it was made, reused or supplied by you. **How each was stacked** opens their settings. |
+| **Calibration masters** | Each bias, dark and flat master with a small picture, its frames, its level and noise, what it is checked by, the masters it was calibrated with, the masters that use it and whether it was made, reused or supplied by you. **Check** gives the share of [hot pixels](../../reference/glossary.md#hot-pixel) of a bias and a dark, which are the pixels more than ten deviations above the median, and the level of a flat's corners as a share of the level at its center. **How each was stacked** opens their settings. |
 | **Registration** | A card for each [registration group](../../reference/glossary.md#registration-group): the lights registered, the reference and who chose it, the transform, where each light sat, and the group's settings. |
 
 A calibration master's level and noise are measured over the middle of a large frame, and the row says over what
@@ -356,7 +367,11 @@ under **What the report could not state**, in Part 6.
   recorded and what became of each light are not stated.
 - **A master that could not be read.** A file that is gone or cannot be opened has no statistics and no spread of
   samples.
-- **A light whose registration failed.** The report gives the stars that were found. The run records no reason.
+- **What a stack did not record.** A stack that writes no quality maps may state no effective frames, no measured
+  SNR gain and no pixel coverage.
+- **Why a registration failed, once its run is gone.** The run that registers a light records why it failed, and
+  the report gives the reason with the stars that were found. A later run that registers nothing again takes the
+  reason from that run's report, and gives none when `history` no longer holds it.
 - **A light without a time in its header.** It belongs to no night, and the charts by time fall back to the order
   of the lights.
 - **Figures a mode does not give.** A local normalization states no scale and offset for a light, and a polynomial

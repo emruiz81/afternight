@@ -26,6 +26,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
+#include <QThread>
 
 #include <algorithm>
 #include <iostream>
@@ -488,5 +489,203 @@ TEST(WorkflowArchiverReport, TheBoundOnWhatAnArchiveWritesLastHoldsWhatEveryScen
                                        ImageIntegration::Config::kReportArchiveBytesPerMaster;
             EXPECT_GE(amounts, 2 * report) << "the report's amounts are less than twice what this run's report weighs";
         }
+    }
+}
+
+// The history drops the run that started first, which is what a run's folder is named for, whatever was written
+// into a folder since. Writing a run's report again replaces a file in its folder; that must not make the oldest
+// run the newest, or the history would drop another run in its place.
+TEST(WorkflowArchiverReport, TheHistoryDropsTheRunThatStartedFirstWhicheverFolderWasWrittenLast)
+{
+    std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
+    ASSERT_TRUE(scenario.has_value());
+    QStringList earlier = scenario->earlierRunDirectories;
+    ASSERT_GE(earlier.size(), 2);
+    std::sort(earlier.begin(), earlier.end(), [](const QString& left, const QString& right) {
+        return QFileInfo(left).fileName() < QFileInfo(right).fileName();
+    });
+    const QString oldest = earlier.front();
+
+    // Something is written into the oldest run's folder after every other run's folder was last changed.
+    QDateTime latest;
+    for (const QString& run : earlier)
+    {
+        const QDateTime changed = QFileInfo(run).lastModified();
+        latest = latest.isValid() ? (std::max)(latest, changed) : changed;
+    }
+    bool writtenLast = false;
+    for (int attempt = 0; attempt < 250 && !writtenLast; ++attempt)
+    {
+        QFile marker(QDir(oldest).filePath(QStringLiteral("written_again.tmp")));
+        ASSERT_TRUE(marker.open(QIODevice::WriteOnly));
+        marker.close();
+        ASSERT_TRUE(marker.remove());
+        writtenLast = QFileInfo(oldest).lastModified() > latest;
+        if (!writtenLast)
+        {
+            QThread::msleep(20);
+        }
+    }
+    ASSERT_TRUE(writtenLast) << "the folder's modification time did not move";
+
+    // A history of as many runs as the folder already holds: committing one more drops exactly one.
+    WorkflowArchiver archiver(scenario->outputDirectory, static_cast<int>(earlier.size()),
+                              qint64{4} * 1024 * 1024 * 1024);
+    archiver.setEngineSession(scenario->session());
+    const WorkflowArchiver::ArchiveResult committed = archiver.commit(scenario->manifest, scenario->result);
+    ASSERT_TRUE(committed.success) << committed.error.toStdString();
+
+    EXPECT_FALSE(QFileInfo::exists(oldest)) << "the run that started first is the one the history drops";
+    for (qsizetype run = 1; run < earlier.size(); ++run)
+    {
+        EXPECT_TRUE(QFileInfo::exists(earlier[run])) << QFileInfo(earlier[run]).fileName().toStdString();
+    }
+}
+
+// Why each light's registration failed is one of the run's records: the archive's manifest keeps it, and the
+// stored report states it of each such light.
+TEST(WorkflowArchiverReport, TheArchiveKeepsWhyEachLightFailedRegistration)
+{
+    std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::EveryLightState);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_FALSE(scenario->result.registrationFailures.empty());
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+
+    QFile manifestFile(QDir(scenario->runDirectory).filePath(QStringLiteral("workflow_manifest.json")));
+    ASSERT_TRUE(manifestFile.open(QIODevice::ReadOnly));
+    const QJsonArray failures = QJsonDocument::fromJson(manifestFile.readAll())
+                                    .object()
+                                    .value(QStringLiteral("registrationFailures"))
+                                    .toArray();
+    ASSERT_EQ(failures.size(), static_cast<qsizetype>(scenario->result.registrationFailures.size()));
+    EXPECT_EQ(failures.first().toObject().value(QStringLiteral("light")).toString(),
+              scenario->result.registrationFailures.front().light);
+    EXPECT_EQ(failures.first().toObject().value(QStringLiteral("reason")).toString(),
+              QString::fromLatin1(kScenarioRegistrationFailure));
+
+    const std::optional<ReportModel> model = storedModel(scenario->runDirectory);
+    ASSERT_TRUE(model.has_value());
+    int stated = 0;
+    for (const ReportMaster& master : model->masters)
+    {
+        for (const ReportFrame& frame : master.frames)
+        {
+            if (frame.state == ReportFrameState::RegistrationFailed)
+            {
+                EXPECT_EQ(frame.registrationFailure, QString::fromLatin1(kScenarioRegistrationFailure));
+                ++stated;
+            }
+        }
+    }
+    EXPECT_GT(stated, 0);
+}
+
+// The pictures of the runs that made a master before the latest are in those runs' own folders. Once the history
+// drops such a run, a report written again names none of its pictures, and still sets the master beside it by
+// its figures.
+TEST(WorkflowArchiverReport, AReportWrittenAgainNamesNoPictureOfAnEarlierRunThatIsGone)
+{
+    std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+    const std::optional<ReportModel> model = storedModel(scenario->runDirectory);
+    ASSERT_TRUE(model.has_value());
+    const auto several = std::find_if(model->masters.begin(), model->masters.end(), [](const ReportMaster& master) {
+        return !master.earlierBaselines.empty() && !master.earlierBaselines.front().preview.isEmpty();
+    });
+    ASSERT_NE(several, model->masters.end());
+    const QString earlierRun = several->earlierBaselines.front().runId;
+    const QString pictures = QStringLiteral("../%1/report_previews/").arg(earlierRun);
+    ASSERT_TRUE(QString::fromUtf8(bytesOf(QDir(scenario->runDirectory).filePath(QLatin1String(kDocumentName))))
+                    .contains(pictures));
+
+    // The history drops that run.
+    const QDir history = QFileInfo(scenario->runDirectory).dir();
+    ASSERT_TRUE(QDir(history.filePath(earlierRun)).removeRecursively());
+
+    const WorkflowReportWritten again = rerenderWorkflowReport(scenario->runDirectory);
+    ASSERT_TRUE(again.isWritten()) << again.error.toStdString();
+    EXPECT_TRUE(again.faults.isEmpty());
+    const QString document = QString::fromUtf8(bytesOf(again.path));
+    EXPECT_FALSE(document.contains(pictures)) << "a picture of a run that is gone is still named";
+    EXPECT_TRUE(document.contains(QStringLiteral("cmprun-1"))) << "the run is still one the master is set beside";
+}
+
+// A comparison's two pictures are each run's own archived preview, each under its own stretch. Where the history
+// still holds the earlier run's copy of a master, the archiver pictures that master again under this run's
+// stretch, in this run's folder, and the report shows that picture and says so. Without the copy it shows the
+// earlier run's own preview, as it says.
+TEST(WorkflowArchiverReport, TheEarlierMasterIsPicturedUnderThisRunsStretchWhereTheHistoryHoldsIt)
+{
+    // The document's bytes write an apostrophe as a reference, so the words stop short of one.
+    const QString sharedWords = QStringLiteral("The earlier master is pictured under this run");
+    const QString ownWords = QStringLiteral("under its own display stretch");
+
+    // With the earlier run's copies of its masters at hand.
+    {
+        std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::FiveFiltersAfterEarlierRun);
+        ASSERT_TRUE(scenario.has_value());
+        ASSERT_TRUE(archiveScenarioRun(*scenario));
+        const std::optional<ReportModel> model = storedModel(scenario->runDirectory);
+        ASSERT_TRUE(model.has_value());
+        const QDir run(scenario->runDirectory);
+        int compared = 0;
+        int pictured = 0;
+        for (const ReportMaster& master : model->masters)
+        {
+            if (!master.baseline.has_value() || !master.baseline->made || master.baseline->sideBySide)
+            {
+                continue;
+            }
+            ++compared;
+            const ReportBaseline& baseline = *master.baseline;
+            const QString copy =
+                QDir(QFileInfo(scenario->runDirectory).dir().filePath(baseline.runId))
+                    .filePath(
+                        QStringLiteral("groups/%1/%2").arg(master.previewFolder, QFileInfo(master.file).fileName()));
+            SCOPED_TRACE(master.name.toStdString());
+            if (!QFileInfo(copy).isFile())
+            {
+                EXPECT_TRUE(baseline.matchedPreview.isEmpty());
+                continue;
+            }
+            ++pictured;
+            ASSERT_FALSE(baseline.matchedPreview.isEmpty());
+            EXPECT_TRUE(baseline.matchedPreview.endsWith(QLatin1String(kPreviousMasterMatchedPictureName)));
+            EXPECT_TRUE(QFileInfo(run.filePath(baseline.matchedPreview)).isFile());
+            EXPECT_NE(baseline.matchedPreview, baseline.preview);
+            ASSERT_FALSE(baseline.matchedDetail.isEmpty());
+            EXPECT_TRUE(QFileInfo(run.filePath(baseline.matchedDetail)).isFile());
+        }
+        ASSERT_GT(compared, 0);
+        ASSERT_GT(pictured, 0) << "the earlier run of the scenario keeps a copy of no master";
+        const QString document = QString::fromUtf8(bytesOf(run.filePath(QLatin1String(kDocumentName))));
+        EXPECT_TRUE(document.contains(QLatin1String(kPreviousMasterMatchedPictureName)));
+        EXPECT_TRUE(document.contains(sharedWords));
+    }
+
+    // With the earlier run's copies gone, as in a history with no room for them.
+    {
+        std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::FiveFiltersAfterEarlierRun);
+        ASSERT_TRUE(scenario.has_value());
+        ASSERT_EQ(scenario->earlierRunDirectories.size(), 1);
+        ASSERT_TRUE(
+            QDir(QDir(scenario->earlierRunDirectories.front()).filePath(QStringLiteral("groups"))).removeRecursively());
+        ASSERT_TRUE(archiveScenarioRun(*scenario));
+        const std::optional<ReportModel> model = storedModel(scenario->runDirectory);
+        ASSERT_TRUE(model.has_value());
+        for (const ReportMaster& master : model->masters)
+        {
+            if (master.baseline.has_value())
+            {
+                EXPECT_TRUE(master.baseline->matchedPreview.isEmpty()) << master.name.toStdString();
+                EXPECT_TRUE(master.baseline->matchedDetail.isEmpty()) << master.name.toStdString();
+            }
+        }
+        const QString document =
+            QString::fromUtf8(bytesOf(QDir(scenario->runDirectory).filePath(QLatin1String(kDocumentName))));
+        EXPECT_FALSE(document.contains(QLatin1String(kPreviousMasterMatchedPictureName)));
+        EXPECT_FALSE(document.contains(sharedWords));
+        EXPECT_TRUE(document.contains(ownWords));
     }
 }

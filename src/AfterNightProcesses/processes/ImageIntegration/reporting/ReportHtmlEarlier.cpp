@@ -35,6 +35,9 @@ namespace
 /// a second comparison.
 constexpr std::size_t kComparedAtMost = 12;
 
+/// The most earlier runs one master is set beside, one at a time: the stylesheet has a rule per place.
+constexpr std::size_t kComparedRunsAtMost = 6;
+
 /// How many runs the charts of the folder's runs draw: the latest ones, this run last. The table lists every run.
 constexpr std::size_t kRunsDrawnAtMost = 8;
 
@@ -357,6 +360,10 @@ struct ComparedPictures
     QString nowDetail;
     QString beforeDetail;
 
+    /// Whether the earlier run's pictures are of its master under this run's display stretch, and not that run's
+    /// own archived previews under its own.
+    bool sharedStretch = false;
+
     /// Whether both runs have the whole frame, so there is something to set side by side.
     [[nodiscard]] bool arePaired() const
     {
@@ -370,19 +377,49 @@ struct ComparedPictures
     }
 };
 
-[[nodiscard]] ComparedPictures picturesOf(const ReportDocumentContext& context, const ReportMaster& master)
+[[nodiscard]] ComparedPictures picturesOf(const ReportDocumentContext& context, const ReportMaster& master,
+                                          const ReportBaseline& baseline)
 {
     ComparedPictures pictures;
-    if (!master.baseline.has_value() || !master.baseline->made)
+    if (!baseline.made)
     {
         return pictures;
     }
-    // Shown whole and at the divider's size: the pictures are the document's full ones, not its thumbnails.
+    // Shown whole and at the divider's size: the pictures are the document's full ones, not its thumbnails. Where
+    // the earlier master was pictured under this run's stretch that picture is the one shown, and its detail with
+    // it or none: a detail under another stretch beside it would undo what the pair is for.
+    pictures.sharedStretch = !baseline.matchedPreview.isEmpty();
     pictures.now = context.assets.image(master.preview);
-    pictures.before = context.assets.image(master.baseline->preview);
+    pictures.before = context.assets.image(pictures.sharedStretch ? baseline.matchedPreview : baseline.preview);
     pictures.nowDetail = context.assets.image(master.detail);
-    pictures.beforeDetail = context.assets.image(master.baseline->detail);
+    pictures.beforeDetail = context.assets.image(pictures.sharedStretch ? baseline.matchedDetail : baseline.detail);
     return pictures;
+}
+
+[[nodiscard]] ComparedPictures picturesOf(const ReportDocumentContext& context, const ReportMaster& master)
+{
+    return master.baseline.has_value() ? picturesOf(context, master, *master.baseline) : ComparedPictures{};
+}
+
+/// The earlier runs a master is set beside, the latest first: the latest run that made it and, in the linked
+/// form, the runs that made it before, whose pictures are in those runs' own folders. The form that is one file
+/// carries the latest alone: every earlier run's pictures inside it would make it several times its size.
+[[nodiscard]] std::vector<const ReportBaseline*> comparedRuns(const ReportDocumentContext& context,
+                                                              const ReportMaster& master)
+{
+    std::vector<const ReportBaseline*> runs{&*master.baseline};
+    if (context.assets.form() == ReportForm::Linked)
+    {
+        for (const ReportBaseline& earlier : master.earlierBaselines)
+        {
+            if (runs.size() == kComparedRunsAtMost)
+            {
+                break;
+            }
+            runs.push_back(&earlier);
+        }
+    }
+    return runs;
 }
 
 /// One picture of a comparison: the whole frame and, where both runs have it, the detail the switch shows in its
@@ -404,9 +441,8 @@ void writeComparedPicture(ReportMarkup& out, const QString& whole, const QString
 /// The two runs' pictures of one master: under one divider where the frames are of one shape, side by side where
 /// they are not.
 void writePair(ReportMarkup& out, const ReportDocumentContext& context, const ReportMaster& master,
-               const ComparedPictures& pictures)
+               const ReportBaseline& baseline, const ComparedPictures& pictures)
 {
-    const ReportBaseline& baseline = *master.baseline;
     const QString label = context.labelOf(master);
     const QString when = whenText(baseline.archivedAt, baseline.runId, context);
     const bool detail = pictures.haveDetail();
@@ -449,49 +485,27 @@ void writePair(ReportMarkup& out, const ReportDocumentContext& context, const Re
                        {"aria-label", documentText("Divider between the earlier run and this run of %1").arg(label)}});
     out.element("span", {{"class", QStringLiteral("ring")}}, QString());
     out.close("div");
-    writeCaption(out, documentText("Left of the divider is the earlier run, right of it this one; drag it. Each "
-                                   "picture is its own run's archived preview, under its own display stretch; the "
-                                   "figures are measured on the linear masters."));
+    writeCaption(out,
+                 pictures.sharedStretch
+                     ? documentText("Left of the divider is the earlier run, right of it this one; drag it. The "
+                                    "earlier master is pictured under this run's display stretch, so a difference "
+                                    "between the two is the masters'; the figures are measured on the linear "
+                                    "masters.")
+                     : documentText("Left of the divider is the earlier run, right of it this one; drag it. Each "
+                                    "picture is its own run's archived preview, under its own display stretch; the "
+                                    "figures are measured on the linear masters."));
 }
 
-/// One master of a comparison: its heading, the two runs' pictures and the figures of both; or, for a master no
-/// earlier run made, that it is new.
-void writeComparedMaster(ReportMarkup& out, const ReportDocumentContext& context, const ReportMaster& master,
-                         const std::size_t index, const ComparedPictures& pictures)
+/// One master beside one earlier run: the two runs' pictures and the figures of both.
+void writeComparedRun(ReportMarkup& out, const ReportDocumentContext& context, const ReportMaster& master,
+                      const ReportBaseline& baseline, const ComparedPictures& pictures, const QString& classes)
 {
-    const ReportBaseline& baseline = *master.baseline;
     const QString label = context.labelOf(master);
-
-    out.open("div", {{"class", QStringLiteral("cmpitem cmpitem-%1").arg(index)}});
-    out.open("h4", {{"class", QStringLiteral("cmphead")}});
-    writeMasterLink(out, context, master, label);
-    out.text(QStringLiteral(" "));
-    out.element(
-        "small",
-        baseline.made
-            ? documentText("the run of %1 against this run").arg(whenText(baseline.archivedAt, baseline.runId, context))
-            : documentText("new in this run"));
-    out.close("h4");
-
-    if (!baseline.made)
-    {
-        out.open("div", {{"class", QStringLiteral("newmaster")}});
-        out.open("p");
-        out.element("b", documentText("%1 is new in this run.").arg(label));
-        out.text(QStringLiteral(" "));
-        out.text(documentText("No earlier run of this folder that keeps a report made it, so there is nothing to "
-                              "compare it with."));
-        out.close("p");
-        out.close("div");
-        out.close("div");
-        return;
-    }
-
-    out.open("div", {{"class", QStringLiteral("cmpgrid")}});
+    out.open("div", {{"class", classes}});
     out.open("div");
     if (pictures.arePaired())
     {
-        writePair(out, context, master, pictures);
+        writePair(out, context, master, baseline, pictures);
     }
     else
     {
@@ -520,6 +534,95 @@ void writeComparedMaster(ReportMarkup& out, const ReportDocumentContext& context
     }
     out.close("div");
     out.close("div");
+}
+
+/// One master of a comparison: its heading, the two runs' pictures and the figures of both; or, for a master no
+/// earlier run made, that it is new. A master several earlier runs made is set beside one of them at a time: a
+/// radio button per run picks which, the latest to begin with, with no script.
+void writeComparedMaster(ReportMarkup& out, const ReportDocumentContext& context, const ReportMaster& master,
+                         const std::size_t index, const ComparedPictures& pictures, const QString& comparison)
+{
+    const ReportBaseline& baseline = *master.baseline;
+    const QString label = context.labelOf(master);
+    const std::vector<const ReportBaseline*> runs =
+        baseline.made ? comparedRuns(context, master) : std::vector<const ReportBaseline*>{};
+
+    out.open("div", {{"class", QStringLiteral("cmpitem cmpitem-%1").arg(index)}});
+    out.open("h4", {{"class", QStringLiteral("cmphead")}});
+    writeMasterLink(out, context, master, label);
+    out.text(QStringLiteral(" "));
+    out.element("small", !baseline.made    ? documentText("new in this run")
+                         : runs.size() > 1 ? documentText("an earlier run against this run")
+                                           : documentText("the run of %1 against this run")
+                                                 .arg(whenText(baseline.archivedAt, baseline.runId, context)));
+    out.close("h4");
+
+    if (!baseline.made)
+    {
+        out.open("div", {{"class", QStringLiteral("newmaster")}});
+        out.open("p");
+        out.element("b", documentText("%1 is new in this run.").arg(label));
+        out.text(QStringLiteral(" "));
+        out.text(documentText("No earlier run of this folder that keeps a report made it, so there is nothing to "
+                              "compare it with."));
+        out.close("p");
+        out.close("div");
+        out.close("div");
+        return;
+    }
+
+    if (runs.size() == 1)
+    {
+        writeComparedRun(out, context, master, baseline, pictures, QStringLiteral("cmpgrid"));
+        out.close("div");
+        return;
+    }
+
+    // The radio buttons stand before the runs they show, inside the master's own item: the stylesheet's rules
+    // need them there.
+    const QString name = QStringLiteral("%1-%2-r").arg(comparison).arg(index);
+    for (std::size_t run = 0; run < runs.size(); ++run)
+    {
+        out.leaf("input", {{"type", QStringLiteral("radio")},
+                           {"class", QStringLiteral("run run-%1").arg(run)},
+                           {"name", name},
+                           {"id", QStringLiteral("%1-%2").arg(name).arg(run)},
+                           {"checked", run == 0 ? QStringLiteral("checked") : QString()}});
+    }
+    // A run is named by when it was archived, to the minute. Two runs of one minute would read alike, so the runs
+    // of such a switch are named to the second.
+    QStringList names;
+    for (const ReportBaseline* run : runs)
+    {
+        names << whenText(run->archivedAt, run->runId, context);
+    }
+    if (QSet<QString>(names.begin(), names.end()).size() != names.size())
+    {
+        for (std::size_t run = 0; run < runs.size(); ++run)
+        {
+            const std::optional<QDateTime>& archivedAt = runs[run]->archivedAt;
+            if (archivedAt.has_value() && archivedAt->isValid())
+            {
+                names[static_cast<qsizetype>(run)] +=
+                    archivedAt->toTimeZone(context.zone.resolved()).toString(QStringLiteral(":ss"));
+            }
+        }
+    }
+    out.open("div", {{"class", QStringLiteral("cmpbar runbar noprint")}});
+    out.element("span", {{"class", QStringLiteral("lab")}}, documentText("Against the run of"));
+    out.open("div", {{"class", QStringLiteral("switch against")}});
+    for (std::size_t run = 0; run < runs.size(); ++run)
+    {
+        out.element("label", {{"for", QStringLiteral("%1-%2").arg(name).arg(run)}}, names[static_cast<qsizetype>(run)]);
+    }
+    out.close("div");
+    out.close("div");
+    for (std::size_t run = 0; run < runs.size(); ++run)
+    {
+        writeComparedRun(out, context, master, *runs[run],
+                         run == 0 ? pictures : picturesOf(context, master, *runs[run]),
+                         QStringLiteral("cmpgrid cmprun cmprun-%1").arg(run));
+    }
     out.close("div");
 }
 
@@ -535,6 +638,15 @@ void writeComparator(ReportMarkup& out, const ReportDocumentContext& context,
     {
         pictures.push_back(picturesOf(context, *master));
         anyDetail = anyDetail || pictures.back().haveDetail();
+        // The runs before the latest have pairs of their own, and a detail of one is a reason for the switch too.
+        if (master->baseline.has_value() && master->baseline->made)
+        {
+            const std::vector<const ReportBaseline*> runs = comparedRuns(context, *master);
+            for (std::size_t run = 1; run < runs.size() && !anyDetail; ++run)
+            {
+                anyDetail = picturesOf(context, *master, *runs[run]).haveDetail();
+            }
+        }
     }
     const QString name = QStringLiteral("cmp-%1").arg(number);
     const QString zoom = name + QStringLiteral("-z");
@@ -589,7 +701,7 @@ void writeComparator(ReportMarkup& out, const ReportDocumentContext& context,
     out.open("div", {{"class", QStringLiteral("cmpitems")}});
     for (std::size_t index = 0; index < masters.size(); ++index)
     {
-        writeComparedMaster(out, context, *masters[index], index, pictures[index]);
+        writeComparedMaster(out, context, *masters[index], index, pictures[index], name);
     }
     out.close("div");
     out.close("div");

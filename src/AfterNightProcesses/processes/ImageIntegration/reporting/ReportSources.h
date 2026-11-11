@@ -31,6 +31,7 @@
 #include <QString>
 #include <QStringList>
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -61,10 +62,10 @@ struct RegistrationMetricRow
     bool succeeded = false;
     QString transformKind;
 
-    /// The translation of the transform that brought the light to the reference, for a kind whose record carries a
-    /// matrix; nothing for a polynomial kind, whose matrix is not the whole transform.
-    std::optional<double> shiftX;
-    std::optional<double> shiftY;
+    /// The matrix of the transform that brought the light to the reference, row by row, for a kind whose record
+    /// carries one; nothing for a polynomial kind, whose matrix is not the whole transform. Where the light sat is
+    /// read from it with the frame's size, which a metrics record does not state.
+    std::optional<std::array<double, 9>> transformMatrix;
 
     /// The background noise the detection measured, whether or not the registration succeeded; zero when the
     /// database states none.
@@ -85,7 +86,12 @@ struct ReportImageMeasurement
     std::vector<ReportSampleDistribution> distribution;
 };
 
-/// The level and the noise of an image, per channel, and how much of the frame they were measured over.
+/// How many robust deviations above its channel's median a sample of a calibration master stands to be counted as
+/// a hot pixel. Ten leaves the tail of the noise out for any frame a camera makes and keeps a pixel that is hot.
+inline constexpr double kHotPixelDeviations = 10.0;
+
+/// The level and the noise of an image, per channel, how much of the frame they were measured over, and the two
+/// figures a calibration master is checked by.
 struct ReportImageLevels
 {
     /// Each channel's mean and background noise, as fractions of the display range, in the image's channel order.
@@ -94,6 +100,19 @@ struct ReportImageLevels
 
     /// The share of the frame's area measured: one for the whole frame.
     double measuredFraction = 1.0;
+
+    /// The share of each channel's measured pixels that are hot: more than `kHotPixelDeviations` robust deviations
+    /// above the channel's median, a sample clipped at the top among them. The deviation is the median absolute
+    /// deviation scaled to a normal one, and no less than the background noise. In the image's channel order;
+    /// empty when a channel has no deviation to measure against.
+    std::vector<double> hotFraction;
+
+    /// Each channel's level in the frame's four corners over its level at the centre: the mean of the medians of
+    /// four rectangles of a sixteenth of the frame's width and height, one in each corner, over the median of a
+    /// rectangle of that size at the centre. One for a frame lit evenly, less the more its corners darken. In the
+    /// image's channel order; empty when a rectangle holds no sample to measure or the centre's level is not
+    /// positive.
+    std::vector<double> cornerLevel;
 };
 
 /// What the report reads of a file's header: its size and its metadata, never its pixels.

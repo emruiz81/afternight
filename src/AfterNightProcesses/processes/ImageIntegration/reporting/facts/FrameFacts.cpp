@@ -25,8 +25,11 @@
 #include <QFileInfo>
 #include <QSet>
 #include <QTimeZone>
+#include <QtMath>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <utility>
 
 /**
@@ -93,87 +96,8 @@ namespace ImageIntegration::Reporting
     return 0.0;
 }
 
-/// The weight the stack gave each sample: the engine's own weighting over the measurements the stacking stage builds
-/// from the registration's records (`deriveStackWeights`), under the group's settings as its stack reads them and
-/// against the group's reference, derived in the session the builder is given. The photometric weights are shown at the
-/// engine's mean of one, every other weighting's relative to the heaviest frame - the scale the group's floor is stated
-/// on. Every frame weighs one where the stack weighs them equally - no weighting, a figure some frame lacks - and
-/// without a session.
-///
-/// @param session the session the weights are derived and the headers read in, or null.
-/// @param samples the group's measured frames.
-/// @param group the group.
-/// @return one weight per sample.
-[[nodiscard]] QList<double> computeWeightsForSamples(const an::consumer::EngineSession* session,
-                                                     const QList<QualityWeightSample>& samples,
-                                                     const WorkflowManifest::IntegrationGroup& group)
-{
-    QList<double> weights(samples.size(), 1.0);
-    const StackingSettings sanitized = ImageIntegration::sanitizeStackingSettings(group.stacking);
-    const an::Result<ImageIntegration::IntegrationStackChoice> choice =
-        ImageIntegration::integrationStackChoice(sanitized);
-    if (session == nullptr || samples.isEmpty() || !choice.hasValue() ||
-        choice->weighting == an::StackWeighting::Uniform)
-    {
-        return weights;
-    }
-
-    const an::StackWeighting source = choice->weighting;
-    // One operation reads every header an image count needs and derives the weights.
-    an::Result<an::consumer::OperationScope> scope = session->admit(
-        an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch, .maxConcurrency = 1u});
-    if (!scope.hasValue())
-    {
-        return weights;
-    }
-    std::vector<FrameId> frames;
-    std::vector<an::StackFrameMeasurement> measurements;
-    frames.reserve(static_cast<std::size_t>(samples.size()));
-    measurements.reserve(static_cast<std::size_t>(samples.size()));
-    for (const auto& sample : samples)
-    {
-        frames.emplace_back(sample.frameId);
-        an::StackFrameMeasurement measurement =
-            ImageIntegration::stackFrameMeasurementFor(sample.metrics, sample.noise);
-        if (source == an::StackWeighting::ImageCount)
-        {
-            // How many frames the light's header says it combines, as the stack reads it; one where it cannot be read.
-            const std::string utf8Path = sample.frameId.toUtf8().toStdString();
-            const an::Result<an::CodecImageInfo> probed = an::probeImage(
-                scope->engine(), scope->execution(), an::CodecReadRequest{.path = utf8Path, .validatePayload = false});
-            measurement.integratedFrameCount =
-                probed.hasValue() ? ImageIntegration::combinedFrameCount(probed->metadata.codec().cards()) : 1u;
-        }
-        else if (!ImageIntegration::carriesWeightingFigure(source, measurement))
-        {
-            // The stack weighs a set by a figure only when every frame carries it.
-            return weights;
-        }
-        measurements.push_back(std::move(measurement));
-    }
-    const std::optional<FrameId> reference = group.normalizationReferenceFrames.empty()
-                                                 ? std::nullopt
-                                                 : std::optional<FrameId>(group.normalizationReferenceFrames.front());
-    const an::Result<ImageIntegration::DerivedStackWeights> derived = ImageIntegration::deriveStackWeights(
-        scope->execution(), ImageIntegration::stackWeightingRequestFor(sanitized, source, choice->starCountScaling),
-        measurements, ImageIntegration::stackWeightingReferenceIndex(frames, reference));
-    if (!derived.hasValue())
-    {
-        LOG_WARNING("IntegrationReport: frame weights not derived: {}", derived.status().message());
-        return weights;
-    }
-    const double heaviest = *std::max_element(derived->weights.begin(), derived->weights.end());
-    const bool relative = source != an::StackWeighting::Photometric && heaviest > 0.0;
-    for (qsizetype i = 0; i < weights.size(); ++i)
-    {
-        const double weight = derived->weights[static_cast<std::size_t>(i)];
-        weights[i] = relative ? weight / heaviest : weight;
-    }
-    return weights;
-}
-
-/// The weight the stack recorded combining each sample with, on the scale `computeWeightsForSamples` shows: relative
-/// to the heaviest light, the photometric model's at its mean of one. A light the master does not combine - one a
+/// The weight the stack recorded combining each sample with, relative to the heaviest light, the photometric
+/// model's at its mean of one. A light the master does not combine - one a
 /// spatial re-stack left out - weighs nothing, and the others are as the stack weighed them among the lights it kept.
 ///
 /// @param samples the group's measured frames.
@@ -228,7 +152,59 @@ namespace
     return frame;
 }
 
-void stateMetrics(const RegistrationMetricRow& row, ReportFrame& frame)
+/// A turn from which a transform's translation says nothing of where the light sat without the frame's size.
+constexpr double kTurnedDegrees = 1.0;
+
+/// States where a light sat against its reference and how far it is turned, from its transform's matrix.
+///
+/// The shift is how far the transform moves the frame's centre. The matrix's own translation is where the frame's
+/// corner goes: a light taken after a meridian flip is turned half a turn about its centre, so its corner lands a
+/// frame's width and height away though the light sits on the reference to within its dither.
+///
+/// @param matrix the transform's matrix, row by row.
+/// @param frameSize the light's width and height; nothing when the group states no size that reads.
+/// @param frame the light.
+void statePlacement(const std::array<double, 9>& matrix, const std::optional<QPair<int, int>>& frameSize,
+                    ReportFrame& frame)
+{
+    const double rotation = qRadiansToDegrees(std::atan2(matrix[3], matrix[0]));
+    if (std::isfinite(rotation))
+    {
+        frame.rotationDegrees = rotation;
+    }
+    if (!frameSize.has_value() && !(std::abs(rotation) < kTurnedDegrees))
+    {
+        // Without the frame's size a turned light's shift cannot be told from its turn.
+        return;
+    }
+    const double centreX = frameSize.has_value() ? 0.5 * static_cast<double>(frameSize->first) : 0.0;
+    const double centreY = frameSize.has_value() ? 0.5 * static_cast<double>(frameSize->second) : 0.0;
+    double shiftX = 0.0;
+    double shiftY = 0.0;
+    if (matrix[6] == 0.0 && matrix[7] == 0.0 && matrix[8] == 1.0)
+    {
+        // Written so that a transform that turns and scales nothing states its translation exactly.
+        shiftX = (matrix[0] - 1.0) * centreX + matrix[1] * centreY + matrix[2];
+        shiftY = matrix[3] * centreX + (matrix[4] - 1.0) * centreY + matrix[5];
+    }
+    else
+    {
+        const double scale = matrix[6] * centreX + matrix[7] * centreY + matrix[8];
+        if (!(std::abs(scale) > 1.0e-12))
+        {
+            return;
+        }
+        shiftX = (matrix[0] * centreX + matrix[1] * centreY + matrix[2]) / scale - centreX;
+        shiftY = (matrix[3] * centreX + matrix[4] * centreY + matrix[5]) / scale - centreY;
+    }
+    if (std::isfinite(shiftX) && std::isfinite(shiftY))
+    {
+        frame.shiftX = shiftX;
+        frame.shiftY = shiftY;
+    }
+}
+
+void stateMetrics(const RegistrationMetricRow& row, const std::optional<QPair<int, int>>& frameSize, ReportFrame& frame)
 {
     frame.registered = row.succeeded;
     frame.stars = row.stars;
@@ -249,10 +225,9 @@ void stateMetrics(const RegistrationMetricRow& row, ReportFrame& frame)
         frame.catalogMatches = row.catalogMatchedStars;
     }
     frame.transformKind = row.transformKind;
-    if (row.succeeded)
+    if (row.succeeded && row.transformMatrix.has_value())
     {
-        frame.shiftX = row.shiftX;
-        frame.shiftY = row.shiftY;
+        statePlacement(*row.transformMatrix, frameSize, frame);
     }
 }
 
@@ -654,6 +629,64 @@ void statePhotometry(ReportMaster& master)
     master.photometry = std::move(photometry);
 }
 
+/// Why each light whose registration failed has no transform, in the registration's own words: what this run's
+/// registration recorded of it, else what the latest earlier run of the folder whose report is kept states of the
+/// same light. A run registers a light once: a later run that finds the registration still valid records nothing
+/// of it again, and the metrics database keeps only that it failed.
+void stateRegistrationReasons(ReportBuild& build, ReportMaster& master)
+{
+    QHash<QString, QString> recorded;
+    for (const RegistrationFailure& failure : build.result().registrationFailures)
+    {
+        recorded.insert(failure.light, failure.reason.trimmed());
+    }
+    int unexplained = 0;
+    for (ReportFrame& frame : master.frames)
+    {
+        if (frame.state != ReportFrameState::RegistrationFailed)
+        {
+            continue;
+        }
+        QString reason = recorded.value(frame.path);
+        if (reason.isEmpty())
+        {
+            for (const StoredRun& run : build.earlierRuns())
+            {
+                for (const ReportMaster& earlier : run.model.masters)
+                {
+                    const auto same = std::find_if(
+                        earlier.frames.begin(), earlier.frames.end(), [&frame](const ReportFrame& candidate) {
+                            return candidate.path == frame.path && !candidate.registrationFailure.isEmpty();
+                        });
+                    if (same != earlier.frames.end())
+                    {
+                        reason = same->registrationFailure;
+                        break;
+                    }
+                }
+                if (!reason.isEmpty())
+                {
+                    break;
+                }
+            }
+        }
+        if (reason.isEmpty())
+        {
+            ++unexplained;
+            continue;
+        }
+        frame.registrationFailure = reason;
+        frame.stateDetail =
+            reportText("Registration failed; %1 stars were detected. %2").arg(frame.stars.value_or(0)).arg(reason);
+    }
+    if (unexplained > 0)
+    {
+        build.notStated(reportText("Why %1 of the lights of %2 failed registration").arg(unexplained).arg(master.name),
+                        reportText("An earlier run registered them, and no report kept in the folder states its "
+                                   "reasons."));
+    }
+}
+
 /// What the registration recorded of each light of a group and, for the ones it registered, the weight the stack
 /// gave them, their quality score and their share of the stack.
 void fillMetrics(ReportBuild& build, const WorkflowManifest::IntegrationGroup& group,
@@ -671,6 +704,9 @@ void fillMetrics(ReportBuild& build, const WorkflowManifest::IntegrationGroup& g
     {
         return;
     }
+
+    // The size of the group's lights, which says where the centre of one is.
+    const std::optional<QPair<int, int>> frameSize = parseResolutionDimensions(group.resolution);
 
     // The weighting the group's stack applied: none beside a combination that takes no weights or a merge.
     const StackingSettings applied = ImageIntegration::sanitizeStackingSettings(group.stacking);
@@ -699,7 +735,7 @@ void fillMetrics(ReportBuild& build, const WorkflowManifest::IntegrationGroup& g
             continue;
         }
         ++weighting.framesWithMetrics;
-        stateMetrics(*metric, frame);
+        stateMetrics(*metric, frameSize, frame);
         if (!frame.backgroundNoise.has_value() && noiseByFrame.contains(frame.path))
         {
             frame.backgroundNoise = positive(noiseByFrame.value(frame.path).background_noise);
@@ -863,6 +899,7 @@ void fillGroup(ReportBuild& build, const WorkflowManifest::IntegrationGroup& gro
         stateFatesWithoutStack(master);
         stateFatesOfReused(build, master);
     }
+    stateRegistrationReasons(build, master);
     stateNormalization(build, group, master);
     statePhotometry(master);
 }
@@ -892,9 +929,11 @@ void fillLeftOut(ReportBuild& build, const QHash<QString, ReportMaster*>& master
         }
     }
     QHash<QString, QString> registrationKeyOfGroup;
+    QHash<QString, QString> resolutionOfGroup;
     for (const auto& group : manifest.integrationGroups)
     {
         registrationKeyOfGroup.insert(group.groupKey.toString(), group.registrationGroupKey.toString().trimmed());
+        resolutionOfGroup.insert(group.groupKey.toString(), group.resolution);
     }
 
     const int utcOffsetSeconds = build.utcOffsetSeconds();
@@ -943,7 +982,7 @@ void fillLeftOut(ReportBuild& build, const QHash<QString, ReportMaster*>& master
             const QHash<QString, RegistrationMetricRow>& metrics = build.metrics(registrationKey);
             if (const auto metric = metrics.constFind(frame.path); metric != metrics.cend())
             {
-                stateMetrics(*metric, frame);
+                stateMetrics(*metric, parseResolutionDimensions(resolutionOfGroup.value(key)), frame);
             }
         }
 

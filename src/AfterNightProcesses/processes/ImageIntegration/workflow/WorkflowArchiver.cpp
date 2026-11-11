@@ -168,6 +168,11 @@ struct DirectoryUse
         variableMetadata[QStringLiteral("reusedIntegrationGroups")] =
             reusedIntegrationGroupsToJson(result.reusedIntegrationGroups);
     }
+    if (!result.registrationFailures.empty())
+    {
+        variableMetadata[QStringLiteral("registrationFailures")] =
+            registrationFailuresToJson(result.registrationFailures);
+    }
 
     QJsonArray stages;
     for (const auto& stage : result.stageResults)
@@ -210,6 +215,57 @@ struct DirectoryUse
     return total;
 }
 
+/// Pictures the earlier master of each master the run made under this run's display stretch, where the archive of
+/// the run that made it still holds a copy of that master, and names the pictures on the master's baseline.
+///
+/// A comparison shows each run's own archived preview, each under its own stretch, so a difference in brightness
+/// may be the stretch's. With the earlier master at hand it is pictured again through the stretch of this run's
+/// master, and the difference left is the masters'. The pictures are files of this run's folder, so they stay
+/// when the history drops the earlier run.
+///
+/// @param session the session the masters are read in.
+/// @param model the run's report model, whose baselines say which earlier run made each master.
+/// @param runDirectory the run's folder under `history/`.
+void pictureEarlierMastersUnderThisStretch(const an::consumer::EngineSession& session,
+                                           ImageIntegration::Reporting::ReportModel& model, const QString& runDirectory)
+{
+    using namespace ImageIntegration::Reporting;
+    const QDir run(runDirectory);
+    const QDir history = QFileInfo(QDir::cleanPath(runDirectory)).dir();
+    for (ReportMaster& master : model.masters)
+    {
+        if (!master.baseline.has_value() || !master.baseline->made || master.baseline->sideBySide ||
+            master.previewFolder.trimmed().isEmpty() || !QFileInfo(master.file).isFile())
+        {
+            continue;
+        }
+        ReportBaseline& baseline = *master.baseline;
+        // The copy the earlier run's archive keeps of the master: the master's own file name, in that run's folder
+        // of the group. A history with no room for payloads keeps none.
+        const QString earlier =
+            QDir(history.filePath(baseline.runId))
+                .filePath(QStringLiteral("groups/%1/%2").arg(master.previewFolder, QFileInfo(master.file).fileName()));
+        if (!QFileInfo(earlier).isFile())
+        {
+            continue;
+        }
+        const QString folder = QStringLiteral("report_previews/%1").arg(master.previewFolder);
+        const ImageIntegration::ReportMasterPreviews written =
+            ImageIntegration::generateReportMasterPreviewsUnderStretchOf(
+                session, master.file, earlier, run.filePath(folder),
+                QString::fromLatin1(kPreviousMasterMatchedPictureName),
+                QString::fromLatin1(kPreviousDetailMatchedPictureName));
+        if (written.whole.has_value())
+        {
+            baseline.matchedPreview = folder + QLatin1Char('/') + *written.whole;
+        }
+        if (written.detail.has_value())
+        {
+            baseline.matchedDetail = folder + QLatin1Char('/') + *written.detail;
+        }
+    }
+}
+
 [[nodiscard]] std::vector<QFileInfo> sortedHistoryRunDirectories(const QDir& historyDir,
                                                                  const QString& excludedRunPath = {})
 {
@@ -226,11 +282,10 @@ struct DirectoryUse
         runDirs.push_back(entry);
     }
 
-    std::sort(runDirs.begin(), runDirs.end(), [](const QFileInfo& left, const QFileInfo& right) {
-        const qint64 leftTime = left.lastModified().toMSecsSinceEpoch();
-        const qint64 rightTime = right.lastModified().toMSecsSinceEpoch();
-        return leftTime == rightTime ? left.fileName() < right.fileName() : leftTime < rightTime;
-    });
+    // By name, which is when each run started. A folder's modification time is no order of the runs: writing a
+    // run's report again replaces a file in its folder, and would make the oldest run the newest.
+    std::sort(runDirs.begin(), runDirs.end(),
+              [](const QFileInfo& left, const QFileInfo& right) { return left.fileName() < right.fileName(); });
     return runDirs;
 }
 
@@ -1431,9 +1486,12 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         const std::vector<QString> madeFolders(archivedGroupFolders.begin(),
                                                archivedGroupFolders.begin() +
                                                    static_cast<std::ptrdiff_t>(result.integrationGroupResults.size()));
-        knownCurrentRunBytes =
-            saturatingAddBytes(knownCurrentRunBytes,
-                               earlierPicturesBound(sortedHistoryRunDirectories(historyDir, runDirPath), madeFolders));
+        // Twice: the earlier run's own pair is copied, and the earlier master is pictured again under this run's
+        // stretch, which is a pair of the same size.
+        const qint64 earlierPictures =
+            earlierPicturesBound(sortedHistoryRunDirectories(historyDir, runDirPath), madeFolders);
+        knownCurrentRunBytes = saturatingAddBytes(knownCurrentRunBytes, earlierPictures);
+        knownCurrentRunBytes = saturatingAddBytes(knownCurrentRunBytes, earlierPictures);
     }
     const ArchiveRetentionPreflight retention =
         preflightArchiveRetention(historyDir, runDirPath, knownCurrentRunBytes, m_maxHistoryEntries, m_maxHistoryBytes);
@@ -1679,6 +1737,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
                                               : std::nullopt};
         m_runDirectory = runDirPath;
         m_reportModel = std::make_shared<ReportModel>(buildReportModel(inputs, sources.sources()));
+        if (m_session != nullptr)
+        {
+            pictureEarlierMastersUnderThisStretch(*m_session, *m_reportModel, runDirPath);
+        }
         // A report that cannot be written does not fail the commit: the run's outputs and its history are what the
         // commit is for, and the reason is logged.
         archiveResult.reportPath = storeKeptReport();
@@ -1825,6 +1887,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     {
         root[QStringLiteral("reusedIntegrationGroups")] = reusedIntegrationGroupsToJson(result.reusedIntegrationGroups);
     }
+    if (!result.registrationFailures.empty())
+    {
+        root[QStringLiteral("registrationFailures")] = registrationFailuresToJson(result.registrationFailures);
+    }
 
     QJsonArray calibrationResultsJson;
     for (const auto& calibrationResult : result.calibrationGroupResults)
@@ -1835,6 +1901,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         c["masterPath"] = calibrationResult.masterPath;
         c["inputCount"] = calibrationResult.inputCount;
         c["result"] = calibrationResult.success ? "success" : "failed";
+        if (calibrationResult.reused)
+        {
+            c["reused"] = true;
+        }
         calibrationResultsJson.append(c);
     }
     root["calibrationGroupResults"] = calibrationResultsJson;

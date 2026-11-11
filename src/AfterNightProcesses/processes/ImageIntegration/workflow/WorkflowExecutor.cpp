@@ -1179,6 +1179,10 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
                     calibrationResult.masterPath = masterPath;
                     calibrationResult.inputCount = static_cast<int>(group.inputFiles.size());
                     calibrationResult.success = stage_result.isSuccess() && exists;
+                    calibrationResult.reused =
+                        std::find(stage_result.reusedCalibrationGroups.begin(),
+                                  stage_result.reusedCalibrationGroups.end(),
+                                  calibrationResult.groupKey) != stage_result.reusedCalibrationGroups.end();
                     result.calibrationGroupResults.push_back(std::move(calibrationResult));
 
                     if (exists)
@@ -1228,6 +1232,12 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
         for (const auto& reused : stage_result.reusedGroups)
         {
             appendReusedGroup(result.reusedIntegrationGroups, reused);
+        }
+
+        // The lights the registration found no transform for, each with its reason.
+        for (const auto& failure : stage_result.registrationFailures)
+        {
+            result.registrationFailures.push_back(failure);
         }
 
         // Aggregate alignment group results (SIP info)

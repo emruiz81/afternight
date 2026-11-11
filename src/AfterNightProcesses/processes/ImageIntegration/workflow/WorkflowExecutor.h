@@ -212,6 +212,9 @@ public:
             QString masterPath;
             int inputCount = 0;
             bool success = false;
+            /// Whether the stage found the master still valid and left it as it was. A group has a result whenever
+            /// its stage ran, so this is what tells a master the run stacked from one it did not.
+            bool reused = false;
         };
         /// What the session's engine counted over the run: its memory's high-water mark when the run ended and
         /// when it started - it never falls, so the first is the run's own whenever it rose inside the run - the
@@ -245,6 +248,9 @@ public:
         /// incremental run's plan left out, then the ones the stacking stage found up to date. None has a group
         /// result, and no count of the run's successful groups reads the list.
         std::vector<ReusedIntegrationGroup> reusedIntegrationGroups;
+        /// The lights this run's registration found no transform for, each with its reason. A light registered by an
+        /// earlier run is not among them: that run recorded it.
+        std::vector<RegistrationFailure> registrationFailures;
         std::vector<CalibrationGroupResult> calibrationGroupResults; ///< Per-calibration-group execution results
         std::vector<AlignmentGroupResult> alignmentGroupResults; ///< Per-group alignment results (SIP info)
         QString capturedLog; ///< Full log of the execution

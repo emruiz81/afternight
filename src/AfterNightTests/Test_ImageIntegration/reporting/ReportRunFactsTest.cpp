@@ -421,7 +421,7 @@ TEST(ReportRunFacts, AReusedMasterStatesWhatTheRunThatMadeItStatedWhenTheHistory
         ASSERT_TRUE(master.statistics.has_value());
         EXPECT_EQ(master.statistics->width, 999u);
         ASSERT_TRUE(master.stack.has_value());
-        EXPECT_DOUBLE_EQ(master.stack->effectiveFrames, 28.5);
+        EXPECT_DOUBLE_EQ(master.stack->effectiveFrames.value_or(0.0), 28.5);
         for (const ReportFrame& frame : master.frames)
         {
             EXPECT_EQ(frame.state, ReportFrameState::Used);
@@ -761,4 +761,201 @@ TEST(ReportRunFacts, WhatTheRunWroteToDiskIsStatedByKind)
 
     // The registration recorded registered images that are not on disk: a kind with nothing is not listed.
     EXPECT_EQ(kind(QStringLiteral("Registered lights")), nullptr);
+}
+
+// A calibration group has a result whenever its stage ran, and the result says what the stage did with it. A
+// master the stage found still valid and left as it was is reused, not made: it is stated so, it is one of the
+// run's notes, and its file is none the run wrote - though another group of the same stage was stacked.
+TEST(ReportRunFacts, ACalibrationMasterItsStageLeftAsItWasIsReusedThoughTheStageStackedAnother)
+{
+    const auto scenario = built(ReportScenarioId::FiveFilters);
+    ASSERT_TRUE(scenario.has_value());
+    WorkflowExecutor::Result result = scenario->result;
+    const auto flat = std::find_if(result.calibrationGroupResults.begin(), result.calibrationGroupResults.end(),
+                                   [](const WorkflowExecutor::Result::CalibrationGroupResult& group) {
+                                       return group.type.compare(QStringLiteral("Flat"), Qt::CaseInsensitive) == 0;
+                                   });
+    ASSERT_NE(flat, result.calibrationGroupResults.end());
+    flat->reused = true;
+    const QString key = flat->groupKey;
+
+    const ProductionReportSources production(scenario->session(), scenario->metricsDatabasePath);
+    const ReportModel model = buildReportModel(ReportModelInputs{.manifest = scenario->manifest,
+                                                                 .result = result,
+                                                                 .runDirectory = {},
+                                                                 .context = scenario->context,
+                                                                 .counters = std::nullopt},
+                                               production.sources());
+
+    int reusedFlats = 0;
+    int madeFlats = 0;
+    for (const ReportCalibrationMaster& master : model.calibrationMasters)
+    {
+        if (master.kind != ReportCalibrationKind::Flat)
+        {
+            continue;
+        }
+        if (master.key == key)
+        {
+            EXPECT_EQ(master.state, ReportCalibrationState::Reused) << master.name.toStdString();
+            ++reusedFlats;
+        }
+        else
+        {
+            EXPECT_EQ(master.state, ReportCalibrationState::Made) << master.name.toStdString();
+            ++madeFlats;
+        }
+    }
+    EXPECT_EQ(reusedFlats, 1);
+    EXPECT_EQ(madeFlats, 3);
+
+    // The run wrote the two darks and three of the four flats.
+    const auto calibration = std::find_if(model.run.disk.begin(), model.run.disk.end(), [](const ReportDiskUse& use) {
+        return use.kind == QStringLiteral("Calibration masters");
+    });
+    ASSERT_NE(calibration, model.run.disk.end());
+    EXPECT_EQ(calibration->files, 5);
+
+    // The bias of an earlier session and this flat are each a note.
+    EXPECT_EQ(
+        std::count_if(model.issues.begin(), model.issues.end(),
+                      [](const ReportIssue& issue) { return issue.kind == ReportIssueKind::CalibrationMasterReused; }),
+        2);
+}
+
+// A stack that kept no gain map, no weights and no count of the lights that reached each pixel records no
+// effective frames, no measured gain and no coverage: the engine leaves them at zero, which is what a stack with
+// no weighting and no quality map hands over. A report states none of them, and says so, rather than a zero.
+TEST(ReportRunFacts, WhatAStackDidNotRecordOfItselfIsNotStatedRatherThanAZero)
+{
+    const auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+
+    // As the scenario's stack recorded them, the figures are stated.
+    {
+        const ReportModel recorded = buildScenarioModel(*scenario);
+        ASSERT_FALSE(recorded.masters.empty());
+        ASSERT_TRUE(recorded.masters.front().stack.has_value());
+        EXPECT_TRUE(recorded.masters.front().stack->effectiveFrames.has_value());
+        EXPECT_TRUE(recorded.masters.front().stack->measuredSnrGain.has_value());
+        EXPECT_TRUE(recorded.masters.front().stack->coverage.has_value());
+    }
+
+    WorkflowExecutor::Result result = scenario->result;
+    ASSERT_FALSE(result.integrationGroupResults.empty());
+    StackQualityRecord& quality = result.integrationGroupResults.front().qualityReport;
+    ASSERT_TRUE(quality.valid);
+    quality.effectiveFrameCount = 0.0;
+    quality.actualSnrGain = 0.0;
+    quality.integrationEfficiency = 0.0;
+    quality.minCoverage = 0.0;
+    quality.medianCoverage = 0.0;
+    quality.maxCoverage = 0.0;
+    quality.coverageStddev = 0.0;
+
+    const ProductionReportSources production(scenario->session(), scenario->metricsDatabasePath);
+    const ReportModel model = buildReportModel(ReportModelInputs{.manifest = scenario->manifest,
+                                                                 .result = result,
+                                                                 .runDirectory = {},
+                                                                 .context = scenario->context,
+                                                                 .counters = std::nullopt},
+                                               production.sources());
+    ASSERT_FALSE(model.masters.empty());
+    const ReportMaster& master = model.masters.front();
+    ASSERT_TRUE(master.stack.has_value());
+    EXPECT_FALSE(master.stack->effectiveFrames.has_value());
+    EXPECT_FALSE(master.stack->measuredSnrGain.has_value());
+    EXPECT_FALSE(master.stack->efficiency.has_value());
+    EXPECT_FALSE(master.stack->coverage.has_value());
+    // What the light count promises is no measurement, and is still stated.
+    EXPECT_GT(master.stack->theoreticalSnrGain, 0.0);
+
+    const auto named = [&model, &master](const QString& words) {
+        return std::count_if(model.notStated.begin(), model.notStated.end(), [&](const ReportNotStated& entry) {
+            return entry.what.contains(words) && entry.what.contains(master.name);
+        });
+    };
+    EXPECT_EQ(named(QStringLiteral("effective frames")), 1);
+    EXPECT_EQ(named(QStringLiteral("reached each pixel")), 1);
+}
+
+// What a person looks at a calibration master for is measured in the read that gives its level and its noise: how
+// many of its pixels are hot, and how dark its corners are against its centre.
+TEST(ReportRunFacts, OneReadOfACalibrationMasterCountsItsHotPixelsAndWeighsItsCorners)
+{
+    const auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    const QDir folder(scenario->outputDirectory);
+    const int width = 160;
+    const int height = 120;
+    // A little scatter round a level, the same in every frame: eleven values half a unit either side of zero.
+    const auto scatter = [](const std::uint32_t x, const std::uint32_t y) {
+        return static_cast<double>((x * 7u + y * 13u) % 11u) / 10.0 - 0.5;
+    };
+
+    // A dark with twelve hot pixels: every fortieth column from the sixth, every fortieth row from the eighth.
+    const QString dark = folder.filePath(QStringLiteral("check_dark.fit"));
+    ASSERT_TRUE(writeFloatImage(dark, width, height, an::tests::fixtures::FixtureChannels::Mono, 0.02,
+                                [&scatter](const std::uint32_t x, const std::uint32_t y, std::uint32_t) {
+                                    return x % 40u == 5u && y % 40u == 7u ? 0.5 : 0.02 + 0.0004 * scatter(x, y);
+                                },
+                                {}));
+
+    // A flat whose level falls by three tenths from its centre to its corners, as the square of the distance.
+    const QString flat = folder.filePath(QStringLiteral("check_flat.fit"));
+    ASSERT_TRUE(writeFloatImage(flat, width, height, an::tests::fixtures::FixtureChannels::Mono, 0.5,
+                                [&](const std::uint32_t x, const std::uint32_t y, std::uint32_t) {
+                                    const double dx = (static_cast<double>(x) + 0.5 - width / 2.0) / (width / 2.0);
+                                    const double dy = (static_cast<double>(y) + 0.5 - height / 2.0) / (height / 2.0);
+                                    return 0.5 * (1.0 - 0.3 * (dx * dx + dy * dy) / 2.0) + 0.0004 * scatter(x, y);
+                                },
+                                {}));
+
+    const ProductionReportSources production(scenario->session(), QString());
+    IReportImages* images = production.sources().images;
+    ASSERT_NE(images, nullptr);
+
+    const std::optional<ReportImageLevels> ofDark = images->measureLevels(dark, 1u);
+    ASSERT_TRUE(ofDark.has_value());
+    ASSERT_EQ(ofDark->hotFraction.size(), 1u);
+    EXPECT_NEAR(ofDark->hotFraction.front(), 12.0 / (width * height), 1e-12);
+    ASSERT_EQ(ofDark->cornerLevel.size(), 1u);
+    EXPECT_NEAR(ofDark->cornerLevel.front(), 1.0, 0.02) << "a dark is as dark in its corners as at its centre";
+
+    const std::optional<ReportImageLevels> ofFlat = images->measureLevels(flat, 1u);
+    ASSERT_TRUE(ofFlat.has_value());
+    ASSERT_EQ(ofFlat->cornerLevel.size(), 1u);
+    // The corner rectangles are ten by seven pixels: their middles lie fifteen sixteenths of the way out.
+    const double out = 15.0 / 16.0;
+    EXPECT_NEAR(ofFlat->cornerLevel.front(), 1.0 - 0.3 * out * out, 0.015);
+    ASSERT_EQ(ofFlat->hotFraction.size(), 1u);
+    EXPECT_DOUBLE_EQ(ofFlat->hotFraction.front(), 0.0) << "a vignetted flat has no hot pixel";
+}
+
+// Each kind states the figure it is checked by, and no other: a bias and a dark their hot pixels, a flat its
+// corners. A master an earlier run measured takes the figure with its level from that run's report.
+TEST(ReportRunFacts, ACalibrationMasterStatesTheFigureItsKindIsCheckedBy)
+{
+    const auto scenario = built(ReportScenarioId::FiveFilters);
+    ASSERT_TRUE(scenario.has_value());
+    const ReportModel model = buildScenarioModel(*scenario);
+    ASSERT_FALSE(model.calibrationMasters.empty());
+    for (const ReportCalibrationMaster& master : model.calibrationMasters)
+    {
+        SCOPED_TRACE(master.fileName.toStdString());
+        ASSERT_FALSE(master.level.empty());
+        if (master.kind == ReportCalibrationKind::Flat)
+        {
+            ASSERT_EQ(master.cornerLevel.size(), master.level.size());
+            EXPECT_NEAR(master.cornerLevel.front(), 1.0, 0.05) << "the scenario's flats are lit evenly";
+            EXPECT_TRUE(master.hotPixelFraction.empty());
+        }
+        else
+        {
+            ASSERT_EQ(master.hotPixelFraction.size(), master.level.size());
+            EXPECT_GE(master.hotPixelFraction.front(), 0.0);
+            EXPECT_LT(master.hotPixelFraction.front(), 0.01);
+            EXPECT_TRUE(master.cornerLevel.empty());
+        }
+    }
 }

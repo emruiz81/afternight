@@ -632,6 +632,19 @@ template <> struct Fields<ReportRestack>
     }
 };
 
+template <> struct Fields<ReportStackCoverage>
+{
+    using Described = void;
+
+    template <class V, class S> static void visit(V& v, S& s)
+    {
+        v("lowest", s.lowest);
+        v("median", s.median);
+        v("highest", s.highest);
+        v("deviation", s.deviation);
+    }
+};
+
 template <> struct Fields<ReportStack>
 {
     using Described = void;
@@ -643,10 +656,7 @@ template <> struct Fields<ReportStack>
         v("measuredSnrGain", s.measuredSnrGain);
         v("theoreticalSnrGain", s.theoreticalSnrGain);
         v("efficiency", s.efficiency);
-        v("lowestCoverage", s.lowestCoverage);
-        v("medianCoverage", s.medianCoverage);
-        v("highestCoverage", s.highestCoverage);
-        v("coverageDeviation", s.coverageDeviation);
+        v("coverage", s.coverage);
         v("normalization", s.normalization);
         v("rejection", s.rejection);
         v("weights", s.weights);
@@ -716,6 +726,7 @@ template <> struct Fields<ReportFrame>
         v("path", s.path);
         v("state", s.state);
         v("stateDetail", s.stateDetail);
+        v("registrationFailure", s.registrationFailure);
         v("night", s.night);
         v("capturedAt", s.capturedAt);
         v("exposureSeconds", s.exposureSeconds);
@@ -734,6 +745,7 @@ template <> struct Fields<ReportFrame>
         v("catalogMatches", s.catalogMatches);
         v("shiftX", s.shiftX);
         v("shiftY", s.shiftY);
+        v("rotationDegrees", s.rotationDegrees);
         v("transformKind", s.transformKind);
         v("normalizationScale", s.normalizationScale);
         v("normalizationOffset", s.normalizationOffset);
@@ -766,6 +778,8 @@ template <> struct Fields<ReportBaseline>
         v("sideBySide", s.sideBySide);
         v("preview", s.preview);
         v("detail", s.detail);
+        v("matchedPreview", s.matchedPreview);
+        v("matchedDetail", s.matchedDetail);
     }
 };
 
@@ -860,6 +874,7 @@ template <> struct Fields<ReportMaster>
         v("weighting", s.weighting);
         v("frames", s.frames);
         v("baseline", s.baseline);
+        v("earlierBaselines", s.earlierBaselines);
     }
 };
 
@@ -890,6 +905,8 @@ template <> struct Fields<ReportCalibrationMaster>
         v("level", s.level);
         v("noise", s.noise);
         v("measuredFraction", s.measuredFraction);
+        v("hotPixelFraction", s.hotPixelFraction);
+        v("cornerLevel", s.cornerLevel);
         v("measuredByRun", s.measuredByRun);
         v("preview", s.preview);
         v("usedBy", s.usedBy);

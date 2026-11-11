@@ -625,11 +625,11 @@ TEST(WorkflowArchiver, RetainableRunPrunesOldHistoryBeforeCopying)
     ASSERT_TRUE(QDir().mkpath(historyDir.path()));
 
     // The run's payload, its report and the newer run fit the history together; the oldest run does not as well.
-    const QString oldestRun = historyDir.filePath(QStringLiteral("oldest_run"));
+    // A run's folder is named for when the run started, which is the order the history is trimmed in.
+    const QString oldestRun = historyDir.filePath(QStringLiteral("20260101_000000_000"));
     ASSERT_TRUE(QDir().mkpath(oldestRun));
     writeSizedFile(QDir(oldestRun).filePath(QStringLiteral("payload.bin")), 3600000);
-    QThread::msleep(15);
-    const QString newerRun = historyDir.filePath(QStringLiteral("newer_run"));
+    const QString newerRun = historyDir.filePath(QStringLiteral("20260102_000000_000"));
     ASSERT_TRUE(QDir().mkpath(newerRun));
     writeSizedFile(QDir(newerRun).filePath(QStringLiteral("payload.bin")), 3600000);
 

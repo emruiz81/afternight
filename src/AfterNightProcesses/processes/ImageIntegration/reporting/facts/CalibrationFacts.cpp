@@ -65,8 +65,15 @@ void fillFile(ReportBuild& build, ReportCalibrationMaster& master)
     }
 }
 
-/// A calibration master's level and noise per channel: the ones the latest earlier run of the folder stated for the
-/// same file, when its report is kept; else what one read of the file measures.
+/// Whether a calibration master states the figure its kind is checked by: a flat its corners, a bias and a dark
+/// their hot pixels.
+[[nodiscard]] bool statesCheckFigure(const ReportCalibrationMaster& master)
+{
+    return master.kind == ReportCalibrationKind::Flat ? !master.cornerLevel.empty() : !master.hotPixelFraction.empty();
+}
+
+/// A calibration master's level, noise and check figure per channel: the ones the latest earlier run of the folder
+/// stated for the same file, when its report is kept and states them all; else what one read of the file measures.
 void fillLevels(ReportBuild& build, ReportCalibrationMaster& master)
 {
     if (master.state == ReportCalibrationState::Failed)
@@ -84,7 +91,7 @@ void fillLevels(ReportBuild& build, ReportCalibrationMaster& master)
                                                       candidate.modifiedAt.has_value() &&
                                                       candidate.modifiedAt->toMSecsSinceEpoch() ==
                                                           master.modifiedAt->toMSecsSinceEpoch() &&
-                                                      !candidate.level.empty();
+                                                      !candidate.level.empty() && statesCheckFigure(candidate);
                                            });
             if (same == run.model.calibrationMasters.end())
             {
@@ -93,6 +100,8 @@ void fillLevels(ReportBuild& build, ReportCalibrationMaster& master)
             master.level = same->level;
             master.noise = same->noise;
             master.measuredFraction = same->measuredFraction;
+            master.hotPixelFraction = same->hotPixelFraction;
+            master.cornerLevel = same->cornerLevel;
             master.measuredByRun = same->measuredByRun.isEmpty() ? run.runId : same->measuredByRun;
             return;
         }
@@ -110,6 +119,15 @@ void fillLevels(ReportBuild& build, ReportCalibrationMaster& master)
     master.level = std::move(levels->level);
     master.noise = std::move(levels->noise);
     master.measuredFraction = levels->measuredFraction;
+    // Each kind states the figure it is checked by: hot pixels say nothing of a flat, nor corners of a dark.
+    if (master.kind == ReportCalibrationKind::Flat)
+    {
+        master.cornerLevel = std::move(levels->cornerLevel);
+    }
+    else
+    {
+        master.hotPixelFraction = std::move(levels->hotFraction);
+    }
 }
 
 void fillStage(ReportBuild& build, const std::optional<WorkflowManifest::CalibrationStage>& stage,
@@ -160,11 +178,12 @@ void fillStage(ReportBuild& build, const std::optional<WorkflowManifest::Calibra
             master.fileName = QFileInfo(master.file).fileName();
         }
 
-        // A master the user supplied is its group's existing master; one the run found still valid leaves no result.
-        master.state = group.existingMaster.has_value() ? ReportCalibrationState::Supplied
-                       : groupResult == nullptr         ? ReportCalibrationState::Reused
-                       : groupResult->success           ? ReportCalibrationState::Made
-                                                        : ReportCalibrationState::Failed;
+        // A master the user supplied is its group's existing master. One the run found still valid leaves no result
+        // when its whole stage was skipped, and a result that says so when the stage ran for another group.
+        master.state = group.existingMaster.has_value()                ? ReportCalibrationState::Supplied
+                       : groupResult == nullptr || groupResult->reused ? ReportCalibrationState::Reused
+                       : groupResult->success                          ? ReportCalibrationState::Made
+                                                                       : ReportCalibrationState::Failed;
         master.frames = static_cast<int>(group.inputFiles.size());
         master.inputFiles.reserve(master.frames);
         for (const FrameId& input : group.inputFiles)

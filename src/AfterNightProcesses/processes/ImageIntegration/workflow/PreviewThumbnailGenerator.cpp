@@ -215,9 +215,13 @@ struct PresentedPreview
 };
 
 /// The bounded preview of an image, as `generateBoundedPreview` states it, with what it was presented through.
+///
+/// @param through the balance and statistics to present the preview through, in place of its own: another image's,
+///        so that the two pictures share one stretch. Null for the image's own.
 [[nodiscard]] std::optional<PresentedPreview> boundedPreview(const an::consumer::EngineSession& session,
                                                              const an::consumer::AnyImage& image, const QSize& maxSize,
-                                                             PreviewGenerationDiagnostics* diagnostics)
+                                                             PreviewGenerationDiagnostics* diagnostics,
+                                                             const an::DisplayPresentationAnalysis* through = nullptr)
 {
     if (diagnostics)
     {
@@ -272,7 +276,7 @@ struct PresentedPreview
     // The viewer's presentation: each channel its own automatic screen transfer, into interleaved bytes.
     const an::ui::ViewPresentationSettings settings{};
     an::Result<an::ui::ViewPresentationOutcome> presented =
-        an::ui::presentForView(scope->engine(), scope->execution(), *lease, settings, nullptr, &session.memory());
+        an::ui::presentForView(scope->engine(), scope->execution(), *lease, settings, through, &session.memory());
     if (!presented.hasValue() || !presented->image)
     {
         LOG_WARNING("PreviewThumbnailGenerator: the preview was not presented: {}",
@@ -488,6 +492,77 @@ ReportMasterPreviews generateReportMasterPreviews(const an::consumer::EngineSess
     }
     written.whole = wholeName;
     if (previews.detail.has_value() && writeJpeg(*previews.detail, QDir(outputDir).filePath(detailName), quality))
+    {
+        written.detail = detailName;
+    }
+    return written;
+}
+
+ReportMasterPreviews generateReportMasterPreviewsUnderStretchOf(const an::consumer::EngineSession& session,
+                                                                const QString& stretchPath, const QString& outputPath,
+                                                                const QString& outputDir, const QString& wholeName,
+                                                                const QString& detailName, std::optional<QSize> maxSize,
+                                                                int quality)
+{
+    ReportMasterPreviews written;
+    if (!prepareOutputDirectory(outputPath, outputDir, wholeName) || detailName.trimmed().isEmpty() ||
+        stretchPath.trimmed().isEmpty() || !QFileInfo::exists(stretchPath))
+    {
+        return written;
+    }
+    const QSize bound = maxSize.value_or(kDefaultMaximumReportPreviewSize);
+    const auto read = [&session](const QString& path) {
+        an::Result<an::ui::ViewReadResult> file =
+            an::ui::readViewImage(session, an::ui::ViewReadRequest{.path = path}, std::stop_token{}, nullptr);
+        if (!file.hasValue())
+        {
+            LOG_WARNING("PreviewThumbnailGenerator: '{}' could not be read: {}", path.toStdString(),
+                        file.status().message());
+        }
+        return file;
+    };
+
+    // The stretch is the one the other image's own whole-frame preview is presented through.
+    std::optional<an::DisplayPresentationAnalysis> stretch;
+    {
+        an::Result<an::ui::ViewReadResult> other = read(stretchPath);
+        if (!other.hasValue())
+        {
+            return written;
+        }
+        an::Result<an::consumer::AssetReadLease> lease = other->asset.read(std::stop_token{});
+        if (!lease.hasValue())
+        {
+            return written;
+        }
+        const std::optional<PresentedPreview> own = boundedPreview(session, lease->image(), bound, nullptr);
+        if (!own.has_value())
+        {
+            return written;
+        }
+        stretch = own->analysis;
+    }
+
+    an::Result<an::ui::ViewReadResult> image = read(outputPath);
+    if (!image.hasValue())
+    {
+        return written;
+    }
+    an::Result<an::consumer::AssetReadLease> lease = image->asset.read(std::stop_token{});
+    if (!lease.hasValue())
+    {
+        return written;
+    }
+    // An image the other's stretch cannot present - one of another number of channels - gets no picture: its own
+    // stretch would say nothing the comparison does not already show.
+    const std::optional<PresentedPreview> whole = boundedPreview(session, lease->image(), bound, nullptr, &*stretch);
+    if (!whole.has_value() || !writeJpeg(whole->image, QDir(outputDir).filePath(wholeName), quality))
+    {
+        return written;
+    }
+    written.whole = wholeName;
+    const std::optional<QImage> detail = detailPreview(session, *lease, *stretch);
+    if (detail.has_value() && writeJpeg(*detail, QDir(outputDir).filePath(detailName), quality))
     {
         written.detail = detailName;
     }

@@ -538,27 +538,37 @@ struct ReportRestack
     friend bool operator==(const ReportRestack&, const ReportRestack&) = default;
 };
 
+/// The lights that reached a pixel of a stack: the fewest, the median, the most, and their deviation.
+struct ReportStackCoverage
+{
+    double lowest = 0.0;
+    double median = 0.0;
+    double highest = 0.0;
+    double deviation = 0.0;
+
+    friend bool operator==(const ReportStackCoverage&, const ReportStackCoverage&) = default;
+};
+
 /// What a stack recorded of itself.
 struct ReportStack
 {
     /// The lights the stack combined.
     std::uint64_t inputFrames = 0;
 
-    /// How many lights of equal weight and no rejection would give the same noise.
-    double effectiveFrames = 0.0;
+    /// How many lights of equal weight and no rejection would give the same noise. Nothing when the stack kept
+    /// nothing to derive it from: no gain map, no weights and no count of the lights that reached a pixel.
+    std::optional<double> effectiveFrames;
 
-    /// The gain in signal to noise the stack measured, and the one its light count promises.
-    double measuredSnrGain = 0.0;
+    /// The gain in signal to noise the stack measured, stated with the effective frames it is the root of, and the
+    /// gain its light count promises.
+    std::optional<double> measuredSnrGain;
     double theoreticalSnrGain = 0.0;
 
-    /// The measured gain over the theoretical one.
-    double efficiency = 0.0;
+    /// The measured gain over the theoretical one; stated with the measured gain.
+    std::optional<double> efficiency;
 
-    /// The lights that reached a pixel: the fewest, the median, the most, and their deviation.
-    double lowestCoverage = 0.0;
-    double medianCoverage = 0.0;
-    double highestCoverage = 0.0;
-    double coverageDeviation = 0.0;
+    /// The lights that reached a pixel; nothing when the stack counted none.
+    std::optional<ReportStackCoverage> coverage;
 
     /// What brought the lights to the stack's reference; empty when the stack normalized nothing.
     QString normalization;
@@ -658,6 +668,10 @@ struct ReportFrame
     std::optional<ReportFrameState> state;
     QString stateDetail;
 
+    /// Why the light's registration failed, in the registration's own words; empty for a light that registered and
+    /// for one no run whose report is kept recorded a reason of.
+    QString registrationFailure;
+
     /// The night the light was taken on, and when.
     std::optional<QDate> night;
     std::optional<QDateTime> capturedAt;
@@ -681,9 +695,17 @@ struct ReportFrame
     std::optional<double> limitingMagnitude;
     std::optional<int> catalogMatches;
 
-    /// The translation that brought the light to the reference, and the kind of the transform.
+    /// How far the light sat from the reference, in pixels: where the transform that brought it there puts the
+    /// frame's centre, less the centre. Not the transform's own translation, which is where the frame's corner
+    /// goes and is about the frame's size for a light turned half a turn, whatever its dither.
     std::optional<double> shiftX;
     std::optional<double> shiftY;
+
+    /// How far the light is turned against the reference, in degrees between -180 and 180. A light taken after a
+    /// meridian flip is turned half a turn.
+    std::optional<double> rotationDegrees;
+
+    /// The kind of the transform.
     QString transformKind;
 
     /// The normalization's scale and offset, per channel.
@@ -744,6 +766,13 @@ struct ReportBaseline
     /// archive holds none.
     QString preview;
     QString detail;
+
+    /// The earlier run's master pictured again under this run's display stretch, whole and at full scale, in this
+    /// run's folder: with them a difference between the two runs' pictures is the masters' and not the stretches'.
+    /// Empty when the history holds no copy of that master, when the two frames are of different shapes, and for a
+    /// run before the latest.
+    QString matchedPreview;
+    QString matchedDetail;
 
     friend bool operator==(const ReportBaseline&, const ReportBaseline&) = default;
 };
@@ -890,6 +919,12 @@ struct ReportMaster
 
     std::optional<ReportBaseline> baseline;
 
+    /// The earlier runs that made the master before the one `baseline` names, the latest first: what the master
+    /// can be set beside when it is not the latest. Each names its pictures where that run's own archive holds
+    /// them, beside this run's folder, since only the latest run's are copied into it; a run the history has
+    /// dropped keeps its figures and loses its pictures.
+    std::vector<ReportBaseline> earlierBaselines;
+
     friend bool operator==(const ReportMaster&, const ReportMaster&) = default;
 };
 
@@ -950,8 +985,17 @@ struct ReportCalibrationMaster
     /// a large master, which is measured over a rectangle at its centre so that a run of many masters stays quick.
     std::optional<double> measuredFraction;
 
-    /// The earlier run whose stored report the level and the noise were taken from; empty when this run measured
-    /// them.
+    /// What a bias and a dark are checked by: the share of the pixels measured that are hot, per channel - more
+    /// than ten robust deviations above the channel's median. Empty for a flat, and when not measured.
+    std::vector<double> hotPixelFraction;
+
+    /// What a flat is checked by: each channel's level in the frame's four corners over its level at the centre.
+    /// One for a frame lit evenly, less the more its corners darken. Empty for a bias and a dark, and when not
+    /// measured.
+    std::vector<double> cornerLevel;
+
+    /// The earlier run whose stored report the level, the noise and the check figure were taken from; empty when
+    /// this run measured them.
     QString measuredByRun;
 
     /// Its picture, relative to the run's folder; empty where there is none.

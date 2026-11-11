@@ -148,6 +148,21 @@ void dropLinksToReportsThatAreGone(ReportModel& model, const QString& runDirecto
             entry.report.clear();
         }
     }
+    // The pictures of the runs that made a master before the latest are in those runs' own folders: a run the
+    // history dropped keeps its figures in the comparison and has no picture to show.
+    for (ReportMaster& master : model.masters)
+    {
+        for (ReportBaseline& earlier : master.earlierBaselines)
+        {
+            for (QString* picture : {&earlier.preview, &earlier.detail})
+            {
+                if (!picture->isEmpty() && !QFileInfo(run.filePath(*picture)).isFile())
+                {
+                    picture->clear();
+                }
+            }
+        }
+    }
 }
 
 /// The model a run's archive keeps, or the reader's refusal as a report that was not written.

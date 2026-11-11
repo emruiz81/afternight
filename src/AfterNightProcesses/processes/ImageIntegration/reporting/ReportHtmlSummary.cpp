@@ -369,7 +369,7 @@ void writeTile(ReportMarkup& out, const Tile& tile)
         {
             hint << documentText("SNR %1").arg(formatFigure(*master.snapshot.snr));
         }
-        if (master.stack.has_value())
+        if (master.stack.has_value() && master.stack->effectiveFrames.has_value())
         {
             hint << documentText("%1 effective frames").arg(formatFigure(master.stack->effectiveFrames));
         }
@@ -826,22 +826,30 @@ void writeCompareTable(ReportMarkup& out, const ReportDocumentContext& context, 
                             snapshot.snr.has_value() && bestSnr > 0.0 ? std::optional<double>(*snapshot.snr / bestSnr)
                                                                       : std::nullopt);
             writeFigureCell(out, formatFigure(snapshot.backgroundNoise));
-            if (master.stack.has_value() && master.stack->inputFrames > 0)
+            // A figure the stack did not record is a dash, never a zero.
+            const ReportStack* stack =
+                master.stack.has_value() && master.stack->inputFrames > 0 ? &*master.stack : nullptr;
+            if (stack != nullptr && stack->effectiveFrames.has_value())
             {
-                const ReportStack& stack = *master.stack;
-                const double inputs = static_cast<double>(stack.inputFrames);
-                writeFigureCell(out, formatFigure(stack.effectiveFrames),
-                                documentText("of %1").arg(formatCount(static_cast<qint64>(stack.inputFrames))),
-                                stack.effectiveFrames / inputs);
-                writeFigureCell(out, formatFigure(stack.measuredSnrGain) + QStringLiteral("×"),
-                                documentText("of %1").arg(formatFigure(stack.theoreticalSnrGain)) + QStringLiteral("×"),
-                                stack.theoreticalSnrGain > 0.0
-                                    ? std::optional<double>(stack.measuredSnrGain / stack.theoreticalSnrGain)
-                                    : std::nullopt);
+                writeFigureCell(out, formatFigure(stack->effectiveFrames),
+                                documentText("of %1").arg(formatCount(static_cast<qint64>(stack->inputFrames))),
+                                *stack->effectiveFrames / static_cast<double>(stack->inputFrames));
             }
             else
             {
                 writeFigureCell(out, noValueText());
+            }
+            if (stack != nullptr && stack->measuredSnrGain.has_value())
+            {
+                writeFigureCell(out, formatFigure(stack->measuredSnrGain) + QStringLiteral("×"),
+                                documentText("of %1").arg(formatFigure(stack->theoreticalSnrGain)) +
+                                    QStringLiteral("×"),
+                                stack->theoreticalSnrGain > 0.0
+                                    ? std::optional<double>(*stack->measuredSnrGain / stack->theoreticalSnrGain)
+                                    : std::nullopt);
+            }
+            else
+            {
                 writeFigureCell(out, noValueText());
             }
 

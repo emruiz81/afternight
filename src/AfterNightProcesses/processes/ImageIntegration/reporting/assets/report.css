@@ -689,11 +689,25 @@ td.nowrap { white-space: nowrap; }
 .cmp > .pick-6:checked ~ .cmpbar .masters label:nth-child(7), .cmp > .pick-7:checked ~ .cmpbar .masters label:nth-child(8),
 .cmp > .pick-8:checked ~ .cmpbar .masters label:nth-child(9), .cmp > .pick-9:checked ~ .cmpbar .masters label:nth-child(10),
 .cmp > .pick-10:checked ~ .cmpbar .masters label:nth-child(11), .cmp > .pick-11:checked ~ .cmpbar .masters label:nth-child(12),
+.cmpitem > .run-0:checked ~ .runbar .against label:nth-child(1), .cmpitem > .run-1:checked ~ .runbar .against label:nth-child(2),
+.cmpitem > .run-2:checked ~ .runbar .against label:nth-child(3), .cmpitem > .run-3:checked ~ .runbar .against label:nth-child(4),
+.cmpitem > .run-4:checked ~ .runbar .against label:nth-child(5), .cmpitem > .run-5:checked ~ .runbar .against label:nth-child(6),
 .cmp > .zoom-0:checked ~ .cmpbar .zooms label:nth-child(1),
 .cmp > .zoom-1:checked ~ .cmpbar .zooms label:nth-child(2) { background: var(--accent);
     border-color: var(--accent); color: var(--on-accent); }
-.cmp > .pick:focus-visible ~ .cmpbar .masters, .cmp > .zoom:focus-visible ~ .cmpbar .zooms {
+.cmp > .pick:focus-visible ~ .cmpbar .masters, .cmp > .zoom:focus-visible ~ .cmpbar .zooms,
+.cmpitem > .run:focus-visible ~ .runbar .against {
     outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+/* A master several earlier runs made is set beside one of them at a time: a radio button per run, the latest first. */
+.cmpitem > .run { position: absolute; opacity: 0; pointer-events: none; }
+.runbar { margin-bottom: 12px; }
+/* Named with the item so they outrank .cmpgrid, which every run of a comparison is as well. */
+.cmpitem > .cmprun { display: none; }
+.cmpitem > .cmprun-0 { display: grid; }
+.cmpitem > .run:not(.run-0):checked ~ .cmprun-0 { display: none; }
+.cmpitem > .run-1:checked ~ .cmprun-1, .cmpitem > .run-2:checked ~ .cmprun-2,
+.cmpitem > .run-3:checked ~ .cmprun-3, .cmpitem > .run-4:checked ~ .cmprun-4,
+.cmpitem > .run-5:checked ~ .cmprun-5 { display: grid; }
 .cmphead { font-size: 15px; margin: 0 0 10px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 .cmphead small { font-weight: 400; color: var(--text-3); font-size: 12.5px; }
 .cmpgrid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; align-items: start; }
@@ -823,6 +837,9 @@ tr.thisrun td { background: var(--accent-soft); }
     .cmpitem + .cmpitem { margin-top: 18pt; }
     .cmp .whole { display: block !important; }
     .cmp .detail, .ba input { display: none !important; }
+    /* A master is printed beside the latest earlier run that made it. */
+    .cmprun { display: none !important; }
+    .cmprun-0 { display: grid !important; }
     .card, .issue, .tile, .mcard, tr { break-inside: avoid; }
     .file { break-before: page; }
     table { font-size: 9pt; }

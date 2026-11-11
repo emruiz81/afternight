@@ -469,6 +469,13 @@ TEST_F(FullWorkflowFixture, ExecutesEndToEndWithRecoveryAndIncrementalRuns)
         auto result = executeWithLogs(*executor, manifest, logs);
         EXPECT_TRUE(result.success) << result.errorMessage.toStdString() << "\n"
                                     << formatLogMessages(logs).toStdString();
+
+        // The run stacked its calibration masters: none is one it found still valid.
+        EXPECT_FALSE(result.calibrationGroupResults.empty());
+        for (const auto& calibration : result.calibrationGroupResults)
+        {
+            EXPECT_FALSE(calibration.reused) << calibration.type.toStdString();
+        }
     }
 
     EXPECT_TRUE(QFileInfo::exists(QDir(output_dir).filePath(QStringLiteral("master_bias.fit"))));

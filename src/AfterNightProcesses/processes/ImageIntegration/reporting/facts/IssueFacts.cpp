@@ -339,12 +339,41 @@ void addRegistrationFailures(const ReportModel& model, Issues& issues)
     {
         if (group.failed.value_or(0) > 0)
         {
+            // The reasons the group's lights state, each once with how many lights it is of, the commonest first.
+            QStringList reasons;
+            QHash<QString, int> counts;
+            for (const ReportMaster& master : model.masters)
+            {
+                if (master.registrationGroupKey != group.key)
+                {
+                    continue;
+                }
+                for (const ReportFrame& frame : master.frames)
+                {
+                    if (frame.state == ReportFrameState::RegistrationFailed && !frame.registrationFailure.isEmpty())
+                    {
+                        if (!counts.contains(frame.registrationFailure))
+                        {
+                            reasons.append(frame.registrationFailure);
+                        }
+                        ++counts[frame.registrationFailure];
+                    }
+                }
+            }
+            std::stable_sort(reasons.begin(), reasons.end(), [&counts](const QString& left, const QString& right) {
+                return counts.value(left) > counts.value(right);
+            });
+            QString detail = reportText("They are in no master.");
+            for (const QString& reason : reasons)
+            {
+                detail += QLatin1Char(' ') + reportText("%1 of them: %2").arg(counts.value(reason)).arg(reason);
+            }
             issues.add(ReportIssueKind::RegistrationFailures, ReportIssueSeverity::Warning,
                        reportText("%1 of the %2 lights of %3 failed registration")
                            .arg(*group.failed)
                            .arg(group.lights)
                            .arg(group.name),
-                       reportText("They are in no master."), {}, group.key, QString::fromLatin1(kRegistrationAnchor));
+                       detail, {}, group.key, QString::fromLatin1(kRegistrationAnchor));
         }
     }
 }

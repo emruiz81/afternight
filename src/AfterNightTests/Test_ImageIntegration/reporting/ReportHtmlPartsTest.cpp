@@ -1921,3 +1921,173 @@ TEST_F(ReportHtmlWriterTest, NoFigureOfTheRunIsPrintedTwiceOutsideItsHome)
         }
     }
 }
+
+// One figure has one name. The summary and the comparison with earlier runs say "Effective frames", so a master's
+// stack does too: two names would read as two figures.
+TEST_F(ReportHtmlWriterTest, TheEffectiveFramesHaveOneNameWhereverTheyArePrinted)
+{
+    for (const ReportScenarioId id : reportedScenarios())
+    {
+        SCOPED_TRACE(scenarioName(id));
+        const Rendered* report = reportOf(id);
+        ASSERT_NE(report, nullptr);
+        for (const ParsedDocument* parsed : {&report->linkedParsed, &report->embeddedParsed})
+        {
+            for (const DocumentTextRun& run : parsed->runs)
+            {
+                EXPECT_FALSE(run.text.contains(QStringLiteral("effective light"), Qt::CaseInsensitive))
+                    << run.text.toStdString();
+            }
+        }
+    }
+
+    const Rendered* report = reportOf(ReportScenarioId::FiveFilters);
+    ASSERT_NE(report, nullptr);
+    const auto luminance =
+        std::find_if(report->model.masters.begin(), report->model.masters.end(), [](const ReportMaster& master) {
+            return master.filter == QStringLiteral("Luminance") && master.kind == ReportMasterKind::Stack;
+        });
+    ASSERT_NE(luminance, report->model.masters.end());
+    ASSERT_TRUE(luminance->stack.has_value());
+    const DocumentElement* stack = one(report->linkedParsed, fileAnchor(*luminance) + QStringLiteral("-stack"));
+    ASSERT_NE(stack, nullptr);
+    EXPECT_TRUE(stack->text.contains(QStringLiteral("Effective frames"))) << stack->text.left(400).toStdString();
+}
+
+// A light's turn is a column of the table of lights only where it says something: a master with a light turned by
+// more than a degree. The fraction of a degree every light is turned by is no column.
+TEST_F(ReportHtmlWriterTest, ATurnedLightGivesTheTableOfLightsATurnColumn)
+{
+    const Rendered* report = reportOf(ReportScenarioId::OneMonoMaster);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    ASSERT_FALSE(model.masters.empty());
+    ReportMaster& master = model.masters.front();
+    ASSERT_GE(master.frames.size(), 2u);
+    const QString anchor = fileAnchor(master) + QStringLiteral("-lights");
+
+    const auto headings = [&anchor](const ParsedDocument& parsed) {
+        QStringList found;
+        const DocumentElement* lights = one(parsed, anchor);
+        if (lights != nullptr)
+        {
+            for (const DocumentElement* heading : namedInside(parsed, *lights, "th"))
+            {
+                found.append(heading->text.trimmed());
+            }
+        }
+        return found;
+    };
+
+    // No light is turned by a degree: no column.
+    for (ReportFrame& frame : master.frames)
+    {
+        frame.rotationDegrees = 0.02;
+    }
+    EXPECT_FALSE(headings(writtenAgain(model, *report)).contains(QStringLiteral("Turn")));
+
+    // One light was taken after a meridian flip.
+    master.frames[1].rotationDegrees = 180.0;
+    const ParsedDocument turned = writtenAgain(model, *report);
+    EXPECT_TRUE(headings(turned).contains(QStringLiteral("Turn")));
+    const DocumentElement* lights = one(turned, anchor);
+    ASSERT_NE(lights, nullptr);
+    EXPECT_TRUE(lights->text.contains(QStringLiteral("180")));
+}
+
+// A master whose stack recorded no effective frames, no measured gain and no coverage prints none of them: no
+// line of its stack, no bar, and a dash in the table that compares the masters - never a zero.
+TEST_F(ReportHtmlWriterTest, AStackThatRecordedNoEffectiveFramesGainOrCoveragePrintsNoneOfThem)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFilters);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    const auto luminance = std::find_if(model.masters.begin(), model.masters.end(), [](const ReportMaster& master) {
+        return master.filter == QStringLiteral("Luminance") && master.kind == ReportMasterKind::Stack;
+    });
+    ASSERT_NE(luminance, model.masters.end());
+    ASSERT_TRUE(luminance->stack.has_value());
+    const QString anchor = fileAnchor(*luminance) + QStringLiteral("-stack");
+
+    // As built, the stack states all three.
+    {
+        const DocumentElement* stack = one(report->linkedParsed, anchor);
+        ASSERT_NE(stack, nullptr);
+        EXPECT_TRUE(stack->text.contains(QStringLiteral("Effective frames")));
+        EXPECT_TRUE(stack->text.contains(QStringLiteral("SNR gain")));
+        EXPECT_TRUE(stack->text.contains(QStringLiteral("lights per pixel")));
+    }
+
+    luminance->stack->effectiveFrames.reset();
+    luminance->stack->measuredSnrGain.reset();
+    luminance->stack->efficiency.reset();
+    luminance->stack->coverage.reset();
+    const ParsedDocument parsed = writtenAgain(model, *report);
+
+    const DocumentElement* stack = one(parsed, anchor);
+    ASSERT_NE(stack, nullptr);
+    EXPECT_FALSE(stack->text.contains(QStringLiteral("Effective frames"))) << stack->text.left(300).toStdString();
+    EXPECT_FALSE(stack->text.contains(QStringLiteral("SNR gain")));
+    EXPECT_FALSE(stack->text.contains(QStringLiteral("lights per pixel")));
+    // What the stack did record is still there.
+    EXPECT_TRUE(stack->text.contains(QStringLiteral("Rejected")));
+
+    // The table that compares the masters has a dash in both of the master's cells.
+    const DocumentElement* made = parsed.byId("made");
+    ASSERT_NE(made, nullptr);
+    const std::vector<const DocumentElement*> tables = parsed.ofClassInside(*made, "compare");
+    ASSERT_EQ(tables.size(), 1u);
+    bool found = false;
+    for (const std::vector<const DocumentElement*>& cells : bodyRows(parsed, *tables.front()))
+    {
+        if (cells.size() == 6u && cells[0]->text.contains(luminance->filter))
+        {
+            found = true;
+            EXPECT_EQ(cells[3]->text, noValueText());
+            EXPECT_EQ(cells[4]->text, noValueText());
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
+// The table of calibration masters has a column for what each is checked by: a bias's and a dark's hot pixels, a
+// flat's corners against its centre, and a dash for a master that states neither.
+TEST_F(ReportHtmlWriterTest, TheCalibrationMastersStateWhatEachIsCheckedBy)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFilters);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    const auto ofKind = [&model](const ReportCalibrationKind kind) {
+        return std::find_if(model.calibrationMasters.begin(), model.calibrationMasters.end(),
+                            [kind](const ReportCalibrationMaster& master) { return master.kind == kind; });
+    };
+    const auto dark = ofKind(ReportCalibrationKind::Dark);
+    const auto flat = ofKind(ReportCalibrationKind::Flat);
+    const auto bias = ofKind(ReportCalibrationKind::Bias);
+    ASSERT_NE(dark, model.calibrationMasters.end());
+    ASSERT_NE(flat, model.calibrationMasters.end());
+    ASSERT_NE(bias, model.calibrationMasters.end());
+    dark->hotPixelFraction = {0.0005};
+    flat->cornerLevel = {0.72};
+    bias->hotPixelFraction.clear();
+
+    const ParsedDocument parsed = writtenAgain(model, *report);
+    const DocumentElement* block = one(parsed, QStringLiteral("cal"));
+    ASSERT_NE(block, nullptr);
+    QStringList headings;
+    for (const DocumentElement* heading : namedInside(parsed, *block, "th"))
+    {
+        headings.append(heading->text.trimmed());
+    }
+    EXPECT_TRUE(headings.contains(QStringLiteral("Check"))) << headings.join(QLatin1Char('|')).toStdString();
+
+    const DocumentElement* darkRow = one(parsed, dark->slug);
+    ASSERT_NE(darkRow, nullptr);
+    EXPECT_TRUE(darkRow->text.contains(QStringLiteral("0.05 % hot"))) << darkRow->text.toStdString();
+    const DocumentElement* flatRow = one(parsed, flat->slug);
+    ASSERT_NE(flatRow, nullptr);
+    EXPECT_TRUE(flatRow->text.contains(QStringLiteral("corners at 72 %"))) << flatRow->text.toStdString();
+    const DocumentElement* biasRow = one(parsed, bias->slug);
+    ASSERT_NE(biasRow, nullptr);
+    EXPECT_FALSE(biasRow->text.contains(QStringLiteral("hot")));
+}

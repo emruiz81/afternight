@@ -1089,8 +1089,17 @@ TEST_F(ReportHtmlWriterTest, TheEmbeddedFormReachesForNothingOutsideItself)
             }
         }
         EXPECT_FALSE(report->embedded.html.contains(QStringLiteral("report_previews/")));
-        // It shows the pictures the linked form shows.
-        EXPECT_EQ(parsed.named("img").size(), report->linkedParsed.named("img").size());
+        // It shows the pictures the linked form shows, but those of the runs that made a master before the latest:
+        // every earlier run's pictures inside one file would make it several times its size.
+        std::size_t ofRunsBeforeTheLatest = 0;
+        for (const DocumentElement* shown : report->linkedParsed.ofClass("cmprun"))
+        {
+            if (!shown->hasClass("cmprun-0"))
+            {
+                ofRunsBeforeTheLatest += namedInside(report->linkedParsed, *shown, "img").size();
+            }
+        }
+        EXPECT_EQ(parsed.named("img").size() + ofRunsBeforeTheLatest, report->linkedParsed.named("img").size());
         pictures += parsed.named("img").size();
     }
     EXPECT_GT(pictures, 0u);

@@ -17,6 +17,7 @@
 #include "processes/ImageIntegration/reporting/ReportFormat.h"
 #include "processes/ImageIntegration/reporting/ReportModelJson.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -213,12 +214,23 @@ TEST_F(ReportHtmlWriterTest, EachMasterTheRunMadeStandsBesideTheLatestEarlierRun
 {
     const Rendered* report = reportOf(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
     ASSERT_NE(report, nullptr);
-    const ReportModel& model = report->model;
+    // This case is of each master beside the latest earlier run that made it, by each run's own preview; the runs
+    // before that one, and the earlier master under this run's stretch, have cases of their own.
+    ReportModel model = report->model;
+    for (ReportMaster& master : model.masters)
+    {
+        master.earlierBaselines.clear();
+        if (master.baseline.has_value())
+        {
+            master.baseline->matchedPreview.clear();
+            master.baseline->matchedDetail.clear();
+        }
+    }
     const std::vector<const ReportMaster*> masters = comparedOf(model);
     ASSERT_EQ(masters.size(), 6u);
     const ReportTimeZone zone{.id = model.run.timeZoneId, .utcOffsetSeconds = model.run.utcOffsetSeconds};
 
-    const ParsedDocument& parsed = report->linkedParsed;
+    const ParsedDocument parsed = linkedDocument(model, report->scenario.runDirectory);
     const DocumentElement* block = only(parsed, "before-after");
     ASSERT_NE(block, nullptr);
     const std::vector<const DocumentElement*> comparisons = parsed.ofClassInside(*block, "cmp");
@@ -379,6 +391,11 @@ TEST_F(ReportHtmlWriterTest, ABaselineOfAnotherShapeStandsSideBySideWithNoDivide
     ASSERT_NE(luminance, model.masters.end());
     ASSERT_TRUE(luminance->baseline.has_value());
     luminance->baseline->sideBySide = true;
+    // The case is of the latest earlier run alone.
+    for (ReportMaster& master : model.masters)
+    {
+        master.earlierBaselines.clear();
+    }
 
     const ParsedDocument parsed = linkedDocument(model, report->scenario.runDirectory);
     const DocumentElement* block = only(parsed, "before-after");
@@ -417,9 +434,13 @@ TEST_F(ReportHtmlWriterTest, TheDetailIsOfferedOnlyWhereBothRunsHaveOne)
     ReportModel none = report->model;
     for (ReportMaster& master : none.masters)
     {
+        // The case is of the latest earlier run alone, by each run's own preview.
+        master.earlierBaselines.clear();
         if (master.baseline.has_value())
         {
             master.baseline->detail.clear();
+            master.baseline->matchedPreview.clear();
+            master.baseline->matchedDetail.clear();
         }
     }
     const ParsedDocument without = linkedDocument(none, report->scenario.runDirectory);
@@ -751,4 +772,175 @@ TEST_F(ReportHtmlWriterTest, TheHeaderSetsTheEarlierRunsFiguresUnderItsOwn)
     const DocumentElement* aloneHeader = only(alone->linkedParsed, "top");
     ASSERT_NE(aloneHeader, nullptr);
     EXPECT_FALSE(aloneHeader->text.contains(QStringLiteral("Earlier run")));
+}
+
+// Every run a master is set beside is a grid, and the grid's own rule would show them all at once: the rules that
+// hide the runs not picked name the item as well, so they outrank it. And a run is named by when it was archived,
+// to the minute, so two runs of one minute are named to the second, or the switch would offer the same words
+// twice.
+TEST_F(ReportHtmlWriterTest, TheRunsNotPickedAreHiddenAndTwoRunsOfOneMinuteAreToldApart)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
+    ASSERT_NE(report, nullptr);
+
+    // The stylesheet: the rules that hide and show a run are more specific than the one that makes it a grid.
+    const QString stylesheet = reportStylesheet();
+    ASSERT_FALSE(stylesheet.isEmpty());
+    EXPECT_TRUE(stylesheet.contains(QStringLiteral(".cmpitem > .cmprun { display: none; }")));
+    EXPECT_TRUE(stylesheet.contains(QStringLiteral(".cmpitem > .cmprun-0 { display: grid; }")));
+    EXPECT_FALSE(stylesheet.contains(QStringLiteral("\n.cmprun { display: none; }")))
+        << "a rule of one class cannot outrank .cmpgrid";
+
+    // Two runs archived within one minute.
+    ReportModel model = report->model;
+    const auto several = std::find_if(model.masters.begin(), model.masters.end(), [](const ReportMaster& master) {
+        return master.baseline.has_value() && !master.earlierBaselines.empty();
+    });
+    ASSERT_NE(several, model.masters.end());
+    ASSERT_TRUE(several->baseline->archivedAt.has_value());
+    const QDateTime minute(several->baseline->archivedAt->date(), QTime(21, 40, 0),
+                           several->baseline->archivedAt->timeZone());
+    several->baseline->archivedAt = minute.addSecs(47);
+    several->earlierBaselines.front().archivedAt = minute.addSecs(5);
+
+    const ParsedDocument parsed = linkedDocument(model, report->scenario.runDirectory);
+    const DocumentElement* block = only(parsed, "before-after");
+    ASSERT_NE(block, nullptr);
+    const std::vector<const DocumentElement*> bars = parsed.ofClassInside(*block, "against");
+    ASSERT_EQ(bars.size(), 1u);
+    const std::vector<const DocumentElement*> labels = namedInside(parsed, *bars.front(), "label");
+    ASSERT_EQ(labels.size(), 2u);
+    EXPECT_NE(labels[0]->text, labels[1]->text);
+    EXPECT_TRUE(labels[0]->text.endsWith(QStringLiteral(":47"))) << labels[0]->text.toStdString();
+    EXPECT_TRUE(labels[1]->text.endsWith(QStringLiteral(":05"))) << labels[1]->text.toStdString();
+}
+
+// A master several earlier runs made is set beside one of them at a time, the latest to begin with: a radio button
+// per run stands before the runs inside the master's own item, where the stylesheet's rules need it, so the
+// switch works with no script. A master one earlier run made has no switch, and the form that is one file
+// carries the latest run alone.
+TEST_F(ReportHtmlWriterTest, AMasterSeveralEarlierRunsMadeIsSetBesideOneOfThemAtATime)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
+    ASSERT_NE(report, nullptr);
+    const ReportModel& model = report->model;
+    const std::vector<const ReportMaster*> masters = comparedOf(model);
+    const auto several = std::find_if(masters.begin(), masters.end(),
+                                      [](const ReportMaster* master) { return !master->earlierBaselines.empty(); });
+    ASSERT_NE(several, masters.end()) << "the scenario has a master two earlier runs made";
+    const std::size_t place = static_cast<std::size_t>(several - masters.begin());
+    const ReportMaster& master = **several;
+    const std::size_t runs = master.earlierBaselines.size() + 1u;
+
+    const ParsedDocument& parsed = report->linkedParsed;
+    const DocumentElement* block = only(parsed, "before-after");
+    ASSERT_NE(block, nullptr);
+    const std::vector<const DocumentElement*> items = parsed.ofClassInside(*block, "cmpitem");
+    ASSERT_EQ(items.size(), masters.size());
+    const DocumentElement& item = *items[place];
+
+    const std::vector<const DocumentElement*> picks = classedInside(parsed, item, "input", "run");
+    ASSERT_EQ(picks.size(), runs);
+    for (std::size_t run = 0; run < picks.size(); ++run)
+    {
+        EXPECT_EQ(picks[run]->attribute("type"), QStringLiteral("radio"));
+        EXPECT_TRUE(picks[run]->hasClass(qPrintable(QStringLiteral("run-%1").arg(run))));
+        EXPECT_EQ(parentOf(parsed, *picks[run]), &item) << "the stylesheet's rules need it there";
+        EXPECT_EQ(picks[run]->has("checked"), run == 0u);
+    }
+    const std::vector<const DocumentElement*> bars = parsed.ofClassInside(item, "against");
+    ASSERT_EQ(bars.size(), 1u);
+    const std::vector<const DocumentElement*> labels = namedInside(parsed, *bars.front(), "label");
+    ASSERT_EQ(labels.size(), runs);
+    for (std::size_t run = 0; run < labels.size(); ++run)
+    {
+        EXPECT_EQ(labels[run]->attribute("for"), picks[run]->attribute("id"));
+        EXPECT_FALSE(labels[run]->text.trimmed().isEmpty());
+    }
+    EXPECT_NE(labels[0]->text, labels[1]->text) << "two runs are told apart by when they were archived";
+
+    // A block per run, each a child of the item after the buttons, the earlier run's picture its own run's file.
+    const std::vector<const DocumentElement*> shown = parsed.ofClassInside(item, "cmprun");
+    ASSERT_EQ(shown.size(), runs);
+    for (std::size_t run = 0; run < shown.size(); ++run)
+    {
+        EXPECT_TRUE(shown[run]->hasClass(qPrintable(QStringLiteral("cmprun-%1").arg(run))));
+        EXPECT_EQ(parentOf(parsed, *shown[run]), &item);
+    }
+    const ReportBaseline& older = master.earlierBaselines.front();
+    ASSERT_FALSE(older.preview.isEmpty());
+    bool named = false;
+    for (const DocumentElement* picture : namedInside(parsed, *shown[1], "img"))
+    {
+        named = named || picture->attribute("src") == older.preview;
+    }
+    EXPECT_TRUE(named) << older.preview.toStdString();
+
+    // A master one earlier run made has no switch between runs.
+    for (std::size_t index = 0; index < masters.size(); ++index)
+    {
+        if (masters[index]->earlierBaselines.empty())
+        {
+            EXPECT_TRUE(parsed.ofClassInside(*items[index], "against").empty()) << masters[index]->name.toStdString();
+            EXPECT_TRUE(parsed.ofClassInside(*items[index], "cmprun").empty());
+        }
+    }
+
+    // One file carries the latest run alone: no switch, and no picture of an earlier one.
+    const DocumentElement* embedded = only(report->embeddedParsed, "before-after");
+    ASSERT_NE(embedded, nullptr);
+    EXPECT_TRUE(report->embeddedParsed.ofClassInside(*embedded, "against").empty());
+    EXPECT_TRUE(report->embeddedParsed.ofClassInside(*embedded, "cmprun").empty());
+}
+
+// Where a baseline names the earlier master pictured under this run's stretch, that is the picture the comparison
+// shows left of the divider, and the caption says the two share a stretch; otherwise it shows the earlier run's
+// own preview and says each has its own.
+TEST_F(ReportHtmlWriterTest, TheComparisonShowsTheEarlierMasterUnderThisRunsStretchWhereItHasIt)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFiltersAfterEarlierRun);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    const auto compared = std::find_if(model.masters.begin(), model.masters.end(), [](const ReportMaster& master) {
+        return master.baseline.has_value() && master.baseline->made && !master.baseline->sideBySide &&
+               !master.baseline->preview.isEmpty() && !master.preview.isEmpty();
+    });
+    ASSERT_NE(compared, model.masters.end());
+    const QString own = compared->baseline->preview;
+    const auto beforeSources = [](const ParsedDocument& parsed) {
+        QStringList sources;
+        for (const DocumentElement* before : parsed.ofClass("before"))
+        {
+            for (const DocumentElement* picture : namedInside(parsed, *before, "img"))
+            {
+                sources.append(picture->attribute("src"));
+            }
+        }
+        return sources;
+    };
+    const auto captions = [](const ParsedDocument& parsed) {
+        const DocumentElement* block = only(parsed, "before-after");
+        return block == nullptr ? QString() : block->text;
+    };
+
+    // Every baseline under its own stretch.
+    for (ReportMaster& master : model.masters)
+    {
+        if (master.baseline.has_value())
+        {
+            master.baseline->matchedPreview.clear();
+            master.baseline->matchedDetail.clear();
+        }
+    }
+    const ParsedDocument apart = linkedDocument(model, report->scenario.runDirectory);
+    EXPECT_TRUE(beforeSources(apart).contains(own));
+    EXPECT_TRUE(captions(apart).contains(QStringLiteral("under its own display stretch")));
+    EXPECT_FALSE(captions(apart).contains(QStringLiteral("under this run's display stretch")));
+
+    // One master's earlier picture under this run's stretch: a file of the run's folder stands in for it.
+    compared->baseline->matchedPreview = compared->preview;
+    const ParsedDocument shared = linkedDocument(model, report->scenario.runDirectory);
+    EXPECT_TRUE(beforeSources(shared).contains(compared->preview));
+    EXPECT_FALSE(beforeSources(shared).contains(own)) << "the earlier run's own preview is still shown";
+    EXPECT_TRUE(captions(shared).contains(QStringLiteral("under this run's display stretch")));
 }

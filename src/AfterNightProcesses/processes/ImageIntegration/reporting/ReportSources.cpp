@@ -45,7 +45,9 @@
 #include <QUuid>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <limits>
 #include <stop_token>
 #include <string>
 #include <type_traits>
@@ -387,6 +389,9 @@ constexpr std::uint64_t kLevelSampleLimit = 4'000'000u;
 
         const an::ui::DisplayNormalization normalization = an::ui::displayNormalization(ImageT::kSampleType);
         const std::uint32_t channelCount = layout.extent().channelCount();
+        // Each channel's median and robust deviation, in the image's own units: what a hot pixel stands above.
+        std::vector<double> medians(channelCount, 0.0);
+        std::vector<double> deviations(channelCount, 0.0);
         for (std::uint32_t channel = 0u; channel < channelCount; ++channel)
         {
             if (selected->admitsNothing)
@@ -419,6 +424,92 @@ constexpr std::uint64_t kLevelSampleLimit = 4'000'000u;
             }
             levels.level.push_back(an::ui::displayFraction(normalization, basic->mean));
             levels.noise.push_back(advanced->backgroundNoise / normalization.range);
+            medians[channel] = advanced->median;
+            // The median absolute deviation of a normal spread is its deviation over 1.4826.
+            deviations[channel] = (std::max)(1.4826 * advanced->medianAbsoluteDeviation, advanced->backgroundNoise);
+        }
+
+        // The hot pixels: the pixels of the measured part far above their channel's median, counted by a pass
+        // over the samples a range from the threshold up admits. A sample clipped at the top is among them.
+        const double top =
+            normalization.integer ? normalization.lowest + normalization.range : (std::numeric_limits<double>::max)();
+        for (std::uint32_t channel = 0u; channel < channelCount; ++channel)
+        {
+            const double threshold = std::nextafter(medians[channel] + kHotPixelDeviations * deviations[channel],
+                                                    std::numeric_limits<double>::infinity());
+            const std::optional<an::ValidityDescriptor> above =
+                deviations[channel] > 0.0 && threshold <= top
+                    ? an::ValidityDescriptor::create(an::ValidityDescriptorRequest{
+                          .rule = an::ValidityRule::DomainRange, .lowestValid = threshold, .highestValid = top})
+                    : std::nullopt;
+            if (deviations[channel] > 0.0 && threshold > top)
+            {
+                // No sample of the representation can stand that far above the median.
+                levels.hotFraction.push_back(0.0);
+                continue;
+            }
+            if (!above.has_value())
+            {
+                levels.hotFraction.clear();
+                break;
+            }
+            an::StatisticsSelection hot;
+            hot.validity = *above;
+            hot.region = selected->selection.region;
+            const an::Result<an::BasicStatistics> counted = an::computeImageBasicStatistics(
+                scope.execution(), ImageT::kSampleType, view->data(), layout, channel, hot);
+            if (counted.hasValue())
+            {
+                levels.hotFraction.push_back(counted->selection.total > 0u
+                                                 ? static_cast<double>(counted->selection.valid) /
+                                                       static_cast<double>(counted->selection.total)
+                                                 : 0.0);
+            }
+            else if (counted.status().code() == an::ErrorCode::EmptySelection)
+            {
+                levels.hotFraction.push_back(0.0);
+            }
+            else
+            {
+                levels.hotFraction.clear();
+                break;
+            }
+        }
+
+        // The corners against the centre: five rectangles of a sixteenth of the frame's width and height, the
+        // median of the unclipped samples of each. They are of the whole frame, whatever part the level is of.
+        const std::uint32_t patchWidth = (std::max)(1u, width / 16u);
+        const std::uint32_t patchHeight = (std::max)(1u, height / 16u);
+        const auto patch = [patchWidth, patchHeight](const std::uint32_t x, const std::uint32_t y) {
+            return an::StatisticsRegion{.originX = x, .originY = y, .width = patchWidth, .height = patchHeight};
+        };
+        const std::array<an::StatisticsRegion, 5> patches = {
+            patch(0u, 0u), patch(width - patchWidth, 0u), patch(0u, height - patchHeight),
+            patch(width - patchWidth, height - patchHeight),
+            patch((width - patchWidth) / 2u, (height - patchHeight) / 2u)};
+        for (std::uint32_t channel = 0u; channel < channelCount && !selected->admitsNothing; ++channel)
+        {
+            std::array<double, 5> patchLevels{};
+            bool measured = true;
+            for (std::size_t place = 0u; place < patches.size() && measured; ++place)
+            {
+                an::StatisticsSelection within = selected->selection;
+                within.region = patches[place];
+                const an::Result<an::AdvancedStatistics> figures = an::computeImageAdvancedStatistics(
+                    scope.execution(), ImageT::kSampleType, view->data(), layout, channel, within);
+                measured = figures.hasValue();
+                if (measured)
+                {
+                    patchLevels[place] = an::ui::displayFraction(normalization, figures->median);
+                }
+            }
+            if (!measured || !(patchLevels[4] > 0.0))
+            {
+                levels.cornerLevel.clear();
+                break;
+            }
+            levels.cornerLevel.push_back((patchLevels[0] + patchLevels[1] + patchLevels[2] + patchLevels[3]) /
+                                         (4.0 * patchLevels[4]));
         }
         return RawMeasurement::Measured;
     });
@@ -709,8 +800,8 @@ queryCometTrackingRunsForReport(const QString& metricsDbPath, const WorkflowMani
 
 namespace
 {
-/// States the translation of a transform record whose kind carries a matrix: the last column of its first two rows.
-void statesShift(const QString& transformJson, RegistrationMetricRow& row)
+/// States the matrix of a transform record whose kind carries one: three rows of three numbers.
+void statesMatrix(const QString& transformJson, RegistrationMetricRow& row)
 {
     if (isPolynomialTransformKind(row.transformKind))
     {
@@ -722,14 +813,24 @@ void statesShift(const QString& transformJson, RegistrationMetricRow& row)
     {
         return;
     }
-    const QJsonArray first = matrix.at(0).toArray();
-    const QJsonArray second = matrix.at(1).toArray();
-    if (first.size() != 3 || second.size() != 3 || !first.at(2).isDouble() || !second.at(2).isDouble())
+    std::array<double, 9> values{};
+    for (qsizetype line = 0; line < 3; ++line)
     {
-        return;
+        const QJsonArray cells = matrix.at(line).toArray();
+        if (cells.size() != 3)
+        {
+            return;
+        }
+        for (qsizetype cell = 0; cell < 3; ++cell)
+        {
+            if (!cells.at(cell).isDouble())
+            {
+                return;
+            }
+            values[static_cast<std::size_t>(line * 3 + cell)] = cells.at(cell).toDouble();
+        }
     }
-    row.shiftX = first.at(2).toDouble();
-    row.shiftY = second.at(2).toDouble();
+    row.transformMatrix = values;
 }
 } // namespace
 
@@ -798,7 +899,7 @@ loadRegistrationMetricsByFrame(QSqlDatabase& db, const QString& groupKey, int se
         if (transformKind.has_value())
         {
             row.transformKind = transformKind->trimmed().toLower();
-            statesShift(transformJson, row);
+            statesMatrix(transformJson, row);
         }
         row.backgroundNoise = query.value(13).toDouble();
         row.outputPath = query.value(14).toString();

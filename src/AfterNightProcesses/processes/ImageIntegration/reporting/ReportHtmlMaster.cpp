@@ -516,22 +516,22 @@ void writePicture(ReportMarkup& out, const ReportDocumentContext& context, const
 // ---- The stack.
 
 /// The lights that reached a pixel, as one bar.
-[[nodiscard]] QString coverageOf(const ReportMaster& master, const ReportStack& stack)
+[[nodiscard]] QString coverageOf(const ReportMaster& master, const ReportStackCoverage& coverage)
 {
     CoverageBar bar;
     bar.description = {documentText("How many lights reached a pixel of %1").arg(master.name),
                        documentText("The stack recorded no coverage.")};
-    bar.least = stack.lowestCoverage;
-    bar.median = stack.medianCoverage;
-    bar.most = stack.highestCoverage;
-    bar.notes = {documentText("least %1").arg(formatFigure(stack.lowestCoverage)),
-                 documentText("median %1").arg(formatFigure(stack.medianCoverage)),
-                 documentText("most %1").arg(formatFigure(stack.highestCoverage))};
+    bar.least = coverage.lowest;
+    bar.median = coverage.median;
+    bar.most = coverage.highest;
+    bar.notes = {documentText("least %1").arg(formatFigure(coverage.lowest)),
+                 documentText("median %1").arg(formatFigure(coverage.median)),
+                 documentText("most %1").arg(formatFigure(coverage.highest))};
     bar.tip.heading = documentText("Lights per pixel");
-    bar.tip.lines = {documentText("Least %1").arg(formatFigure(stack.lowestCoverage)),
-                     documentText("Median %1").arg(formatFigure(stack.medianCoverage)),
-                     documentText("Most %1").arg(formatFigure(stack.highestCoverage)),
-                     documentText("Spread %1").arg(formatFigure(stack.coverageDeviation))};
+    bar.tip.lines = {documentText("Least %1").arg(formatFigure(coverage.lowest)),
+                     documentText("Median %1").arg(formatFigure(coverage.median)),
+                     documentText("Most %1").arg(formatFigure(coverage.highest)),
+                     documentText("Spread %1").arg(formatFigure(coverage.deviation))};
     return coverageBar(bar);
 }
 
@@ -539,18 +539,23 @@ void writeStackFacts(ReportMarkup& out, const ReportDocumentContext& context, co
                      const ReportStack& stack)
 {
     std::vector<ReportFact> facts;
-    if (stack.inputFrames > 0)
+    // A figure the stack did not record has no line: it is listed among what the report could not state.
+    if (stack.inputFrames > 0 && stack.effectiveFrames.has_value())
     {
         facts.push_back(
-            {documentText("Effective lights"),
+            {documentText("Effective frames"),
              documentText("%1 of %2")
                  .arg(formatFigure(stack.effectiveFrames), formatCount(static_cast<qint64>(stack.inputFrames))),
              documentText("How many lights of equal weight and no rejection would give the same noise.")});
+    }
+    if (stack.inputFrames > 0 && stack.measuredSnrGain.has_value())
+    {
+        const QString gains = documentText("%1 of %2")
+                                  .arg(formatFigure(stack.measuredSnrGain) + QStringLiteral("×"),
+                                       formatFigure(stack.theoreticalSnrGain) + QStringLiteral("×"));
         facts.push_back(
             {documentText("SNR gain"),
-             documentText("%1 of %2, %3")
-                 .arg(formatFigure(stack.measuredSnrGain) + QStringLiteral("×"),
-                      formatFigure(stack.theoreticalSnrGain) + QStringLiteral("×"), percentText(stack.efficiency)),
+             stack.efficiency.has_value() ? documentText("%1, %2").arg(gains, percentText(*stack.efficiency)) : gains,
              documentText("The gain in signal to noise the stack measured, of the one its light count promises.")});
     }
     if (stack.rejection.has_value())
@@ -928,8 +933,15 @@ void writeStack(ReportMarkup& out, const ReportDocumentContext& context, const R
         out.open("div", {{"class", QStringLiteral("g3")}});
         if (master.stack.has_value())
         {
-            openPanel(out, "h5", documentText("Coverage"), documentText("lights per pixel"));
-            out.chart(coverageOf(master, *master.stack));
+            if (master.stack->coverage.has_value())
+            {
+                openPanel(out, "h5", documentText("Coverage"), documentText("lights per pixel"));
+                out.chart(coverageOf(master, *master.stack->coverage));
+            }
+            else
+            {
+                openPanel(out, "h5", documentText("What the stack recorded"));
+            }
             writeStackFacts(out, context, master, *master.stack);
             if (master.stack->clusters.has_value())
             {
@@ -1281,10 +1293,19 @@ struct LightColumn
     columns.push_back(figureColumn(documentText("Residual"),
                                    documentText("How far the light's stars lie from the catalog's, in arcseconds."),
                                    [](const ReportFrame& frame) { return frame.astrometricRmsArcsec; }));
-    columns.push_back(figureColumn(documentText("Shift x"), documentText("The shift to the reference, in pixels."),
+    columns.push_back(figureColumn(documentText("Shift x"),
+                                   documentText("How far the light sat from the reference, in pixels."),
                                    [](const ReportFrame& frame) { return frame.shiftX; }));
-    columns.push_back(figureColumn(documentText("Shift y"), documentText("The shift to the reference, in pixels."),
+    columns.push_back(figureColumn(documentText("Shift y"),
+                                   documentText("How far the light sat from the reference, in pixels."),
                                    [](const ReportFrame& frame) { return frame.shiftY; }));
+    // A light's turn is a column only where it says something: a light taken after a meridian flip, a camera
+    // put back at another angle. The fraction of a degree every light is turned by is no column.
+    columns.push_back(
+        figureColumn(documentText("Turn"),
+                     documentText("How far the light is turned against the reference, in degrees. "
+                                  "Half a turn is a light taken after a meridian flip."),
+                     [](const ReportFrame& frame) { return isTurned(frame) ? frame.rotationDegrees : std::nullopt; }));
     columns.push_back(figureColumn(documentText("Scale"),
                                    documentText("The normalization's scale, of the first channel."),
                                    [](const ReportFrame& frame) {

@@ -76,6 +76,14 @@ files owns a temporary root, sets `AFTERNIGHT_TEST_STORAGE_ROOT` before it const
 paths through `app/ApplicationStorage.h` and removes the root on success and failure alike, as the isolation policy
 in `AGENTS.md` requires.
 
+Two cases of `Test_ImageIntegration` write files for a person to look at, and are skipped unless
+`AFTERNIGHT_WRITE_REPORT_SAMPLES` names the folder to write them into: `ReportSamples.*` writes the Image Integration
+report of every scenario the report's suites build, in both of its forms, and `ReportChartSamples.*` a page of every
+chart. `build/scripts/render_integration_report.cjs` then opens those reports in Chrome and Firefox from disk, with
+the network blocked, and fails a load that would look or work wrong for a reader - the half of the report's evidence
+a suite that parses markup cannot give. It is run by hand when the report's document, style, script or charts
+change; `docs/dev/LOCAL_VALIDATION.md` has the commands and `docs/dev/IMAGE_INTEGRATION_REPORT.md` what each proves.
+
 ## The fixture layers
 
 The product's suites build their inputs and hold their answers through three layers under
