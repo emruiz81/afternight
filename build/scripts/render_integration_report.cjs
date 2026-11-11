@@ -7,7 +7,8 @@
 // page error, a picture that did not load, a page wider than the window, content that spills out of its card, a
 // link that leads nowhere or does not land, a control that does nothing (the theme toggle, a chart's measure
 // switch, the switch between a master's picture and its maps, a sortable table, a folded section a link leads
-// into, a comparison's divider, its switch between masters and its switch to the detail), a tip that does not show,
+// into, a comparison's divider, its switch between masters, between earlier runs and to the detail), a tip that
+// does not show,
 // a serious or critical accessibility finding, and a print render that is not light or leaves a section folded.
 //
 // The report's suite (Test_ImageIntegration, ReportHtmlWriterTest) reads the document back as XML and proves its
@@ -520,6 +521,45 @@ async function exercise(tab, width) {
     }
   }
 
+  // A master several earlier runs made: picking the second run shows it and hides the latest, and picking the
+  // latest again brings it back. The master is shown first, where its comparison switches between masters.
+  const runsOf = await tab.evaluate(() => {
+    const items = Array.from(document.querySelectorAll(".cmpitem"));
+    const item = items.findIndex((candidate) => candidate.querySelector(".against label:nth-child(2)") !== null);
+    if (item < 0) {
+      return null;
+    }
+    return {
+      comparison: Array.from(document.querySelectorAll(".cmp")).indexOf(items[item].closest(".cmp")),
+      place: Array.from(items[item].parentElement.children).indexOf(items[item])
+    };
+  });
+  if (runsOf !== null) {
+    const comparison = tab.locator(".cmp").nth(runsOf.comparison);
+    const item = comparison.locator(".cmpitem").nth(runsOf.place);
+    const masters = comparison.locator(".masters label");
+    if (await masters.count() > runsOf.place) {
+      await masters.nth(runsOf.place).click();
+    }
+    const shown = () => item.evaluate((element) => ({
+      latest: getComputedStyle(element.querySelector(".cmprun-0")).display,
+      earlier: getComputedStyle(element.querySelector(".cmprun-1")).display
+    }));
+    await item.locator(".against label:nth-child(2)").click();
+    const picked = await shown();
+    if (picked.latest !== "none" || picked.earlier === "none") {
+      failures.push(`a comparison's switch between earlier runs did nothing (runs ${picked.latest}, ${picked.earlier})`);
+    }
+    await item.locator(".against label:nth-child(1)").click();
+    const back = await shown();
+    if (back.latest === "none" || back.earlier !== "none") {
+      failures.push("a comparison's switch between earlier runs did not come back to the latest run");
+    }
+    if (await masters.count() > 0) {
+      await masters.first().click();
+    }
+  }
+
   // A comparison with a detail: the switch shows the detail of both runs in the place of the whole frames, at a
   // size, and shows the whole frames again.
   const detailed = tab.locator(".cmp").filter({ has: tab.locator(".zooms label:nth-child(2)") });
@@ -656,6 +696,8 @@ async function renderDocument(browser, combo, document, options, axe) {
   try {
     const own = pathToFileURL(document.file).href;
     const beside = `${pathToFileURL(document.folder).href}/`;
+    // The folder of the output folder's runs, which holds the report's own run and the earlier ones beside it.
+    const history = `${pathToFileURL(path.dirname(document.folder)).href}/`;
     const outside = new Set();
     // Nothing leaves the machine, and nothing is waited for either.
     await context.route((url) => !/^(file|data|about|blob):/i.test(url.href), (route) => {
@@ -675,8 +717,11 @@ async function renderDocument(browser, combo, document, options, axe) {
     tab.on("request", (request) => {
       const url = request.url();
       if (/^file:/i.test(url) && url.split(/[?#]/)[0] !== own) {
-        // The embedded form reads no file but itself; the linked one, only files of its own folder.
-        if (document.form === "embedded" || !url.startsWith(beside)) {
+        // The embedded form reads no file but itself; the linked one, only files of its own folder and the
+        // pictures of the earlier runs beside it, which a master made by several runs is set beside.
+        const ofAnEarlierRun = url.startsWith(history)
+          && /^[^/]+\/report_previews\//.test(url.slice(history.length));
+        if (document.form === "embedded" || !(url.startsWith(beside) || ofAnEarlierRun)) {
           outside.add(url);
         }
       }

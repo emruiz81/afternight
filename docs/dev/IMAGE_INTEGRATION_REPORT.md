@@ -528,6 +528,9 @@ from the reports their archives keep: no master of an earlier run is measured ag
   previous run": an incremental run makes only some masters again, and a run that found a master still valid made
   none. A master the run itself reused has no baseline - it is the earlier run's own master, and there are not two
   of it. A master no earlier run made is new, and its baseline says so.
+- **The runs that made a master before the latest are kept too** (`ReportMaster::earlierBaselines`, the latest
+  first, five at most), each with its own figures, so that a reader can set the master beside any of them and
+  not only the last. Their figures cost nothing: each is read from a stored report the builder has already read.
 - **The run as a whole is compared with the latest earlier run that completed**, with or without warnings: its
   totals, what changed, the application's version and the three fingerprints. A run that stopped is no baseline for
   a run, and neither is one that ended `Partial` - a group failed inside it, or one of its issues is critical -
@@ -567,6 +570,15 @@ and the document. The copies keep the report whole once the history drops the ea
 be copied is taken out of the model that is stored, so neither it nor the document names a file that is not there.
 Two frames whose aspect ratios differ by more than one percent are flagged (`ReportBaseline::sideBySide`): a
 divider over two frames of different shapes would compare nothing.
+
+**Only the latest earlier run's pictures are copied.** The pictures of the runs that made a master before the
+latest are named where those runs' own archives hold them, beside this run's folder
+(`../<run>/report_previews/...`): copying every earlier run's pictures into every run would fill a history that
+is bounded in size with copies. So such a run keeps its figures in a comparison for as long as its report is
+read, and its pictures for as long as the history keeps the run: `storeWorkflowReport` and
+`rerenderWorkflowReport` take a picture that is gone out of the model they write from, as they take a link to a
+report that is gone. The form that is one file carries the latest run alone, since every earlier run's pictures
+inside it would make it several times its size.
 
 **The runs of the folder** are listed oldest first, each as its stored report states it: when it was archived,
 how it ended, the lights it used and took, its integration, its masters, and the noise it stated of the first
@@ -844,6 +856,10 @@ in it.
   a measured figure as a share of what it was or as a difference in its own unit. Where a change is for the better
   or the worse an icon and the word say so, never the colour alone; the share of samples a stack rejected is
   marked neither way, since neither more nor less is better by itself. A figure neither run states has no row.
+- **A master several earlier runs made is set beside one of them at a time**, the latest to begin with: a radio
+  button per run stands before the runs inside the master's own item, so the switch works with scripts off, and
+  the stylesheet has a rule per place, so a master is set beside six runs at most. A master one earlier run made
+  has no switch, the embedded form none at all, and print shows the latest.
 - **A master no earlier run made says it is new**; the masters the run reused are named under the comparison,
   with why they are not in it.
 - **What changed lists a change once.** The same setting changed the same way in several groups of a stage is one

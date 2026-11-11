@@ -278,7 +278,7 @@ reports and no image of theirs, so the figures of an earlier run are the ones th
 
 | Block | Compares |
 | --- | --- |
-| **Before and after** | Each master this run made with the latest earlier run that made the same master: the two pictures, then the lights used, the integration, the noise, the signal to noise, the median FWHM, the effective frames and the samples rejected. |
+| **Before and after** | Each master this run made with the latest earlier run that made the same master: the two pictures, then the lights used, the integration, the noise, the signal to noise, the median FWHM, the effective frames and the samples rejected. Where several earlier runs made the master, **Against the run of** picks which of them it stands beside. |
 | **What changed** | The run as a whole with the latest earlier run that completed: the totals, the application's version and the fingerprints, the settings that differ, and the frames each group gained and lost. |
 | **Over the runs of this folder** | The runs the folder keeps, the oldest first: the integration, the lights used and the noise of the first master as a column for each of the latest eight runs, then a table of every run with a link to its report. |
 
@@ -291,6 +291,9 @@ reports and no image of theirs, so the figures of an earlier run are the ones th
   marked neither way: it follows the lights and the settings.
 - A master that the run reused is left out of **Before and after**, since it is the earlier run's own master. A
   master no earlier run made is marked as new.
+- **Against the run of** offers up to six earlier runs, the latest first. The pictures of the runs before the
+  latest are read from those runs' folders in `history`, so a report saved as one file offers the latest run
+  alone, and a run that `history` removed keeps its figures and loses its pictures.
 - A setting changed the same way in several groups is one row that names the groups. A line under the table says
   how many other settings were compared and are the same.
 - The fingerprints tell what differs at a glance: a run with the same settings and the same input files has the
