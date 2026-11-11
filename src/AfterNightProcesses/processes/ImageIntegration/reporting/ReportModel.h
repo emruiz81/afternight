@@ -106,7 +106,7 @@ enum class ReportMasterState
     /// The run made it.
     Made,
 
-    /// Its output was still valid, so the run made none.
+    /// Its output was still valid, so the run made none: the run's record of the groups it reused names it.
     Reused,
 
     /// The run tried and failed.
@@ -868,11 +868,26 @@ struct ReportMaster
     std::vector<ReportSettingsBlock> settings;
 
     std::optional<ReportMasterWeighting> weighting;
+
+    /// The group's lights in the manifest's order, then the lights the user left out of the group.
     std::vector<ReportFrame> frames;
 
     std::optional<ReportBaseline> baseline;
 
     friend bool operator==(const ReportMaster&, const ReportMaster&) = default;
+};
+
+/// A group of lights the run planned no master of, because the user left every one of its lights out.
+struct ReportGroupNotStacked
+{
+    /// The key of the integration group the lights would have joined, and its name.
+    QString key;
+    QString name;
+
+    /// The lights, each in the state the exclusion that left it out gives it.
+    std::vector<ReportFrame> frames;
+
+    friend bool operator==(const ReportGroupNotStacked&, const ReportGroupNotStacked&) = default;
 };
 
 /// A calibration master.
@@ -1338,7 +1353,8 @@ struct ReportRun
 
     ReportGroupCounts groups;
 
-    /// The lights of the run's groups, and those the masters combine.
+    /// The lights the run took - the ones of its groups and the ones the user left out - and those the masters
+    /// combine.
     int frames = 0;
     std::optional<int> framesUsed;
 
@@ -1500,6 +1516,10 @@ struct ReportModel
     std::vector<ReportIssue> issues;
     std::vector<ReportTarget> targets;
     std::vector<ReportMaster> masters;
+
+    /// The groups whose every light the user left out: the run planned no master of them.
+    std::vector<ReportGroupNotStacked> groupsNotStacked;
+
     std::vector<ReportCalibrationMaster> calibrationMasters;
     std::vector<ReportLightGroup> lightGroups;
     std::vector<ReportRegistrationGroup> registrationGroups;

@@ -4,10 +4,13 @@
 #include "stdafx.hpp"
 #include "IntegrationGroupEngine.h"
 
-IntegrationGroupEngine::GroupMap IntegrationGroupEngine::computeGroups(const std::vector<FrameInfo>& lightFrames,
-                                                                       const GroupingOptions& options) const
+IntegrationGroupKey IntegrationGroupEngine::groupKeyFor(const FrameInfo& frame, const GroupingOptions& options)
 {
-    GroupMap groups;
+    // Use manual group key if present (overrides auto-grouping)
+    if (frame.manualGroupKey.has_value())
+    {
+        return IntegrationGroupKey{frame.manualGroupKey.value()};
+    }
 
     // Enforce requirements: Resolution, Filter, and Object are always used for integration groups
     GroupingOptions effectiveOptions = options;
@@ -15,25 +18,22 @@ IntegrationGroupEngine::GroupMap IntegrationGroupEngine::computeGroups(const std
     effectiveOptions.byFilter = true;
     effectiveOptions.byObject = true;
 
+    // Compute key using LightGroupKey logic but with forced options
+    const LightGroupKey lightKey = LightGroupKey::fromFrame(frame);
+    return IntegrationGroupKey{lightKey.toGroupKey(effectiveOptions)};
+}
+
+IntegrationGroupEngine::GroupMap IntegrationGroupEngine::computeGroups(const std::vector<FrameInfo>& lightFrames,
+                                                                       const GroupingOptions& options) const
+{
+    GroupMap groups;
+
     for (const auto& frame : lightFrames)
     {
         if (frame.excluded)
             continue;
 
-        // Use manual group key if present (overrides auto-grouping)
-        if (frame.manualGroupKey.has_value())
-        {
-            IntegrationGroupKey key{frame.manualGroupKey.value()};
-            groups[key].push_back(frame.id);
-            continue;
-        }
-
-        // Compute key using LightGroupKey logic but with forced options
-        LightGroupKey lightKey = LightGroupKey::fromFrame(frame);
-        GroupKey groupKey = lightKey.toGroupKey(effectiveOptions);
-
-        IntegrationGroupKey key{groupKey};
-        groups[key].push_back(frame.id);
+        groups[groupKeyFor(frame, options)].push_back(frame.id);
     }
 
     // Sort frames within each group for determinism

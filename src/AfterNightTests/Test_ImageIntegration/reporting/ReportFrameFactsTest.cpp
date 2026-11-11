@@ -37,17 +37,31 @@ std::optional<ReportScenario> built(const ReportScenarioId id)
     return scenario;
 }
 
+int framesOfState(const std::vector<ReportFrame>& frames, const ReportFrameState state)
+{
+    return static_cast<int>(std::count_if(frames.begin(), frames.end(), [state](const ReportFrame& frame) {
+        return frame.state.has_value() && *frame.state == state;
+    }));
+}
+
+/// The lights of a state: the masters' and those of the groups the run planned no master of.
 int framesOfState(const ReportModel& model, const ReportFrameState state)
 {
     int frames = 0;
     for (const ReportMaster& master : model.masters)
     {
-        frames += static_cast<int>(
-            std::count_if(master.frames.begin(), master.frames.end(), [state](const ReportFrame& frame) {
-                return frame.state.has_value() && *frame.state == state;
-            }));
+        frames += framesOfState(master.frames, state);
+    }
+    for (const ReportGroupNotStacked& group : model.groupsNotStacked)
+    {
+        frames += framesOfState(group.frames, state);
     }
     return frames;
+}
+
+bool leftOutByUser(const ReportFrame& frame)
+{
+    return frame.state == ReportFrameState::ExcludedByUser || frame.state == ReportFrameState::StackExcludedByUser;
 }
 
 bool namesNotStated(const ReportModel& model, const QString& fragment)
@@ -84,7 +98,15 @@ TEST(ReportFrameFacts, EveryLightOfAGroupIsAFrameOfItsMaster)
             const auto master = std::find_if(model.masters.begin(), model.masters.end(),
                                              [&key](const ReportMaster& candidate) { return candidate.key == key; });
             ASSERT_NE(master, model.masters.end()) << key.toStdString();
-            ASSERT_EQ(master->frames.size(), group.lightFiles.size());
+            // The group's lights, then the ones the user left out of the group.
+            const auto leftOut = static_cast<std::size_t>(std::count_if(
+                scenario->manifest.leftOutLights.begin(), scenario->manifest.leftOutLights.end(),
+                [&group](const WorkflowManifest::LeftOutLight& light) { return light.groupKey == group.groupKey; }));
+            ASSERT_EQ(master->frames.size(), group.lightFiles.size() + leftOut);
+            for (std::size_t i = group.lightFiles.size(); i < master->frames.size(); ++i)
+            {
+                EXPECT_TRUE(leftOutByUser(master->frames[i])) << master->frames[i].fileName.toStdString();
+            }
             EXPECT_EQ(master->exposure.frames, static_cast<int>(group.lightFiles.size()));
             for (std::size_t i = 0; i < group.lightFiles.size(); ++i)
             {
@@ -96,6 +118,12 @@ TEST(ReportFrameFacts, EveryLightOfAGroupIsAFrameOfItsMaster)
                 EXPECT_DOUBLE_EQ(*frame.exposureSeconds, group.lightExposureSeconds[i]);
             }
             frames += static_cast<int>(master->frames.size());
+        }
+        // The lights of a group the user left out whole are frames too, under the group's key.
+        for (const ReportGroupNotStacked& group : model.groupsNotStacked)
+        {
+            EXPECT_FALSE(group.frames.empty());
+            frames += static_cast<int>(group.frames.size());
         }
         EXPECT_EQ(frames, model.run.frames);
     }
@@ -254,7 +282,8 @@ TEST(ReportFrameFacts, ALightWhoseRegistrationFailedIsAFrameWithNoWeight)
         int ofMaster = 0;
         for (const ReportFrame& frame : master.frames)
         {
-            if (!frame.registered.has_value())
+            // A light the user left out of the stack is no light of the group the weighting counts.
+            if (!frame.registered.has_value() || leftOutByUser(frame))
             {
                 continue;
             }
@@ -374,6 +403,14 @@ TEST(ReportFrameFacts, EveryLightOfAStackHasOneStateAndTheStatesAddUpToTheRunsFa
         {
             for (const ReportFrame& frame : master.frames)
             {
+                if (leftOutByUser(frame))
+                {
+                    // A light the user left out is in no stack, whatever became of its group's master.
+                    EXPECT_FALSE(frame.weight.has_value());
+                    EXPECT_FALSE(frame.stackShare.has_value());
+                    EXPECT_FALSE(frame.stateDetail.isEmpty());
+                    continue;
+                }
                 if (master.state == ReportMasterState::Reused)
                 {
                     // What became of a reused master's lights is the record of the run that made it.
@@ -399,9 +436,11 @@ TEST(ReportFrameFacts, EveryLightOfAStackHasOneStateAndTheStatesAddUpToTheRunsFa
         EXPECT_EQ(framesOfState(model, ReportFrameState::LeftOutByStack), facts.lightsDroppedByStack);
         EXPECT_EQ(framesOfState(model, ReportFrameState::ExcludedOnRestack), facts.lightsExcludedOnRestack);
         EXPECT_EQ(framesOfState(model, ReportFrameState::NotStacked), notStacked);
-        // The two states only the manifest's record of the lights left out can tell.
-        EXPECT_EQ(framesOfState(model, ReportFrameState::ExcludedByUser), 0);
-        EXPECT_EQ(framesOfState(model, ReportFrameState::StackExcludedByUser), 0);
+        // The two states the manifest's list of the lights left out tells.
+        EXPECT_EQ(framesOfState(model, ReportFrameState::ExcludedByUser) +
+                      framesOfState(model, ReportFrameState::StackExcludedByUser),
+                  facts.lightsLeftOutByUser);
+        EXPECT_EQ(model.run.frames, facts.lightsTaken);
 
         if (facts.lightsCombined > 0)
         {
@@ -424,11 +463,15 @@ TEST(ReportFrameFacts, EveryLightOfAStackHasOneStateAndTheStatesAddUpToTheRunsFa
     }
 }
 
-TEST(ReportFrameFacts, ARegisteredLightTheStackDidNotCombineWasLeftOutByTheStack)
+TEST(ReportFrameFacts, ALightTheStackDroppedWasLeftOutByTheStackForTheReasonItsResultStates)
 {
     const auto scenario = built(ReportScenarioId::EveryLightState);
     ASSERT_TRUE(scenario.has_value());
     ASSERT_EQ(scenario->facts.lightsDroppedByStack, 1);
+    const IntegrationGroupResult* result =
+        resultOf(*scenario, scenario->manifest.integrationGroups.front().groupKey.toString());
+    ASSERT_NE(result, nullptr);
+    ASSERT_EQ(result->droppedLights.size(), 1u);
 
     const ReportModel model = buildScenarioModel(*scenario);
 
@@ -440,11 +483,14 @@ TEST(ReportFrameFacts, ARegisteredLightTheStackDidNotCombineWasLeftOutByTheStack
             continue;
         }
         ++leftOut;
-        // It is one of the group's lights, its registration succeeded, and the stack's weights do not name it.
+        // It is the light the group's result names, its registration succeeded, and the stack's weights do not
+        // name it; the detail gives the reason the result recorded.
+        EXPECT_EQ(FrameId(frame.path).identityKey(), FrameId(result->droppedLights.front().light).identityKey());
         EXPECT_TRUE(frame.registered.value_or(false));
         EXPECT_FALSE(frame.weight.has_value());
         EXPECT_FALSE(frame.rejectedFraction.has_value());
-        EXPECT_FALSE(frame.stateDetail.isEmpty());
+        EXPECT_TRUE(frame.stateDetail.contains(QStringLiteral("no registered image")))
+            << frame.stateDetail.toStdString();
     }
     EXPECT_EQ(leftOut, 1);
 
@@ -460,7 +506,140 @@ TEST(ReportFrameFacts, ARegisteredLightTheStackDidNotCombineWasLeftOutByTheStack
     }
 }
 
-TEST(ReportFrameFacts, WithoutAMetricsDatabaseALightTheStackDidNotCombineIsNotToldFromAFailedRegistration)
+TEST(ReportFrameFacts, EachReasonAStackDropsALightForIsASentenceOfItsOwn)
+{
+    auto scenario = built(ReportScenarioId::EveryLightState);
+    ASSERT_TRUE(scenario.has_value());
+    IntegrationGroupResult& result = scenario->result.integrationGroupResults.front();
+    ASSERT_EQ(result.droppedLights.size(), 1u);
+
+    QSet<QString> sentences;
+    for (const DroppedLightReason reason :
+         {DroppedLightReason::NoRegisteredOutput, DroppedLightReason::NoRegistrationTransform,
+          DroppedLightReason::NoStarBaseProduct, DroppedLightReason::NoCometAlignedImage})
+    {
+        result.droppedLights.front().reason = reason;
+        const ReportModel model = buildScenarioModel(*scenario);
+        for (const ReportFrame& frame : model.masters.front().frames)
+        {
+            if (frame.state == ReportFrameState::LeftOutByStack)
+            {
+                sentences.insert(frame.stateDetail);
+            }
+        }
+    }
+    EXPECT_EQ(sentences.size(), 4);
+}
+
+// A light is left out by the stack when the group's result names it, and by nothing else: a registered light the
+// stack's weights do not name, which no record names either, has no state, and the model says so.
+TEST(ReportFrameFacts, ALightNoRecordOfTheRunNamesHasNoStateAndTheModelSaysSo)
+{
+    auto scenario = built(ReportScenarioId::EveryLightState);
+    ASSERT_TRUE(scenario.has_value());
+    IntegrationGroupResult& result = scenario->result.integrationGroupResults.front();
+    ASSERT_EQ(result.droppedLights.size(), 1u);
+    const QString dropped = FrameId(result.droppedLights.front().light).identityKey();
+    result.droppedLights.clear();
+
+    const ReportModel model = buildScenarioModel(*scenario);
+
+    EXPECT_EQ(framesOfState(model, ReportFrameState::LeftOutByStack), 0);
+    int unnamed = 0;
+    for (const ReportFrame& frame : model.masters.front().frames)
+    {
+        if (!frame.state.has_value())
+        {
+            ++unnamed;
+            EXPECT_EQ(FrameId(frame.path).identityKey(), dropped);
+            EXPECT_FALSE(frame.weight.has_value());
+        }
+    }
+    EXPECT_EQ(unnamed, 1);
+    EXPECT_TRUE(namesNotStated(model, QStringLiteral("recorded no reason for leaving")));
+    EXPECT_EQ(framesOfState(model, ReportFrameState::Used), scenario->facts.lightsCombined);
+}
+
+TEST(ReportFrameFacts, TheLightsTheUserLeftOutTakeTheStateOfTheirExclusionUnderTheGroupTheyWouldHaveJoined)
+{
+    const auto scenario = built(ReportScenarioId::EveryLightState);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_FALSE(scenario->lightsLeftOutByUser.empty());
+    ASSERT_EQ(scenario->manifest.leftOutLights.size(), scenario->lightsLeftOutByUser.size());
+
+    const ReportModel model = buildScenarioModel(*scenario);
+
+    int underAMaster = 0;
+    int underNoMaster = 0;
+    int fromStack = 0;
+    for (const ReportScenarioLeftOutLight& light : scenario->lightsLeftOutByUser)
+    {
+        SCOPED_TRACE(light.path.toStdString());
+        const QString path = FrameId(light.path).canonicalPath();
+        const std::vector<ReportFrame>* frames = nullptr;
+        const auto master = std::find_if(model.masters.begin(), model.masters.end(), [&light](const ReportMaster& m) {
+            return m.key == light.integrationGroupKey;
+        });
+        if (master != model.masters.end())
+        {
+            frames = &master->frames;
+            ++underAMaster;
+        }
+        else
+        {
+            const auto group =
+                std::find_if(model.groupsNotStacked.begin(), model.groupsNotStacked.end(),
+                             [&light](const ReportGroupNotStacked& g) { return g.key == light.integrationGroupKey; });
+            ASSERT_NE(group, model.groupsNotStacked.end()) << "a light left out is listed under its group's key";
+            EXPECT_FALSE(group->name.isEmpty());
+            frames = &group->frames;
+            ++underNoMaster;
+        }
+        const auto frame = std::find_if(frames->begin(), frames->end(),
+                                        [&path](const ReportFrame& candidate) { return candidate.path == path; });
+        ASSERT_NE(frame, frames->end());
+        EXPECT_EQ(std::count_if(frames->begin(), frames->end(),
+                                [&path](const ReportFrame& candidate) { return candidate.path == path; }),
+                  1);
+        ASSERT_TRUE(frame->state.has_value());
+        EXPECT_EQ(*frame->state,
+                  light.fromStackOnly ? ReportFrameState::StackExcludedByUser : ReportFrameState::ExcludedByUser);
+        EXPECT_FALSE(frame->stateDetail.isEmpty());
+        EXPECT_FALSE(frame->weight.has_value());
+        EXPECT_FALSE(frame->fileName.isEmpty());
+        if (light.fromStackOnly)
+        {
+            // A light left out of the stack alone was still registered, and states what the registration measured.
+            ++fromStack;
+            EXPECT_TRUE(frame->registered.has_value());
+            EXPECT_TRUE(frame->stars.has_value());
+            EXPECT_TRUE(frame->exposureSeconds.has_value());
+            EXPECT_TRUE(frame->night.has_value());
+        }
+        else
+        {
+            EXPECT_FALSE(frame->registered.has_value()) << "a light excluded in the lights' list was not registered";
+        }
+    }
+    EXPECT_GT(underAMaster, 0);
+    EXPECT_GT(underNoMaster, 0) << "the scenario leaves a whole group out";
+    EXPECT_GT(fromStack, 0);
+
+    // The lights left out follow the group's own, whose places the stack's records count by.
+    for (const ReportMaster& master : model.masters)
+    {
+        bool leftOutSeen = false;
+        for (const ReportFrame& frame : master.frames)
+        {
+            leftOutSeen = leftOutSeen || leftOutByUser(frame);
+            EXPECT_TRUE(!leftOutSeen || leftOutByUser(frame)) << frame.fileName.toStdString();
+        }
+    }
+    // A light the user left out was never offered to a stack: it is no part of a stack's count.
+    EXPECT_FALSE(namesNotStated(model, QStringLiteral("Which lights the master")));
+}
+
+TEST(ReportFrameFacts, WithoutAMetricsDatabaseALightWhoseRegistrationFailedHasNoStateAndTheModelSaysSo)
 {
     auto scenario = built(ReportScenarioId::EveryLightState);
     ASSERT_TRUE(scenario.has_value());
@@ -473,10 +652,18 @@ TEST(ReportFrameFacts, WithoutAMetricsDatabaseALightTheStackDidNotCombineIsNotTo
                                                                  .counters = std::nullopt},
                                                production.sources());
 
+    // The lights the stack dropped are the ones its result names; a failed registration is told by the metrics
+    // alone, so without them such a light is in no record and nothing is inferred of it.
     EXPECT_EQ(framesOfState(model, ReportFrameState::RegistrationFailed), 0);
-    EXPECT_EQ(framesOfState(model, ReportFrameState::LeftOutByStack),
-              scenario->facts.registrationFailures + scenario->facts.lightsDroppedByStack);
+    EXPECT_EQ(framesOfState(model, ReportFrameState::LeftOutByStack), scenario->facts.lightsDroppedByStack);
     EXPECT_EQ(framesOfState(model, ReportFrameState::Used), scenario->facts.lightsCombined);
+    int unnamed = 0;
+    for (const ReportFrame& frame : model.masters.front().frames)
+    {
+        unnamed += frame.state.has_value() ? 0 : 1;
+    }
+    EXPECT_EQ(unnamed, scenario->facts.registrationFailures);
+    EXPECT_TRUE(namesNotStated(model, QStringLiteral("recorded no reason for leaving")));
     EXPECT_TRUE(namesNotStated(model, QStringLiteral("no registration metrics database")));
 }
 
@@ -493,14 +680,17 @@ TEST(ReportFrameFacts, OfAStackThatRecordedNoWeightsNoLightsFateOrWeightIsStated
     // The weights are what names the lights a stack combined: without them nothing is assumed of a light, and
     // nothing is derived from the settings in their place.
     EXPECT_EQ(framesOfState(model, ReportFrameState::Used), 0);
-    EXPECT_EQ(framesOfState(model, ReportFrameState::LeftOutByStack), 0);
+    EXPECT_EQ(framesOfState(model, ReportFrameState::LeftOutByStack), scenario->facts.lightsDroppedByStack)
+        << "the lights the result names as dropped are stated whatever the weights";
     EXPECT_EQ(framesOfState(model, ReportFrameState::ExcludedOnRestack), 0);
     EXPECT_EQ(framesOfState(model, ReportFrameState::RegistrationFailed), scenario->facts.registrationFailures);
     for (const ReportFrame& frame : model.masters.front().frames)
     {
         EXPECT_FALSE(frame.weight.has_value());
         EXPECT_FALSE(frame.stackShare.has_value());
-        EXPECT_TRUE(frame.state.has_value() == (frame.registered.has_value() && !*frame.registered));
+        const bool named = (frame.registered.has_value() && !*frame.registered) || leftOutByUser(frame) ||
+                           frame.state == ReportFrameState::LeftOutByStack;
+        EXPECT_TRUE(frame.state.has_value() == named) << frame.fileName.toStdString();
     }
     ASSERT_TRUE(model.masters.front().weighting.has_value());
     EXPECT_FALSE(model.masters.front().weighting->medianWeight.has_value());
@@ -512,7 +702,9 @@ TEST(ReportFrameFacts, ARejectedFractionBelongsToTheLightTheStacksWeightsNameAtT
 {
     auto scenario = built(ReportScenarioId::FiveFilters);
     ASSERT_TRUE(scenario.has_value());
-    const ReportMaster* luminance = masterOfFilter(buildScenarioModel(*scenario), QStringLiteral("Luminance"));
+    // The model is kept for as long as its master is read.
+    const ReportModel asStacked = buildScenarioModel(*scenario);
+    const ReportMaster* luminance = masterOfFilter(asStacked, QStringLiteral("Luminance"));
     ASSERT_NE(luminance, nullptr);
     const QString key = luminance->key;
     auto resultOfKey =
@@ -760,12 +952,21 @@ TEST(ReportFrameFacts, TheBackgroundNoiseOfALightIsStatedWhateverTheWeighting)
 
     const ReportModel model = buildScenarioModel(*scenario);
 
+    int measured = 0;
     for (const ReportFrame& frame : model.masters.front().frames)
     {
+        if (frame.state == ReportFrameState::ExcludedByUser)
+        {
+            // A light excluded in the lights' list was never given to the registration.
+            EXPECT_FALSE(frame.backgroundNoise.has_value());
+            continue;
+        }
         // A light whose registration failed was still measured by the detection.
         ASSERT_TRUE(frame.backgroundNoise.has_value()) << frame.fileName.toStdString();
         EXPECT_GT(*frame.backgroundNoise, 0.0);
+        ++measured;
     }
+    EXPECT_GT(measured, 0);
 }
 
 TEST(ReportFrameFacts, TheNormalizationsScaleAndOffsetAreStatedLightByLight)

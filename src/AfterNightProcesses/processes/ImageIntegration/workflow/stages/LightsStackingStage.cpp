@@ -372,7 +372,7 @@ struct GroupPlan
     QString policy;
 
     /// Lights left out and why.
-    QStringList dropped;
+    std::vector<DroppedLight> dropped;
 };
 
 struct PlanOutcome
@@ -1038,6 +1038,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
     bool anyGroupSucceeded = false;
     std::vector<IntegrationGroupResult> completedGroupResults;
     completedGroupResults.reserve(groups.size());
+    std::vector<ReusedIntegrationGroup> reusedGroups;
     QSet<QString> processedGroupKeys;
     QStringList stageWarnings;
 
@@ -1053,6 +1054,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
         {
             StageResult cancelled = StageResult::cancelled();
             cancelled.groupResults = std::move(completedGroupResults);
+            cancelled.reusedGroups = std::move(reusedGroups);
             return cancelled;
         }
         if (group.lightFiles.empty())
@@ -1208,7 +1210,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     ImageIntegration::DrizzleGroupGeometry& geometry = *resolution.geometry;
                     for (const QString& missing : geometry.withoutTransform)
                     {
-                        plan.dropped << QStringLiteral("%1 (no registration transform)").arg(missing);
+                        plan.dropped.push_back(
+                            DroppedLight{.light = missing, .reason = DroppedLightReason::NoRegistrationTransform});
                     }
                     if (geometry.intersectionReplaced)
                     {
@@ -1314,7 +1317,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                                              });
                             if (star == products.starBaseProducts.end())
                             {
-                                plan.dropped << QStringLiteral("%1 (no star base product)").arg(light.canonicalPath());
+                                plan.dropped.push_back(DroppedLight{.light = light.canonicalPath(),
+                                                                    .reason = DroppedLightReason::NoStarBaseProduct});
                                 continue;
                             }
                             stage_utils::StackFrameRead read;
@@ -1355,7 +1359,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                                          });
                         if (output == products.registeredOutputs.end() || !output->succeeded)
                         {
-                            plan.dropped << QStringLiteral("%1 (no comet-aligned image)").arg(light.canonicalPath());
+                            plan.dropped.push_back(DroppedLight{.light = light.canonicalPath(),
+                                                                .reason = DroppedLightReason::NoCometAlignedImage});
                             continue;
                         }
                         stage_utils::StackFrameRead read;
@@ -1557,7 +1562,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     if (record == outputs.end() || !record->second.succeeded || record->second.outputPath.isEmpty() ||
                         !QFileInfo::exists(record->second.outputPath))
                     {
-                        plan.dropped << QStringLiteral("%1 (no registered output)").arg(light.canonicalPath());
+                        plan.dropped.push_back(DroppedLight{.light = light.canonicalPath(),
+                                                            .reason = DroppedLightReason::NoRegisteredOutput});
                         continue;
                     }
                     const std::optional<FileRevisionStamp> revision = currentRegisteredOutputRevision(record->second);
@@ -1620,11 +1626,16 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 return *planned.result;
             }
             GroupPlan& plan = *planned.plan;
-            if (!plan.dropped.isEmpty())
+            if (!plan.dropped.empty())
             {
+                QStringList dropped;
+                for (const DroppedLight& light : plan.dropped)
+                {
+                    dropped << QStringLiteral("%1 (%2)").arg(light.light, droppedLightReasonText(light.reason));
+                }
                 warn(QStringLiteral("Skipping %1 light frame(s): %2")
-                         .arg(plan.dropped.size())
-                         .arg(plan.dropped.join(QStringLiteral("; "))));
+                         .arg(dropped.size())
+                         .arg(dropped.join(QStringLiteral("; "))));
             }
             if (plan.frames.frames.size() < 2u)
             {
@@ -1680,7 +1691,11 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 reporter.logger().operationDetail(QStringLiteral("Skipping"), QStringLiteral("Output up-to-date"));
                 report(1.0f, QStringLiteral("Lights stacking (skipped)"));
                 reporter.logger().groupCompleted(groupIndex, totalGroups, groupLabel, groupTiming.elapsedNowMs());
-                return StageResult::success();
+                // The group leaves no result, so the run is told its master stands as it is.
+                StageResult reused = StageResult::success();
+                reused.reusedGroups.push_back(
+                    ReusedIntegrationGroup{.groupKey = group.groupKey.toString(), .outputPath = outputPath});
+                return reused;
             }
             if (canSkip)
             {
@@ -2755,6 +2770,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
             groupResult.registrationGroupKey = group.registrationGroupKey.toString();
             groupResult.registrationInputPolicy = plan.policy;
             groupResult.lightFrameCount = static_cast<int>(stackedLights.size());
+            groupResult.droppedLights = plan.dropped;
             groupTiming.beginFinalization();
 
             const bool embedsWcs = stage_utils::supportsEmbeddedWcsOutput(outputPath);
@@ -3238,6 +3254,10 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
         {
             completedGroupResults.push_back(std::move(result));
         }
+        for (auto& reused : groupResult.reusedGroups)
+        {
+            reusedGroups.push_back(std::move(reused));
+        }
         appendUniqueWarnings(stageWarnings, groupResult.warnings);
         if (groupResult.isSuccess())
         {
@@ -3247,6 +3267,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
         {
             StageResult cancelled = StageResult::cancelled();
             cancelled.groupResults = std::move(completedGroupResults);
+            cancelled.reusedGroups = std::move(reusedGroups);
             return cancelled;
         }
         if (groupResult.status == StageResult::Status::Failure)
@@ -3269,6 +3290,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
     {
         StageResult cancelled = StageResult::cancelled();
         cancelled.groupResults = std::move(completedGroupResults);
+        cancelled.reusedGroups = std::move(reusedGroups);
         return cancelled;
     }
 
@@ -3295,6 +3317,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
         outcome.warnings = stageWarnings;
     }
     outcome.groupResults = std::move(completedGroupResults);
+    outcome.reusedGroups = std::move(reusedGroups);
     if (executionCounterAccumulator() != nullptr && countersTouched)
     {
         outcome.engineExecutionCounters = engineCounters;
