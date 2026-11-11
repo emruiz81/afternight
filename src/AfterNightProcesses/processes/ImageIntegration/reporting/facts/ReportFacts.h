@@ -64,6 +64,19 @@ struct StoredRun
     ReportModel model;
 };
 
+/// An earlier run of the output folder, whether or not its archive keeps a report model this version reads.
+struct EarlierArchive
+{
+    /// The run's folder name under `history/`.
+    QString runId;
+
+    /// The run's place among `ReportBuild::earlierRuns()`; nothing for an archive that gave no report model.
+    std::optional<std::size_t> stored;
+
+    /// Why the archive gave no report model, in a sentence; empty for one that gave it.
+    QString refusal;
+};
+
 /// One build of a report model: the run, the sources, and what the build has read so far.
 class ReportBuild
 {
@@ -135,8 +148,18 @@ public:
     [[nodiscard]] QString referenceFrame(const QString& registrationGroupKey);
 
     /// The earlier runs of the output folder whose archives keep their report models, latest first; empty for a run
-    /// with no archive.
+    /// with no archive. An earlier run is a folder beside this run's whose name sorts before it: the run being
+    /// written is never among them, and neither is a run that started after it.
     [[nodiscard]] const std::vector<StoredRun>& earlierRuns();
+
+    /// Every earlier run of the output folder, latest first, each with its place among `earlierRuns()` or why its
+    /// archive gave no report model. Read through the stored reports alone: no image, no manifest and no metrics
+    /// database of an earlier run is opened.
+    [[nodiscard]] const std::vector<EarlierArchive>& earlierArchives();
+
+    /// The folder the runs of the output folder are archived in: this run's folder's parent. Empty for a run with
+    /// no archive.
+    [[nodiscard]] QString historyDirectory() const;
 
     /// States something the report could not state, and why; the same thing for the same reason is stated once.
     void notStated(const QString& what, const QString& why);
@@ -168,6 +191,7 @@ private:
     QHash<QString, std::optional<ReportImageLevels>> m_levels;
     QHash<QString, QString> m_references;
     std::optional<std::vector<StoredRun>> m_earlierRuns;
+    std::vector<EarlierArchive> m_earlierArchives;
     std::vector<ReportNotStated> m_notStated;
     QHash<QString, std::optional<ReportHeader>> m_headers;
     QHash<QString, std::optional<int>> m_settingsVersions;
@@ -193,7 +217,9 @@ void fillSettings(ReportBuild& build, ReportModel& model);
 /// The run as a whole: how it ended, its totals, its stages and timings, its nights, its equipment, its provenance.
 void fillRun(ReportBuild& build, ReportModel& model);
 
-/// The run's totals beside those of the most recent earlier run of the folder that completed.
+/// The run beside the earlier runs of its folder, as their stored reports state them: each master the run made
+/// beside the latest earlier run that made it, the run's totals and what changed against the latest earlier run that
+/// completed, and the runs of the folder. Reads the masters and the run the model already states.
 void fillComparison(ReportBuild& build, ReportModel& model);
 
 /// The groups of lights that share a calibration, and the lineage between a master, its groups of lights, the

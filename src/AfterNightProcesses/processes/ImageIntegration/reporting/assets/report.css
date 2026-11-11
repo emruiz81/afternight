@@ -664,6 +664,105 @@ td.nowrap { white-space: nowrap; }
 .notstated b { overflow-wrap: anywhere; }
 .notstated p { color: var(--text-2); font-size: 13.5px; margin-top: 2px; overflow-wrap: anywhere; }
 
+/* ---- Against earlier runs */
+
+/* A comparison: the masters it switches between, one shown at a time, and the whole frame or the detail. A radio
+   button per master and two for the view pick which, with no script; the script only moves the divider. */
+.cmp { position: relative; }
+.cmp > .pick, .cmp > .zoom { position: absolute; opacity: 0; pointer-events: none; }
+.cmpbar { display: flex; gap: 8px 22px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.cmpbar .switch { margin: 0; }
+.cmpbar .lab { font-size: 12.5px; color: var(--text-3); }
+.cmpitems { min-width: 0; }
+.cmpitem { display: none; }
+.cmpitem-0 { display: block; }
+.cmp > .pick:not(.pick-0):checked ~ .cmpitems .cmpitem-0 { display: none; }
+.cmp > .pick-1:checked ~ .cmpitems .cmpitem-1, .cmp > .pick-2:checked ~ .cmpitems .cmpitem-2,
+.cmp > .pick-3:checked ~ .cmpitems .cmpitem-3, .cmp > .pick-4:checked ~ .cmpitems .cmpitem-4,
+.cmp > .pick-5:checked ~ .cmpitems .cmpitem-5, .cmp > .pick-6:checked ~ .cmpitems .cmpitem-6,
+.cmp > .pick-7:checked ~ .cmpitems .cmpitem-7, .cmp > .pick-8:checked ~ .cmpitems .cmpitem-8,
+.cmp > .pick-9:checked ~ .cmpitems .cmpitem-9, .cmp > .pick-10:checked ~ .cmpitems .cmpitem-10,
+.cmp > .pick-11:checked ~ .cmpitems .cmpitem-11 { display: block; }
+.cmp > .pick-0:checked ~ .cmpbar .masters label:nth-child(1), .cmp > .pick-1:checked ~ .cmpbar .masters label:nth-child(2),
+.cmp > .pick-2:checked ~ .cmpbar .masters label:nth-child(3), .cmp > .pick-3:checked ~ .cmpbar .masters label:nth-child(4),
+.cmp > .pick-4:checked ~ .cmpbar .masters label:nth-child(5), .cmp > .pick-5:checked ~ .cmpbar .masters label:nth-child(6),
+.cmp > .pick-6:checked ~ .cmpbar .masters label:nth-child(7), .cmp > .pick-7:checked ~ .cmpbar .masters label:nth-child(8),
+.cmp > .pick-8:checked ~ .cmpbar .masters label:nth-child(9), .cmp > .pick-9:checked ~ .cmpbar .masters label:nth-child(10),
+.cmp > .pick-10:checked ~ .cmpbar .masters label:nth-child(11), .cmp > .pick-11:checked ~ .cmpbar .masters label:nth-child(12),
+.cmp > .zoom-0:checked ~ .cmpbar .zooms label:nth-child(1),
+.cmp > .zoom-1:checked ~ .cmpbar .zooms label:nth-child(2) { background: var(--accent);
+    border-color: var(--accent); color: var(--on-accent); }
+.cmp > .pick:focus-visible ~ .cmpbar .masters, .cmp > .zoom:focus-visible ~ .cmpbar .zooms {
+    outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.cmphead { font-size: 15px; margin: 0 0 10px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.cmphead small { font-weight: 400; color: var(--text-3); font-size: 12.5px; }
+.cmpgrid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.cmpgrid > * { min-width: 0; }
+.figs .tablewrap { margin-top: 0; }
+.figures { min-width: 360px; }
+.figures td:first-child { color: var(--text-2); }
+.figures td { vertical-align: middle; }
+
+/* The two runs' pictures under one divider: this run's picture gives the box its shape, the earlier run's lies over
+   it and is cut at the divider. */
+.ba { position: relative; overflow: hidden; border-radius: var(--radius); background: var(--well);
+    border: 1px solid var(--border); --pos: 50%; }
+.ba img, .apart img { width: 100%; max-width: none; }
+.ba .before { position: absolute; inset: 0; clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
+.ba .before img { position: absolute; inset: 0; height: 100%; object-fit: cover; }
+.cmp .whole { display: block; }
+.cmp .detail { display: none; }
+.cmp > .zoom-1:checked ~ .cmpitems .has-detail .whole { display: none; }
+.cmp > .zoom-1:checked ~ .cmpitems .has-detail .detail { display: block; }
+.ba .handle { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px;
+    background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+.ba .handle::after { content: ""; position: absolute; top: 50%; left: 50%; width: 34px; height: 34px;
+    margin: -17px 0 0 -17px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 2px 10px rgba(0, 0, 0, .45);
+    background-image: linear-gradient(90deg, transparent 46%, #444444 46% 54%, transparent 54%); }
+.ba .tag { position: absolute; top: 10px; padding: 4px 10px; border-radius: 999px; background: rgba(5, 7, 13, .78);
+    color: #F4F4F5; font-size: 12px; font-weight: 600; max-width: 45%; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; }
+.ba .tag.l { left: 10px; }
+.ba .tag.r { right: 10px; }
+.ba input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+.ba .ring { position: absolute; inset: 0; border-radius: var(--radius); pointer-events: none; }
+.ba input:focus-visible + .ring { outline: 2px solid var(--accent); outline-offset: -3px; }
+/* Two frames of different shapes stand side by side, each named under it. */
+.apart { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.apart figure { margin: 0; min-width: 0; }
+.apart img { border-radius: var(--radius); background: var(--well); border: 1px solid var(--border); }
+.apart figcaption { font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
+.newmaster { display: grid; place-items: center; min-height: 140px; border: 1px dashed var(--border-strong);
+    border-radius: var(--radius); color: var(--text-2); font-size: 14px; text-align: center; padding: 20px; }
+.newmaster b { color: var(--text); }
+
+/* A change: its words and, where it is for the better or the worse, an icon and the word. */
+.chg span { white-space: nowrap; }
+.chg small { color: var(--text-3); font-size: 12px; margin-left: 6px; white-space: nowrap; }
+.chg .ic { margin-right: 6px; }
+.chg.is-good .ic { color: var(--success); }
+.chg.is-bad .ic { color: var(--warning); }
+.changes { min-width: 560px; }
+.changes td { overflow-wrap: break-word; }
+.changes td:first-child { white-space: nowrap; }
+.chlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13.5px; }
+.chlist li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
+.chlist small { display: block; color: var(--text-3); font-size: 12.5px; overflow-wrap: anywhere; }
+.chlist .mark { font-weight: 700; color: var(--text-3); }
+.chlist .mark.plus { color: var(--success); }
+.chlist .mark.minus { color: var(--text-2); }
+
+/* The runs of the folder. */
+.hist3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.hist3 > * { min-width: 0; }
+.hist3 figure { margin: 0; }
+.hist3 figcaption { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; display: flex;
+    justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.hist3 figcaption small { font-weight: 400; color: var(--text-3); font-size: 12px; }
+.runs { min-width: 720px; }
+.runs td { vertical-align: middle; }
+tr.thisrun td { background: var(--accent-soft); }
+
 /* ---- Narrower windows: the contents go under 1,180 px, the grids fall to one column under 900 px. */
 
 @media (max-width: 1180px) {
@@ -673,7 +772,8 @@ td.nowrap { white-space: nowrap; }
 @media (max-width: 900px) {
     .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .g2, .g21, .g3, .hero.one, .ftop, .fgrid, .made, .reg, .reg.two { grid-template-columns: minmax(0, 1fr); }
+    .g2, .g21, .g3, .hero.one, .ftop, .fgrid, .made, .reg, .reg.two, .cmpgrid, .hist3 {
+        grid-template-columns: minmax(0, 1fr); }
     .file > summary { grid-template-columns: 18px 84px minmax(0, 1fr); }
     .file > summary > .thumb { width: 84px; }
     .file > summary > .pills { grid-column: 2 / -1; grid-row: auto; justify-content: flex-start; margin-top: 8px; }
@@ -718,6 +818,11 @@ td.nowrap { white-space: nowrap; }
     .scrollx > svg { min-width: 0 !important; }
     .c-layer { display: none !important; }
     .c-layer-0 { display: inline !important; }
+    /* Every master of a comparison is printed, each with the whole frame under a divider at its middle. */
+    .cmpitem { display: block !important; break-inside: avoid; }
+    .cmpitem + .cmpitem { margin-top: 18pt; }
+    .cmp .whole { display: block !important; }
+    .cmp .detail, .ba input { display: none !important; }
     .card, .issue, .tile, .mcard, tr { break-inside: avoid; }
     .file { break-before: page; }
     table { font-size: 9pt; }

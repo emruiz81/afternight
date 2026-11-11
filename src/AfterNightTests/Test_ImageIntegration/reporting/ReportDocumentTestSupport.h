@@ -46,10 +46,23 @@ struct DocumentElement
     }
 };
 
+/// One run of a document's text: the characters between two tags, and the element they stand in.
+struct DocumentTextRun
+{
+    QString text;
+
+    /// The place of the element among the document's elements.
+    int element = -1;
+};
+
 /// A document as its elements, in document order.
 struct ParsedDocument
 {
     std::vector<DocumentElement> elements;
+
+    /// The document's text run by run, in document order, the style's and the script's left out. A table's cells
+    /// are runs of their own, where `DocumentElement::text` reads them as one line.
+    std::vector<DocumentTextRun> runs;
 
     /// Why the document is not well-formed; empty when it is.
     QString error;
@@ -185,6 +198,14 @@ struct ParsedDocument
             for (const int index : open)
             {
                 parsed.elements[static_cast<std::size_t>(index)].text += text;
+            }
+            if (!open.empty())
+            {
+                const QString& inside = parsed.elements[static_cast<std::size_t>(open.back())].name;
+                if (inside != QStringLiteral("style") && inside != QStringLiteral("script"))
+                {
+                    parsed.runs.push_back(DocumentTextRun{.text = text, .element = open.back()});
+                }
             }
             break;
         }
