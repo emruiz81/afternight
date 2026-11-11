@@ -10,8 +10,7 @@
 /// Private to the reporting units. Each `fill*` function states one area of the model - the masters, their lights,
 /// the calibration, the registration, the settings, the run, the comparison with an earlier run - and is called once
 /// by `buildReportModel`, in that order, since the run's rollups read what the masters measured. The functions below
-/// them take a record and return the fact, and read nothing else; the Markdown report still written beside the model
-/// calls the same ones.
+/// them take a record and return the fact, and read nothing else.
 
 #include "processes/ImageIntegration/reporting/ReportFormat.h"
 #include "processes/ImageIntegration/reporting/ReportModel.h"
@@ -253,16 +252,6 @@ struct ExposureBreakdown
     QList<ReportExposureBucket> buckets;
 };
 
-/// The run's integration groups by what became of them, as the results alone tell it: a group with no result counts
-/// as reused.
-struct GroupOutcomeCounts
-{
-    int totalGroups = 0;
-    int regeneratedGroups = 0;
-    int reusedGroups = 0;
-    int failedGroups = 0;
-};
-
 /// The run's input files by frame type, each by its canonical path.
 struct InputFileSets
 {
@@ -277,14 +266,11 @@ struct InputFileSets
     }
 };
 
-[[nodiscard]] QDate extractObservingDate(const QString& filePath);
 [[nodiscard]] std::optional<double> extractSensorTemperature(const QString& filePath);
 [[nodiscard]] std::optional<double> extractExposureFromFilename(const QString& filePath);
 [[nodiscard]] std::optional<double> parseGroupExposure(const WorkflowManifest::IntegrationGroup& group);
 void addExposureBucket(QList<ReportExposureBucket>& buckets, double exposureSeconds, int frameCount);
 [[nodiscard]] ExposureBreakdown buildExposureBreakdown(const WorkflowManifest::IntegrationGroup& group);
-[[nodiscard]] GroupOutcomeCounts computeGroupOutcomeCounts(const WorkflowManifest& manifest,
-                                                           const WorkflowExecutor::Result& result);
 [[nodiscard]] QString stageDisplayName(QString stageName);
 [[nodiscard]] InputFileSets collectInputFileSets(const WorkflowManifest& manifest);
 [[nodiscard]] QString sha256Hex(const QByteArray& bytes);
@@ -307,7 +293,6 @@ void addExposureBucket(QList<ReportExposureBucket>& buckets, double exposureSeco
                                           const QString& fallback = QString());
 [[nodiscard]] QString reportProcessLabel(const WorkflowManifest& manifest);
 [[nodiscard]] QString reportTitle(const WorkflowManifest& manifest);
-[[nodiscard]] QString reportProcessingProfileText(const WorkflowManifest& manifest);
 
 /// The fingerprint of a run: a hash of the application's version, of the manifest's settings and of its input
 /// files, the same for two runs that would do the same work on the same files.
@@ -398,7 +383,6 @@ resolveAutoTransformDetail(const WorkflowManifest::RegistrationGroup& registrati
 [[nodiscard]] QString interpolationDisplayText(const QString& interpolation);
 [[nodiscard]] QString cfaPatternDisplayText(const QString& cfaPattern);
 [[nodiscard]] QString debayerMethodDisplayText(const QString& debayerMethod);
-[[nodiscard]] QString boolText(bool value);
 [[nodiscard]] QString normalizationModeText(NormalizationMode mode);
 [[nodiscard]] QString globalNormalizationMethodText(GlobalNormalizationMethod method);
 [[nodiscard]] QString scaleEstimatorText(ScaleEstimatorMethod method);
@@ -435,42 +419,14 @@ struct QualityWeightSample
                                                       const StackQualityRecord& quality,
                                                       const WorkflowManifest::IntegrationGroup& group);
 
-// ---- The comparison with an earlier run.
+// ---- The rollups.
 
-/// A run's totals, as the comparison with an earlier run states them.
-struct RunDeltaMetrics
-{
-    int totalLightFrames = 0;
-    int totalIntegrationMs = 0;
-    qint64 totalOutputBytes = 0;
-    std::optional<double> avgSnrProxy;
-    std::optional<double> avgOverlapRetentionPct;
-};
-
-/// An earlier run, as its archive states it.
-struct ArchivedRunSnapshot
-{
-    QString executionDirName;
-    QString manifestPath;
-    QString archivedAtLocal;
-    WorkflowManifest manifest;
-    std::vector<IntegrationGroupResult> integrationGroupResults;
-};
-
-[[nodiscard]] std::vector<IntegrationGroupResult>
-parseIntegrationGroupResultsFromArchiveJson(const QJsonArray& groupResultsArray);
-[[nodiscard]] std::optional<ArchivedRunSnapshot> findPreviousSuccessfulRun(const QString& reportBaseDir);
+/// The mean of the values that are finite numbers; nothing when there is none.
 [[nodiscard]] std::optional<double> averageFiniteValues(const QList<double>& values);
-[[nodiscard]] RunDeltaMetrics
-computeRunDeltaMetrics(const WorkflowManifest& manifest, const std::vector<IntegrationGroupResult>& groupResults,
-                       const QString& reportBaseDir,
-                       const std::function<std::optional<RawImageStats>(const QString&)>& analyzeImage);
 
-// ---- The sources' own readers, which the product's sources and the Markdown report both call.
+// ---- The sources' own readers, which the product's sources call.
 
 [[nodiscard]] std::optional<QString> transformKindFromJson(const QString& json);
-[[nodiscard]] std::optional<RawImageStats> analyzeRawImage(const an::consumer::EngineSession* session,
-                                                           const QString& path, std::uint32_t width);
 [[nodiscard]] std::optional<ReportImageMeasurement> measureReportImage(const an::consumer::EngineSession* session,
                                                                        const QString& path, std::uint32_t width);
 [[nodiscard]] std::optional<ReportImageLevels> measureReportImageLevels(const an::consumer::EngineSession* session,
@@ -485,7 +441,6 @@ queryRegistrationSettingsVersion(QSqlDatabase& db, const QString& groupKey,
 [[nodiscard]] QHash<QString, RegistrationMetricRow>
 loadRegistrationMetricsByFrame(QSqlDatabase& db, const QString& groupKey, int settingsVersion,
                                WorkflowExecutionCounterAccumulator* counters = nullptr);
-[[nodiscard]] QString registrationMetricsDatabasePath(const WorkflowManifest& manifest, const QString& reportBaseDir);
 [[nodiscard]] QHash<QString, RegistrationMetricRow>
 loadRegistrationMetricsForGroup(const QString& metricsDbPath, const QString& groupKey,
                                 WorkflowExecutionCounterAccumulator* counters);

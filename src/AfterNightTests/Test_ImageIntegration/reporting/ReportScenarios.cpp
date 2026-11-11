@@ -1109,7 +1109,12 @@ public:
             return false;
         }
         m_scenario.m_session = m_session;
-        const bool archived = archiveScenarioRun(m_scenario) && (!keepsReport || storeScenarioReport(m_scenario));
+        // An archive that keeps no report is one an earlier version of the application left: the document is
+        // there and the model it would be written again from is not.
+        const bool archived =
+            archiveScenarioRun(m_scenario) &&
+            (keepsReport ||
+             QFile::remove(QDir(m_scenario.runDirectory).filePath(QStringLiteral("workflow_report.json"))));
         m_scenario.m_session.reset();
         if (!archived)
         {
@@ -2574,6 +2579,14 @@ bool archiveScenarioRun(ReportScenario& scenario)
                   scenario.outputDirectory, ImageIntegration::Config::kRunHistoryMaxEntries, scenario.historyByteLimit)
             : std::make_unique<WorkflowArchiver>(scenario.outputDirectory);
     archiver->setEngineSession(scenario.session());
+    // The archive states the time, the place and the version the scenario's context states, not the host's.
+    const QDateTime archivedUtc =
+        QDateTime::fromString(scenario.context.value(QStringLiteral("archivedAtUtc")).toString(), Qt::ISODateWithMs);
+    archiver->setArchiveStamp(WorkflowArchiver::ArchiveStamp{
+        .archivedAt = archivedUtc.toTimeZone(
+            QTimeZone::fromSecondsAheadOfUtc(scenario.context.value(QStringLiteral("utcOffsetSeconds")).toInt())),
+        .timeZoneId = scenario.context.value(QStringLiteral("timeZoneId")).toString(),
+        .applicationVersion = scenario.context.value(QStringLiteral("appVersion")).toString()});
     const WorkflowArchiver::ArchiveResult archived = archiver->commit(scenario.manifest, scenario.result);
     EXPECT_TRUE(archived.success) << archived.error.toStdString();
     if (!archived.success)
@@ -2581,23 +2594,14 @@ bool archiveScenarioRun(ReportScenario& scenario)
         return false;
     }
     EXPECT_EQ(QDir::cleanPath(archived.archivePath), QDir::cleanPath(scenario.runDirectory));
+    // A run the archiver gives a report has it stored: its model and the document written from it.
+    if (ImageIntegration::runHasWorkflowReport(scenario.manifest, scenario.result))
+    {
+        EXPECT_EQ(QDir::cleanPath(archived.reportPath),
+                  QDir::cleanPath(QDir(scenario.runDirectory).filePath(QStringLiteral("workflow_report.html"))));
+        EXPECT_TRUE(QFileInfo::exists(QDir(scenario.runDirectory).filePath(QStringLiteral("workflow_report.json"))));
+    }
     return true;
-}
-
-bool storeScenarioReport(const ReportScenario& scenario)
-{
-    using namespace ImageIntegration::Reporting;
-    const ProductionReportSources production(scenario.session(), scenario.metricsDatabasePath);
-    const ReportModel model = buildReportModel(ReportModelInputs{.manifest = scenario.manifest,
-                                                                 .result = scenario.result,
-                                                                 .runDirectory = scenario.runDirectory,
-                                                                 .context = scenario.context,
-                                                                 .counters = std::nullopt},
-                                               production.sources());
-    const WorkflowReportStored stored = storeWorkflowReport(model, scenario.runDirectory);
-    EXPECT_TRUE(stored.isStored()) << stored.error.toStdString();
-    EXPECT_TRUE(stored.picturesNotCopied.isEmpty()) << stored.picturesNotCopied.join(QLatin1Char('\n')).toStdString();
-    return stored.isStored();
 }
 
 } // namespace an::tests::integration::report

@@ -122,7 +122,9 @@ private:
                 earlier == nullptr || (earlier->*source).trimmed().isEmpty()
                     ? storeText("the run %1 no longer states the picture").arg(baseline.runId)
                     : copyPicture(archives.file(baseline.runId, earlier->*source), run.filePath(target));
-            if (!why.isEmpty())
+            // A report is stored more than once, and the history may drop the earlier run in between: the copy
+            // made the first time is the picture, whatever became of the run it was copied from.
+            if (!why.isEmpty() && !QFileInfo(run.filePath(target)).isFile())
             {
                 failures << QStringLiteral("%1: %2").arg(target, why);
                 target.clear();
@@ -132,6 +134,47 @@ private:
         copy(baseline.detail, &ReportMaster::detail);
     }
     return failures;
+}
+
+/// Takes out of a model the links to the reports of earlier runs that are not there: a run the history dropped is
+/// still one of the folder's runs, and its report is no longer a file to open.
+void dropLinksToReportsThatAreGone(ReportModel& model, const QString& runDirectory)
+{
+    const QDir run(runDirectory);
+    for (ReportHistoryEntry& entry : model.history)
+    {
+        if (!entry.report.isEmpty() && !QFileInfo(run.filePath(entry.report)).isFile())
+        {
+            entry.report.clear();
+        }
+    }
+}
+
+/// The model a run's archive keeps, or the reader's refusal as a report that was not written.
+struct StoredModel
+{
+    std::optional<ReportModel> model;
+    WorkflowReportWritten refused;
+};
+
+[[nodiscard]] StoredModel readStoredModel(const QString& runDirectory)
+{
+    if (runDirectory.trimmed().isEmpty() || !QDir(runDirectory).exists())
+    {
+        return StoredModel{
+            .model = std::nullopt,
+            .refused = WorkflowReportWritten{
+                .path = {},
+                .error = storeText("The run's folder \"%1\" is not there.").arg(QDir::toNativeSeparators(runDirectory)),
+                .faults = {}}};
+    }
+    ReportArchiveRead read = ReportArchiveReader::read(runDirectory);
+    if (!read.model.has_value())
+    {
+        return StoredModel{.model = std::nullopt,
+                           .refused = WorkflowReportWritten{.path = {}, .error = read.why, .faults = {}}};
+    }
+    return StoredModel{.model = std::move(read.model), .refused = {}};
 }
 } // namespace
 
@@ -196,6 +239,7 @@ WorkflowReportStored storeWorkflowReport(const ReportModel& model, const QString
     // The pictures first: what the model and the document name must be there when they are written.
     ReportModel kept = model;
     stored.picturesNotCopied = copyBaselinePictures(kept, runDirectory);
+    dropLinksToReportsThatAreGone(kept, runDirectory);
 
     const QString modelPath = QDir(runDirectory).filePath(QLatin1String(kStoredReportFileName));
     QSaveFile file(modelPath);
@@ -219,5 +263,26 @@ WorkflowReportStored storeWorkflowReport(const ReportModel& model, const QString
     }
     stored.reportPath = written.path;
     return stored;
+}
+
+WorkflowReportWritten rerenderWorkflowReport(const QString& runDirectory)
+{
+    StoredModel stored = readStoredModel(runDirectory);
+    if (!stored.model.has_value())
+    {
+        return stored.refused;
+    }
+    dropLinksToReportsThatAreGone(*stored.model, runDirectory);
+    return writeWorkflowReport(*stored.model, runDirectory, ReportForm::Linked);
+}
+
+WorkflowReportWritten saveWorkflowReportAsOneFile(const QString& runDirectory, const QString& destination)
+{
+    const StoredModel stored = readStoredModel(runDirectory);
+    if (!stored.model.has_value())
+    {
+        return stored.refused;
+    }
+    return writeWorkflowReport(*stored.model, runDirectory, ReportForm::Embedded, destination);
 }
 } // namespace ImageIntegration::Reporting

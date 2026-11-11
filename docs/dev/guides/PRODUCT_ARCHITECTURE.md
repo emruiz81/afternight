@@ -897,7 +897,8 @@ The large multi-stage stacking workflow: `model/` (frames, grouping, calibration
 `workflow/` (manifest build and diff, `ExecutionPlanner`, `WorkflowExecutor`, progress, artifacts, cancellation) with
 `workflow/stages/` (Bias, Dark, Flat, LightsCalibration, LightsRegistration, LightsAlignment, LightsNormalization,
 LightsStacking, LightsDrizzle), `persistence/` (SQLite project state, autosave, presets), `reporting/`
-(`WorkflowReportBuilder`), and `tabs/`, `widgets/`, `controls/` and `dialogs/` for the UI. `lite/` and
+(the report model and the document written from it), and `tabs/`, `widgets/`, `controls/` and `dialogs/` for the
+UI. `lite/` and
 `ImageIntegrationLiteProcess.*` are the simplified front end only: shared behaviour belongs in the full model and
 workflow and is reused by Lite. How artifacts are written and reused is `AGENTS.md` ("Artifact writing and incremental
 reuse") and `docs/dev/IMAGE_INTEGRATION_ARTIFACT_VALIDATION.md`.
@@ -1077,11 +1078,13 @@ the run, left as it is; a transform record or a last run's manifest of another f
 hash a choice's key. A window refused its stored session starts empty and keeps its autosave off. The report reads
 statistics with `readViewImage` and the
 engine's statistics, header facts with `probeImage` and weights through `deriveStackWeights`
-(`core/StackWeightingInputs.h`), the measurement and request the stack uses, all in the `EngineSession*` it is given,
-and is exported on the thread pool; previews are `generateBoundedPreview` - the largest-sample shrink presented
-through `presentForView`. When a report is written, what it reads, how its values are printed
-(`reporting/ReportFormat.h`) and the runs its suites build are in
-[IMAGE_INTEGRATION_REPORT.md](../IMAGE_INTEGRATION_REPORT.md). Every weighting's dashboard preview shows the
+(`core/StackWeightingInputs.h`), the measurement and request the stack uses, all in the `EngineSession*` it is given.
+It is built once, as the archiver commits the run, into a model the archive keeps as `workflow_report.json`; the
+document is written from that model, and written again or saved as one file from it on the thread pool, with no
+image read. Previews are `generateBoundedPreview` - the largest-sample shrink presented through `presentForView`.
+When a report is written, what it reads, how its values are printed (`reporting/ReportFormat.h`) and the runs its
+suites build are in [IMAGE_INTEGRATION_REPORT.md](../IMAGE_INTEGRATION_REPORT.md). Every weighting's dashboard
+preview shows the
 weights the stack applies, and the stack and
 the preview state the group's floor as the photometric raw floor. Every question and settings dialog of the
 integration and Lite opens with `open()`; the shared file pickers (`app/FileDialogUtils.h`) and `QMenu::exec` context

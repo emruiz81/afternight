@@ -30,6 +30,7 @@ public:
     // Action signals for buttons drawn in the delegate
     void openAllRequested(const QModelIndex& index) W_SIGNAL(openAllRequested, index);
     void reportRequested(const QModelIndex& index) W_SIGNAL(reportRequested, index);
+    void saveReportRequested(const QModelIndex& index) W_SIGNAL(saveReportRequested, index);
     void logRequested(const QModelIndex& index) W_SIGNAL(logRequested, index);
     void rerunRequested(const QModelIndex& index) W_SIGNAL(rerunRequested, index);
     void deleteRequested(const QModelIndex& index) W_SIGNAL(deleteRequested, index);

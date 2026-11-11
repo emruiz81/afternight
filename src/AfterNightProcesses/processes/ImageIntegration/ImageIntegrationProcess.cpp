@@ -37,8 +37,7 @@
 #include "processes/ImageIntegration/workflow/WorkflowPreparation.h"
 #include "processes/ImageIntegration/workflow/WorkflowResultOpener.h"
 #include "processes/ImageIntegration/workflow/WorkflowRunStateStore.h"
-#include "processes/ImageIntegration/reporting/MarkdownHtmlRenderer.h"
-#include "processes/ImageIntegration/reporting/WorkflowReportArchiveLoader.h"
+#include "processes/ImageIntegration/reporting/WorkflowReport.h"
 #include "processes/ImageIntegration/persistence/AutosaveManager.h"
 #include "processes/ImageIntegration/persistence/IntegrationDatabase.h"
 #include "processes/ImageIntegration/persistence/RegistrationMetricsRepository.h"
@@ -1839,103 +1838,9 @@ void ImageIntegrationProcess::setupUIConnections()
                     dialog->open();
                 });
 
-        connect(m_summaryTab, &SummaryTab::exportReportRequested, this, [this](const QString& runDir) {
-            const QString trimmed = runDir.trimmed();
-            if (trimmed.isEmpty())
-            {
-                return;
-            }
-
-            const QString manifestPath = QDir(trimmed).filePath(QStringLiteral("workflow_manifest.json"));
-            QFile file(manifestPath);
-            if (!file.open(QIODevice::ReadOnly))
-            {
-                openNonBlockingMessageBox(this, QMessageBox::Warning, tr("Export Report"),
-                                          tr("Could not open workflow manifest: %1").arg(manifestPath));
-                return;
-            }
-
-            const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-            if (!doc.isObject())
-            {
-                openNonBlockingMessageBox(this, QMessageBox::Warning, tr("Export Report"),
-                                          tr("Invalid workflow manifest: %1").arg(manifestPath));
-                return;
-            }
-
-            const QJsonObject root = doc.object();
-            if (!root.value(QStringLiteral("manifest")).isObject())
-            {
-                openNonBlockingMessageBox(
-                    this, QMessageBox::Warning, tr("Export Report"),
-                    tr("Workflow archive is missing embedded manifest data: %1").arg(manifestPath));
-                return;
-            }
-
-            // The report reads the run's images and headers through the session, so it is built on the thread pool and
-            // only what it wrote is opened on the GUI thread.
-            const QPointer<ImageIntegrationProcess> self(this);
-            const QString title = tr("AfterNight Workflow Report");
-            (void)QtConcurrent::run([self, trimmed, root, manifestPath, title]() {
-                struct Written
-                {
-                    QString error;
-                    QString opened;
-                };
-                Written written;
-                const QString reportPath = QDir(trimmed).filePath(QStringLiteral("workflow_report.md"));
-                const QString md = ImageIntegration::Reporting::buildWorkflowReportMarkdownFromArchive(
-                    trimmed, root, ImageIntegration::detail::applicationEngineSession());
-                QFile reportFile(reportPath);
-                if (md.trimmed().isEmpty())
-                {
-                    written.error = QCoreApplication::translate("ImageIntegrationProcess",
-                                                                "Failed to build workflow report from manifest: %1")
-                                        .arg(manifestPath);
-                }
-                else if (!reportFile.open(QIODevice::WriteOnly | QIODevice::Truncate) ||
-                         reportFile.write(md.toUtf8()) < 0)
-                {
-                    written.error = QCoreApplication::translate("ImageIntegrationProcess", "Could not write report: %1")
-                                        .arg(reportPath);
-                }
-                else
-                {
-                    reportFile.close();
-                    const QString htmlPath = QDir(trimmed).filePath(QStringLiteral("workflow_report.html"));
-                    QString htmlError;
-                    const bool htmlOk =
-                        ImageIntegration::Reporting::writeStyledHtmlFromMarkdown(md, htmlPath, title, &htmlError);
-                    if (!htmlOk)
-                    {
-                        LOG_WARNING("ImageIntegrationProcess: Failed to export HTML report '{}': {}",
-                                    htmlPath.toStdString(), htmlError.toStdString());
-                    }
-                    written.opened = htmlOk ? htmlPath : reportPath;
-                }
-                QMetaObject::invokeMethod(
-                    qApp,
-                    [self, written]() {
-                        if (!self)
-                        {
-                            return;
-                        }
-                        if (!written.error.isEmpty())
-                        {
-                            openNonBlockingMessageBox(
-                                self, QMessageBox::Warning,
-                                QCoreApplication::translate("ImageIntegrationProcess", "Export Report"), written.error);
-                            return;
-                        }
-                        an::ui::openLocalFile(written.opened);
-                        if (self->m_summaryTab)
-                        {
-                            self->m_summaryTab->refreshAll();
-                        }
-                    },
-                    Qt::QueuedConnection);
-            });
-        });
+        connect(m_summaryTab, &SummaryTab::exportReportRequested, this, &ImageIntegrationProcess::showRunReport);
+        connect(m_summaryTab, &SummaryTab::saveReportAsOneFileRequested, this,
+                &ImageIntegrationProcess::onSaveReportAsOneFile);
 
         connect(m_summaryTab, &SummaryTab::rerunRequested, this, [this](const QString& runDir) {
             const QString trimmed = runDir.trimmed();
@@ -2928,6 +2833,116 @@ void ImageIntegrationProcess::onOpenRecentProject(const QString& projectPath)
         refreshRecentProjectsMenu();
     }
     updateWindowTitle();
+}
+
+void ImageIntegrationProcess::showRunReport(const QString& runDir)
+{
+    const QString trimmed = runDir.trimmed();
+    if (trimmed.isEmpty())
+    {
+        return;
+    }
+
+    // The report is written again from the model the run's archive keeps, on the thread pool, and only what was
+    // written is opened on the GUI thread. Nothing is built of the run: an archive that keeps no stored report is
+    // told so in the reader's words, and the report file it already holds, if any, is opened as it is.
+    const QPointer<ImageIntegrationProcess> self(this);
+    (void)QtConcurrent::run([self, trimmed]() {
+        const ImageIntegration::Reporting::WorkflowReportWritten written =
+            ImageIntegration::Reporting::rerenderWorkflowReport(trimmed);
+        QMetaObject::invokeMethod(
+            qApp,
+            [self, trimmed, written]() {
+                if (!self)
+                {
+                    return;
+                }
+                const QString title = QCoreApplication::translate("ImageIntegrationProcess", "Report");
+                if (written.isWritten())
+                {
+                    an::ui::openLocalFile(written.path);
+                }
+                else
+                {
+                    const QString kept =
+                        QDir(trimmed).filePath(QLatin1String(ImageIntegration::Reporting::kWorkflowReportFileName));
+                    const bool keepsAFile = QFileInfo(kept).isFile();
+                    openNonBlockingMessageBox(
+                        self, QMessageBox::Warning, title,
+                        keepsAFile ? QCoreApplication::translate("ImageIntegrationProcess",
+                                                                 "The report of this run cannot be written again: "
+                                                                 "%1\n\nThe report file the run's folder holds is "
+                                                                 "opened as it was written.")
+                                         .arg(written.error)
+                                   : QCoreApplication::translate("ImageIntegrationProcess",
+                                                                 "The report of this run cannot be written: %1")
+                                         .arg(written.error));
+                    if (keepsAFile)
+                    {
+                        an::ui::openLocalFile(kept);
+                    }
+                }
+                if (self->m_summaryTab)
+                {
+                    self->m_summaryTab->refreshAll();
+                }
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void ImageIntegrationProcess::onSaveReportAsOneFile(const QString& runDir)
+{
+    const QString trimmed = runDir.trimmed();
+    if (trimmed.isEmpty())
+    {
+        return;
+    }
+
+    static const QString contextKey = QStringLiteral("__IMAGE_INTEGRATION_REPORT__");
+    const QString initialDir = rememberedExistingPath(contextKey);
+    const QString suggested = QStringLiteral("AfterNight report %1.html").arg(QFileInfo(trimmed).fileName());
+    const QString file = an::ui::dialogs::getSaveFileName(
+        process_utils::currentGlobalSettings(), this, tr("Save Report As One File"),
+        initialDir.isEmpty() ? suggested : QDir(initialDir).filePath(suggested), tr("HTML Files (*.html)"));
+    if (file.isEmpty())
+    {
+        return;
+    }
+    rememberDirectoryForPath(contextKey, file);
+    saveReportAsOneFile(trimmed, file);
+}
+
+void ImageIntegrationProcess::saveReportAsOneFile(const QString& runDir, const QString& destination)
+{
+    // The single file embeds every picture of the run's folder, so it is written on the thread pool; the GUI thread
+    // hears only how it ended.
+    const QPointer<ImageIntegrationProcess> self(this);
+    (void)QtConcurrent::run([self, runDir, destination]() {
+        const ImageIntegration::Reporting::WorkflowReportWritten written =
+            ImageIntegration::Reporting::saveWorkflowReportAsOneFile(runDir, destination);
+        if (written.isWritten())
+        {
+            for (const QString& fault : written.faults)
+            {
+                LOG_WARNING("ImageIntegrationProcess: the saved report left something out: {}", fault.toStdString());
+            }
+            return;
+        }
+        QMetaObject::invokeMethod(
+            qApp,
+            [self, written]() {
+                if (self)
+                {
+                    openNonBlockingMessageBox(
+                        self, QMessageBox::Warning,
+                        QCoreApplication::translate("ImageIntegrationProcess", "Save Report As One File"),
+                        QCoreApplication::translate("ImageIntegrationProcess", "The report was not saved: %1")
+                            .arg(written.error));
+                }
+            },
+            Qt::QueuedConnection);
+    });
 }
 
 void ImageIntegrationProcess::onExportProject()

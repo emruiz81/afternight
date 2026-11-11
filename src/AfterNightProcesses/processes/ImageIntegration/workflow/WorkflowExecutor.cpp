@@ -1324,14 +1324,9 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
         {
             executorLogger.warning(QStringLiteral("%1: %2").arg(failureMessage, archiveResult.error));
         }
-        else if (!archiveResult.reportPath.isEmpty())
+        else if (!archiveResult.reportPath.isEmpty() && QFile::exists(archiveResult.reportPath))
         {
-            const QFileInfo reportInfo(archiveResult.reportPath);
-            const QString htmlPath = reportInfo.absolutePath() + QStringLiteral("/workflow_report.html");
-            if (QFile::exists(htmlPath))
-            {
-                result.htmlReportPath = htmlPath;
-            }
+            result.htmlReportPath = archiveResult.reportPath;
         }
 
         result.executorTiming.archiveMs += timer.capturePhase();
