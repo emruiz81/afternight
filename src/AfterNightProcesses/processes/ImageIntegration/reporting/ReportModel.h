@@ -968,8 +968,17 @@ struct ReportCalibrationMaster
     /// a large master, which is measured over a rectangle at its centre so that a run of many masters stays quick.
     std::optional<double> measuredFraction;
 
-    /// The earlier run whose stored report the level and the noise were taken from; empty when this run measured
-    /// them.
+    /// What a bias and a dark are checked by: the share of the pixels measured that are hot, per channel - more
+    /// than ten robust deviations above the channel's median. Empty for a flat, and when not measured.
+    std::vector<double> hotPixelFraction;
+
+    /// What a flat is checked by: each channel's level in the frame's four corners over its level at the centre.
+    /// One for a frame lit evenly, less the more its corners darken. Empty for a bias and a dark, and when not
+    /// measured.
+    std::vector<double> cornerLevel;
+
+    /// The earlier run whose stored report the level, the noise and the check figure were taken from; empty when
+    /// this run measured them.
     QString measuredByRun;
 
     /// Its picture, relative to the run's folder; empty where there is none.

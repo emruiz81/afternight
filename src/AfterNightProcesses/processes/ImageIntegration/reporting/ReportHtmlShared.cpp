@@ -428,6 +428,29 @@ void writeLineage(ReportMarkup& out, const ReportDocumentContext& context)
     return parts.isEmpty() ? noValueText() : parts.join(QStringLiteral(" / "));
 }
 
+/// A share per channel in one cell, as percentages.
+[[nodiscard]] QString sharePerChannel(const std::vector<double>& shares)
+{
+    QStringList parts;
+    for (const double share : shares)
+    {
+        parts << percentText(share);
+    }
+    return parts.join(QStringLiteral(" / "));
+}
+
+/// What a calibration master is checked by, in a few words: a bias's and a dark's hot pixels, a flat's corners.
+[[nodiscard]] QString checkFigure(const ReportCalibrationMaster& master)
+{
+    if (master.kind == ReportCalibrationKind::Flat)
+    {
+        return master.cornerLevel.empty() ? noValueText()
+                                          : documentText("corners at %1").arg(sharePerChannel(master.cornerLevel));
+    }
+    return master.hotPixelFraction.empty() ? noValueText()
+                                           : documentText("%1 hot").arg(sharePerChannel(master.hotPixelFraction));
+}
+
 void writeCalibrationRow(ReportMarkup& out, const ReportDocumentContext& context, const ReportCalibrationMaster& master)
 {
     out.open("tr", {{"id", master.slug}});
@@ -474,6 +497,7 @@ void writeCalibrationRow(ReportMarkup& out, const ReportDocumentContext& context
         out.element("span", {{"class", QStringLiteral("muted")}}, how.join(dotSeparator()));
     }
     out.close("td");
+    out.element("td", {{"class", QStringLiteral("r num")}}, checkFigure(master));
 
     out.open("td");
     bool with = false;
@@ -586,6 +610,10 @@ void writeCalibration(ReportMarkup& out, const ReportDocumentContext& context)
                {documentText("Frames"), true},
                {documentText("Level"), true, documentText("The mean level, a figure per channel.")},
                {documentText("Noise"), true, documentText("The background noise, a figure per channel.")},
+               {documentText("Check"), true,
+                documentText("For a bias and a dark, the share of their pixels that are hot: more than ten "
+                             "deviations above the median. For a flat, the level of its corners as a share of the "
+                             "level at its centre. A figure per channel.")},
                {documentText("Calibrated with")},
                {documentText("Used by")},
                {documentText("State")}});
