@@ -242,7 +242,9 @@ caption: >-
   rejected samples and the quality score, each where a light states it. Point at a light for all its figures.
 - **Where each light sat** plots the shift of each light against the
   [reference frame](../../reference/glossary.md#reference-frame), a mark a light and a shape a night. A spread of
-  marks is the [dithering](../../reference/glossary.md#dithering).
+  marks is the [dithering](../../reference/glossary.md#dithering). The shift is that of the middle of the frame,
+  so a light taken after a meridian flip sits among the others; the table of lights then has a **Turn** column,
+  where such a light reads 180.
 - **Left out** lists the lights of the group that did not go into the master, each with its state and its reason.
 - The last line opens a table of every light with every measure, its weight, its share of the stack, its state and
   its file.

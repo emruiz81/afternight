@@ -288,6 +288,10 @@ void writeStateName(ReportMarkup& out, ChartState state);
 /// What became of a light, in a line: its state and, where the state has one, its reason.
 [[nodiscard]] QString fateLine(const ReportFrame& frame);
 
+/// Whether a light is turned against its reference by enough to say so: more than a degree. Every light is turned
+/// by a fraction of one; a light taken after a meridian flip by half a turn.
+[[nodiscard]] bool isTurned(const ReportFrame& frame);
+
 /// A word or two, and the kind of pill that says them. A null kind is nothing to say.
 struct ReportStateWords
 {

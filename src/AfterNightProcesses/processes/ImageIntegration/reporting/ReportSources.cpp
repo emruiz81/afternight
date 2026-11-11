@@ -709,8 +709,8 @@ queryCometTrackingRunsForReport(const QString& metricsDbPath, const WorkflowMani
 
 namespace
 {
-/// States the translation of a transform record whose kind carries a matrix: the last column of its first two rows.
-void statesShift(const QString& transformJson, RegistrationMetricRow& row)
+/// States the matrix of a transform record whose kind carries one: three rows of three numbers.
+void statesMatrix(const QString& transformJson, RegistrationMetricRow& row)
 {
     if (isPolynomialTransformKind(row.transformKind))
     {
@@ -722,14 +722,24 @@ void statesShift(const QString& transformJson, RegistrationMetricRow& row)
     {
         return;
     }
-    const QJsonArray first = matrix.at(0).toArray();
-    const QJsonArray second = matrix.at(1).toArray();
-    if (first.size() != 3 || second.size() != 3 || !first.at(2).isDouble() || !second.at(2).isDouble())
+    std::array<double, 9> values{};
+    for (qsizetype line = 0; line < 3; ++line)
     {
-        return;
+        const QJsonArray cells = matrix.at(line).toArray();
+        if (cells.size() != 3)
+        {
+            return;
+        }
+        for (qsizetype cell = 0; cell < 3; ++cell)
+        {
+            if (!cells.at(cell).isDouble())
+            {
+                return;
+            }
+            values[static_cast<std::size_t>(line * 3 + cell)] = cells.at(cell).toDouble();
+        }
     }
-    row.shiftX = first.at(2).toDouble();
-    row.shiftY = second.at(2).toDouble();
+    row.transformMatrix = values;
 }
 } // namespace
 
@@ -798,7 +808,7 @@ loadRegistrationMetricsByFrame(QSqlDatabase& db, const QString& groupKey, int se
         if (transformKind.has_value())
         {
             row.transformKind = transformKind->trimmed().toLower();
-            statesShift(transformJson, row);
+            statesMatrix(transformJson, row);
         }
         row.backgroundNoise = query.value(13).toDouble();
         row.outputPath = query.value(14).toString();

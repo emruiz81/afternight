@@ -734,6 +734,7 @@ template <> struct Fields<ReportFrame>
         v("catalogMatches", s.catalogMatches);
         v("shiftX", s.shiftX);
         v("shiftY", s.shiftY);
+        v("rotationDegrees", s.rotationDegrees);
         v("transformKind", s.transformKind);
         v("normalizationScale", s.normalizationScale);
         v("normalizationOffset", s.normalizationOffset);
