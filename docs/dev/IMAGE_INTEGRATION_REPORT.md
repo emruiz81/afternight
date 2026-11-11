@@ -118,12 +118,13 @@ Facts worth knowing before changing what a report states:
   lights are grouped, and a stack-excluded light stays in its registration group's lights and leaves its
   integration group's. A group whose every light is left out is no group at all. `WorkflowManifest::leftOutLights`
   names each such light, which exclusion it was and the integration group it would have joined.
-- **A calibration group has a result when its stage ran, whatever the stage did with it.** The executor records
-  one for every group of a bias, dark or flat stage that was not skipped, naming the master's file and whether it
-  is there; a stage whose every master is supplied or still valid is skipped whole and leaves none. The model
-  reads a master as supplied from its group's `existingMaster`, as reused from the absence of a result, and as
-  made otherwise. So a master the stage found still valid is stated as made when another group of its stage was
-  stacked in the same run: the result does not say which of the two the stage did.
+- **A calibration group has a result when its stage ran, and the result says what the stage did with it.** The
+  executor records one for every group of a bias, dark or flat stage that was not skipped, naming the master's
+  file, whether it is there, and whether the stage found it still valid and left it as it was
+  (`CalibrationGroupResult::reused`, from `StageResult::reusedCalibrationGroups`); a stage whose every master is
+  supplied or still valid is skipped whole and leaves none. The model reads a master as supplied from its group's
+  `existingMaster`, as reused from the absence of a result or from a result that says so, and as made otherwise.
+  Without that record a master left as it was would read as made whenever another group of its stage was stacked.
 
 ## What a run records for its report
 

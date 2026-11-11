@@ -1179,6 +1179,10 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
                     calibrationResult.masterPath = masterPath;
                     calibrationResult.inputCount = static_cast<int>(group.inputFiles.size());
                     calibrationResult.success = stage_result.isSuccess() && exists;
+                    calibrationResult.reused =
+                        std::find(stage_result.reusedCalibrationGroups.begin(),
+                                  stage_result.reusedCalibrationGroups.end(),
+                                  calibrationResult.groupKey) != stage_result.reusedCalibrationGroups.end();
                     result.calibrationGroupResults.push_back(std::move(calibrationResult));
 
                     if (exists)

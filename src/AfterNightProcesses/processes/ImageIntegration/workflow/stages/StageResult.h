@@ -854,6 +854,8 @@ struct StageResult
     std::vector<StagePhaseTiming> phaseTimings; ///< Timed sub-phases reported separately from the parent stage
     std::optional<StackExecutionCounters> engineExecutionCounters; ///< Optional stage-local diagnostics
     std::vector<ReusedIntegrationGroup> reusedGroups; ///< Groups whose output was still valid, which have no result
+    /// The keys of the calibration groups whose master a calibration stage found still valid and left as it was.
+    std::vector<QString> reusedCalibrationGroups;
 
     /** @brief Create a success result. */
     [[nodiscard]] static StageResult success()

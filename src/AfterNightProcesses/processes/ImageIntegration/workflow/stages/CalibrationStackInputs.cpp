@@ -796,6 +796,9 @@ StageResult runCalibrationStage(const CalibrationStageRun& run, const WorkflowMa
     core::CalibrationMasterSet masters(services->codecRegistry());
     const QString capitalized = run.frameType.left(1).toUpper() + run.frameType.mid(1);
     const auto cancelRequested = [&token]() { return token.isCancellationRequested(); };
+    // The groups whose master is still valid: the run says so of each, since a stage that stacks one group and
+    // leaves another as it was has made only the first.
+    std::vector<QString> reusedGroups;
 
     int groupIndex = 0;
     for (const auto* groupPtr : run.groups)
@@ -831,6 +834,7 @@ StageResult runCalibrationStage(const CalibrationStageRun& run, const WorkflowMa
             reportStageProgress(reporter, run.stage, groupIndex, totalGroups, 1.0f,
                                 QStringLiteral("%1 stacking (skipped)").arg(capitalized), outputPath);
             reporter.logger().groupCompleted(groupIndex, totalGroups, groupLabel, groupTimer.elapsed());
+            reusedGroups.push_back(group.groupKey.toString());
             continue;
         }
         if (group.inputFiles.empty())
@@ -977,10 +981,13 @@ StageResult runCalibrationStage(const CalibrationStageRun& run, const WorkflowMa
     if (!errorReport.errors.empty())
     {
         errorReport.warnings = stageWarnings;
-        return StageResult::partialSuccess(errorReport);
+        StageResult partial = StageResult::partialSuccess(errorReport);
+        partial.reusedCalibrationGroups = std::move(reusedGroups);
+        return partial;
     }
     StageResult success = StageResult::success();
     success.warnings = stageWarnings;
+    success.reusedCalibrationGroups = std::move(reusedGroups);
     return success;
 }
 

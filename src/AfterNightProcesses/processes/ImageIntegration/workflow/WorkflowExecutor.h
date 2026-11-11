@@ -212,6 +212,9 @@ public:
             QString masterPath;
             int inputCount = 0;
             bool success = false;
+            /// Whether the stage found the master still valid and left it as it was. A group has a result whenever
+            /// its stage ran, so this is what tells a master the run stacked from one it did not.
+            bool reused = false;
         };
         /// What the session's engine counted over the run: its memory's high-water mark when the run ended and
         /// when it started - it never falls, so the first is the run's own whenever it rose inside the run - the

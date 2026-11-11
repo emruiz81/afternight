@@ -160,11 +160,12 @@ void fillStage(ReportBuild& build, const std::optional<WorkflowManifest::Calibra
             master.fileName = QFileInfo(master.file).fileName();
         }
 
-        // A master the user supplied is its group's existing master; one the run found still valid leaves no result.
-        master.state = group.existingMaster.has_value() ? ReportCalibrationState::Supplied
-                       : groupResult == nullptr         ? ReportCalibrationState::Reused
-                       : groupResult->success           ? ReportCalibrationState::Made
-                                                        : ReportCalibrationState::Failed;
+        // A master the user supplied is its group's existing master. One the run found still valid leaves no result
+        // when its whole stage was skipped, and a result that says so when the stage ran for another group.
+        master.state = group.existingMaster.has_value()                ? ReportCalibrationState::Supplied
+                       : groupResult == nullptr || groupResult->reused ? ReportCalibrationState::Reused
+                       : groupResult->success                          ? ReportCalibrationState::Made
+                                                                       : ReportCalibrationState::Failed;
         master.frames = static_cast<int>(group.inputFiles.size());
         master.inputFiles.reserve(master.frames);
         for (const FrameId& input : group.inputFiles)
