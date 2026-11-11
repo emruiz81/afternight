@@ -203,7 +203,7 @@ too: a new palette starts from them, not from the picture.
 You have the picture in the files you saved, and the three corrected masters. The output folder holds the masters as
 the run wrote them, `stacked_3008x3004_Ha_M_16.fit` and its Oiii and Sii twins, untouched by the steps. Beside them
 are the flat masters, the registered lights under `registered_lights`, and under `history` a folder for the run with
-its report, `workflow_report.html`.
+its [report](../processes/stacking-integration/integration-report.md), `workflow_report.html`.
 
 ```figure
 owed: true

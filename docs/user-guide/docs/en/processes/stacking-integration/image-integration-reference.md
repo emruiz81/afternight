@@ -259,8 +259,8 @@ registration. A light the registration refused is left out, as the stack leaves 
   again when only the scale changes.
 - The coefficients and their `.meta.json` are written whole or not at all, and reused while the record still describes
   the inputs and every setting. The stack applies only coefficients measured under the group's settings; otherwise it
-  measures its own and says so. The report's quality section names what brought the lights to the reference, and which
-  light that was.
+  measures its own and says so. A master's file in the report names what brought the lights to the reference, and
+  which light that was.
 - A sample its frame marks as no data stays as it was. A normalized sample that would land exactly on zero, in a frame
   where zero means no data, is written as the smallest normal number instead, so it stays data.
 
@@ -287,7 +287,7 @@ not fit in memory is refused by name, and a stored value it refuses runs at the 
 - The spatial analysis keeps the pixels in rejection clusters and the elements either map rejected as two separate
   figures. A second stack without the flagged lights keeps the reference's
   [header cards](../../reference/glossary.md#header-card), or the first light kept when
-  the reference was left out, and the report names each flagged light.
+  the reference was left out, and the report lists each flagged light as **Excluded on the restack**.
 - The stack reads each group's lights where the registration put them: the registered lights while each is the file
   the registration recorded, or the registration's inputs warped as they are read, the drizzled lights, or the
   comet-aligned ones. A registered light changed since stops the group with "A registered light output changed after
@@ -387,28 +387,43 @@ its result does not depend on the threads or the band height.
 - Every master is a 32-bit floating-point FITS file, also from a group of one frame.
 - Each image is written under a temporary name ending in `.antmp` and renamed when complete. It carries in its header
   the identity of the plan entry it satisfies, `ANARTID`, and the run that wrote it, `ANRUNID`.
-- The master's preview, `<master>.preview.png`, is moved into the run's archive. The report's previews are the
-  viewer's display of the image, shrunk; an image of other than one or three channels has none.
+- The master's preview, `<master>.preview.png`, is moved into the run's archive. The report's pictures are the
+  viewer's display of the image: the whole frame within 2,048 pixels, and the middle of the frame at full scale.
+  An image of other than one or three channels has none.
 
-A run's folder under `history`, named by its date and time to the millisecond, can hold `workflow_manifest.json`
-with the plan and the results, `workflow_report.md`, `workflow_report.html`, `workflow_log.txt`, a copy of
-`registration_metrics.db`, a folder for each group with its summary, its preview, a copy of its master and the master
-it replaced, and the report's previews. `history` keeps the newest runs while it holds 20 runs or fewer and 5 GiB or
+A run's folder under `history`, named by its date and time to the millisecond, can hold:
+
+| File or folder | Holds |
+| --- | --- |
+| `workflow_manifest.json` | The plan and the results |
+| `workflow_report.html` | The report, which shows the pictures under `report_previews` |
+| `workflow_report.json` | The report as data: what **Report** and **Save As...** write the report from, and what a later run compares itself with |
+| `workflow_log.txt` | The log |
+| `registration_metrics.db` | A copy of the registration records |
+| `groups\<group>\` | The group's summary, its preview, a copy of its master and the master it replaced |
+| `report_previews\<group>\` | `master.jpg` and `detail.jpg`, a picture of each map, and `previous_master.jpg` and `previous_detail.jpg`, the pictures of the earlier run the master is compared with |
+| `report_previews\calibration\` | A small picture of each calibration master |
+
+`history` keeps the newest runs while it holds 20 runs or fewer and 5 GiB or
 less. It removes the oldest folders first, by their dates, and never the run just written. A run that cannot fit is
 archived without its master and records. The archive is a record of the run, not an export: see
 [Saving And Exporting](../../interface/saving-and-exporting.md) for the finished picture.
 
-The report holds the session notes, a summary of the run and of the frames, the equipment, the stages and their
-times, the masters, the calibration and the registration, the distortion and comet figures where they apply, every
-setting and automatic choice, the quality and weighting of the lights, a comparison with earlier runs, the completeness
-of the headers, the identities of the inputs, the failures and warnings, and an appendix with the file lists and the
-log. Its statistics are the engine's, as fractions of the display range with clipped samples left out: ASQR and SSQR
-are the mean and the sum of squares, location and scale the engine's IKSS, and Sigma and Std Dev both the population
-deviation. ISO, gain and offset read as whole numbers, and a FITS card is matched whatever its case. Its weights are
-the stack's, shown relative to the heaviest light, the photometric ones at their mean of one. The floor is counted and
-marked where the stack raised **Number of stars** or **Weighted FWHM** weights to it. The photometric floor is
-applied and not counted. The registration's star cap is
-called **Max Stars per Frame**, and the transform row says whether a polynomial is fitted over the linear model.
+[Image Integration Report](integration-report.md) goes through the report part by part. No Markdown copy of it is
+written: `workflow_report.json` is the report as data. The report holds the session notes, a summary of the run and
+of the lights, the masters one by one, a comparison with earlier runs, the calibration and the registration, the
+distortion and comet figures where they apply, the stages and their times, every setting and automatic choice, the
+equipment, the completeness of the headers, the fingerprints of the settings and the inputs, the file lists and
+the log.
+
+- Its statistics are the engine's, as fractions of the display range with clipped samples left out. The location
+  and the scale are the engine's IKSS, and the standard deviation is the population's.
+- ISO, gain and offset read as whole numbers, and a FITS card is matched whatever its case.
+- Its weights are the stack's, shown relative to the heaviest light, the photometric ones at their mean of one. The
+  floor is counted where the stack raised **Number of stars** or **Weighted FWHM** weights to it. The photometric
+  floor is applied and not counted.
+- The registration's star cap is called **Max Stars per Frame**, and the transform rows say whether a polynomial
+  is fitted over the linear model.
 
 ## How a run reuses work
 
@@ -573,8 +588,12 @@ A cancelled run left new masters
 :   The groups finished before **Cancel** were kept and archived. Read the run's archive before you run again.
 
 The report is missing after a run
-:   No group finished, the archive could not be written, or the run stopped before the report. Read the progress
-    window's log, and check that the output directory can be written.
+:   No group finished, the run only registered, the archive could not be written, or the run stopped before the
+    report. Read the progress window's log, and check that the output directory can be written.
+
+**Report** on a run's row says the report cannot be written again
+:   The run was made by an earlier version, which kept no report as data. The report that run wrote opens as it
+    is. See [Image Integration Report](integration-report.md#when-it-goes-wrong).
 
 **Multiplication Factor** changes nothing
 :   Dark optimization is on, and each light it can measure gets its own factor. The run's warnings name each dark
