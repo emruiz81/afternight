@@ -1834,6 +1834,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         c["masterPath"] = calibrationResult.masterPath;
         c["inputCount"] = calibrationResult.inputCount;
         c["result"] = calibrationResult.success ? "success" : "failed";
+        if (calibrationResult.reused)
+        {
+            c["reused"] = true;
+        }
         calibrationResultsJson.append(c);
     }
     root["calibrationGroupResults"] = calibrationResultsJson;

@@ -762,3 +762,64 @@ TEST(ReportRunFacts, WhatTheRunWroteToDiskIsStatedByKind)
     // The registration recorded registered images that are not on disk: a kind with nothing is not listed.
     EXPECT_EQ(kind(QStringLiteral("Registered lights")), nullptr);
 }
+
+// A calibration group has a result whenever its stage ran, and the result says what the stage did with it. A
+// master the stage found still valid and left as it was is reused, not made: it is stated so, it is one of the
+// run's notes, and its file is none the run wrote - though another group of the same stage was stacked.
+TEST(ReportRunFacts, ACalibrationMasterItsStageLeftAsItWasIsReusedThoughTheStageStackedAnother)
+{
+    const auto scenario = built(ReportScenarioId::FiveFilters);
+    ASSERT_TRUE(scenario.has_value());
+    WorkflowExecutor::Result result = scenario->result;
+    const auto flat = std::find_if(result.calibrationGroupResults.begin(), result.calibrationGroupResults.end(),
+                                   [](const WorkflowExecutor::Result::CalibrationGroupResult& group) {
+                                       return group.type.compare(QStringLiteral("Flat"), Qt::CaseInsensitive) == 0;
+                                   });
+    ASSERT_NE(flat, result.calibrationGroupResults.end());
+    flat->reused = true;
+    const QString key = flat->groupKey;
+
+    const ProductionReportSources production(scenario->session(), scenario->metricsDatabasePath);
+    const ReportModel model = buildReportModel(ReportModelInputs{.manifest = scenario->manifest,
+                                                                 .result = result,
+                                                                 .runDirectory = {},
+                                                                 .context = scenario->context,
+                                                                 .counters = std::nullopt},
+                                               production.sources());
+
+    int reusedFlats = 0;
+    int madeFlats = 0;
+    for (const ReportCalibrationMaster& master : model.calibrationMasters)
+    {
+        if (master.kind != ReportCalibrationKind::Flat)
+        {
+            continue;
+        }
+        if (master.key == key)
+        {
+            EXPECT_EQ(master.state, ReportCalibrationState::Reused) << master.name.toStdString();
+            ++reusedFlats;
+        }
+        else
+        {
+            EXPECT_EQ(master.state, ReportCalibrationState::Made) << master.name.toStdString();
+            ++madeFlats;
+        }
+    }
+    EXPECT_EQ(reusedFlats, 1);
+    EXPECT_EQ(madeFlats, 3);
+
+    // The run wrote the two darks and three of the four flats.
+    const auto calibration =
+        std::find_if(model.run.disk.begin(), model.run.disk.end(),
+                     [](const ReportDiskUse& use) { return use.kind == QStringLiteral("Calibration masters"); });
+    ASSERT_NE(calibration, model.run.disk.end());
+    EXPECT_EQ(calibration->files, 5);
+
+    // The bias of an earlier session and this flat are each a note.
+    EXPECT_EQ(std::count_if(model.issues.begin(), model.issues.end(),
+                            [](const ReportIssue& issue) {
+                                return issue.kind == ReportIssueKind::CalibrationMasterReused;
+                            }),
+              2);
+}

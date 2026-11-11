@@ -1509,6 +1509,46 @@ TEST(WorkflowExecutor, UsesExistingCalibrationMasterPathsInResults)
     EXPECT_EQ(result.generatedBiasMasters.front(), QFileInfo(existingMasterPath).absoluteFilePath());
 }
 
+// A calibration group has a result whenever its stage ran. The stage names the groups whose master it found still
+// valid, and each group's result says which the stage did: stacked the master, or left it as it was.
+TEST(WorkflowExecutor, ACalibrationGroupsResultSaysWhetherItsStageLeftTheMasterAsItWas)
+{
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = dir.path();
+    manifest.stageSequence = {QStringLiteral("Bias")};
+
+    WorkflowManifest::CalibrationStage biasStage;
+    biasStage.frameType = QStringLiteral("BIAS");
+    const auto groupOf = [&dir](const QString& name) {
+        WorkflowManifest::CalibrationStage::Group group;
+        group.groupKey = GroupKey{QStringLiteral("bias|%1").arg(name)};
+        group.outputFilename = QStringLiteral("master_bias_%1.fit").arg(name);
+        group.inputFiles = {FrameId(writeFrame(dir.path(), group.outputFilename, 4, 4, "Bias"))};
+        return group;
+    };
+    const WorkflowManifest::CalibrationStage::Group kept = groupOf(QStringLiteral("kept"));
+    const WorkflowManifest::CalibrationStage::Group stacked = groupOf(QStringLiteral("stacked"));
+    biasStage.groups = {kept, stacked};
+    manifest.biasStage = biasStage;
+
+    StageResult stageResult = StageResult::success();
+    stageResult.reusedCalibrationGroups = {kept.groupKey.toString()};
+    WorkflowExecutor executor;
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("Bias"), WorkflowStage::Bias, stageResult));
+
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+    ASSERT_TRUE(result.success) << result.errorMessage.toStdString();
+    ASSERT_EQ(result.calibrationGroupResults.size(), 2u);
+    for (const WorkflowExecutor::Result::CalibrationGroupResult& group : result.calibrationGroupResults)
+    {
+        EXPECT_TRUE(group.success) << group.groupKey.toStdString();
+        EXPECT_EQ(group.reused, group.groupKey == kept.groupKey.toString()) << group.groupKey.toStdString();
+    }
+}
+
 TEST(WorkflowExecutor, ContinuesAfterPartialSuccessAndCollectsErrors)
 {
     WorkflowExecutor executor;
