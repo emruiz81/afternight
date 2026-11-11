@@ -1,7 +1,7 @@
 # The Image Integration report
 
 How a run of `ImageIntegrationProcess` reports itself: when a report is written, what it is built from, the model
-a report is stated in, how its values are printed, and the runs its suites are held to. The code is under
+a report is stated in, how its values are printed, how its charts are drawn, and the runs its suites are held to. The code is under
 `src/AfterNightProcesses/processes/ImageIntegration/reporting/`, the archive that calls it in
 `workflow/WorkflowArchiver.cpp`, and the suites in `src/AfterNightTests/Test_ImageIntegration/reporting/`.
 
@@ -420,6 +420,91 @@ hash appended where two keys collide), and the two are never derived from each o
 `WorkflowReportBuilder` still prints durations and sizes through its own `formatDuration` and `formatFileSize`, whose
 output its suite holds to the character.
 
+## The charts
+
+`ReportCharts.h` draws the report's charts: a function per chart, from plain series to one inline `svg` element.
+The functions read no run and no report model - a caller hands each the values, the texts and the tips it is to
+draw - so a chart can be drawn, tested and looked at on its own. Nothing but their suite calls them yet: the report
+a run writes has no charts until its document is written from the model.
+
+| Function | Draws |
+| --- | --- |
+| `conditionsChart` | Each measure of every light against the time it was taken: a row of panels per measure, a column per night on one clock axis, a band of time per group. Past four nights, or when a light states no time, one column in capture order (`conditionsLayout` says which). |
+| `segmentedBar` | The lights of a run as one bar, a segment per state that has lights. |
+| `rangeChart` | The range, the middle half and the median of one measure, a row per group (`chartRange` gives the five figures). |
+| `scatterChart` | One measure against another, a mark per light. |
+| `distributionChart` | How many lights lie in each range of a measure (`chartBins` counts them). |
+| `frameMeasureChart` | Several measures over one master's lights in capture order, in one SVG: a layer per measure and one set of hover bands for all of them. |
+| `ditherChart` | Where each light sat against its registration reference, on a square plot, a shape per night. |
+| `sampleDistributionChart` | The spread of a master's samples on a logarithmic axis, a panel per channel, from the model's `ReportSampleDistribution`. |
+| `coverageBar` | The least, the median and the most lights per pixel, on one bar from zero. |
+| `cellBar` | A figure's share of its best or of its ideal, small enough for a table cell. |
+| `timelineChart` | The stages of a run on one time axis, each with its state's icon. |
+| `barsChart` | Plain bars from one baseline, a value at each bar's end. |
+| `runsChart` | One figure over the runs of an output folder, a column per run. |
+| `chartLegend` | What a chart's marks mean. The one function that returns HTML: a legend must wrap as text does. |
+
+The rules every chart keeps, and why:
+
+- **A chart is drawn when the report is written.** The document then shows it with no script and from no network,
+  and a report sent to someone else is the same report.
+- **A chart says no word of its own.** Titles, labels and tips arrive in its input, so the report's words are made
+  in one place, in one translation context. The only texts a chart makes are the numbers on its axes.
+- **A chart names no colour.** Its marks carry classes and the report's stylesheet colours them, so one document
+  reads in the light theme, the dark one and in print. The markup holds no colour literal and no `style`
+  attribute; a case fails on either.
+- **A state is never told by colour alone.** A light the stacks left out is a cross whose class names its state
+  (`s-user`, `s-registration`, `s-stack`, `s-restack`, `s-notstacked`), a night of a dither chart is one of four
+  shapes as well as one of two colours, and a stage's state is an icon of its own shape.
+- **Ticks are round numbers that span the data** (`chartTicks`): multiples of 1, 2, 2.5 or 5 times a power of ten,
+  from the last at or under the lowest value to the first at or over the highest. A count's axis is whole numbers,
+  a clock's whole hours, the timeline's the round times a clock is read in.
+- **A value that is not a number is left out, never drawn at zero.** It breaks a line, has no mark, and takes no
+  part in a scale. A light left out that states no value of a measure still carries its cross, on the axis, so it
+  is seen at its time.
+- **Nothing to draw is said.** A chart with no value is a short SVG of class `is-empty` holding the sentence its
+  description gives for that case; a measure no light states is a layer that says the same.
+- **A tip is one attribute.** An element a reader can point at carries `data-tip`: the heading, then the lines,
+  separated by line feeds. A chart of lights has one transparent band or circle per light for it; a bar, a row, a
+  bin and a column can also be reached with the keyboard (`tabindex`).
+- **A dense chart keeps its markup small.** With more than 300 lights (`kChartDenseAbove`) a chart draws its lines
+  and its crosses and neither a mark nor a hover band per light; a scatter and a dither chart draw all the marks of
+  a series as one path. A cross then carries its light's tip itself. The values are in the report's tables either
+  way.
+- **The markup is well-formed XML that is valid inside an HTML document**, which is how the suite reads it back:
+  attributes quoted, text escaped, a character XML forbids replaced by U+FFFD. An SVG element with no content is
+  closed in its own tag, which HTML allows inside `svg` and nowhere else.
+- **The same input is the same markup.** No counter and no clock is read. The one id a chart defines, the gradient
+  under a master's lines, is named after the id its caller gives it (the master's slug), so a report rendered again
+  from its model does not change and two charts of a document never share an id.
+- **A width is the size the chart is meant to be read at.** Lengths and font sizes are in the units of the
+  `viewBox`, so a chart shown narrower than its width shrinks its text with it. A wide chart belongs in a container
+  that scrolls sideways on a phone instead.
+
+The frame measure chart is one SVG so that a master's lights are written once: layer `n` is a group of class
+`c-layer c-layer-n` with its own axis, and the hover bands, whose tips state every measure of a light, are shared.
+The stylesheet shows one layer at a time; a radio button per layer switches between them with no script, and print
+shows the first.
+
+### Looking at the charts
+
+`ReportChartSamples.h` holds series for every chart - the lights of an invented session of five filters over two
+nights, with every state a light can end in - and a page that shows each chart on them, with the cases a report
+meets: one night, six nights, 2,000 lights, a colour master, a run that stopped, nothing to draw. The page is
+written by an opt-in case:
+
+```text
+set AFTERNIGHT_WRITE_REPORT_SAMPLES=<folder>
+Test_ImageIntegration.exe --gtest_filter=ReportChartSamples.*
+```
+
+It writes `report_charts.html`, which opens from disk, follows the reader's theme and takes `?theme=light` or
+`?theme=dark`. Its stylesheet is a stand-in for the report's own, which is not written yet: it gives each class the
+charts use a rule, and states its two themes' colours as values (`standInThemes`). A case holds every class a chart
+emits to a rule of that stylesheet, and another holds the colours' contrast on the surfaces a chart sits on, a
+card and the page, in both themes: 3:1 or more for what a mark is drawn in (the two series, the status colours,
+the grey of a light the user left out) and 4.5:1 or more for what text is written in.
+
 ## The suites, and the runs they build
 
 `Test_ImageIntegration` holds the report in `reporting/`:
@@ -437,6 +522,9 @@ output its suite holds to the character.
   scenario. It goes when the Markdown report does.
 - `ReportScenariosTest.cpp` - the scenarios themselves: each holds what it says it holds, is archived by the
   product's archiver, and builds a report.
+- `ReportChartsTest.cpp` - each chart, read back from the SVG it returns: a mark per value, a cross per light left
+  out, a tip per mark, round ticks that span the data, and what a chart does with nothing, one value, equal values
+  and a value that is not a number. Its series are in `ReportChartSamples.h` ("Looking at the charts").
 
 `ReportScenarios.h` is where a suite gets a run from. `buildReportScenario(id)` writes one whole run under a
 temporary directory the scenario owns - the masters and the lights through the neutral FITS writer, the metrics
