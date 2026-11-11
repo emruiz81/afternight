@@ -1921,3 +1921,35 @@ TEST_F(ReportHtmlWriterTest, NoFigureOfTheRunIsPrintedTwiceOutsideItsHome)
         }
     }
 }
+
+// One figure has one name. The summary and the comparison with earlier runs say "Effective frames", so a master's
+// stack does too: two names would read as two figures.
+TEST_F(ReportHtmlWriterTest, TheEffectiveFramesHaveOneNameWhereverTheyArePrinted)
+{
+    for (const ReportScenarioId id : reportedScenarios())
+    {
+        SCOPED_TRACE(scenarioName(id));
+        const Rendered* report = reportOf(id);
+        ASSERT_NE(report, nullptr);
+        for (const ParsedDocument* parsed : {&report->linkedParsed, &report->embeddedParsed})
+        {
+            for (const DocumentTextRun& run : parsed->runs)
+            {
+                EXPECT_FALSE(run.text.contains(QStringLiteral("effective light"), Qt::CaseInsensitive))
+                    << run.text.toStdString();
+            }
+        }
+    }
+
+    const Rendered* report = reportOf(ReportScenarioId::FiveFilters);
+    ASSERT_NE(report, nullptr);
+    const auto luminance =
+        std::find_if(report->model.masters.begin(), report->model.masters.end(), [](const ReportMaster& master) {
+            return master.filter == QStringLiteral("Luminance") && master.kind == ReportMasterKind::Stack;
+        });
+    ASSERT_NE(luminance, report->model.masters.end());
+    ASSERT_TRUE(luminance->stack.has_value());
+    const DocumentElement* stack = one(report->linkedParsed, fileAnchor(*luminance) + QStringLiteral("-stack"));
+    ASSERT_NE(stack, nullptr);
+    EXPECT_TRUE(stack->text.contains(QStringLiteral("Effective frames"))) << stack->text.left(400).toStdString();
+}

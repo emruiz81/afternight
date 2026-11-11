@@ -542,7 +542,7 @@ void writeStackFacts(ReportMarkup& out, const ReportDocumentContext& context, co
     if (stack.inputFrames > 0)
     {
         facts.push_back(
-            {documentText("Effective lights"),
+            {documentText("Effective frames"),
              documentText("%1 of %2")
                  .arg(formatFigure(stack.effectiveFrames), formatCount(static_cast<qint64>(stack.inputFrames))),
              documentText("How many lights of equal weight and no rejection would give the same noise.")});
