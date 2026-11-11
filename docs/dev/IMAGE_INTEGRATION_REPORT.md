@@ -28,7 +28,8 @@ results, the groups the run reused, the timings, the counters, the warnings and 
 `workflow_report.html`, `workflow_log.txt`, a snapshot of `registration_metrics.db` when the run's payloads are
 retained, `groups/<group>/` (a summary, a thumbnail, a copy of the master and the one it replaced),
 `report_previews/<group>/` and `report_previews/calibration/`. No Markdown is written: the model's JSON is the
-companion that states the report as data, and nothing read the Markdown but the renderer.
+companion that states the report as data. The document is written as HTML directly, so the product holds no
+Markdown renderer and links no Markdown library: one library less to build, deploy and credit.
 
 The history keeps 20 runs and 5 GiB (`ImageIntegrationConstants.h`); a run whose masters do not fit is archived
 without them, and each master's result says so (`OutputRetentionStatus`). That decision is taken before the
@@ -980,8 +981,6 @@ so it keeps its size where a narrower window gives it the whole width.
   copy of itself, each change listed once, the runs of the folder, and the header's earlier figures. The three
   document suites take a scenario's report from `ReportRenderedScenarios.h`, which archives each scenario once and
   reads the model its archive keeps.
-- `MarkdownHtmlRendererTest.cpp` - the stylesheet of the Markdown renderer, which no report is written through any
-  more.
 - `ReportSamplesTest.cpp` - writes every scenario's report where a person or the render tool can open it; skipped
   unless asked ("Looking at a report").
 

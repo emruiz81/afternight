@@ -4333,7 +4333,6 @@ sources AfterNightWorkflowDriver
     link     AfterNightConsumerRuntime
     external kddockwidgets
     external tbb
-    external cmark
     qt       core gui widgets sql
 
 # The integration workflow's suite, linked against the processes library: the model, the frame import over the engine's
@@ -4481,7 +4480,6 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_full_workflow.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_stacking_defaults.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_ug60_real_data.cpp
-    unit     src/AfterNightTests/Test_ImageIntegration/reporting/MarkdownHtmlRendererTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportFormatTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenarios.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenariosTest.cpp
@@ -4745,7 +4743,6 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/ProjectManager.h
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/RegistrationMetricsRepository.h
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/SessionDocument.h
-    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/MarkdownHtmlRenderer.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportFormat.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModel.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModelBuilder.h
@@ -4808,7 +4805,6 @@ sources Test_ImageIntegration
     link     AfterNightConsumerRuntime
     external kddockwidgets
     external tbb
-    external cmark
     qt       core gui widgets sql testlib
 
 # The process framework suite, linked against the processes and Controls libraries: the extension manager, host manager,

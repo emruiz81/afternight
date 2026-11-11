@@ -46,7 +46,6 @@ vcpkg install opencv4[dnn,eigen,ipp,jpeg,nonfree,openexr,png,tbb,tiff,webp] --tr
 vcpkg install sqlite3 --triplet=%AFTERNIGHT_VCPKG_TRIPLET% --vcpkg-root=.\ || exit /b 1
 vcpkg install crashpad --triplet=%AFTERNIGHT_VCPKG_TRIPLET% --vcpkg-root=.\ || exit /b 1
 vcpkg install gtest --triplet=%AFTERNIGHT_VCPKG_TRIPLET% --vcpkg-root=.\ || exit /b 1
-vcpkg install cmark-gfm --triplet=%AFTERNIGHT_VCPKG_TRIPLET% --vcpkg-root=.\ || exit /b 1
 vcpkg install eigen3 --triplet=%AFTERNIGHT_VCPKG_TRIPLET% --vcpkg-root=.\ || exit /b 1
 vcpkg install fmt --triplet=%AFTERNIGHT_VCPKG_TRIPLET% --vcpkg-root=.\ || exit /b 1
 vcpkg install nlohmann-json --triplet=%AFTERNIGHT_VCPKG_TRIPLET% --vcpkg-root=.\ || exit /b 1

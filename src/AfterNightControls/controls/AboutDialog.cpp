@@ -31,12 +31,6 @@
 #include <kddockwidgets/kddockwidgets_version.h>
 #endif
 
-#if __has_include(<cmark-gfm_version.h>)
-#include <cmark-gfm_version.h>
-#elif __has_include(<cmark_version.h>)
-#include <cmark_version.h>
-#endif
-
 W_OBJECT_IMPL(AboutDialog)
 
 namespace
@@ -87,17 +81,6 @@ std::string querySqliteVersion()
 
     QSqlDatabase::removeDatabase(connectionName);
     return version.toStdString();
-}
-
-std::string getMarkdownBackendVersion()
-{
-#ifdef CMARK_GFM_VERSION_STRING
-    return CMARK_GFM_VERSION_STRING;
-#elif defined(CMARK_VERSION_STRING)
-    return CMARK_VERSION_STRING;
-#else
-    return {};
-#endif
 }
 
 QString toCssColor(const QColor& color)
@@ -433,7 +416,6 @@ QString AboutDialog::getLibrariesText() const
     const std::string kddockwidgetsVersion = getKDDockWidgetsVersion();
     const std::string sqliteVersion = querySqliteVersion();
     const std::string crashpadVersion;
-    const std::string cmarkVersion = getMarkdownBackendVersion();
 
     const auto sv = [](const std::string& v) {
         const QString q = QString::fromStdString(v).trimmed();
@@ -476,8 +458,6 @@ QString AboutDialog::getLibrariesText() const
 
     s << "### Runtime & Diagnostics\n\n";
     s << "- [Crashpad](https://chromium.googlesource.com/crashpad/crashpad/) — `" << sv(crashpadVersion) << "`\n";
-    s << "- [cmark-gfm](https://github.com/github/cmark-gfm) / [cmark](https://github.com/commonmark/cmark) — `"
-      << sv(cmarkVersion) << "`\n";
 
     return md;
 }

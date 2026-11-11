@@ -362,8 +362,6 @@ end
             windows_release = { "zstd.lib" }, windows_debug = { "zstd.lib" },
             linux_release = { "-lzstd" }, linux_debug = { "-lzstd" }
         },
-        -- cmark-gfm and its extensions, which render the integration report's Markdown as HTML: a shared library from
-        -- vcpkg on Windows, linked statically on Linux as the Controls library links it.
         -- The bundled interpreter, for a suite that starts it as the full extension host does and reads the runtime
         -- backend's session capsule through it: its headers and its import library, from the deployed runtime's trees.
         python = {
@@ -373,12 +371,6 @@ end
             linux_libdirs = { "../../python/python/tools_linux/lib" },
             windows_release = { "python314.lib" }, windows_debug = { "python314.lib" },
             linux_release = { "-lpython3.14", "-ldl" }, linux_debug = { "-lpython3.14", "-ldl" }
-        },
-        cmark = {
-            windows_release = { "cmark-gfm.lib", "cmark-gfm-extensions.lib" },
-            windows_debug = { "cmark-gfm.lib", "cmark-gfm-extensions.lib" },
-            linux_release = { "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic" },
-            linux_debug = { "-Wl,-Bstatic", "-lcmark-gfm-extensions", "-lcmark-gfm", "-Wl,-Bdynamic" }
         }
     }
 

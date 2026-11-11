@@ -178,7 +178,7 @@ controls:
     kind: action
     default: ""
     effect: Opens a window with the word Version and the version's number, or `dev` for a build that states none, and three tabs.
-    range: "**About** describes the project. **Libraries** lists Qt, KDDockWidgets and SQLite, then the engine with its version and the libraries it reports - Exiv2, FFmpeg, FFTW, GNU Scientific Library, Highway, libjpeg-turbo, libpng, LibRaw, LibTIFF, JSON for Modern C++, oneTBB, OpenFITS and OpenXISF among them - each with the version it was built against, and the one loaded when they differ, then Crashpad and cmark-gfm. It notes that the extension host runs Python and that G'MIC is reached through an optional adapter. **License** gives the licences and the notes on derived work."
+    range: "**About** describes the project. **Libraries** lists Qt, KDDockWidgets and SQLite, then the engine with its version and the libraries it reports - Exiv2, FFmpeg, FFTW, GNU Scientific Library, Highway, libjpeg-turbo, libpng, LibRaw, LibTIFF, JSON for Modern C++, oneTBB, OpenFITS and OpenXISF among them - each with the version it was built against, and the one loaded when they differ, then Crashpad. It notes that the extension host runs Python and that G'MIC is reached through an optional adapter. **License** gives the licences and the notes on derived work."
     note: The Dashboard's About button opens the same window. Nothing in it uses the network.
   - name: System Information
     kind: action

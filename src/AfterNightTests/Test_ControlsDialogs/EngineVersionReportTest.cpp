@@ -155,6 +155,27 @@ TEST_F(VersionDialogsTest, TheAboutDialogShowsTheProductsVersionTheEngineAndTheE
     EXPECT_TRUE(libraries.contains(QStringLiteral("Python and G'MIC are not part of the engine")));
 }
 
+// The Libraries text credits what the product links. The integration report is written as HTML directly, so the
+// product links no Markdown renderer and the text names none.
+TEST_F(VersionDialogsTest, TheLibrariesNameNoMarkdownLibrary)
+{
+    AboutDialog dialog;
+
+    QString libraries;
+    for (QTextBrowser* browser : dialog.findChildren<QTextBrowser*>())
+    {
+        const QString text = browser->toPlainText();
+        if (text.contains(QStringLiteral("Third")))
+        {
+            libraries = text;
+        }
+    }
+    ASSERT_FALSE(libraries.isEmpty());
+    EXPECT_TRUE(libraries.contains(QStringLiteral("Crashpad"))) << libraries.toStdString();
+    EXPECT_FALSE(libraries.contains(QStringLiteral("cmark"), Qt::CaseInsensitive)) << libraries.toStdString();
+    EXPECT_FALSE(libraries.contains(QStringLiteral("Markdown"), Qt::CaseInsensitive)) << libraries.toStdString();
+}
+
 TEST_F(VersionDialogsTest, TheSystemInformationListsTheProductsVersionTheEngineAndItsLibraries)
 {
     const StatedVersion stated(QStringLiteral("3.2.1"));

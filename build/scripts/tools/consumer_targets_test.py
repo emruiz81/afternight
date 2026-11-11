@@ -484,12 +484,12 @@ class SourceListTest(PlantedCase):
         listing = targets.read_registry(self.root).sources['Test_SystemInformationPanel']
         self.assertEqual(listing.externals, ('kddockwidgets',))
 
-    # The integration report's Markdown renderer links cmark-gfm, which the factory knows by name too.
-    def test_the_markdown_renderer_is_an_external_the_factory_knows(self) -> None:
+    # The integration report is written as HTML directly, so no suite links a Markdown renderer and the factory knows
+    # none: a source list that still names one is refused, and the names the factory knows are these and no other.
+    def test_a_markdown_renderer_is_no_external_the_factory_knows(self) -> None:
+        self.assertEqual(targets.KNOWN_EXTERNALS, ('kddockwidgets', 'python', 'sodium', 'tbb', 'zstd'))
         self.sources += '    external cmark\n'
-        self.assertEqual(self.findings(), [])
-        listing = targets.read_registry(self.root).sources['Test_SystemInformationPanel']
-        self.assertEqual(listing.externals, ('cmark',))
+        self.assertFinding("links the external library 'cmark', which the isolated factory does not know")
 
     # The extension manager's cases sign and compress the repository assets they install, through libsodium and zstd.
     def test_the_signing_and_compression_libraries_are_externals_the_factory_knows(self) -> None:

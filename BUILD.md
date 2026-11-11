@@ -234,7 +234,7 @@ engine uses, with versions, sources and licences.
 | FFTW (single precision), GSL | Phase correlation, and one distribution function |
 | G'MIC | The G'MIC-backed processes, through an optional adapter |
 | SQLite, through Qt's driver | Project state and the application's databases |
-| nlohmann-json, spdlog, cmark-gfm, libsodium | Documents, logging, report rendering and extension package signatures |
+| nlohmann-json, spdlog, libsodium | Documents, logging and extension package signatures |
 | Crashpad | Local crash dumps |
 | Google Test | The test suites |
 | Python 3.14.7 | The extension hosts and runtime backend |
