@@ -1790,7 +1790,8 @@ public:
             SummaryTab::tr("Run History\n\n"
                            "Last Execution: The most recent integration run for this output directory.\n"
                            "Archived: A previous run preserved in the project history.\n\n"
-                           "Tip: Hover an entry for details; use the action buttons to open, view report, or re-run.");
+                           "Tip: Hover an entry for details; use the action buttons to open, view the report, "
+                           "save it as one file, or re-run.");
         if (ui.lblRunHistoryTitle)
         {
             ui.lblRunHistoryTitle->setToolTip(runHistoryHelp);
@@ -1847,6 +1848,15 @@ public:
                 an::ui::openLocalFile(path);
             }
         });
+
+        QObject::connect(historyDelegate, &WorkflowHistoryDelegate::saveReportRequested,
+                         [this](const QModelIndex& index) {
+                             const QString runDir = index.data(WorkflowHistoryModel::RunDirPathRole).toString();
+                             if (!runDir.isEmpty())
+                             {
+                                 emit q->saveReportAsOneFileRequested(runDir);
+                             }
+                         });
 
         QObject::connect(historyDelegate, &WorkflowHistoryDelegate::logRequested, [this](const QModelIndex& index) {
             QString path = index.data(WorkflowHistoryModel::LogPathRole).toString();

@@ -14,22 +14,70 @@ executor commits that archive.
 | Step | Where | What happens |
 | --- | --- | --- |
 | Commit | `WorkflowExecutor.cpp` (the `commitArchive` lambda) | The executor builds an `IWorkflowRunArchive` from its archive factory and calls `commit(manifest, result, capturePhase)`. A run is committed when it succeeded, or when it stopped with at least one successful group. A run that failed or was cancelled before any master was made puts its staged files back and writes no archive and no report. |
-| Whether | `shouldGenerateWorkflowReport` (`WorkflowArchiver.cpp`) | A registration-only run or scope gets no report. |
+| Whether | `runHasWorkflowReport` (`WorkflowArchiver.h`) | A registration-only run or scope gets no report. |
 | Previews | `WorkflowArchiver::commit` | `report_previews/<group>/master.jpg` and `detail.jpg` from the pictures the stacking stage prepared from the master it held in memory (`IntegrationGroupResult::reportPreviewJpeg`, `reportDetailJpeg`); when none was prepared and the archiver has a session, one read of the file gives both. The rejection and quality maps get `rejection_map_N.jpg` and `quality_map_N.jpg`. A master the run reused takes its two pictures from the archive of the run that made it, or from one read of its file; each calibration master gets `report_previews/calibration/<master>.jpg`. See "The pictures". |
-| Build | `WorkflowReportBuilder::build()` | The sections are appended to one Markdown text. The builder opens the run's `registration_metrics.db`, probes each light's header, reads each master once to measure it, and reads the session notes and the previous run's archive. |
-| Render | `MarkdownHtmlRenderer` | The Markdown becomes `workflow_report.html`, with a stylesheet made from the application's design tokens inlined. |
-| Finish | `WorkflowArchiver::finalizeTimingArtifacts`, `finalizeLogArtifact` | The executor calls the first after the commit, once the final counters and the engine's memory figures exist, and the second with the final log. The report's own time is one of its figures, so the stored documents carry tokens until then. |
-| Open | `WorkflowProgressDialogV2`, `WorkflowHistoryModel` | The progress dialog opens `Result::htmlReportPath`; the history list prefers `workflow_report.html` and falls back to `workflow_report.md`. |
-| Rebuild | `SummaryTab::exportReportRequested`, handled in `ImageIntegrationProcess.cpp` | The history row's report action rebuilds both documents in the run's folder from its archive, on the thread pool, and opens the result. |
+| Build | `buildReportModel` (`ReportModelBuilder.h`), called by `WorkflowArchiver::commit` | The report model is built once, here, through `ProductionReportSources`: the output folder's `registration_metrics.db`, each light's header, one read of each master, the session notes and the reports the earlier runs' archives keep. |
+| Store | `storeWorkflowReport` (`WorkflowReport.h`) | The pictures of the earlier runs the masters are compared with are copied into the run's folder, then the model is written as `workflow_report.json` and the document from it as `workflow_report.html`. The archiver keeps the model. |
+| Finish | `WorkflowArchiver::finalizeTimingArtifacts`, `finalizeLogArtifact` | The executor calls the first after the commit, once the run's final timings, its final counters and the engine's memory figures exist, and the second with the final log. Each states what it brings on the kept model and stores the report again ("The figures are final because the report is stored again"). |
+| Open | `WorkflowProgressDialogV2`, `WorkflowHistoryModel` | The progress dialog opens `Result::htmlReportPath`, which is `CommitOutcome::reportPath`; the history list offers `workflow_report.html`. |
+| Write again | `SummaryTab::exportReportRequested`, `ImageIntegrationProcess::showRunReport` | The history row's report action writes the document again from the model the archive keeps, on the thread pool, and opens it (`rerenderWorkflowReport`). |
+| Save as one file | `SummaryTab::saveReportAsOneFileRequested`, `ImageIntegrationProcess::saveReportAsOneFile` | The history row's Save As action asks for a path and writes the embedded form there from the model the archive keeps, on the thread pool (`saveWorkflowReportAsOneFile`). |
 
 A run's archive holds `workflow_manifest.json` (the manifest, the stage, calibration, alignment and integration group
-results, the groups the run reused, the timings, the counters, the warnings and errors), `workflow_report.md`,
+results, the groups the run reused, the timings, the counters, the warnings and errors), `workflow_report.json`,
 `workflow_report.html`, `workflow_log.txt`, a snapshot of `registration_metrics.db` when the run's payloads are
 retained, `groups/<group>/` (a summary, a thumbnail, a copy of the master and the one it replaced),
-`report_previews/<group>/` and `report_previews/calibration/`. The history keeps 20 runs and 5 GiB
-(`ImageIntegrationConstants.h`); a run whose masters do not fit is archived without them, and each master's result
-says so (`OutputRetentionStatus`). The pictures are written before the run's size is measured, so that decision
-counts them.
+`report_previews/<group>/` and `report_previews/calibration/`. No Markdown is written: the model's JSON is the
+companion that states the report as data, and nothing read the Markdown but the renderer.
+
+The history keeps 20 runs and 5 GiB (`ImageIntegrationConstants.h`); a run whose masters do not fit is archived
+without them, and each master's result says so (`OutputRetentionStatus`). That decision is taken before the
+manifest, the log and the report are written, so that a payload is never copied into the history and then found
+not to fit. The pictures are written before the run's size is measured, so the decision counts them as they are;
+what is written afterwards it bounds (`estimatedArchiveMetadataBytes`):
+
+- the manifest's, the results' and the log's own bytes, each three times, since the model and the document state
+  the run's words once more each;
+- for the report, `kReportArchiveBaseBytes`, `kReportArchiveBytesPerLight` for each light and
+  `kReportArchiveBytesPerMaster` for each master, which are twice what the largest reports the suites write
+  measure: 965 KiB for a run of 174 lights and six masters, 3.0 MiB for a run of 2,000 lights in one group;
+- for each master the run made, the largest pair of pictures an earlier run of the folder keeps of it, since the
+  report copies the pair of the run each master is compared with.
+
+`WorkflowArchiverReport.TheBoundOnWhatAnArchiveWritesLastHoldsWhatEveryScenarioWrites` holds the bound above what
+every scenario's archive then holds of those files, and prints both.
+
+### The figures are final because the report is stored again
+
+A run knows three things only after its archive is committed: the executor's own phases and its total, which
+include the time the archive and the report themselves took; the diagnostics as they stood at the end, with what the
+engine counted of its memory; and the log to its last line. So the archiver keeps the model it built, and the two
+final steps state those on it and store the report again - `restateRunCompletion` and `restateRunArchive` after the
+commit, `restateRunLog` last (`ReportModelBuilder.h`). `restateRunArchive` adds what the run's own folder in the
+history holds on disk, which is whole only then. Nothing else of the model changes: it is built of a run once.
+
+A report is therefore never a text with figures put into it afterwards, and the stored model, the document and
+the manifest state the same final figures. Storing again is cheap, since it reads no image: a picture already
+copied is left as it is, and stands when the history has dropped the run it came from in between.
+
+A report that cannot be written does not fail a commit: the run's outputs and its history are what a commit is
+for. The reason is logged, the commit names no report, and the final steps write what they can.
+
+### A report written again, and saved as one file
+
+After the commit a report is only ever written from the model the archive keeps. `rerenderWorkflowReport(runDir)`
+writes the linked document again, and `saveWorkflowReportAsOneFile(runDir, destination)` the embedded one, to a
+path the person picks. Neither builds anything of a run. An archive that keeps no stored report, or one of another
+format, is refused in the reader's words ("The stored document") and nothing is written; the window shows the
+refusal in a message titled as the action, and for the report action opens the report file the folder already
+holds, as it was written, if there is one. No archive and no record of an earlier version is read: an archive
+written before the report was stored has a report file like any other file, and no report the application can
+write.
+
+A linked report links the report of each earlier run of its folder. The history drops its oldest runs, so a link
+is made only to a report that is there when the document is written: `storeWorkflowReport` and
+`rerenderWorkflowReport` take a link to a report that is gone out of the model they write from. The run stays
+listed. A report opened from disk without being written again may still hold a link to a run dropped since.
 
 ## What a report is built from
 
@@ -128,28 +176,25 @@ did not picture, no picture of a reused master whose maker is gone from the hist
 ## The report model
 
 `reporting/ReportModel.h` holds everything a report states as plain structures, and
-`buildReportModel(inputs, sources)` (`ReportModelBuilder.h`) fills one from a run. No run writes anything from it yet:
-the Markdown report above is still what a run writes, and the model is built beside it by the suites. It exists
-first because of what the Markdown cannot give:
+`buildReportModel(inputs, sources)` (`ReportModelBuilder.h`) fills one from a run. Everything a run writes of its
+report is written from it. It exists because of what a report held only as text cannot give:
 
-- **One structure, filled once.** A report used to exist only as text. Its suites could assert nothing but
-  substrings, its timings had to be substituted into finished text, and a second output would have meant a second
-  pass over that text. The model is filled once from the run's records; a document, the stored model and the suites
-  all read it.
-- **The model is a document of its own.** `ReportModelJson` writes it as the JSON a run's archive is to keep as
-  `workflow_report.json`, under the format number `kReportSchema`. A later run can then compare itself with an
-  earlier one without reading an image again, a newer application can write an older run's report again, and a
-  suite asserts on structure instead of bytes.
+- **One structure, filled once.** A report that exists only as text gives its suites nothing to assert but
+  substrings, needs its timings substituted into finished text, and makes a second output a second pass over that
+  text. The model is filled once from the run's records; the document, the stored model and the suites all read it.
+- **The model is a document of its own.** `ReportModelJson` writes it as the JSON a run's archive keeps as
+  `workflow_report.json`, under the format number `kReportSchema`. A later run compares itself with an earlier one
+  without reading an image again, the report is written again and saved as one file without building anything, and
+  a suite asserts on structure instead of bytes.
 - **Settings belong to groups.** The manifest holds a `StackingSettings` per calibration group and per integration
   group, a `RegistrationSettings` per registration group and a `CalibrationSettings` per light; only the
   execution, the plate solve and the colour combination are stated once. The model holds them the same way - on
   each `ReportCalibrationMaster`, `ReportRegistrationGroup` and `ReportMaster`, with `ReportRun::settings` for the
   rest - so "the same for every group" is something a writer finds, never something the model assumes.
-- **No figure comes from the log.** The Markdown reads three figures out of the run's log by regular expression,
-  and a change to a log line silently changed the report: the line two of them need is no longer logged. The model
-  carries the log as text (`ReportRun::log`) and reads it for nothing. `ReportModelBuilder.NoFigureIsTakenFromTheLog`
-  builds every scenario with its log, with another and with none, and holds the three models equal but for the
-  log; the three parsers stay in `WorkflowReportBuilderHelpers.h`, which only the Markdown units include.
+- **No figure comes from the log.** A figure read out of the run's log by a regular expression changes silently
+  when a log line does. The model carries the log as text (`ReportRun::log`) and reads it for nothing.
+  `ReportModelBuilder.NoFigureIsTakenFromTheLog` builds every scenario with its log, with another and with none,
+  and holds the three models equal but for the log.
 
 ### What the model holds
 
@@ -172,9 +217,9 @@ first because of what the Markdown cannot give:
 | `ReportComparison` | The run against the latest earlier run of the folder that completed: both runs' totals, the settings that differ in the groups both have and how many were compared, the groups only one has, the frames each shared group gained and lost, and the earlier run's version and fingerprints |
 | `ReportHistoryEntry` | One earlier run of the folder, oldest first: when it was archived, how it ended, its lights, integration and masters, the noise it stated of this run's first master, and its report as a link; or, for an archive that keeps no report this version reads, its id and why |
 
-The model states more than the Markdown report does: each light's fate, the lights the user left out, the issues,
-the spread of a master's samples, the calibration masters' levels and pictures, a master's detail, the lineage,
-what changed since an earlier run, the runs of the folder and what it could not state.
+Beyond a run's totals and each master's figures the model states each light's fate, the lights the user left out,
+the issues, the spread of a master's samples, the calibration masters' levels and pictures, a master's detail, the
+lineage, what changed since an earlier run, the runs of the folder and what it could not state.
 
 ### What the builder reads through
 
@@ -216,9 +261,8 @@ measured, and the issues read everything.
 
 `facts/ReportFacts.h` is private to the reporting units. It declares those functions and every function that reads
 a fact out of a run's records - an exposure breakdown, a target's name, a transform's name, a light's weight, the
-fingerprint. The Markdown builder calls the same ones: a function that reads a fact has one home, and
-`WorkflowReportBuilderHelpers.h` keeps only what prints. The fingerprint is `computeReproducibilityFingerprint` in
-`RunFacts.cpp`, which both reports state.
+fingerprint. A function that reads a fact has one home. The fingerprint is `computeReproducibilityFingerprint` in
+`RunFacts.cpp`.
 
 Rules the builder keeps:
 
@@ -260,10 +304,10 @@ Rules the builder keeps:
   `QCoreApplication::translate` under the context `ImageIntegrationReport`. No translation ships: a report reads in
   English.
 
-Where the model and the Markdown differ, the model is the one that follows the records. The Markdown counts every
-group with no result as reused, a run that stopped included, and counts a combined colour image among the masters
-made but not among the groups; it counts the lights of the groups alone, without the ones the user left out; and it
-prints "n/a" for the figures it reads from the log.
+- **A master's file is where the run wrote it.** The model is built of the run as the archive holds it - each
+  master's archived thumbnail and maps, and whether the history keeps a copy of it (`ReportMaster::retention`) - but
+  each master is named by its path in the output folder, which is where the person finds it. The archive's own
+  manifest names the copy under `groups/`.
 
 ### The stored document
 
@@ -384,8 +428,7 @@ and each severity in the order below; then every string of `Result::errors` and 
 | `OutputNotRetainedByPolicy` | The history had no room for a copy of a master | Note |
 | `RunMessage` | Every warning and error of the run | Warning, Critical |
 
-The three ratios are the thresholds the report always held a run to, on figures the records define: the Markdown
-report read them out of a log line the stage no longer writes.
+The three ratios are thresholds on figures the records define, never on a line of the log.
 
 ### What a model costs
 
@@ -398,14 +441,14 @@ the four masters' statistics and 1.6 the twelve calibration masters, where measu
 took 11.6 seconds on their own. A calibration master an earlier run of the folder measured is not read again while
 its file is the same, once that run's archive keeps its report.
 
-`ReportRealRun.WhatBuildingTheModelOfARealRunCosts` prints these figures for the run whose folder under `history/`
-the variable `AFTERNIGHT_REPORT_REAL_RUN` names, and is skipped without it.
+A run states what its own report cost: the executor times the report phase apart from the archive's, and the
+report prints it among the run's phases (`ReportExecutorTiming::reportMs`), so the cost on a real run is read from
+that run's report. Storing a report again costs no image read.
 
 ## A run beside the earlier runs of its folder
 
-A report compares a run with the runs archived before it in the same output folder (`facts/ComparisonFacts.cpp`).
-The Markdown report states five deltas against the previous successful run, measured again from that run's
-masters. The model states more, and reads less.
+A report compares a run with the runs archived before it in the same output folder (`facts/ComparisonFacts.cpp`),
+from the reports their archives keep: no master of an earlier run is measured again.
 
 - **Each master is compared with the latest earlier run that made it**, by its group's key, and not with "the
   previous run": an incremental run makes only some masters again, and a run that found a master still valid made
@@ -488,15 +531,11 @@ key. Two keys never share a slug - the second gets a number - and a key keeps th
 names anchors only: a group's folder in the archive keeps the name the archiver gave it (`sanitizeFilename`, with a
 hash appended where two keys collide), and the two are never derived from each other.
 
-`WorkflowReportBuilder` still prints durations and sizes through its own `formatDuration` and `formatFileSize`, whose
-output its suite holds to the character.
-
 ## The charts
 
 `ReportCharts.h` draws the report's charts: a function per chart, from plain series to one inline `svg` element.
 The functions read no run and no report model - a caller hands each the values, the texts and the tips it is to
-draw - so a chart can be drawn, tested and looked at on its own. The document's summary draws six of them ("The
-document"); the report a run writes is still the Markdown one, which has none.
+draw - so a chart can be drawn, tested and looked at on its own. The document's parts draw them ("The document").
 
 | Function | Draws |
 | --- | --- |
@@ -577,9 +616,8 @@ their contrast, are the document's ("The style").
 ## The document
 
 `ReportHtmlWriter.h` writes a report as one HTML file from its model: `writeReportDocument(model, options)` returns
-the document, and `writeWorkflowReport` (`WorkflowReport.h`) writes it to a file. No run calls either yet: the report
-a run writes is still the Markdown one, and the document is written by the suites, which is how it can be looked at
-before it replaces anything. It has the header and its six parts.
+the document, and `writeWorkflowReport` (`WorkflowReport.h`) writes it to a file. It is the report a run writes,
+through `storeWorkflowReport`. It has the header and its six parts.
 
 | Unit (`reporting/`) | Holds |
 | --- | --- |
@@ -601,9 +639,8 @@ before it replaces anything. It has the header and its six parts.
 
 The document is written so that an XML parser reads it and a browser shows it. That is what lets the suite read a
 report back with `QXmlStreamReader` and assert on its structure - an id that exists once, a link that lands, a
-table's cells against the model - instead of matching substrings of its bytes, which is all the Markdown report's
-suite could do. The XML parse proves half of it; the rules below and the browsers of the render tool prove the
-other.
+table's cells against the model - instead of matching substrings of its bytes. The XML parse proves half of it;
+the rules below and the browsers of the render tool prove the other.
 
 `ReportMarkup` keeps the rules, so no part can break them by hand: a part opens and closes elements by name and
 hands over text, and what the rules forbid is refused and named in the document's `faults` rather than written.
@@ -802,7 +839,8 @@ One writer writes two forms, which differ only in what `ReportAssets` answers:
 
 Two forms rather than one because a run's own report should stay small and keep its full-size pictures one click
 away, and a report meant to be sent must open from an empty folder. The embedded form is an action on a run, not a
-setting: it works for a run archived earlier, and it is never written into `history/`, whose size is bounded.
+setting - the history row's Save As button, "Save Report As One File" - so it works for any run whose archive keeps
+its report, and it is never written into `history/`, whose size is bounded.
 
 A case holds the linked form to pictures that are in the run's folder, the embedded one to no `src` but a `data:`
 address and no `href` but one inside the document, and both to their sizes: the linked form within 400 KB and
@@ -843,7 +881,8 @@ are lost, and so no product logic runs in a browser. A case holds the file free 
 
 ### Looking at a report
 
-An opt-in case writes every scenario's report in both forms, with its stored model:
+An opt-in case writes every scenario's report in both forms, with its stored model, as the product's archiver
+left them in the run's folder:
 
 ```text
 set AFTERNIGHT_WRITE_REPORT_SAMPLES=<folder>
@@ -900,9 +939,14 @@ so it keeps its size where a narrower window gives it the whole width.
 
 ## The suites, and the runs they build
 
-`Test_ImageIntegration` holds the report in `reporting/`:
+`Test_ImageIntegration` holds the report in `reporting/`, and what the archiver does with it in `workflow/`:
 
-- `test_workflow_report_builder.cpp` - the report's sections, figures and previews, asserted on the Markdown.
+- `workflow/WorkflowArchiverReportTest.cpp` - the report a run's archive holds: the two files however a run that
+  made a master ended, the final figures and the whole log stated in both after the two final steps, a run
+  archived with no session, a report that cannot be written, the report written again and saved as one file from
+  the stored model or refused by name, a run the history dropped listed without a link, and the bound on what an
+  archive writes last. `workflow/test_workflow_archiver.cpp` reads each figure it archives back from the stored
+  model.
 - `ReportFormatTest.cpp` - every form of the table above, with its edges.
 - `ReportModelBuilderTest.cpp` - what the model states of the run, the masters, the calibration and the
   registration.
@@ -916,10 +960,8 @@ so it keeps its size where a narrower window gives it the whole width.
   the three refusals by name, and the runs of a folder listed with no image of an earlier run read.
 - `ReportModelJsonTest.cpp` - the stored document: every scenario's model and one with every kind of value survive
   it, and what a reader refuses and ignores.
-- `ReportModelParityTest.cpp` - the model beside the Markdown of the same run, figure by figure, for every
-  scenario. It goes when the Markdown report does.
 - `ReportScenariosTest.cpp` - the scenarios themselves: each holds what it says it holds, is archived by the
-  product's archiver, and builds a report.
+  product's archiver, and is given its report by it.
 - `ReportChartsTest.cpp` - each chart, read back from the SVG it returns: a mark per value, a cross per light left
   out, a tip per mark, round ticks that span the data, and what a chart does with nothing, one value, equal values
   and a value that is not a number. Its series are in `ReportChartSamples.h` ("Looking at the charts").
@@ -936,8 +978,10 @@ so it keeps its size where a narrower window gives it the whole width.
   no earlier run, each master beside its baseline with both runs' pictures and figures, a change for the better or
   the worse said in words, the side-by-side form, the detail only where both runs have one, a run compared with a
   copy of itself, each change listed once, the runs of the folder, and the header's earlier figures. The three
-  document suites take a scenario's report from `ReportRenderedScenarios.h`, which builds each once and stores it
-  in the run's folder as a run stores it.
+  document suites take a scenario's report from `ReportRenderedScenarios.h`, which archives each scenario once and
+  reads the model its archive keeps.
+- `MarkdownHtmlRendererTest.cpp` - the stylesheet of the Markdown renderer, which no report is written through any
+  more.
 - `ReportSamplesTest.cpp` - writes every scenario's report where a person or the render tool can open it; skipped
   unless asked ("Looking at a report").
 
@@ -946,9 +990,10 @@ temporary directory the scenario owns - the masters and the lights through the n
 database through the product's `RegistrationMetricsWriter`, the earlier runs of the folder through the product's
 `WorkflowArchiver` - and returns its manifest, its result, the archive's context, the session to read it in and the
 figures it was built to hold (`ReportScenarioFacts`). `archiveScenarioRun` commits the scenario's own run as the
-executor does, and `storeScenarioReport` stores its report in the archive as a run stores it once it is committed.
-An earlier run of a scenario keeps its report, as a run of this version does, unless the scenario says it is an
-archive an earlier version left. The same header holds the file helpers the report's suites share: the session,
+executor does, stating the time, the place and the version the scenario's context states
+(`WorkflowArchiver::setArchiveStamp`), so the archive holds the run's report as a run stores it. An earlier run of
+a scenario keeps its report, as a run of this version does, unless the scenario says it is an archive an earlier
+version left. The same header holds the file helpers the report's suites share: the session,
 the master and light writers, the bare metrics table and an archived run's manifest.
 `ReportModelTestSupport.h` builds a scenario's model through the product's sources and looks a master, a block
 or a row up by name.

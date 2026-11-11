@@ -110,6 +110,19 @@ public:
     /// partway may already have written registration records.
     void refreshAfterRun();
 
+    /// Writes a run's report again from the model its archive keeps, on the thread pool, and opens it. An archive
+    /// that keeps no such model is told so in a message, and the report file it already holds is opened as it is.
+    ///
+    /// @param runDir the run's folder under the output directory's `history/`.
+    void showRunReport(const QString& runDir);
+
+    /// Writes a run's report as one file that opens on its own, on the thread pool, and names a failure in a message
+    /// titled as the action.
+    ///
+    /// @param runDir the run's folder under the output directory's `history/`.
+    /// @param destination the file to write.
+    void saveReportAsOneFile(const QString& runDir, const QString& destination);
+
 private:
     static constexpr int kFrameTabCount = 4;
     static constexpr int kLogicalTabCount = 8;
@@ -148,6 +161,7 @@ private:
     void importFolderDialog(FrameType frameType, bool forceToType, bool recursive);
     void onImportProject();
     void onExportProject();
+    void onSaveReportAsOneFile(const QString& runDir);
     void onOpenRecentProject(const QString& projectPath);
     void refreshRecentProjectsMenu();
     void persistRecentProjects();
