@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/ImageIntegrationReport">
+        <file>report.css</file>
+        <file>report.js</file>
+    </qresource>
+</RCC>

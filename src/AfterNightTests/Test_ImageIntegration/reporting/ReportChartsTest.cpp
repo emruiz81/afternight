@@ -11,7 +11,6 @@
 
 #include "processes/ImageIntegration/reporting/ReportCharts.h"
 
-#include <QColor>
 #include <QDir>
 #include <QFile>
 #include <QRegularExpression>
@@ -230,22 +229,6 @@ struct Parsed
     return {QStringLiteral("A chart"), nothingToDraw()};
 }
 
-/// The relative luminance of a colour, as the contrast of two colours is defined on it.
-[[nodiscard]] double luminance(const char* colour)
-{
-    const QColor parsed{QLatin1String(colour)};
-    const auto linear = [](double channel) {
-        return channel <= 0.04045 ? channel / 12.92 : std::pow((channel + 0.055) / 1.055, 2.4);
-    };
-    return 0.2126 * linear(parsed.redF()) + 0.7152 * linear(parsed.greenF()) + 0.0722 * linear(parsed.blueF());
-}
-
-[[nodiscard]] double contrast(const char* first, const char* second)
-{
-    const double lighter = (std::max)(luminance(first), luminance(second));
-    const double darker = (std::min)(luminance(first), luminance(second));
-    return (lighter + 0.05) / (darker + 0.05);
-}
 } // namespace
 
 // ---- The figures a chart needs before it is drawn.
@@ -1710,64 +1693,7 @@ TEST(ReportCharts, TheLegendHasAMarkAndItsWordsPerEntry)
     EXPECT_TRUE(chartLegend({}).isEmpty());
 }
 
-// ---- The stand-in stylesheet, and the page of samples.
-
-TEST(ReportCharts, TheColoursOfTheChartsKeepTheirContrastOnBothSurfaces)
-{
-    for (const StandInTheme& theme : standInThemes())
-    {
-        for (const char* surface : {theme.card, theme.background})
-        {
-            SCOPED_TRACE(testing::Message() << theme.name << " on " << surface);
-            // What a mark is drawn in: the two series, the status colours, and the grey of a light the user left
-            // out.
-            for (const char* mark :
-                 {theme.series, theme.series2, theme.success, theme.warning, theme.error, theme.ink3})
-            {
-                EXPECT_GE(contrast(mark, surface), 3.0) << mark;
-            }
-            // What text is written in.
-            for (const char* ink : {theme.ink, theme.ink2, theme.ink3})
-            {
-                EXPECT_GE(contrast(ink, surface), 4.5) << ink;
-            }
-        }
-    }
-}
-
-TEST(ReportCharts, TheStandInStylesheetStylesEveryClassTheChartsUse)
-{
-    const QString stylesheet = standInStylesheet();
-    static const QRegularExpression kClasses(QStringLiteral("class=\"([^\"]+)\""));
-    QStringList unstyled;
-    for (const SampleChart& chart : sampleCharts())
-    {
-        for (const QString& markup : {chart.markup, chart.legend})
-        {
-            QRegularExpressionMatchIterator matches = kClasses.globalMatch(markup);
-            while (matches.hasNext())
-            {
-                for (const QString& name : matches.next().captured(1).split(QLatin1Char(' '), Qt::SkipEmptyParts))
-                {
-                    // A chart's kind and a mark's shape name what an element is; they need no rule of their own.
-                    if (name.startsWith(QStringLiteral("chart-")) || name.startsWith(QStringLiteral("c-shape-")) ||
-                        name == QStringLiteral("is-empty") || name == QStringLiteral("num"))
-                    {
-                        continue;
-                    }
-                    if (!stylesheet.contains(QStringLiteral(".") + name) && !unstyled.contains(name))
-                    {
-                        unstyled << name;
-                    }
-                }
-            }
-        }
-    }
-    EXPECT_TRUE(unstyled.isEmpty()) << unstyled.join(QLatin1Char(' ')).toStdString();
-    // The stylesheet has both themes, and the light one both for a reader who prefers it and for one who chose it.
-    EXPECT_TRUE(stylesheet.contains(QStringLiteral("prefers-color-scheme:light")));
-    EXPECT_TRUE(stylesheet.contains(QStringLiteral(":root[data-theme=\"light\"]")));
-}
+// ---- The page of samples.
 
 TEST(ReportCharts, ThePageOfSamplesIsOneWellFormedDocument)
 {

@@ -610,13 +610,20 @@ QString reportVerdict(const ReportOutcome outcome, const ReportGroupCounts& grou
     case ReportOutcome::Cancelled:
         return reportText("The run was cancelled after %1 of its %2 masters were made.").arg(made, total);
     case ReportOutcome::Failed:
-        return reportText("The run failed before any of its %1 masters was made.").arg(total);
+        return groups.total == 1 ? reportText("The run failed before its master was made.")
+                                 : reportText("The run failed before any of its %1 masters was made.").arg(total);
     case ReportOutcome::Partial:
         return reportText("The run made %1 of its %2 masters; %3 failed and %4 were not reached.")
             .arg(made, total, QString::number(groups.failed), QString::number(groups.notReached));
     case ReportOutcome::CompletedWithWarnings:
     case ReportOutcome::Completed:
         break;
+    }
+    // A run of one master is said of that master: "all 1 of its masters" is not how a person says it.
+    if (groups.total == 1)
+    {
+        return groups.reused > 0 ? reportText("The run's master was still valid, so it was not made again.")
+                                 : reportText("The run made its master.");
     }
     if (groups.made == 0 && groups.reused > 0)
     {
