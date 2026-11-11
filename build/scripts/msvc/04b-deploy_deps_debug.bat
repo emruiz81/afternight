@@ -56,8 +56,6 @@ xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\libx264-164.dll ..\..\..
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\aom.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\libwebpmux.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\swresample-6.dll ..\..\..\bin\msvc\debug\ || exit /b 1
-xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\cmark-gfm.dll ..\..\..\bin\msvc\debug\ || exit /b 1
-xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\cmark-gfm-extensions.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\x64-windows\debug\bin\libvpld.dll ..\..\..\bin\msvc\debug\ || exit /b 1
 
 echo ****************Deploying crashpad_handler****************

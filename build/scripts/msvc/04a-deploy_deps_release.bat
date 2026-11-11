@@ -58,8 +58,6 @@ xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\libx264-164.dll
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\aom.dll ..\..\..\bin\msvc\release\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\libwebpmux.dll ..\..\..\bin\msvc\release\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\swresample-6.dll ..\..\..\bin\msvc\release\ || exit /b 1
-xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\cmark-gfm.dll ..\..\..\bin\msvc\release\ || exit /b 1
-xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\cmark-gfm-extensions.dll ..\..\..\bin\msvc\release\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\libvpl.dll ..\..\..\bin\msvc\release\ || exit /b 1
 
 echo ****************Deploying crashpad_handler****************
