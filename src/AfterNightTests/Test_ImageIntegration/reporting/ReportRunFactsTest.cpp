@@ -367,8 +367,11 @@ TEST(ReportRunFacts, AReusedMasterStatesWhatTheRunThatMadeItStatedWhenTheHistory
     ASSERT_EQ(scenario->earlierRunDirectories.size(), 1);
     const QString earlierRun = QFileInfo(scenario->earlierRunDirectories.front()).fileName();
 
-    // The earlier run's archive keeps no report model: each reused master is read once, and the model says what it
-    // cannot state of it.
+    // An earlier run whose archive keeps no report model: each reused master is read once, and the model says what
+    // it cannot state of it.
+    const QString storedReport =
+        QDir(scenario->earlierRunDirectories.front()).filePath(QStringLiteral("workflow_report.json"));
+    ASSERT_TRUE(QFile::remove(storedReport)) << "the earlier run stored its report, as a run does";
     const CountedBuild fromFiles = buildCounting(*scenario, scenario->runDirectory);
     EXPECT_EQ(fromFiles.reads.size(),
               scenario->facts.mastersMade + scenario->facts.mastersReused + scenario->facts.calibrationMasters);

@@ -756,12 +756,14 @@ template <> struct Fields<ReportBaseline>
         v("archivedAt", s.archivedAt);
         v("made", s.made);
         v("frames", s.frames);
+        v("framesTaken", s.framesTaken);
         v("integrationMs", s.integrationMs);
         v("backgroundNoise", s.backgroundNoise);
         v("snr", s.snr);
         v("fwhm", s.fwhm);
         v("effectiveFrames", s.effectiveFrames);
         v("rejectedFraction", s.rejectedFraction);
+        v("sideBySide", s.sideBySide);
         v("preview", s.preview);
         v("detail", s.detail);
     }
@@ -1309,6 +1311,9 @@ template <> struct Fields<ReportRunTotals>
     {
         v("frames", s.frames);
         v("integrationMs", s.integrationMs);
+        v("framesUsed", s.framesUsed);
+        v("integratedMs", s.integratedMs);
+        v("masters", s.masters);
         v("outputBytes", s.outputBytes);
         v("snr", s.snr);
         v("overlapRetained", s.overlapRetained);
@@ -1324,9 +1329,23 @@ template <> struct Fields<ReportSettingChange>
         v("stage", s.stage);
         v("groupKey", s.groupKey);
         v("group", s.group);
+        v("block", s.block);
         v("name", s.name);
         v("before", s.before);
         v("after", s.after);
+    }
+};
+
+template <> struct Fields<ReportGroupChange>
+{
+    using Described = void;
+
+    template <class V, class S> static void visit(V& v, S& s)
+    {
+        v("stage", s.stage);
+        v("groupKey", s.groupKey);
+        v("group", s.group);
+        v("added", s.added);
     }
 };
 
@@ -1336,6 +1355,7 @@ template <> struct Fields<ReportInputChange>
 
     template <class V, class S> static void visit(V& v, S& s)
     {
+        v("stage", s.stage);
         v("groupKey", s.groupKey);
         v("group", s.group);
         v("added", s.added);
@@ -1354,6 +1374,8 @@ template <> struct Fields<ReportComparison>
         v("current", s.current);
         v("previous", s.previous);
         v("settingsChanged", s.settingsChanged);
+        v("settingsCompared", s.settingsCompared);
+        v("groupsChanged", s.groupsChanged);
         v("inputsChanged", s.inputsChanged);
         v("previousApplicationVersion", s.previousApplicationVersion);
         v("previousFingerprint", s.previousFingerprint);
@@ -1369,6 +1391,7 @@ template <> struct Fields<ReportHistoryEntry>
     template <class V, class S> static void visit(V& v, S& s)
     {
         v("runId", s.runId);
+        v("refusal", s.refusal);
         v("archivedAt", s.archivedAt);
         v("outcome", s.outcome);
         v("framesUsed", s.framesUsed);

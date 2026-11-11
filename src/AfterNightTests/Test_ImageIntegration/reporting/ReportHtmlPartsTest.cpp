@@ -292,7 +292,7 @@ TEST_F(ReportHtmlWriterTest, TheLaterPartsAndTheirBlocksAreThereExactlyWhenTheRu
         const auto count = [&parsed](const char* anchor) { return parsed.withId(QLatin1String(anchor)).size(); };
         const auto when = [](const bool present) { return present ? 1u : 0u; };
 
-        // The parts, in their order. The comparison with earlier runs is not written yet.
+        // The parts, in their order.
         QStringList parts;
         for (const DocumentElement* part : parsed.ofClass("part"))
         {
@@ -300,7 +300,7 @@ TEST_F(ReportHtmlWriterTest, TheLaterPartsAndTheirBlocksAreThereExactlyWhenTheRu
             EXPECT_EQ(part->name, QStringLiteral("section"));
         }
         const bool shared = !model.calibrationMasters.empty() || !model.registrationGroups.empty();
-        QStringList expected = {QStringLiteral("summary"), QStringLiteral("masters")};
+        QStringList expected = {QStringLiteral("summary"), QStringLiteral("masters"), QStringLiteral("earlier")};
         if (shared)
         {
             expected << QStringLiteral("shared");

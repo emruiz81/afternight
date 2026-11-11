@@ -7,8 +7,8 @@
 // page error, a picture that did not load, a page wider than the window, content that spills out of its card, a
 // link that leads nowhere or does not land, a control that does nothing (the theme toggle, a chart's measure
 // switch, the switch between a master's picture and its maps, a sortable table, a folded section a link leads
-// into, a comparison's divider), a tip that does not show, a serious or critical accessibility finding, and a print
-// render that is not light or leaves a section folded.
+// into, a comparison's divider, its switch between masters and its switch to the detail), a tip that does not show,
+// a serious or critical accessibility finding, and a print render that is not light or leaves a section folded.
 //
 // The report's suite (Test_ImageIntegration, ReportHtmlWriterTest) reads the document back as XML and proves its
 // structure; this proves what a reader sees, in the browsers people open a report with, from file://.
@@ -16,9 +16,11 @@
 // The samples are written by the suite:
 //   set AFTERNIGHT_WRITE_REPORT_SAMPLES=<folder>
 //   Test_ImageIntegration.exe --gtest_filter=ReportSamples.*
-// Each scenario gets a folder there: workflow_report.html beside its report_previews/ (the linked form), and
-// workflow_report.single.html (the embedded form), which this tool copies alone into an empty folder before it
-// opens it, since that is how a report sent to someone arrives.
+// Each scenario gets a folder there, laid out as an output folder's history is: history/<run>/ for the run reported
+// and for each earlier run it is compared with, each holding workflow_report.html beside its report_previews/ (the
+// linked form). The run reported - the latest - also holds workflow_report.single.html (the embedded form), which
+// this tool copies alone into an empty folder before it opens it, since that is how a report sent to someone
+// arrives. A folder that holds the two reports itself, with no history/, is taken as it is.
 //
 // Setup: the Node packages and the browsers of build/scripts/render_user_guide.cjs, in the same folder outside the
 // repository (see that script's header): playwright-core and axe-core under %TEMP%\afternight-guide-render, with
@@ -174,6 +176,22 @@ function axeSource() {
   return fs.readFileSync(path.join(path.dirname(packageJson), "axe.min.js"), "utf8");
 }
 
+// The folder of the run a sample reports: the latest run of its history/ that holds a report, or the sample's own
+// folder when the reports lie in it. Null when the sample holds no report.
+function reportedRun(sample) {
+  const history = path.join(sample, "history");
+  if (fs.existsSync(history) && fs.statSync(history).isDirectory()) {
+    const runs = fs.readdirSync(history, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(history, entry.name, LINKED_NAME)))
+      .map((entry) => entry.name)
+      .sort();
+    if (runs.length > 0) {
+      return path.join(history, runs[runs.length - 1]);
+    }
+  }
+  return fs.existsSync(path.join(sample, LINKED_NAME)) ? sample : null;
+}
+
 // The documents to open: each scenario's linked report where it lies, and its embedded one copied alone into an
 // empty folder of its own.
 function sampleDocuments(options, scratch) {
@@ -181,7 +199,7 @@ function sampleDocuments(options, scratch) {
     throw new UsageError(`no folder ${options.samples}`);
   }
   const present = fs.readdirSync(options.samples, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(options.samples, entry.name, LINKED_NAME)))
+    .filter((entry) => entry.isDirectory() && reportedRun(path.join(options.samples, entry.name)) !== null)
     .map((entry) => entry.name)
     .sort();
   let scenarios = present;
@@ -198,7 +216,7 @@ function sampleDocuments(options, scratch) {
   }
   const documents = [];
   for (const scenario of scenarios) {
-    const folder = path.join(options.samples, scenario);
+    const folder = reportedRun(path.join(options.samples, scenario));
     if (options.forms.includes("linked")) {
       documents.push({ scenario, form: "linked", file: path.join(folder, LINKED_NAME), folder });
     }
@@ -481,6 +499,62 @@ async function exercise(tab, width) {
     }
   }
 
+  // A comparison of several masters: picking the second shows it and hides the first, and picking the first again
+  // brings it back.
+  const compared = tab.locator(".cmp").filter({ has: tab.locator(".masters label:nth-child(2)") });
+  if (await compared.count() > 0) {
+    const comparison = compared.first();
+    const shown = () => comparison.evaluate((element) => ({
+      first: getComputedStyle(element.querySelector(".cmpitem-0")).display,
+      second: getComputedStyle(element.querySelector(".cmpitem-1")).display
+    }));
+    await comparison.locator(".masters label:nth-child(2)").click();
+    const picked = await shown();
+    if (picked.first !== "none" || picked.second === "none") {
+      failures.push(`a comparison's switch between masters did nothing (masters ${picked.first}, ${picked.second})`);
+    }
+    await comparison.locator(".masters label:nth-child(1)").click();
+    const back = await shown();
+    if (back.first === "none" || back.second !== "none") {
+      failures.push("a comparison's switch between masters did not come back to the first master");
+    }
+  }
+
+  // A comparison with a detail: the switch shows the detail of both runs in the place of the whole frames, at a
+  // size, and shows the whole frames again.
+  const detailed = tab.locator(".cmp").filter({ has: tab.locator(".zooms label:nth-child(2)") });
+  if (await detailed.count() > 0) {
+    const comparison = detailed.first();
+    // The master the detail is tried on is the first that has one, picked as a reader would pick it.
+    const place = await comparison.evaluate((element) => Array.from(element.querySelectorAll(".cmpitem"))
+      .findIndex((item) => item.querySelector(".has-detail")));
+    const masters = comparison.locator(".masters label");
+    if (await masters.count() > place && place >= 0) {
+      await masters.nth(place).click();
+    }
+    const views = () => comparison.evaluate((element, index) => {
+      const pair = element.querySelectorAll(".cmpitem")[index].querySelector(".has-detail");
+      const visible = (selector) => Array.from(pair.querySelectorAll(selector))
+        .filter((picture) => getComputedStyle(picture).display !== "none").length;
+      return { whole: visible(".whole"), detail: visible(".detail"), height: pair.getBoundingClientRect().height };
+    }, place);
+    await comparison.locator(".zooms label:nth-child(2)").click();
+    const zoomed = await views();
+    if (zoomed.whole !== 0 || zoomed.detail !== 2 || zoomed.height < 20) {
+      failures.push(`a comparison's switch to the detail did nothing (whole ${zoomed.whole}, detail ${zoomed.detail}, `
+        + `${Math.round(zoomed.height)} px high)`);
+    }
+    await comparison.locator(".zooms label:nth-child(1)").click();
+    const whole = await views();
+    if (whole.whole !== 2 || whole.detail !== 0 || whole.height < 20) {
+      failures.push(`a comparison's switch did not come back to the whole frame (whole ${whole.whole}, `
+        + `detail ${whole.detail})`);
+    }
+    if (await masters.count() > 0) {
+      await masters.first().click();
+    }
+  }
+
   // A link into a folded section opens it.
   const folded = await tab.evaluate(() => {
     for (const link of document.querySelectorAll('a[href^="#"]')) {
@@ -536,7 +610,10 @@ async function printed(tab, pdf) {
       layers: Array.from(document.querySelectorAll("svg.chart")).filter((chart) => {
         const layers = Array.from(chart.querySelectorAll(".c-layer"));
         return layers.length > 0 && layers.filter((layer) => getComputedStyle(layer).display !== "none").length !== 1;
-      }).length
+      }).length,
+      // Every master of a comparison is printed, not the one a switch last showed.
+      comparisons: Array.from(document.querySelectorAll(".cmpitem"))
+        .filter((item) => getComputedStyle(item).display === "none").length
     };
   });
   if (state.closed > 0) {
@@ -550,6 +627,9 @@ async function printed(tab, pdf) {
   }
   if (state.layers > 0) {
     failures.push(`print: ${state.layers} charts of several measures do not show exactly one`);
+  }
+  if (state.comparisons > 0) {
+    failures.push(`print: ${state.comparisons} masters of a comparison are not shown`);
   }
   if (pdf) {
     await tab.pdf({ path: pdf, format: "A4", printBackground: true });

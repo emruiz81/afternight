@@ -15,6 +15,9 @@
 #include "processes/ImageIntegration/core/FilenameUtils.h"
 #include "processes/ImageIntegration/core/RejectionMapUtils.h"
 #include "processes/ImageIntegration/core/StackingParamsUtils.h"
+#include "processes/ImageIntegration/reporting/ReportModelBuilder.h"
+#include "processes/ImageIntegration/reporting/ReportSources.h"
+#include "processes/ImageIntegration/reporting/WorkflowReport.h"
 #include "processes/ImageIntegration/workflow/WorkflowArchiver.h"
 #include "processes/ImageIntegration/workflow/stages/StageParsingUtils.h"
 #include "processes/core/RegistrationMetricsWriter.h"
@@ -1058,7 +1061,12 @@ public:
         writeMetricsDatabase();
         completeStages();
 
-        const QDateTime archivedUtc(QDate(2026, 3, 26), QTime(10, 12, 4, 118), QTimeZone::UTC);
+        // A run is archived when it ends: at the site, at the instant its id names.
+        const QDateTime named = QDateTime::fromString(m_manifest.executionId, QStringLiteral("yyyyMMdd_HHmmss_zzz"));
+        const QDateTime archivedUtc =
+            named.isValid()
+                ? QDateTime(named.date(), named.time(), QTimeZone::fromSecondsAheadOfUtc(kSiteUtcOffsetSeconds)).toUTC()
+                : QDateTime(QDate(2026, 3, 26), QTime(10, 12, 4, 118), QTimeZone::UTC);
         const QDateTime archivedLocal = archivedUtc.toTimeZone(QTimeZone::fromSecondsAheadOfUtc(kSiteUtcOffsetSeconds));
         QJsonObject context;
         context.insert(QStringLiteral("appVersion"), QStringLiteral("1.1.0"));
@@ -1090,7 +1098,10 @@ public:
     }
 
     /// Completes the run and archives it as the executor does, so the next run of the folder finds it in the history.
-    [[nodiscard]] bool archiveAsEarlierRun()
+    ///
+    /// @param keepsReport whether the archive keeps the run's report, as a run of this version leaves it. An archive
+    ///     without one is what an earlier version of the application left.
+    [[nodiscard]] bool archiveAsEarlierRun(const bool keepsReport = true)
     {
         completeRun();
         if (!m_usable)
@@ -1098,7 +1109,7 @@ public:
             return false;
         }
         m_scenario.m_session = m_session;
-        const bool archived = archiveScenarioRun(m_scenario);
+        const bool archived = archiveScenarioRun(m_scenario) && (!keepsReport || storeScenarioReport(m_scenario));
         m_scenario.m_session.reset();
         if (!archived)
         {
@@ -1882,7 +1893,8 @@ private:
 
 namespace
 {
-/// The lights each night gave the five filters of one target, by filter.
+/// The lights each night gave the five filters of one target, by filter. A run with no hydrogen-alpha lights has
+/// neither that group nor the camera's registration group and dark.
 struct FiveFilterNights
 {
     std::vector<int> luminance = {32, 28};
@@ -1902,6 +1914,9 @@ struct FiveFilterOutcomes
     MasterOutcome hydrogenAlpha = MasterOutcome::Made;
     bool combinedRgb = true;
     CalibrationOrigin calibration = CalibrationOrigin::Made;
+
+    /// How the broadband stacks weigh their lights.
+    QString broadbandWeighting = QStringLiteral("Weighted FWHM");
 };
 
 /// The frame size of the camera the hydrogen-alpha lights were taken with: another camera, so another registration
@@ -1918,11 +1933,15 @@ void addFiveFilterRun(ReportScenarioBuilder& builder, const FiveFilterNights& ni
     // The bias master is the one an earlier session left in the folder; the darks hold their bias.
     const FrameId bias = builder.addBias(30, CalibrationOrigin::Reused);
     const FrameId dark = builder.addDark(120.0, 20, outcomes.calibration);
-    const FrameId narrowbandDark =
-        builder.addDark(300.0, 16, outcomes.calibration, kNarrowbandWidth, kNarrowbandHeight);
+    const bool withHydrogenAlpha = !nights.hydrogenAlpha.empty();
+    const std::optional<FrameId> narrowbandDark =
+        withHydrogenAlpha ? std::optional<FrameId>(
+                                builder.addDark(300.0, 16, outcomes.calibration, kNarrowbandWidth, kNarrowbandHeight))
+                          : std::nullopt;
 
     const int broadband = builder.addRegistrationGroup(target);
-    const int narrowband = builder.addRegistrationGroup(target, {}, kNarrowbandWidth, kNarrowbandHeight);
+    const int narrowband =
+        withHydrogenAlpha ? builder.addRegistrationGroup(target, {}, kNarrowbandWidth, kNarrowbandHeight) : -1;
 
     struct Filter
     {
@@ -1954,7 +1973,7 @@ void addFiveFilterRun(ReportScenarioBuilder& builder, const FiveFilterNights& ni
         plan.flat =
             builder.addFlat(filter.name, QStringLiteral("2026-03-23"), 40, bias, std::nullopt, outcomes.calibration);
         plan.calibration.cosmeticCorrection = true;
-        plan.stacking.weighting = QStringLiteral("Weighted FWHM");
+        plan.stacking.weighting = outcomes.broadbandWeighting;
         plan.stacking.createRejectionMaps = filter.name == QStringLiteral("Luminance");
         plan.stacking.createQualityMaps = plan.stacking.createRejectionMaps;
         plan.auxiliaryMaps = plan.stacking.createRejectionMaps;
@@ -1965,25 +1984,28 @@ void addFiveFilterRun(ReportScenarioBuilder& builder, const FiveFilterNights& ni
         builder.addLightGroup(plan);
     }
 
-    LightGroupPlan hydrogenAlpha;
-    hydrogenAlpha.target = target;
-    hydrogenAlpha.filter = QStringLiteral("Ha");
-    hydrogenAlpha.width = kNarrowbandWidth;
-    hydrogenAlpha.height = kNarrowbandHeight;
-    hydrogenAlpha.exposureSeconds = 300.0;
-    hydrogenAlpha.lightsPerNight = nights.hydrogenAlpha;
-    hydrogenAlpha.nightStartMinutes = 195;
-    hydrogenAlpha.registrationGroup = narrowband;
-    hydrogenAlpha.dark = narrowbandDark;
-    hydrogenAlpha.calibration.cosmeticCorrection = true;
-    // Its own choices, where the broadband groups share theirs.
-    hydrogenAlpha.stacking.rejectionMethod = QStringLiteral("Linear Fit Clipping");
-    hydrogenAlpha.stacking.sigmaLow = 4.0;
-    hydrogenAlpha.stacking.sigmaHigh = 2.5;
-    hydrogenAlpha.outcome = outcomes.hydrogenAlpha;
-    hydrogenAlpha.seeing = 3.4;
-    hydrogenAlpha.masterLevel = 0.06;
-    builder.addLightGroup(hydrogenAlpha);
+    if (withHydrogenAlpha)
+    {
+        LightGroupPlan hydrogenAlpha;
+        hydrogenAlpha.target = target;
+        hydrogenAlpha.filter = QStringLiteral("Ha");
+        hydrogenAlpha.width = kNarrowbandWidth;
+        hydrogenAlpha.height = kNarrowbandHeight;
+        hydrogenAlpha.exposureSeconds = 300.0;
+        hydrogenAlpha.lightsPerNight = nights.hydrogenAlpha;
+        hydrogenAlpha.nightStartMinutes = 195;
+        hydrogenAlpha.registrationGroup = narrowband;
+        hydrogenAlpha.dark = narrowbandDark;
+        hydrogenAlpha.calibration.cosmeticCorrection = true;
+        // Its own choices, where the broadband groups share theirs.
+        hydrogenAlpha.stacking.rejectionMethod = QStringLiteral("Linear Fit Clipping");
+        hydrogenAlpha.stacking.sigmaLow = 4.0;
+        hydrogenAlpha.stacking.sigmaHigh = 2.5;
+        hydrogenAlpha.outcome = outcomes.hydrogenAlpha;
+        hydrogenAlpha.seeing = 3.4;
+        hydrogenAlpha.masterLevel = 0.06;
+        builder.addLightGroup(hydrogenAlpha);
+    }
 
     if (outcomes.combinedRgb)
     {
@@ -2035,6 +2057,7 @@ const std::vector<ReportScenarioId>& allReportScenarios()
         ReportScenarioId::FiveFiltersWithoutSession,
         ReportScenarioId::FiveFiltersWithoutMetrics,
         ReportScenarioId::FiveFiltersAfterEarlierRun,
+        ReportScenarioId::FiveFiltersAfterTwoEarlierRuns,
         ReportScenarioId::LiteFrontEnd,
         ReportScenarioId::FiveFiltersWithoutPayloads,
         ReportScenarioId::TwoThousandLights,
@@ -2081,6 +2104,8 @@ QString reportScenarioName(ReportScenarioId id)
         return QStringLiteral("five-filters-without-session");
     case ReportScenarioId::FiveFiltersWithoutMetrics:
         return QStringLiteral("five-filters-without-metrics");
+    case ReportScenarioId::FiveFiltersAfterTwoEarlierRuns:
+        return QStringLiteral("five-filters-after-two-earlier-runs");
     case ReportScenarioId::FiveFiltersAfterEarlierRun:
         return QStringLiteral("five-filters-after-earlier-run");
     case ReportScenarioId::LiteFrontEnd:
@@ -2180,6 +2205,53 @@ std::optional<ReportScenario> buildReportScenario(ReportScenarioId id)
         {
             return std::nullopt;
         }
+        builder.beginRun(runId);
+        addFiveFilterRun(builder);
+        break;
+    }
+
+    case ReportScenarioId::FiveFiltersAfterTwoEarlierRuns: {
+        // Six days before: the first night's broadband lights alone, stacked under another weighting.
+        FiveFilterOutcomes byNoise;
+        byNoise.broadbandWeighting = QStringLiteral("Noise");
+        builder.beginRun(QStringLiteral("20260320_074410_251"));
+        FiveFilterNights firstRun;
+        firstRun.luminance = {20};
+        firstRun.red = {14};
+        firstRun.green = {16};
+        firstRun.blue = {15};
+        firstRun.hydrogenAlpha = {};
+        addFiveFilterRun(builder, firstRun, byNoise);
+        if (!builder.archiveAsEarlierRun())
+        {
+            return std::nullopt;
+        }
+
+        // Four days before: more luminance lights of that night, so that master is made again; the red, green and
+        // blue ones are still valid, and no colour image is combined.
+        builder.beginRun(QStringLiteral("20260322_080233_907"), ExecutionMode::Incremental);
+        FiveFilterNights secondRun = firstRun;
+        secondRun.luminance = {34};
+        FiveFilterOutcomes incremental = byNoise;
+        incremental.red = MasterOutcome::Reused;
+        incremental.green = MasterOutcome::Reused;
+        incremental.blue = MasterOutcome::Reused;
+        incremental.combinedRgb = false;
+        incremental.calibration = CalibrationOrigin::Reused;
+        addFiveFilterRun(builder, secondRun, incremental);
+        if (!builder.archiveAsEarlierRun())
+        {
+            return std::nullopt;
+        }
+
+        // Two days before: a run whose archive keeps no report, as an earlier version of the application left it.
+        builder.beginRun(earlierRunId);
+        addFiveFilterRun(builder, firstRun, byNoise);
+        if (!builder.archiveAsEarlierRun(false))
+        {
+            return std::nullopt;
+        }
+
         builder.beginRun(runId);
         addFiveFilterRun(builder);
         break;
@@ -2510,6 +2582,22 @@ bool archiveScenarioRun(ReportScenario& scenario)
     }
     EXPECT_EQ(QDir::cleanPath(archived.archivePath), QDir::cleanPath(scenario.runDirectory));
     return true;
+}
+
+bool storeScenarioReport(const ReportScenario& scenario)
+{
+    using namespace ImageIntegration::Reporting;
+    const ProductionReportSources production(scenario.session(), scenario.metricsDatabasePath);
+    const ReportModel model = buildReportModel(ReportModelInputs{.manifest = scenario.manifest,
+                                                                 .result = scenario.result,
+                                                                 .runDirectory = scenario.runDirectory,
+                                                                 .context = scenario.context,
+                                                                 .counters = std::nullopt},
+                                               production.sources());
+    const WorkflowReportStored stored = storeWorkflowReport(model, scenario.runDirectory);
+    EXPECT_TRUE(stored.isStored()) << stored.error.toStdString();
+    EXPECT_TRUE(stored.picturesNotCopied.isEmpty()) << stored.picturesNotCopied.join(QLatin1Char('\n')).toStdString();
+    return stored.isStored();
 }
 
 } // namespace an::tests::integration::report

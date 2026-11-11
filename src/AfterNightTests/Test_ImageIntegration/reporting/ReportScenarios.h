@@ -176,6 +176,13 @@ enum class ReportScenarioId
     /// archives a run.
     FiveFiltersAfterEarlierRun,
 
+    /// The five filters after three earlier runs of the same folder: a full run of the first night's broadband
+    /// lights under another weighting, with no hydrogen-alpha; an incremental run that made the luminance master
+    /// again from more lights and found the red, green and blue ones still valid; and a run whose archive keeps no
+    /// report, as an earlier version of the application left it. Each master of the last run has an earlier run of
+    /// its own to be compared with, or none.
+    FiveFiltersAfterTwoEarlierRuns,
+
     /// One mono master from the Lite front end.
     LiteFrontEnd,
 
@@ -278,7 +285,8 @@ struct ReportScenario
     /// The run's metrics database; empty when the run has none.
     QString metricsDatabasePath;
 
-    /// The earlier runs archived in the output folder, oldest first.
+    /// The earlier runs archived in the output folder, oldest first. Each keeps its report, as a run of this
+    /// version does, unless the scenario says otherwise.
     QStringList earlierRunDirectories;
 
     /// Whether the executor archives the run: it does not for a run that stopped before any master was made.
@@ -325,5 +333,14 @@ private:
 ///
 /// @return whether the run was archived.
 [[nodiscard]] bool archiveScenarioRun(ReportScenario& scenario);
+
+/// Stores the report of a scenario's archived run in its folder, as a run stores it once it is committed: the report
+/// model built in the scenario's session from its metrics database, written as `workflow_report.json` beside the
+/// linked document, with the pictures of the earlier runs its masters are compared with. Fails the running case
+/// when the report cannot be stored.
+///
+/// @param scenario a scenario whose run `archiveScenarioRun` archived.
+/// @return whether the report was stored.
+[[nodiscard]] bool storeScenarioReport(const ReportScenario& scenario);
 
 } // namespace an::tests::integration::report

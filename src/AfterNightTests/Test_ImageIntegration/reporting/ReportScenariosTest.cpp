@@ -100,7 +100,7 @@ TEST(ReportScenarios, EveryScenarioHasANameOfItsOwn)
         EXPECT_FALSE(names.contains(name)) << name.toStdString() << " names two scenarios";
         names.insert(name);
     }
-    EXPECT_EQ(names.size(), 23);
+    EXPECT_EQ(names.size(), 24);
 }
 
 TEST(ReportScenarios, EveryScenarioHoldsWhatItSaysItHolds)
@@ -500,6 +500,8 @@ TEST(ReportScenarios, AnEarlierRunIsInTheHistoryBeforeTheScenariosOwn)
     EXPECT_TRUE(QFileInfo::exists(QDir(earlier).filePath(QStringLiteral("workflow_log.txt"))));
     EXPECT_TRUE(QFileInfo::exists(QDir(earlier).filePath(QStringLiteral("registration_metrics.db"))));
     EXPECT_FALSE(QDir(QDir(earlier).filePath(QStringLiteral("report_previews"))).isEmpty());
+    // It keeps its report, as a run does: the model a later run compares itself with.
+    EXPECT_TRUE(QFileInfo::exists(QDir(earlier).filePath(QStringLiteral("workflow_report.json"))));
 
     // It stacked the first night alone: 87 lights where the scenario's run takes 174.
     const WorkflowManifest earlierManifest =
@@ -513,6 +515,82 @@ TEST(ReportScenarios, AnEarlierRunIsInTheHistoryBeforeTheScenariosOwn)
     ASSERT_EQ(before.size(), 14u);
     ASSERT_EQ(after.size(), 30u);
     for (std::size_t light = 0; light < before.size(); ++light)
+    {
+        EXPECT_EQ(before[light], after[light]);
+    }
+}
+
+TEST(ReportScenarios, AFolderOfThreeEarlierRunsHoldsARunOfItsOwnForEachMasterToBeComparedWith)
+{
+    const std::optional<ReportScenario> scenario =
+        buildReportScenario(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_EQ(scenario->earlierRunDirectories.size(), 3);
+    EXPECT_EQ(scenario->facts.lightsTaken, 174);
+    EXPECT_EQ(scenario->facts.mastersMade, 6);
+
+    QStringList names;
+    for (const QString& directory : scenario->earlierRunDirectories)
+    {
+        names << QFileInfo(directory).fileName();
+        EXPECT_EQ(QFileInfo(directory).dir().dirName(), QStringLiteral("history"));
+        EXPECT_LT(QFileInfo(directory).fileName(), QFileInfo(scenario->runDirectory).fileName());
+    }
+    QStringList sorted = names;
+    sorted.sort();
+    EXPECT_EQ(names, sorted) << "oldest first";
+
+    // The first: a full run of the first night's broadband lights, weighed by noise, with its colour image and no
+    // hydrogen-alpha.
+    const QJsonObject first = archivedManifestRoot(scenario->earlierRunDirectories.at(0));
+    const WorkflowManifest firstManifest =
+        WorkflowManifest::fromJson(first.value(QStringLiteral("manifest")).toObject());
+    EXPECT_EQ(firstManifest.executionMode, ExecutionMode::Full);
+    EXPECT_EQ(firstManifest.integrationGroups.size(), 4u);
+    EXPECT_EQ(firstManifest.registrationGroups.size(), 1u);
+    EXPECT_TRUE(lightsOf(firstManifest, QStringLiteral("Ha")).empty());
+    EXPECT_EQ(lightsOf(firstManifest, QStringLiteral("Luminance")).size(), 20u);
+    EXPECT_EQ(first.value(QStringLiteral("integrationGroupResults")).toArray().size(), 5);
+    for (const WorkflowManifest::IntegrationGroup& group : firstManifest.integrationGroups)
+    {
+        EXPECT_EQ(group.stacking.weighting, QStringLiteral("Noise")) << group.filter.toStdString();
+    }
+
+    // The second: an incremental run that made the luminance master again from more lights of that night and
+    // found the red, green and blue ones still valid.
+    const QJsonObject second = archivedManifestRoot(scenario->earlierRunDirectories.at(1));
+    const WorkflowManifest secondManifest =
+        WorkflowManifest::fromJson(second.value(QStringLiteral("manifest")).toObject());
+    EXPECT_EQ(secondManifest.executionMode, ExecutionMode::Incremental);
+    EXPECT_EQ(lightsOf(secondManifest, QStringLiteral("Luminance")).size(), 34u);
+    EXPECT_EQ(second.value(QStringLiteral("integrationGroupResults")).toArray().size(), 1);
+    EXPECT_EQ(second.value(QStringLiteral("reusedIntegrationGroups")).toArray().size(), 3);
+    EXPECT_EQ(lightsOf(secondManifest, QStringLiteral("Red")), lightsOf(firstManifest, QStringLiteral("Red")));
+
+    // Both keep their reports; the third is an archive as an earlier version left it, with none.
+    for (int index = 0; index < 3; ++index)
+    {
+        EXPECT_EQ(QFileInfo::exists(
+                      QDir(scenario->earlierRunDirectories.at(index)).filePath(QStringLiteral("workflow_report.json"))),
+                  index < 2)
+            << index;
+        EXPECT_TRUE(QFileInfo::exists(
+            QDir(scenario->earlierRunDirectories.at(index)).filePath(QStringLiteral("workflow_manifest.json"))));
+    }
+
+    // The scenario's own run weighs by star width and takes 32 of the second run's 34 luminance lights, with the
+    // second night's 28.
+    for (const WorkflowManifest::IntegrationGroup& group : scenario->manifest.integrationGroups)
+    {
+        if (group.filter != QStringLiteral("Ha"))
+        {
+            EXPECT_EQ(group.stacking.weighting, QStringLiteral("Weighted FWHM")) << group.filter.toStdString();
+        }
+    }
+    const std::vector<FrameId> before = lightsOf(secondManifest, QStringLiteral("Luminance"));
+    const std::vector<FrameId> after = lightsOf(scenario->manifest, QStringLiteral("Luminance"));
+    ASSERT_EQ(after.size(), 60u);
+    for (std::size_t light = 0; light < 32u; ++light)
     {
         EXPECT_EQ(before[light], after[light]);
     }
