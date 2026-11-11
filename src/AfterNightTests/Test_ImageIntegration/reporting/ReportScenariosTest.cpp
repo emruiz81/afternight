@@ -390,8 +390,42 @@ TEST(ReportScenarios, EveryWayALightIsLeftOutIsCounted)
         EXPECT_FALSE(kept.contains(group.lightFiles[static_cast<std::size_t>(index)].canonicalPath()));
     }
 
-    // The dropped light is named in the stage's warning, and nowhere else.
+    // The dropped light is named in the stage's warning and, with its reason, on the group's result.
     EXPECT_EQ(scenario->result.warnings.filter(QStringLiteral("Skipping 1 light frame(s): ")).size(), 1);
+    ASSERT_EQ(scenario->result.integrationGroupResults.front().droppedLights.size(), 1u);
+    EXPECT_EQ(scenario->result.integrationGroupResults.front().droppedLights.front().reason,
+              DroppedLightReason::NoRegisteredOutput);
+    EXPECT_FALSE(kept.contains(scenario->result.integrationGroupResults.front().droppedLights.front().light));
+
+    // The manifest names each light the user left out, with its exclusion and the group it would have joined.
+    ASSERT_EQ(scenario->manifest.leftOutLights.size(), scenario->lightsLeftOutByUser.size());
+    for (std::size_t i = 0; i < scenario->lightsLeftOutByUser.size(); ++i)
+    {
+        const ReportScenarioLeftOutLight& light = scenario->lightsLeftOutByUser[i];
+        const WorkflowManifest::LeftOutLight& named = scenario->manifest.leftOutLights[i];
+        EXPECT_EQ(named.light.canonicalPath(), FrameId(light.path).canonicalPath());
+        EXPECT_EQ(named.groupKey.toString(), light.integrationGroupKey);
+        EXPECT_EQ(named.kind == WorkflowManifest::LeftOutLight::Kind::StackExcluded, light.fromStackOnly);
+    }
+}
+
+TEST(ReportScenarios, AMasterARunReusedIsNamedInTheRunsRecordAndHasNoResult)
+{
+    for (const ReportScenarioId id : allReportScenarios())
+    {
+        SCOPED_TRACE(reportScenarioName(id).toStdString());
+        const std::optional<ReportScenario> scenario = buildReportScenario(id);
+        ASSERT_TRUE(scenario.has_value());
+        EXPECT_EQ(scenario->result.reusedIntegrationGroups.size(),
+                  static_cast<std::size_t>(scenario->facts.mastersReused));
+        for (const ReusedIntegrationGroup& reused : scenario->result.reusedIntegrationGroups)
+        {
+            EXPECT_TRUE(QFileInfo::exists(reused.outputPath)) << reused.outputPath.toStdString();
+            EXPECT_TRUE(std::none_of(
+                scenario->result.integrationGroupResults.begin(), scenario->result.integrationGroupResults.end(),
+                [&reused](const IntegrationGroupResult& group) { return group.groupKey == reused.groupKey; }));
+        }
+    }
 }
 
 TEST(ReportScenarios, ARunThatStoppedKeepsTheMastersItMade)
@@ -552,13 +586,18 @@ TEST(ReportScenarios, AScenariosRunIsArchivedAsTheExecutorArchivesARun)
         SCOPED_TRACE(group.groupKey.toStdString());
         EXPECT_EQ(group.outputRetentionStatus, OutputRetentionStatus::RetainedInHistory);
     }
-    const QStringList previews =
+    QStringList previews =
         QDir(run.filePath(QStringLiteral("report_previews"))).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    // The calibration masters' pictures have a folder of their own beside the masters'.
+    EXPECT_TRUE(previews.removeOne(QStringLiteral("calibration")));
     EXPECT_EQ(previews.size(), 6);
     for (const QString& group : previews)
     {
         EXPECT_TRUE(run.exists(QStringLiteral("report_previews/%1/master.jpg").arg(group))) << group.toStdString();
+        EXPECT_TRUE(run.exists(QStringLiteral("report_previews/%1/detail.jpg").arg(group))) << group.toStdString();
     }
+    EXPECT_EQ(QDir(run.filePath(QStringLiteral("report_previews/calibration"))).entryList(QDir::Files).size(),
+              scenario->facts.calibrationMasters);
 }
 
 TEST(ReportScenarios, AHistoryTooSmallForTheMastersKeepsTheRunsMetadataAlone)

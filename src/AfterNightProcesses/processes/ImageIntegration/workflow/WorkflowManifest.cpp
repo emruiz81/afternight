@@ -169,6 +169,20 @@ int enabledCometObservationCount(const RegistrationSettings::CometTrackingSettin
     return count;
 }
 
+/// The word a manifest stores for the exclusion that left a light out.
+QString leftOutLightKindToString(const WorkflowManifest::LeftOutLight::Kind kind)
+{
+    return kind == WorkflowManifest::LeftOutLight::Kind::StackExcluded ? QStringLiteral("stack_excluded")
+                                                                       : QStringLiteral("excluded");
+}
+
+/// The exclusion a stored word names; any word but the stack's own reads as the lights' list's.
+WorkflowManifest::LeftOutLight::Kind leftOutLightKindFromString(const QString& kind)
+{
+    return kind == QStringLiteral("stack_excluded") ? WorkflowManifest::LeftOutLight::Kind::StackExcluded
+                                                    : WorkflowManifest::LeftOutLight::Kind::Excluded;
+}
+
 QJsonArray toJsonArray(const std::vector<FrameId>& ids)
 {
     QJsonArray array;
@@ -945,6 +959,20 @@ QJsonObject WorkflowManifest::toJson() const
         root.insert(QStringLiteral("preCalibratedLightGroups"), pre_calibrated_groups);
     }
 
+    QJsonArray left_out_lights;
+    for (const auto& left_out : leftOutLights)
+    {
+        QJsonObject obj;
+        obj.insert(QStringLiteral("light"), left_out.light.toJson());
+        obj.insert(QStringLiteral("kind"), leftOutLightKindToString(left_out.kind));
+        obj.insert(QStringLiteral("groupKey"), left_out.groupKey.toString());
+        left_out_lights.append(obj);
+    }
+    if (!left_out_lights.isEmpty())
+    {
+        root.insert(QStringLiteral("leftOutLights"), left_out_lights);
+    }
+
     QJsonArray regGroups;
     for (const auto& reg : registrationGroups)
     {
@@ -1195,6 +1223,16 @@ WorkflowManifest WorkflowManifest::fromJson(const QJsonObject& json)
         group.groupKey = GroupKey{obj.value(QStringLiteral("groupKey")).toString()};
         group.lightFiles = fromJsonArray(obj.value(QStringLiteral("lightFiles")).toArray());
         manifest.preCalibratedLightGroups.push_back(std::move(group));
+    }
+
+    for (const auto& value : json.value(QStringLiteral("leftOutLights")).toArray())
+    {
+        const QJsonObject obj = value.toObject();
+        LeftOutLight left_out;
+        left_out.light = FrameId::fromJson(obj.value(QStringLiteral("light")));
+        left_out.kind = leftOutLightKindFromString(obj.value(QStringLiteral("kind")).toString());
+        left_out.groupKey = IntegrationGroupKey{GroupKey{obj.value(QStringLiteral("groupKey")).toString()}};
+        manifest.leftOutLights.push_back(std::move(left_out));
     }
 
     const QJsonArray regGroups = json.value(QStringLiteral("registrationGroups")).toArray();

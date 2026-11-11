@@ -18,7 +18,9 @@
 ///
 /// **The preview is the display's presentation.** It is the master presented as the viewer presents an image - the
 /// automatic stretch from the display's own constants, each colour channel on its own - reduced so its longer side is
-/// at most 2048 pixels, kept as JPEG bytes for the report, and a 256-pixel thumbnail beside the master.
+/// at most 2048 pixels, kept as JPEG bytes for the report, and a 256-pixel thumbnail beside the master. Beside it the
+/// report keeps a detail: the master's centre at full scale, presented through the analysis the whole frame's pass
+/// measured, so both pictures of a master are stretched alike.
 
 #include "AfterNightProcessesExport.h"
 #include "processes/ImageIntegration/core/RejectionMapUtils.h"

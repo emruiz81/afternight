@@ -2788,3 +2788,111 @@ TEST(LightsNormalizationStage, ReportsInitialPreparingProgressBeforeGroupWork)
     EXPECT_FLOAT_EQ(first.stageProgress, 0.0f);
     EXPECT_EQ(first.currentOperation, QStringLiteral("Preparing normalization"));
 }
+
+// ---- The groups a run reuses: recorded, and counted by nothing that counts a run's successful groups.
+
+namespace
+{
+/// A stacking stage's result for a run whose one group was found up to date: no group result, the group named.
+StageResult reusedIntegrationGroupResult(const WorkflowManifest& manifest)
+{
+    StageResult result = StageResult::success();
+    result.reusedGroups.push_back(ReusedIntegrationGroup{
+        .groupKey = manifest.integrationGroups.front().groupKey.toString(),
+        .outputPath = QDir(manifest.outputDirectory).filePath(manifest.integrationGroups.front().outputFilename)});
+    return result;
+}
+} // namespace
+
+TEST(WorkflowExecutor, AGroupTheStackingStageFoundUpToDateIsNamedAmongTheGroupsTheRunReused)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = temp_dir.path();
+    manifest.executionId = QStringLiteral("REUSED_BY_STAGE");
+
+    WorkflowExecutor executor(makeAdvancingClock());
+    const auto archive = installRecordingArchive(executor);
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("Stacking"), WorkflowStage::LightsStacking,
+                                                  reusedIntegrationGroupResult(manifest)));
+
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+
+    EXPECT_TRUE(result.success);
+    ASSERT_EQ(result.reusedIntegrationGroups.size(), 1u);
+    EXPECT_EQ(result.reusedIntegrationGroups.front().groupKey, manifest.integrationGroups.front().groupKey.toString());
+    EXPECT_FALSE(result.reusedIntegrationGroups.front().outputPath.isEmpty());
+    // A reused group is no result and no master the run generated.
+    EXPECT_TRUE(result.integrationGroupResults.empty());
+    EXPECT_TRUE(result.generatedLightMasters.isEmpty());
+    ASSERT_FALSE(result.stageResults.empty());
+    EXPECT_EQ(result.stageResults.front().groupsProcessed, 0);
+    EXPECT_EQ(archive->commits, 1) << "a run that completed is archived whatever it reused";
+}
+
+TEST(WorkflowExecutor, ARunThatReusesEveryGroupAndThenStopsHasNoSuccessfulGroupToCommit)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = temp_dir.path();
+    manifest.executionId = QStringLiteral("REUSED_THEN_FAILED");
+
+    WorkflowExecutor executor(makeAdvancingClock());
+    const auto archive = installRecordingArchive(executor);
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("Stacking"), WorkflowStage::LightsStacking,
+                                                  reusedIntegrationGroupResult(manifest)));
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("Failure"), WorkflowStage::LightsNormalization,
+                                                  StageResult::failure(QStringLiteral("Stopped after the reuse"))));
+
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.reusedIntegrationGroups.size(), 1u) << "the record holds however the run ends";
+    // The executor commits a stopped run only for a group it made: a reused one is not such a group.
+    EXPECT_EQ(archive->commits, 0);
+    EXPECT_EQ(result.executorTiming.archiveMs, 0);
+}
+
+TEST(WorkflowExecutor, TheGroupsAnIncrementalPlanLeavesOutAreNamedAsReusedWhateverTheStagesReturn)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = temp_dir.path();
+    manifest.executionId = QStringLiteral("REUSED_BY_PLAN");
+    ASSERT_EQ(manifest.integrationGroups.size(), 1u);
+    WorkflowManifest::IntegrationGroup changed = manifest.integrationGroups.front();
+    changed.groupKey = IntegrationGroupKey{GroupKey{changed.groupKey.toString() + QStringLiteral("|changed")}};
+    changed.outputFilename = QStringLiteral("changed_") + changed.outputFilename;
+    manifest.integrationGroups.push_back(changed);
+    manifest.executionMode = ExecutionMode::Incremental;
+    manifest.incrementalIntegrationGroups = {changed.groupKey};
+    const QString unchangedKey = manifest.integrationGroups.front().groupKey.toString();
+
+    WorkflowExecutor executor(makeAdvancingClock());
+    const auto archive = installRecordingArchive(executor);
+    // The stage also names the unchanged group: a group is listed once.
+    StageResult stage_result = StageResult::success();
+    stage_result.reusedGroups.push_back(ReusedIntegrationGroup{.groupKey = unchangedKey, .outputPath = {}});
+    executor.addStage(
+        std::make_unique<TestStage>(QStringLiteral("Stacking"), WorkflowStage::LightsStacking, stage_result));
+
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+
+    ASSERT_EQ(result.reusedIntegrationGroups.size(), 1u);
+    EXPECT_EQ(result.reusedIntegrationGroups.front().groupKey, unchangedKey);
+    EXPECT_EQ(
+        QDir::cleanPath(result.reusedIntegrationGroups.front().outputPath),
+        QDir::cleanPath(QDir(manifest.outputDirectory).filePath(manifest.integrationGroups.front().outputFilename)));
+
+    // A full run plans every group: nothing is reused by the plan.
+    manifest.executionMode = ExecutionMode::Full;
+    manifest.executionId = QStringLiteral("NOT_REUSED_BY_PLAN");
+    WorkflowExecutor full(makeAdvancingClock());
+    const auto full_archive = installRecordingArchive(full);
+    full.addStage(
+        std::make_unique<TestStage>(QStringLiteral("Stacking"), WorkflowStage::LightsStacking, StageResult::success()));
+    EXPECT_TRUE(full.execute(manifest).reusedIntegrationGroups.empty());
+}

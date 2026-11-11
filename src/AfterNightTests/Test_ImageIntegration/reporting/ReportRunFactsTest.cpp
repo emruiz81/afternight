@@ -13,13 +13,17 @@
 
 #include "processes/ImageIntegration/reporting/ReportModelJson.h"
 #include "processes/ImageIntegration/reporting/WorkflowReportArchiveLoader.h"
+#include "processes/ImageIntegration/workflow/PreviewThumbnailGenerator.h"
+#include "processes/ImageIntegration/workflow/WorkflowArchiver.h"
 
 #include <QDir>
+#include <QDirIterator>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QSet>
+#include <QTemporaryDir>
 
 #include <algorithm>
 #include <cmath>
@@ -882,4 +886,89 @@ TEST(ReportRealRun, WhatBuildingTheModelOfARealRunCosts)
                   << '\n';
     }
     EXPECT_GT(lights, 0);
+}
+
+// What the pictures a run's archive keeps cost on a real run: each master's whole frame and detail from one read of
+// its file, and each calibration master's picture, as the archiver makes them when the run prepared none. Skipped
+// unless AFTERNIGHT_REPORT_REAL_RUN names a run's folder; the run's files are only read, and the pictures are written
+// under a temporary directory.
+TEST(ReportRealRun, WhatThePicturesOfARealRunCost)
+{
+    const QString runDirectory = qEnvironmentVariable("AFTERNIGHT_REPORT_REAL_RUN").trimmed();
+    if (runDirectory.isEmpty())
+    {
+        GTEST_SKIP() << "set AFTERNIGHT_REPORT_REAL_RUN to a run's folder under history/ to time its pictures";
+    }
+    QFile manifestFile(QDir(runDirectory).filePath(QStringLiteral("workflow_manifest.json")));
+    ASSERT_TRUE(manifestFile.open(QIODevice::ReadOnly)) << manifestFile.fileName().toStdString();
+    const QJsonObject archiveRoot = QJsonDocument::fromJson(manifestFile.readAll()).object();
+    const std::optional<ArchivedWorkflowRun> run = readArchivedWorkflowRun(runDirectory, archiveRoot);
+    ASSERT_TRUE(run.has_value());
+    std::optional<an::consumer::EngineSession> session = openReportSession();
+    ASSERT_TRUE(session.has_value());
+    QTemporaryDir pictures;
+    ASSERT_TRUE(pictures.isValid());
+    const QSize bound(2048, 2048);
+
+    int masters = 0;
+    int details = 0;
+    qint64 masterMs = 0;
+    qint64 masterBytes = 0;
+    for (const IntegrationGroupResult& group : run->result.integrationGroupResults)
+    {
+        // An archive names the master it kept relative to its own folder.
+        const QString path = QDir(runDirectory).filePath(group.outputPath);
+        if (!group.success || !QFileInfo::exists(path))
+        {
+            continue;
+        }
+        QElapsedTimer timer;
+        timer.start();
+        const ImageIntegration::ReportMasterPreviews written = ImageIntegration::generateReportMasterPreviews(
+            *session, path, QDir(pictures.path()).filePath(QStringLiteral("master_%1").arg(masters)),
+            QStringLiteral("master.jpg"), QStringLiteral("detail.jpg"), bound);
+        masterMs += timer.elapsed();
+        masterBytes += QFileInfo(path).size();
+        EXPECT_TRUE(written.whole.has_value()) << path.toStdString();
+        details += written.detail.has_value() ? 1 : 0;
+        ++masters;
+    }
+
+    int calibrationMasters = 0;
+    qint64 calibrationMs = 0;
+    qint64 calibrationBytes = 0;
+    const QString calibrationDir = QDir(pictures.path()).filePath(QStringLiteral("calibration"));
+    for (const ImageIntegration::ArchivedCalibrationPreview& preview :
+         ImageIntegration::archivedCalibrationPreviews(run->manifest))
+    {
+        if (preview.masterPath.isEmpty() || !QFileInfo::exists(preview.masterPath))
+        {
+            continue;
+        }
+        QElapsedTimer timer;
+        timer.start();
+        // The archiver bounds a calibration master's picture at half a master's.
+        const std::optional<QString> written = ImageIntegration::generateReportPreviewJpeg(
+            *session, preview.masterPath, calibrationDir, preview.fileName, bound / 2);
+        calibrationMs += timer.elapsed();
+        calibrationBytes += QFileInfo(preview.masterPath).size();
+        EXPECT_TRUE(written.has_value()) << preview.masterPath.toStdString();
+        ++calibrationMasters;
+    }
+
+    qint64 masterPictureBytes = 0;
+    qint64 calibrationPictureBytes = 0;
+    QDirIterator written(pictures.path(), QDir::Files, QDirIterator::Subdirectories);
+    while (written.hasNext())
+    {
+        written.next();
+        (written.filePath().startsWith(calibrationDir) ? calibrationPictureBytes : masterPictureBytes) +=
+            written.fileInfo().size();
+    }
+    std::cout << "[picture-cost] run " << QFileInfo(runDirectory).fileName().toStdString() << "\n"
+              << "[picture-cost] masters: " << masters << " read (" << masterBytes / (1024 * 1024) << " MiB), "
+              << details << " with a detail, " << masterMs << " ms, pictures " << masterPictureBytes / 1024 << " KiB\n"
+              << "[picture-cost] calibration masters: " << calibrationMasters << " read ("
+              << calibrationBytes / (1024 * 1024) << " MiB), " << calibrationMs << " ms, pictures "
+              << calibrationPictureBytes / 1024 << " KiB" << std::endl;
 }

@@ -1064,20 +1064,37 @@ void fillFrameStates(const ReportModel& model, ReportRun& run)
     QMap<int, int> byState;
     int stated = 0;
     qint64 integratedMs = 0;
+    const auto count = [&](const ReportFrame& frame) {
+        const bool leftOutByUser =
+            frame.state == ReportFrameState::ExcludedByUser || frame.state == ReportFrameState::StackExcludedByUser;
+        if (leftOutByUser && frame.exposureSeconds.has_value())
+        {
+            // The groups' own lights are in the captured time already; a light the user left out is in no group.
+            run.capturedMs += std::llround(*frame.exposureSeconds * 1000.0);
+        }
+        if (!frame.state.has_value())
+        {
+            return;
+        }
+        ++stated;
+        ++byState[static_cast<int>(*frame.state)];
+        if (*frame.state == ReportFrameState::Used && frame.exposureSeconds.has_value())
+        {
+            integratedMs += std::llround(*frame.exposureSeconds * 1000.0);
+        }
+    };
     for (const ReportMaster& master : model.masters)
     {
         for (const ReportFrame& frame : master.frames)
         {
-            if (!frame.state.has_value())
-            {
-                continue;
-            }
-            ++stated;
-            ++byState[static_cast<int>(*frame.state)];
-            if (*frame.state == ReportFrameState::Used && frame.exposureSeconds.has_value())
-            {
-                integratedMs += std::llround(*frame.exposureSeconds * 1000.0);
-            }
+            count(frame);
+        }
+    }
+    for (const ReportGroupNotStacked& group : model.groupsNotStacked)
+    {
+        for (const ReportFrame& frame : group.frames)
+        {
+            count(frame);
         }
     }
     if (stated == 0)
@@ -1394,6 +1411,8 @@ void fillRun(ReportBuild& build, ReportModel& model)
         run.frames += breakdown.totalFrames;
         run.capturedMs += breakdown.totalMs;
     }
+    // The lights the user left out were taken too; their exposure joins the captured time with their states.
+    run.frames += static_cast<int>(manifest.leftOutLights.size());
     run.warnings = result.warningCount > 0 ? result.warningCount : static_cast<int>(result.warnings.size());
     run.errors = static_cast<int>(result.errors.size());
 

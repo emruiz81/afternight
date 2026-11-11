@@ -122,6 +122,41 @@ private:
     void cleanupOldArchives(const QString& protectedRunPath = {});
 };
 
+namespace ImageIntegration
+{
+/// The folder each group's pictures and payloads are archived in, by the group's place in the list: the group's key
+/// made a file name, with a hash of the key appended where two keys of the list give the same name. An archive lists
+/// the groups it has results for first, then the groups the run reused.
+///
+/// @param groupKeys the groups' keys.
+/// @return one folder name per key, in the same order.
+[[nodiscard]] AFTERNIGHTPROCESSES_API std::vector<QString>
+archiveGroupFolderNames(const std::vector<QString>& groupKeys);
+
+/// A calibration master of a run and the preview its archive keeps of it.
+struct ArchivedCalibrationPreview
+{
+    /// The master's kind - "Bias", "Dark" or "Flat" - and its group.
+    QString type;
+    QString groupKey;
+
+    /// The master's file: the one the user supplied, else the run's own under its output directory.
+    QString masterPath;
+
+    /// The preview's file name under `report_previews/calibration/`: the master's own name, with a hash of its kind
+    /// and group appended where two masters of the run share a name.
+    QString fileName;
+};
+
+/// The calibration masters of a run with their previews' names: its bias, dark and flat groups in the manifest's
+/// order.
+///
+/// @param manifest the run's manifest.
+/// @return one entry per calibration group.
+[[nodiscard]] AFTERNIGHTPROCESSES_API std::vector<ArchivedCalibrationPreview>
+archivedCalibrationPreviews(const WorkflowManifest& manifest);
+} // namespace ImageIntegration
+
 /// The archive a run commits through: this archiver over the run's output directory.
 ///
 /// @param outputDir the run's output directory.

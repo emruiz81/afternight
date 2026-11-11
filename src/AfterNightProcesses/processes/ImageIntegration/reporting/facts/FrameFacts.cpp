@@ -332,12 +332,36 @@ void stateNight(const int utcOffsetSeconds, ReportFrame& frame)
     return QStringLiteral("%1 %").arg(formatFigure(fraction * 100.0));
 }
 
+/// Why a stack left a light out on its own, as a sentence of the light.
+[[nodiscard]] QString droppedLightDetail(const DroppedLightReason reason)
+{
+    switch (reason)
+    {
+    case DroppedLightReason::NoRegistrationTransform:
+        return reportText("The stack left this light out: its registration recorded no transform.");
+    case DroppedLightReason::NoStarBaseProduct:
+        return reportText("The stack left this light out: it has no star base image to stack.");
+    case DroppedLightReason::NoCometAlignedImage:
+        return reportText("The stack left this light out: it has no comet-aligned image to stack.");
+    case DroppedLightReason::NoRegisteredOutput:
+        break;
+    }
+    return reportText("The stack left this light out: it has no registered image to stack.");
+}
+
 /// What became of each light of a master the run stacked, by the precedence a light's states have: its registration
-/// failed; the stack left it out on its own; a second stack was made without it; the stack combined it. A light is
-/// combined when the stack's record of its weights names it, and by nothing else: of a stack that recorded no
-/// weights only the failed registrations are stated, and the model says so.
+/// failed; the stack left it out on its own, which the group's result names with the reason; a second stack was made
+/// without it; the stack combined it. A light is combined when the stack's record of its weights names it, and left
+/// out when the result's dropped lights name it, and by nothing else: a light none of the run's records names has no
+/// state, and the model says so.
 void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupResult, ReportMaster& master)
 {
+    QHash<QString, DroppedLightReason> dropped;
+    for (const DroppedLight& light : groupResult.droppedLights)
+    {
+        dropped.insert(FrameId(light.light).identityKey(), light.reason);
+    }
+
     const StackQualityRecord& quality = groupResult.qualityReport;
     if (!quality.valid || quality.lightWeights.empty())
     {
@@ -348,6 +372,11 @@ void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupRe
                 frame.state = ReportFrameState::RegistrationFailed;
                 frame.stateDetail =
                     reportText("Registration failed; %1 stars were detected.").arg(frame.stars.value_or(0));
+            }
+            else if (const auto reason = dropped.constFind(FrameId(frame.path).identityKey()); reason != dropped.cend())
+            {
+                frame.state = ReportFrameState::LeftOutByStack;
+                frame.stateDetail = droppedLightDetail(*reason);
             }
         }
         if (!master.frames.empty())
@@ -390,6 +419,7 @@ void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupRe
     }
 
     int used = 0;
+    int unnamed = 0;
     for (std::size_t i = 0; i < master.frames.size(); ++i)
     {
         ReportFrame& frame = master.frames[i];
@@ -398,6 +428,11 @@ void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupRe
         {
             frame.state = ReportFrameState::RegistrationFailed;
             frame.stateDetail = reportText("Registration failed; %1 stars were detected.").arg(frame.stars.value_or(0));
+        }
+        else if (const auto reason = dropped.constFind(identity); reason != dropped.cend())
+        {
+            frame.state = ReportFrameState::LeftOutByStack;
+            frame.stateDetail = droppedLightDetail(*reason);
         }
         else if (combined.contains(identity))
         {
@@ -424,11 +459,11 @@ void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupRe
         }
         else
         {
-            frame.state = ReportFrameState::LeftOutByStack;
-            frame.stateDetail = reportText("The stack did not combine this light; the run recorded no reason.");
+            // None of the run's records names the light: nothing is inferred of it.
+            ++unnamed;
         }
 
-        if (*frame.state == ReportFrameState::Used)
+        if (frame.state == ReportFrameState::Used)
         {
             ++used;
         }
@@ -438,6 +473,12 @@ void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupRe
             frame.weight.reset();
             frame.stackShare.reset();
         }
+    }
+    if (unnamed > 0)
+    {
+        build.notStated(reportText("What became of %1 of the lights of %2").arg(unnamed).arg(master.name),
+                        reportText("The stack's weights do not name them, and the run recorded no reason for leaving "
+                                   "them out."));
     }
 
     if (used != groupResult.lightFrameCount)
@@ -827,6 +868,102 @@ void fillGroup(ReportBuild& build, const WorkflowManifest::IntegrationGroup& gro
 }
 } // namespace
 
+/// The lights the user left out, which the manifest lists apart since no group names them: each takes the state its
+/// exclusion gives it, under the master of the group it would have joined - after that group's own lights, whose
+/// places the stack's records count by - or, where the run planned no such master, under the group's key among the
+/// groups not stacked. What the run knows of such a light is stated: when it was taken, what its header states and,
+/// for a light left out of the stack alone, what its registration measured.
+void fillLeftOut(ReportBuild& build, const QHash<QString, ReportMaster*>& masterByKey,
+                 const QHash<QString, QDateTime>& capturedByLight, ReportModel& model)
+{
+    const WorkflowManifest& manifest = build.manifest();
+    if (manifest.leftOutLights.empty())
+    {
+        return;
+    }
+    // A light left out of a stack is still in its registration group, which states its exposure.
+    QHash<QString, double> exposureByLight;
+    for (const auto& group : manifest.registrationGroups)
+    {
+        const std::size_t stated = (std::min)(group.lightFiles.size(), group.lightExposureSeconds.size());
+        for (std::size_t i = 0; i < stated; ++i)
+        {
+            exposureByLight.insert(group.lightFiles[i].canonicalPath(), group.lightExposureSeconds[i]);
+        }
+    }
+    QHash<QString, QString> registrationKeyOfGroup;
+    for (const auto& group : manifest.integrationGroups)
+    {
+        registrationKeyOfGroup.insert(group.groupKey.toString(), group.registrationGroupKey.toString().trimmed());
+    }
+
+    const int utcOffsetSeconds = build.utcOffsetSeconds();
+    for (const WorkflowManifest::LeftOutLight& leftOut : manifest.leftOutLights)
+    {
+        const QString key = leftOut.groupKey.toString();
+        const bool fromStack = leftOut.kind == WorkflowManifest::LeftOutLight::Kind::StackExcluded;
+
+        ReportFrame frame;
+        frame.path = leftOut.light.canonicalPath();
+        frame.fileName = QFileInfo(frame.path).fileName();
+        if (frame.fileName.isEmpty())
+        {
+            frame.fileName = frame.path;
+        }
+        frame.state = fromStack ? ReportFrameState::StackExcludedByUser : ReportFrameState::ExcludedByUser;
+        frame.stateDetail = fromStack ? reportText("Excluded by you from this master's stack.")
+                                      : reportText("Excluded by you in the Lights tab.");
+        if (const auto exposure = exposureByLight.constFind(frame.path); exposure != exposureByLight.cend())
+        {
+            frame.exposureSeconds = positive(*exposure);
+        }
+        if (const auto captured = capturedByLight.constFind(frame.path); captured != capturedByLight.cend())
+        {
+            frame.capturedAt = *captured;
+        }
+        stateHeader(build, frame);
+        if (!frame.exposureSeconds.has_value())
+        {
+            // No group states the exposure of a light excluded in the lights' list: its header does.
+            if (const std::optional<ReportHeader> header = build.header(frame.path); header.has_value())
+            {
+                const an::AcquisitionProjection projected = an::projectAcquisition(header->metadata.codec());
+                if (projected.acquisition.exposureSeconds.has_value())
+                {
+                    frame.exposureSeconds = positive(*projected.acquisition.exposureSeconds);
+                }
+            }
+        }
+        stateNight(utcOffsetSeconds, frame);
+
+        const QString registrationKey = registrationKeyOfGroup.value(key);
+        if (fromStack && !registrationKey.isEmpty() && build.hasMetrics() &&
+            build.settingsVersion(registrationKey).has_value())
+        {
+            const QHash<QString, RegistrationMetricRow>& metrics = build.metrics(registrationKey);
+            if (const auto metric = metrics.constFind(frame.path); metric != metrics.cend())
+            {
+                stateMetrics(*metric, frame);
+            }
+        }
+
+        if (ReportMaster* master = masterByKey.value(key, nullptr); master != nullptr)
+        {
+            master->frames.push_back(std::move(frame));
+            continue;
+        }
+        auto group = std::find_if(model.groupsNotStacked.begin(), model.groupsNotStacked.end(),
+                                  [&key](const ReportGroupNotStacked& candidate) { return candidate.key == key; });
+        if (group == model.groupsNotStacked.end())
+        {
+            model.groupsNotStacked.push_back(
+                ReportGroupNotStacked{.key = key, .name = friendlyGroupKey(key), .frames = {}});
+            group = std::prev(model.groupsNotStacked.end());
+        }
+        group->frames.push_back(std::move(frame));
+    }
+}
+
 void fillFrames(ReportBuild& build, ReportModel& model)
 {
     QHash<QString, ReportMaster*> masterByKey;
@@ -848,6 +985,7 @@ void fillFrames(ReportBuild& build, ReportModel& model)
             fillGroup(build, group, resultByKey.value(key, nullptr), capturedByLight, *master);
         }
     }
+    fillLeftOut(build, masterByKey, capturedByLight, model);
     if (!build.hasMetrics() && !build.manifest().registrationGroups.empty())
     {
         build.notStated(reportText("What the registration measured of each light, and which lights it failed on"),

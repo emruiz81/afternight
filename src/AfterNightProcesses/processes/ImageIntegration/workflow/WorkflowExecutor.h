@@ -241,6 +241,10 @@ public:
 
         std::vector<StageTiming> stageResults; ///< Per-stage execution stats
         std::vector<IntegrationGroupResult> integrationGroupResults; ///< Per-group execution results
+        /// The integration groups the run left as they are because their masters were still valid: the ones an
+        /// incremental run's plan left out, then the ones the stacking stage found up to date. None has a group
+        /// result, and no count of the run's successful groups reads the list.
+        std::vector<ReusedIntegrationGroup> reusedIntegrationGroups;
         std::vector<CalibrationGroupResult> calibrationGroupResults; ///< Per-calibration-group execution results
         std::vector<AlignmentGroupResult> alignmentGroupResults; ///< Per-group alignment results (SIP info)
         QString capturedLog; ///< Full log of the execution

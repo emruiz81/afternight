@@ -1380,6 +1380,18 @@ template <> struct Fields<ReportHistoryEntry>
     }
 };
 
+template <> struct Fields<ReportGroupNotStacked>
+{
+    using Described = void;
+
+    template <class V, class S> static void visit(V& v, S& s)
+    {
+        v("key", s.key);
+        v("name", s.name);
+        v("frames", s.frames);
+    }
+};
+
 template <> struct Fields<ReportModel>
 {
     using Described = void;
@@ -1391,6 +1403,7 @@ template <> struct Fields<ReportModel>
         v("issues", s.issues);
         v("targets", s.targets);
         v("masters", s.masters);
+        v("groupsNotStacked", s.groupsNotStacked);
         v("calibrationMasters", s.calibrationMasters);
         v("lightGroups", s.lightGroups);
         v("registrationGroups", s.registrationGroups);
