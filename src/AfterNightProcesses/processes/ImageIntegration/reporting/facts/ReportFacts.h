@@ -55,6 +55,15 @@ namespace ImageIntegration::Reporting
     return QCoreApplication::translate("ImageIntegrationReport", text);
 }
 
+/// An earlier run of the output folder whose archive keeps its report model.
+struct StoredRun
+{
+    /// The run's folder name under `history/`, which is its execution id made a file name.
+    QString runId;
+
+    ReportModel model;
+};
+
 /// One build of a report model: the run, the sources, and what the build has read so far.
 class ReportBuild
 {
@@ -99,11 +108,44 @@ public:
     /// A file's size, when it is there.
     [[nodiscard]] std::optional<qint64> fileSize(const QString& path) const;
 
-    /// One read of an image, measured per channel; an image is read once however often it is asked for.
-    [[nodiscard]] std::optional<ReportImageStatistics> measure(const QString& path);
+    /// One read of an image, measured per channel with the spread of its samples; an image is read once however
+    /// often it is asked for. An image that is there and was not measured is named among what the report could not
+    /// state.
+    ///
+    /// @param path the image.
+    /// @param what the image as a reader meets it: "the master Luminance", "the master dark 120 s".
+    [[nodiscard]] std::optional<ReportImageMeasurement> measure(const QString& path, const QString& what);
 
-    /// A file's header, read once however often it is asked for.
+    /// The figures of `measure`, without the spread.
+    [[nodiscard]] std::optional<ReportImageStatistics> statistics(const QString& path, const QString& what);
+
+    /// One read of an image, measured for its level and its noise alone; read once however often it is asked for,
+    /// and named among what the report could not state when it is there and was not measured.
+    [[nodiscard]] std::optional<ReportImageLevels> levels(const QString& path, const QString& what);
+
+    /// A file's header, read once however often it is asked for; a file that is not there is not probed.
     [[nodiscard]] std::optional<ReportHeader> header(const QString& path);
+
+    /// The offset from UTC of the zone the archive states its times in, in seconds: the archive's own, else the
+    /// host's.
+    [[nodiscard]] int utcOffsetSeconds() const;
+
+    /// The light a registration group's lights were brought to, by its canonical path; empty when the registration
+    /// stored none.
+    [[nodiscard]] QString referenceFrame(const QString& registrationGroupKey);
+
+    /// The earlier runs of the output folder whose archives keep their report models, latest first; empty for a run
+    /// with no archive.
+    [[nodiscard]] const std::vector<StoredRun>& earlierRuns();
+
+    /// States something the report could not state, and why; the same thing for the same reason is stated once.
+    void notStated(const QString& what, const QString& why);
+
+    /// What the build could not state, in the order it met each thing.
+    [[nodiscard]] const std::vector<ReportNotStated>& notStatedEntries() const noexcept
+    {
+        return m_notStated;
+    }
 
     /// Whether the run has registration metrics to read.
     [[nodiscard]] bool hasMetrics() const;
@@ -116,10 +158,17 @@ public:
     [[nodiscard]] const QHash<QString, RegistrationMetricRow>& metrics(const QString& registrationGroupKey);
 
 private:
+    /// Names an image that was not measured among what the report could not state, with the reason.
+    void imageNotStated(const QString& subject, const QString& file, bool there);
+
     const ReportModelInputs& m_inputs;
     const ReportSources& m_sources;
     ReportSlugs m_slugs;
-    QHash<QString, std::optional<ReportImageStatistics>> m_measured;
+    QHash<QString, std::optional<ReportImageMeasurement>> m_measured;
+    QHash<QString, std::optional<ReportImageLevels>> m_levels;
+    QHash<QString, QString> m_references;
+    std::optional<std::vector<StoredRun>> m_earlierRuns;
+    std::vector<ReportNotStated> m_notStated;
     QHash<QString, std::optional<ReportHeader>> m_headers;
     QHash<QString, std::optional<int>> m_settingsVersions;
     QHash<QString, QHash<QString, RegistrationMetricRow>> m_metrics;
@@ -146,6 +195,18 @@ void fillRun(ReportBuild& build, ReportModel& model);
 
 /// The run's totals beside those of the most recent earlier run of the folder that completed.
 void fillComparison(ReportBuild& build, ReportModel& model);
+
+/// The groups of lights that share a calibration, and the lineage between a master, its groups of lights, the
+/// calibration masters and the registration group. Reads the masters, the calibration masters and the registration
+/// groups the model already states.
+void fillLineage(ReportBuild& build, ReportModel& model);
+
+/// The run's issues: the catalog's kinds computed from the model's facts, then every warning and error of the run in
+/// the run's own words. Settles the run's outcome by the issues' severities. Reads the whole model.
+void fillIssues(ReportBuild& build, ReportModel& model);
+
+/// The sum of what the run wrote to disk, by kind. Reads the masters and the calibration masters.
+void fillDisk(ReportBuild& build, ReportModel& model);
 
 // ---- The run: exposures, outcomes, targets, inputs, provenance.
 
@@ -237,6 +298,9 @@ void addExposureBucket(QList<ReportExposureBucket>& buckets, double exposureSeco
 /// An exposure breakdown as the model holds it.
 [[nodiscard]] ReportExposure reportExposure(const ExposureBreakdown& breakdown);
 
+/// A run's outcome in one sentence, from what became of its masters.
+[[nodiscard]] QString reportVerdict(ReportOutcome outcome, const ReportGroupCounts& groups);
+
 // ---- The masters.
 
 /// The figures one measurement of an image states, under the names the units that read them have always used.
@@ -315,6 +379,14 @@ resolveAutoTransformDetail(const WorkflowManifest::RegistrationGroup& registrati
 [[nodiscard]] QString rejectionMethodText(const StackingSettings& settings);
 [[nodiscard]] QString frameLabel(const FrameId& id);
 
+/// The settings a group of lights is calibrated under, the ones of a master the group does not take left out.
+///
+/// @param settings the settings the group's lights share.
+/// @param takesDark whether the lights take a dark master.
+/// @param takesFlat whether the lights take a flat master.
+[[nodiscard]] ReportSettingsBlock lightsCalibrationBlock(const WorkflowManifest::CalibrationSettings& settings,
+                                                         bool takesDark, bool takesFlat);
+
 // ---- The lights.
 
 /// One registered light of a group, as its weight is derived.
@@ -373,6 +445,12 @@ computeRunDeltaMetrics(const WorkflowManifest& manifest, const std::vector<Integ
 [[nodiscard]] std::optional<QString> transformKindFromJson(const QString& json);
 [[nodiscard]] std::optional<RawImageStats> analyzeRawImage(const an::consumer::EngineSession* session,
                                                            const QString& path, std::uint32_t width);
+[[nodiscard]] std::optional<ReportImageMeasurement> measureReportImage(const an::consumer::EngineSession* session,
+                                                                       const QString& path, std::uint32_t width);
+[[nodiscard]] std::optional<ReportImageLevels> measureReportImageLevels(const an::consumer::EngineSession* session,
+                                                                        const QString& path, std::uint32_t width);
+[[nodiscard]] QString queryRegistrationReferenceFrame(QSqlDatabase& db, const QString& groupKey, int settingsVersion,
+                                                      WorkflowExecutionCounterAccumulator* counters = nullptr);
 [[nodiscard]] std::optional<ReportHeader> probeReportHeader(const an::consumer::EngineSession* session,
                                                             const QString& path);
 [[nodiscard]] std::optional<int>

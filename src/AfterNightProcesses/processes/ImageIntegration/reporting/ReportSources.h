@@ -29,6 +29,7 @@
 #include <QHash>
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 #include <cstdint>
 #include <memory>
@@ -59,6 +60,40 @@ struct RegistrationMetricRow
     int catalogMatchedStars = 0;
     bool succeeded = false;
     QString transformKind;
+
+    /// The translation of the transform that brought the light to the reference, for a kind whose record carries a
+    /// matrix; nothing for a polynomial kind, whose matrix is not the whole transform.
+    std::optional<double> shiftX;
+    std::optional<double> shiftY;
+
+    /// The background noise the detection measured, whether or not the registration succeeded; zero when the
+    /// database states none.
+    double backgroundNoise = 0.0;
+
+    /// The registered image the alignment wrote and its size; empty and negative when the database states none.
+    QString outputPath;
+    qint64 outputSizeBytes = -1;
+};
+
+/// What one read of an image measured: its figures per channel and how each channel's samples are spread.
+struct ReportImageMeasurement
+{
+    ReportImageStatistics statistics;
+
+    /// One distribution per channel, in the image's channel order; empty for an image whose validity a range cannot
+    /// state.
+    std::vector<ReportSampleDistribution> distribution;
+};
+
+/// The level and the noise of an image, per channel, and how much of the frame they were measured over.
+struct ReportImageLevels
+{
+    /// Each channel's mean and background noise, as fractions of the display range, in the image's channel order.
+    std::vector<double> level;
+    std::vector<double> noise;
+
+    /// The share of the frame's area measured: one for the whole frame.
+    double measuredFraction = 1.0;
 };
 
 /// What the report reads of a file's header: its size and its metadata, never its pixels.
@@ -132,6 +167,10 @@ public:
 
     /// The matched catalog sources stored for the manifest's registration groups; a group with none is left out.
     [[nodiscard]] virtual QList<SpccHandoffGroupSummary> catalogHandoff(const WorkflowManifest& manifest) = 0;
+
+    /// The light a registration group's lights were brought to, by its canonical path, as the registration stored it
+    /// under one settings version; empty when it stored none.
+    [[nodiscard]] virtual QString referenceFrame(const QString& groupKey, int settingsVersion) = 0;
 };
 
 /// The headers of the run's files.
@@ -150,12 +189,22 @@ class IReportImages
 public:
     virtual ~IReportImages() = default;
 
-    /// One read of an image, measured per channel.
+    /// One read of an image, measured per channel: its figures and the distribution of its samples, in one admitted
+    /// operation.
     ///
     /// @param path the image.
     /// @param width the most threads the measurement may use.
-    /// @return the figures; nothing when the image cannot be read or measured.
-    [[nodiscard]] virtual std::optional<ReportImageStatistics> measure(const QString& path, std::uint32_t width) = 0;
+    /// @return what was measured; nothing when the image cannot be read or measured.
+    [[nodiscard]] virtual std::optional<ReportImageMeasurement> measure(const QString& path, std::uint32_t width) = 0;
+
+    /// One read of an image, measured for its level and its noise alone, over a rectangle at the centre of the frame
+    /// when the frame is large. What a calibration master is measured by: the figures of a master frame are a
+    /// second apiece for a large one, and a run may have a dozen.
+    ///
+    /// @param path the image.
+    /// @param width the most threads the measurement may use.
+    /// @return what was measured; nothing when the image cannot be read or measured.
+    [[nodiscard]] virtual std::optional<ReportImageLevels> measureLevels(const QString& path, std::uint32_t width) = 0;
 };
 
 /// The files of the run's folders.
@@ -175,6 +224,9 @@ public:
 
     /// A text file's contents; nothing when it cannot be read.
     [[nodiscard]] virtual std::optional<QString> readText(const QString& path) = 0;
+
+    /// The names of the folders directly inside a folder, in name order; empty when it is not there.
+    [[nodiscard]] virtual QStringList folders(const QString& path) = 0;
 };
 
 /// The host the report is built on.
@@ -206,6 +258,19 @@ struct ReportSources
     /// weigh the same.
     const an::consumer::EngineSession* session = nullptr;
 };
+
+/// The metrics database a report of the run being committed is built from: the output folder's.
+///
+/// @param manifest the run's manifest.
+/// @return the path, whether or not a file is there; empty when the manifest names no output folder.
+[[nodiscard]] AFTERNIGHTPROCESSES_API QString committedRunMetricsDatabase(const WorkflowManifest& manifest);
+
+/// The metrics database a report of a run read later from its archive is built from: the archive's own snapshot,
+/// never the output folder's, which holds the metrics of the folder's latest run.
+///
+/// @param runDirectory the run's folder under `history/`.
+/// @return the path, whether or not the archive kept a snapshot; empty for an empty folder name.
+[[nodiscard]] AFTERNIGHTPROCESSES_API QString archivedRunMetricsDatabase(const QString& runDirectory);
 
 /// The sources the product builds a report through.
 class AFTERNIGHTPROCESSES_API ProductionReportSources

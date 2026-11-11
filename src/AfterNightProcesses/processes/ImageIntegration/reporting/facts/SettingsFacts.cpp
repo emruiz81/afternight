@@ -569,6 +569,38 @@ void fillRunSettings(const WorkflowManifest& manifest, ReportRun& run)
     run.settings.push_back(colour.take());
 }
 
+} // namespace
+
+ReportSettingsBlock lightsCalibrationBlock(const WorkflowManifest::CalibrationSettings& settings, const bool takesDark,
+                                           const bool takesFlat)
+{
+    Rows rows(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Calibration"));
+    rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Cosmetic Correction"), settings.cosmeticCorrection);
+    if (settings.cosmeticCorrection)
+    {
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Hot Pixel Sigma"), settings.sigmaHot);
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Cold Pixel Sigma"), settings.sigmaCold);
+    }
+    if (takesDark)
+    {
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Dark Optimization"), settings.darkOptimization);
+        if (!settings.darkOptimization)
+        {
+            rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Dark Multiplication Factor"),
+                     settings.darkMultiplicationFactor);
+        }
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Subtract Bias From Dark"), settings.subtractBiasFromDark);
+    }
+    if (takesFlat)
+    {
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Flat Auto Level"), settings.flatAutoLevel);
+    }
+    rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Pedestal"), settings.pedestal);
+    return rows.take();
+}
+
+namespace
+{
 /// One row of the run's decisions for each setting of a block that was left to the application.
 void collectDecisions(const ReportSettingsBlock& block, const QString& area, const QString& groupKey,
                       const QString& group, ReportModel& model)

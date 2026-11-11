@@ -313,6 +313,11 @@ void fillRegistration(ReportBuild& build, ReportModel& model)
         {
             stated.reference = QFileInfo(group.referenceFrame->canonicalPath()).fileName();
         }
+        else if (const QString reference = build.referenceFrame(key); !reference.isEmpty())
+        {
+            // A reference the application chose is in the registration's own records, not in the manifest.
+            stated.reference = QFileInfo(reference).fileName();
+        }
         stated.referenceChosenAutomatically =
             group.settings.autoReferenceDuringRegistration || group.settings.referenceImage.trimmed().isEmpty();
         stated.alignmentMode = group.settings.alignmentMode;
@@ -321,12 +326,20 @@ void fillRegistration(ReportBuild& build, ReportModel& model)
         if (!metricsByFrame.isEmpty())
         {
             int registered = 0;
+            int failed = 0;
             QMap<QString, int> framesByKind;
+            QList<double> astrometricRms;
+            QList<double> catalogMatches;
             for (const FrameId& light : group.lightFiles)
             {
                 const auto row = metricsByFrame.constFind(light.canonicalPath());
-                if (row == metricsByFrame.cend() || !row->succeeded)
+                if (row == metricsByFrame.cend())
                 {
+                    continue;
+                }
+                if (!row->succeeded)
+                {
+                    ++failed;
                     continue;
                 }
                 ++registered;
@@ -335,8 +348,19 @@ void fillRegistration(ReportBuild& build, ReportModel& model)
                 {
                     ++framesByKind[kind];
                 }
+                if (std::isfinite(row->astrometricRmsArcsec) && row->astrometricRmsArcsec > 0.0)
+                {
+                    astrometricRms.append(row->astrometricRmsArcsec);
+                }
+                if (row->catalogMatchedStars > 0)
+                {
+                    catalogMatches.append(static_cast<double>(row->catalogMatchedStars));
+                }
             }
             stated.registered = registered;
+            stated.failed = failed;
+            stated.medianAstrometricRmsArcsec = medianOf(astrometricRms);
+            stated.medianCatalogMatches = medianOf(catalogMatches);
             for (auto it = framesByKind.cbegin(); it != framesByKind.cend(); ++it)
             {
                 stated.transformsUsed.push_back(ReportTransformUse{.kind = it.key(), .frames = it.value()});
@@ -380,6 +404,14 @@ void fillRegistration(ReportBuild& build, ReportModel& model)
             if (integrationGroup.registrationGroupKey.toString() == key)
             {
                 stated.masters.append(integrationGroup.groupKey.toString());
+            }
+        }
+        // The group's masters share its output plane, so each states the share of the capture the plane keeps.
+        for (const ReportMaster& master : model.masters)
+        {
+            if (master.overlapRetained.has_value() && stated.masters.contains(master.key))
+            {
+                stated.overlap = (std::min)(stated.overlap.value_or(*master.overlapRetained), *master.overlapRetained);
             }
         }
         model.registrationGroups.push_back(std::move(stated));

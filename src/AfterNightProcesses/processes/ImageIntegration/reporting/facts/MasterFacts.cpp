@@ -10,6 +10,8 @@
 #include "processes/ImageIntegration/workflow/ArtifactTracker.h"
 #include "processes/ImageIntegration/workflow/stages/StageUtilities.h"
 
+#include "app/PlateSolveTypes.h"
+
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -419,13 +421,51 @@ void fillMaps(const ReportBuild& build, const IntegrationGroupResult& group,
     }
 }
 
-void fillMeasurement(ReportBuild& build, const QString& file, ReportMaster& master)
+/// What the solution in a master's header states of the frame: nothing for a header that cannot be read or holds no
+/// solution that reads.
+void fillSolution(ReportBuild& build, const QString& file, ReportMaster& master)
 {
-    const std::optional<ReportImageStatistics> statistics = build.measure(file);
-    if (!statistics.has_value())
+    if (master.astrometry == ReportAstrometryOutcome::None)
     {
         return;
     }
+    const std::optional<ReportHeader> header = build.header(file);
+    if (!header.has_value() || header->width == 0u || header->height == 0u)
+    {
+        return;
+    }
+    const an::Result<an::WcsSolution> solution =
+        an::ui::readImageWcsSolution(header->metadata.codec().cards(), static_cast<std::uint32_t>(header->width),
+                                     static_cast<std::uint32_t>(header->height));
+    if (!solution.hasValue())
+    {
+        return;
+    }
+    const an::Result<an::SkyCoordinate> centre = solution->fieldCenter();
+    if (!centre.hasValue())
+    {
+        return;
+    }
+    const an::WcsFieldOfView field = solution->fieldOfViewArcmin();
+    master.solution = ReportAstrometrySolution{.centreRightAscension = centre->rightAscensionDegrees,
+                                               .centreDeclination = centre->declinationDegrees,
+                                               .pixelScale = solution->meanPixelScaleArcsecPerPixel(),
+                                               .fieldWidth = field.widthArcmin,
+                                               .fieldHeight = field.heightArcmin,
+                                               .orientation = solution->orientationDegrees(),
+                                               .mirrored = solution->mirrored()};
+}
+
+void fillMeasurement(ReportBuild& build, const QString& file, ReportMaster& master)
+{
+    std::optional<ReportImageMeasurement> measured =
+        build.measure(file, reportText("the master %1").arg(master.name.isEmpty() ? master.fileName : master.name));
+    if (!measured.has_value())
+    {
+        return;
+    }
+    master.distribution = std::move(measured->distribution);
+    const std::optional<ReportImageStatistics> statistics = std::move(measured->statistics);
     master.statistics = statistics;
 
     if (const std::optional<double> retained =
@@ -453,6 +493,43 @@ void fillMeasurement(ReportBuild& build, const QString& file, ReportMaster& mast
     {
         master.snapshot.dynamicRange = *highest - *lowest;
     }
+}
+
+/// A master the run reused: what the run that made it stated of it, when the folder's history keeps that run's
+/// report; else what one read of the file measures. The figures of another run are marked by `madeByRun`.
+void fillReused(ReportBuild& build, ReportMaster& master)
+{
+    for (const StoredRun& run : build.earlierRuns())
+    {
+        const auto made =
+            std::find_if(run.model.masters.begin(), run.model.masters.end(), [&master](const ReportMaster& candidate) {
+                return candidate.key == master.key && candidate.state == ReportMasterState::Made;
+            });
+        if (made == run.model.masters.end())
+        {
+            continue;
+        }
+        master.madeByRun = run.runId;
+        master.lightsCombined = made->lightsCombined;
+        master.statistics = made->statistics;
+        master.distribution = made->distribution;
+        master.snapshot = made->snapshot;
+        master.overlapRetained = made->overlapRetained;
+        master.stack = made->stack;
+        master.astrometry = made->astrometry;
+        master.astrometryDetail = made->astrometryDetail;
+        master.solution = made->solution;
+        master.photometry = made->photometry;
+        master.durationMs = made->durationMs;
+        master.finalization = made->finalization;
+        return;
+    }
+    const QString file = build.resolvePath(master.file);
+    fillMeasurement(build, file, master);
+    fillSolution(build, file, master);
+    build.notStated(reportText("How the master %1 was stacked").arg(master.name),
+                    reportText("This run reused the master, and the folder's history does not keep the report of "
+                               "the run that made it."));
 }
 
 /// A master the run has a result for.
@@ -503,10 +580,19 @@ void fillFromResult(ReportBuild& build, const IntegrationGroupResult& group,
     }
     if (!group.success)
     {
+        // The phase a failed stack stopped in is the one record of why; the run's own words are among its messages.
+        const auto failedPhase =
+            std::find_if(master.finalization.begin(), master.finalization.end(), [](const ReportPhase& phase) {
+                return phase.status.compare(QStringLiteral("failed"), Qt::CaseInsensitive) == 0;
+            });
+        master.failure = failedPhase != master.finalization.end()
+                             ? reportText("The stack failed in its phase \"%1\".").arg(failedPhase->name)
+                             : reportText("The stack failed.");
         return;
     }
 
     fillMeasurement(build, file, master);
+    fillSolution(build, file, master);
     if (group.qualityReport.valid)
     {
         master.stack = stackOf(group.qualityReport, group.lightFrameCount, definition);
@@ -584,10 +670,13 @@ void fillMasters(ReportBuild& build, ReportModel& model)
             // file is there was reused.
             master.state = ReportMasterState::Reused;
             master.bytes = build.fileSize(master.file);
+            fillReused(build, master);
         }
         else
         {
             master.state = result.cancelled ? ReportMasterState::Cancelled : ReportMasterState::NotReached;
+            master.failure = result.cancelled ? reportText("The run was cancelled before it reached this master.")
+                                              : reportText("The run stopped before it reached this master.");
         }
         model.masters.push_back(std::move(master));
     }
