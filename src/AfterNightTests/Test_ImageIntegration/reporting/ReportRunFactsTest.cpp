@@ -421,7 +421,7 @@ TEST(ReportRunFacts, AReusedMasterStatesWhatTheRunThatMadeItStatedWhenTheHistory
         ASSERT_TRUE(master.statistics.has_value());
         EXPECT_EQ(master.statistics->width, 999u);
         ASSERT_TRUE(master.stack.has_value());
-        EXPECT_DOUBLE_EQ(master.stack->effectiveFrames, 28.5);
+        EXPECT_DOUBLE_EQ(master.stack->effectiveFrames.value_or(0.0), 28.5);
         for (const ReportFrame& frame : master.frames)
         {
             EXPECT_EQ(frame.state, ReportFrameState::Used);
@@ -810,16 +810,71 @@ TEST(ReportRunFacts, ACalibrationMasterItsStageLeftAsItWasIsReusedThoughTheStage
     EXPECT_EQ(madeFlats, 3);
 
     // The run wrote the two darks and three of the four flats.
-    const auto calibration =
-        std::find_if(model.run.disk.begin(), model.run.disk.end(),
-                     [](const ReportDiskUse& use) { return use.kind == QStringLiteral("Calibration masters"); });
+    const auto calibration = std::find_if(model.run.disk.begin(), model.run.disk.end(), [](const ReportDiskUse& use) {
+        return use.kind == QStringLiteral("Calibration masters");
+    });
     ASSERT_NE(calibration, model.run.disk.end());
     EXPECT_EQ(calibration->files, 5);
 
     // The bias of an earlier session and this flat are each a note.
-    EXPECT_EQ(std::count_if(model.issues.begin(), model.issues.end(),
-                            [](const ReportIssue& issue) {
-                                return issue.kind == ReportIssueKind::CalibrationMasterReused;
-                            }),
-              2);
+    EXPECT_EQ(
+        std::count_if(model.issues.begin(), model.issues.end(),
+                      [](const ReportIssue& issue) { return issue.kind == ReportIssueKind::CalibrationMasterReused; }),
+        2);
+}
+
+// A stack that kept no gain map, no weights and no count of the lights that reached each pixel records no
+// effective frames, no measured gain and no coverage: the engine leaves them at zero, which is what a stack with
+// no weighting and no quality map hands over. A report states none of them, and says so, rather than a zero.
+TEST(ReportRunFacts, WhatAStackDidNotRecordOfItselfIsNotStatedRatherThanAZero)
+{
+    const auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+
+    // As the scenario's stack recorded them, the figures are stated.
+    {
+        const ReportModel recorded = buildScenarioModel(*scenario);
+        ASSERT_FALSE(recorded.masters.empty());
+        ASSERT_TRUE(recorded.masters.front().stack.has_value());
+        EXPECT_TRUE(recorded.masters.front().stack->effectiveFrames.has_value());
+        EXPECT_TRUE(recorded.masters.front().stack->measuredSnrGain.has_value());
+        EXPECT_TRUE(recorded.masters.front().stack->coverage.has_value());
+    }
+
+    WorkflowExecutor::Result result = scenario->result;
+    ASSERT_FALSE(result.integrationGroupResults.empty());
+    StackQualityRecord& quality = result.integrationGroupResults.front().qualityReport;
+    ASSERT_TRUE(quality.valid);
+    quality.effectiveFrameCount = 0.0;
+    quality.actualSnrGain = 0.0;
+    quality.integrationEfficiency = 0.0;
+    quality.minCoverage = 0.0;
+    quality.medianCoverage = 0.0;
+    quality.maxCoverage = 0.0;
+    quality.coverageStddev = 0.0;
+
+    const ProductionReportSources production(scenario->session(), scenario->metricsDatabasePath);
+    const ReportModel model = buildReportModel(ReportModelInputs{.manifest = scenario->manifest,
+                                                                 .result = result,
+                                                                 .runDirectory = {},
+                                                                 .context = scenario->context,
+                                                                 .counters = std::nullopt},
+                                               production.sources());
+    ASSERT_FALSE(model.masters.empty());
+    const ReportMaster& master = model.masters.front();
+    ASSERT_TRUE(master.stack.has_value());
+    EXPECT_FALSE(master.stack->effectiveFrames.has_value());
+    EXPECT_FALSE(master.stack->measuredSnrGain.has_value());
+    EXPECT_FALSE(master.stack->efficiency.has_value());
+    EXPECT_FALSE(master.stack->coverage.has_value());
+    // What the light count promises is no measurement, and is still stated.
+    EXPECT_GT(master.stack->theoreticalSnrGain, 0.0);
+
+    const auto named = [&model, &master](const QString& words) {
+        return std::count_if(model.notStated.begin(), model.notStated.end(), [&](const ReportNotStated& entry) {
+            return entry.what.contains(words) && entry.what.contains(master.name);
+        });
+    };
+    EXPECT_EQ(named(QStringLiteral("effective frames")), 1);
+    EXPECT_EQ(named(QStringLiteral("reached each pixel")), 1);
 }

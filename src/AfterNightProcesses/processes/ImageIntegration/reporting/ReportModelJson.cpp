@@ -632,6 +632,19 @@ template <> struct Fields<ReportRestack>
     }
 };
 
+template <> struct Fields<ReportStackCoverage>
+{
+    using Described = void;
+
+    template <class V, class S> static void visit(V& v, S& s)
+    {
+        v("lowest", s.lowest);
+        v("median", s.median);
+        v("highest", s.highest);
+        v("deviation", s.deviation);
+    }
+};
+
 template <> struct Fields<ReportStack>
 {
     using Described = void;
@@ -643,10 +656,7 @@ template <> struct Fields<ReportStack>
         v("measuredSnrGain", s.measuredSnrGain);
         v("theoreticalSnrGain", s.theoreticalSnrGain);
         v("efficiency", s.efficiency);
-        v("lowestCoverage", s.lowestCoverage);
-        v("medianCoverage", s.medianCoverage);
-        v("highestCoverage", s.highestCoverage);
-        v("coverageDeviation", s.coverageDeviation);
+        v("coverage", s.coverage);
         v("normalization", s.normalization);
         v("rejection", s.rejection);
         v("weights", s.weights);

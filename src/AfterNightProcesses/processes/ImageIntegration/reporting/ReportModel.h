@@ -538,27 +538,37 @@ struct ReportRestack
     friend bool operator==(const ReportRestack&, const ReportRestack&) = default;
 };
 
+/// The lights that reached a pixel of a stack: the fewest, the median, the most, and their deviation.
+struct ReportStackCoverage
+{
+    double lowest = 0.0;
+    double median = 0.0;
+    double highest = 0.0;
+    double deviation = 0.0;
+
+    friend bool operator==(const ReportStackCoverage&, const ReportStackCoverage&) = default;
+};
+
 /// What a stack recorded of itself.
 struct ReportStack
 {
     /// The lights the stack combined.
     std::uint64_t inputFrames = 0;
 
-    /// How many lights of equal weight and no rejection would give the same noise.
-    double effectiveFrames = 0.0;
+    /// How many lights of equal weight and no rejection would give the same noise. Nothing when the stack kept
+    /// nothing to derive it from: no gain map, no weights and no count of the lights that reached a pixel.
+    std::optional<double> effectiveFrames;
 
-    /// The gain in signal to noise the stack measured, and the one its light count promises.
-    double measuredSnrGain = 0.0;
+    /// The gain in signal to noise the stack measured, stated with the effective frames it is the root of, and the
+    /// gain its light count promises.
+    std::optional<double> measuredSnrGain;
     double theoreticalSnrGain = 0.0;
 
-    /// The measured gain over the theoretical one.
-    double efficiency = 0.0;
+    /// The measured gain over the theoretical one; stated with the measured gain.
+    std::optional<double> efficiency;
 
-    /// The lights that reached a pixel: the fewest, the median, the most, and their deviation.
-    double lowestCoverage = 0.0;
-    double medianCoverage = 0.0;
-    double highestCoverage = 0.0;
-    double coverageDeviation = 0.0;
+    /// The lights that reached a pixel; nothing when the stack counted none.
+    std::optional<ReportStackCoverage> coverage;
 
     /// What brought the lights to the stack's reference; empty when the stack normalized nothing.
     QString normalization;

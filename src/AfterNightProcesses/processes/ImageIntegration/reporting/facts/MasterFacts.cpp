@@ -239,14 +239,24 @@ calibrationOf(const WorkflowManifest::IntegrationGroup& group,
     ReportStack stack;
     stack.inputFrames = quality.inputFrameCount > 0 ? quality.inputFrameCount
                                                     : static_cast<std::uint64_t>((std::max)(lightFrameCount, 0));
-    stack.effectiveFrames = quality.effectiveFrameCount;
-    stack.measuredSnrGain = quality.actualSnrGain;
+    // The engine derives the effective count from the gain map, else from the weights, else from the lights that
+    // reached each pixel, and leaves it at zero when the stack kept none of them; a stack that combined a light
+    // has a positive count otherwise. A figure the stack did not record is not stated, rather than a zero.
+    if (quality.effectiveFrameCount > 0.0)
+    {
+        stack.effectiveFrames = quality.effectiveFrameCount;
+        stack.measuredSnrGain = quality.actualSnrGain;
+        stack.efficiency = quality.integrationEfficiency;
+    }
     stack.theoreticalSnrGain = quality.theoreticalSnrGain;
-    stack.efficiency = quality.integrationEfficiency;
-    stack.lowestCoverage = quality.minCoverage;
-    stack.medianCoverage = quality.medianCoverage;
-    stack.highestCoverage = quality.maxCoverage;
-    stack.coverageDeviation = quality.coverageStddev;
+    // The most lights that reached a pixel of a stack that counted them is at least one.
+    if (quality.maxCoverage > 0.0)
+    {
+        stack.coverage = ReportStackCoverage{.lowest = quality.minCoverage,
+                                             .median = quality.medianCoverage,
+                                             .highest = quality.maxCoverage,
+                                             .deviation = quality.coverageStddev};
+    }
     stack.normalization = quality.normalization;
 
     if (quality.hasRejectionStats)
@@ -578,6 +588,17 @@ void fillFromResult(ReportBuild& build, const IntegrationGroupResult& group,
     if (group.qualityReport.valid)
     {
         master.stack = stackOf(group.qualityReport, group.lightFrameCount, definition);
+        if (!master.stack->effectiveFrames.has_value())
+        {
+            build.notStated(reportText("The effective frames and the measured SNR gain of %1").arg(master.name),
+                            reportText("The stack kept no gain map, no weights and no count of the lights that "
+                                       "reached each pixel, which is what they are derived from."));
+        }
+        if (!master.stack->coverage.has_value())
+        {
+            build.notStated(reportText("How many lights reached each pixel of %1").arg(master.name),
+                            reportText("The stack was not asked for a coverage map and kept no count of its own."));
+        }
     }
 
     fillPictures(build, master);

@@ -776,13 +776,17 @@ TEST(ReportModelBuilder, AMasterStatesItsFileItsLightsAndWhatItsStackRecorded)
     ASSERT_TRUE(master->stack.has_value());
     const StackQualityRecord& quality = result->qualityReport;
     EXPECT_EQ(master->stack->inputFrames, quality.inputFrameCount);
-    EXPECT_DOUBLE_EQ(master->stack->effectiveFrames, quality.effectiveFrameCount);
-    EXPECT_DOUBLE_EQ(master->stack->measuredSnrGain, quality.actualSnrGain);
+    ASSERT_TRUE(master->stack->effectiveFrames.has_value());
+    EXPECT_DOUBLE_EQ(*master->stack->effectiveFrames, quality.effectiveFrameCount);
+    ASSERT_TRUE(master->stack->measuredSnrGain.has_value());
+    EXPECT_DOUBLE_EQ(*master->stack->measuredSnrGain, quality.actualSnrGain);
     EXPECT_DOUBLE_EQ(master->stack->theoreticalSnrGain, quality.theoreticalSnrGain);
-    EXPECT_DOUBLE_EQ(master->stack->efficiency, quality.integrationEfficiency);
-    EXPECT_DOUBLE_EQ(master->stack->lowestCoverage, quality.minCoverage);
-    EXPECT_DOUBLE_EQ(master->stack->medianCoverage, quality.medianCoverage);
-    EXPECT_DOUBLE_EQ(master->stack->highestCoverage, quality.maxCoverage);
+    ASSERT_TRUE(master->stack->efficiency.has_value());
+    EXPECT_DOUBLE_EQ(*master->stack->efficiency, quality.integrationEfficiency);
+    ASSERT_TRUE(master->stack->coverage.has_value());
+    EXPECT_DOUBLE_EQ(master->stack->coverage->lowest, quality.minCoverage);
+    EXPECT_DOUBLE_EQ(master->stack->coverage->median, quality.medianCoverage);
+    EXPECT_DOUBLE_EQ(master->stack->coverage->highest, quality.maxCoverage);
     EXPECT_EQ(master->stack->rejection.has_value(), quality.hasRejectionStats);
     if (quality.hasRejectionStats)
     {

@@ -219,6 +219,9 @@ What the stack recorded of itself:
 | **Rejected**, **Rejected per light** | The share of all samples the stack rejected, then the range and the median over the lights. |
 | **Weighting**, **Weighted integration** | How the lights were weighed, and their exposure with each light counted at its weight. |
 
+A stack that writes no quality maps may record no coverage, no effective frames and no measured gain. The
+section then leaves those out and Part 6 lists them under **What the report could not state**.
+
 The section also names what brought the lights to one level, the share of the capture's area the master covers,
 the astrometry with the center, the scale, the field and the rotation of the solution, the time each phase of
 finishing the master took, and the weights of its lights as bars.
@@ -358,6 +361,8 @@ under **What the report could not state**, in Part 6.
   recorded and what became of each light are not stated.
 - **A master that could not be read.** A file that is gone or cannot be opened has no statistics and no spread of
   samples.
+- **What a stack did not record.** A stack that writes no quality maps may state no effective frames, no measured
+  SNR gain and no pixel coverage.
 - **A light whose registration failed.** The report gives the stars that were found. The run records no reason.
 - **A light without a time in its header.** It belongs to no night, and the charts by time fall back to the order
   of the lights.
