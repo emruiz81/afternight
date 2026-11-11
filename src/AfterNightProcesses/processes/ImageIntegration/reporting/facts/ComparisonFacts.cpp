@@ -292,7 +292,9 @@ void fillComparison(ReportBuild& build, ReportModel& model)
         return;
     }
 
-    const auto measure = [&build](const QString& path) { return build.measure(path); };
+    const auto measure = [&build](const QString& path) {
+        return build.statistics(path, reportText("the master %1").arg(QFileInfo(path).fileName()));
+    };
     ReportComparison comparison;
     comparison.baselineRunId = previous->executionDirName;
     comparison.baselineArchivedAt = archivedAtOf(previous->archivedAtLocal);

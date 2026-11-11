@@ -5,8 +5,13 @@
 
 #include "AfterNightProcessesExport.h"
 
+#include "processes/ImageIntegration/workflow/WorkflowExecutor.h"
+#include "processes/ImageIntegration/workflow/WorkflowManifest.h"
+
 #include <QJsonObject>
 #include <QString>
+
+#include <optional>
 
 namespace an::consumer
 {
@@ -15,6 +20,22 @@ class EngineSession;
 
 namespace ImageIntegration::Reporting
 {
+
+/// A run as its archive states it: the manifest it ran, and the result its `workflow_manifest.json` and its log give
+/// back.
+struct ArchivedWorkflowRun
+{
+    WorkflowManifest manifest;
+    WorkflowExecutor::Result result;
+};
+
+/// Reads a run from its archive.
+///
+/// @param runDir the run's archive directory, where its log is.
+/// @param archiveRoot the archive's `workflow_manifest.json` document.
+/// @return the run; nothing for a document that holds no manifest.
+[[nodiscard]] AFTERNIGHTPROCESSES_API std::optional<ArchivedWorkflowRun>
+readArchivedWorkflowRun(const QString& runDir, const QJsonObject& archiveRoot);
 
 /// Builds the report of an archived run again from its archive.
 ///

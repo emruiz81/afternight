@@ -30,8 +30,8 @@
 
 namespace ImageIntegration::Reporting
 {
-/// The format `workflow_report.json` is written in. A reader takes a document of this number or an older one it
-/// knows, and refuses a newer one by name.
+/// The format `workflow_report.json` is written in. A reader takes a document of this number and refuses any other
+/// by name: no earlier format is read.
 inline constexpr int kReportSchema = 1;
 
 /// How a run ended.
@@ -396,8 +396,13 @@ struct ReportSampleDistribution
     /// The upper edge of the last bin.
     double highest = 0.0;
 
-    /// The samples in each bin, the samples under `lowest` counted in the first.
+    /// The samples in each bin, the samples under `lowest` counted in the first. The bins are of equal width on a
+    /// logarithmic axis: bin `i` of `n` starts at `lowest * (highest / lowest)^(i / n)`.
     std::vector<std::uint64_t> counts;
+
+    /// The samples above `highest` or not a number, which are in no bin. The bins and these add up to the samples the
+    /// image's validity admits.
+    std::uint64_t outside = 0;
 
     friend bool operator==(const ReportSampleDistribution&, const ReportSampleDistribution&) = default;
 };
@@ -727,6 +732,43 @@ struct ReportBaseline
     friend bool operator==(const ReportBaseline&, const ReportBaseline&) = default;
 };
 
+/// What a master's astrometric solution states of the frame, read from the master's header.
+struct ReportAstrometrySolution
+{
+    /// Where the centre of the frame points, in degrees.
+    double centreRightAscension = 0.0;
+    double centreDeclination = 0.0;
+
+    /// The mean scale in arcseconds per pixel.
+    double pixelScale = 0.0;
+
+    /// The field's width and height in arcminutes.
+    double fieldWidth = 0.0;
+    double fieldHeight = 0.0;
+
+    /// The solution's orientation in degrees, as the engine's solution states it.
+    double orientation = 0.0;
+
+    /// Whether the frame is mirrored against the sky.
+    bool mirrored = false;
+
+    friend bool operator==(const ReportAstrometrySolution&, const ReportAstrometrySolution&) = default;
+};
+
+/// What the registration recorded of the photometry of the lights a master combines.
+struct ReportMasterPhotometry
+{
+    /// The combined lights that state a zero point.
+    int frames = 0;
+
+    std::optional<double> medianZeroPoint;
+    std::optional<double> medianZeroPointScatter;
+    std::optional<double> medianLimitingMagnitude;
+    std::optional<double> medianCatalogMatches;
+
+    friend bool operator==(const ReportMasterPhotometry&, const ReportMasterPhotometry&) = default;
+};
+
 /// The calibration masters a master's lights were calibrated with, by file name.
 struct ReportMasterCalibration
 {
@@ -782,12 +824,21 @@ struct ReportMaster
 
     ReportMasterCalibration calibration;
 
+    /// The keys of the groups of lights the master is stacked from, each sharing one calibration.
+    QStringList lightGroups;
+
     /// The key of the registration group the master's lights were registered in, and how the stack took its inputs.
     QString registrationGroupKey;
     QString registrationInputPolicy;
 
     ReportAstrometryOutcome astrometry = ReportAstrometryOutcome::NotRecorded;
     QString astrometryDetail;
+
+    /// What the solution in the master's header states of the frame, when the header holds one that reads.
+    std::optional<ReportAstrometrySolution> solution;
+
+    /// The photometry of the lights the master combines, when the registration recorded any.
+    std::optional<ReportMasterPhotometry> photometry;
 
     /// The stacking and the drizzle in one line each.
     QString stackingSummary;
@@ -843,9 +894,18 @@ struct ReportCalibrationMaster
     int frames = 0;
     QStringList inputFiles;
 
-    /// The masters a flat's frames are calibrated with, by file name.
+    /// The exposure its header states, in seconds.
+    std::optional<double> exposureSeconds;
+
+    /// The file's size and when it was last changed, when it is there: what tells a later run the file is the same.
+    std::optional<qint64> bytes;
+    std::optional<QDateTime> modifiedAt;
+
+    /// The masters a flat's frames are calibrated with, by file name, and the anchor of each where the run states it.
     QString biasMaster;
     QString darkMaster;
+    QString biasMasterSlug;
+    QString darkMasterSlug;
 
     /// Its stacking in one line, and row by row.
     QString stackingSummary;
@@ -854,6 +914,14 @@ struct ReportCalibrationMaster
     /// The mean level and the noise per channel, when measured.
     std::vector<double> level;
     std::vector<double> noise;
+
+    /// The share of the frame's area the level and the noise were measured over: one for the whole frame, less for
+    /// a large master, which is measured over a rectangle at its centre so that a run of many masters stays quick.
+    std::optional<double> measuredFraction;
+
+    /// The earlier run whose stored report the level and the noise were taken from; empty when this run measured
+    /// them.
+    QString measuredByRun;
 
     /// Its picture, relative to the run's folder; empty where there is none.
     QString preview;
@@ -864,11 +932,16 @@ struct ReportCalibrationMaster
     friend bool operator==(const ReportCalibrationMaster&, const ReportCalibrationMaster&) = default;
 };
 
-/// A group of lights that share a calibration.
+/// A group of lights that share a calibration: the lights of one master that take the same masters under the same
+/// settings.
 struct ReportLightGroup
 {
+    /// The group's own key, and its name.
     QString key;
     QString name;
+
+    /// The key of the master the lights are stacked into.
+    QString masterKey;
 
     /// How many lights the group holds.
     int lights = 0;
@@ -876,10 +949,13 @@ struct ReportLightGroup
     /// Whether the user marked the lights as calibrated already, so no master is applied.
     bool preCalibrated = false;
 
-    /// The masters the lights take, by file name.
+    /// The masters the lights take, by file name, and the anchor of each where the run states it.
     QString biasMaster;
     QString darkMaster;
     QString flatMaster;
+    QString biasMasterSlug;
+    QString darkMasterSlug;
+    QString flatMasterSlug;
 
     std::vector<ReportSettingsBlock> settings;
 
@@ -962,9 +1038,10 @@ struct ReportRegistrationGroup
     QString name;
     QString target;
 
-    /// The group's lights, and those whose registration succeeded when the run has a record.
+    /// The group's lights, and those whose registration succeeded and failed when the run has a record.
     int lights = 0;
     std::optional<int> registered;
+    std::optional<int> failed;
 
     /// The reference light, and whether the application chose it.
     QString reference;
@@ -984,7 +1061,7 @@ struct ReportRegistrationGroup
     std::optional<int> chromaticAberrationCorrected;
     std::optional<int> chromaticAberrationPassedThrough;
 
-    /// The share of the reference's area every light covers.
+    /// The share of the capture's area the group's output plane keeps: the smallest its masters state.
     std::optional<double> overlap;
 
     std::optional<double> medianAstrometricRmsArcsec;
@@ -1142,14 +1219,27 @@ struct ReportNight
     friend bool operator==(const ReportNight&, const ReportNight&) = default;
 };
 
-/// The lights of one filter, over every group of the run.
+/// The lights of one group, as they were taken.
 struct ReportAcquisitionRow
 {
+    /// The key of the group's master, and the group's name, target and filter.
+    QString groupKey;
+    QString group;
+    QString target;
     QString filter;
+
     ReportExposure exposure;
 
-    /// The filter's share of the run's integration time.
+    /// The group's share of the run's integration time.
     double share = 0.0;
+
+    /// The sensor's temperature over the group's lights, when stated.
+    std::optional<double> lowestTemperature;
+    std::optional<double> highestTemperature;
+
+    /// The gain and the offset the lights' headers state, each distinct value once.
+    QStringList gain;
+    QStringList offset;
 
     friend bool operator==(const ReportAcquisitionRow&, const ReportAcquisitionRow&) = default;
 };
@@ -1210,6 +1300,15 @@ struct ReportTarget
     friend bool operator==(const ReportTarget&, const ReportTarget&) = default;
 };
 
+/// How many of the run's lights met one fate.
+struct ReportFrameStateCount
+{
+    ReportFrameState state = ReportFrameState::Used;
+    int frames = 0;
+
+    friend bool operator==(const ReportFrameStateCount&, const ReportFrameStateCount&) = default;
+};
+
 /// The run as a whole.
 struct ReportRun
 {
@@ -1242,6 +1341,9 @@ struct ReportRun
     /// The lights of the run's groups, and those the masters combine.
     int frames = 0;
     std::optional<int> framesUsed;
+
+    /// The lights by what became of them, the fates no light met left out; empty when no light's fate is stated.
+    std::vector<ReportFrameStateCount> frameStates;
 
     /// The exposure of every light, and of the lights the masters combine.
     qint64 capturedMs = 0;

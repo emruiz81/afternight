@@ -53,26 +53,6 @@ const ReportCalibrationMaster* calibrationOfKind(const ReportModel& model, const
     return found == model.calibrationMasters.end() ? nullptr : &*found;
 }
 
-/// An image source that counts how often each file is measured, and measures through another.
-class CountingImages final : public IReportImages
-{
-public:
-    explicit CountingImages(IReportImages* inner) : m_inner(inner) {}
-
-    [[nodiscard]] std::optional<ReportImageStatistics> measure(const QString& path, const std::uint32_t width) override
-    {
-        ++reads[path];
-        widths.append(width);
-        return m_inner->measure(path, width);
-    }
-
-    QHash<QString, int> reads;
-    QList<std::uint32_t> widths;
-
-private:
-    IReportImages* m_inner = nullptr;
-};
-
 /// A host that states a fixed time, zone and platform.
 class FixedHost final : public IReportHost
 {
@@ -93,51 +73,6 @@ public:
     }
 };
 
-/// A metrics source that answers for the lights through another, and states the comet fits and the catalog sources
-/// it is given.
-class StubbedMetrics final : public IReportMetrics
-{
-public:
-    explicit StubbedMetrics(IReportMetrics* inner) : m_inner(inner) {}
-
-    [[nodiscard]] bool available() override
-    {
-        return true;
-    }
-
-    [[nodiscard]] std::optional<int> settingsVersion(const QString& groupKey) override
-    {
-        return m_inner->settingsVersion(groupKey);
-    }
-
-    [[nodiscard]] QHash<QString, RegistrationMetricRow> metricsByFrame(const QString& groupKey,
-                                                                       const int settingsVersion) override
-    {
-        return m_inner->metricsByFrame(groupKey, settingsVersion);
-    }
-
-    [[nodiscard]] QHash<QString, FrameNoiseStatistics> noiseByFrame(const QString& groupKey,
-                                                                    const int settingsVersion) override
-    {
-        return m_inner->noiseByFrame(groupKey, settingsVersion);
-    }
-
-    [[nodiscard]] QList<CometReportRun> cometRuns(const WorkflowManifest&) override
-    {
-        return runs;
-    }
-
-    [[nodiscard]] QList<SpccHandoffGroupSummary> catalogHandoff(const WorkflowManifest&) override
-    {
-        return handoffs;
-    }
-
-    QList<CometReportRun> runs;
-    QList<SpccHandoffGroupSummary> handoffs;
-
-private:
-    IReportMetrics* m_inner = nullptr;
-};
 } // namespace
 
 // ---- The run: identity and provenance.
@@ -496,7 +431,13 @@ TEST(ReportModelBuilder, ARunInWhichEveryMasterWasStillValidMadeNone)
     EXPECT_EQ(model.run.groups.made, 0);
     EXPECT_EQ(model.run.groups.reused, model.run.groups.total);
     EXPECT_GT(model.run.groups.total, 0);
-    EXPECT_TRUE(model.stages.empty()) << "no stage ran";
+    // No stage ran: each is stated as the manifest lists it, with no time of its own.
+    EXPECT_FALSE(model.stages.empty());
+    for (const ReportStage& stage : model.stages)
+    {
+        EXPECT_EQ(stage.state, ReportStageState::Reused) << stage.name.toStdString();
+        EXPECT_FALSE(stage.durationMs.has_value());
+    }
     EXPECT_NE(model.run.outcome, ReportOutcome::Failed);
 }
 
@@ -557,6 +498,8 @@ TEST(ReportModelBuilder, AStageWorksOnTheGroupsOfItsKind)
     auto scenario = built(ReportScenarioId::FiveFilters);
     ASSERT_TRUE(scenario.has_value());
     scenario->result.stageResults.clear();
+    // Only the stages the run timed: a stage the manifest lists and the run has no result for is stated too.
+    scenario->manifest.stageSequence.clear();
     for (const QString& name :
          {QStringLiteral("BiasStacking"), QStringLiteral("DarkStacking"), QStringLiteral("FlatStacking"),
           QStringLiteral("LightsRegistration"), QStringLiteral("LightsStacking")})
@@ -677,9 +620,9 @@ TEST(ReportModelBuilder, TheRunsLightsAreCountedByFilterAndByNight)
     EXPECT_EQ(integration, run.capturedMs);
     EXPECT_GT(run.capturedMs, 0);
     EXPECT_NEAR(share, 1.0, 1e-9);
-    QStringList sorted = filters;
-    sorted.sort(Qt::CaseInsensitive);
-    EXPECT_EQ(filters, sorted) << "the filters are in order";
+    EXPECT_EQ(filters, (QStringList{QStringLiteral("Luminance"), QStringLiteral("Red"), QStringLiteral("Green"),
+                                    QStringLiteral("Blue"), QStringLiteral("Ha")}))
+        << "a row per group, in the order of the run's masters";
 
     ASSERT_EQ(run.nights.size(), 2u);
     EXPECT_LT(run.nights[0].date, run.nights[1].date);
@@ -699,7 +642,7 @@ TEST(ReportModelBuilder, TheRunsLightsAreCountedByFilterAndByNight)
     EXPECT_EQ(nightFrames, 174);
     EXPECT_EQ(nightIntegration, run.capturedMs);
 
-    // The sensor's temperature is the one the lights' names state.
+    // The sensor's temperature is the one the lights' headers state.
     ASSERT_TRUE(run.lowestTemperature.has_value());
     ASSERT_TRUE(run.highestTemperature.has_value());
     EXPECT_DOUBLE_EQ(*run.lowestTemperature, -10.0);
@@ -929,7 +872,7 @@ TEST(ReportModelBuilder, EachMasterIsReadOnceHoweverManyFactsNeedIt)
                                                                  .counters = std::nullopt},
                                                sources);
 
-    EXPECT_EQ(counting.reads.size(), model.run.groups.made);
+    EXPECT_EQ(counting.reads.size(), model.run.groups.made + static_cast<int>(model.calibrationMasters.size()));
     for (auto it = counting.reads.cbegin(); it != counting.reads.cend(); ++it)
     {
         EXPECT_EQ(it.value(), 1) << it.key().toStdString();
@@ -1250,10 +1193,16 @@ TEST(ReportModelBuilder, ASuppliedMasterAndAPreCalibratedGroupAreToldApart)
     EXPECT_EQ(dark->state, ReportCalibrationState::Supplied);
     EXPECT_EQ(FrameId(dark->file), *scenario->manifest.darkStage->groups.front().existingMaster);
 
-    ASSERT_EQ(model.lightGroups.size(), 1u);
-    EXPECT_TRUE(model.lightGroups.front().preCalibrated);
-    EXPECT_EQ(model.lightGroups.front().lights, 12);
-    EXPECT_FALSE(model.lightGroups.front().name.isEmpty());
+    ASSERT_EQ(model.lightGroups.size(), 2u);
+    const auto preCalibrated = std::find_if(model.lightGroups.begin(), model.lightGroups.end(),
+                                            [](const ReportLightGroup& group) { return group.preCalibrated; });
+    ASSERT_NE(preCalibrated, model.lightGroups.end());
+    EXPECT_EQ(preCalibrated->lights, 12);
+    EXPECT_FALSE(preCalibrated->name.isEmpty());
+    EXPECT_TRUE(preCalibrated->settings.empty()) << "no master is applied, so no setting of one is stated";
+    EXPECT_EQ(std::count_if(model.lightGroups.begin(), model.lightGroups.end(),
+                            [](const ReportLightGroup& group) { return group.preCalibrated; }),
+              1);
 
     // The pre-calibrated lights take no master; the others take the supplied dark.
     int withDark = 0;
@@ -1275,7 +1224,12 @@ TEST(ReportModelBuilder, ARunWithNoCalibrationFramesStatesNoCalibration)
     const ReportModel model = buildScenarioModel(*scenario);
 
     EXPECT_TRUE(model.calibrationMasters.empty());
-    EXPECT_TRUE(model.lightGroups.empty());
+    // The lights are one group that takes no master, which is not the same as lights marked calibrated already.
+    ASSERT_EQ(model.lightGroups.size(), 1u);
+    EXPECT_FALSE(model.lightGroups.front().preCalibrated);
+    EXPECT_TRUE(model.lightGroups.front().settings.empty());
+    EXPECT_TRUE(model.lightGroups.front().darkMaster.isEmpty());
+    EXPECT_TRUE(model.lightGroups.front().flatMaster.isEmpty());
     EXPECT_TRUE(model.masters.front().calibration.bias.isEmpty());
     EXPECT_TRUE(model.masters.front().calibration.dark.isEmpty());
     EXPECT_TRUE(model.masters.front().calibration.flat.isEmpty());
@@ -1296,7 +1250,9 @@ TEST(ReportModelBuilder, ARegistrationGroupStatesItsReferenceItsLightsAndTheMast
     const ReportModel model = buildScenarioModel(*scenario);
 
     ASSERT_EQ(model.registrationGroups.size(), 2u);
-    EXPECT_TRUE(model.registrationGroups.back().reference.isEmpty());
+    // A reference the manifest does not name is the one the registration's own records state.
+    EXPECT_EQ(model.registrationGroups.back().reference,
+              QFileInfo(scenario->manifest.registrationGroups.back().lightFiles.front().canonicalPath()).fileName());
     QStringList served;
     for (std::size_t i = 0; i < model.registrationGroups.size(); ++i)
     {
@@ -1579,7 +1535,7 @@ TEST(ReportModelBuilder, WhatTheLightsHeadersStateIsCountedFieldByField)
 
     ASSERT_TRUE(model.run.headers.has_value());
     EXPECT_EQ(model.run.headers->lights, model.run.frames);
-    ASSERT_EQ(model.run.headers->fields.size(), 6u);
+    ASSERT_EQ(model.run.headers->fields.size(), 8u);
     bool anyStated = false;
     for (const ReportHeaderField& field : model.run.headers->fields)
     {

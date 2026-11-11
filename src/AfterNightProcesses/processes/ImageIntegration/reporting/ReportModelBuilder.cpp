@@ -8,9 +8,13 @@
 
 #include "processes/ImageIntegration/core/ParallelExecutionUtils.h"
 
+#include "ReportModelJson.h"
+
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonDocument>
 
+#include <algorithm>
 #include <utility>
 
 namespace ImageIntegration::Reporting
@@ -51,9 +55,9 @@ std::optional<qint64> ReportBuild::fileSize(const QString& path) const
     return m_sources.files->size(resolved);
 }
 
-std::optional<ReportImageStatistics> ReportBuild::measure(const QString& path)
+std::optional<ReportImageMeasurement> ReportBuild::measure(const QString& path, const QString& what)
 {
-    if (path.trimmed().isEmpty() || m_sources.images == nullptr)
+    if (path.trimmed().isEmpty())
     {
         return std::nullopt;
     }
@@ -62,10 +66,65 @@ std::optional<ReportImageStatistics> ReportBuild::measure(const QString& path)
     {
         return found.value();
     }
-    const std::optional<ReportImageStatistics> measured =
-        m_sources.images->measure(key, core::parallelCoreWidth(m_inputs.manifest.maxParallelCores));
+    std::optional<ReportImageMeasurement> measured;
+    const bool there = m_sources.files == nullptr || m_sources.files->exists(key);
+    if (there && m_sources.images != nullptr)
+    {
+        measured = m_sources.images->measure(key, core::parallelCoreWidth(m_inputs.manifest.maxParallelCores));
+    }
+    if (!measured.has_value())
+    {
+        imageNotStated(reportText("The statistics and the sample distribution of %1").arg(what), key, there);
+    }
     m_measured.insert(key, measured);
     return measured;
+}
+
+void ReportBuild::imageNotStated(const QString& subject, const QString& file, const bool there)
+{
+    if (!there)
+    {
+        notStated(subject, reportText("The file %1 is no longer there.").arg(QFileInfo(file).fileName()));
+    }
+    else if (m_sources.images == nullptr || m_sources.session == nullptr)
+    {
+        notStated(subject, reportText("The report was built without an engine session, so no image was read."));
+    }
+    else
+    {
+        notStated(subject, reportText("The file %1 could not be read or measured.").arg(QFileInfo(file).fileName()));
+    }
+}
+
+std::optional<ReportImageLevels> ReportBuild::levels(const QString& path, const QString& what)
+{
+    if (path.trimmed().isEmpty())
+    {
+        return std::nullopt;
+    }
+    const QString key = QDir::cleanPath(QFileInfo(path).absoluteFilePath());
+    if (const auto found = m_levels.constFind(key); found != m_levels.cend())
+    {
+        return found.value();
+    }
+    std::optional<ReportImageLevels> measured;
+    const bool there = m_sources.files == nullptr || m_sources.files->exists(key);
+    if (there && m_sources.images != nullptr)
+    {
+        measured = m_sources.images->measureLevels(key, core::parallelCoreWidth(m_inputs.manifest.maxParallelCores));
+    }
+    if (!measured.has_value())
+    {
+        imageNotStated(reportText("The level and the noise of %1").arg(what), key, there);
+    }
+    m_levels.insert(key, measured);
+    return measured;
+}
+
+std::optional<ReportImageStatistics> ReportBuild::statistics(const QString& path, const QString& what)
+{
+    std::optional<ReportImageMeasurement> measured = measure(path, what);
+    return measured.has_value() ? std::optional<ReportImageStatistics>(std::move(measured->statistics)) : std::nullopt;
 }
 
 std::optional<ReportHeader> ReportBuild::header(const QString& path)
@@ -78,9 +137,91 @@ std::optional<ReportHeader> ReportBuild::header(const QString& path)
     {
         return found.value();
     }
-    std::optional<ReportHeader> probed = m_sources.headers->probe(path);
+    // A file that is not there has no header: asking the codec would only spend an admission to learn it.
+    std::optional<ReportHeader> probed;
+    if (m_sources.files == nullptr || m_sources.files->exists(path))
+    {
+        probed = m_sources.headers->probe(path);
+    }
     m_headers.insert(path, probed);
     return probed;
+}
+
+int ReportBuild::utcOffsetSeconds() const
+{
+    const QJsonValue stated = m_inputs.context.value(QStringLiteral("utcOffsetSeconds"));
+    if (stated.isDouble())
+    {
+        return stated.toInt();
+    }
+    return m_sources.host != nullptr ? m_sources.host->now().offsetFromUtc() : 0;
+}
+
+QString ReportBuild::referenceFrame(const QString& registrationGroupKey)
+{
+    if (const auto found = m_references.constFind(registrationGroupKey); found != m_references.cend())
+    {
+        return found.value();
+    }
+    QString reference;
+    if (const std::optional<int> version = settingsVersion(registrationGroupKey); version.has_value())
+    {
+        reference = m_sources.metrics->referenceFrame(registrationGroupKey, *version);
+    }
+    m_references.insert(registrationGroupKey, reference);
+    return reference;
+}
+
+const std::vector<StoredRun>& ReportBuild::earlierRuns()
+{
+    if (m_earlierRuns.has_value())
+    {
+        return *m_earlierRuns;
+    }
+    m_earlierRuns.emplace();
+    const QString runDirectory = m_inputs.runDirectory.trimmed();
+    if (runDirectory.isEmpty() || m_sources.files == nullptr)
+    {
+        return *m_earlierRuns;
+    }
+    // The runs of a folder are named by when they started, so a name that sorts first is an earlier run.
+    const QFileInfo own(QDir::cleanPath(runDirectory));
+    const QDir history = own.dir();
+    QStringList names = m_sources.files->folders(history.absolutePath());
+    std::sort(names.begin(), names.end(), std::greater<>());
+    for (const QString& name : names)
+    {
+        if (name >= own.fileName())
+        {
+            continue;
+        }
+        const std::optional<QString> stored =
+            m_sources.files->readText(history.filePath(name + QStringLiteral("/workflow_report.json")));
+        if (!stored.has_value())
+        {
+            continue;
+        }
+        const QJsonDocument document = QJsonDocument::fromJson(stored->toUtf8());
+        if (!document.isObject())
+        {
+            continue;
+        }
+        ReportModelRead read = ReportModelJson::fromJson(document.object());
+        if (read.model.has_value())
+        {
+            m_earlierRuns->push_back(StoredRun{.runId = name, .model = std::move(*read.model)});
+        }
+    }
+    return *m_earlierRuns;
+}
+
+void ReportBuild::notStated(const QString& what, const QString& why)
+{
+    const ReportNotStated entry{.what = what, .why = why};
+    if (std::find(m_notStated.begin(), m_notStated.end(), entry) == m_notStated.end())
+    {
+        m_notStated.push_back(entry);
+    }
 }
 
 bool ReportBuild::hasMetrics() const
@@ -121,15 +262,19 @@ ReportModel buildReportModel(const ReportModelInputs& inputs, const ReportSource
 {
     ReportBuild build(inputs, sources);
     ReportModel model;
-    // The order matters: the lights and the settings are stated on the masters and the groups, and the run's
-    // rollups read what the masters measured.
+    // The order matters: the lights and the settings are stated on the masters and the groups, the lineage joins
+    // what the three areas state, the run's rollups read what the masters measured, and the issues read it all.
     fillMasters(build, model);
     fillFrames(build, model);
     fillCalibration(build, model);
     fillRegistration(build, model);
+    fillLineage(build, model);
     fillSettings(build, model);
     fillRun(build, model);
+    fillDisk(build, model);
     fillComparison(build, model);
+    fillIssues(build, model);
+    model.notStated = build.notStatedEntries();
     return model;
 }
 } // namespace ImageIntegration::Reporting
