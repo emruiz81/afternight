@@ -780,7 +780,7 @@ loadRegistrationMetricsByFrame(QSqlDatabase& db, const QString& groupKey, int se
         "SELECT frame_id, stars, fwhm, snr, eccentricity, "
         "photometric_zero_point, zero_point_scatter, astrometric_rms_pixels, astrometric_rms_arcsec, "
         "limiting_magnitude, catalog_matched_stars, "
-        "succeeded, transform_json "
+        "succeeded, transform_json, background_noise, output_path, output_size_bytes "
         "FROM registration_metrics WHERE group_key = :group_key AND settings_version = :settings_version"));
     query.bindValue(QStringLiteral(":group_key"), groupKey);
     query.bindValue(QStringLiteral(":settings_version"), settingsVersion);
@@ -816,29 +816,10 @@ loadRegistrationMetricsByFrame(QSqlDatabase& db, const QString& groupKey, int se
             row.transformKind = transformKind->trimmed().toLower();
             statesShift(transformJson, row);
         }
+        row.backgroundNoise = query.value(13).toDouble();
+        row.outputPath = query.value(14).toString();
+        row.outputSizeBytes = query.value(15).toLongLong();
         byFrame.insert(frameId, row);
-    }
-
-    // What a database of the bare columns does not hold is asked for apart, so such a database still states the rest.
-    QSqlQuery extras(db);
-    extras.prepare(QStringLiteral(
-        "SELECT frame_id, background_noise, output_path, output_size_bytes "
-        "FROM registration_metrics WHERE group_key = :group_key AND settings_version = :settings_version"));
-    extras.bindValue(QStringLiteral(":group_key"), groupKey);
-    extras.bindValue(QStringLiteral(":settings_version"), settingsVersion);
-    if (core::executeSqliteStatement(extras, counters))
-    {
-        while (extras.next())
-        {
-            const auto row = byFrame.find(FrameId(extras.value(0).toString()).canonicalPath());
-            if (row == byFrame.end())
-            {
-                continue;
-            }
-            row->backgroundNoise = extras.value(1).toDouble();
-            row->outputPath = extras.value(2).toString();
-            row->outputSizeBytes = extras.value(3).toLongLong();
-        }
     }
 
     return byFrame;
@@ -1349,12 +1330,6 @@ QString committedRunMetricsDatabase(const WorkflowManifest& manifest)
     const QString outputDirectory = manifest.outputDirectory.trimmed();
     return outputDirectory.isEmpty() ? QString()
                                      : QDir(outputDirectory).filePath(QStringLiteral("registration_metrics.db"));
-}
-
-QString archivedRunMetricsDatabase(const QString& runDirectory)
-{
-    const QString folder = runDirectory.trimmed();
-    return folder.isEmpty() ? QString() : QDir(folder).filePath(QStringLiteral("registration_metrics.db"));
 }
 
 ProductionReportSources::ProductionReportSources(const an::consumer::EngineSession* session,

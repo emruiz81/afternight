@@ -254,23 +254,17 @@ struct ReportSources
     IReportFiles* files = nullptr;
     IReportHost* host = nullptr;
 
-    /// The session a weighting the stack did not record is derived in, or null; without one such a group's lights
-    /// weigh the same.
+    /// The session the headers and the images are read in, or null: what tells a report built without one from a
+    /// file that could not be read.
     const an::consumer::EngineSession* session = nullptr;
 };
 
-/// The metrics database a report of the run being committed is built from: the output folder's.
+/// The metrics database a report is built from: the output folder's, as the run being committed left it. A model is
+/// built of a run once, as it is committed; a run read later is read from the report its archive keeps.
 ///
 /// @param manifest the run's manifest.
 /// @return the path, whether or not a file is there; empty when the manifest names no output folder.
 [[nodiscard]] AFTERNIGHTPROCESSES_API QString committedRunMetricsDatabase(const WorkflowManifest& manifest);
-
-/// The metrics database a report of a run read later from its archive is built from: the archive's own snapshot,
-/// never the output folder's, which holds the metrics of the folder's latest run.
-///
-/// @param runDirectory the run's folder under `history/`.
-/// @return the path, whether or not the archive kept a snapshot; empty for an empty folder name.
-[[nodiscard]] AFTERNIGHTPROCESSES_API QString archivedRunMetricsDatabase(const QString& runDirectory);
 
 /// The sources the product builds a report through.
 class AFTERNIGHTPROCESSES_API ProductionReportSources

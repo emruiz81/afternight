@@ -42,11 +42,6 @@ struct ReportModelInputs
 
     /// The run's diagnostics as they stand, for a run that collected them and whose result does not hold them yet.
     std::optional<WorkflowExecutionCounters> counters;
-
-    /// Whether the run is read later from its archive, not reported as it is committed. A later run of the folder may
-    /// have replaced what this one left outside its archive, so nothing of that kind is read: the normalization's
-    /// coefficients are not stated.
-    bool readFromArchive = false;
 };
 
 /// Builds the report model of a run through the given sources.

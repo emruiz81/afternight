@@ -122,13 +122,8 @@ stand in for any of them:
 
 `ProductionReportSources` holds the product's implementations: the metrics database opened once and closed with the
 object, headers probed and images measured in the engine session it is given, the host's files and clock. **The
-caller names the metrics database**, not the builder: `committedRunMetricsDatabase(manifest)` for the run being
-committed, which is the output folder's, and `archivedRunMetricsDatabase(runDirectory)` for a run read later, which
-is that run's own snapshot. The output folder's database is never read for another run: it holds the metrics of the
-folder's latest run, and a case builds a model for an archive while the folder holds a different database and finds
-the snapshot's figures. The caller also says whether the run is read from its archive
-(`ReportModelInputs::readFromArchive`): then nothing a later run may have replaced outside the archive is read, and
-the normalization's coefficients are named among what is not stated.
+caller names the metrics database**, not the builder: `committedRunMetricsDatabase(manifest)`, the output folder's,
+as the run being committed left it.
 
 The builder asks for each image and each header once however many facts need it (`ReportBuild`); a case counts the
 reads and finds one per master and one per calibration master. A file that is not there is not probed.
@@ -174,8 +169,13 @@ Rules the builder keeps:
   `CompletedWithWarnings` when one is a warning, and `Completed` otherwise: notes alone leave a run clean.
 - **The lights are in the order of the group's lights.** The stack's records are in the stack's own order, so a
   weight is matched to its light by the light's identity, never by its place. A recorded weight is shown relative
-  to the heaviest light, and a photometric one at its mean of one. A stack that recorded none is weighed as its
-  settings imply, in the session the sources carry.
+  to the heaviest light, and a photometric one at its mean of one. A stack that recorded none states none.
+- **No record of an earlier version is read, and no run is reported twice.** A model is built of a run once, as it
+  is committed, from what this version of the application records; a run read later is read from the report its
+  archive keeps. Nothing stands in for a record a run did not write: a stack that recorded no weights states no
+  light's weight or fate, a result that names no map states no map, and a stored report of any format but this
+  version's is refused by name. An archive written before the report was stored has no report the application can
+  build.
 - **Anchors and folders are not derived from each other.** A master's `slug` comes from `ReportSlugs`; a
   registration group's and a calibration master's are made from the key with their kind before it, since their keys
   may be spelled as a group of lights is. A master's `previewFolder` is the name the archiver gives the folder it
@@ -195,8 +195,9 @@ named once, in one function a writer and a reader both walk, so the two cannot d
 
 - A value that is not stated is left out, and reads back as not stated; a stated zero is written.
 - A key the reader does not know is ignored, so a field added later does not break a reader of the same format.
-- A document of a newer format is refused by name: `fromJson` returns no model and a `ReportNotStated` saying which
-  format it met and which it reads. A document that states no format is refused the same way.
+- A document of any format but the one this version writes is refused by name: `fromJson` returns no model and a
+  `ReportNotStated` saying which format it met and which it reads. A document that states no format is refused the
+  same way. No earlier format is read.
 - A number that is not finite is written as text, since JSON has no form for it; a time is written with its offset
   from UTC, to the millisecond; an enumerator is written by name.
 
@@ -210,9 +211,9 @@ named once, in one function a writer and a reader both walk, so the two cannot d
 | Capture time and night | The registration group's `lightCaptureTimestampsUtc`; else the start the light's header states. A night is the local date twelve hours before the capture, in the zone the archive states its times in | The light is on no night, and the model says how many are not |
 | Stars, FWHM, SNR, eccentricity, background noise, zero point, RMS, limiting magnitude, matches | `registration_metrics`, at the group's latest settings version | Not stated |
 | Shift and transform kind | `transform_json`: the kind, and the translation of its matrix | A polynomial kind states the kind only: its matrix is not the whole transform |
-| Weight | `StackQualityRecord::lightWeights`, by the light's identity | The weighting the settings imply, derived in the session; else every light weighs the same |
+| Weight | `StackQualityRecord::lightWeights`, by the light's identity | Not stated: nothing is derived from the settings in its place |
 | Rejected fraction | `frameRejectionRates[i]` belongs to the light `lightWeights[i]` names, when the two lists have one length. A light excluded on a restack takes its rate from `spatialRestackExcludedFrameRates`, whose places are among the group's lights | The lengths differ: no rate is given to any light, and the model says so |
-| Normalization scale and offset | The group's `coefficients.json`, when it holds one match per light | A local normalization, which gives a light a surface: not stated. A run read from its archive: not stated, and named |
+| Normalization scale and offset | The group's `coefficients.json`, when it holds one match per light | A local normalization, which gives a light a surface: not stated |
 | Gain, offset, temperature | The light's header, in the one probe each light gets; the temperature falls back to the one the file's name states | Not stated, and counted as absent in what the headers state |
 | A master's statistics and the spread of its samples | One read of the master in one admitted operation | No session, or the file is gone: not measured, and named |
 | A reused master's figures, stack and lights | The stored report of the latest earlier run that made it, marked by `madeByRun` | That run's report is not kept: the statistics and the spread from one read of the file, the rest named as not stated |
@@ -240,8 +241,8 @@ A light has one state. The first rule that applies decides (`FrameFacts.cpp`):
 3. `LeftOutByStack`: the stack recorded its lights' weights and does not name this one, and no restack excluded it.
 4. `ExcludedOnRestack`: its place among the group's lights is one a second stack was made without.
 5. `NotStacked`: its master failed, was not reached or was cancelled.
-6. `Used`: the stack's weights name it. A stack that recorded no weights combined every light no other state
-   claims.
+6. `Used`: the stack's weights name it, and nothing else makes a light used. Of a stack that recorded no weights
+   only the failed registrations are stated, and the model says so.
 
 The lights the model counts as used are checked against the count the run recorded for the stack; a difference is
 named among what is not stated. A light that is not used has no weight and no share. The lights of a reused master
@@ -301,8 +302,7 @@ took 11.6 seconds on their own. A calibration master an earlier run of the folde
 its file is the same, once that run's archive keeps its report.
 
 `ReportRealRun.WhatBuildingTheModelOfARealRunCosts` prints these figures for the run whose folder under `history/`
-the variable `AFTERNIGHT_REPORT_REAL_RUN` names, and is skipped without it. Point it at a copy: building a model
-opens the artifact store of the folder the manifest names as its output.
+the variable `AFTERNIGHT_REPORT_REAL_RUN` names, and is skipped without it.
 
 ## How a value is printed
 

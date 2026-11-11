@@ -237,53 +237,6 @@ TEST(ReportRunFacts, WithoutAMetricsDatabaseNoLightsMetricIsStatedAndTheModelSay
     EXPECT_EQ(model.run.framesUsed.value_or(0), scenario->facts.lightsCombined);
 }
 
-TEST(ReportRunFacts, AModelBuiltForAnArchiveStatesItsSnapshotsFiguresNotTheOutputFoldersDatabase)
-{
-    auto scenario = built(ReportScenarioId::OneMonoMaster);
-    ASSERT_TRUE(scenario.has_value());
-    const ReportModel committed = buildScenarioModel(*scenario);
-    ASSERT_TRUE(archiveScenarioRun(*scenario));
-    const QString snapshot = archivedRunMetricsDatabase(scenario->runDirectory);
-    ASSERT_TRUE(QFileInfo::exists(snapshot)) << "the archive keeps a snapshot of the run's metrics";
-    EXPECT_EQ(QDir::cleanPath(committedRunMetricsDatabase(scenario->manifest)),
-              QDir::cleanPath(scenario->metricsDatabasePath));
-
-    // A later run of the folder registers the lights again, and measures them differently.
-    const WorkflowManifest::RegistrationGroup& registration = scenario->manifest.registrationGroups.front();
-    QList<QJsonObject> rows;
-    for (const FrameId& light : registration.lightFiles)
-    {
-        QJsonObject row;
-        row.insert(QStringLiteral("frame_id"), light.canonicalPath());
-        row.insert(QStringLiteral("stars"), 7);
-        row.insert(QStringLiteral("fwhm"), 9.75);
-        row.insert(QStringLiteral("snr"), 3.0);
-        row.insert(QStringLiteral("eccentricity"), 0.9);
-        row.insert(QStringLiteral("succeeded"), true);
-        rows.append(row);
-    }
-    for (const QString& suffix : {QString(), QStringLiteral("-wal"), QStringLiteral("-shm")})
-    {
-        QFile::remove(scenario->metricsDatabasePath + suffix);
-    }
-    ASSERT_TRUE(writeRegistrationMetricsDb(scenario->metricsDatabasePath, registration.groupKey.toString(),
-                                           registration.settings.version + 1, rows));
-
-    const ReportModel archived = buildArchivedScenarioModel(*scenario);
-    const ReportModel live = buildScenarioModel(*scenario, scenario->runDirectory);
-
-    ASSERT_EQ(archived.masters.front().frames.size(), committed.masters.front().frames.size());
-    for (std::size_t i = 0; i < archived.masters.front().frames.size(); ++i)
-    {
-        const ReportFrame& frame = archived.masters.front().frames[i];
-        ASSERT_TRUE(frame.fwhm.has_value());
-        EXPECT_DOUBLE_EQ(*frame.fwhm, *committed.masters.front().frames[i].fwhm) << "the snapshot's figure";
-        EXPECT_EQ(frame.stars, committed.masters.front().frames[i].stars);
-        // The output folder's database states another figure for the same light.
-        EXPECT_DOUBLE_EQ(live.masters.front().frames[i].fwhm.value_or(0.0), 9.75);
-    }
-}
-
 // ---- The calibration masters, the groups of lights and the lineage.
 
 TEST(ReportRunFacts, ACalibrationMasterStatesItsLevelItsNoiseItsExposureAndWhoUsesIt)
@@ -867,7 +820,8 @@ TEST(ReportRealRun, WhatBuildingTheModelOfARealRunCosts)
         int probes = 0;
     };
 
-    const ProductionReportSources production(&*session, archivedRunMetricsDatabase(runDirectory));
+    const ProductionReportSources production(&*session,
+                                             QDir(runDirectory).filePath(QStringLiteral("registration_metrics.db")));
     ReportSources sources = production.sources();
     TimedImages images(sources.images);
     TimedHeaders headers(sources.headers);
@@ -880,8 +834,7 @@ TEST(ReportRealRun, WhatBuildingTheModelOfARealRunCosts)
                                                                  .result = run->result,
                                                                  .runDirectory = runDirectory,
                                                                  .context = archiveRoot,
-                                                                 .counters = std::nullopt,
-                                                                 .readFromArchive = true},
+                                                                 .counters = std::nullopt},
                                                sources);
     const qint64 totalMs = total.elapsed();
 

@@ -356,59 +356,6 @@ TEST(ReportFrameFacts, TheWeightingAStackAppliedIsNamedAndItsFloorShownOnlyWhere
     EXPECT_EQ(byNoise.weighting->framesAtFloor, 0);
 }
 
-TEST(ReportFrameFacts, AWeightingTheStackDidNotRecordIsDerivedFromWhatTheRegistrationRecorded)
-{
-    auto scenario = built(ReportScenarioId::OneMonoMaster);
-    ASSERT_TRUE(scenario.has_value());
-    scenario->result.integrationGroupResults.front().qualityReport.lightWeights.clear();
-    scenario->manifest.integrationGroups.front().stacking.weighting = QStringLiteral("Number of Stars");
-
-    const ReportMaster master = buildScenarioModel(*scenario).masters.front();
-
-    QSet<int> stars;
-    QSet<QString> weights;
-    double heaviest = 0.0;
-    for (const ReportFrame& frame : master.frames)
-    {
-        if (!frame.registered.value_or(false))
-        {
-            continue;
-        }
-        ASSERT_TRUE(frame.weight.has_value());
-        EXPECT_GT(*frame.weight, 0.0);
-        EXPECT_LE(*frame.weight, 1.0);
-        heaviest = (std::max)(heaviest, *frame.weight);
-        stars.insert(frame.stars.value_or(0));
-        weights.insert(QString::number(*frame.weight, 'g', 12));
-    }
-    // The weights are relative to the heaviest light, and lights of different star counts weigh differently.
-    EXPECT_DOUBLE_EQ(heaviest, 1.0);
-    ASSERT_GT(stars.size(), 1) << "the scenario's lights do not all have the same stars";
-    EXPECT_GT(weights.size(), 1) << "every light weighs the same: the weights were not derived";
-}
-
-TEST(ReportFrameFacts, AStackThatRecordedNoWeightsIsWeighedAsItsSettingsImply)
-{
-    auto scenario = built(ReportScenarioId::OneMonoMaster);
-    ASSERT_TRUE(scenario.has_value());
-    // A run of a version that recorded no weights: the stack's record names none.
-    scenario->result.integrationGroupResults.front().qualityReport.lightWeights.clear();
-    scenario->manifest.integrationGroups.front().stacking.weighting = QStringLiteral("None");
-
-    const ReportMaster master = buildScenarioModel(*scenario).masters.front();
-
-    ASSERT_TRUE(master.weighting.has_value());
-    EXPECT_EQ(master.weighting->mode, QStringLiteral("None"));
-    for (const ReportFrame& frame : master.frames)
-    {
-        if (frame.registered.value_or(false))
-        {
-            ASSERT_TRUE(frame.weight.has_value());
-            EXPECT_DOUBLE_EQ(*frame.weight, 1.0) << "with no weighting every light weighs the same";
-        }
-    }
-}
-
 // ---- What became of each light.
 
 TEST(ReportFrameFacts, EveryLightOfAStackHasOneStateAndTheStatesAddUpToTheRunsFacts)
@@ -533,7 +480,7 @@ TEST(ReportFrameFacts, WithoutAMetricsDatabaseALightTheStackDidNotCombineIsNotTo
     EXPECT_TRUE(namesNotStated(model, QStringLiteral("no registration metrics database")));
 }
 
-TEST(ReportFrameFacts, AStackThatRecordedNoWeightsCombinedEveryLightNoOtherStateClaims)
+TEST(ReportFrameFacts, OfAStackThatRecordedNoWeightsNoLightsFateOrWeightIsStated)
 {
     auto scenario = built(ReportScenarioId::EveryLightState);
     ASSERT_TRUE(scenario.has_value());
@@ -543,12 +490,22 @@ TEST(ReportFrameFacts, AStackThatRecordedNoWeightsCombinedEveryLightNoOtherState
 
     const ReportModel model = buildScenarioModel(*scenario);
 
-    // The dropped light cannot be told from a combined one, and the run's own count gives it away.
+    // The weights are what names the lights a stack combined: without them nothing is assumed of a light, and
+    // nothing is derived from the settings in their place.
+    EXPECT_EQ(framesOfState(model, ReportFrameState::Used), 0);
     EXPECT_EQ(framesOfState(model, ReportFrameState::LeftOutByStack), 0);
-    EXPECT_EQ(framesOfState(model, ReportFrameState::Used),
-              scenario->facts.lightsCombined + scenario->facts.lightsDroppedByStack);
-    EXPECT_EQ(framesOfState(model, ReportFrameState::ExcludedOnRestack), scenario->facts.lightsExcludedOnRestack);
-    EXPECT_TRUE(namesNotStated(model, QStringLiteral("Which lights the master")));
+    EXPECT_EQ(framesOfState(model, ReportFrameState::ExcludedOnRestack), 0);
+    EXPECT_EQ(framesOfState(model, ReportFrameState::RegistrationFailed), scenario->facts.registrationFailures);
+    for (const ReportFrame& frame : model.masters.front().frames)
+    {
+        EXPECT_FALSE(frame.weight.has_value());
+        EXPECT_FALSE(frame.stackShare.has_value());
+        EXPECT_TRUE(frame.state.has_value() == (frame.registered.has_value() && !*frame.registered));
+    }
+    ASSERT_TRUE(model.masters.front().weighting.has_value());
+    EXPECT_FALSE(model.masters.front().weighting->medianWeight.has_value());
+    EXPECT_FALSE(model.run.framesUsed.has_value() && *model.run.framesUsed > 0);
+    EXPECT_TRUE(namesNotStated(model, QStringLiteral("recorded no weights")));
 }
 
 TEST(ReportFrameFacts, ARejectedFractionBelongsToTheLightTheStacksWeightsNameAtTheSamePlace)
@@ -860,20 +817,6 @@ TEST(ReportFrameFacts, TheNormalizationsScaleAndOffsetAreStatedLightByLight)
         EXPECT_DOUBLE_EQ(frame.normalizationScale.front(), 1.0 + 0.01 * static_cast<double>(light));
     }
 
-    // A run read later from its archive does not read the folder's coefficients, which may be a later run's.
-    const ProductionReportSources production(scenario->session(), scenario->metricsDatabasePath);
-    const ReportModel later = buildReportModel(ReportModelInputs{.manifest = scenario->manifest,
-                                                                 .result = scenario->result,
-                                                                 .runDirectory = {},
-                                                                 .context = scenario->context,
-                                                                 .counters = std::nullopt,
-                                                                 .readFromArchive = true},
-                                               production.sources());
-    for (const ReportFrame& frame : later.masters.front().frames)
-    {
-        EXPECT_TRUE(frame.normalizationScale.empty());
-    }
-    EXPECT_TRUE(namesNotStated(later, QStringLiteral("normalization")));
     EXPECT_FALSE(namesNotStated(model, QStringLiteral("normalization")));
 }
 

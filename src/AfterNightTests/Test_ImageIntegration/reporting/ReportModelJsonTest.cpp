@@ -466,6 +466,17 @@ TEST(ReportModelJson, ADocumentOfANewerFormatIsRefusedByName)
     EXPECT_TRUE(read.refusal->why.contains(QString::number(kReportSchema))) << read.refusal->why.toStdString();
 }
 
+TEST(ReportModelJson, ADocumentOfAnEarlierFormatIsRefusedByNameToo)
+{
+    // No earlier format is read: a document is this version's or it is refused.
+    QJsonObject document = ReportModelJson::toJson(modelWithEveryKindOfValue());
+    document.insert(QStringLiteral("reportSchema"), kReportSchema + 1);
+    const QString newer = ReportModelJson::fromJson(document).refusal->why;
+    document.insert(QStringLiteral("reportSchema"), 0);
+    EXPECT_FALSE(ReportModelJson::fromJson(document).model.has_value());
+    EXPECT_FALSE(newer.contains(QStringLiteral("newer"))) << "a refusal names the two formats, not their order";
+}
+
 TEST(ReportModelJson, ADocumentThatStatesNoFormatIsRefused)
 {
     QJsonObject document = ReportModelJson::toJson(ReportModel{});
