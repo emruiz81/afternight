@@ -97,7 +97,7 @@ means the package is incomplete or damaged, and the cure is to install it again.
 | Qt | Qt 6.10.3 | The version the build definitions name |
 | Python | Python 3.14.7, for extensions. The programs that run extensions start it in processes of their own, and the application loads none. | Installed by the dependency scripts. No Python of the system is needed. |
 | The engine's libraries | OpenFITS, LibTIFF, libpng, libjpeg-turbo, LibRaw with a private build of RawSpeed, OpenXISF, Exiv2, FFmpeg, FFTW in single precision, the GNU Scientific Library and oneTBB. Highway and JSON for Modern C++ are built into the engine. | Installed or built by the numbered dependency scripts |
-| The application's libraries | KDDockWidgets, SQLite, cmark-gfm, and the G'MIC library behind its optional adapter | Installed or built by the same scripts |
+| The application's libraries | KDDockWidgets, SQLite, and the G'MIC library behind its optional adapter | Installed or built by the same scripts |
 | Crash reports | Crashpad, on Windows and Linux | Built on both |
 | This guide | A copy that opens without a network. A release package always holds it. | Built by the documentation script, before the package |
 
