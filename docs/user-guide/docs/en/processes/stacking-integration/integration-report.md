@@ -303,7 +303,7 @@ reports and no image of theirs, so the figures of an earlier run are the ones th
 | Block | Shows |
 | --- | --- |
 | **What made each master** | A row a master, read from left to right: its lights, its bias, dark and flat masters, its registration, then the master. A cell that spans several rows is one group those masters share. |
-| **Calibration masters** | Each bias, dark and flat master with a small picture, its frames, its level and noise, the masters it was calibrated with, the masters that use it and whether it was made, reused or supplied by you. **How each was stacked** opens their settings. |
+| **Calibration masters** | Each bias, dark and flat master with a small picture, its frames, its level and noise, what it is checked by, the masters it was calibrated with, the masters that use it and whether it was made, reused or supplied by you. **Check** gives the share of [hot pixels](../../reference/glossary.md#hot-pixel) of a bias and a dark, which are the pixels more than ten deviations above the median, and the level of a flat's corners as a share of the level at its center. **How each was stacked** opens their settings. |
 | **Registration** | A card for each [registration group](../../reference/glossary.md#registration-group): the lights registered, the reference and who chose it, the transform, where each light sat, and the group's settings. |
 
 A calibration master's level and noise are measured over the middle of a large frame, and the row says over what

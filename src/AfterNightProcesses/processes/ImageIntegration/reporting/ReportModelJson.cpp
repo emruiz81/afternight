@@ -901,6 +901,8 @@ template <> struct Fields<ReportCalibrationMaster>
         v("level", s.level);
         v("noise", s.noise);
         v("measuredFraction", s.measuredFraction);
+        v("hotPixelFraction", s.hotPixelFraction);
+        v("cornerLevel", s.cornerLevel);
         v("measuredByRun", s.measuredByRun);
         v("preview", s.preview);
         v("usedBy", s.usedBy);
