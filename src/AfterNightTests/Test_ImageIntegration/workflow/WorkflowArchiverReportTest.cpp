@@ -26,6 +26,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
+#include <QThread>
 
 #include <algorithm>
 #include <iostream>
@@ -488,5 +489,55 @@ TEST(WorkflowArchiverReport, TheBoundOnWhatAnArchiveWritesLastHoldsWhatEveryScen
                                        ImageIntegration::Config::kReportArchiveBytesPerMaster;
             EXPECT_GE(amounts, 2 * report) << "the report's amounts are less than twice what this run's report weighs";
         }
+    }
+}
+
+// The history drops the run that started first, which is what a run's folder is named for, whatever was written
+// into a folder since. Writing a run's report again replaces a file in its folder; that must not make the oldest
+// run the newest, or the history would drop another run in its place.
+TEST(WorkflowArchiverReport, TheHistoryDropsTheRunThatStartedFirstWhicheverFolderWasWrittenLast)
+{
+    std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
+    ASSERT_TRUE(scenario.has_value());
+    QStringList earlier = scenario->earlierRunDirectories;
+    ASSERT_GE(earlier.size(), 2);
+    std::sort(earlier.begin(), earlier.end(), [](const QString& left, const QString& right) {
+        return QFileInfo(left).fileName() < QFileInfo(right).fileName();
+    });
+    const QString oldest = earlier.front();
+
+    // Something is written into the oldest run's folder after every other run's folder was last changed.
+    QDateTime latest;
+    for (const QString& run : earlier)
+    {
+        const QDateTime changed = QFileInfo(run).lastModified();
+        latest = latest.isValid() ? (std::max)(latest, changed) : changed;
+    }
+    bool writtenLast = false;
+    for (int attempt = 0; attempt < 250 && !writtenLast; ++attempt)
+    {
+        QFile marker(QDir(oldest).filePath(QStringLiteral("written_again.tmp")));
+        ASSERT_TRUE(marker.open(QIODevice::WriteOnly));
+        marker.close();
+        ASSERT_TRUE(marker.remove());
+        writtenLast = QFileInfo(oldest).lastModified() > latest;
+        if (!writtenLast)
+        {
+            QThread::msleep(20);
+        }
+    }
+    ASSERT_TRUE(writtenLast) << "the folder's modification time did not move";
+
+    // A history of as many runs as the folder already holds: committing one more drops exactly one.
+    WorkflowArchiver archiver(scenario->outputDirectory, static_cast<int>(earlier.size()),
+                              qint64{4} * 1024 * 1024 * 1024);
+    archiver.setEngineSession(scenario->session());
+    const WorkflowArchiver::ArchiveResult committed = archiver.commit(scenario->manifest, scenario->result);
+    ASSERT_TRUE(committed.success) << committed.error.toStdString();
+
+    EXPECT_FALSE(QFileInfo::exists(oldest)) << "the run that started first is the one the history drops";
+    for (qsizetype run = 1; run < earlier.size(); ++run)
+    {
+        EXPECT_TRUE(QFileInfo::exists(earlier[run])) << QFileInfo(earlier[run]).fileName().toStdString();
     }
 }

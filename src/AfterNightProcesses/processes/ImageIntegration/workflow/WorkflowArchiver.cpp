@@ -226,11 +226,10 @@ struct DirectoryUse
         runDirs.push_back(entry);
     }
 
-    std::sort(runDirs.begin(), runDirs.end(), [](const QFileInfo& left, const QFileInfo& right) {
-        const qint64 leftTime = left.lastModified().toMSecsSinceEpoch();
-        const qint64 rightTime = right.lastModified().toMSecsSinceEpoch();
-        return leftTime == rightTime ? left.fileName() < right.fileName() : leftTime < rightTime;
-    });
+    // By name, which is when each run started. A folder's modification time is no order of the runs: writing a
+    // run's report again replaces a file in its folder, and would make the oldest run the newest.
+    std::sort(runDirs.begin(), runDirs.end(),
+              [](const QFileInfo& left, const QFileInfo& right) { return left.fileName() < right.fileName(); });
     return runDirs;
 }
 

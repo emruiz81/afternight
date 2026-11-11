@@ -31,9 +31,8 @@ retained, `groups/<group>/` (a summary, a thumbnail, a copy of the master and th
 companion that states the report as data. The document is written as HTML directly, so no report is rendered from
 Markdown and the product links no Markdown library: one library less to build, deploy and credit.
 
-The history keeps 20 runs and 5 GiB (`ImageIntegrationConstants.h`), dropping the runs whose folders were changed
-longest ago; a run whose masters do not fit is archived
-without them, and each master's result says so (`OutputRetentionStatus`). That decision is taken before the
+The history keeps 20 runs and 5 GiB (`ImageIntegrationConstants.h`), dropping the runs that started first; a run
+whose masters do not fit is archived without them, and each master's result says so (`OutputRetentionStatus`). That decision is taken before the
 manifest, the log and the report are written, so that a payload is never copied into the history and then found
 not to fit. The pictures are written before the run's size is measured, so the decision counts them as they are;
 what is written afterwards it bounds. `estimatedArchiveMetadataBytes` counts:
@@ -83,11 +82,12 @@ is made only to a report that is there when the document is written: `storeWorkf
 `rerenderWorkflowReport` take a link to a report that is gone out of the model they write from. The run stays
 listed. A report opened from disk without being written again may still hold a link to a run dropped since.
 
-Two orders of a folder's runs are in use, and they are not the same thing. The archiver trims the history, and
-looks for the run whose pictures a reused master takes, by each run folder's modification time
-(`sortedHistoryRunDirectories`); the report model reads the earlier runs by name, which is when each started
-("A run beside the earlier runs of its folder"). Writing a run's report again replaces a file in its folder, which
-changes the folder's time and not its name.
+The runs of a folder have one order, by name, which is when each started. The archiver trims the history and
+looks for the run whose pictures a reused master takes in that order (`sortedHistoryRunDirectories`), and the
+report model reads the earlier runs in it ("A run beside the earlier runs of its folder"). A folder's
+modification time is no order of the runs: writing a run's report again replaces a file in its folder, and would
+make the oldest run the newest. A case holds it:
+`WorkflowArchiverReport.TheHistoryDropsTheRunThatStartedFirstWhicheverFolderWasWrittenLast`.
 
 ## What a report is built from
 
