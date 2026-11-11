@@ -4,6 +4,7 @@
 #include "ReportChartSamples.h"
 
 #include "processes/ImageIntegration/reporting/ReportFormat.h"
+#include "processes/ImageIntegration/reporting/ReportHtmlWriter.h"
 
 #include <QStringList>
 
@@ -147,15 +148,6 @@ private:
     return out;
 }
 
-[[nodiscard]] QString themeProperties(const StandInTheme& theme)
-{
-    return QStringLiteral("--card:%1;--bg:%2;--ink:%3;--ink2:%4;--ink3:%5;--series:%6;--series2:%7;--success:%8;"
-                          "--warning:%9;--error:%10;--grid:%11;--axis:%12;")
-        .arg(QLatin1String(theme.card), QLatin1String(theme.background), QLatin1String(theme.ink),
-             QLatin1String(theme.ink2), QLatin1String(theme.ink3), QLatin1String(theme.series),
-             QLatin1String(theme.series2), QLatin1String(theme.success), QLatin1String(theme.warning))
-        .arg(QLatin1String(theme.error), QLatin1String(theme.grid), QLatin1String(theme.axis));
-}
 } // namespace
 
 std::vector<SampleLight> sampleLights(const int groups, const int perGroup, const int nights)
@@ -793,163 +785,24 @@ std::vector<SampleChart> everySampleChart()
     return charts;
 }
 
-const std::array<StandInTheme, 2>& standInThemes()
+QString samplePageStylesheet()
 {
-    static const std::array<StandInTheme, 2> kThemes = {{
-        {"dark", "#161D2E", "#0B0F1A", "#F4F4F5", "#A1A1AA", "#8B8B95", "#3987E5", "#D95926", "#34D399", "#FBBF24",
-         "#F87171", "#232B3D", "#3A4358"},
-        {"light", "#FFFFFF", "#FAFAFA", "#18181B", "#52525B", "#6B6B75", "#2A78D6", "#EB6834", "#16A34A", "#D97706",
-         "#DC2626", "#E9EAEE", "#C6C8D0"},
-    }};
-    return kThemes;
-}
-
-QString standInStylesheet()
-{
-    const StandInTheme& dark = standInThemes()[0];
-    const StandInTheme& light = standInThemes()[1];
-    QString css;
-    css += QStringLiteral(":root{color-scheme:dark;%1}\n").arg(themeProperties(dark));
-    css +=
-        QStringLiteral("@media (prefers-color-scheme:light){:root:not([data-theme=\"dark\"]){color-scheme:light;%1}}\n")
-            .arg(themeProperties(light));
-    css += QStringLiteral(":root[data-theme=\"light\"]{color-scheme:light;%1}\n").arg(themeProperties(light));
-    css += QStringLiteral(R"css(
-*{box-sizing:border-box}
-body{margin:0;padding:24px;background:var(--bg);color:var(--ink);
-  font:15px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif}
+    return reportStylesheet() + QStringLiteral(R"css(
+body{padding:24px}
 h1{font-size:22px;margin:0 0 4px}
-.lead{color:var(--ink2);margin:0 0 20px;font-size:14px}
+.page-lead{color:var(--text-2);margin:0 0 20px;font-size:14px}
 .page{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;max-width:1400px;margin:0 auto}
-.card{border:1px solid var(--grid);border-radius:14px;background:var(--card);padding:16px 18px;min-width:0}
-.card.wide{grid-column:1/-1}
-.card h2{font-size:14px;margin:0;font-weight:600}
-.card .note{font-size:12.5px;color:var(--ink3);margin:2px 0 12px}
-.scrollx{overflow-x:auto}
-.wide .scrollx>svg{min-width:780px}
-.wide .scrollx>svg.chart-measures{max-width:900px}
+.page>.card{margin-top:0}
+.page>.card.wide{grid-column:1/-1}
+.page>.card h2{font-size:14px;margin:0;font-weight:600}
+.page>.card .note{font-size:12.5px;color:var(--text-3);margin:2px 0 12px}
+.page .scrollx>svg.chart-measures{max-width:900px}
 @media (max-width:900px){.page{grid-template-columns:minmax(0,1fr)}body{padding:14px}}
-
-.chart{display:block;width:100%;height:auto;overflow:visible}
-.cellbar{display:inline-block;vertical-align:middle}
-.c-grid{stroke:var(--grid);stroke-width:1}
-.c-axis,.c-zero{stroke:var(--axis);stroke-width:1}
-.c-tick{fill:var(--ink3);font:10.5px "Segoe UI",system-ui,sans-serif;font-variant-numeric:tabular-nums}
-.c-lab{fill:var(--ink2);font:10.5px "Segoe UI",system-ui,sans-serif;paint-order:stroke;stroke:var(--card);
-  stroke-width:4px;stroke-linejoin:round}
-.c-ptitle{fill:var(--ink);font:600 11.5px "Segoe UI",system-ui,sans-serif}
-.c-bandname{fill:var(--ink2);font:600 11px "Segoe UI",system-ui,sans-serif}
-.c-val{fill:var(--ink);font:600 11px "Segoe UI",system-ui,sans-serif;font-variant-numeric:tabular-nums}
-.c-name{fill:var(--ink);font:600 12.5px "Segoe UI",system-ui,sans-serif}
-.c-name.is-minor{fill:var(--ink2);font-weight:400}
-.c-empty{fill:var(--ink3);font:12.5px "Segoe UI",system-ui,sans-serif}
-.c-line{fill:none;stroke:var(--series);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
-.c-line15{fill:none;stroke:var(--series);stroke-width:1.5;stroke-linejoin:round;stroke-opacity:.55}
-.c-wash-0{stop-color:var(--series);stop-opacity:.22}
-.c-wash-1{stop-color:var(--series);stop-opacity:0}
-.c-med{stroke:var(--ink2);stroke-width:1}
-.c-band{fill:var(--ink);fill-opacity:.035}
-.c-dot{fill:var(--series);stroke:var(--card);stroke-width:1.5}
-.c-dotS{fill:var(--series)}
-.c-pt{fill:var(--series);stroke:var(--card);stroke-width:1.5}
-.c-pts{fill:none;stroke:var(--series);stroke-width:4.5;stroke-linecap:round;stroke-opacity:.7}
-.c-wash{stroke:none}
-.c-xring{fill:var(--card)}
-.c-x{fill:none;stroke:var(--error);stroke-width:2;stroke-linecap:round}
-.c-x.s-user,.c-x.s-notstacked{stroke:var(--ink3)}
-.c-x.s-stack{stroke:var(--warning)}
-.c-x.s-restack{stroke:var(--series2)}
-.c-hit{fill:var(--ink);fill-opacity:0}
-.c-hit:hover,.c-hit:focus{fill-opacity:.08}
-.c-hitc{fill:var(--ink);fill-opacity:0}
-.c-hitc:hover{fill-opacity:.12}
-.c-seg{stroke:none}
-.c-seg.s-used,.c-key.s-used{fill:var(--series)}
-.c-seg.s-user,.c-key.s-user{fill:var(--ink3)}
-.c-seg.s-registration,.c-key.s-registration{fill:var(--error)}
-.c-seg.s-stack,.c-key.s-stack{fill:var(--warning)}
-.c-seg.s-restack,.c-key.s-restack{fill:var(--series2)}
-.c-seg.s-notstacked,.c-key.s-notstacked{fill:none;stroke:var(--ink3);stroke-width:1.5}
-.c-whisk{stroke:var(--series);stroke-width:1.5}
-.c-iqr{fill:var(--series);fill-opacity:.35}
-.c-bar{fill:var(--series)}
-.c-n{stroke:var(--card);stroke-width:1.5}
-.c-n0{fill:var(--series)}
-.c-n1{fill:var(--series2)}
-.c-ns{stroke:none;fill-opacity:.75}
-.c-hist{fill:var(--series);fill-opacity:.28;stroke:var(--series);stroke-width:1.5;stroke-linejoin:round}
-.c-track{fill:var(--series);fill-opacity:.14}
-.c-span{fill:var(--series);fill-opacity:.55}
-.c-fill{fill:var(--series)}
-.c-mark{fill:var(--ink)}
-.cellbar .c-mark{fill:var(--series2)}
-.c-stagebar{fill:var(--series)}
-.c-stagebar.is-minor{fill:var(--ink3)}
-.c-stagebar.is-failed,.c-stagebar.is-cancelled{fill:var(--error)}
-.c-stagebar.is-reused{fill:none;stroke:var(--ink3);stroke-width:1.5}
-.c-ico{fill:none;stroke:var(--ink3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.c-ico.is-reused,.c-ico.is-notreached,.c-ico.is-skipped{stroke:var(--ink3)}
-.c-ico.is-ran{stroke:var(--success)}
-.c-ico.is-partial{stroke:var(--warning)}
-.c-ico.is-failed,.c-ico.is-cancelled{stroke:var(--error)}
-.c-colnow{fill:var(--series)}
-.c-colprev{fill:none;stroke:var(--ink3);stroke-width:1.5}
-
-.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--ink2);margin-top:8px}
-.legend span{display:inline-flex;align-items:center;gap:6px}
-.legend b{color:var(--ink);font-variant-numeric:tabular-nums}
-.legend svg{flex:none}
-
-.c-layer{display:none}
-.c-layer-0{display:inline}
-.fchart{position:relative}
-.fchart>.pick{position:absolute;opacity:0;pointer-events:none}
-.fchart>.pick:not(.pick-0):checked~.scrollx .c-layer-0{display:none}
-.fchart>.pick-1:checked~.scrollx .c-layer-1,.fchart>.pick-2:checked~.scrollx .c-layer-2,
-.fchart>.pick-3:checked~.scrollx .c-layer-3,.fchart>.pick-4:checked~.scrollx .c-layer-4,
-.fchart>.pick-5:checked~.scrollx .c-layer-5,.fchart>.pick-6:checked~.scrollx .c-layer-6,
-.fchart>.pick-7:checked~.scrollx .c-layer-7,.fchart>.pick-8:checked~.scrollx .c-layer-8{display:inline}
-.switch{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.switch label{padding:4px 11px;border-radius:999px;border:1px solid var(--axis);font-size:12.5px;cursor:pointer;
-  color:var(--ink2)}
-.fchart>.pick-0:checked~.switch label:nth-child(1),.fchart>.pick-1:checked~.switch label:nth-child(2),
-.fchart>.pick-2:checked~.switch label:nth-child(3),.fchart>.pick-3:checked~.switch label:nth-child(4),
-.fchart>.pick-4:checked~.switch label:nth-child(5),.fchart>.pick-5:checked~.switch label:nth-child(6),
-.fchart>.pick-6:checked~.switch label:nth-child(7),.fchart>.pick-7:checked~.switch label:nth-child(8),
-.fchart>.pick-8:checked~.switch label:nth-child(9){background:var(--series);border-color:var(--series);
-  color:var(--card)}
-
-.tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--bg);padding:7px 10px;
-  border-radius:8px;font-size:12px;line-height:1.45;max-width:260px}
-.tip b{display:block;font-weight:600}
-.tip span{display:block;font-variant-numeric:tabular-nums}
 )css");
-    return css;
 }
 
 QString samplePage()
 {
-    // What the page's script does: it takes the theme the address asks for, and shows the tip of the element under
-    // the pointer. It reads no figure and writes none.
-    const QString script = QStringLiteral(R"js(
-(function(){
-  var root=document.documentElement,asked=new URLSearchParams(location.search).get('theme');
-  if(asked)root.setAttribute('data-theme',asked);
-  var tip=document.createElement('div');tip.className='tip';tip.hidden=true;
-  document.addEventListener('DOMContentLoaded',function(){document.body.appendChild(tip)});
-  document.addEventListener('pointermove',function(e){
-    var el=e.target.closest?e.target.closest('[data-tip]'):null;
-    if(!el){tip.hidden=true;return}
-    tip.textContent='';
-    el.getAttribute('data-tip').split('\n').forEach(function(line,i){
-      var part=document.createElement(i?'span':'b');part.textContent=line;tip.appendChild(part)});
-    tip.hidden=false;
-    tip.style.left=Math.max(8,Math.min(innerWidth-tip.offsetWidth-8,e.clientX+14))+'px';
-    tip.style.top=(e.clientY+tip.offsetHeight+24>innerHeight?e.clientY-tip.offsetHeight-12:e.clientY+16)+'px';
-  });
-})();
-)js");
-
     QString body;
     int switches = 0;
     for (const SampleChart& chart : everySampleChart())
@@ -980,7 +833,9 @@ QString samplePage()
         }
         else
         {
-            body += QStringLiteral("<div class=\"scrollx\">%1</div>").arg(chart.markup);
+            // A wide chart scrolls sideways on a phone; a small one is shown at the width its card has.
+            body += QStringLiteral("<div%1>%2</div>")
+                        .arg(chart.wide ? QStringLiteral(" class=\"scrollx\"") : QString(), chart.markup);
         }
         body += chart.legend;
         body += QStringLiteral("</section>\n");
@@ -995,9 +850,9 @@ QString samplePage()
                           "<script>//<![CDATA[\n%2//]]></script>\n"
                           "</head>\n<body>\n"
                           "<h1>The charts of the integration report</h1>\n"
-                          "<p class=\"lead\">Every chart on invented series, under a stand-in stylesheet. "
+                          "<p class=\"page-lead\">Every chart on invented series, under the report's stylesheet. "
                           "Point at a mark for its values.</p>\n"
                           "<div class=\"page\">\n%3</div>\n</body>\n</html>\n")
-        .arg(standInStylesheet(), script, body);
+        .arg(samplePageStylesheet(), reportScript(), body);
 }
 } // namespace ReportChartSamples
