@@ -17,6 +17,7 @@
 #include "ReportDocumentTestSupport.h"
 #include "ReportModelTestSupport.h"
 
+#include "processes/ImageIntegration/reporting/ReportArchiveReader.h"
 #include "processes/ImageIntegration/reporting/ReportAssets.h"
 #include "processes/ImageIntegration/reporting/ReportHtmlWriter.h"
 #include "processes/ImageIntegration/reporting/WorkflowReport.h"
@@ -143,16 +144,15 @@ protected:
             ADD_FAILURE() << "the scenario " << scenarioName(id) << " could not be archived";
             return nullptr;
         }
-        auto report = std::make_unique<Rendered>();
-        report->model = buildScenarioModel(*scenario, scenario->runDirectory);
-        const WorkflowReportStored stored = storeWorkflowReport(report->model, scenario->runDirectory);
-        if (!stored.isStored() || !stored.picturesNotCopied.isEmpty())
+        // The report is the one the archiver stored as it committed the run: the model its archive keeps.
+        ReportArchiveRead stored = ReportArchiveReader::read(scenario->runDirectory);
+        if (!stored.model.has_value())
         {
-            ADD_FAILURE() << "the report of " << scenarioName(id)
-                          << " could not be stored: " << stored.error.toStdString() << ' '
-                          << stored.picturesNotCopied.join(QLatin1Char('\n')).toStdString();
+            ADD_FAILURE() << "the archive of " << scenarioName(id) << " keeps no report: " << stored.why.toStdString();
             return nullptr;
         }
+        auto report = std::make_unique<Rendered>();
+        report->model = std::move(*stored.model);
         report->linked =
             writeReportDocument(report->model, {.form = ReportForm::Linked, .runDirectory = scenario->runDirectory});
         report->embedded =

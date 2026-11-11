@@ -31,6 +31,9 @@ public:
         MasterCountRole,
         ManifestPathRole,
         ReportPathRole,
+        /// Whether the run's archive keeps its report's model, which the report is written again from and the
+        /// single file is made of.
+        StoredReportRole,
         LogPathRole,
         RunDirPathRole,
         IsExpandedRole,
@@ -103,6 +106,7 @@ private:
         int warningCount = 0;
         QString manifestPath;
         QString reportPath;
+        bool hasStoredReport = false;
         QString logPath;
         QString runDirPath;
         bool expanded = false;

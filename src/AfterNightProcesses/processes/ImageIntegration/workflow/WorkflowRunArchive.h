@@ -27,8 +27,8 @@ public:
     struct CommitOutcome
     {
         bool success = false;
-        /// The report the commit wrote; empty when it wrote none. The executor offers the person the report's HTML
-        /// rendering, `workflow_report.html` beside it, when that file exists.
+        /// The report the commit wrote, `workflow_report.html` in the run's folder; empty when it wrote none. The
+        /// executor offers the person that file when it exists.
         QString reportPath;
         QString error;
         qint64 archiveMs = 0;
@@ -52,9 +52,10 @@ public:
     /// Puts back every output a failed or cancelled run displaced.
     virtual void revertStagedFiles(const WorkflowExecutor::Result& result) = 0;
 
-    /// Writes the run's final timing beside its committed history.
+    /// Writes the run's final timing beside its committed history, and the report again with it and with what else
+    /// is known only after the commit: the diagnostics at the end and the engine's memory.
     virtual void finalizeTimingArtifacts(const WorkflowExecutor::Result& result) = 0;
 
-    /// Writes the run's final log beside its committed history.
+    /// Writes the run's final log beside its committed history, and the report again with it.
     virtual void finalizeLogArtifact(const WorkflowExecutor::Result& result) = 0;
 };

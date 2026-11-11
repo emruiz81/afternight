@@ -1067,3 +1067,29 @@ TEST(ReportFrameFacts, TheFramesOfTwoThousandLightsBuildInUnderASecond)
     (void)elapsedMs;
 #endif
 }
+
+// A light the stack raised to the minimum weight is counted as at the floor, under a weighting that takes one.
+TEST(ReportFrameFacts, TheLightsAStackRaisedToItsMinimumWeightAreCounted)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    WorkflowManifest::IntegrationGroup& group = scenario->manifest.integrationGroups.front();
+    group.stacking.weighting = QStringLiteral("Number of Stars");
+    group.stacking.minWeightFloor = 0.2;
+    std::vector<StackLightWeight>& weights =
+        scenario->result.integrationGroupResults.front().qualityReport.lightWeights;
+    ASSERT_GE(weights.size(), 4u);
+    // The stack recorded two lights at the floor; every other light stands above it.
+    for (StackLightWeight& entry : weights)
+    {
+        entry.weight = (std::max)(entry.weight, 0.5);
+    }
+    weights[0].weight = 0.2;
+    weights[2].weight = 0.2;
+
+    const ReportMaster master = buildScenarioModel(*scenario).masters.front();
+    ASSERT_TRUE(master.weighting.has_value());
+    EXPECT_TRUE(master.weighting->floorApplies);
+    EXPECT_DOUBLE_EQ(master.weighting->minimumWeight, 0.2);
+    EXPECT_EQ(master.weighting->framesAtFloor, 2);
+}

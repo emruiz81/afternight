@@ -32,22 +32,6 @@
 
 namespace ImageIntegration::Reporting
 {
-/// Extract the observing date (YYYY-MM-DD) from a LIGHT file path.
-/// Looks for a date-like directory component or filename prefix.
-[[nodiscard]] QDate extractObservingDate(const QString& filePath)
-{
-    // Try to match YYYY-MM-DD in the path
-    static const QRegularExpression dateRx(QStringLiteral("(\\d{4}-\\d{2}-\\d{2})"));
-    auto match = dateRx.match(filePath);
-    if (match.hasMatch())
-    {
-        const QDate d = QDate::fromString(match.captured(1), QStringLiteral("yyyy-MM-dd"));
-        if (d.isValid())
-            return d;
-    }
-    return {};
-}
-
 /// Extract sensor temperature from a filename like ..._-10.00_60.00s_0003.fits
 [[nodiscard]] std::optional<double> extractSensorTemperature(const QString& filePath)
 {
@@ -153,34 +137,6 @@ void addExposureBucket(QList<ReportExposureBucket>& buckets, double exposureSeco
               });
 
     return breakdown;
-}
-
-[[nodiscard]] GroupOutcomeCounts computeGroupOutcomeCounts(const WorkflowManifest& manifest,
-                                                           const WorkflowExecutor::Result& result)
-{
-    GroupOutcomeCounts counts;
-    counts.totalGroups = static_cast<int>(manifest.integrationGroups.size());
-
-    for (const auto& groupResult : result.integrationGroupResults)
-    {
-        if (groupResult.success)
-        {
-            ++counts.regeneratedGroups;
-        }
-        else
-        {
-            ++counts.failedGroups;
-        }
-    }
-
-    if (counts.totalGroups <= 0)
-    {
-        counts.totalGroups = counts.regeneratedGroups + counts.failedGroups;
-    }
-
-    const int reused = counts.totalGroups - counts.regeneratedGroups - counts.failedGroups;
-    counts.reusedGroups = reused > 0 ? reused : 0;
-    return counts;
 }
 
 [[nodiscard]] QString stageDisplayName(QString stageName)
@@ -477,21 +433,6 @@ void addExposureBucket(QList<ReportExposureBucket>& buckets, double exposureSeco
     return manifest.processLabel.trimmed().isEmpty()
                ? QStringLiteral("AfterNight Integration Report")
                : QStringLiteral("AfterNight %1 Report").arg(manifest.processLabel.trimmed());
-}
-
-[[nodiscard]] QString reportProcessingProfileText(const WorkflowManifest& manifest)
-{
-    const QString label = manifest.processingProfileLabel.trimmed();
-    const QString id = manifest.processingProfileId.trimmed();
-    if (label.isEmpty())
-    {
-        return id;
-    }
-    if (id.isEmpty())
-    {
-        return label;
-    }
-    return QStringLiteral("%1 (`%2`)").arg(label, id);
 }
 
 QString computeReproducibilityFingerprint(const WorkflowManifest& manifest, const QJsonObject& context,
@@ -822,9 +763,10 @@ void fillStages(const ReportBuild& build, ReportModel& model)
 }
 
 /// What the engine counted of its memory over the run, and what the run's image cache counted, when collected.
-void fillResources(const ReportBuild& build, ReportRun& run)
+void fillResources(const WorkflowExecutor::Result& result, ReportRun& run)
 {
-    const WorkflowExecutor::Result& result = build.result();
+    run.engineMemory.reset();
+    run.cacheDiagnostics.clear();
     if (result.engineMemory.has_value())
     {
         run.engineMemory = ReportEngineMemory{.peakBytes = result.engineMemory->peakBytes,
@@ -870,13 +812,9 @@ void fillResources(const ReportBuild& build, ReportRun& run)
         cache.allowanceEvictions);
 }
 
-void fillCounters(const ReportBuild& build, ReportRun& run)
+void fillCounters(const std::optional<WorkflowExecutionCounters>& counters, ReportRun& run)
 {
-    std::optional<WorkflowExecutionCounters> counters = build.result().executionCounters;
-    if (!counters.has_value())
-    {
-        counters = build.inputs().counters;
-    }
+    run.counters.clear();
     if (!counters.has_value())
     {
         return;
@@ -936,6 +874,32 @@ void fillCounters(const ReportBuild& build, ReportRun& run)
         counters->pixmapBytesRead());
     add("pixmapBytesWritten", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Dense pixmap payload bytes written"),
         counters->pixmapBytesWritten());
+}
+
+/// The run's total and the phases it is the sum of.
+void fillTimings(const WorkflowExecutor::Result& result, ReportRun& run)
+{
+    run.processingMs = result.totalDurationMs;
+    run.preparation.reset();
+    run.executor.reset();
+    if (result.preparationTiming.hasMeasurements())
+    {
+        run.preparation = ReportPreparationTiming{.manifestBuildMs = result.preparationTiming.manifestBuildMs,
+                                                  .planAndValidationMs = result.preparationTiming.planAndValidationMs};
+    }
+    if (result.executorTiming.captured)
+    {
+        run.executor = ReportExecutorTiming{.stageExecutionMs = result.executorTiming.stageExecutionMs,
+                                            .stateCommitMs = result.executorTiming.stateCommitMs,
+                                            .archiveMs = result.executorTiming.archiveMs,
+                                            .reportMs = result.executorTiming.reportMs};
+    }
+}
+
+/// The name of the run's own folder in the history among what the run wrote to disk.
+[[nodiscard]] QString archiveDiskKind()
+{
+    return reportText("The archive");
 }
 
 void fillSessionNotes(const ReportBuild& build, ReportRun& run)
@@ -1423,21 +1387,9 @@ void fillRun(ReportBuild& build, ReportModel& model)
     run.warnings = result.warningCount > 0 ? result.warningCount : static_cast<int>(result.warnings.size());
     run.errors = static_cast<int>(result.errors.size());
 
-    run.processingMs = result.totalDurationMs;
-    if (result.preparationTiming.hasMeasurements())
-    {
-        run.preparation = ReportPreparationTiming{.manifestBuildMs = result.preparationTiming.manifestBuildMs,
-                                                  .planAndValidationMs = result.preparationTiming.planAndValidationMs};
-    }
-    if (result.executorTiming.captured)
-    {
-        run.executor = ReportExecutorTiming{.stageExecutionMs = result.executorTiming.stageExecutionMs,
-                                            .stateCommitMs = result.executorTiming.stateCommitMs,
-                                            .archiveMs = result.executorTiming.archiveMs,
-                                            .reportMs = result.executorTiming.reportMs};
-    }
-    fillCounters(build, run);
-    fillResources(build, run);
+    fillTimings(result, run);
+    fillCounters(result.executionCounters.has_value() ? result.executionCounters : build.inputs().counters, run);
+    fillResources(result, run);
     fillSessionNotes(build, run);
     fillNights(model, run);
     fillAcquisition(model, run);
@@ -1476,6 +1428,34 @@ void fillRun(ReportBuild& build, ReportModel& model)
 
     fillStages(build, model);
     fillTargets(build, model);
+}
+
+void restateRunCompletion(ReportModel& model, const WorkflowExecutor::Result& result)
+{
+    fillTimings(result, model.run);
+    // A run that collected no diagnostics has none to restate, and what the model was built with stands.
+    if (result.executionCounters.has_value())
+    {
+        fillCounters(result.executionCounters, model.run);
+    }
+    fillResources(result, model.run);
+}
+
+void restateRunArchive(ReportModel& model, const qint64 bytes, const int files)
+{
+    std::vector<ReportDiskUse>& disk = model.run.disk;
+    const QString kind = archiveDiskKind();
+    disk.erase(std::remove_if(disk.begin(), disk.end(), [&kind](const ReportDiskUse& use) { return use.kind == kind; }),
+               disk.end());
+    if (files > 0)
+    {
+        disk.push_back(ReportDiskUse{.kind = kind, .bytes = bytes, .files = files});
+    }
+}
+
+void restateRunLog(ReportModel& model, const QString& log)
+{
+    model.run.log = log;
 }
 
 void fillDisk(ReportBuild& build, ReportModel& model)

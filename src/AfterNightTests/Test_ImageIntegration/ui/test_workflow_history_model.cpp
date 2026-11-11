@@ -46,7 +46,7 @@ void createMockArchive(const QString& historyDir, const QString& execId, const Q
 
     if (createExtras)
     {
-        QFile report(runDir.filePath("workflow_report.md"));
+        QFile report(runDir.filePath("workflow_report.html"));
         (void)report.open(QIODevice::WriteOnly);
         report.close();
 
@@ -172,28 +172,40 @@ TEST(WorkflowHistoryModel, DisplaysCompactGroupKeyWithoutHiddenPlaceholders)
     EXPECT_EQ(child.data(WorkflowHistoryModel::GroupKeyRole).toString(), QStringLiteral("3008x3004|Blue|M 83"));
 }
 
-TEST(WorkflowHistoryModel, PrefersHtmlReportPathWhenAvailable)
+TEST(WorkflowHistoryModel, ARunsReportIsItsDocumentAndAMarkdownFileIsNoReport)
 {
     QTemporaryDir tempDir;
     const QString historyDir = tempDir.path();
     createMockArchive(historyDir, QStringLiteral("run1"), QStringLiteral("2023-01-01T10:00:00"), false);
-
     const QDir runDir(QDir(historyDir).filePath(QStringLiteral("run1")));
-    QFile markdownReport(runDir.filePath(QStringLiteral("workflow_report.md")));
-    ASSERT_TRUE(markdownReport.open(QIODevice::WriteOnly));
-    markdownReport.close();
+    const auto touch = [&runDir](const QString& name) {
+        QFile file(runDir.filePath(name));
+        return file.open(QIODevice::WriteOnly);
+    };
 
-    QFile htmlReport(runDir.filePath(QStringLiteral("workflow_report.html")));
-    ASSERT_TRUE(htmlReport.open(QIODevice::WriteOnly));
-    htmlReport.close();
-
+    // A Markdown file is not a report the list offers: no run writes one.
+    ASSERT_TRUE(touch(QStringLiteral("workflow_report.md")));
     WorkflowHistoryModel model;
     model.setHistoryDirectory(historyDir);
-
-    const QModelIndex idx = model.index(0, 0);
+    QModelIndex idx = model.index(0, 0);
     ASSERT_TRUE(idx.isValid());
-    const QString reportPath = idx.data(WorkflowHistoryModel::ReportPathRole).toString();
-    EXPECT_TRUE(reportPath.endsWith(QStringLiteral("workflow_report.html")));
+    EXPECT_TRUE(idx.data(WorkflowHistoryModel::ReportPathRole).toString().isEmpty());
+    EXPECT_FALSE(idx.data(WorkflowHistoryModel::StoredReportRole).toBool());
+
+    // The document is the report, and the model beside it is what it is written again from.
+    ASSERT_TRUE(touch(QStringLiteral("workflow_report.html")));
+    model.refresh();
+    idx = model.index(0, 0);
+    ASSERT_TRUE(idx.isValid());
+    EXPECT_TRUE(
+        idx.data(WorkflowHistoryModel::ReportPathRole).toString().endsWith(QStringLiteral("workflow_report.html")));
+    EXPECT_FALSE(idx.data(WorkflowHistoryModel::StoredReportRole).toBool());
+
+    ASSERT_TRUE(touch(QStringLiteral("workflow_report.json")));
+    model.refresh();
+    idx = model.index(0, 0);
+    ASSERT_TRUE(idx.isValid());
+    EXPECT_TRUE(idx.data(WorkflowHistoryModel::StoredReportRole).toBool());
 }
 
 TEST(WorkflowHistoryModel, HidesExecutionsWithoutProducedMasterStacks)

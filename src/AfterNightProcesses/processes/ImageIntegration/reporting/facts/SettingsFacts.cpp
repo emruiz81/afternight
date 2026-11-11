@@ -52,11 +52,6 @@ namespace ImageIntegration::Reporting
     return debayerMethod.trimmed().isEmpty() ? QStringLiteral("Auto (engine-selected)") : debayerMethod.trimmed();
 }
 
-[[nodiscard]] QString boolText(bool value)
-{
-    return value ? QStringLiteral("Yes") : QStringLiteral("No");
-}
-
 [[nodiscard]] QString normalizationModeText(NormalizationMode mode)
 {
     switch (mode)

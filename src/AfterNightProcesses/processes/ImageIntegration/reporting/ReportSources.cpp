@@ -212,7 +212,7 @@ channelDistribution(const an::consumer::OperationScope& scope, const ViewT& view
         {
             return distribution;
         }
-        LOG_WARNING("WorkflowReportBuilder: the samples of channel {} could not be counted: {}", channel,
+        LOG_WARNING("IntegrationReport: the samples of channel {} could not be counted: {}", channel,
                     histogram.status().message());
         return std::nullopt;
     }
@@ -302,7 +302,7 @@ enum class RawMeasurement
                     stats.channelStats.push_back(empty);
                     continue;
                 }
-                LOG_WARNING("WorkflowReportBuilder: channel {} could not be measured: {}", channel,
+                LOG_WARNING("IntegrationReport: channel {} could not be measured: {}", channel,
                             basic.status().message());
                 return RawMeasurement::Failed;
             }
@@ -310,7 +310,7 @@ enum class RawMeasurement
                 scope.execution(), ImageT::kSampleType, view->data(), layout, channel, selected->selection);
             if (!advanced.hasValue())
             {
-                LOG_WARNING("WorkflowReportBuilder: channel {} could not be measured: {}", channel,
+                LOG_WARNING("IntegrationReport: channel {} could not be measured: {}", channel,
                             advanced.status().message());
                 return RawMeasurement::Failed;
             }
@@ -405,7 +405,7 @@ constexpr std::uint64_t kLevelSampleLimit = 4'000'000u;
                     levels.noise.push_back(0.0);
                     continue;
                 }
-                LOG_WARNING("WorkflowReportBuilder: the level of channel {} could not be measured: {}", channel,
+                LOG_WARNING("IntegrationReport: the level of channel {} could not be measured: {}", channel,
                             basic.status().message());
                 return RawMeasurement::Failed;
             }
@@ -413,7 +413,7 @@ constexpr std::uint64_t kLevelSampleLimit = 4'000'000u;
                 scope.execution(), ImageT::kSampleType, view->data(), layout, channel, selected->selection);
             if (!advanced.hasValue())
             {
-                LOG_WARNING("WorkflowReportBuilder: the noise of channel {} could not be measured: {}", channel,
+                LOG_WARNING("IntegrationReport: the noise of channel {} could not be measured: {}", channel,
                             advanced.status().message());
                 return RawMeasurement::Failed;
             }
@@ -444,7 +444,7 @@ void measureUnderLease(const an::consumer::EngineSession* session, const QString
         an::ui::readViewImage(*session, an::ui::ViewReadRequest{.path = path}, std::stop_token{}, nullptr);
     if (!read.hasValue())
     {
-        LOG_WARNING("WorkflowReportBuilder: '{}' could not be read: {}", path.toStdString(), read.status().message());
+        LOG_WARNING("IntegrationReport: '{}' could not be read: {}", path.toStdString(), read.status().message());
         return;
     }
     // The read lease is taken before the admission, as every reader of an asset takes it.
@@ -457,7 +457,7 @@ void measureUnderLease(const an::consumer::EngineSession* session, const QString
         an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch, .maxConcurrency = width});
     if (!scope.hasValue())
     {
-        LOG_WARNING("WorkflowReportBuilder: '{}' was not measured: {}", path.toStdString(), scope.status().message());
+        LOG_WARNING("IntegrationReport: '{}' was not measured: {}", path.toStdString(), scope.status().message());
         return;
     }
     measure(*scope, *lease);
@@ -566,22 +566,6 @@ queryCometTrackingRunsForReport(const QString& metricsDbPath, const WorkflowMani
 }
 } // namespace
 
-/// Reads an output image in the session and measures each channel over its unclipped samples.
-///
-/// The figures do not depend on the width: the engine's reductions split their work the same way at any width.
-///
-/// @param session the session the image is read and measured in, or null.
-/// @param path the image.
-/// @param width the most threads the measurement may use - the run's, `core::parallelCoreWidth` of its setting.
-/// @return the figures; nothing without a session, for a file that is not there or cannot be read, or when the engine
-///         refused a measurement.
-[[nodiscard]] std::optional<RawImageStats> analyzeRawImage(const an::consumer::EngineSession* session,
-                                                           const QString& path, std::uint32_t width)
-{
-    std::optional<ReportImageMeasurement> measured = measureReportImage(session, path, width);
-    return measured.has_value() ? std::optional<RawImageStats>(std::move(measured->statistics)) : std::nullopt;
-}
-
 /// Reads an image in the session once and measures it: each channel's figures over its unclipped samples, and how
 /// each channel's samples are spread, in one admitted operation.
 ///
@@ -610,8 +594,8 @@ queryCometTrackingRunsForReport(const QString& metricsDbPath, const WorkflowMani
                                   an::ui::computeImageStatisticsReport(scope, lease, true);
                               if (!report.hasValue())
                               {
-                                  LOG_WARNING("WorkflowReportBuilder: '{}' could not be measured: {}",
-                                              path.toStdString(), report.status().message());
+                                  LOG_WARNING("IntegrationReport: '{}' could not be measured: {}", path.toStdString(),
+                                              report.status().message());
                                   return;
                               }
                               rawStats.channelStats.clear();
@@ -843,26 +827,6 @@ loadRegistrationMetricsByFrame(QSqlDatabase& db, const QString& groupKey, int se
     }
     const QString reference = query.value(0).toString().trimmed();
     return reference.isEmpty() ? QString() : FrameId(reference).canonicalPath();
-}
-
-[[nodiscard]] QString registrationMetricsDatabasePath(const WorkflowManifest& manifest, const QString& reportBaseDir)
-{
-    QString outputDir = manifest.outputDirectory.trimmed();
-    const QString reportDir = reportBaseDir.trimmed();
-    const QString archiveMetricsPath =
-        reportDir.isEmpty() ? QString() : QDir(reportDir).filePath(QStringLiteral("registration_metrics.db"));
-    if (outputDir.isEmpty())
-    {
-        return archiveMetricsPath;
-    }
-
-    const QString outputMetricsPath = QDir(outputDir).filePath(QStringLiteral("registration_metrics.db"));
-    if (QFileInfo::exists(outputMetricsPath) || archiveMetricsPath.isEmpty() || !QFileInfo::exists(archiveMetricsPath))
-    {
-        return outputMetricsPath;
-    }
-
-    return archiveMetricsPath;
 }
 
 [[nodiscard]] QHash<QString, RegistrationMetricRow>

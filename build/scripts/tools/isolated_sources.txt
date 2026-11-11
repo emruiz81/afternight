@@ -4481,7 +4481,7 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_full_workflow.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_stacking_defaults.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_ug60_real_data.cpp
-    unit     src/AfterNightTests/Test_ImageIntegration/reporting/test_workflow_report_builder.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/MarkdownHtmlRendererTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportFormatTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenarios.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenariosTest.cpp
@@ -4493,7 +4493,6 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportRunFactsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportComparisonTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportArchiveReaderTest.cpp
-    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelParityTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartSamples.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportHtmlWriterTest.cpp
@@ -4515,6 +4514,7 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/test_preview_thumbnail_generator.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/test_registration_work_analyzer.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/test_workflow_archiver.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/workflow/WorkflowArchiverReportTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/test_workflow_execution_controller.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/test_workflow_preparation.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
@@ -4679,7 +4679,6 @@ sources Test_ImageIntegration
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/PreviewThumbnailGenerator.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowArchiver.h
-    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/WorkflowReportArchiveLoader.h
     header   src/AfterNightProcesses/processes/ImageIntegration/ImageIntegrationConstants.h
     header   src/AfterNightProcesses/processes/ImageIntegration/ImageIntegrationImportSession.h
     header   src/AfterNightProcesses/processes/ImageIntegration/dialogs/ImportProgressDialog.h
@@ -4748,7 +4747,6 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/SessionDocument.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/MarkdownHtmlRenderer.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportFormat.h
-    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/WorkflowReportBuilder.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModel.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModelBuilder.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModelJson.h

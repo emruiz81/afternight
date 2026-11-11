@@ -7,6 +7,9 @@
 
 #include <gtest/gtest.h>
 
+#include <QDir>
+#include <QRegularExpression>
+
 #include "Test_ImageIntegration/reporting/ReportModelTestSupport.h"
 
 #include <QFileInfo>
@@ -420,4 +423,133 @@ TEST(ReportSettingsFacts, AFigureOfASettingIsPrintedForAPerson)
               QStringLiteral("0.05"));
     EXPECT_EQ(valueOf(settings, QStringLiteral("Stacking"), QStringLiteral("Exponential Alpha")),
               QStringLiteral("0.3333"));
+}
+
+// A registration that is told a linear mode is named by its base transform, whatever order its settings still
+// hold from a polynomial mode chosen before.
+TEST(ReportSettingsFacts, ALinearTransformModeIsNamedByItsBaseTransformWhateverOrderIsStored)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    RegistrationSettings& settings = scenario->manifest.registrationGroups.front().settings;
+    settings.registrationMethod = QStringLiteral("star_matching");
+    settings.transformation = QStringLiteral("Affine");
+    settings.transformMode = QStringLiteral("linear");
+    settings.transformOrder = 3;
+    settings.twoPassRefinementEnabled = true;
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    const ReportRegistrationGroup& group = model.registrationGroups.front();
+
+    EXPECT_EQ(valueOf(group.settings, QStringLiteral("Registration"), QStringLiteral("Transform Model")),
+              QStringLiteral("Affine"));
+    EXPECT_FALSE(group.transform.contains(QStringLiteral("Polynomial"))) << group.transform.toStdString();
+    for (const ReportSettingsBlock& block : group.settings)
+    {
+        for (const ReportSettingsRow& row : block.rows)
+        {
+            EXPECT_FALSE(row.value.contains(QStringLiteral("Polynomial 3"))) << row.name.toStdString();
+        }
+    }
+}
+
+// The star matcher's cap is named for what it caps, the mode is stated as the settings hold it, and nothing is said
+// of a refinement the mode already implies. The detection's own settings and the two left on Auto are rows too.
+TEST(ReportSettingsFacts, TheRegistrationsSettingsNameTheStarCapTheModeAndTheDetection)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    RegistrationSettings& settings = scenario->manifest.registrationGroups.front().settings;
+    settings.registrationMethod = QStringLiteral("star_matching");
+    settings.maxStarPairs = 1500;
+    settings.transformation = QStringLiteral("Homography");
+    settings.transformMode = QStringLiteral("polynomial");
+    settings.transformOrder = 3;
+    settings.twoPassRefinementEnabled = true;
+    settings.radius = 7;
+    settings.roundnessRangeEnabled = true;
+    settings.profileType = QStringLiteral("Moffat");
+    settings.interpolation = QStringLiteral("Auto");
+    settings.cfaPattern = QStringLiteral("Auto");
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    const std::vector<ReportSettingsBlock>& blocks = model.registrationGroups.front().settings;
+    const ReportSettingsBlock* registration = blockOf(blocks, QStringLiteral("Registration"));
+    ASSERT_NE(registration, nullptr);
+    const auto digits = [](QString text) { return text.remove(QRegularExpression(QStringLiteral("[^0-9]"))); };
+
+    const ReportSettingsRow* cap = rowOf(registration, QStringLiteral("Max Stars per Frame"));
+    ASSERT_NE(cap, nullptr);
+    EXPECT_EQ(digits(cap->value), QStringLiteral("1500"));
+    EXPECT_EQ(rowOf(registration, QStringLiteral("Max Star Pairs")), nullptr);
+    EXPECT_EQ(valueOf(blocks, QStringLiteral("Registration"), QStringLiteral("Transform Mode")),
+              QStringLiteral("polynomial"));
+    for (const ReportSettingsRow& row : registration->rows)
+    {
+        EXPECT_FALSE(row.name.contains(QStringLiteral("Two-pass"), Qt::CaseInsensitive)) << row.name.toStdString();
+    }
+
+    EXPECT_EQ(digits(valueOf(blocks, QStringLiteral("Registration"), QStringLiteral("Detection Radius"))),
+              QStringLiteral("7"));
+    EXPECT_EQ(valueOf(blocks, QStringLiteral("Registration"), QStringLiteral("Roundness Range Enabled")),
+              QStringLiteral("Yes"));
+    EXPECT_EQ(valueOf(blocks, QStringLiteral("Registration"), QStringLiteral("Profile Type")),
+              QStringLiteral("Moffat"));
+
+    // What was left on Auto says what it resolved to, what was asked for and why.
+    const ReportSettingsRow* interpolation = rowOf(registration, QStringLiteral("Interpolation"));
+    ASSERT_NE(interpolation, nullptr);
+    EXPECT_EQ(interpolation->value, QStringLiteral("Lanczos4"));
+    EXPECT_EQ(interpolation->requested, QStringLiteral("Auto"));
+    EXPECT_FALSE(interpolation->reason.isEmpty());
+    const ReportSettingsRow* pattern = rowOf(registration, QStringLiteral("CFA Pattern"));
+    ASSERT_NE(pattern, nullptr);
+    EXPECT_EQ(pattern->value, QStringLiteral("from metadata"));
+    EXPECT_EQ(pattern->requested, QStringLiteral("Auto"));
+}
+
+// A drizzled group normalized locally states its local normalization as any group does, with the artifact its
+// coefficients are kept in.
+TEST(ReportSettingsFacts, ADrizzledGroupNormalizedLocallyListsItsLocalNormalizationAsAnyGroupDoes)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    WorkflowManifest::IntegrationGroup& group = scenario->manifest.integrationGroups.front();
+    group.stacking.normalizationMode = NormalizationMode::Local;
+    group.stacking.localNormalization.enabled = true;
+    group.stacking.localNormalization.referenceStrategy = QStringLiteral("Single Best Frame");
+    group.stacking.localNormalization.minDetectionSnr = 55.0;
+    group.drizzle = WorkflowManifest::IntegrationGroup::DrizzleSettings{};
+    group.drizzle->enabled = true;
+    group.normalizationCoefficientsArtifactPath =
+        QDir(scenario->outputDirectory).filePath(QStringLiteral("normalization/coefficients.json"));
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    const std::vector<ReportSettingsBlock>& blocks = model.masters.front().settings;
+
+    ASSERT_NE(blockOf(blocks, QStringLiteral("Drizzle")), nullptr);
+    EXPECT_EQ(valueOf(blocks, QStringLiteral("Local Normalization"), QStringLiteral("Reference Strategy")),
+              QStringLiteral("Single Best Frame"));
+    EXPECT_EQ(valueOf(blocks, QStringLiteral("Local Normalization"), QStringLiteral("Min SNR (flux scale)")),
+              QStringLiteral("55"));
+    const QString artifact =
+        valueOf(blocks, QStringLiteral("Normalization Reference"), QStringLiteral("Coefficients Artifact"));
+    EXPECT_TRUE(artifact.endsWith(QStringLiteral("coefficients.json"))) << artifact.toStdString();
+}
+
+// An exposure merge names its stack method as a merge of the method it averages by.
+TEST(ReportSettingsFacts, AnExposureMergeNamesItsStackMethodAsAMerge)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    WorkflowManifest::IntegrationGroup& group = scenario->manifest.integrationGroups.front();
+    group.stacking.stackMethod = QStringLiteral("Average");
+    EXPECT_EQ(valueOf(buildScenarioModel(*scenario).masters.front().settings, QStringLiteral("Stacking"),
+                      QStringLiteral("Stack Method")),
+              QStringLiteral("Average"));
+
+    group.stacking.hdr.enabled = true;
+    EXPECT_EQ(valueOf(buildScenarioModel(*scenario).masters.front().settings, QStringLiteral("Stacking"),
+                      QStringLiteral("Stack Method")),
+              QStringLiteral("HDR Merge (Average)"));
 }

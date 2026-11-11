@@ -117,7 +117,9 @@ TEST(ReportArchiveReader, AnArchiveThatKeepsNoStoredReportIsRefusedByName)
     auto scenario = buildReportScenario(ReportScenarioId::OneMonoMaster);
     ASSERT_TRUE(scenario.has_value());
     ASSERT_TRUE(archiveScenarioRun(*scenario));
-    // The archive holds the run's manifest and results, and nothing is built from them.
+    // An archive whose stored report is not there, as an earlier version of the application left one. It holds the
+    // run's manifest and results, and nothing is built from them.
+    ASSERT_TRUE(QFile::remove(QDir(scenario->runDirectory).filePath(QLatin1String(kStoredReportFileName))));
     ASSERT_TRUE(QFileInfo::exists(QDir(scenario->runDirectory).filePath(QStringLiteral("workflow_manifest.json"))));
 
     const ReportArchiveRead archive = ReportArchiveReader::read(scenario->runDirectory);

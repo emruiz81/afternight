@@ -70,6 +70,7 @@ enum class HistoryButtonId : int
     None = 0,
     OpenAll,
     Report,
+    SaveReport,
     Log,
     Rerun,
     DeleteArchive,
@@ -226,10 +227,21 @@ void paintButton(QPainter* painter, const QStyleOptionViewItem& option, const Bu
                        WorkflowHistoryDelegate::tr("Open all stacked master files from this run")});
     offset += historyButtonWidth() + historyPadding();
 
-    if (!index.data(WorkflowHistoryModel::ReportPathRole).toString().isEmpty())
+    const bool hasStoredReport = index.data(WorkflowHistoryModel::StoredReportRole).toBool();
+    if (hasStoredReport || !index.data(WorkflowHistoryModel::ReportPathRole).toString().isEmpty())
     {
         buttons.push_back({HistoryButtonId::Report, buttonRect(itemRect, offset), WorkflowHistoryDelegate::tr("Report"),
                            WorkflowHistoryDelegate::tr("View the detailed workflow report")});
+        offset += historyButtonWidth() + historyPadding();
+    }
+
+    // The single file is made of the report the archive keeps, so a run that keeps none is not offered it.
+    if (hasStoredReport)
+    {
+        buttons.push_back(
+            {HistoryButtonId::SaveReport, buttonRect(itemRect, offset), WorkflowHistoryDelegate::tr("Save As..."),
+             WorkflowHistoryDelegate::tr("Save Report As One File: the report with its pictures inside it, in one "
+                                         "file that opens on its own")});
         offset += historyButtonWidth() + historyPadding();
     }
 
@@ -710,6 +722,9 @@ bool WorkflowHistoryDelegate::eventFilter(QObject* watched, QEvent* event)
                 return true;
             case HistoryButtonId::Report:
                 emit reportRequested(actionIndex);
+                return true;
+            case HistoryButtonId::SaveReport:
+                emit saveReportRequested(actionIndex);
                 return true;
             case HistoryButtonId::Log:
                 emit logRequested(actionIndex);

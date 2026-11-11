@@ -760,20 +760,13 @@ void WorkflowHistoryModel::loadWorkflows()
         item.runDirPath = runDir.absolutePath();
         item.manifestPath = manifestPath;
 
-        // Report path: prefer HTML report when available, fallback to Markdown.
+        // The report is the run's document; the model it is written from is what makes it writable again.
         const QString htmlReportPath = runDir.filePath(QStringLiteral("workflow_report.html"));
         if (QFile::exists(htmlReportPath))
         {
             item.reportPath = htmlReportPath;
         }
-        else
-        {
-            const QString markdownReportPath = runDir.filePath(QStringLiteral("workflow_report.md"));
-            if (QFile::exists(markdownReportPath))
-            {
-                item.reportPath = markdownReportPath;
-            }
-        }
+        item.hasStoredReport = QFile::exists(runDir.filePath(QStringLiteral("workflow_report.json")));
 
         // Log path
         if (QFile::exists(runDir.filePath("workflow_log.txt")))
@@ -1194,6 +1187,8 @@ QVariant WorkflowHistoryModel::data(const QModelIndex& index, int role) const
             return wf.manifestPath;
         case ReportPathRole:
             return wf.reportPath;
+        case StoredReportRole:
+            return wf.hasStoredReport;
         case LogPathRole:
             return wf.logPath;
         case RunDirPathRole:

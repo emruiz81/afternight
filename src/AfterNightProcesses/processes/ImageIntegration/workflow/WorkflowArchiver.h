@@ -11,19 +11,33 @@
 #include "processes/ImageIntegration/workflow/WorkflowRunArchive.h"
 
 #include <QByteArray>
+#include <QDateTime>
 #include <QObject>
 #include <QString>
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
+
+namespace ImageIntegration::Reporting
+{
+struct ReportModel;
+} // namespace ImageIntegration::Reporting
 
 /**
  * @brief Manages archiving of workflow execution results.
  *
  * Handles creation of the 'history/<execution_id>' directory, snapshotting
  * current outputs, preserving staged previous outputs, and generation of the
- * consolidated 'workflow_manifest.json' and 'workflow_report.md'.
+ * consolidated 'workflow_manifest.json' and of the run's report: its model as
+ * 'workflow_report.json' and the document written from it, 'workflow_report.html'.
+ *
+ * The report's model is built once, as the run is committed, and kept. The run's
+ * final timings, its diagnostics and what the engine counted of its memory are
+ * known only after the commit, and its log is complete last, so the two final
+ * steps state them on the kept model and write both files again. A report is
+ * therefore never a text with figures put into it afterwards.
  */
 class AFTERNIGHTPROCESSES_API WorkflowArchiver
 {
@@ -42,6 +56,19 @@ public:
         qint64 reportMs = 0;
         ImageIntegration::ArchiveTransportDiagnostics transportDiagnostics;
         std::vector<ImageIntegration::ArchiveFileTransportResult> payloadTransports;
+    };
+
+    /// When, where and by which version of the application an archive says it was written.
+    struct ArchiveStamp
+    {
+        /// The instant, with the zone or the offset the archive states its local time in.
+        QDateTime archivedAt;
+
+        /// The zone's IANA name.
+        QString timeZoneId;
+
+        /// The application's version; empty when it states none.
+        QString applicationVersion;
     };
 
     explicit WorkflowArchiver(const QString& outputDir, WorkflowExecutionCounterAccumulator* counters = nullptr);
@@ -96,6 +123,12 @@ public:
     ///        the run did not prepare and a report that states no figure needing a file read.
     void setEngineSession(const an::consumer::EngineSession* session);
 
+    /// States what the archive says of when, where and by which version it was written, in place of the host's
+    /// clock and zone and the running application's version: what a run of another time and place is archived with.
+    ///
+    /// @param stamp what the archives this archiver commits state.
+    void setArchiveStamp(ArchiveStamp stamp);
+
 private:
     friend class WorkflowArchiverRunArchive;
 
@@ -104,12 +137,13 @@ private:
     QString m_outputDir;
     int m_maxHistoryEntries = 0;
     qint64 m_maxHistoryBytes = 0;
-    QString m_reportMarkdownPath;
-    QString m_reportHtmlPath;
-    QString m_reportMarkdownTemplate;
-    QString m_reportHtmlTemplate;
+    QString m_runDirectory;
     QString m_manifestPath;
     QString m_logPath;
+    /// The model of the run last committed, kept so the final steps state the run's last figures on it; null for a
+    /// run that has no report.
+    std::shared_ptr<ImageIntegration::Reporting::ReportModel> m_reportModel;
+    std::optional<ArchiveStamp> m_archiveStamp;
     WorkflowExecutionCounterAccumulator* m_counters = nullptr;
     const an::consumer::EngineSession* m_session = nullptr;
     ImageIntegration::ArchiveFileTransport m_archiveTransport;
@@ -117,9 +151,14 @@ private:
 
     ArchiveResult commit(const WorkflowManifest& manifest, WorkflowExecutor::Result& result,
                          const CapturePhaseDuration& capturePhaseDuration);
-    void finalizeTimingArtifacts(const WorkflowExecutor::Result& result) const;
-    void finalizeLogArtifact(const WorkflowExecutor::Result& result) const;
+    void finalizeTimingArtifacts(const WorkflowExecutor::Result& result);
+    void finalizeLogArtifact(const WorkflowExecutor::Result& result);
     void cleanupOldArchives(const QString& protectedRunPath = {});
+
+    /// Writes the kept model and its document into the run's folder, and logs why when it cannot.
+    ///
+    /// @return the document written; empty when the report was not stored.
+    QString storeKeptReport();
 };
 
 namespace ImageIntegration
@@ -155,6 +194,28 @@ struct ArchivedCalibrationPreview
 /// @return one entry per calibration group.
 [[nodiscard]] AFTERNIGHTPROCESSES_API std::vector<ArchivedCalibrationPreview>
 archivedCalibrationPreviews(const WorkflowManifest& manifest);
+
+/// Whether a run is given a report: one that stacks, and not one that only registers.
+///
+/// @param manifest the run's manifest.
+/// @param result the run's result.
+[[nodiscard]] AFTERNIGHTPROCESSES_API bool runHasWorkflowReport(const WorkflowManifest& manifest,
+                                                                const WorkflowExecutor::Result& result);
+
+/// The most the files an archive writes after it decides whether the run's payloads fit the history can weigh: the
+/// manifest, the log, and the report's model and document.
+///
+/// The decision is taken before those files exist, so that a payload is never copied into the history and then
+/// found not to fit. The report grows with the run - with its lights, its masters, its log and its messages - so
+/// the bound is the manifest's, the results' and the log's own bytes, each counted for the three files that carry
+/// it, and a base, an amount a light and an amount a master for the report (`Config::kReportArchiveBaseBytes` and
+/// the two beside it).
+///
+/// @param manifest the run's manifest, as it is persisted.
+/// @param result the run's result.
+/// @return the bound, in bytes.
+[[nodiscard]] AFTERNIGHTPROCESSES_API qint64 estimatedArchiveMetadataBytes(const WorkflowManifest& manifest,
+                                                                           const WorkflowExecutor::Result& result);
 } // namespace ImageIntegration
 
 /// The archive a run commits through: this archiver over the run's output directory.

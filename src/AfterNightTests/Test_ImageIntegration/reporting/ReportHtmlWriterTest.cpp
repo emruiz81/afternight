@@ -498,6 +498,33 @@ TEST_F(ReportHtmlWriterTest, EveryLinkLandsAndTheContentsNameEveryBlock)
     }
 }
 
+// The document closes by saying which application wrote it, of which run, and when the run was archived: what a
+// printed page still says of itself.
+TEST_F(ReportHtmlWriterTest, TheFooterNamesTheApplicationTheRunAndWhenItWasArchived)
+{
+    for (const ReportScenarioId id : reportedScenarios())
+    {
+        SCOPED_TRACE(scenarioName(id));
+        const Rendered* report = reportOf(id);
+        ASSERT_NE(report, nullptr);
+        const ReportRun& run = report->model.run;
+        for (const ParsedDocument* parsed : {&report->linkedParsed, &report->embeddedParsed})
+        {
+            const std::vector<const DocumentElement*> footers = parsed->named("footer");
+            ASSERT_EQ(footers.size(), 1u);
+            const QString text = footers.front()->text;
+            EXPECT_TRUE(text.contains(QStringLiteral("AfterNight %1").arg(run.applicationVersion)))
+                << text.toStdString();
+            EXPECT_TRUE(text.contains(run.executionId)) << text.toStdString();
+            ASSERT_TRUE(run.archivedAt.has_value());
+            EXPECT_TRUE(text.contains(QStringLiteral("archived"))) << text.toStdString();
+            EXPECT_TRUE(
+                text.contains(QString::number(run.archivedAt->toOffsetFromUtc(run.utcOffsetSeconds).date().year())))
+                << text.toStdString();
+        }
+    }
+}
+
 TEST_F(ReportHtmlWriterTest, TheHeaderStatesTheModelsVerdictAndFigures)
 {
     for (const ReportScenarioId id : reportedScenarios())
