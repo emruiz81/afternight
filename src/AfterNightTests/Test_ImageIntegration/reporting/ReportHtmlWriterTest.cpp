@@ -12,6 +12,7 @@
 #include "ReportChartSamples.h"
 #include "ReportDocumentTestSupport.h"
 #include "ReportModelTestSupport.h"
+#include "ReportRenderedScenarios.h"
 
 #include "processes/ImageIntegration/reporting/ReportAssets.h"
 #include "processes/ImageIntegration/reporting/ReportCharts.h"
@@ -42,31 +43,6 @@ using namespace an::tests::integration::report;
 
 namespace
 {
-/// A scenario's report: the run archived as the executor archives it, its model, and its document in both forms.
-struct Rendered
-{
-    ReportScenario scenario;
-    ReportModel model;
-    ReportDocument linked;
-    ReportDocument embedded;
-    ParsedDocument linkedParsed;
-    ParsedDocument embeddedParsed;
-};
-
-/// The scenarios a report is written of: every one but the two runs the executor archives nothing for.
-[[nodiscard]] std::vector<ReportScenarioId> reportedScenarios()
-{
-    std::vector<ReportScenarioId> ids;
-    for (const ReportScenarioId id : allReportScenarios())
-    {
-        if (id != ReportScenarioId::CancelledBeforeAnyMaster && id != ReportScenarioId::FailedBeforeAnyMaster)
-        {
-            ids.push_back(id);
-        }
-    }
-    return ids;
-}
-
 /// Text that would break markup written without escaping, with a character XML forbids.
 [[nodiscard]] QString hostileText()
 {
@@ -204,42 +180,6 @@ struct CssRule
     return (lighter + 0.05) / (darker + 0.05);
 }
 
-/// The elements directly inside another.
-[[nodiscard]] std::vector<const DocumentElement*> childrenOf(const ParsedDocument& parsed,
-                                                             const DocumentElement& parent)
-{
-    std::vector<const DocumentElement*> children;
-    const int index = static_cast<int>(&parent - parsed.elements.data());
-    for (const DocumentElement& element : parsed.elements)
-    {
-        if (element.parent == index)
-        {
-            children.push_back(&element);
-        }
-    }
-    return children;
-}
-
-/// The first element of a name inside another, however deep; null when there is none.
-[[nodiscard]] const DocumentElement* firstInside(const ParsedDocument& parsed, const DocumentElement& ancestor,
-                                                 const char* name)
-{
-    for (const DocumentElement& element : parsed.elements)
-    {
-        if (element.name == QLatin1String(name) && parsed.isInside(element, ancestor))
-        {
-            return &element;
-        }
-    }
-    return nullptr;
-}
-
-[[nodiscard]] bool stopped(const ReportModel& model)
-{
-    return model.run.outcome == ReportOutcome::Partial || model.run.outcome == ReportOutcome::Failed ||
-           model.run.outcome == ReportOutcome::Cancelled;
-}
-
 /// Whether any light of a model states one of the measures the nights are drawn of.
 [[nodiscard]] bool anyLightMeasured(const ReportModel& model)
 {
@@ -286,55 +226,6 @@ struct CssRule
     return others + (user ? 1 : 0);
 }
 } // namespace
-
-/// The suite builds each scenario's report once, when a case first asks for it.
-class ReportHtmlWriterTest : public testing::Test
-{
-protected:
-    static void TearDownTestSuite()
-    {
-        rendered().clear();
-    }
-
-    /// A scenario's report; null, with the case failed, when it could not be built.
-    [[nodiscard]] static const Rendered* reportOf(const ReportScenarioId id)
-    {
-        auto& cache = rendered();
-        const auto known = cache.find(id);
-        if (known != cache.end())
-        {
-            return known->second.get();
-        }
-        std::optional<ReportScenario> scenario = buildReportScenario(id);
-        if (!scenario.has_value())
-        {
-            ADD_FAILURE() << "the scenario " << scenarioName(id) << " could not be built";
-            return nullptr;
-        }
-        if (!archiveScenarioRun(*scenario))
-        {
-            ADD_FAILURE() << "the scenario " << scenarioName(id) << " could not be archived";
-            return nullptr;
-        }
-        auto report = std::make_unique<Rendered>();
-        report->model = buildScenarioModel(*scenario, scenario->runDirectory);
-        report->linked =
-            writeReportDocument(report->model, {.form = ReportForm::Linked, .runDirectory = scenario->runDirectory});
-        report->embedded =
-            writeReportDocument(report->model, {.form = ReportForm::Embedded, .runDirectory = scenario->runDirectory});
-        report->linkedParsed = parseDocument(report->linked.html);
-        report->embeddedParsed = parseDocument(report->embedded.html);
-        report->scenario = std::move(*scenario);
-        return cache.emplace(id, std::move(report)).first->second.get();
-    }
-
-private:
-    [[nodiscard]] static std::map<ReportScenarioId, std::unique_ptr<Rendered>>& rendered()
-    {
-        static std::map<ReportScenarioId, std::unique_ptr<Rendered>> cache;
-        return cache;
-    }
-};
 
 // ---- The markup's rules, on the writer itself.
 
@@ -557,7 +448,8 @@ TEST_F(ReportHtmlWriterTest, EveryLinkLandsAndTheContentsNameEveryBlock)
             EXPECT_FALSE(link->text.trimmed().isEmpty()) << target.toStdString() << " has no words";
         }
 
-        // The contents lead to the overview and to every block of the summary, and to nothing else.
+        // The contents lead to the overview, to every block and to every master's file, in the document's order,
+        // and to nothing else.
         const std::vector<const DocumentElement*> rails = parsed.ofClass("toc");
         ASSERT_EQ(rails.size(), 1u);
         EXPECT_EQ(rails.front()->name, QStringLiteral("nav"));
@@ -569,14 +461,18 @@ TEST_F(ReportHtmlWriterTest, EveryLinkLandsAndTheContentsNameEveryBlock)
                 listed << link->attribute("href").mid(1);
             }
         }
-        const DocumentElement* summary = parsed.byId("summary");
-        ASSERT_NE(summary, nullptr);
         QStringList expected = {QStringLiteral("top")};
-        for (const DocumentElement* block : parsed.ofClassInside(*summary, "block"))
+        for (const DocumentElement& element : parsed.elements)
         {
-            expected << block->attribute("id");
+            if (element.hasClass("block") || element.hasClass("file"))
+            {
+                expected << element.attribute("id");
+            }
         }
         EXPECT_EQ(listed, expected);
+
+        // Each part's heading stands over its entries.
+        EXPECT_EQ(parsed.ofClassInside(*rails.front(), "toc-h").size(), parsed.ofClass("part").size());
     }
 }
 
@@ -731,7 +627,8 @@ TEST_F(ReportHtmlWriterTest, MoreThanFiveMessagesOfTheRunAreFolded)
 
     const ParsedDocument five = parseDocument(writeReportDocument(model, {}).html);
     ASSERT_TRUE(five.error.isEmpty()) << five.error.toStdString();
-    EXPECT_TRUE(five.named("details").empty());
+    ASSERT_NE(five.byId("attention"), nullptr);
+    EXPECT_TRUE(namedInside(five, *five.byId("attention"), "details").empty());
     EXPECT_EQ(five.ofClass("issue").size(), model.issues.size());
 
     model.issues.push_back(ReportIssue{.kind = ReportIssueKind::RunMessage,
@@ -743,7 +640,8 @@ TEST_F(ReportHtmlWriterTest, MoreThanFiveMessagesOfTheRunAreFolded)
                                        .anchor = {}});
     const ParsedDocument six = parseDocument(writeReportDocument(model, {}).html);
     ASSERT_TRUE(six.error.isEmpty()) << six.error.toStdString();
-    const std::vector<const DocumentElement*> folds = six.named("details");
+    ASSERT_NE(six.byId("attention"), nullptr);
+    const std::vector<const DocumentElement*> folds = namedInside(six, *six.byId("attention"), "details");
     ASSERT_EQ(folds.size(), 1u);
     // Every message is inside the fold, word for word, and none was dropped.
     EXPECT_EQ(six.ofClassInside(*folds.front(), "issue").size(), 6u);
@@ -855,7 +753,7 @@ TEST_F(ReportHtmlWriterTest, ARunOfOneMasterHasItsPictureInTheHeaderAndNoGallery
     ASSERT_TRUE(plain.error.isEmpty()) << plain.error.toStdString();
     ASSERT_NE(plain.byId("top"), nullptr);
     EXPECT_FALSE(plain.byId("top")->hasClass("one"));
-    EXPECT_TRUE(plain.named("img").empty());
+    EXPECT_TRUE(namedInside(plain, *plain.byId("top"), "img").empty());
 }
 
 TEST_F(ReportHtmlWriterTest, TheMastersOfSeveralMastersAreACardAndARowEach)
@@ -1031,6 +929,11 @@ TEST_F(ReportHtmlWriterTest, NoTextHoldsAPlaceholderARawGroupKeyOrAValueThatIsNo
                     text.remove(issue.detail);
                 }
             }
+            // So is the run's log.
+            for (const DocumentElement* log : parsed.ofClass("log"))
+            {
+                text.remove(log->text);
+            }
             const QRegularExpressionMatch placeholder = kPlaceholder.match(text);
             EXPECT_FALSE(placeholder.hasMatch())
                 << text.mid((std::max)(qsizetype(0), placeholder.capturedStart() - 60), 120).toStdString();
@@ -1043,6 +946,13 @@ TEST_F(ReportHtmlWriterTest, NoTextHoldsAPlaceholderARawGroupKeyOrAValueThatIsNo
                 if (master.key.contains(QLatin1Char('|')))
                 {
                     EXPECT_FALSE(text.contains(master.key)) << master.key.toStdString();
+                }
+            }
+            for (const ReportRegistrationGroup& group : report->model.registrationGroups)
+            {
+                if (group.key.contains(QLatin1Char('|')))
+                {
+                    EXPECT_FALSE(text.contains(group.key)) << group.key.toStdString();
                 }
             }
         }
@@ -1539,6 +1449,19 @@ TEST(ReportAssets, APictureInsideADocumentIsBoundedAndWrittenAgainAsAJpeg)
     EXPECT_TRUE(embedded.image(QStringLiteral("report_previews/group/absent.jpg")).isEmpty());
     EXPECT_TRUE(embedded.image(QStringLiteral("notes.txt")).isEmpty());
     EXPECT_TRUE(ReportAssets(ReportForm::Embedded, QString()).image(QStringLiteral("master.jpg")).isEmpty());
+
+    // A picture shown small is the same file in a linked document, and a smaller picture inside an embedded one, so
+    // a document that shows a picture small and whole does not carry it twice at its whole size.
+    EXPECT_EQ(linked.thumbnail(QStringLiteral("report_previews/group/master.jpg")),
+              QStringLiteral("report_previews/group/master.jpg"));
+    const QString small480 = embedded.thumbnail(QStringLiteral("report_previews/group/master.jpg"));
+    ASSERT_TRUE(small480.startsWith(QStringLiteral("data:image/jpeg;base64,")));
+    EXPECT_EQ(decoded(QByteArray::fromBase64(small480.mid(23).toLatin1())).second,
+              QSize(kEmbeddedThumbnailLongestSide, 320));
+    EXPECT_LT(small480.size(), source.size());
+    EXPECT_EQ(embedded.image(QStringLiteral("report_previews/group/master.jpg")), source);
+    EXPECT_TRUE(embedded.thumbnail(QStringLiteral("report_previews/group/absent.jpg")).isEmpty());
+    EXPECT_TRUE(embedded.thumbnail(QString()).isEmpty());
 }
 
 TEST(ReportAssets, AnEmbeddedDocumentPrintsAFilesNameWithoutItsFolders)

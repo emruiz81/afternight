@@ -509,14 +509,18 @@ their contrast, are the document's ("The style").
 `ReportHtmlWriter.h` writes a report as one HTML file from its model: `writeReportDocument(model, options)` returns
 the document, and `writeWorkflowReport` (`WorkflowReport.h`) writes it to a file. No run calls either yet: the report
 a run writes is still the Markdown one, and the document is written by the suites, which is how it can be looked at
-before it replaces anything. It has the header and the first of its six parts; the others are not written yet, so
-nothing links to them.
+before it replaces anything. It has the header and five of its six parts; the comparison with earlier runs is not
+written yet, so the parts are numbered 1, 2, 4, 5 and 6 and nothing links to the third.
 
 | Unit (`reporting/`) | Holds |
 | --- | --- |
 | `ReportHtmlWriter.h/.cpp` | `ReportMarkup`, the one way markup is written; the document's shell, its contents and its footer; the fragments the parts share; the two assets as the document carries them |
 | `ReportHtmlParts.h` | Private to the reporting units: what a part is, what every part is written from, the fragments' declarations, and `documentText`, the one way a word of the document is made |
 | `ReportHtmlSummary.cpp` | The header, and part 1: `outcome`, `attention`, `made`, `frames`, `nights`, `quality` |
+| `ReportHtmlMaster.cpp` | Part 2: a file per master - the picture and its maps, the stack, its lights, how it was made - and the forms of a master that was reused, failed, was not reached, or is a combined colour image |
+| `ReportHtmlShared.cpp` | Part 4: which groups made each master (`lineage`), the calibration masters (`cal`), the registration groups (`registration`) |
+| `ReportHtmlRun.cpp` | Part 5: `timeline`, `decisions`, `once`, `resources`, `diagnostics` |
+| `ReportHtmlProvenance.cpp` | Part 6: `acquisition`, `equipment`, `software`, `inputs`, `not-stated` |
 | `ReportAssets.h/.cpp` | What a document of each form writes for a picture, a path and a message of the run |
 | `WorkflowReport.h/.cpp` | The document as a file, in either form |
 | `assets/report.css`, `report.js`, `Report.qrc` | The style and the script, compiled into the library as a Qt resource |
@@ -581,8 +585,88 @@ master's name stands there as text. So a document never holds a link that leads 
 - **The same model is the same document.** Nothing reads a clock or a counter, so a report written again from its
   stored model does not change.
 
-The ids a suite and the contents name: `top`; `summary` with `outcome`, `attention`, `made`, `frames`, `nights`
-and `quality`. An issue's anchor may also be `file-<slug>`, `cal` or `registration`, which the later parts write.
+The ids a suite and the contents name:
+
+| Part | Id | Blocks |
+| --- | --- | --- |
+| Header | `top` | - |
+| 1. Summary | `summary` | `outcome`, `attention`, `made`, `frames`, `nights`, `quality` |
+| 2. Master by master | `masters` | One `file-<slug>` per master, with `file-<slug>-picture`, `-stack`, `-lights` and `-made` inside it |
+| 4. What the masters share | `shared` | `lineage`, `cal`, `registration`; a calibration master's row and a registration group's card carry the group's own slug |
+| 5. The run | `run` | `timeline`, `decisions`, `once`, `resources`, `diagnostics` |
+| 6. Provenance | `provenance` | `acquisition`, `equipment`, `software`, `inputs`, `not-stated` |
+
+An issue's anchor is one of these (`file-<slug>`, `cal`, `registration`, `outcome`, `frames`), so "See it" leads to
+the place that shows what the issue is about; a master's file lists the issues that are about it.
+
+### Each fact has one home
+
+The header and the summary state the run's figures; a later part repeats one only to break it down. A case holds a
+fixed list to it - the lights the masters combine, the integration time, each master's noise - by counting where
+each is printed: below the summary the first two stand once more, in the line of `software` a person copies, and a
+master's noise once more, in the statistics of its own file.
+
+- **A master's file is where the master's facts live.** The picture, the statistics and the spread of its samples;
+  what the stack recorded of itself, the astrometry and the photometry, where the time went; its lights, charted
+  measure by measure and listed one by one; the settings of its own groups and the files it wrote. What it shares
+  with other masters it links to.
+- **A file has its four sections when the master is on disk**, whatever could be measured of it: a master that was
+  not measured says so and leads to `not-stated`. **A master that was not made says why first** and shows no
+  picture: the model's sentence, the phases of its finalization that ran, its lights and its settings. **A reused
+  master says so**, names the run that made it, and links that run's report when the history holds one and the
+  document is the linked form. **A combined colour image** has the picture, its channels, what it was made from,
+  and no lights or stack of its own.
+- **The first file is open and the others are folded**, so the part shows what a file holds without being as long
+  as all of them; a run of one master has nothing to fold. A link into a folded file opens it, and printing opens
+  every one. With scripts off a file is opened by its heading, as any `details` is.
+- **The picture and its maps are one viewer**: the master, its detail at full scale, and each map the run wrote,
+  one shown at a time. A radio button per view picks which, so it works with scripts off, and each view says in a
+  sentence or two what it shows and how to read it. The stylesheet states a rule per view, so a viewer holds at
+  most ten.
+- **A master's lights are in the order they were taken**: one chart with a layer per measure a light of the group
+  states and one set of hover bands, where each light sat against the reference, the lights left out with what
+  each has to say, and every light in a table a heading sorts. A column no light states is left out, and so is the
+  exposure where every light has the same. A cell is sorted by its text, read as a number where it is one, and
+  states another key (`data-v`) only where the text does not say it: a time, a figure with a thin space or a power
+  of ten in it.
+
+### Settings belong to groups
+
+The manifest holds settings on groups, so the document prints them there and nowhere else.
+
+- **In a master's file:** its lights' calibration - the masters they take, as links to where each is stated, then
+  the settings - and its own stacking, normalization and drizzle settings.
+- **Once, in part 4:** each calibration master's settings and each registration group's.
+- **Once, for the run, in `once`:** the execution, the plate solve and the colour combination, with the run's mode
+  and scope before them.
+- **The mark `≠`** stands on a value that more than half of the groups of the same stage do not use, and its tip
+  says what they use (`ReportSettingsMajority`). The stages are the masters' own settings, the groups of lights',
+  the calibration masters' of each kind and the registration groups'. With no such majority - two groups that
+  differ, or every group its own - nothing is marked: with two groups a reader compares the two cards.
+- **A setting the application decided** prints what it resolved to, with what was asked and why as its tip;
+  `decisions` lists every such setting of the run.
+- **A setting of a mode is printed only in that mode.** The model states a row only when it applies - drizzle,
+  comet tracking, an exposure merge, local normalization, manual control points - and the document prints the
+  model's rows as they are.
+- **A run's words are made readable where the document quotes them.** `ReportDocumentContext::said` replaces a
+  group's key inside a sentence the run wrote by the group's name, and in the embedded form drops the folders. The
+  run's messages and its log are the exception: they are printed word for word.
+
+### One master, several targets, a run that stopped
+
+- **One master.** No gallery and no table comparing masters; the picture is in the header; part 2 is "The master"
+  and its file is open; part 4 is "Calibration and registration", with one line in place of the map of groups; a
+  registration group that serves one master shows no chart of where its lights sat, since the master's file has it.
+  A colour master states its statistics and the spread of its samples per channel.
+- **Several targets.** The masters' files, the map of groups and the acquisition table give each target its own
+  line, with its masters under it.
+- **A run that stopped.** The timeline marks the stage it stopped in and the stages it did not reach, and leads
+  back to `outcome`; each master that was not made has a file that says why.
+- **An incremental run.** A reused master's file says so. Its picture and statistics are read from the master's
+  file; what its stack recorded of itself is stated only when the history holds the report of the run that made
+  it.
+- **A report with nothing to read.** With no session nothing is measured, and with no metrics database no light
+  states a measure: the sections stay, say what is missing, and `not-stated` lists each thing with its reason.
 
 ### The words
 
@@ -603,7 +687,9 @@ One writer writes two forms, which differ only in what `ReportAssets` answers:
   (`boundedJpeg`). A path is printed as a file's name without its folders, and in a message of the run the output
   folder's path is replaced by the folder's name and the folder of every file the model names is dropped, in
   either spelling of the separator. A folder is noise to a stranger and says more than its owner may want. A
-  picture the embedded form cannot read is left out: it never names a file outside itself.
+  picture the embedded form cannot read is left out: it never names a file outside itself. A picture the document
+  shows small - on a card of the gallery, in a file's heading, in a table - is carried at 480 pixels
+  (`ReportAssets::thumbnail`), so a picture shown small and whole is not in the document twice at its whole size.
 
 Two forms rather than one because a run's own report should stay small and keep its full-size pictures one click
 away, and a report meant to be sent must open from an empty folder. The embedded form is an action on a run, not a
@@ -639,8 +725,9 @@ address and no `href` but one inside the document, and both to their sizes: the 
 ### The script
 
 `assets/report.js` shows the tip of what the reader points at or reaches with the keyboard, switches and
-remembers the theme, sorts a table of class `sortable` by a column's `data-v`, opens a folded section a link leads
-into or that is about to be printed, and moves a comparison's divider. It computes no figure of the report: every
+remembers the theme, sorts a table of class `sortable` by a column - by a cell's `data-v` where it states one and
+by its text otherwise - opens a folded section a link leads into or that is about to be printed, and moves a
+comparison's divider. It computes no figure of the report: every
 number is written when the report is, so the same report is read with scripts off, where only those conveniences
 are lost, and so no product logic runs in a browser. A case holds the file free of `fetch`, `XMLHttpRequest`,
 `import`, `eval` and any address.
@@ -671,14 +758,33 @@ It opens each scenario's linked report where it lies and its embedded one copied
 `file://` with the network blocked, in Chrome and Firefox, at 1,440, 1,024 and 390 pixels, in both themes, and
 fails a load on: a request that leaves the file, a console or page error, a picture that did not load, a page
 wider than its window, content that spills out of its card, a link that leads nowhere, a contents entry that does
-not land, a theme toggle, a measure switch, a sort, a divider or a link into a folded section that does nothing, a
-tip that does not show, a serious or critical axe-core finding, and a print render that is not light, shows the
-contents or leaves a section folded. `--shots` writes a picture of every load and, from Chromium, a PDF of the
-print render. The suite proves the document's structure; this proves what a reader sees.
+not land, a theme toggle, a measure switch, a switch between a master's views, a sort, a divider or a link into a
+folded section that does nothing, a tip that does not show, a serious or critical axe-core finding, and a print
+render that is not light, shows the contents or leaves a section folded. `--shots` writes a picture of every load
+and, from Chromium, a PDF of the print render. The suite proves the document's structure; this proves what a
+reader sees.
 
-To add a block to a part: write it through `ReportMarkup` in the part's unit, state its anchor among the part's
-anchors under the same condition it is written under, name it in the part's entries, give every class it uses a
-rule in `report.css`, and hold it in `ReportHtmlWriterTest.cpp`, for every scenario where that is cheap.
+### Adding to the report
+
+**A fact.** Add its field to `ReportModel.h` as an optional or a list, never a zero for "not stated"; name it once
+in `ReportModelJson.cpp`, in the function the writer and the reader both walk; fill it in the unit of
+`reporting/facts/` that owns its area, through a seam of `ReportSources.h` when it needs a file or the metrics
+database; say in `notStated` why it is absent when it can be; and hold it in that area's suite, with the scenario
+that has it. Then print it in its one home.
+
+**A block.** Write it through `ReportMarkup` in the part's unit; state its anchor among the part's anchors under
+the same condition it is written under, so a link to it is made exactly when it exists; name it in the part's
+entries of the contents; give every class it uses a rule in `report.css`; and hold it in `ReportHtmlPartsTest.cpp`
+or `ReportHtmlWriterTest.cpp`, for every scenario where that is cheap. A block with nothing to say is absent. What
+several parts need - a card, a panel, a list of facts, a list of settings, a table, a fold - is in
+`ReportHtmlParts.h`. A word of the run goes through `said`, a path through `ReportAssets::path` or `message`, a
+picture through `image` or `thumbnail`.
+
+**A chart.** Add its function to `ReportCharts.h`: plain values in, one SVG out, every word of it an input, classes
+and no colour, a tip per mark, a sentence for nothing to draw. Give its classes a rule in `report.css`, add it to
+`ReportChartSamples` so it is on the page of every chart, and hold it in `ReportChartsTest.cpp`. A chart wider
+than a phone goes through `writeScrollingChart`; one drawn for a narrow place has a `max-width` in the stylesheet,
+so it keeps its size where a narrower window gives it the whole width.
 
 ## The suites, and the runs they build
 
@@ -704,6 +810,12 @@ rule in `report.css`, and hold it in `ReportHtmlWriterTest.cpp`, for every scena
   every scenario in both forms, each block there exactly when the run calls for it, every link landing, the
   header's figures and the issues against the model, what a run wrote coming out as text whatever it holds, the
   two forms' pictures and paths, and the style and the script held to their rules.
+- `ReportHtmlPartsTest.cpp` - the parts after the summary: a file per master with its sections or the form of a
+  master not made, a table's rows against the model's lights and its cells against their values, the mark `≠`
+  exactly where most groups use another value, no shared group's settings inside a master's file, a setting of a
+  mode only in that mode, the channels of a colour master, one line for a run of one master, the counters only when
+  collected, the log as text, `not-stated` entry by entry, and a fixed list of figures at their one home. Both
+  suites take a scenario's report from `ReportRenderedScenarios.h`, which builds each once.
 - `ReportSamplesTest.cpp` - writes every scenario's report where a person or the render tool can open it; skipped
   unless asked ("Looking at a report").
 
