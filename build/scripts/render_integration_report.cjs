@@ -6,8 +6,9 @@
 // would look or work wrong for the person a report is written for: a request that leaves the file, a console or
 // page error, a picture that did not load, a page wider than the window, content that spills out of its card, a
 // link that leads nowhere or does not land, a control that does nothing (the theme toggle, a chart's measure
-// switch, a sortable table, a folded section a link leads into, a comparison's divider), a tip that does not show,
-// a serious or critical accessibility finding, and a print render that is not light or leaves a section folded.
+// switch, the switch between a master's picture and its maps, a sortable table, a folded section a link leads
+// into, a comparison's divider), a tip that does not show, a serious or critical accessibility finding, and a print
+// render that is not light or leaves a section folded.
 //
 // The report's suite (Test_ImageIntegration, ReportHtmlWriterTest) reads the document back as XML and proves its
 // structure; this proves what a reader sees, in the browsers people open a report with, from file://.
@@ -278,7 +279,9 @@ function inspect() {
     }
     return false;
   };
-  for (const container of document.querySelectorAll(".card, .inner, .tile, .issue, .hero, .mcard, .calm")) {
+  for (const container of document.querySelectorAll(
+    ".card, .inner, .tile, .issue, .hero, .mcard, .calm, .setcard, .alert, .fbody"
+  )) {
     const frame = container.getBoundingClientRect();
     if (frame.width === 0) {
       continue;
@@ -393,10 +396,44 @@ async function exercise(tab, width) {
     await tab.mouse.move(0, 0);
   }
 
+  // What a master's file folds away is opened before it is used, as a reader would open it.
+  const unfold = async (element) => {
+    await element.evaluate((node) => {
+      for (let fold = node.closest("details"); fold; fold = fold.parentElement && fold.parentElement.closest("details")) {
+        fold.open = true;
+      }
+    });
+  };
+
+  // A master's picture and its maps: picking the second view shows it, with its reading, and hides the first.
+  const viewers = tab.locator(".viewer").filter({ has: tab.locator(".views label:nth-child(2)") });
+  if (await viewers.count() > 0) {
+    const viewer = viewers.first();
+    await unfold(viewer);
+    await viewer.locator(".views label:nth-child(2)").click();
+    const shown = await viewer.evaluate((element) => ({
+      first: getComputedStyle(element.querySelector(".view-0")).display,
+      second: getComputedStyle(element.querySelector(".view-1")).display,
+      firstReading: getComputedStyle(element.querySelector(".read-0")).display,
+      secondReading: getComputedStyle(element.querySelector(".read-1")).display
+    }));
+    if (shown.first !== "none" || shown.second === "none" || shown.firstReading !== "none"
+      || shown.secondReading === "none") {
+      failures.push(`the switch between a master's views did nothing (views ${shown.first}, ${shown.second}; `
+        + `readings ${shown.firstReading}, ${shown.secondReading})`);
+    }
+    await viewer.locator(".views label:nth-child(1)").click();
+    const back = await viewer.evaluate((element) => getComputedStyle(element.querySelector(".view-0")).display);
+    if (back === "none") {
+      failures.push("the switch between a master's views did not come back to the master");
+    }
+  }
+
   // A chart of several measures: picking the second shows it and hides the first.
   const switches = tab.locator(".fchart").filter({ has: tab.locator(".switch label:nth-child(2)") });
   if (await switches.count() > 0) {
     const chart = switches.first();
+    await unfold(chart);
     await chart.locator(".switch label:nth-child(2)").click();
     const layers = await chart.evaluate((element) => ({
       first: getComputedStyle(element.querySelector(".c-layer-0")).display,
@@ -418,7 +455,8 @@ async function exercise(tab, width) {
     const heading = sortable.locator("thead th").first();
     await heading.click();
     const sorted = await sortable.evaluate((table) => {
-      const values = Array.from(table.tBodies[0].rows).map((row) => row.cells[0].getAttribute("data-v"));
+      const key = (cell) => (cell.hasAttribute("data-v") ? cell.getAttribute("data-v") : cell.textContent);
+      const values = Array.from(table.tBodies[0].rows).map((row) => key(row.cells[0]));
       const numbers = values.map(parseFloat);
       const ordered = numbers.every((value, index) => index === 0 || Number.isNaN(value)
         || Number.isNaN(numbers[index - 1]) || numbers[index - 1] <= value);

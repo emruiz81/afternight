@@ -48,54 +48,6 @@ struct Light
     return frame.state == ReportFrameState::Used;
 }
 
-/// A light's state as a chart marks it. A light whose fate the run did not record is drawn as a light: a chart has
-/// no mark for "not recorded", and the tables beside it state what is known.
-[[nodiscard]] ChartState chartStateOf(const ReportFrame& frame)
-{
-    if (!frame.state.has_value())
-    {
-        return ChartState::Used;
-    }
-    switch (*frame.state)
-    {
-    case ReportFrameState::Used:
-        return ChartState::Used;
-    case ReportFrameState::ExcludedByUser:
-    case ReportFrameState::StackExcludedByUser:
-        return ChartState::ExcludedByUser;
-    case ReportFrameState::RegistrationFailed:
-        return ChartState::RegistrationFailed;
-    case ReportFrameState::LeftOutByStack:
-        return ChartState::LeftOutByStack;
-    case ReportFrameState::ExcludedOnRestack:
-        return ChartState::ExcludedOnRestack;
-    case ReportFrameState::NotStacked:
-        return ChartState::NotStacked;
-    }
-    return ChartState::Used;
-}
-
-/// What a state is called.
-[[nodiscard]] QString stateName(const ChartState state)
-{
-    switch (state)
-    {
-    case ChartState::Used:
-        return documentText("Used");
-    case ChartState::ExcludedByUser:
-        return documentText("Excluded by you");
-    case ChartState::RegistrationFailed:
-        return documentText("Registration failed");
-    case ChartState::LeftOutByStack:
-        return documentText("Left out by the stack");
-    case ChartState::ExcludedOnRestack:
-        return documentText("Excluded on the restack");
-    case ChartState::NotStacked:
-        return documentText("Not stacked");
-    }
-    return {};
-}
-
 /// What a state means for the lights in it.
 [[nodiscard]] QString stateMeaning(const ChartState state)
 {
@@ -118,66 +70,10 @@ struct Light
     return {};
 }
 
-/// The class of a state's swatch.
-[[nodiscard]] QString stateClass(const ChartState state)
-{
-    switch (state)
-    {
-    case ChartState::Used:
-        return QStringLiteral("s-used");
-    case ChartState::ExcludedByUser:
-        return QStringLiteral("s-user");
-    case ChartState::RegistrationFailed:
-        return QStringLiteral("s-registration");
-    case ChartState::LeftOutByStack:
-        return QStringLiteral("s-stack");
-    case ChartState::ExcludedOnRestack:
-        return QStringLiteral("s-restack");
-    case ChartState::NotStacked:
-        return QStringLiteral("s-notstacked");
-    }
-    return {};
-}
-
 /// The states other than used, in the order the report lists them.
 constexpr std::array<ChartState, 5> kLeftOutStates = {ChartState::ExcludedByUser, ChartState::RegistrationFailed,
                                                       ChartState::LeftOutByStack, ChartState::ExcludedOnRestack,
                                                       ChartState::NotStacked};
-
-/// What the summary calls each master: its filter, with its target before it in a run of several, and its full name
-/// where two masters would otherwise be called the same.
-[[nodiscard]] QHash<QString, QString> masterLabels(const ReportModel& model)
-{
-    const bool severalTargets = model.run.targets.size() > 1;
-    QHash<QString, QString> labels;
-    QHash<QString, int> uses;
-    for (const ReportMaster& master : model.masters)
-    {
-        QString label = master.filter.trimmed();
-        if (master.kind == ReportMasterKind::CombinedRgb)
-        {
-            label = documentText("RGB");
-        }
-        if (label.isEmpty())
-        {
-            label = master.name;
-        }
-        else if (severalTargets && !master.target.trimmed().isEmpty())
-        {
-            label = master.target.trimmed() + QLatin1Char(' ') + label;
-        }
-        labels.insert(master.key, label);
-        ++uses[label];
-    }
-    for (const ReportMaster& master : model.masters)
-    {
-        if (uses.value(labels.value(master.key)) > 1)
-        {
-            labels.insert(master.key, master.name);
-        }
-    }
-    return labels;
-}
 
 /// Every light of the run in the order it was taken; the lights that state no time follow, in the model's order.
 [[nodiscard]] std::vector<Light> lightsInCaptureOrder(const ReportModel& model)
@@ -241,69 +137,6 @@ constexpr std::array<ChartState, 5> kLeftOutStates = {ChartState::ExcludedByUser
     return names;
 }
 
-[[nodiscard]] double valueOf(const std::optional<double>& value)
-{
-    return value.has_value() ? *value : kNotANumber;
-}
-
-/// The median of some values, or nothing when none is a number.
-[[nodiscard]] std::optional<double> medianOfValues(std::vector<double> values)
-{
-    const std::optional<ChartRange> range = chartRange(std::move(values));
-    return range.has_value() ? std::optional<double>(range->median) : std::nullopt;
-}
-
-/// A share as a percentage: `96.6 %`.
-[[nodiscard]] QString percentText(const double fraction)
-{
-    return formatFigure(100.0 * fraction) + QStringLiteral(" %");
-}
-
-/// The time of day a light was taken at, in the archive's zone.
-[[nodiscard]] QString clockText(const QDateTime& instant, const ReportTimeZone& zone)
-{
-    return instant.toTimeZone(zone.resolved()).time().toString(QStringLiteral("HH:mm"));
-}
-
-/// How many of a master's lights the stack combined, and their exposure; nothing when the run recorded no light's
-/// fate for it.
-struct MasterUse
-{
-    int taken = 0;
-    std::optional<int> used;
-    std::optional<qint64> integratedMs;
-};
-
-[[nodiscard]] MasterUse useOf(const ReportMaster& master)
-{
-    MasterUse use;
-    use.taken = static_cast<int>(master.frames.size());
-    bool stated = false;
-    int used = 0;
-    double seconds = 0.0;
-    for (const ReportFrame& frame : master.frames)
-    {
-        stated = stated || frame.state.has_value();
-        if (isUsed(frame))
-        {
-            ++used;
-            seconds += frame.exposureSeconds.value_or(0.0);
-        }
-    }
-    if (stated)
-    {
-        use.used = used;
-        use.integratedMs = static_cast<qint64>(std::llround(seconds * 1000.0));
-    }
-    return use;
-}
-
-[[nodiscard]] bool runStopped(const ReportModel& model)
-{
-    return model.run.outcome == ReportOutcome::Partial || model.run.outcome == ReportOutcome::Failed ||
-           model.run.outcome == ReportOutcome::Cancelled;
-}
-
 // ---- What is present.
 
 /// Which blocks of the summary a model calls for.
@@ -339,47 +172,6 @@ struct SummaryPlan
 }
 
 // ---- Fragments.
-
-void openBlock(ReportMarkup& out, const char* anchor, const QString& title, const QString& aside, const QString& lead)
-{
-    out.open("section", {{"class", QStringLiteral("block")}, {"id", QLatin1String(anchor)}});
-    out.open("h3");
-    out.text(title);
-    if (!aside.isEmpty())
-    {
-        out.text(QStringLiteral(" "));
-        out.element("small", aside);
-    }
-    out.close("h3");
-    if (!lead.isEmpty())
-    {
-        out.element("p", {{"class", QStringLiteral("lead")}}, lead);
-    }
-}
-
-void openCard(ReportMarkup& out, const QString& title, const QString& aside = {})
-{
-    out.open("div", {{"class", QStringLiteral("card")}});
-    out.open("h4");
-    out.element("span", title);
-    if (!aside.isEmpty())
-    {
-        out.element("small", aside);
-    }
-    out.close("h4");
-}
-
-void writeCaption(ReportMarkup& out, const QString& text)
-{
-    out.element("p", {{"class", QStringLiteral("cap")}}, text);
-}
-
-/// A swatch of a state's colour and the state's name.
-void writeStateName(ReportMarkup& out, const ChartState state)
-{
-    out.element("i", {{"class", QStringLiteral("dot ") + stateClass(state)}}, QString());
-    out.text(stateName(state));
-}
 
 [[nodiscard]] const char* severityKind(const ReportIssueSeverity severity)
 {
@@ -418,31 +210,6 @@ struct OutcomeWords
         return {"critical", documentText("Cancelled")};
     }
     return {"note", {}};
-}
-
-/// What became of a master, for one the run did not make; nothing for one it made.
-struct MasterStateWords
-{
-    const char* kind = nullptr;
-    QString text;
-};
-
-[[nodiscard]] MasterStateWords masterStateWords(const ReportMasterState state)
-{
-    switch (state)
-    {
-    case ReportMasterState::Made:
-        return {};
-    case ReportMasterState::Reused:
-        return {"reused", documentText("Reused")};
-    case ReportMasterState::Failed:
-        return {"critical", documentText("Failed")};
-    case ReportMasterState::NotReached:
-        return {"skipped", documentText("Not reached")};
-    case ReportMasterState::Cancelled:
-        return {"skipped", documentText("Cancelled")};
-    }
-    return {};
 }
 
 /// The issues that are computed kinds, and the ones that are the run's own messages.
@@ -625,7 +392,7 @@ void writeTile(ReportMarkup& out, const Tile& tile)
             hint << documentText("%1 effective frames").arg(formatFigure(master.stack->effectiveFrames));
         }
         noise.hint = hint.join(dotSeparator());
-        if (const MasterStateWords words = masterStateWords(master.state); words.kind != nullptr)
+        if (const ReportStateWords words = masterStateWords(master.state); words.kind != nullptr)
         {
             noise.under = words.text;
         }
@@ -736,7 +503,7 @@ void writeMasterNames(ReportMarkup& out, const ReportDocumentContext& context,
     {
         out.open("li");
         writeMasterLink(out, context, *master, labels.value(master->key, master->name));
-        if (const MasterStateWords words = masterStateWords(master->state); words.kind != nullptr)
+        if (const ReportStateWords words = masterStateWords(master->state); words.kind != nullptr)
         {
             out.text(QStringLiteral(" "));
             out.element("span", {{"class", QStringLiteral("muted")}}, words.text.toLower());
@@ -936,7 +703,7 @@ void writeMasterCard(ReportMarkup& out, const ReportDocumentContext& context, co
              {{"class", QStringLiteral("mcard")}, {"href", linked ? QStringLiteral("#") + anchor : QString()}});
 
     out.open("div", {{"class", QStringLiteral("well")}});
-    if (const QString source = context.assets.image(master.preview); !source.isEmpty())
+    if (const QString source = context.assets.thumbnail(master.preview); !source.isEmpty())
     {
         out.leaf("img", {{"src", source},
                          {"alt", documentText("%1, stretched preview").arg(master.name)},
@@ -955,7 +722,7 @@ void writeMasterCard(ReportMarkup& out, const ReportDocumentContext& context, co
     {
         out.element("small", documentText("Combination"));
     }
-    if (const MasterStateWords words = masterStateWords(master.state); words.kind != nullptr)
+    if (const ReportStateWords words = masterStateWords(master.state); words.kind != nullptr)
     {
         writePill(out, words.kind, words.text);
     }
@@ -995,29 +762,6 @@ void writeMasterCard(ReportMarkup& out, const ReportDocumentContext& context, co
     }
     out.close("div");
     out.close(element);
-}
-
-/// The word and the kind of pill that say where a master's astrometric solution came from.
-struct AstrometryWords
-{
-    const char* kind = nullptr;
-    QString text;
-};
-
-[[nodiscard]] AstrometryWords astrometryWords(const ReportAstrometryOutcome outcome)
-{
-    switch (outcome)
-    {
-    case ReportAstrometryOutcome::Inherited:
-        return {"good", documentText("Inherited")};
-    case ReportAstrometryOutcome::Solved:
-        return {"good", documentText("Solved")};
-    case ReportAstrometryOutcome::None:
-        return {"warning", documentText("None")};
-    case ReportAstrometryOutcome::NotRecorded:
-        return {};
-    }
-    return {};
 }
 
 void writeFigureCell(ReportMarkup& out, const QString& figure, const QString& aside = {},
@@ -1077,7 +821,7 @@ void writeCompareTable(ReportMarkup& out, const ReportDocumentContext& context, 
             out.open("b");
             writeMasterLink(out, context, master, labels.value(master.key, master.name));
             out.close("b");
-            if (const MasterStateWords words = masterStateWords(master.state); words.kind != nullptr)
+            if (const ReportStateWords words = masterStateWords(master.state); words.kind != nullptr)
             {
                 out.text(QStringLiteral(" "));
                 out.element("span", {{"class", QStringLiteral("muted")}}, words.text.toLower());
@@ -1109,7 +853,7 @@ void writeCompareTable(ReportMarkup& out, const ReportDocumentContext& context, 
             }
 
             out.open("td");
-            if (const AstrometryWords words = astrometryWords(master.astrometry); words.kind != nullptr)
+            if (const ReportStateWords words = astrometryWords(master.astrometry); words.kind != nullptr)
             {
                 writePill(out, words.kind, words.text);
             }
@@ -1460,30 +1204,11 @@ void writeFrames(ReportMarkup& out, const ReportDocumentContext& context, const 
 
 // ---- The nights.
 
-/// Minutes from the midnight that begins a night's date to an instant, in the archive's zone.
-[[nodiscard]] double minutesIntoNight(const QDate& night, const QDateTime& instant, const ReportTimeZone& zone)
-{
-    const QDateTime local = instant.toTimeZone(zone.resolved());
-    return static_cast<double>(night.daysTo(local.date())) * 1440.0 +
-           static_cast<double>(local.time().msecsSinceStartOfDay()) / 60000.0;
-}
-
 /// A light's name in a tip: its group, then its file.
 [[nodiscard]] QString lightHeading(const Light& light, const QStringList& groups)
 {
     const QString group = light.group >= 0 && light.group < groups.size() ? groups.at(light.group) : QString();
     return group.isEmpty() ? light.frame->fileName : group + dotSeparator() + light.frame->fileName;
-}
-
-/// What became of a light, as the last line of its tip.
-[[nodiscard]] QString fateLine(const ReportFrame& frame)
-{
-    if (!frame.state.has_value())
-    {
-        return documentText("Fate not recorded");
-    }
-    const QString name = stateName(chartStateOf(frame));
-    return frame.stateDetail.trimmed().isEmpty() ? name : name + QStringLiteral(": ") + frame.stateDetail.trimmed();
 }
 
 [[nodiscard]] ConditionsChart conditionsOf(const ReportDocumentContext& context, const std::vector<Light>& lights,
@@ -1900,7 +1625,7 @@ ReportPart writeReportSummary(const ReportDocumentContext& context)
 {
     const ReportModel& model = context.model;
     const SummaryPlan plan = planSummary(model);
-    const QHash<QString, QString> labels = masterLabels(model);
+    const QHash<QString, QString>& labels = context.labels;
     const std::vector<Light> lights = lightsInCaptureOrder(model);
     const QStringList groups = lightGroupNames(model, labels);
     const IssueSplit issues = splitIssues(model);
@@ -1910,16 +1635,13 @@ ReportPart writeReportSummary(const ReportDocumentContext& context)
     part.heading = QStringLiteral("1") + dotSeparator() + documentText("Summary");
 
     ReportMarkup& out = part.body;
-    out.open("section", {{"class", QStringLiteral("part")}, {"id", QStringLiteral("summary")}});
-    out.open("div", {{"class", QStringLiteral("parthead")}});
-    out.element("span", {{"class", QStringLiteral("eyebrow")}}, documentText("Part 1"));
-    out.element("h2", nights > 1 ? documentText("The nights in summary") : documentText("The night in summary"));
-    out.element("p", model.masters.size() > 1
-                         ? documentText("What was made, what needs a second look, and what the lights were like. "
-                                        "Everything below this part breaks these figures down.")
-                         : documentText("What went into the master, what needs a second look, and what the lights "
-                                        "were like. Everything below this part breaks these figures down."));
-    out.close("div");
+    openPart(out, "summary", 1,
+             nights > 1 ? documentText("The nights in summary") : documentText("The night in summary"),
+             model.masters.size() > 1
+                 ? documentText("What was made, what needs a second look, and what the lights were like. "
+                                "Everything below this part breaks these figures down.")
+                 : documentText("What went into the master, what needs a second look, and what the lights were "
+                                "like. Everything below this part breaks these figures down."));
 
     if (plan.outcome)
     {
