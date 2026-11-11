@@ -214,7 +214,7 @@ What the stack recorded of itself:
 | Figure | Says |
 | --- | --- |
 | **Coverage** | The [pixel coverage](../../reference/glossary.md#pixel-coverage): the fewest, the median and the most lights that reached a pixel, as one bar. |
-| **Effective lights** | The effective frames of the master, of the lights combined. |
+| **Effective frames** | The [effective frames](../../reference/glossary.md#effective-frames) of the master, of the lights combined. |
 | **SNR gain** | The gain the stack measured, of the gain its number of lights promises. |
 | **Rejected**, **Rejected per light** | The share of all samples the stack rejected, then the range and the median over the lights. |
 | **Weighting**, **Weighted integration** | How the lights were weighed, and their exposure with each light counted at its weight. |
