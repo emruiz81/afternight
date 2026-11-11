@@ -7,7 +7,6 @@
 #include "processes/ImageIntegration/core/FilenameUtils.h"
 #include "processes/ImageIntegration/core/RejectionMapUtils.h"
 #include "processes/ImageIntegration/core/StackingParamsUtils.h"
-#include "processes/ImageIntegration/workflow/ArtifactTracker.h"
 #include "processes/ImageIntegration/workflow/stages/StageUtilities.h"
 
 #include "app/PlateSolveTypes.h"
@@ -312,26 +311,6 @@ calibrationOf(const WorkflowManifest::IntegrationGroup& group,
     return stack;
 }
 
-/// The maps beside a master that the result does not name: the files the group's settings ask for, where they are
-/// there and belong to this master.
-template <class MapResult, class Specs>
-[[nodiscard]] std::vector<MapResult> mapsBesideOutput(const QFileInfo& output, const Specs& specs)
-{
-    std::vector<MapResult> maps;
-    const ArtifactTracker tracker(output.absolutePath());
-    for (const auto& spec : specs)
-    {
-        const QString mapPath = output.dir().filePath(spec.filename);
-        if (!QFileInfo::exists(mapPath) ||
-            !ImageIntegration::isStackingAuxiliaryOutputCurrent(tracker, output.absoluteFilePath(), mapPath))
-        {
-            continue;
-        }
-        maps.push_back(MapResult{spec.title, mapPath, {}});
-    }
-    return maps;
-}
-
 /// The archived picture of a map when it is there, else the picture the result names.
 [[nodiscard]] QString mapPreview(const ReportBuild& build, const QStringList& archived, const QString& recorded)
 {
@@ -348,23 +327,12 @@ template <class MapResult, class Specs>
 void fillMaps(const ReportBuild& build, const IntegrationGroupResult& group,
               const WorkflowManifest::IntegrationGroup* definition, ReportMaster& master)
 {
-    const QFileInfo output(build.resolvePath(group.outputPath));
-
+    // The maps are the ones the result names; the quality maps only while the group's settings still ask for them.
     const bool qualityMapsRequested =
         definition != nullptr && ImageIntegration::sanitizeStackingSettings(definition->stacking).createQualityMaps;
-    std::vector<QualityMapResult> qualityMaps =
+    const std::vector<QualityMapResult> qualityMaps =
         (definition == nullptr || qualityMapsRequested) ? group.qualityMaps : std::vector<QualityMapResult>{};
-    if (qualityMaps.empty() && qualityMapsRequested && output.exists())
-    {
-        qualityMaps = mapsBesideOutput<QualityMapResult>(output, ImageIntegration::qualityMapsForOutput(output, true));
-    }
-
-    std::vector<RejectionMapResult> rejectionMaps = group.rejectionMaps;
-    if (rejectionMaps.empty() && definition != nullptr && definition->stacking.createRejectionMaps && output.exists())
-    {
-        rejectionMaps = mapsBesideOutput<RejectionMapResult>(
-            output, ImageIntegration::rejectionMapsForOutput(output, definition->stacking.mergeRejectionMaps));
-    }
+    const std::vector<RejectionMapResult>& rejectionMaps = group.rejectionMaps;
 
     if (!rejectionMaps.empty())
     {
@@ -381,11 +349,9 @@ void fillMaps(const ReportBuild& build, const IntegrationGroupResult& group,
         stated.title = map.title.trimmed().isEmpty() ? reportText("Rejection Map") : map.title;
         stated.file = map.path;
         stated.bytes = build.fileSize(map.path);
-        stated.preview =
-            mapPreview(build,
-                       {QStringLiteral("report_previews/%1/rejection_map_%2.jpg").arg(master.previewFolder).arg(index),
-                        QStringLiteral("report_previews/%1/rejection_map_%2.png").arg(master.previewFolder).arg(index)},
-                       map.previewPath);
+        stated.preview = mapPreview(
+            build, {QStringLiteral("report_previews/%1/rejection_map_%2.jpg").arg(master.previewFolder).arg(index)},
+            map.previewPath);
         if (group.qualityReport.hasSpatialRejectionClusters)
         {
             const RejectionClusterMapKind kind = rejectionMapKindForTitle(stated.title);

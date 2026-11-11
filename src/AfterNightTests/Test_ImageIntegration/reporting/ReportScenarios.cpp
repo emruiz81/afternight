@@ -256,6 +256,7 @@ bool writeRegistrationMetricsDb(const QString& dbPath, const QString& groupKey, 
                                              "fwhm REAL NOT NULL,"
                                              "snr REAL NOT NULL,"
                                              "eccentricity REAL NOT NULL,"
+                                             "background_noise REAL NOT NULL DEFAULT 0.0,"
                                              "photometric_zero_point REAL NOT NULL DEFAULT 0.0,"
                                              "zero_point_scatter REAL NOT NULL DEFAULT 0.0,"
                                              "astrometric_rms_pixels REAL NOT NULL DEFAULT 0.0,"
@@ -264,6 +265,7 @@ bool writeRegistrationMetricsDb(const QString& dbPath, const QString& groupKey, 
                                              "catalog_matched_stars INTEGER NOT NULL DEFAULT 0,"
                                              "succeeded INTEGER NOT NULL,"
                                              "output_path TEXT,"
+                                             "output_size_bytes INTEGER NOT NULL DEFAULT -1,"
                                              "transform_json TEXT,"
                                              "updated_at INTEGER NOT NULL,"
                                              "PRIMARY KEY (frame_id, group_key, settings_version))")))

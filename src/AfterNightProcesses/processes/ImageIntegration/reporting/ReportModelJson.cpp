@@ -1427,14 +1427,14 @@ ReportModelRead ReportModelJson::fromJson(const QJsonObject& document)
             .refusal = refusal(QCoreApplication::translate("ImageIntegrationReport",
                                                            "The stored report states no format, so it is not read."))};
     }
-    if (schema > kReportSchema)
+    if (schema != kReportSchema)
     {
         return ReportModelRead{
             .model = std::nullopt,
             .refusal = refusal(QCoreApplication::translate(
                                    "ImageIntegrationReport",
-                                   "The stored report is of format %1, written by a newer version of the application; "
-                                   "this version reads up to format %2.")
+                                   "The stored report is of format %1; this version of the application reads format "
+                                   "%2 alone.")
                                    .arg(schema)
                                    .arg(kReportSchema))};
     }

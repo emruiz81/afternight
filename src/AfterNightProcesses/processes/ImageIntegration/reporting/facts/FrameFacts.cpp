@@ -334,12 +334,31 @@ void stateNight(const int utcOffsetSeconds, ReportFrame& frame)
 
 /// What became of each light of a master the run stacked, by the precedence a light's states have: its registration
 /// failed; the stack left it out on its own; a second stack was made without it; the stack combined it. A light is
-/// combined when the stack's record of its weights names it; a stack that recorded no weights combined every light no
-/// other state claims.
+/// combined when the stack's record of its weights names it, and by nothing else: of a stack that recorded no
+/// weights only the failed registrations are stated, and the model says so.
 void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupResult, ReportMaster& master)
 {
     const StackQualityRecord& quality = groupResult.qualityReport;
-    const bool recorded = quality.valid && !quality.lightWeights.empty();
+    if (!quality.valid || quality.lightWeights.empty())
+    {
+        for (ReportFrame& frame : master.frames)
+        {
+            if (frame.registered.has_value() && !*frame.registered)
+            {
+                frame.state = ReportFrameState::RegistrationFailed;
+                frame.stateDetail =
+                    reportText("Registration failed; %1 stars were detected.").arg(frame.stars.value_or(0));
+            }
+        }
+        if (!master.frames.empty())
+        {
+            build.notStated(reportText("What became of each light of %1").arg(master.name),
+                            reportText("The stack recorded no weights of its lights, which is what names the lights "
+                                       "it combined."));
+        }
+        return;
+    }
+
     QSet<QString> combined;
     QHash<QString, std::size_t> placeInStack;
     for (std::size_t i = 0; i < quality.lightWeights.size(); ++i)
@@ -350,7 +369,7 @@ void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupRe
     }
     // The places of a restack's exclusions are among the group's lights, which the frames follow.
     QHash<std::size_t, std::size_t> excludedOnRestack;
-    if (quality.valid && quality.spatialRestackApplied)
+    if (quality.spatialRestackApplied)
     {
         for (std::size_t i = 0; i < quality.spatialRestackExcludedFrameIndices.size(); ++i)
         {
@@ -360,8 +379,8 @@ void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupRe
 
     // A rate belongs to the light the stack's weights name at the same place, never to a place among the group's
     // lights: the stack reads fewer lights than the group lists, in its own order.
-    const bool ratesBelong = recorded && quality.frameRejectionRates.size() == quality.lightWeights.size();
-    if (quality.valid && !quality.frameRejectionRates.empty() && !ratesBelong)
+    const bool ratesBelong = quality.frameRejectionRates.size() == quality.lightWeights.size();
+    if (!quality.frameRejectionRates.empty() && !ratesBelong)
     {
         build.notStated(reportText("The share of each light's samples the stack of %1 rejected").arg(master.name),
                         reportText("The stack recorded %1 rates and the weights of %2 lights, so no rate can be given "
@@ -380,7 +399,7 @@ void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupRe
             frame.state = ReportFrameState::RegistrationFailed;
             frame.stateDetail = reportText("Registration failed; %1 stars were detected.").arg(frame.stars.value_or(0));
         }
-        else if (recorded && combined.contains(identity))
+        else if (combined.contains(identity))
         {
             frame.state = ReportFrameState::Used;
             if (ratesBelong)
@@ -403,21 +422,17 @@ void stateFatesOfStack(ReportBuild& build, const IntegrationGroupResult& groupRe
                 frame.stateDetail = reportText("The master was stacked again without this light.");
             }
         }
-        else if (recorded)
+        else
         {
             frame.state = ReportFrameState::LeftOutByStack;
             frame.stateDetail = reportText("The stack did not combine this light; the run recorded no reason.");
-        }
-        else
-        {
-            frame.state = ReportFrameState::Used;
         }
 
         if (*frame.state == ReportFrameState::Used)
         {
             ++used;
         }
-        else if (recorded)
+        else
         {
             // The stack recorded no weight for a light the master does not combine.
             frame.weight.reset();
@@ -514,12 +529,6 @@ void stateNormalization(ReportBuild& build, const WorkflowManifest::IntegrationG
         return;
     }
     const QString what = reportText("The normalization's scale and offset of the lights of %1").arg(master.name);
-    if (build.inputs().readFromArchive)
-    {
-        build.notStated(what, reportText("The run is read from its archive, which does not keep the coefficients; "
-                                         "the output folder's may be a later run's."));
-        return;
-    }
     if (!build.exists(artifact))
     {
         return;
@@ -681,12 +690,16 @@ void fillMetrics(ReportBuild& build, const WorkflowManifest::IntegrationGroup& g
 
     if (!samples.isEmpty())
     {
-        // What the stack recorded of its own weights, where the run left a record; else what its settings imply.
+        // The weights are the ones the stack recorded combining each light with; a stack that recorded none states
+        // none.
+        const bool recorded =
+            groupResult != nullptr && groupResult->success && !groupResult->qualityReport.lightWeights.empty();
         const QList<double> weights =
-            groupResult != nullptr && groupResult->success && !groupResult->qualityReport.lightWeights.empty()
-                ? recordedWeightsForSamples(samples, groupResult->qualityReport, group)
-                : computeWeightsForSamples(build.sources().session, samples, group);
-        weighting.medianWeight = medianOf(weights);
+            recorded ? recordedWeightsForSamples(samples, groupResult->qualityReport, group) : QList<double>{};
+        if (recorded)
+        {
+            weighting.medianWeight = medianOf(weights);
+        }
 
         std::vector<FrameQualityMetrics> metricsForStatistics;
         metricsForStatistics.reserve(static_cast<std::size_t>(samples.size()));
@@ -704,21 +717,24 @@ void fillMetrics(ReportBuild& build, const WorkflowManifest::IntegrationGroup& g
         QList<double> catalogMatches;
         QList<double> weightedSeconds;
         weightedSeconds.reserve(samples.size());
-        for (int i = 0; i < samples.size() && i < weights.size(); ++i)
+        for (int i = 0; i < samples.size(); ++i)
         {
             const QualityWeightSample& sample = samples[i];
             ReportFrame& frame = master.frames[static_cast<std::size_t>(sampleFrames[i])];
-            const double weight = weights[i];
+            const double weight = recorded ? weights[i] : 0.0;
             const double seconds = sample.exposureSeconds > 0.0 && std::isfinite(sample.exposureSeconds)
                                        ? sample.exposureSeconds * weight
                                        : 0.0;
             weightedSeconds.append(seconds);
             weighting.weightedIntegrationMs += std::llround(seconds * 1000.0);
-            if (weighting.floorApplies && weight <= weighting.minimumWeight + 1e-6)
+            if (recorded && weighting.floorApplies && weight <= weighting.minimumWeight + 1e-6)
             {
                 ++weighting.framesAtFloor;
             }
-            frame.weight = weight;
+            if (recorded)
+            {
+                frame.weight = weight;
+            }
 
             const double score = FilterStatisticsEngine::computeQualityScore(sample.metrics, filterStatistics);
             if (std::isfinite(score))

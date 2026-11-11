@@ -50,22 +50,6 @@ namespace an::tests::integration::report
         production.sources());
 }
 
-/// The report model of a scenario's run once it is archived, built as a run read later from its archive is: with
-/// the archive's own snapshot of the metrics, never the output folder's database.
-[[nodiscard]] inline ImageIntegration::Reporting::ReportModel buildArchivedScenarioModel(const ReportScenario& scenario)
-{
-    const ImageIntegration::Reporting::ProductionReportSources production(
-        scenario.session(), ImageIntegration::Reporting::archivedRunMetricsDatabase(scenario.runDirectory));
-    return ImageIntegration::Reporting::buildReportModel(
-        ImageIntegration::Reporting::ReportModelInputs{.manifest = scenario.manifest,
-                                                       .result = scenario.result,
-                                                       .runDirectory = scenario.runDirectory,
-                                                       .context = scenario.context,
-                                                       .counters = std::nullopt,
-                                                       .readFromArchive = true},
-        production.sources());
-}
-
 /// An image source that counts how often each file is measured, and measures through another.
 class CountingImages final : public ImageIntegration::Reporting::IReportImages
 {

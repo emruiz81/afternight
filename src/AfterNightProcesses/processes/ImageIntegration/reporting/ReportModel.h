@@ -30,8 +30,8 @@
 
 namespace ImageIntegration::Reporting
 {
-/// The format `workflow_report.json` is written in. A reader takes a document of this number or an older one it
-/// knows, and refuses a newer one by name.
+/// The format `workflow_report.json` is written in. A reader takes a document of this number and refuses any other
+/// by name: no earlier format is read.
 inline constexpr int kReportSchema = 1;
 
 /// How a run ended.
