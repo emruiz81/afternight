@@ -168,6 +168,11 @@ struct DirectoryUse
         variableMetadata[QStringLiteral("reusedIntegrationGroups")] =
             reusedIntegrationGroupsToJson(result.reusedIntegrationGroups);
     }
+    if (!result.registrationFailures.empty())
+    {
+        variableMetadata[QStringLiteral("registrationFailures")] =
+            registrationFailuresToJson(result.registrationFailures);
+    }
 
     QJsonArray stages;
     for (const auto& stage : result.stageResults)
@@ -1823,6 +1828,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     if (!result.reusedIntegrationGroups.empty())
     {
         root[QStringLiteral("reusedIntegrationGroups")] = reusedIntegrationGroupsToJson(result.reusedIntegrationGroups);
+    }
+    if (!result.registrationFailures.empty())
+    {
+        root[QStringLiteral("registrationFailures")] = registrationFailuresToJson(result.registrationFailures);
     }
 
     QJsonArray calibrationResultsJson;

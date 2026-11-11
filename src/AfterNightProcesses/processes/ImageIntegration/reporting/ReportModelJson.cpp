@@ -726,6 +726,7 @@ template <> struct Fields<ReportFrame>
         v("path", s.path);
         v("state", s.state);
         v("stateDetail", s.stateDetail);
+        v("registrationFailure", s.registrationFailure);
         v("night", s.night);
         v("capturedAt", s.capturedAt);
         v("exposureSeconds", s.exposureSeconds);

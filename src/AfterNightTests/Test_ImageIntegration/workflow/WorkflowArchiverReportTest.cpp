@@ -541,3 +541,41 @@ TEST(WorkflowArchiverReport, TheHistoryDropsTheRunThatStartedFirstWhicheverFolde
         EXPECT_TRUE(QFileInfo::exists(earlier[run])) << QFileInfo(earlier[run]).fileName().toStdString();
     }
 }
+
+// Why each light's registration failed is one of the run's records: the archive's manifest keeps it, and the
+// stored report states it of each such light.
+TEST(WorkflowArchiverReport, TheArchiveKeepsWhyEachLightFailedRegistration)
+{
+    std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::EveryLightState);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_FALSE(scenario->result.registrationFailures.empty());
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+
+    QFile manifestFile(QDir(scenario->runDirectory).filePath(QStringLiteral("workflow_manifest.json")));
+    ASSERT_TRUE(manifestFile.open(QIODevice::ReadOnly));
+    const QJsonArray failures = QJsonDocument::fromJson(manifestFile.readAll())
+                                    .object()
+                                    .value(QStringLiteral("registrationFailures"))
+                                    .toArray();
+    ASSERT_EQ(failures.size(), static_cast<qsizetype>(scenario->result.registrationFailures.size()));
+    EXPECT_EQ(failures.first().toObject().value(QStringLiteral("light")).toString(),
+              scenario->result.registrationFailures.front().light);
+    EXPECT_EQ(failures.first().toObject().value(QStringLiteral("reason")).toString(),
+              QString::fromLatin1(kScenarioRegistrationFailure));
+
+    const std::optional<ReportModel> model = storedModel(scenario->runDirectory);
+    ASSERT_TRUE(model.has_value());
+    int stated = 0;
+    for (const ReportMaster& master : model->masters)
+    {
+        for (const ReportFrame& frame : master.frames)
+        {
+            if (frame.state == ReportFrameState::RegistrationFailed)
+            {
+                EXPECT_EQ(frame.registrationFailure, QString::fromLatin1(kScenarioRegistrationFailure));
+                ++stated;
+            }
+        }
+    }
+    EXPECT_GT(stated, 0);
+}

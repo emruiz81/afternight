@@ -1234,6 +1234,12 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
             appendReusedGroup(result.reusedIntegrationGroups, reused);
         }
 
+        // The lights the registration found no transform for, each with its reason.
+        for (const auto& failure : stage_result.registrationFailures)
+        {
+            result.registrationFailures.push_back(failure);
+        }
+
         // Aggregate alignment group results (SIP info)
         for (const auto& ar : stage_result.alignmentGroupResults)
         {

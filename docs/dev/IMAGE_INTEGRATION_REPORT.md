@@ -111,7 +111,8 @@ Facts worth knowing before changing what a report states:
   the group's `lightFiles`: a light the stack dropped is absent, and after a restack only the kept lights remain.
   Only `spatialRestackExcludedFrameIndices` are places in `lightFiles`.
 - **A light whose registration failed is still in its group's lists.** `registration_metrics.succeeded` is the
-  only record of the failure.
+  database's only record of the failure; why it failed is on the result of the run that registered the light
+  (`Result::registrationFailures`).
 - **A light the stack dropped is on its group's result.** `IntegrationGroupResult::droppedLights` names each with
   one of four reasons: no registered output, no registration transform, no star base product, no comet-aligned
   image. The stage's warning, "Skipping N light frame(s): ...", still says the same in words.
@@ -129,7 +130,7 @@ Facts worth knowing before changing what a report states:
 
 ## What a run records for its report
 
-Five things a report states have no other source, so a run records them. None of them changes what a run decides.
+Six things a report states have no other source, so a run records them. None of them changes what a run decides.
 
 - **The lights the user left out are a list of the manifest's own** (`WorkflowManifest::leftOutLights`), each with
   its exclusion and the key of the integration group it would have joined. A list on the manifest and not on a
@@ -150,6 +151,14 @@ Five things a report states have no other source, so a run records them. None of
   names before any stage runs, then the ones the stacking stage finds valid (`StageResult::reusedGroups`). The
   archive writes the list under `reusedIntegrationGroups`. No count of a run's successful groups reads it: a run
   that stopped is committed only when it made a master.
+- **Why a light's registration failed is on the run's result** (`WorkflowExecutor::Result::registrationFailures`,
+  from the registration stage's `StageResult::registrationFailures`): the light, its registration group and the
+  reason in the stage's own words - no star detected, fewer stars than the run requires, too few pairs matched
+  against the reference, a fit that failed. The archive writes the list under `registrationFailures`. It is on
+  the result and not in the metrics database, which keeps only that a registration failed: a reason stored there
+  would change the database's format, and a folder's database of another format is refused, not rebuilt. A run
+  registers a light once, so a later run that finds the registration still valid records nothing of it again;
+  the report then takes the reason from the stored report of the latest earlier run that states it.
 - **The detail** and **the calibration masters' pictures**, below.
 
 ### The pictures
@@ -398,8 +407,10 @@ A light has one state. The first rule that applies decides (`FrameFacts.cpp`):
    alone was still registered, and states what its registration recorded; one excluded in the lights' list states
    what its header does.
 2. `RegistrationFailed`: its registration record says it did not succeed. Such a light is still in its group's
-   lights; its detail states the stars the detection found. No reason is stored, and storing one would change the
-   metrics database's format, which makes a folder's database unreadable to the version before.
+   lights; its detail states the stars the detection found and why no transform was found
+   (`ReportFrame::registrationFailure`): what this run's registration recorded, else what the latest earlier run
+   whose report is kept states of the same light. When neither states it the reason is absent, and the model
+   says of how many lights.
 3. `NotStacked`: its master failed, was not reached or was cancelled. The remaining rules are of a master the run
    stacked.
 4. `LeftOutByStack`: the group's result names it among the lights the stack dropped; the detail gives the reason.
@@ -464,7 +475,7 @@ and each severity in the order below; then every string of `Result::errors` and 
 | `NoFlats`, `NoDarks` | No group of lights takes one: a choice, not an oversight | Note |
 | `FlatMasterUncalibrated` | A flat the run stacked or reused whose frames take neither a bias nor a dark | Warning |
 | `CosmeticCorrectionWithoutDark` | Cosmetic correction is on for lights that take no dark, so nothing is corrected | Warning |
-| `RegistrationFailures` | A registration group with lights whose registration failed | Warning |
+| `RegistrationFailures` | A registration group with lights whose registration failed; the detail gives each reason the lights state with how many lights it is of | Warning |
 | `MasterWithoutAstrometry` | A master the run made and saved without a solution | Warning |
 | `LowFrameUse` | The lights the masters combine over the lights offered to the stacks of the masters the run made - the ones the user left out are not - under 80 %; worded more strongly under 60 % | Warning |
 | `RegistrationSuccessLow` | The lights registered over the lights of the registration groups with a record, under 90 % (75 %) | Warning |

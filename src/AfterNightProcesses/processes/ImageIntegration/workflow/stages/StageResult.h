@@ -420,6 +420,35 @@ struct AlignmentGroupResult
     int caPassthroughCount = 0; ///< Frames where CA correction was skipped (mono or insufficient stars)
 };
 
+/// A light a registration found no transform for, and why, in the registration's own words. A run records it
+/// where the registration fails, since the metrics database keeps only that it failed; a later run that finds the
+/// registration still valid registers nothing again and records none.
+struct RegistrationFailure
+{
+    /// The registration group's key.
+    QString groupKey;
+
+    /// The light, by its path.
+    QString light;
+
+    /// Why no transform was found: too few stars, too few pairs matched, a fit that failed.
+    QString reason;
+};
+
+[[nodiscard]] inline QJsonArray registrationFailuresToJson(const std::vector<RegistrationFailure>& failures)
+{
+    QJsonArray array;
+    for (const RegistrationFailure& failure : failures)
+    {
+        QJsonObject obj;
+        obj[QStringLiteral("groupKey")] = failure.groupKey;
+        obj[QStringLiteral("light")] = failure.light;
+        obj[QStringLiteral("reason")] = failure.reason;
+        array.append(obj);
+    }
+    return array;
+}
+
 /// Why a stack left a light of its group out on its own.
 enum class DroppedLightReason
 {
@@ -856,6 +885,8 @@ struct StageResult
     std::vector<ReusedIntegrationGroup> reusedGroups; ///< Groups whose output was still valid, which have no result
     /// The keys of the calibration groups whose master a calibration stage found still valid and left as it was.
     std::vector<QString> reusedCalibrationGroups;
+    /// The lights the registration stage found no transform for in this run, each with its reason.
+    std::vector<RegistrationFailure> registrationFailures;
 
     /** @brief Create a success result. */
     [[nodiscard]] static StageResult success()

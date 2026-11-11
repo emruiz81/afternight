@@ -629,6 +629,64 @@ void statePhotometry(ReportMaster& master)
     master.photometry = std::move(photometry);
 }
 
+/// Why each light whose registration failed has no transform, in the registration's own words: what this run's
+/// registration recorded of it, else what the latest earlier run of the folder whose report is kept states of the
+/// same light. A run registers a light once: a later run that finds the registration still valid records nothing
+/// of it again, and the metrics database keeps only that it failed.
+void stateRegistrationReasons(ReportBuild& build, ReportMaster& master)
+{
+    QHash<QString, QString> recorded;
+    for (const RegistrationFailure& failure : build.result().registrationFailures)
+    {
+        recorded.insert(failure.light, failure.reason.trimmed());
+    }
+    int unexplained = 0;
+    for (ReportFrame& frame : master.frames)
+    {
+        if (frame.state != ReportFrameState::RegistrationFailed)
+        {
+            continue;
+        }
+        QString reason = recorded.value(frame.path);
+        if (reason.isEmpty())
+        {
+            for (const StoredRun& run : build.earlierRuns())
+            {
+                for (const ReportMaster& earlier : run.model.masters)
+                {
+                    const auto same = std::find_if(
+                        earlier.frames.begin(), earlier.frames.end(), [&frame](const ReportFrame& candidate) {
+                            return candidate.path == frame.path && !candidate.registrationFailure.isEmpty();
+                        });
+                    if (same != earlier.frames.end())
+                    {
+                        reason = same->registrationFailure;
+                        break;
+                    }
+                }
+                if (!reason.isEmpty())
+                {
+                    break;
+                }
+            }
+        }
+        if (reason.isEmpty())
+        {
+            ++unexplained;
+            continue;
+        }
+        frame.registrationFailure = reason;
+        frame.stateDetail =
+            reportText("Registration failed; %1 stars were detected. %2").arg(frame.stars.value_or(0)).arg(reason);
+    }
+    if (unexplained > 0)
+    {
+        build.notStated(reportText("Why %1 of the lights of %2 failed registration").arg(unexplained).arg(master.name),
+                        reportText("An earlier run registered them, and no report kept in the folder states its "
+                                   "reasons."));
+    }
+}
+
 /// What the registration recorded of each light of a group and, for the ones it registered, the weight the stack
 /// gave them, their quality score and their share of the stack.
 void fillMetrics(ReportBuild& build, const WorkflowManifest::IntegrationGroup& group,
@@ -841,6 +899,7 @@ void fillGroup(ReportBuild& build, const WorkflowManifest::IntegrationGroup& gro
         stateFatesWithoutStack(master);
         stateFatesOfReused(build, master);
     }
+    stateRegistrationReasons(build, master);
     stateNormalization(build, group, master);
     statePhotometry(master);
 }
