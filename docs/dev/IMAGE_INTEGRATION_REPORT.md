@@ -222,7 +222,7 @@ report is written from it. It exists because of what a report held only as text 
 | `ReportMaster` | One per master the run planned, a combined colour image among them: key, anchor, preview folder, name, target, filter, kind, state; file, size and whether the archive kept a copy; lights and exposures; the calibration masters its lights take; registration group; the solution's origin; stacking and drizzle in a line each; time and finalization phases; what one read measured, per channel, and the headline figures taken from it; the stack's record; its two pictures and its maps; its own settings; how its lights were weighed; its lights |
 | `ReportGroupNotStacked` | A group the run planned no master of because the user left every one of its lights out: its key, its name and those lights |
 | `ReportFrame` | One per light taken: the lights of a master's group in the group's order, then the lights the user left out of that group. File, exposure, when it was taken and on which night, what became of it and why, whether its registration succeeded and what it recorded, its shift against the reference, the normalization's scale and offset, the weight the stack gave it, its quality score, its share of the stack, the share of its samples the stack rejected, and the gain, offset and temperature its header states |
-| `ReportCalibrationMaster` | Kind, key, anchor, file, its size and when it changed, what became of it (`Made`, `Reused`, `Supplied`, `Failed`), the frames it is stacked from, its exposure, the masters a flat is calibrated with and their anchors, its stacking settings, its level and noise per channel with the share of the frame they were measured over, its picture, and the masters whose lights it calibrates |
+| `ReportCalibrationMaster` | Kind, key, anchor, file, its size and when it changed, what became of it (`Made`, `Reused`, `Supplied`, `Failed`), the frames it is stacked from, its exposure, the masters a flat is calibrated with and their anchors, its stacking settings, its level and noise per channel with the share of the frame they were measured over, the figure its kind is checked by (a bias's and a dark's hot pixels, a flat's corners), its picture, and the masters whose lights it calibrates |
 | `ReportLightGroup` | The lights of one master that share a calibration: the master they are stacked into, how many they are, the masters they take with their anchors, their calibration settings, or that they were marked as calibrated already |
 | `ReportRegistrationGroup` | Key, anchor, lights and how many registered, the reference and who chose it, the transform and the kinds the registration recorded, the alignment's correction counts, the comet fits, the catalog sources kept for the colour calibration, its settings, the masters it serves |
 | `ReportStage` | A stage as the run timed it: name, state, the run's own status word, time, the groups it works on |
@@ -380,7 +380,7 @@ bytes are, and holds a document it reads to writing back as one that reads and w
 | The run's comparison | The stored report of the latest earlier run of the folder that completed | No such run: no comparison |
 | The runs of the folder | The folders beside the run's own whose names sort before it, each read through `ReportArchiveReader` | An archive that gives no report is listed by its id with the reader's reason |
 | A master's photometry | The medians of what the registration recorded of the lights it combines | Not stated |
-| A calibration master's level and noise | The stored report of the latest earlier run that states them for the same file, size and modification time; else one read of the file, measured over the centre of a large frame | Not measured, and named |
+| A calibration master's level, noise and check figure | The stored report of the latest earlier run that states them all for the same file, size and modification time; else one read of the file, the level, the noise and the hot pixels measured over the centre of a large frame ("What a calibration master is checked by") | Not measured, and named |
 | A registration group's reference | The manifest's; else the registration's own group state | Not stated |
 | A registration group's overlap | The smallest share of the capture's area its masters keep, since they share its output plane | Not stated |
 | Stage states and times | `Result::stageResults`, in the order of the manifest's `stageSequence`. A stage with no result was not reached in a run that stopped; in a run that completed it was reused when the run is incremental and the stage has groups, and skipped otherwise | - |
@@ -424,6 +424,29 @@ thousandth of the range to its top. The samples under a thousandth, those under 
 in the first bin; the ones above the range, and those that are not a number, are counted beside the bins
 (`outside`), so the bins and that count add up to the samples admitted. The count is in the same admitted operation
 as the statistics, over the image as it is already in memory.
+
+### What a calibration master is checked by
+
+A level and a noise say little of whether a master is a good one. Each kind states one figure more, the one a
+person looks at it for, measured in the read that gives the level and the noise (`measureLevelChannels`,
+`ReportSources.cpp`) so that no master is read twice:
+
+- **A bias and a dark state their hot pixels** (`ReportCalibrationMaster::hotPixelFraction`): the share of the
+  pixels measured that stand more than ten robust deviations above their channel's median
+  (`kHotPixelDeviations`). The deviation is the median absolute deviation scaled to a normal one, 1.4826 times
+  it, and no less than the background noise, so a few hot pixels do not move the bar they are held to. They are
+  counted by one more pass over the part the level is measured over, through a range from the threshold up; a
+  sample clipped at the top is among them. A channel with no deviation at all has no threshold, and the master
+  then states no figure.
+- **A flat states its corners** (`cornerLevel`): each channel's level in the frame's four corners over its level
+  at the centre, as the mean of the medians of four rectangles of a sixteenth of the frame's width and height
+  over the median of a rectangle of that size at the centre. One is a frame lit evenly; 0.7 is corners three
+  tenths darker than the centre. The rectangles are of the whole frame, whatever part the level is measured
+  over, and hold a 256th of it each, so they cost next to nothing.
+
+Each kind states its own figure and not the other: hot pixels say nothing of a flat, nor corners of a dark. A
+master an earlier run of the folder measured takes the figure with its level and its noise from that run's
+report, and is read again only when that report states no figure of its kind.
 
 ### The issues
 

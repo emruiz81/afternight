@@ -2049,3 +2049,45 @@ TEST_F(ReportHtmlWriterTest, AStackThatRecordedNoEffectiveFramesGainOrCoveragePr
     }
     EXPECT_TRUE(found);
 }
+
+// The table of calibration masters has a column for what each is checked by: a bias's and a dark's hot pixels, a
+// flat's corners against its centre, and a dash for a master that states neither.
+TEST_F(ReportHtmlWriterTest, TheCalibrationMastersStateWhatEachIsCheckedBy)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFilters);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    const auto ofKind = [&model](const ReportCalibrationKind kind) {
+        return std::find_if(model.calibrationMasters.begin(), model.calibrationMasters.end(),
+                            [kind](const ReportCalibrationMaster& master) { return master.kind == kind; });
+    };
+    const auto dark = ofKind(ReportCalibrationKind::Dark);
+    const auto flat = ofKind(ReportCalibrationKind::Flat);
+    const auto bias = ofKind(ReportCalibrationKind::Bias);
+    ASSERT_NE(dark, model.calibrationMasters.end());
+    ASSERT_NE(flat, model.calibrationMasters.end());
+    ASSERT_NE(bias, model.calibrationMasters.end());
+    dark->hotPixelFraction = {0.0005};
+    flat->cornerLevel = {0.72};
+    bias->hotPixelFraction.clear();
+
+    const ParsedDocument parsed = writtenAgain(model, *report);
+    const DocumentElement* block = one(parsed, QStringLiteral("cal"));
+    ASSERT_NE(block, nullptr);
+    QStringList headings;
+    for (const DocumentElement* heading : namedInside(parsed, *block, "th"))
+    {
+        headings.append(heading->text.trimmed());
+    }
+    EXPECT_TRUE(headings.contains(QStringLiteral("Check"))) << headings.join(QLatin1Char('|')).toStdString();
+
+    const DocumentElement* darkRow = one(parsed, dark->slug);
+    ASSERT_NE(darkRow, nullptr);
+    EXPECT_TRUE(darkRow->text.contains(QStringLiteral("0.05 % hot"))) << darkRow->text.toStdString();
+    const DocumentElement* flatRow = one(parsed, flat->slug);
+    ASSERT_NE(flatRow, nullptr);
+    EXPECT_TRUE(flatRow->text.contains(QStringLiteral("corners at 72 %"))) << flatRow->text.toStdString();
+    const DocumentElement* biasRow = one(parsed, bias->slug);
+    ASSERT_NE(biasRow, nullptr);
+    EXPECT_FALSE(biasRow->text.contains(QStringLiteral("hot")));
+}
