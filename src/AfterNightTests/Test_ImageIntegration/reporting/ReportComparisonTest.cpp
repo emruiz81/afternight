@@ -652,6 +652,16 @@ TEST(ReportComparison, TheEarlierRunsPicturesAreCopiedIntoTheRunsFolderWhenItsRe
     const QDir run(scenario->runDirectory);
     const QDir history = QFileInfo(scenario->runDirectory).dir();
 
+    // The archiver stored the run's report as it committed the run, the copies with it. They are taken away, so
+    // that what building a model does and what storing a report does are seen apart.
+    for (const ReportMaster& master : storedReport(scenario->runDirectory).masters)
+    {
+        if (master.baseline.has_value() && master.baseline->made)
+        {
+            ASSERT_TRUE(QFile::remove(run.filePath(master.baseline->preview))) << master.name.toStdString();
+            ASSERT_TRUE(QFile::remove(run.filePath(master.baseline->detail))) << master.name.toStdString();
+        }
+    }
     const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
     int pictured = 0;
     for (const ReportMaster& master : model.masters)
@@ -711,11 +721,12 @@ TEST(ReportComparison, APictureThatCannotBeCopiedIsNotStatedInTheReportStored)
     ASSERT_TRUE(luminance->baseline.has_value());
     ASSERT_FALSE(luminance->baseline->detail.isEmpty());
 
-    // Between the model and its storing the earlier run's detail of the luminance master goes away.
+    // The earlier run's detail of the luminance master goes away, and the run holds no copy of it yet.
     const ReportModel earlier = storedReport(scenario->earlierRunDirectories.front());
     const ReportMaster* made = masterOfFilter(earlier, QStringLiteral("Luminance"));
     ASSERT_NE(made, nullptr);
     ASSERT_TRUE(QFile::remove(QDir(scenario->earlierRunDirectories.front()).filePath(made->detail)));
+    ASSERT_TRUE(QFile::remove(QDir(scenario->runDirectory).filePath(luminance->baseline->detail)));
 
     const WorkflowReportStored stored = storeWorkflowReport(model, scenario->runDirectory);
 
@@ -730,4 +741,21 @@ TEST(ReportComparison, APictureThatCannotBeCopiedIsNotStatedInTheReportStored)
     EXPECT_EQ(keptLuminance->baseline->preview, luminance->baseline->preview);
     EXPECT_FALSE(QFileInfo::exists(QDir(scenario->runDirectory).filePath(luminance->baseline->detail)));
     EXPECT_TRUE(QFileInfo::exists(QDir(scenario->runDirectory).filePath(luminance->baseline->preview)));
+
+    // A copy the run already holds stands when the earlier run goes away altogether: a report is stored more than
+    // once, and the history may drop a run in between.
+    ASSERT_TRUE(QDir(scenario->earlierRunDirectories.front()).removeRecursively());
+    const WorkflowReportStored again = storeWorkflowReport(model, scenario->runDirectory);
+    ASSERT_TRUE(again.isStored());
+    ASSERT_EQ(again.picturesNotCopied.size(), 1) << again.picturesNotCopied.join(QLatin1Char('\n')).toStdString();
+    const ReportModel keptAgain = storedReport(scenario->runDirectory);
+    const ReportMaster* luminanceAgain = masterOfFilter(keptAgain, QStringLiteral("Luminance"));
+    ASSERT_NE(luminanceAgain, nullptr);
+    ASSERT_TRUE(luminanceAgain->baseline.has_value());
+    EXPECT_EQ(luminanceAgain->baseline->preview, luminance->baseline->preview);
+    // And the run that is gone is listed with no report to open.
+    for (const ReportHistoryEntry& entry : keptAgain.history)
+    {
+        EXPECT_TRUE(entry.report.isEmpty()) << entry.runId.toStdString();
+    }
 }

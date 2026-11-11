@@ -159,7 +159,7 @@ namespace ImageIntegration::Reporting
         measurements, ImageIntegration::stackWeightingReferenceIndex(frames, reference));
     if (!derived.hasValue())
     {
-        LOG_WARNING("WorkflowReportBuilder: frame weights not derived: {}", derived.status().message());
+        LOG_WARNING("IntegrationReport: frame weights not derived: {}", derived.status().message());
         return weights;
     }
     const double heaviest = *std::max_element(derived->weights.begin(), derived->weights.end());

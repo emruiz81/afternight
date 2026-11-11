@@ -259,10 +259,14 @@ TEST(SummaryTabActions, RunHistoryActionsEmitIntentSignals)
 
     ASSERT_TRUE(writeJson(run_dir.filePath("workflow_manifest.json"), run_json));
 
-    // Create report file to enable report button
-    QFile rep(run_dir.filePath("workflow_report.md"));
+    // The run's document enables the report button, and the model stored beside it the one that saves the report
+    // as one file.
+    QFile rep(run_dir.filePath("workflow_report.html"));
     (void)rep.open(QIODevice::WriteOnly);
     rep.close();
+    QFile storedReport(run_dir.filePath("workflow_report.json"));
+    (void)storedReport.open(QIODevice::WriteOnly);
+    storedReport.close();
 
     // Create log file to enable log button
     QFile log(run_dir.filePath("workflow_log.txt"));
@@ -303,12 +307,14 @@ TEST(SummaryTabActions, RunHistoryActionsEmitIntentSignals)
 
     QPoint openPos = workflowButtonCenter(0);
     QPoint reportPos = workflowButtonCenter(1);
-    QPoint logPos = workflowButtonCenter(2);
-    QPoint rerunPos = workflowButtonCenter(3);
+    QPoint saveReportPos = workflowButtonCenter(2);
+    QPoint logPos = workflowButtonCenter(3);
+    QPoint rerunPos = workflowButtonCenter(4);
 
     QSignalSpy openSpy(&tab, &SummaryTab::openRequested);
     QSignalSpy rerunSpy(&tab, &SummaryTab::rerunRequested);
     QSignalSpy reportSpy(&tab, &SummaryTab::exportReportRequested);
+    QSignalSpy saveReportSpy(&tab, &SummaryTab::saveReportAsOneFileRequested);
 
     // Let's create a dummy output file so openRequested is emitted
     QFile f(QDir(temp_dir.path()).filePath("stacked.fits"));
@@ -324,6 +330,12 @@ TEST(SummaryTabActions, RunHistoryActionsEmitIntentSignals)
     ASSERT_EQ(reportSpy.count(), 1);
     ASSERT_EQ(reportSpy.at(0).size(), 1);
     EXPECT_EQ(reportSpy.at(0).at(0).toString(), run_dir.absolutePath());
+
+    // Click "Save As..." -> should emit the intent to save the run's report as one file.
+    QTest::mouseClick(history->viewport(), Qt::LeftButton, Qt::NoModifier, saveReportPos);
+    ASSERT_EQ(saveReportSpy.count(), 1);
+    EXPECT_EQ(saveReportSpy.at(0).at(0).toString(), run_dir.absolutePath());
+    EXPECT_EQ(reportSpy.count(), 1);
 
     // Click "Re-run" -> should emit intent signal with run directory.
     QTest::mouseClick(history->viewport(), Qt::LeftButton, Qt::NoModifier, rerunPos);
@@ -363,7 +375,7 @@ TEST(SummaryTabActions, DeleteWorkflowArchiveButtonRemovesExecutionFolderAfterCo
     run_json.insert(QStringLiteral("integrationGroupResults"), groups);
 
     ASSERT_TRUE(writeJson(run_dir.filePath(QStringLiteral("workflow_manifest.json")), run_json));
-    ASSERT_TRUE(touchFile(run_dir.filePath(QStringLiteral("workflow_report.md"))));
+    ASSERT_TRUE(touchFile(run_dir.filePath(QStringLiteral("workflow_report.html"))));
     ASSERT_TRUE(touchFile(run_dir.filePath(QStringLiteral("workflow_log.txt"))));
     ASSERT_TRUE(touchFile(run_dir.filePath(QStringLiteral("groups/TestGroup/stacked.fits"))));
     ASSERT_TRUE(touchFile(run_dir.filePath(QStringLiteral("groups/TestGroup/group_summary.json"))));

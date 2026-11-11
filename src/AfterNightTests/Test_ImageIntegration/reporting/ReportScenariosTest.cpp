@@ -9,7 +9,8 @@
 
 #include "Test_ImageIntegration/reporting/ReportScenarios.h"
 
-#include "processes/ImageIntegration/reporting/WorkflowReportBuilder.h"
+#include "processes/ImageIntegration/reporting/ReportArchiveReader.h"
+#include "processes/ImageIntegration/reporting/ReportModel.h"
 #include "processes/ImageIntegration/workflow/stages/StageParsingUtils.h"
 
 #include <AfterNightEngine/Algorithms/Registration/RegistrationTransform.h>
@@ -829,31 +830,52 @@ TEST(ReportScenarios, EachScenarioStatesTheThingItIsFor)
     }
 }
 
-TEST(ReportScenarios, TheReportARunWritesTodayIsBuiltFromEveryScenario)
+TEST(ReportScenarios, TheArchiverStoresTheReportOfEveryScenarioTheExecutorArchives)
 {
+    using namespace ImageIntegration::Reporting;
     for (const ReportScenarioId id : allReportScenarios())
     {
         SCOPED_TRACE(nameOf(id));
-        const std::optional<ReportScenario> scenario = buildReportScenario(id);
+        std::optional<ReportScenario> scenario = buildReportScenario(id);
         ASSERT_TRUE(scenario.has_value());
+        if (!scenario->archivedByExecutor)
+        {
+            continue;
+        }
+        ASSERT_TRUE(archiveScenarioRun(*scenario));
 
-        const ImageIntegration::Reporting::WorkflowReportBuilder builder(
-            scenario->manifest, scenario->result, QString(), scenario->context, nullptr, scenario->session());
-        const QString report = builder.build();
-
-        EXPECT_TRUE(report.contains(scenario->manifest.executionId));
+        const ReportArchiveRead stored = ReportArchiveReader::read(scenario->runDirectory);
+        ASSERT_TRUE(stored.model.has_value()) << stored.why.toStdString();
+        const ReportModel& model = *stored.model;
+        EXPECT_EQ(model.run.executionId, scenario->manifest.executionId);
+        // The archive states the scenario's time, place and version, not the host's.
+        EXPECT_EQ(model.run.applicationVersion, scenario->context.value(QStringLiteral("appVersion")).toString());
+        EXPECT_EQ(model.run.timeZoneId, scenario->context.value(QStringLiteral("timeZoneId")).toString());
+        ASSERT_TRUE(model.run.archivedAt.has_value());
+        EXPECT_EQ(model.run.archivedAt->toUTC().toString(Qt::ISODateWithMs),
+                  scenario->context.value(QStringLiteral("archivedAtUtc")).toString());
         for (const IntegrationGroupResult& group : scenario->result.integrationGroupResults)
         {
-            if (group.success)
+            if (!group.success)
             {
-                EXPECT_TRUE(report.contains(group.outputFilename)) << group.outputFilename.toStdString();
+                continue;
             }
+            const auto made = std::find_if(model.masters.begin(), model.masters.end(), [&group](const ReportMaster& m) {
+                return m.key == group.groupKey && m.state == ReportMasterState::Made;
+            });
+            EXPECT_NE(made, model.masters.end()) << group.groupKey.toStdString();
         }
         for (const QString& warning : scenario->result.warnings)
         {
-            // The report states every warning of the run; a long one is checked by how it starts.
-            EXPECT_TRUE(report.contains(warning.left(60).toHtmlEscaped()) || report.contains(warning.left(60)))
-                << warning.toStdString();
+            // The report states every warning of the run, word for word.
+            const bool statedAsItWas =
+                std::any_of(model.issues.begin(), model.issues.end(),
+                            [&warning](const ReportIssue& issue) { return issue.title == warning; });
+            EXPECT_TRUE(statedAsItWas) << warning.toStdString();
         }
+        // No Markdown is written, and the document is there beside the model.
+        const QDir run(scenario->runDirectory);
+        EXPECT_TRUE(run.exists(QStringLiteral("workflow_report.html")));
+        EXPECT_FALSE(run.exists(QStringLiteral("workflow_report.md")));
     }
 }

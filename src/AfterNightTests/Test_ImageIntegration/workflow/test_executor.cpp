@@ -40,6 +40,8 @@
 #include "processes/ImageIntegration/workflow/DocumentPublication.h"
 #include "processes/ImageIntegration/workflow/ExecutionPreparationSnapshot.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutionCounters.h"
+#include "processes/ImageIntegration/reporting/ReportArchiveReader.h"
+#include "processes/ImageIntegration/reporting/ReportModel.h"
 #include "processes/ImageIntegration/workflow/WorkflowArchiver.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutor.h"
 #include "processes/ImageIntegration/workflow/WorkflowLogger.h"
@@ -252,12 +254,11 @@ public:
         {
             const QDir run_directory(
                 QDir(m_outputDirectory).filePath(QStringLiteral("history/%1").arg(manifest.executionId)));
-            const QString markdown = run_directory.filePath(QStringLiteral("workflow_report.md"));
-            if (QDir().mkpath(run_directory.absolutePath()) && writeTextFile(markdown, QByteArrayLiteral("# Report")) &&
-                writeTextFile(run_directory.filePath(QStringLiteral("workflow_report.html")),
-                              QByteArrayLiteral("<html></html>")))
+            const QString document = run_directory.filePath(QStringLiteral("workflow_report.html"));
+            if (QDir().mkpath(run_directory.absolutePath()) &&
+                writeTextFile(document, QByteArrayLiteral("<html></html>")))
             {
-                outcome.reportPath = markdown;
+                outcome.reportPath = document;
             }
             // A commit that fails is refused before its report is accounted for, as the product's archive refuses one.
             if (m_behaviour.commitSucceeds)
@@ -2415,18 +2416,36 @@ TEST(WorkflowExecutorArchiver, SuccessCapturesExclusiveCompletionPhasesBeforeTot
     EXPECT_TRUE(result.capturedLog.contains(QStringLiteral("WORKFLOW COMPLETED SUCCESSFULLY")));
     EXPECT_TRUE(result.capturedLog.contains(expected_total));
 
-    QFile report_file(QFileInfo(result.htmlReportPath).dir().filePath(QStringLiteral("workflow_report.md")));
-    ASSERT_TRUE(report_file.open(QIODevice::ReadOnly | QIODevice::Text));
-    const QString report_markdown = QString::fromUtf8(report_file.readAll());
-    EXPECT_TRUE(
-        report_markdown.contains(QStringLiteral("| State Commit | %1ms |").arg(result.executorTiming.stateCommitMs)));
-    EXPECT_TRUE(report_markdown.contains(QStringLiteral("| Archive | %1ms |").arg(result.executorTiming.archiveMs)));
-    EXPECT_TRUE(report_markdown.contains(QStringLiteral("| Report | %1ms |").arg(result.executorTiming.reportMs)));
-    EXPECT_FALSE(report_markdown.contains(QStringLiteral("AFTERNIGHT_")));
+    // The report the archive keeps states the run's final figures, which are known only after the commit: its
+    // phases and its total, the engine's memory, and the log to its last line. No figure is a token to be replaced.
+    const QDir run_directory = QFileInfo(result.htmlReportPath).dir();
+    EXPECT_FALSE(run_directory.exists(QStringLiteral("workflow_report.md")));
+    ImageIntegration::Reporting::ReportArchiveRead stored =
+        ImageIntegration::Reporting::ReportArchiveReader::read(run_directory.absolutePath());
+    ASSERT_TRUE(stored.model.has_value()) << stored.why.toStdString();
+    const ImageIntegration::Reporting::ReportRun& stated = stored.model->run;
+    ASSERT_TRUE(stated.executor.has_value());
+    EXPECT_EQ(stated.executor->stageExecutionMs, result.executorTiming.stageExecutionMs);
+    EXPECT_EQ(stated.executor->stateCommitMs, result.executorTiming.stateCommitMs);
+    EXPECT_EQ(stated.executor->archiveMs, result.executorTiming.archiveMs);
+    EXPECT_EQ(stated.executor->reportMs, result.executorTiming.reportMs);
+    EXPECT_EQ(stated.processingMs, result.totalDurationMs);
+    ASSERT_TRUE(stated.preparation.has_value());
+    EXPECT_EQ(stated.preparation->manifestBuildMs, 113);
+    EXPECT_EQ(stated.preparation->planAndValidationMs, 227);
+    ASSERT_TRUE(result.engineMemory.has_value());
+    ASSERT_TRUE(stated.engineMemory.has_value());
+    EXPECT_EQ(stated.engineMemory->peakBytes, result.engineMemory->peakBytes);
+    EXPECT_EQ(stated.engineMemory->allocations, result.engineMemory->allocations);
+    EXPECT_TRUE(stated.log.contains(QStringLiteral("WORKFLOW COMPLETED SUCCESSFULLY")));
+    EXPECT_TRUE(stated.log.contains(expected_total));
 
     QFile report_html(result.htmlReportPath);
     ASSERT_TRUE(report_html.open(QIODevice::ReadOnly | QIODevice::Text));
-    EXPECT_FALSE(QString::fromUtf8(report_html.readAll()).contains(QStringLiteral("AFTERNIGHT_")));
+    const QString report_document = QString::fromUtf8(report_html.readAll());
+    EXPECT_FALSE(report_document.contains(QStringLiteral("AFTERNIGHT_")));
+    EXPECT_TRUE(report_document.contains(QStringLiteral("WORKFLOW COMPLETED SUCCESSFULLY")));
+    EXPECT_TRUE(report_document.contains(expected_total));
 
     QFile archive_manifest(QFileInfo(result.htmlReportPath).dir().filePath(QStringLiteral("workflow_manifest.json")));
     ASSERT_TRUE(archive_manifest.open(QIODevice::ReadOnly));
@@ -2462,10 +2481,10 @@ TEST(WorkflowExecutorArchiver, ExistingRunDirectoryFailureFailsExecutionAndSkips
     an::Result<an::consumer::EngineSession> opened = an::tests::integration::openImportSession(2u);
     ASSERT_TRUE(opened.hasValue()) << opened.status().message();
 
-    // A directory where the archive writes its report makes the commit fail.
+    // A run's folder that is already there makes the commit fail.
     const QString execution_id = QStringLiteral("TIMING_REPORT_FAILURE");
     const QString run_dir = QDir(temp_dir.path()).filePath(QStringLiteral("history/%1").arg(execution_id));
-    ASSERT_TRUE(QDir().mkpath(QDir(run_dir).filePath(QStringLiteral("workflow_report.md"))));
+    ASSERT_TRUE(QDir().mkpath(run_dir));
 
     WorkflowManifest manifest = makeValidManifest();
     manifest.outputDirectory = temp_dir.path();

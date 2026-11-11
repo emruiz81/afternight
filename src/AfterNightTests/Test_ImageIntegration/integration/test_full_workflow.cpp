@@ -25,6 +25,8 @@
 #include "processes/ImageIntegration/workflow/ExecutionPreparationSnapshot.h"
 #include "processes/ImageIntegration/workflow/FrameHeaderReader.h"
 #include "processes/ImageIntegration/workflow/ManifestBuilder.h"
+#include "processes/ImageIntegration/reporting/ReportArchiveReader.h"
+#include "processes/ImageIntegration/reporting/ReportModel.h"
 #include "processes/ImageIntegration/workflow/WorkflowArchiver.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutor.h"
 #include "processes/ImageIntegration/workflow/WorkflowManifest.h"
@@ -1552,12 +1554,13 @@ TEST_F(FullWorkflowFixture, CachedGlobalAverageReusesArtifactWithoutRegisteredIm
         QStringLiteral("eligible"), Qt::CaseInsensitive));
     EXPECT_FALSE(cached_result.htmlReportPath.isEmpty());
     EXPECT_TRUE(QFileInfo::exists(cached_result.htmlReportPath));
-    QFile cached_report(cached_result.htmlReportPath);
-    ASSERT_TRUE(cached_report.open(QIODevice::ReadOnly));
-    const QString cached_report_text = QString::fromUtf8(cached_report.readAll());
-    EXPECT_TRUE(cached_report_text.contains(QStringLiteral("Registration Input Policy"), Qt::CaseInsensitive));
-    EXPECT_TRUE(cached_report_text.contains(QStringLiteral("Transform-on-read"), Qt::CaseInsensitive));
-    EXPECT_TRUE(cached_report_text.contains(QStringLiteral("eligible"), Qt::CaseInsensitive));
+    // The report states how the stack read its lights, as the group's result does.
+    ImageIntegration::Reporting::ReportArchiveRead cached_report =
+        ImageIntegration::Reporting::ReportArchiveReader::read(QFileInfo(cached_result.htmlReportPath).absolutePath());
+    ASSERT_TRUE(cached_report.model.has_value()) << cached_report.why.toStdString();
+    ASSERT_EQ(cached_report.model->masters.size(), 1u);
+    EXPECT_EQ(cached_report.model->masters.front().registrationInputPolicy,
+              cached_result.integrationGroupResults.front().registrationInputPolicy);
     EXPECT_EQ(registered_file_count(), 0);
 
     expectSameSamples(first_output_copy, cached_result.generatedLightMasters.front(), 1e-6);

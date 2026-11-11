@@ -328,19 +328,13 @@ private:
 [[nodiscard]] std::optional<ReportScenario> buildReportScenario(ReportScenarioId id);
 
 /// Archives a scenario's run as the executor does once the run ends: through the product's archiver, into
-/// `runDirectory`, in the scenario's session and within its history limit. The result is completed as a commit
-/// completes it - each master's retention among it. Fails the running case when the commit fails.
+/// `runDirectory`, in the scenario's session and within its history limit, stating the time, the place and the
+/// version the scenario's context states. The result is completed as a commit completes it - each master's retention
+/// among it - and the archive holds the run's report as a run stores it: the model as `workflow_report.json`, the
+/// linked document, and the pictures of the earlier runs its masters are compared with. Fails the running case when
+/// the commit fails.
 ///
 /// @return whether the run was archived.
 [[nodiscard]] bool archiveScenarioRun(ReportScenario& scenario);
-
-/// Stores the report of a scenario's archived run in its folder, as a run stores it once it is committed: the report
-/// model built in the scenario's session from its metrics database, written as `workflow_report.json` beside the
-/// linked document, with the pictures of the earlier runs its masters are compared with. Fails the running case
-/// when the report cannot be stored.
-///
-/// @param scenario a scenario whose run `archiveScenarioRun` archived.
-/// @return whether the report was stored.
-[[nodiscard]] bool storeScenarioReport(const ReportScenario& scenario);
 
 } // namespace an::tests::integration::report

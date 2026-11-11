@@ -10,11 +10,13 @@
 
 #include "Test_ImageIntegration/reporting/ReportModelTestSupport.h"
 
+#include "processes/ImageIntegration/core/ParallelExecutionUtils.h"
 #include "processes/ImageIntegration/reporting/ReportFormat.h"
 #include "processes/ImageIntegration/reporting/ReportModelJson.h"
 #include "processes/ImageIntegration/workflow/ManifestDiff.h"
 #include "processes/ImageIntegration/workflow/ManifestHashing.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutionCounters.h"
+#include "processes/core/RegistrationMetricsWriter.h"
 
 #include <AfterNightEngine/Core/Version.h>
 
@@ -1825,4 +1827,134 @@ TEST(ReportModelBuilder, TheLightsLeftOutMoveNothingARunDecidesBy)
         EXPECT_FALSE(diff.hasChanges()) << diff.toSummaryText().toStdString();
         EXPECT_EQ(diff.totalModifications(), 0);
     }
+}
+
+// The product's own metrics source, on a database a registration wrote: the matched catalog sources of a
+// registration group at its latest settings version, counted by what became of each, with the catalogs they came
+// from and the medians of their residuals and separations. A source matched under an earlier version is not counted.
+TEST(ReportModelBuilder, TheProductsMetricsSourceReadsTheCatalogSourcesARegistrationStored)
+{
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+    const QDir root(tempDir.path());
+    const QString groupKey = QStringLiteral("CatalogHandoffGroup");
+    const FrameId frameA(root.filePath(QStringLiteral("light_a.fit")));
+    const FrameId frameB(root.filePath(QStringLiteral("light_b.fit")));
+    const QString database = root.filePath(QStringLiteral("registration_metrics.db"));
+    {
+        an::ui::RegistrationMetricsWriter writer(database, QStringLiteral("ReportCatalogHandoffSources"));
+        QString error;
+        ASSERT_TRUE(writer.initialize(&error)) << error.toStdString();
+        ASSERT_TRUE(
+            writer.upsertMatchedSource({frameA, groupKey, 1, makeSpccHandoffReference(589012345678901100ULL, 9.0, 9.0),
+                                        QStringLiteral("stale_match"), 1700000000},
+                                       &error))
+            << error.toStdString();
+        ASSERT_TRUE(writer.upsertMatchedSource({frameA, groupKey, 2,
+                                                makeSpccHandoffReference(589012345678901234ULL, 0.31, 0.20),
+                                                QStringLiteral("satisfied"), 1700000001},
+                                               &error))
+            << error.toStdString();
+        ASSERT_TRUE(writer.upsertMatchedSource({frameA, groupKey, 2,
+                                                makeSpccHandoffReference(589012345678901235ULL, 0.61, 0.40),
+                                                QStringLiteral("satisfied"), 1700000002},
+                                               &error))
+            << error.toStdString();
+        ASSERT_TRUE(writer.upsertMatchedSource({frameB, groupKey, 2,
+                                                makeSpccHandoffReference(589012345678901236ULL, 1.20, 0.70),
+                                                QStringLiteral("missing_chunk_or_cache"), 1700000003},
+                                               &error))
+            << error.toStdString();
+    }
+
+    WorkflowManifest manifest;
+    manifest.outputDirectory = root.path();
+    manifest.registrationGroups.push_back({GroupKey{groupKey},
+                                           QStringLiteral("3008x3004"),
+                                           QStringLiteral("M31"),
+                                           {frameA, frameB},
+                                           RegistrationSettings{},
+                                           std::nullopt});
+    WorkflowExecutor::Result result;
+    result.success = true;
+
+    const ProductionReportSources production(nullptr, committedRunMetricsDatabase(manifest));
+    const ReportModel model = buildReportModel(
+        ReportModelInputs{
+            .manifest = manifest, .result = result, .runDirectory = {}, .context = {}, .counters = std::nullopt},
+        production.sources());
+
+    ASSERT_EQ(model.registrationGroups.size(), 1u);
+    ASSERT_TRUE(model.registrationGroups.front().catalogHandoff.has_value());
+    const ReportCatalogHandoff& handoff = *model.registrationGroups.front().catalogHandoff;
+    EXPECT_EQ(handoff.settingsVersion, 2);
+    EXPECT_EQ(handoff.frames, 2);
+    EXPECT_EQ(handoff.references, 3);
+    EXPECT_EQ(handoff.satisfied, 2);
+    EXPECT_EQ(handoff.missingChunkOrCache, 1);
+    EXPECT_EQ(handoff.staleMatch, 0) << "a source matched under an earlier settings version is not counted";
+    EXPECT_EQ(handoff.astrometricCatalog, QStringLiteral("gaia-dr3-main-2026-05"));
+    EXPECT_EQ(handoff.photometricCatalog, QStringLiteral("spcc-gaia-dr3-xp-sampled-m31-region-20260510"));
+    ASSERT_TRUE(handoff.medianResidualPixels.has_value());
+    EXPECT_NEAR(*handoff.medianResidualPixels, 0.4, 1e-9);
+    ASSERT_TRUE(handoff.medianSeparationArcsec.has_value());
+    EXPECT_NEAR(*handoff.medianSeparationArcsec, 0.61, 1e-9);
+}
+
+// The width a measurement is given: the run's limit when it leaves a core free, and no limit - zero - for a run
+// that states none, a nonsensical one, every core of the host or more.
+TEST(ReportModelBuilder, TheWidthAMeasurementIsGivenIsTheRunsLimitAndNoneForAllTheHostsCores)
+{
+    const int detected = ImageIntegration::core::detectedParallelCoreCount();
+    EXPECT_EQ(ImageIntegration::core::parallelCoreWidth(0), 0u);
+    EXPECT_EQ(ImageIntegration::core::parallelCoreWidth(-4), 0u);
+    EXPECT_EQ(ImageIntegration::core::parallelCoreWidth(detected), 0u);
+    EXPECT_EQ(ImageIntegration::core::parallelCoreWidth(detected + 8), 0u);
+    if (detected > 1)
+    {
+        EXPECT_EQ(ImageIntegration::core::parallelCoreWidth(1), 1u);
+        EXPECT_EQ(ImageIntegration::core::parallelCoreWidth(detected - 1), static_cast<std::uint32_t>(detected - 1));
+    }
+}
+
+// A light that states no exposure of its own - none recorded with it, none in its name - takes its group's.
+TEST(ReportModelBuilder, ALightThatStatesNoExposureTakesItsGroups)
+{
+    WorkflowManifest manifest;
+    manifest.outputDirectory = QStringLiteral("/tmp/a-folder-that-is-not-there");
+    WorkflowManifest::IntegrationGroup group;
+    group.groupKey = IntegrationGroupKey{GroupKey{QStringLiteral("GroupA")}};
+    group.lightFiles = {FrameId(QStringLiteral("/tmp/light1.fit")), FrameId(QStringLiteral("/tmp/light2.fit"))};
+    group.exposure = QStringLiteral("90");
+    manifest.integrationGroups.push_back(group);
+    WorkflowExecutor::Result result;
+    result.success = true;
+
+    const ProductionReportSources production(nullptr, QString());
+    const ReportModel model = buildReportModel(
+        ReportModelInputs{
+            .manifest = manifest, .result = result, .runDirectory = {}, .context = {}, .counters = std::nullopt},
+        production.sources());
+
+    ASSERT_EQ(model.masters.size(), 1u);
+    const ReportExposure& exposure = model.masters.front().exposure;
+    EXPECT_EQ(exposure.frames, 2);
+    EXPECT_EQ(exposure.framesWithExposure, 2);
+    EXPECT_EQ(exposure.integrationMs, 180000);
+    EXPECT_EQ(model.run.capturedMs, 180000);
+}
+
+// What a stack says it normalized its lights by is stated as the stack recorded it, beside its other figures.
+TEST(ReportModelBuilder, AMasterStatesTheNormalizationItsStackApplied)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    StackQualityRecord& quality = scenario->result.integrationGroupResults.front().qualityReport;
+    ASSERT_TRUE(quality.valid);
+    quality.normalization = QStringLiteral("Additive + Scaling, against the stack's own reference");
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    ASSERT_TRUE(model.masters.front().stack.has_value());
+    EXPECT_EQ(model.masters.front().stack->normalization,
+              QStringLiteral("Additive + Scaling, against the stack's own reference"));
 }

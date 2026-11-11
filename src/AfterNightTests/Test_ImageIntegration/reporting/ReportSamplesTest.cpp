@@ -97,8 +97,9 @@ TEST(ReportSamples, WritesTheReportOfEveryScenarioInBothForms)
             // A run that stopped before any master was made is archived by nothing, and has no report.
             continue;
         }
+        // The sample is what the archiver itself left in the run's folder: the model, the linked document and the
+        // earlier runs' pictures.
         ASSERT_TRUE(archiveScenarioRun(*scenario));
-        const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
 
         const QDir sample(QDir(folder).filePath(scenario->name));
         if (sample.exists())
@@ -108,13 +109,6 @@ TEST(ReportSamples, WritesTheReportOfEveryScenarioInBothForms)
         const QDir history(sample.filePath(QStringLiteral("history")));
         ASSERT_TRUE(QDir().mkpath(history.absolutePath()));
 
-        // The report is stored in the run's folder as a run stores it - the model, the linked document and the
-        // earlier runs' pictures - and the sample is what the folder's history keeps of each run's report.
-        const WorkflowReportStored stored = storeWorkflowReport(model, scenario->runDirectory);
-        ASSERT_TRUE(stored.isStored()) << stored.error.toStdString();
-        EXPECT_TRUE(stored.faults.isEmpty()) << stored.faults.join(QLatin1Char('\n')).toStdString();
-        EXPECT_TRUE(stored.picturesNotCopied.isEmpty())
-            << stored.picturesNotCopied.join(QLatin1Char('\n')).toStdString();
         for (const QString& earlier : scenario->earlierRunDirectories)
         {
             ASSERT_TRUE(copyReportOf(earlier, history)) << earlier.toStdString();
@@ -122,9 +116,9 @@ TEST(ReportSamples, WritesTheReportOfEveryScenarioInBothForms)
         ASSERT_TRUE(copyReportOf(scenario->runDirectory, history));
 
         const QDir run(history.filePath(QDir(scenario->runDirectory).dirName()));
-        const WorkflowReportWritten embedded =
-            writeWorkflowReport(model, scenario->runDirectory, ReportForm::Embedded,
-                                run.filePath(QStringLiteral("workflow_report.single.html")));
+        // The single file, as the history row's action saves it.
+        const WorkflowReportWritten embedded = saveWorkflowReportAsOneFile(
+            scenario->runDirectory, run.filePath(QStringLiteral("workflow_report.single.html")));
         ASSERT_TRUE(embedded.isWritten()) << embedded.error.toStdString();
         EXPECT_TRUE(embedded.faults.isEmpty()) << embedded.faults.join(QLatin1Char('\n')).toStdString();
 

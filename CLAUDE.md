@@ -260,7 +260,8 @@ descriptors into `ProcessRegistry`, and `app/ProcessLauncher` opens them. Each p
 matching, `IntegrationError`), `workflow/` (manifest build/diff/hash, `ExecutionPlanner`, `WorkflowExecutor`,
 progress, artifacts, cancellation) with `workflow/stages/` (Bias, Dark, Flat, LightsCalibration, LightsRegistration,
 LightsAlignment, LightsNormalization, LightsStacking, LightsDrizzle), `persistence/` (SQLite project state, autosave,
-presets), `reporting/` (`WorkflowReportBuilder`), and `tabs/`, `widgets/`, `controls/`, `dialogs/` for UI. `lite/` and
+presets), `reporting/` (the report model, `buildReportModel`, and the document written from it; read
+`docs/dev/IMAGE_INTEGRATION_REPORT.md` first), and `tabs/`, `widgets/`, `controls/`, `dialogs/` for UI. `lite/` and
 `ImageIntegrationLiteProcess.*` are the simplified front end only — shared behavior belongs in the full
 model/workflow helpers and should be reused by Lite. Every generated image goes through `publishWorkflowImage`
 (`workflow/WorkflowArtifactStamp.h`), and reuse is decided from the identity stamped in its header, never by re-reading

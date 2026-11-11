@@ -14,8 +14,13 @@
 /// An archive keeps three things of a report, which `storeWorkflowReport` writes together: the model as
 /// `workflow_report.json`, which a later run compares itself with; the linked document; and, beside the run's own
 /// pictures, copies of the pictures of the earlier runs its masters are compared with, so the report stays whole
-/// once the history drops those runs. No run stores a report yet: the report a run writes is still the one
-/// `WorkflowReportBuilder` builds, and these are written by the suites.
+/// once the history drops those runs. The archiver stores a run's report as it commits the run, and again when the
+/// run's final timings and its final log are known.
+///
+/// Afterwards a report is only ever written from the model its archive keeps: `rerenderWorkflowReport` writes the
+/// linked document again and `saveWorkflowReportAsOneFile` the embedded one. Neither builds anything of a run: an
+/// archive that keeps no stored report, or one of another format, is refused in the reader's words and nothing is
+/// written.
 
 #include "AfterNightProcessesExport.h"
 
@@ -95,12 +100,33 @@ struct WorkflowReportStored
 /// with into the run's folder, then writes the model as `workflow_report.json` and the linked document beside it.
 ///
 /// The pictures are copied first, from the archives of the runs each baseline names, as those runs' stored reports
-/// name them; a picture already copied is left as it is. A baseline's picture that cannot be copied is taken out
-/// of the model before it is written, so neither the stored model nor the document names a file that is not there.
+/// name them; a picture already copied is left as it is, and stands when the run it was copied from is gone. A
+/// baseline's picture that is not there and cannot be copied is taken out of the model before it is written, so
+/// neither the stored model nor the document names a file that is not there. A link to the report of an earlier
+/// run that is no longer there is taken out the same way.
 ///
 /// @param model the run's report model, built with `runDirectory` as the run's folder.
 /// @param runDirectory the run's folder under `history/`.
 /// @return the files written, or why the report was not stored.
 [[nodiscard]] AFTERNIGHTPROCESSES_API WorkflowReportStored storeWorkflowReport(const ReportModel& model,
                                                                                const QString& runDirectory);
+
+/// Writes a run's linked report again from the model its archive keeps.
+///
+/// The document links the report of each earlier run of the folder that is still there: a run the history has
+/// dropped since the report was last written is listed without a link.
+///
+/// @param runDirectory the run's folder under `history/`.
+/// @return the file written; or why none was - the reader's refusal for an archive that keeps no stored report or
+///     one of another format - and then nothing in the folder is changed.
+[[nodiscard]] AFTERNIGHTPROCESSES_API WorkflowReportWritten rerenderWorkflowReport(const QString& runDirectory);
+
+/// Writes a run's report as one file that opens on its own, from the model its archive keeps: every picture inside
+/// it, no folder of the host named and no link leaving it.
+///
+/// @param runDirectory the run's folder under `history/`.
+/// @param destination the file to write.
+/// @return the file written; or why none was, the reader's refusal among the reasons.
+[[nodiscard]] AFTERNIGHTPROCESSES_API WorkflowReportWritten saveWorkflowReportAsOneFile(const QString& runDirectory,
+                                                                                        const QString& destination);
 } // namespace ImageIntegration::Reporting
