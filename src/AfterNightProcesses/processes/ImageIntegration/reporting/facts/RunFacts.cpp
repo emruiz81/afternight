@@ -601,6 +601,35 @@ QString computeReproducibilityFingerprint(const WorkflowManifest& manifest, cons
     return sha256Hex(QJsonDocument(composite).toJson(QJsonDocument::Compact));
 }
 
+QString reportVerdict(const ReportOutcome outcome, const ReportGroupCounts& groups)
+{
+    const QString made = QString::number(groups.made);
+    const QString total = QString::number(groups.total);
+    switch (outcome)
+    {
+    case ReportOutcome::Cancelled:
+        return reportText("The run was cancelled after %1 of its %2 masters were made.").arg(made, total);
+    case ReportOutcome::Failed:
+        return reportText("The run failed before any of its %1 masters was made.").arg(total);
+    case ReportOutcome::Partial:
+        return reportText("The run made %1 of its %2 masters; %3 failed and %4 were not reached.")
+            .arg(made, total, QString::number(groups.failed), QString::number(groups.notReached));
+    case ReportOutcome::CompletedWithWarnings:
+    case ReportOutcome::Completed:
+        break;
+    }
+    if (groups.made == 0 && groups.reused > 0)
+    {
+        return reportText("Every one of the run's %1 masters was still valid, so none was made again.").arg(total);
+    }
+    if (groups.reused > 0)
+    {
+        return reportText("The run made %1 of its %2 masters; the other %3 were still valid.")
+            .arg(made, total, QString::number(groups.reused));
+    }
+    return reportText("The run made all %1 of its masters.").arg(total);
+}
+
 ReportExposure reportExposure(const ExposureBreakdown& breakdown)
 {
     ReportExposure exposure;
@@ -617,30 +646,6 @@ ReportExposure reportExposure(const ExposureBreakdown& breakdown)
 
 namespace
 {
-/// The filter a group's lights were taken through, as the run's rollups name it.
-[[nodiscard]] QString filterName(const WorkflowManifest::IntegrationGroup& group)
-{
-    const QString filter = group.filter.trimmed();
-    return filter.isEmpty() ? reportText("Unfiltered") : filter;
-}
-
-/// A light's exposure as the exposure breakdown resolves it: the manifest's, the file name's, the group's.
-[[nodiscard]] std::optional<double> lightExposure(const WorkflowManifest::IntegrationGroup& group,
-                                                  const std::size_t index)
-{
-    if (group.lightExposureSeconds.size() == group.lightFiles.size() && group.lightExposureSeconds[index] > 0.0)
-    {
-        return group.lightExposureSeconds[index];
-    }
-    if (const auto fromName = extractExposureFromFilename(group.lightFiles[index].canonicalPath());
-        fromName.has_value())
-    {
-        return fromName;
-    }
-    const std::optional<double> ofGroup = parseGroupExposure(group);
-    return ofGroup.has_value() && *ofGroup > 0.0 ? ofGroup : std::nullopt;
-}
-
 /// When the archive says it was written, in the zone it states; nothing when it states no time that can be read.
 [[nodiscard]] std::optional<QDateTime> archivedAt(const QJsonObject& context)
 {
@@ -720,24 +725,142 @@ namespace
     return static_cast<int>(manifest.integrationGroups.size());
 }
 
+/// The name a stage's result goes by, for the name the manifest's sequence lists it under.
+[[nodiscard]] QString stageResultName(const QString& sequenceName)
+{
+    if (sequenceName == QStringLiteral("Bias") || sequenceName == QStringLiteral("Dark") ||
+        sequenceName == QStringLiteral("Flat"))
+    {
+        return sequenceName + QStringLiteral("Stacking");
+    }
+    return sequenceName;
+}
+
+/// The run's stages in the order the manifest lists them: the ones the run timed, as it timed them, and the ones it
+/// has no result for. Such a stage was not reached in a run that stopped; in a run that completed, what it makes was
+/// still valid when the run was incremental and the stage has groups, and the run had no work for it otherwise. A
+/// stage the run timed and the manifest does not list follows them.
 void fillStages(const ReportBuild& build, ReportModel& model)
 {
-    model.stages.reserve(build.result().stageResults.size());
-    for (const auto& stage : build.result().stageResults)
-    {
+    const WorkflowManifest& manifest = build.manifest();
+    const WorkflowExecutor::Result& result = build.result();
+    const auto timed = [&](const WorkflowExecutor::Result::StageTiming& stage) {
         ReportStage stated;
         stated.key = stage.stageName;
         stated.name = stageDisplayName(stage.stageName);
         stated.status = stage.status.trimmed().isEmpty() ? QStringLiteral("unknown") : stage.status.trimmed().toLower();
         stated.state = stageState(stage.status);
         stated.durationMs = stage.durationMs;
-        stated.groups = stageGroupCount(build.manifest(), stage.stageName);
+        stated.groups = stageGroupCount(manifest, stage.stageName);
         if (stated.groups <= 0 && stage.groupsProcessed > 0)
         {
             stated.groups = stage.groupsProcessed;
         }
-        model.stages.push_back(std::move(stated));
+        return stated;
+    };
+
+    const bool stopped = result.cancelled || !result.success;
+    const bool incremental = manifest.executionMode == ExecutionMode::Incremental;
+    std::vector<bool> stated(result.stageResults.size(), false);
+    model.stages.reserve(result.stageResults.size() + static_cast<std::size_t>(manifest.stageSequence.size()));
+    for (const QString& sequenceName : manifest.stageSequence)
+    {
+        const QString resultName = stageResultName(sequenceName.trimmed());
+        bool found = false;
+        for (std::size_t i = 0; i < result.stageResults.size(); ++i)
+        {
+            if (!stated[i] && result.stageResults[i].stageName == resultName)
+            {
+                model.stages.push_back(timed(result.stageResults[i]));
+                stated[i] = true;
+                found = true;
+                break;
+            }
+        }
+        if (found)
+        {
+            continue;
+        }
+        ReportStage untimed;
+        untimed.key = resultName;
+        untimed.name = stageDisplayName(resultName);
+        untimed.groups = stageGroupCount(manifest, resultName);
+        if (stopped)
+        {
+            untimed.state = ReportStageState::NotReached;
+            untimed.status = QStringLiteral("not reached");
+            untimed.note = reportText("The run stopped before this stage.");
+        }
+        else if (incremental && untimed.groups > 0)
+        {
+            untimed.state = ReportStageState::Reused;
+            untimed.status = QStringLiteral("reused");
+            untimed.note = reportText("Everything this stage makes was still valid.");
+        }
+        else
+        {
+            untimed.state = ReportStageState::Skipped;
+            untimed.status = QStringLiteral("skipped");
+            untimed.note = reportText("The run had no work for this stage.");
+        }
+        model.stages.push_back(std::move(untimed));
     }
+    for (std::size_t i = 0; i < result.stageResults.size(); ++i)
+    {
+        if (!stated[i])
+        {
+            model.stages.push_back(timed(result.stageResults[i]));
+        }
+    }
+}
+
+/// What the engine counted of its memory over the run, and what the run's image cache counted, when collected.
+void fillResources(const ReportBuild& build, ReportRun& run)
+{
+    const WorkflowExecutor::Result& result = build.result();
+    if (result.engineMemory.has_value())
+    {
+        run.engineMemory = ReportEngineMemory{.peakBytes = result.engineMemory->peakBytes,
+                                              .peakBytesBeforeRun = result.engineMemory->peakBytesBeforeRun,
+                                              .liveBytesAtEnd = result.engineMemory->liveBytesAtEnd,
+                                              .allocations = result.engineMemory->allocations,
+                                              .bytesAllocated = result.engineMemory->bytesAllocated,
+                                              .deniedAllocations = result.engineMemory->deniedAllocations};
+    }
+    if (!result.workflowCacheDiagnostics.has_value())
+    {
+        return;
+    }
+    const WorkflowImageCacheDiagnostics& cache = *result.workflowCacheDiagnostics;
+    const auto add = [&run](const char* key, const char* name, const std::uint64_t value) {
+        run.cacheDiagnostics.push_back(
+            ReportCounter{.key = QString::fromLatin1(key), .name = reportText(name), .value = value});
+    };
+    add("physicalDecodedLoads", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Images decoded"),
+        cache.physicalDecodedLoads);
+    add("physicalCalibrations", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Images calibrated"),
+        cache.physicalCalibrations);
+    add("hits", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Cache hits"), cache.hits);
+    add("misses", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Cache misses"), cache.misses);
+    add("evictions", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Cache evictions"), cache.evictions);
+    add("capacityBypasses", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Capacity bypasses"), cache.capacityBypasses);
+    add("oversizedBypasses", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Oversized bypasses"),
+        cache.oversizedBypasses);
+    add("overflowBypasses", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Overflow bypasses"), cache.overflowBypasses);
+    add("generationInvalidations", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Generation invalidations"),
+        cache.generationInvalidations);
+    add("publications", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Cache publications"), cache.publications);
+    add("failedBuilds", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Failed builds"), cache.failedBuilds);
+    add("cancelledBuilds", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Cancelled builds"), cache.cancelledBuilds);
+    add("sameKeyWaits", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Waits for the same image"), cache.sameKeyWaits);
+    add("cleanupCalls", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Cleanup calls"), cache.cleanupCalls);
+    add("currentBytes", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Bytes held at the end"), cache.currentBytes);
+    add("peakBytes", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Peak bytes held"), cache.peakBytes);
+    add("lookupEntries", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Lookup entries"), cache.lookupEntries);
+    add("allowanceRefusals", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Allowance refusals"),
+        cache.allowanceRefusals);
+    add("allowanceEvictions", QT_TRANSLATE_NOOP("ImageIntegrationReport", "Allowance evictions"),
+        cache.allowanceEvictions);
 }
 
 void fillCounters(const ReportBuild& build, ReportRun& run)
@@ -827,8 +950,15 @@ void fillSessionNotes(const ReportBuild& build, ReportRun& run)
     run.sessionNotesChangedAt = files->lastModified(notesPath);
 }
 
-/// The nights the lights' paths name, and each filter's lights and exposure on each.
-void fillNights(const WorkflowManifest& manifest, ReportRun& run)
+/// The filter a master's lights were taken through, as the run's rollups name it.
+[[nodiscard]] QString filterName(const ReportMaster& master)
+{
+    return master.filter.isEmpty() ? reportText("Unfiltered") : master.filter;
+}
+
+/// The nights the lights were taken on, and each filter's lights and exposure on each. A light's night is the one
+/// its capture time states; a light with no capture time is on no night.
+void fillNights(const ReportModel& model, ReportRun& run)
 {
     struct Night
     {
@@ -837,24 +967,23 @@ void fillNights(const WorkflowManifest& manifest, ReportRun& run)
         QMap<QString, ReportNightFilter> filters;
     };
     QMap<QDate, Night> nights;
-    for (const auto& group : manifest.integrationGroups)
+    for (const ReportMaster& master : model.masters)
     {
-        const QString filter = filterName(group);
-        for (std::size_t i = 0; i < group.lightFiles.size(); ++i)
+        const QString filter = filterName(master);
+        for (const ReportFrame& frame : master.frames)
         {
-            const QDate date = extractObservingDate(group.lightFiles[i].canonicalPath());
-            if (!date.isValid())
+            if (!frame.night.has_value() || !frame.night->isValid())
             {
                 continue;
             }
-            Night& night = nights[date];
+            Night& night = nights[*frame.night];
             ReportNightFilter& ofFilter = night.filters[filter];
             ofFilter.filter = filter;
             ++night.frames;
             ++ofFilter.frames;
-            if (const std::optional<double> exposure = lightExposure(group, i); exposure.has_value())
+            if (frame.exposureSeconds.has_value())
             {
-                const qint64 ms = std::llround(*exposure * 1000.0);
+                const qint64 ms = std::llround(*frame.exposureSeconds * 1000.0);
                 night.integrationMs += ms;
                 ofFilter.integrationMs += ms;
             }
@@ -875,52 +1004,93 @@ void fillNights(const WorkflowManifest& manifest, ReportRun& run)
     }
 }
 
-/// The lights of each filter over every group, and each filter's share of the run's integration time.
-void fillAcquisition(const WorkflowManifest& manifest, ReportRun& run)
+/// The lights of each group as they were taken: their exposures, their share of the run's integration time, and the
+/// temperature, the gain and the offset their headers state.
+void fillAcquisition(const ReportModel& model, ReportRun& run)
 {
-    struct FilterTotals
-    {
-        int frames = 0;
-        int known = 0;
-        int totalMs = 0;
-        QList<ReportExposureBucket> buckets;
-    };
-    QMap<QString, FilterTotals> byFilter;
     qint64 grandTotalMs = 0;
-    for (const auto& group : manifest.integrationGroups)
+    for (const ReportMaster& master : model.masters)
     {
-        const ExposureBreakdown breakdown = buildExposureBreakdown(group);
-        FilterTotals& totals = byFilter[filterName(group)];
-        totals.frames += breakdown.totalFrames;
-        totals.known += breakdown.knownFrames;
-        totals.totalMs += breakdown.totalMs;
-        for (const ReportExposureBucket& bucket : breakdown.buckets)
-        {
-            addExposureBucket(totals.buckets, bucket.exposureSeconds, bucket.frameCount);
-        }
-        grandTotalMs += breakdown.totalMs;
+        grandTotalMs += master.frames.empty() ? 0 : master.exposure.integrationMs;
     }
-
-    QStringList filters = byFilter.keys();
-    filters.sort(Qt::CaseInsensitive);
-    run.acquisition.reserve(static_cast<std::size_t>(filters.size()));
-    for (const QString& filter : filters)
+    for (const ReportMaster& master : model.masters)
     {
-        FilterTotals totals = byFilter.value(filter);
-        std::sort(totals.buckets.begin(), totals.buckets.end(),
-                  [](const ReportExposureBucket& lhs, const ReportExposureBucket& rhs) {
-                      return lhs.exposureSeconds < rhs.exposureSeconds;
-                  });
+        if (master.frames.empty())
+        {
+            // A combined colour image is taken from no light of its own.
+            continue;
+        }
         ReportAcquisitionRow row;
-        row.filter = filter;
-        row.exposure = reportExposure(ExposureBreakdown{.totalFrames = totals.frames,
-                                                        .knownFrames = totals.known,
-                                                        .unknownFrames = totals.frames - totals.known,
-                                                        .totalMs = totals.totalMs,
-                                                        .buckets = totals.buckets});
-        row.share = grandTotalMs > 0 ? static_cast<double>(totals.totalMs) / static_cast<double>(grandTotalMs) : 0.0;
+        row.groupKey = master.key;
+        row.group = master.name;
+        row.target = master.target;
+        row.filter = filterName(master);
+        row.exposure = master.exposure;
+        row.share = grandTotalMs > 0
+                        ? static_cast<double>(master.exposure.integrationMs) / static_cast<double>(grandTotalMs)
+                        : 0.0;
+        for (const ReportFrame& frame : master.frames)
+        {
+            if (frame.temperature.has_value())
+            {
+                row.lowestTemperature =
+                    (std::min)(row.lowestTemperature.value_or(*frame.temperature), *frame.temperature);
+                row.highestTemperature =
+                    (std::max)(row.highestTemperature.value_or(*frame.temperature), *frame.temperature);
+            }
+            if (!frame.gain.isEmpty() && !row.gain.contains(frame.gain))
+            {
+                row.gain.append(frame.gain);
+            }
+            if (!frame.offset.isEmpty() && !row.offset.contains(frame.offset))
+            {
+                row.offset.append(frame.offset);
+            }
+        }
+        if (row.lowestTemperature.has_value())
+        {
+            run.lowestTemperature =
+                (std::min)(run.lowestTemperature.value_or(*row.lowestTemperature), *row.lowestTemperature);
+            run.highestTemperature =
+                (std::max)(run.highestTemperature.value_or(*row.highestTemperature), *row.highestTemperature);
+        }
         run.acquisition.push_back(std::move(row));
     }
+}
+
+/// The lights by what became of them, the ones the masters combine, and the exposure those add up to.
+void fillFrameStates(const ReportModel& model, ReportRun& run)
+{
+    QMap<int, int> byState;
+    int stated = 0;
+    qint64 integratedMs = 0;
+    for (const ReportMaster& master : model.masters)
+    {
+        for (const ReportFrame& frame : master.frames)
+        {
+            if (!frame.state.has_value())
+            {
+                continue;
+            }
+            ++stated;
+            ++byState[static_cast<int>(*frame.state)];
+            if (*frame.state == ReportFrameState::Used && frame.exposureSeconds.has_value())
+            {
+                integratedMs += std::llround(*frame.exposureSeconds * 1000.0);
+            }
+        }
+    }
+    if (stated == 0)
+    {
+        return;
+    }
+    for (auto it = byState.cbegin(); it != byState.cend(); ++it)
+    {
+        run.frameStates.push_back(
+            ReportFrameStateCount{.state = static_cast<ReportFrameState>(it.key()), .frames = it.value()});
+    }
+    run.framesUsed = byState.value(static_cast<int>(ReportFrameState::Used), 0);
+    run.integratedMs = integratedMs;
 }
 
 /// The equipment the headers of the masters the run made state, one row per distinct set.
@@ -1018,6 +1188,8 @@ void fillHeaderCompleteness(ReportBuild& build, ReportRun& run)
     int object = 0;
     int telescope = 0;
     int site = 0;
+    int temperature = 0;
+    int focalLength = 0;
     int read = 0;
     for (const QString& light : lights)
     {
@@ -1034,10 +1206,17 @@ void fillHeaderCompleteness(ReportBuild& build, ReportRun& run)
         object += metadataObjectName(metadata).isEmpty() ? 0 : 1;
         telescope += metadataTelescope(metadata).isEmpty() ? 0 : 1;
         site += formatLocationFromFits(metadata).isEmpty() ? 0 : 1;
+        temperature +=
+            an::projectAcquisition(metadata.codec()).acquisition.sensorTemperatureCelsius.has_value() ? 1 : 0;
+        focalLength += readFirstFitsValue(metadata, {QStringLiteral("FOCALLEN")}).isEmpty() ? 0 : 1;
     }
     if (read == 0)
     {
         // No header could be read: the fields are not stated, which is not the same as stated by no light.
+        build.notStated(reportText("What the lights' headers state"),
+                        build.sources().session == nullptr
+                            ? reportText("The report was built without an engine session, so no header was read.")
+                            : reportText("None of the lights' files could be read."));
         return;
     }
 
@@ -1050,26 +1229,10 @@ void fillHeaderCompleteness(ReportBuild& build, ReportRun& run)
         ReportHeaderField{.name = reportText("Target"), .present = object},
         ReportHeaderField{.name = reportText("Telescope"), .present = telescope},
         ReportHeaderField{.name = reportText("Site coordinates"), .present = site},
+        ReportHeaderField{.name = reportText("Sensor temperature"), .present = temperature},
+        ReportHeaderField{.name = reportText("Focal length"), .present = focalLength},
     };
     run.headers = std::move(completeness);
-}
-
-/// The sensor's temperature over the lights whose file names state one.
-void fillTemperature(const WorkflowManifest& manifest, ReportRun& run)
-{
-    for (const auto& group : manifest.integrationGroups)
-    {
-        for (const auto& light : group.lightFiles)
-        {
-            const std::optional<double> temperature = extractSensorTemperature(light.canonicalPath());
-            if (!temperature.has_value())
-            {
-                continue;
-            }
-            run.lowestTemperature = (std::min)(run.lowestTemperature.value_or(*temperature), *temperature);
-            run.highestTemperature = (std::max)(run.highestTemperature.value_or(*temperature), *temperature);
-        }
-    }
 }
 
 /// The run's targets, each with its lights, its filters, its masters and the mean of what its masters measured.
@@ -1171,35 +1334,6 @@ void fillTargets(const ReportBuild& build, ReportModel& model)
     return ReportOutcome::Completed;
 }
 
-[[nodiscard]] QString verdictOf(const ReportOutcome outcome, const ReportGroupCounts& groups)
-{
-    const QString made = QString::number(groups.made);
-    const QString total = QString::number(groups.total);
-    switch (outcome)
-    {
-    case ReportOutcome::Cancelled:
-        return reportText("The run was cancelled after %1 of its %2 masters were made.").arg(made, total);
-    case ReportOutcome::Failed:
-        return reportText("The run failed before any of its %1 masters was made.").arg(total);
-    case ReportOutcome::Partial:
-        return reportText("The run made %1 of its %2 masters; %3 failed and %4 were not reached.")
-            .arg(made, total, QString::number(groups.failed), QString::number(groups.notReached));
-    case ReportOutcome::CompletedWithWarnings:
-    case ReportOutcome::Completed:
-        break;
-    }
-    if (groups.made == 0 && groups.reused > 0)
-    {
-        return reportText("Every one of the run's %1 masters was still valid, so none was made again.").arg(total);
-    }
-    if (groups.reused > 0)
-    {
-        return reportText("The run made %1 of its %2 masters; the other %3 were still valid.")
-            .arg(made, total, QString::number(groups.reused));
-    }
-    return reportText("The run made all %1 of its masters.").arg(total);
-}
-
 [[nodiscard]] ReportGroupCounts countGroups(const ReportModel& model)
 {
     ReportGroupCounts counts;
@@ -1277,12 +1411,13 @@ void fillRun(ReportBuild& build, ReportModel& model)
                                             .reportMs = result.executorTiming.reportMs};
     }
     fillCounters(build, run);
+    fillResources(build, run);
     fillSessionNotes(build, run);
-    fillNights(manifest, run);
-    fillAcquisition(manifest, run);
+    fillNights(model, run);
+    fillAcquisition(model, run);
+    fillFrameStates(model, run);
     fillEquipment(build, model, run);
     fillHeaderCompleteness(build, run);
-    fillTemperature(manifest, run);
     if (!manifest.integrationGroups.empty())
     {
         run.captureResolution = manifest.integrationGroups.front().resolution.trimmed();
@@ -1311,9 +1446,79 @@ void fillRun(ReportBuild& build, ReportModel& model)
     run.log = result.capturedLog;
 
     run.outcome = outcomeOf(result, run.groups);
-    run.verdict = verdictOf(run.outcome, run.groups);
+    run.verdict = reportVerdict(run.outcome, run.groups);
 
     fillStages(build, model);
     fillTargets(build, model);
+}
+
+void fillDisk(ReportBuild& build, ReportModel& model)
+{
+    const auto add = [&model](const QString& kind, const qint64 bytes, const int files) {
+        if (files > 0)
+        {
+            model.run.disk.push_back(ReportDiskUse{.kind = kind, .bytes = bytes, .files = files});
+        }
+    };
+
+    qint64 masterBytes = 0;
+    int masters = 0;
+    qint64 mapBytes = 0;
+    int maps = 0;
+    for (const ReportMaster& master : model.masters)
+    {
+        if (master.state != ReportMasterState::Made)
+        {
+            continue;
+        }
+        if (master.bytes.has_value())
+        {
+            masterBytes += *master.bytes;
+            ++masters;
+        }
+        for (const ReportMap& map : master.maps)
+        {
+            if (map.bytes.has_value())
+            {
+                mapBytes += *map.bytes;
+                ++maps;
+            }
+        }
+    }
+    add(reportText("Masters"), masterBytes, masters);
+    add(reportText("Maps"), mapBytes, maps);
+
+    qint64 calibrationBytes = 0;
+    int calibrationMasters = 0;
+    for (const ReportCalibrationMaster& master : model.calibrationMasters)
+    {
+        if (master.state == ReportCalibrationState::Made && master.bytes.has_value())
+        {
+            calibrationBytes += *master.bytes;
+            ++calibrationMasters;
+        }
+    }
+    add(reportText("Calibration masters"), calibrationBytes, calibrationMasters);
+
+    // The registered lights the folder holds: the size the registration recorded of each whose file is there.
+    qint64 registeredBytes = 0;
+    int registered = 0;
+    QSet<QString> counted;
+    for (const auto& group : build.manifest().registrationGroups)
+    {
+        const QHash<QString, RegistrationMetricRow>& rows = build.metrics(group.groupKey.toString());
+        for (auto row = rows.cbegin(); row != rows.cend(); ++row)
+        {
+            if (row->outputPath.trimmed().isEmpty() || row->outputSizeBytes <= 0 || counted.contains(row->outputPath) ||
+                !build.exists(row->outputPath))
+            {
+                continue;
+            }
+            counted.insert(row->outputPath);
+            registeredBytes += row->outputSizeBytes;
+            ++registered;
+        }
+    }
+    add(reportText("Registered lights"), registeredBytes, registered);
 }
 } // namespace ImageIntegration::Reporting

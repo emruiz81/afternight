@@ -4485,6 +4485,8 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelBuilderTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportSettingsFactsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportFrameFactsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportIssueFactsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportRunFactsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportComparisonTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelParityTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/test_gaia_catalog_settings.cpp

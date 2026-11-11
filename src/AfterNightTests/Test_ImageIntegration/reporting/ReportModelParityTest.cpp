@@ -418,12 +418,21 @@ TEST(ReportModelParity, TheCalibrationAndTheRegistrationAreTheOnesTheMarkdownPri
         }
         for (const ReportRegistrationGroup& group : model.registrationGroups)
         {
-            EXPECT_TRUE(states(markdown, QStringLiteral("| %1 | %2 | %3 | %4 | %5 |\n")
-                                             .arg(group.name)
-                                             .arg(group.lights)
-                                             .arg(group.reference.isEmpty() ? QStringLiteral("-") : group.reference)
-                                             .arg(group.alignmentMode)
-                                             .arg(group.transform.toHtmlEscaped())));
+            // The Markdown prints the reference the manifest names; the model also reads the one the registration
+            // chose out of its records, which the Markdown never did.
+            const auto planned =
+                std::find_if(scenario->manifest.registrationGroups.begin(), scenario->manifest.registrationGroups.end(),
+                             [&group](const WorkflowManifest::RegistrationGroup& candidate) {
+                                 return candidate.groupKey.toString() == group.key;
+                             });
+            ASSERT_NE(planned, scenario->manifest.registrationGroups.end());
+            EXPECT_TRUE(
+                states(markdown, QStringLiteral("| %1 | %2 | %3 | %4 | %5 |\n")
+                                     .arg(group.name)
+                                     .arg(group.lights)
+                                     .arg(planned->referenceFrame.has_value() ? group.reference : QStringLiteral("-"))
+                                     .arg(group.alignmentMode)
+                                     .arg(group.transform.toHtmlEscaped())));
             if (group.distortionCorrected.value_or(0) > 0)
             {
                 EXPECT_TRUE(states(markdown, QStringLiteral("| %1 | %2 | %3 |\n")

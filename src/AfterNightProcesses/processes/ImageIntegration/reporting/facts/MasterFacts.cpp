@@ -7,8 +7,9 @@
 #include "processes/ImageIntegration/core/FilenameUtils.h"
 #include "processes/ImageIntegration/core/RejectionMapUtils.h"
 #include "processes/ImageIntegration/core/StackingParamsUtils.h"
-#include "processes/ImageIntegration/workflow/ArtifactTracker.h"
 #include "processes/ImageIntegration/workflow/stages/StageUtilities.h"
+
+#include "app/PlateSolveTypes.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -310,26 +311,6 @@ calibrationOf(const WorkflowManifest::IntegrationGroup& group,
     return stack;
 }
 
-/// The maps beside a master that the result does not name: the files the group's settings ask for, where they are
-/// there and belong to this master.
-template <class MapResult, class Specs>
-[[nodiscard]] std::vector<MapResult> mapsBesideOutput(const QFileInfo& output, const Specs& specs)
-{
-    std::vector<MapResult> maps;
-    const ArtifactTracker tracker(output.absolutePath());
-    for (const auto& spec : specs)
-    {
-        const QString mapPath = output.dir().filePath(spec.filename);
-        if (!QFileInfo::exists(mapPath) ||
-            !ImageIntegration::isStackingAuxiliaryOutputCurrent(tracker, output.absoluteFilePath(), mapPath))
-        {
-            continue;
-        }
-        maps.push_back(MapResult{spec.title, mapPath, {}});
-    }
-    return maps;
-}
-
 /// The archived picture of a map when it is there, else the picture the result names.
 [[nodiscard]] QString mapPreview(const ReportBuild& build, const QStringList& archived, const QString& recorded)
 {
@@ -346,23 +327,12 @@ template <class MapResult, class Specs>
 void fillMaps(const ReportBuild& build, const IntegrationGroupResult& group,
               const WorkflowManifest::IntegrationGroup* definition, ReportMaster& master)
 {
-    const QFileInfo output(build.resolvePath(group.outputPath));
-
+    // The maps are the ones the result names; the quality maps only while the group's settings still ask for them.
     const bool qualityMapsRequested =
         definition != nullptr && ImageIntegration::sanitizeStackingSettings(definition->stacking).createQualityMaps;
-    std::vector<QualityMapResult> qualityMaps =
+    const std::vector<QualityMapResult> qualityMaps =
         (definition == nullptr || qualityMapsRequested) ? group.qualityMaps : std::vector<QualityMapResult>{};
-    if (qualityMaps.empty() && qualityMapsRequested && output.exists())
-    {
-        qualityMaps = mapsBesideOutput<QualityMapResult>(output, ImageIntegration::qualityMapsForOutput(output, true));
-    }
-
-    std::vector<RejectionMapResult> rejectionMaps = group.rejectionMaps;
-    if (rejectionMaps.empty() && definition != nullptr && definition->stacking.createRejectionMaps && output.exists())
-    {
-        rejectionMaps = mapsBesideOutput<RejectionMapResult>(
-            output, ImageIntegration::rejectionMapsForOutput(output, definition->stacking.mergeRejectionMaps));
-    }
+    const std::vector<RejectionMapResult>& rejectionMaps = group.rejectionMaps;
 
     if (!rejectionMaps.empty())
     {
@@ -379,11 +349,9 @@ void fillMaps(const ReportBuild& build, const IntegrationGroupResult& group,
         stated.title = map.title.trimmed().isEmpty() ? reportText("Rejection Map") : map.title;
         stated.file = map.path;
         stated.bytes = build.fileSize(map.path);
-        stated.preview =
-            mapPreview(build,
-                       {QStringLiteral("report_previews/%1/rejection_map_%2.jpg").arg(master.previewFolder).arg(index),
-                        QStringLiteral("report_previews/%1/rejection_map_%2.png").arg(master.previewFolder).arg(index)},
-                       map.previewPath);
+        stated.preview = mapPreview(
+            build, {QStringLiteral("report_previews/%1/rejection_map_%2.jpg").arg(master.previewFolder).arg(index)},
+            map.previewPath);
         if (group.qualityReport.hasSpatialRejectionClusters)
         {
             const RejectionClusterMapKind kind = rejectionMapKindForTitle(stated.title);
@@ -419,13 +387,51 @@ void fillMaps(const ReportBuild& build, const IntegrationGroupResult& group,
     }
 }
 
-void fillMeasurement(ReportBuild& build, const QString& file, ReportMaster& master)
+/// What the solution in a master's header states of the frame: nothing for a header that cannot be read or holds no
+/// solution that reads.
+void fillSolution(ReportBuild& build, const QString& file, ReportMaster& master)
 {
-    const std::optional<ReportImageStatistics> statistics = build.measure(file);
-    if (!statistics.has_value())
+    if (master.astrometry == ReportAstrometryOutcome::None)
     {
         return;
     }
+    const std::optional<ReportHeader> header = build.header(file);
+    if (!header.has_value() || header->width == 0u || header->height == 0u)
+    {
+        return;
+    }
+    const an::Result<an::WcsSolution> solution =
+        an::ui::readImageWcsSolution(header->metadata.codec().cards(), static_cast<std::uint32_t>(header->width),
+                                     static_cast<std::uint32_t>(header->height));
+    if (!solution.hasValue())
+    {
+        return;
+    }
+    const an::Result<an::SkyCoordinate> centre = solution->fieldCenter();
+    if (!centre.hasValue())
+    {
+        return;
+    }
+    const an::WcsFieldOfView field = solution->fieldOfViewArcmin();
+    master.solution = ReportAstrometrySolution{.centreRightAscension = centre->rightAscensionDegrees,
+                                               .centreDeclination = centre->declinationDegrees,
+                                               .pixelScale = solution->meanPixelScaleArcsecPerPixel(),
+                                               .fieldWidth = field.widthArcmin,
+                                               .fieldHeight = field.heightArcmin,
+                                               .orientation = solution->orientationDegrees(),
+                                               .mirrored = solution->mirrored()};
+}
+
+void fillMeasurement(ReportBuild& build, const QString& file, ReportMaster& master)
+{
+    std::optional<ReportImageMeasurement> measured =
+        build.measure(file, reportText("the master %1").arg(master.name.isEmpty() ? master.fileName : master.name));
+    if (!measured.has_value())
+    {
+        return;
+    }
+    master.distribution = std::move(measured->distribution);
+    const std::optional<ReportImageStatistics> statistics = std::move(measured->statistics);
     master.statistics = statistics;
 
     if (const std::optional<double> retained =
@@ -453,6 +459,43 @@ void fillMeasurement(ReportBuild& build, const QString& file, ReportMaster& mast
     {
         master.snapshot.dynamicRange = *highest - *lowest;
     }
+}
+
+/// A master the run reused: what the run that made it stated of it, when the folder's history keeps that run's
+/// report; else what one read of the file measures. The figures of another run are marked by `madeByRun`.
+void fillReused(ReportBuild& build, ReportMaster& master)
+{
+    for (const StoredRun& run : build.earlierRuns())
+    {
+        const auto made =
+            std::find_if(run.model.masters.begin(), run.model.masters.end(), [&master](const ReportMaster& candidate) {
+                return candidate.key == master.key && candidate.state == ReportMasterState::Made;
+            });
+        if (made == run.model.masters.end())
+        {
+            continue;
+        }
+        master.madeByRun = run.runId;
+        master.lightsCombined = made->lightsCombined;
+        master.statistics = made->statistics;
+        master.distribution = made->distribution;
+        master.snapshot = made->snapshot;
+        master.overlapRetained = made->overlapRetained;
+        master.stack = made->stack;
+        master.astrometry = made->astrometry;
+        master.astrometryDetail = made->astrometryDetail;
+        master.solution = made->solution;
+        master.photometry = made->photometry;
+        master.durationMs = made->durationMs;
+        master.finalization = made->finalization;
+        return;
+    }
+    const QString file = build.resolvePath(master.file);
+    fillMeasurement(build, file, master);
+    fillSolution(build, file, master);
+    build.notStated(reportText("How the master %1 was stacked").arg(master.name),
+                    reportText("This run reused the master, and the folder's history does not keep the report of "
+                               "the run that made it."));
 }
 
 /// A master the run has a result for.
@@ -503,10 +546,19 @@ void fillFromResult(ReportBuild& build, const IntegrationGroupResult& group,
     }
     if (!group.success)
     {
+        // The phase a failed stack stopped in is the one record of why; the run's own words are among its messages.
+        const auto failedPhase =
+            std::find_if(master.finalization.begin(), master.finalization.end(), [](const ReportPhase& phase) {
+                return phase.status.compare(QStringLiteral("failed"), Qt::CaseInsensitive) == 0;
+            });
+        master.failure = failedPhase != master.finalization.end()
+                             ? reportText("The stack failed in its phase \"%1\".").arg(failedPhase->name)
+                             : reportText("The stack failed.");
         return;
     }
 
     fillMeasurement(build, file, master);
+    fillSolution(build, file, master);
     if (group.qualityReport.valid)
     {
         master.stack = stackOf(group.qualityReport, group.lightFrameCount, definition);
@@ -584,10 +636,13 @@ void fillMasters(ReportBuild& build, ReportModel& model)
             // file is there was reused.
             master.state = ReportMasterState::Reused;
             master.bytes = build.fileSize(master.file);
+            fillReused(build, master);
         }
         else
         {
             master.state = result.cancelled ? ReportMasterState::Cancelled : ReportMasterState::NotReached;
+            master.failure = result.cancelled ? reportText("The run was cancelled before it reached this master.")
+                                              : reportText("The run stopped before it reached this master.");
         }
         model.masters.push_back(std::move(master));
     }

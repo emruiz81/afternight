@@ -512,6 +512,7 @@ template <> struct Fields<ReportSampleDistribution>
         v("lowest", s.lowest);
         v("highest", s.highest);
         v("counts", s.counts);
+        v("outside", s.outside);
     }
 };
 
@@ -766,6 +767,36 @@ template <> struct Fields<ReportBaseline>
     }
 };
 
+template <> struct Fields<ReportAstrometrySolution>
+{
+    using Described = void;
+
+    template <class V, class S> static void visit(V& v, S& s)
+    {
+        v("centreRightAscension", s.centreRightAscension);
+        v("centreDeclination", s.centreDeclination);
+        v("pixelScale", s.pixelScale);
+        v("fieldWidth", s.fieldWidth);
+        v("fieldHeight", s.fieldHeight);
+        v("orientation", s.orientation);
+        v("mirrored", s.mirrored);
+    }
+};
+
+template <> struct Fields<ReportMasterPhotometry>
+{
+    using Described = void;
+
+    template <class V, class S> static void visit(V& v, S& s)
+    {
+        v("frames", s.frames);
+        v("medianZeroPoint", s.medianZeroPoint);
+        v("medianZeroPointScatter", s.medianZeroPointScatter);
+        v("medianLimitingMagnitude", s.medianLimitingMagnitude);
+        v("medianCatalogMatches", s.medianCatalogMatches);
+    }
+};
+
 template <> struct Fields<ReportMasterCalibration>
 {
     using Described = void;
@@ -804,10 +835,13 @@ template <> struct Fields<ReportMaster>
         v("captureResolution", s.captureResolution);
         v("overlapRetained", s.overlapRetained);
         v("calibration", s.calibration);
+        v("lightGroups", s.lightGroups);
         v("registrationGroupKey", s.registrationGroupKey);
         v("registrationInputPolicy", s.registrationInputPolicy);
         v("astrometry", s.astrometry);
         v("astrometryDetail", s.astrometryDetail);
+        v("solution", s.solution);
+        v("photometry", s.photometry);
         v("stackingSummary", s.stackingSummary);
         v("drizzleSummary", s.drizzleSummary);
         v("durationMs", s.durationMs);
@@ -842,12 +876,19 @@ template <> struct Fields<ReportCalibrationMaster>
         v("state", s.state);
         v("frames", s.frames);
         v("inputFiles", s.inputFiles);
+        v("exposureSeconds", s.exposureSeconds);
+        v("bytes", s.bytes);
+        v("modifiedAt", s.modifiedAt);
         v("biasMaster", s.biasMaster);
         v("darkMaster", s.darkMaster);
+        v("biasMasterSlug", s.biasMasterSlug);
+        v("darkMasterSlug", s.darkMasterSlug);
         v("stackingSummary", s.stackingSummary);
         v("settings", s.settings);
         v("level", s.level);
         v("noise", s.noise);
+        v("measuredFraction", s.measuredFraction);
+        v("measuredByRun", s.measuredByRun);
         v("preview", s.preview);
         v("usedBy", s.usedBy);
     }
@@ -861,11 +902,15 @@ template <> struct Fields<ReportLightGroup>
     {
         v("key", s.key);
         v("name", s.name);
+        v("masterKey", s.masterKey);
         v("lights", s.lights);
         v("preCalibrated", s.preCalibrated);
         v("biasMaster", s.biasMaster);
         v("darkMaster", s.darkMaster);
         v("flatMaster", s.flatMaster);
+        v("biasMasterSlug", s.biasMasterSlug);
+        v("darkMasterSlug", s.darkMasterSlug);
+        v("flatMasterSlug", s.flatMasterSlug);
         v("settings", s.settings);
     }
 };
@@ -945,6 +990,7 @@ template <> struct Fields<ReportRegistrationGroup>
         v("target", s.target);
         v("lights", s.lights);
         v("registered", s.registered);
+        v("failed", s.failed);
         v("reference", s.reference);
         v("referenceChosenAutomatically", s.referenceChosenAutomatically);
         v("alignmentMode", s.alignmentMode);
@@ -1115,9 +1161,16 @@ template <> struct Fields<ReportAcquisitionRow>
 
     template <class V, class S> static void visit(V& v, S& s)
     {
+        v("groupKey", s.groupKey);
+        v("group", s.group);
+        v("target", s.target);
         v("filter", s.filter);
         v("exposure", s.exposure);
         v("share", s.share);
+        v("lowestTemperature", s.lowestTemperature);
+        v("highestTemperature", s.highestTemperature);
+        v("gain", s.gain);
+        v("offset", s.offset);
     }
 };
 
@@ -1177,6 +1230,17 @@ template <> struct Fields<ReportTarget>
     }
 };
 
+template <> struct Fields<ReportFrameStateCount>
+{
+    using Described = void;
+
+    template <class V, class S> static void visit(V& v, S& s)
+    {
+        v("state", s.state);
+        v("frames", s.frames);
+    }
+};
+
 template <> struct Fields<ReportRun>
 {
     using Described = void;
@@ -1199,6 +1263,7 @@ template <> struct Fields<ReportRun>
         v("groups", s.groups);
         v("frames", s.frames);
         v("framesUsed", s.framesUsed);
+        v("frameStates", s.frameStates);
         v("capturedMs", s.capturedMs);
         v("integratedMs", s.integratedMs);
         v("warnings", s.warnings);
@@ -1362,14 +1427,14 @@ ReportModelRead ReportModelJson::fromJson(const QJsonObject& document)
             .refusal = refusal(QCoreApplication::translate("ImageIntegrationReport",
                                                            "The stored report states no format, so it is not read."))};
     }
-    if (schema > kReportSchema)
+    if (schema != kReportSchema)
     {
         return ReportModelRead{
             .model = std::nullopt,
             .refusal = refusal(QCoreApplication::translate(
                                    "ImageIntegrationReport",
-                                   "The stored report is of format %1, written by a newer version of the application; "
-                                   "this version reads up to format %2.")
+                                   "The stored report is of format %1; this version of the application reads format "
+                                   "%2 alone.")
                                    .arg(schema)
                                    .arg(kReportSchema))};
     }

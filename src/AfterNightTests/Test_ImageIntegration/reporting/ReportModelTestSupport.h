@@ -13,9 +13,13 @@
 #include "processes/ImageIntegration/reporting/ReportModelBuilder.h"
 #include "processes/ImageIntegration/reporting/ReportSources.h"
 
+#include <QHash>
+#include <QList>
 #include <QString>
 
 #include <algorithm>
+#include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -45,6 +49,112 @@ namespace an::tests::integration::report
                                                        .counters = std::nullopt},
         production.sources());
 }
+
+/// An image source that counts how often each file is measured, and measures through another.
+class CountingImages final : public ImageIntegration::Reporting::IReportImages
+{
+public:
+    explicit CountingImages(ImageIntegration::Reporting::IReportImages* inner) : m_inner(inner) {}
+
+    [[nodiscard]] std::optional<ImageIntegration::Reporting::ReportImageMeasurement>
+    measure(const QString& path, const std::uint32_t width) override
+    {
+        ++reads[path];
+        widths.append(width);
+        return m_inner->measure(path, width);
+    }
+
+    [[nodiscard]] std::optional<ImageIntegration::Reporting::ReportImageLevels>
+    measureLevels(const QString& path, const std::uint32_t width) override
+    {
+        ++reads[path];
+        ++levelReads;
+        widths.append(width);
+        return m_inner->measureLevels(path, width);
+    }
+
+    /// How many of the measurements were of a level and a noise alone.
+    int levelReads = 0;
+
+    /// How often each file was measured, by its path, and the thread widths the measurements were given.
+    QHash<QString, int> reads;
+    QList<std::uint32_t> widths;
+
+    /// Every measurement asked for.
+    [[nodiscard]] int total() const
+    {
+        int count = 0;
+        for (const int ofFile : reads)
+        {
+            count += ofFile;
+        }
+        return count;
+    }
+
+private:
+    ImageIntegration::Reporting::IReportImages* m_inner = nullptr;
+};
+
+/// A metrics source that answers for the lights through another, and states the comet fits and the catalog sources
+/// it is given.
+class StubbedMetrics final : public ImageIntegration::Reporting::IReportMetrics
+{
+public:
+    explicit StubbedMetrics(ImageIntegration::Reporting::IReportMetrics* inner) : m_inner(inner) {}
+
+    [[nodiscard]] bool available() override
+    {
+        return true;
+    }
+
+    [[nodiscard]] std::optional<int> settingsVersion(const QString& groupKey) override
+    {
+        return m_inner->settingsVersion(groupKey);
+    }
+
+    [[nodiscard]] QHash<QString, ImageIntegration::Reporting::RegistrationMetricRow>
+    metricsByFrame(const QString& groupKey, const int settingsVersion) override
+    {
+        QHash<QString, ImageIntegration::Reporting::RegistrationMetricRow> rows =
+            m_inner->metricsByFrame(groupKey, settingsVersion);
+        if (editRows)
+        {
+            editRows(rows);
+        }
+        return rows;
+    }
+
+    [[nodiscard]] QHash<QString, FrameNoiseStatistics> noiseByFrame(const QString& groupKey,
+                                                                    const int settingsVersion) override
+    {
+        return m_inner->noiseByFrame(groupKey, settingsVersion);
+    }
+
+    [[nodiscard]] QList<ImageIntegration::Reporting::CometReportRun> cometRuns(const WorkflowManifest&) override
+    {
+        return runs;
+    }
+
+    [[nodiscard]] QList<ImageIntegration::Reporting::SpccHandoffGroupSummary>
+    catalogHandoff(const WorkflowManifest&) override
+    {
+        return handoffs;
+    }
+
+    [[nodiscard]] QString referenceFrame(const QString& groupKey, const int settingsVersion) override
+    {
+        return m_inner->referenceFrame(groupKey, settingsVersion);
+    }
+
+    QList<ImageIntegration::Reporting::CometReportRun> runs;
+    QList<ImageIntegration::Reporting::SpccHandoffGroupSummary> handoffs;
+
+    /// Changes the rows of a group before the builder reads them, when set.
+    std::function<void(QHash<QString, ImageIntegration::Reporting::RegistrationMetricRow>&)> editRows;
+
+private:
+    ImageIntegration::Reporting::IReportMetrics* m_inner = nullptr;
+};
 
 /// The master of the group taken through a filter, the combined colour image left out; null when there is none.
 [[nodiscard]] inline const ImageIntegration::Reporting::ReportMaster*

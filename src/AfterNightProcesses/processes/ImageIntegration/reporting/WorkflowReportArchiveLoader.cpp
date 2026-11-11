@@ -15,6 +15,7 @@
 #include <QDir>
 
 #include <cstdint>
+#include <utility>
 
 namespace ImageIntegration::Reporting
 {
@@ -28,13 +29,12 @@ namespace
 }
 } // namespace
 
-QString buildWorkflowReportMarkdownFromArchive(const QString& runDir, const QJsonObject& archiveRoot,
-                                               const an::consumer::EngineSession* session)
+std::optional<ArchivedWorkflowRun> readArchivedWorkflowRun(const QString& runDir, const QJsonObject& archiveRoot)
 {
     const QJsonObject embeddedManifest = archiveRoot.value(QStringLiteral("manifest")).toObject();
     if (embeddedManifest.isEmpty())
     {
-        return QString();
+        return std::nullopt;
     }
 
     WorkflowManifest manifest = WorkflowManifest::fromJson(embeddedManifest);
@@ -223,7 +223,18 @@ QString buildWorkflowReportMarkdownFromArchive(const QString& runDir, const QJso
         result.errors.append(errorValue.toString());
     }
 
-    WorkflowReportBuilder reportBuilder(manifest, result, runDir, archiveRoot, nullptr, session);
+    return ArchivedWorkflowRun{.manifest = std::move(manifest), .result = std::move(result)};
+}
+
+QString buildWorkflowReportMarkdownFromArchive(const QString& runDir, const QJsonObject& archiveRoot,
+                                               const an::consumer::EngineSession* session)
+{
+    const std::optional<ArchivedWorkflowRun> run = readArchivedWorkflowRun(runDir, archiveRoot);
+    if (!run.has_value())
+    {
+        return QString();
+    }
+    WorkflowReportBuilder reportBuilder(run->manifest, run->result, runDir, archiveRoot, nullptr, session);
     return reportBuilder.build();
 }
 
