@@ -32,7 +32,8 @@ companion that states the report as data. The document is written as HTML direct
 Markdown and the product links no Markdown library: one library less to build, deploy and credit.
 
 The history keeps 20 runs and 5 GiB (`ImageIntegrationConstants.h`), dropping the runs that started first; a run
-whose masters do not fit is archived without them, and each master's result says so (`OutputRetentionStatus`). That decision is taken before the
+whose masters do not fit is archived without them, and each master's result says so (`OutputRetentionStatus`).
+That decision is taken before the
 manifest, the log and the report are written, so that a payload is never copied into the history and then found
 not to fit. The pictures are written before the run's size is measured, so the decision counts them as they are;
 what is written afterwards it bounds. `estimatedArchiveMetadataBytes` counts:
@@ -282,7 +283,12 @@ fingerprint. A function that reads a fact has one home. The fingerprint is `comp
 
 Rules the builder keeps:
 
-- **A value that is not stated is absent, never a zero.** A master that was not measured has no statistics; a run
+- **A value that is not stated is absent, never a zero.** A stack that kept no gain map, no weights and no count
+  of the lights that reached each pixel records no effective frames, no measured gain and no coverage - the
+  engine leaves them at zero, which no stack that combined a light can have - so the model states none of them
+  (`stackOf`, `MasterFacts.cpp`) and names each among what it could not state. That is what a stack that rejects
+  samples and was asked for no quality map hands over, which is what the defaults ask for. A master that was not
+  measured has no statistics; a run
   that timed no phase has no phases, while a phase that took no time is a zero; a group the alignment did not
   report has no correction count, while one it reported with none has a zero; when no light's header could be read,
   what the headers state is absent rather than "none of them states it".

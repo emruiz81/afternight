@@ -1994,3 +1994,58 @@ TEST_F(ReportHtmlWriterTest, ATurnedLightGivesTheTableOfLightsATurnColumn)
     ASSERT_NE(lights, nullptr);
     EXPECT_TRUE(lights->text.contains(QStringLiteral("180")));
 }
+
+// A master whose stack recorded no effective frames, no measured gain and no coverage prints none of them: no
+// line of its stack, no bar, and a dash in the table that compares the masters - never a zero.
+TEST_F(ReportHtmlWriterTest, AStackThatRecordedNoEffectiveFramesGainOrCoveragePrintsNoneOfThem)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFilters);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    const auto luminance = std::find_if(model.masters.begin(), model.masters.end(), [](const ReportMaster& master) {
+        return master.filter == QStringLiteral("Luminance") && master.kind == ReportMasterKind::Stack;
+    });
+    ASSERT_NE(luminance, model.masters.end());
+    ASSERT_TRUE(luminance->stack.has_value());
+    const QString anchor = fileAnchor(*luminance) + QStringLiteral("-stack");
+
+    // As built, the stack states all three.
+    {
+        const DocumentElement* stack = one(report->linkedParsed, anchor);
+        ASSERT_NE(stack, nullptr);
+        EXPECT_TRUE(stack->text.contains(QStringLiteral("Effective frames")));
+        EXPECT_TRUE(stack->text.contains(QStringLiteral("SNR gain")));
+        EXPECT_TRUE(stack->text.contains(QStringLiteral("lights per pixel")));
+    }
+
+    luminance->stack->effectiveFrames.reset();
+    luminance->stack->measuredSnrGain.reset();
+    luminance->stack->efficiency.reset();
+    luminance->stack->coverage.reset();
+    const ParsedDocument parsed = writtenAgain(model, *report);
+
+    const DocumentElement* stack = one(parsed, anchor);
+    ASSERT_NE(stack, nullptr);
+    EXPECT_FALSE(stack->text.contains(QStringLiteral("Effective frames"))) << stack->text.left(300).toStdString();
+    EXPECT_FALSE(stack->text.contains(QStringLiteral("SNR gain")));
+    EXPECT_FALSE(stack->text.contains(QStringLiteral("lights per pixel")));
+    // What the stack did record is still there.
+    EXPECT_TRUE(stack->text.contains(QStringLiteral("Rejected")));
+
+    // The table that compares the masters has a dash in both of the master's cells.
+    const DocumentElement* made = parsed.byId("made");
+    ASSERT_NE(made, nullptr);
+    const std::vector<const DocumentElement*> tables = parsed.ofClassInside(*made, "compare");
+    ASSERT_EQ(tables.size(), 1u);
+    bool found = false;
+    for (const std::vector<const DocumentElement*>& cells : bodyRows(parsed, *tables.front()))
+    {
+        if (cells.size() == 6u && cells[0]->text.contains(luminance->filter))
+        {
+            found = true;
+            EXPECT_EQ(cells[3]->text, noValueText());
+            EXPECT_EQ(cells[4]->text, noValueText());
+        }
+    }
+    EXPECT_TRUE(found);
+}
