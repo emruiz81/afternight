@@ -7,8 +7,10 @@
 /// What the suites of the report's document share: each scenario's report, built once.
 ///
 /// `ReportHtmlWriterTest` is the fixture of every case that reads a scenario's document back. It builds a
-/// scenario, archives its run as the executor does, builds its model and writes its document in both forms the
-/// first time a case asks, and keeps the result for the cases that follow, in whichever unit they are.
+/// scenario, archives its run as the executor does, builds its model, stores its report in the run's folder as a
+/// run stores it - which copies the pictures of the earlier runs its masters are compared with - and writes its
+/// document in both forms the first time a case asks, and keeps the result for the cases that follow, in whichever
+/// unit they are.
 
 #include <gtest/gtest.h>
 
@@ -17,6 +19,7 @@
 
 #include "processes/ImageIntegration/reporting/ReportAssets.h"
 #include "processes/ImageIntegration/reporting/ReportHtmlWriter.h"
+#include "processes/ImageIntegration/reporting/WorkflowReport.h"
 
 #include <map>
 #include <memory>
@@ -142,6 +145,14 @@ protected:
         }
         auto report = std::make_unique<Rendered>();
         report->model = buildScenarioModel(*scenario, scenario->runDirectory);
+        const WorkflowReportStored stored = storeWorkflowReport(report->model, scenario->runDirectory);
+        if (!stored.isStored() || !stored.picturesNotCopied.isEmpty())
+        {
+            ADD_FAILURE() << "the report of " << scenarioName(id)
+                          << " could not be stored: " << stored.error.toStdString() << ' '
+                          << stored.picturesNotCopied.join(QLatin1Char('\n')).toStdString();
+            return nullptr;
+        }
         report->linked =
             writeReportDocument(report->model, {.form = ReportForm::Linked, .runDirectory = scenario->runDirectory});
         report->embedded =

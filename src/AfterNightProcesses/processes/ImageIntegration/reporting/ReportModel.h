@@ -707,25 +707,41 @@ struct ReportFrame
     friend bool operator==(const ReportFrame&, const ReportFrame&) = default;
 };
 
-/// A master as an earlier run made it.
+/// A master as an earlier run made it: the figures a comparison sets beside this run's, as that run's stored report
+/// states them. A master no earlier run of the folder made is new, and states none.
 struct ReportBaseline
 {
-    /// The run it came from, and when that run was archived.
+    /// The latest earlier run that made the master, and when that run was archived; empty for a master that is new.
     QString runId;
     std::optional<QDateTime> archivedAt;
 
-    /// Whether the earlier run made this master at all.
+    /// Whether an earlier run made this master at all.
     bool made = false;
 
+    /// The lights the stack combined and the lights the group took.
     std::optional<int> frames;
+    std::optional<int> framesTaken;
+
+    /// The exposure of the lights the stack combined.
     std::optional<qint64> integrationMs;
+
     std::optional<double> backgroundNoise;
     std::optional<double> snr;
+
+    /// The median star width of the lights the stack combined, in pixels.
     std::optional<double> fwhm;
+
     std::optional<double> effectiveFrames;
+
+    /// The share of all samples the stack rejected.
     std::optional<double> rejectedFraction;
 
-    /// The earlier run's pictures, copied into this run's folder; empty where there is none.
+    /// Whether the earlier master's frame is of another shape than this run's - their aspect ratios differ by more
+    /// than one percent - so that the two pictures stand side by side and not under one divider.
+    bool sideBySide = false;
+
+    /// The earlier run's pictures, whole and at full scale, as copies in this run's folder; empty where that run's
+    /// archive holds none.
     QString preview;
     QString detail;
 
@@ -1426,45 +1442,84 @@ struct ReportRun
     friend bool operator==(const ReportRun&, const ReportRun&) = default;
 };
 
-/// The run's totals beside an earlier run's.
+/// A run's totals, as a comparison of two runs states them.
 struct ReportRunTotals
 {
+    /// The lights the run took and their exposure.
     int frames = 0;
     qint64 integrationMs = 0;
+
+    /// The lights the masters combine and their exposure, when the run recorded the lights' fates.
+    std::optional<int> framesUsed;
+    std::optional<qint64> integratedMs;
+
+    /// The masters that are there - made or still valid - and the sum of their sizes.
+    int masters = 0;
     qint64 outputBytes = 0;
 
-    /// The mean over the masters of the signal to noise and of the overlap retained, when measured.
+    /// The mean over those masters of the signal to noise and of the overlap retained, when measured.
     std::optional<double> snr;
     std::optional<double> overlapRetained;
 
     friend bool operator==(const ReportRunTotals&, const ReportRunTotals&) = default;
 };
 
-/// A setting that differs between this run and the earlier one.
+/// A setting that differs between this run and the earlier one, in a group both runs have.
 struct ReportSettingChange
 {
+    /// The step the group belongs to: "Calibration masters", "Lights calibration", "Registration", "Stacking",
+    /// "The run".
     QString stage;
+
+    /// The group's key and its name; both empty for a setting stated once for the run.
     QString groupKey;
     QString group;
+
+    /// The settings block the setting stands in, and the setting's name.
+    QString block;
     QString name;
+
+    /// Its value in the earlier run and in this one; empty where that run does not state the setting.
     QString before;
     QString after;
 
     friend bool operator==(const ReportSettingChange&, const ReportSettingChange&) = default;
 };
 
-/// The lights a group gained and lost since the earlier run.
-struct ReportInputChange
+/// A group only one of the two runs has.
+struct ReportGroupChange
 {
+    /// The step the group belongs to, as a setting's change names it.
+    QString stage;
+
     QString groupKey;
     QString group;
+
+    /// Whether the group is new in this run; otherwise the earlier run had it and this run does not.
+    bool added = false;
+
+    friend bool operator==(const ReportGroupChange&, const ReportGroupChange&) = default;
+};
+
+/// The frames a group both runs have gained and lost since the earlier run, by file.
+struct ReportInputChange
+{
+    /// The step the group belongs to: "Stacking" for a master's lights, "Calibration masters" for a calibration
+    /// master's frames.
+    QString stage;
+
+    QString groupKey;
+    QString group;
+
+    /// The file names of the frames this run has and the earlier one had not, and the reverse.
     QStringList added;
     QStringList removed;
 
     friend bool operator==(const ReportInputChange&, const ReportInputChange&) = default;
 };
 
-/// This run against the most recent earlier run of the folder that completed.
+/// This run against the most recent earlier run of the folder that completed and whose archive keeps its report.
+/// Each master has a baseline of its own, since an incremental run remakes only some: `ReportMaster::baseline`.
 struct ReportComparison
 {
     /// The earlier run, and when it was archived.
@@ -1474,7 +1529,13 @@ struct ReportComparison
     ReportRunTotals current;
     ReportRunTotals previous;
 
+    /// The settings that differ in the groups both runs have, and how many settings of those groups were compared.
     std::vector<ReportSettingChange> settingsChanged;
+    int settingsCompared = 0;
+
+    /// The groups only one of the two runs has.
+    std::vector<ReportGroupChange> groupsChanged;
+
     std::vector<ReportInputChange> inputsChanged;
 
     /// The application's version and the three fingerprints of the earlier run.
@@ -1486,18 +1547,31 @@ struct ReportComparison
     friend bool operator==(const ReportComparison&, const ReportComparison&) = default;
 };
 
-/// One run of the output folder's history.
+/// One earlier run of the output folder's history, as its stored report states it. A run whose archive keeps no
+/// report this version reads is listed by its id, with why.
 struct ReportHistoryEntry
 {
     QString runId;
+
+    /// Why the run states no figure here: its archive keeps no stored report, or one that is not read. Empty for a
+    /// run whose report was read.
+    QString refusal;
+
     std::optional<QDateTime> archivedAt;
     std::optional<ReportOutcome> outcome;
+
+    /// The lights the masters combined, and the lights the run took.
     std::optional<int> framesUsed;
     std::optional<int> frames;
+
+    /// The exposure of the lights the masters combined.
     std::optional<qint64> integrationMs;
+
+    /// The masters that were there when the run ended: made or still valid.
     std::optional<int> masters;
 
-    /// The first master's background noise, where recorded.
+    /// The background noise that run stated of the master this run lists first among the ones that are there, so
+    /// the figure is of one master over the runs.
     std::optional<double> backgroundNoise;
 
     /// The run's report, relative to this run's folder; empty where it has none.
@@ -1526,7 +1600,10 @@ struct ReportModel
     std::vector<ReportStage> stages;
     std::vector<ReportDecision> decisions;
     std::optional<ReportComparison> comparison;
+
+    /// The earlier runs of the output folder, oldest first.
     std::vector<ReportHistoryEntry> history;
+
     std::vector<ReportNotStated> notStated;
 
     friend bool operator==(const ReportModel&, const ReportModel&) = default;

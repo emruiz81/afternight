@@ -938,6 +938,24 @@ QString fateLine(const ReportFrame& frame)
     return frame.stateDetail.trimmed().isEmpty() ? name : name + QStringLiteral(": ") + frame.stateDetail.trimmed();
 }
 
+ReportStateWords outcomeWords(const ReportOutcome outcome)
+{
+    switch (outcome)
+    {
+    case ReportOutcome::Completed:
+        return {"good", documentText("Completed")};
+    case ReportOutcome::CompletedWithWarnings:
+        return {"warning", documentText("Completed with warnings")};
+    case ReportOutcome::Partial:
+        return {"critical", documentText("Partly completed")};
+    case ReportOutcome::Failed:
+        return {"critical", documentText("Failed")};
+    case ReportOutcome::Cancelled:
+        return {"critical", documentText("Cancelled")};
+    }
+    return {"note", {}};
+}
+
 ReportStateWords masterStateWords(const ReportMasterState state)
 {
     switch (state)
@@ -1208,8 +1226,8 @@ ReportDocument writeReportDocument(const ReportModel& model, const ReportDocumen
         .labels = masterLabels(model)};
     // Every part states its anchors before any part is written, so a link is made only to a place that exists.
     context.anchors.insert(QStringLiteral("top"));
-    for (const QStringList& anchors : {summaryAnchors(model), mastersAnchors(model), sharedAnchors(model),
-                                       runAnchors(model), provenanceAnchors(model)})
+    for (const QStringList& anchors : {summaryAnchors(model), mastersAnchors(model), earlierAnchors(model),
+                                       sharedAnchors(model), runAnchors(model), provenanceAnchors(model)})
     {
         for (const QString& anchor : anchors)
         {
@@ -1221,6 +1239,7 @@ ReportDocument writeReportDocument(const ReportModel& model, const ReportDocumen
     std::vector<ReportPart> parts;
     parts.push_back(writeReportSummary(context));
     parts.push_back(writeReportMasters(context));
+    parts.push_back(writeReportEarlier(context));
     parts.push_back(writeReportShared(context));
     parts.push_back(writeReportRun(context));
     parts.push_back(writeReportProvenance(context));

@@ -301,6 +301,9 @@ struct ReportStateWords
 /// Where a master's astrometric solution came from; nothing when the run recorded nothing about it.
 [[nodiscard]] ReportStateWords astrometryWords(ReportAstrometryOutcome outcome);
 
+/// How a run ended, in a word or two, and the kind of pill that says it.
+[[nodiscard]] ReportStateWords outcomeWords(ReportOutcome outcome);
+
 /// What became of a calibration master, in a word a line of small print takes; nothing for one the run made.
 [[nodiscard]] QString calibrationStateNote(ReportCalibrationState state);
 
@@ -373,6 +376,15 @@ struct ReportDither
 /// Part 2: a file per master - the picture, the stack, its lights, how it was made - or, for a master the run did
 /// not make, why.
 [[nodiscard]] ReportPart writeReportMasters(const ReportDocumentContext& context);
+
+// ---- Against earlier runs (ReportHtmlEarlier.cpp).
+
+/// The anchors part 3 writes for a model.
+[[nodiscard]] QStringList earlierAnchors(const ReportModel& model);
+
+/// Part 3: each master beside the latest earlier run that made it, what changed since the latest earlier run that
+/// completed, and the runs of the folder; one sentence when there is no earlier run.
+[[nodiscard]] ReportPart writeReportEarlier(const ReportDocumentContext& context);
 
 // ---- What the masters share (ReportHtmlShared.cpp).
 
