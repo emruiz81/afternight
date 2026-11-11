@@ -1549,6 +1549,31 @@ TEST(WorkflowExecutor, ACalibrationGroupsResultSaysWhetherItsStageLeftTheMasterA
     }
 }
 
+// The registration stage says why of each light it finds no transform for, and the run keeps what it says: the
+// metrics database records only that a registration failed.
+TEST(WorkflowExecutor, TheRunKeepsWhyEachLightFailedRegistration)
+{
+    StageResult stageResult = StageResult::success();
+    stageResult.registrationFailures = {
+        RegistrationFailure{.groupKey = QStringLiteral("group-a"),
+                            .light = QStringLiteral("C:/lights/a.fit"),
+                            .reason = QStringLiteral("Only 3 star(s) were detected; this run requires at least 10.")},
+        RegistrationFailure{.groupKey = QStringLiteral("group-a"),
+                            .light = QStringLiteral("C:/lights/b.fit"),
+                            .reason = QStringLiteral("No stars were detected.")}};
+    WorkflowExecutor executor;
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("LightsRegistration"),
+                                                  WorkflowStage::LightsRegistration, stageResult));
+
+    const WorkflowExecutor::Result result = executor.execute(makeValidManifest());
+
+    ASSERT_TRUE(result.success) << result.errorMessage.toStdString();
+    ASSERT_EQ(result.registrationFailures.size(), 2u);
+    EXPECT_EQ(result.registrationFailures[0].light, QStringLiteral("C:/lights/a.fit"));
+    EXPECT_EQ(result.registrationFailures[0].groupKey, QStringLiteral("group-a"));
+    EXPECT_EQ(result.registrationFailures[1].reason, QStringLiteral("No stars were detected."));
+}
+
 TEST(WorkflowExecutor, ContinuesAfterPartialSuccessAndCollectsErrors)
 {
     WorkflowExecutor executor;

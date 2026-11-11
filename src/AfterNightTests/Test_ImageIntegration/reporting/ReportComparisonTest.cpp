@@ -759,3 +759,84 @@ TEST(ReportComparison, APictureThatCannotBeCopiedIsNotStatedInTheReportStored)
         EXPECT_TRUE(entry.report.isEmpty()) << entry.runId.toStdString();
     }
 }
+
+// ---- Why a light's registration failed.
+
+namespace
+{
+/// The lights of a model whose registration failed.
+std::vector<const ReportFrame*> failedRegistrations(const ReportModel& model)
+{
+    std::vector<const ReportFrame*> failed;
+    for (const ReportMaster& master : model.masters)
+    {
+        for (const ReportFrame& frame : master.frames)
+        {
+            if (frame.state == ReportFrameState::RegistrationFailed)
+            {
+                failed.push_back(&frame);
+            }
+        }
+    }
+    return failed;
+}
+
+bool saysWhyNot(const ReportModel& model)
+{
+    return std::any_of(model.notStated.begin(), model.notStated.end(), [](const ReportNotStated& entry) {
+        return entry.what.contains(QStringLiteral("failed registration"));
+    });
+}
+} // namespace
+
+// A run records why its registration found no transform for a light, and the report states it. A run registers a
+// light once: a later run that finds the registration still valid records nothing of it again, so the reason is
+// then taken from the latest earlier run whose report states it; and with no such report it is not stated, and
+// the model says so.
+TEST(ReportComparison, WhyALightFailedRegistrationIsStatedByTheRunThatRegisteredIt)
+{
+    auto scenario = archived(ReportScenarioId::EveryLightState);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_FALSE(scenario->result.registrationFailures.empty());
+    const QString reason = QString::fromLatin1(kScenarioRegistrationFailure);
+
+    // As the run recorded them.
+    const ReportModel recorded = buildScenarioModel(*scenario, scenario->runDirectory);
+    const std::vector<const ReportFrame*> failed = failedRegistrations(recorded);
+    ASSERT_FALSE(failed.empty());
+    for (const ReportFrame* frame : failed)
+    {
+        EXPECT_EQ(frame->registrationFailure, reason) << frame->fileName.toStdString();
+        EXPECT_TRUE(frame->stateDetail.contains(reason)) << frame->stateDetail.toStdString();
+    }
+    EXPECT_FALSE(saysWhyNot(recorded));
+    const auto issue = std::find_if(recorded.issues.begin(), recorded.issues.end(), [](const ReportIssue& candidate) {
+        return candidate.kind == ReportIssueKind::RegistrationFailures;
+    });
+    ASSERT_NE(issue, recorded.issues.end());
+    EXPECT_TRUE(issue->detail.contains(reason)) << issue->detail.toStdString();
+
+    // A later run that registers nothing again: the reasons are the earlier run's.
+    const QDir history = QFileInfo(scenario->runDirectory).dir();
+    const QString earlier = history.filePath(QStringLiteral("20200101_000000_000"));
+    writeStoredReport(earlier, recorded);
+    scenario->result.registrationFailures.clear();
+    const ReportModel later = buildScenarioModel(*scenario, scenario->runDirectory);
+    ASSERT_EQ(failedRegistrations(later).size(), failed.size());
+    for (const ReportFrame* frame : failedRegistrations(later))
+    {
+        EXPECT_EQ(frame->registrationFailure, reason) << frame->fileName.toStdString();
+    }
+    EXPECT_FALSE(saysWhyNot(later));
+
+    // With no report that states them, the reasons are not stated, and nothing is put in their place.
+    ASSERT_TRUE(QDir(earlier).removeRecursively());
+    const ReportModel alone = buildScenarioModel(*scenario, scenario->runDirectory);
+    ASSERT_EQ(failedRegistrations(alone).size(), failed.size());
+    for (const ReportFrame* frame : failedRegistrations(alone))
+    {
+        EXPECT_TRUE(frame->registrationFailure.isEmpty()) << frame->fileName.toStdString();
+        EXPECT_FALSE(frame->stateDetail.contains(reason));
+    }
+    EXPECT_TRUE(saysWhyNot(alone));
+}

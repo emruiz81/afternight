@@ -946,6 +946,12 @@ TEST_F(LightsRegistrationTest, ALightTheReferenceHoldsTooFewStarsOfIsRegisteredT
     ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
     EXPECT_TRUE(result.isPartialSuccess()) << "the unrelated light was registered";
 
+    // The stage says why of the light it found no transform for, and of no other.
+    ASSERT_EQ(result.registrationFailures.size(), 1u);
+    EXPECT_EQ(result.registrationFailures.front().light, FrameId(unrelated_path).canonicalPath());
+    EXPECT_EQ(result.registrationFailures.front().groupKey, m_group.groupKey.toString());
+    EXPECT_FALSE(result.registrationFailures.front().reason.trimmed().isEmpty());
+
     const RecordedTransforms transforms = recordedTransforms();
     const auto near_record = transforms.find(FrameId(near_path).canonicalPath());
     ASSERT_NE(near_record, transforms.end());

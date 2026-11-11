@@ -363,7 +363,9 @@ under **What the report could not state**, in Part 6.
   samples.
 - **What a stack did not record.** A stack that writes no quality maps may state no effective frames, no measured
   SNR gain and no pixel coverage.
-- **A light whose registration failed.** The report gives the stars that were found. The run records no reason.
+- **Why a registration failed, once its run is gone.** The run that registers a light records why it failed, and
+  the report gives the reason with the stars that were found. A later run that registers nothing again takes the
+  reason from that run's report, and gives none when `history` no longer holds it.
 - **A light without a time in its header.** It belongs to no night, and the charts by time fall back to the order
   of the lights.
 - **Figures a mode does not give.** A local normalization states no scale and offset for a light, and a polynomial

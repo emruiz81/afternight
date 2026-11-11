@@ -47,6 +47,10 @@ namespace an::tests::integration::report
 /// How many times `needle` occurs in `haystack`, counting no overlap; zero for an empty needle.
 [[nodiscard]] int countOccurrences(const QString& haystack, const QString& needle);
 
+/// Why the registration of a scenario's failed lights failed, as a run records it.
+inline constexpr char kScenarioRegistrationFailure[] =
+    "Too few matching star pairs were found against the reference frame.";
+
 /// A sample of a written image, a fraction of full scale, by position and channel.
 using SampleRule = std::function<double(std::uint32_t, std::uint32_t, std::uint32_t)>;
 

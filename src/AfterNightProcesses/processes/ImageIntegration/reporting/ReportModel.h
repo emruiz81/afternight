@@ -668,6 +668,10 @@ struct ReportFrame
     std::optional<ReportFrameState> state;
     QString stateDetail;
 
+    /// Why the light's registration failed, in the registration's own words; empty for a light that registered and
+    /// for one no run whose report is kept recorded a reason of.
+    QString registrationFailure;
+
     /// The night the light was taken on, and when.
     std::optional<QDate> night;
     std::optional<QDateTime> capturedAt;

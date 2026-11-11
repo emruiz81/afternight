@@ -898,6 +898,11 @@ public:
             if (light.state == LightState::RegistrationFailed)
             {
                 ++m_facts.registrationFailures;
+                // The registration says why of each light it fails on, in its own words.
+                m_result.registrationFailures.push_back(
+                    RegistrationFailure{.groupKey = registration.key,
+                                        .light = light.id.canonicalPath(),
+                                        .reason = QString::fromLatin1(kScenarioRegistrationFailure)});
             }
             group.lightFiles.push_back(light.id);
             group.lightExposureSeconds.push_back(light.exposureSeconds);
