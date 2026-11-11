@@ -189,6 +189,9 @@ identity, is never reused by a run and is never published through `publishWorkfl
 - **The earlier run's two pictures of a master the report compares are copied beside the master's own**, as
   `report_previews/<group>/previous_master.jpg` and `previous_detail.jpg`, when the run's report is stored
   (`storeWorkflowReport`). See "A run beside the earlier runs of its folder".
+- **The earlier master itself is pictured again under this run's stretch**, as `previous_master_matched.jpg` and
+  `previous_detail_matched.jpg` in the same folder, when the history still holds a copy of it
+  (`pictureEarlierMastersUnderThisStretch`, `WorkflowArchiver.cpp`). See the same section.
 - **A calibration master's picture** is written for each bias, dark and flat group of the manifest whose file is
   there, when the archiver has a session, within 1,024 pixels a side: a report shows it small, and a frame of
   noise compresses badly. `archivedCalibrationPreviews` names them, by the master's own file name
@@ -510,14 +513,16 @@ later writes timed on the archive each run left:
 
 | Run | Lights | Masters | Report phase | Written again | Saved as one file |
 | --- | --- | --- | --- | --- | --- |
-| Three narrowband masters of 3,008 by 3,004 pixels, flats only | 64 | 3 | 229 ms; 203 ms for a second run, compared with the first | 23 ms | 0.27 to 0.35 s, 2.1 MB |
-| Two colour masters of 5,544 by 3,684 pixels, bias, dark and flat | 35 | 2 | 787 ms; 634 ms for a second run | 14 ms | 0.26 to 0.31 s, 3.3 MB |
+| Three narrowband masters of 3,008 by 3,004 pixels, flats only | 64 | 3 | 229 ms | 23 ms | 0.27 to 0.35 s, 2.1 MB |
+| Two colour masters of 5,544 by 3,684 pixels, bias, dark and flat | 35 | 2 | 757 ms; 1,336 ms for a second run, which pictures both earlier masters again under its stretch | 14 ms | 0.26 to 0.31 s, 3.3 MB |
 | Four masters of 8,288 by 5,644 pixels, twelve calibration masters | 714 | 4 | 7.0 s with nothing in the system's file cache, 1.3 s with the files in it | 169 ms | 0.39 to 0.40 s, 3.7 MB |
 
 The first two are whole runs of the application's workflow; the third is the model built and stored from a copy of
 a real run's archive, since stacking that run again writes a quarter of a terabyte. The report phase is the
 masters' statistics before anything else, so it follows the masters' size and number far more than the lights';
-writing a report again and saving it as one file read no master and stay under half a second.
+writing a report again and saving it as one file read no master and stay under half a second. A run that has an
+earlier run to compare with reads each master compared twice more, the earlier one and its own, to picture the
+earlier one under its stretch: about a third of a second for each master of that size.
 
 ## A run beside the earlier runs of its folder
 
@@ -570,6 +575,19 @@ and the document. The copies keep the report whole once the history drops the ea
 be copied is taken out of the model that is stored, so neither it nor the document names a file that is not there.
 Two frames whose aspect ratios differ by more than one percent are flagged (`ReportBaseline::sideBySide`): a
 divider over two frames of different shapes would compare nothing.
+
+**Where the earlier master is at hand, it is pictured again under this run's stretch.** Two pictures under two
+automatic stretches look alike however much brighter one master is: that is what such a stretch is for, and it
+makes a difference in brightness between them mean nothing. So when the archive of the run a master is compared
+with still holds its copy of that master (`history/<run>/groups/<group>/<file>`), the archiver pictures that copy
+again, whole and at full scale, through the stretch this run's master is pictured through
+(`generateReportMasterPreviewsUnderStretchOf`, `PreviewThumbnailGenerator.h`), and names the two pictures on the
+baseline (`ReportBaseline::matchedPreview`, `matchedDetail`). The document then shows them in the earlier run's
+place and says that the two share a stretch; without them it shows the earlier run's own preview and says each
+has its own. They are files of this run's folder, so they stay when the history drops the earlier run. None is
+made for a history with no room for payloads, for two frames of different shapes, for a run before the latest,
+or without a session. It costs one read of each of the two masters, for each master compared, in the report
+phase of a run that has an earlier run; the bound on what an archive writes last counts the second pair.
 
 **Only the latest earlier run's pictures are copied.** The pictures of the runs that made a master before the
 latest are named where those runs' own archives hold them, beside this run's folder
@@ -849,7 +867,9 @@ in it.
 - **Two pictures under one divider.** This run's picture gives the box its shape; the earlier run's lies over it,
   cut at the divider. The divider is a range input over the whole picture, which the keyboard moves too; the
   script copies its value to the box (`--pos`) and computes nothing, and with scripts off the divider stays in the
-  middle. Two frames of different shapes stand side by side instead, each named, with nothing to drag.
+  middle. Two frames of different shapes stand side by side instead, each named, with nothing to drag. The
+  caption under the pair says which stretch the earlier picture has: this run's, when the earlier master was
+  pictured again under it, or its own.
 - **The detail is offered only where both runs have one**, and a master whose runs do not both have it keeps
   showing the whole frame when the detail is picked.
 - **Each change is put in words where the document is written**: a count as a difference, a time as a difference,

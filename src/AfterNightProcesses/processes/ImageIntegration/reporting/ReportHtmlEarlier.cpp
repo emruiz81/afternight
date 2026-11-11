@@ -360,6 +360,10 @@ struct ComparedPictures
     QString nowDetail;
     QString beforeDetail;
 
+    /// Whether the earlier run's pictures are of its master under this run's display stretch, and not that run's
+    /// own archived previews under its own.
+    bool sharedStretch = false;
+
     /// Whether both runs have the whole frame, so there is something to set side by side.
     [[nodiscard]] bool arePaired() const
     {
@@ -381,11 +385,14 @@ struct ComparedPictures
     {
         return pictures;
     }
-    // Shown whole and at the divider's size: the pictures are the document's full ones, not its thumbnails.
+    // Shown whole and at the divider's size: the pictures are the document's full ones, not its thumbnails. Where
+    // the earlier master was pictured under this run's stretch that picture is the one shown, and its detail with
+    // it or none: a detail under another stretch beside it would undo what the pair is for.
+    pictures.sharedStretch = !baseline.matchedPreview.isEmpty();
     pictures.now = context.assets.image(master.preview);
-    pictures.before = context.assets.image(baseline.preview);
+    pictures.before = context.assets.image(pictures.sharedStretch ? baseline.matchedPreview : baseline.preview);
     pictures.nowDetail = context.assets.image(master.detail);
-    pictures.beforeDetail = context.assets.image(baseline.detail);
+    pictures.beforeDetail = context.assets.image(pictures.sharedStretch ? baseline.matchedDetail : baseline.detail);
     return pictures;
 }
 
@@ -478,9 +485,15 @@ void writePair(ReportMarkup& out, const ReportDocumentContext& context, const Re
                        {"aria-label", documentText("Divider between the earlier run and this run of %1").arg(label)}});
     out.element("span", {{"class", QStringLiteral("ring")}}, QString());
     out.close("div");
-    writeCaption(out, documentText("Left of the divider is the earlier run, right of it this one; drag it. Each "
-                                   "picture is its own run's archived preview, under its own display stretch; the "
-                                   "figures are measured on the linear masters."));
+    writeCaption(out,
+                 pictures.sharedStretch
+                     ? documentText("Left of the divider is the earlier run, right of it this one; drag it. The "
+                                    "earlier master is pictured under this run's display stretch, so a difference "
+                                    "between the two is the masters'; the figures are measured on the linear "
+                                    "masters.")
+                     : documentText("Left of the divider is the earlier run, right of it this one; drag it. Each "
+                                    "picture is its own run's archived preview, under its own display stretch; the "
+                                    "figures are measured on the linear masters."));
 }
 
 /// One master beside one earlier run: the two runs' pictures and the figures of both.

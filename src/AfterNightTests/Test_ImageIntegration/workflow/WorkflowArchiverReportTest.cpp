@@ -610,3 +610,82 @@ TEST(WorkflowArchiverReport, AReportWrittenAgainNamesNoPictureOfAnEarlierRunThat
     EXPECT_FALSE(document.contains(pictures)) << "a picture of a run that is gone is still named";
     EXPECT_TRUE(document.contains(QStringLiteral("cmprun-1"))) << "the run is still one the master is set beside";
 }
+
+// A comparison's two pictures are each run's own archived preview, each under its own stretch. Where the history
+// still holds the earlier run's copy of a master, the archiver pictures that master again under this run's
+// stretch, in this run's folder, and the report shows that picture and says so. Without the copy it shows the
+// earlier run's own preview, as it says.
+TEST(WorkflowArchiverReport, TheEarlierMasterIsPicturedUnderThisRunsStretchWhereTheHistoryHoldsIt)
+{
+    // The document's bytes write an apostrophe as a reference, so the words stop short of one.
+    const QString sharedWords = QStringLiteral("The earlier master is pictured under this run");
+    const QString ownWords = QStringLiteral("under its own display stretch");
+
+    // With the earlier run's copies of its masters at hand.
+    {
+        std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::FiveFiltersAfterEarlierRun);
+        ASSERT_TRUE(scenario.has_value());
+        ASSERT_TRUE(archiveScenarioRun(*scenario));
+        const std::optional<ReportModel> model = storedModel(scenario->runDirectory);
+        ASSERT_TRUE(model.has_value());
+        const QDir run(scenario->runDirectory);
+        int compared = 0;
+        int pictured = 0;
+        for (const ReportMaster& master : model->masters)
+        {
+            if (!master.baseline.has_value() || !master.baseline->made || master.baseline->sideBySide)
+            {
+                continue;
+            }
+            ++compared;
+            const ReportBaseline& baseline = *master.baseline;
+            const QString copy =
+                QDir(QFileInfo(scenario->runDirectory).dir().filePath(baseline.runId))
+                    .filePath(
+                        QStringLiteral("groups/%1/%2").arg(master.previewFolder, QFileInfo(master.file).fileName()));
+            SCOPED_TRACE(master.name.toStdString());
+            if (!QFileInfo(copy).isFile())
+            {
+                EXPECT_TRUE(baseline.matchedPreview.isEmpty());
+                continue;
+            }
+            ++pictured;
+            ASSERT_FALSE(baseline.matchedPreview.isEmpty());
+            EXPECT_TRUE(baseline.matchedPreview.endsWith(QLatin1String(kPreviousMasterMatchedPictureName)));
+            EXPECT_TRUE(QFileInfo(run.filePath(baseline.matchedPreview)).isFile());
+            EXPECT_NE(baseline.matchedPreview, baseline.preview);
+            ASSERT_FALSE(baseline.matchedDetail.isEmpty());
+            EXPECT_TRUE(QFileInfo(run.filePath(baseline.matchedDetail)).isFile());
+        }
+        ASSERT_GT(compared, 0);
+        ASSERT_GT(pictured, 0) << "the earlier run of the scenario keeps a copy of no master";
+        const QString document = QString::fromUtf8(bytesOf(run.filePath(QLatin1String(kDocumentName))));
+        EXPECT_TRUE(document.contains(QLatin1String(kPreviousMasterMatchedPictureName)));
+        EXPECT_TRUE(document.contains(sharedWords));
+    }
+
+    // With the earlier run's copies gone, as in a history with no room for them.
+    {
+        std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::FiveFiltersAfterEarlierRun);
+        ASSERT_TRUE(scenario.has_value());
+        ASSERT_EQ(scenario->earlierRunDirectories.size(), 1);
+        ASSERT_TRUE(
+            QDir(QDir(scenario->earlierRunDirectories.front()).filePath(QStringLiteral("groups"))).removeRecursively());
+        ASSERT_TRUE(archiveScenarioRun(*scenario));
+        const std::optional<ReportModel> model = storedModel(scenario->runDirectory);
+        ASSERT_TRUE(model.has_value());
+        for (const ReportMaster& master : model->masters)
+        {
+            if (master.baseline.has_value())
+            {
+                EXPECT_TRUE(master.baseline->matchedPreview.isEmpty()) << master.name.toStdString();
+                EXPECT_TRUE(master.baseline->matchedDetail.isEmpty()) << master.name.toStdString();
+            }
+        }
+        const QString document =
+            QString::fromUtf8(bytesOf(QDir(scenario->runDirectory).filePath(QLatin1String(kDocumentName))));
+        EXPECT_FALSE(document.contains(QLatin1String(kPreviousMasterMatchedPictureName)));
+        EXPECT_FALSE(document.contains(sharedWords));
+        EXPECT_TRUE(document.contains(ownWords));
+    }
+}

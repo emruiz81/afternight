@@ -41,6 +41,10 @@ inline constexpr char kWorkflowReportFileName[] = "workflow_report.html";
 inline constexpr char kPreviousMasterPictureName[] = "previous_master.jpg";
 inline constexpr char kPreviousDetailPictureName[] = "previous_detail.jpg";
 
+/// The names of the earlier run's master pictured under this run's display stretch, in the same folder.
+inline constexpr char kPreviousMasterMatchedPictureName[] = "previous_master_matched.jpg";
+inline constexpr char kPreviousDetailMatchedPictureName[] = "previous_detail_matched.jpg";
+
 /// What writing a report came to.
 struct WorkflowReportWritten
 {
