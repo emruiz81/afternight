@@ -4492,6 +4492,7 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartSamples.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportHtmlWriterTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportHtmlPartsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportSamplesTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/test_gaia_catalog_settings.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_image_integration_lite_process.cpp
@@ -4655,6 +4656,7 @@ sources Test_ImageIntegration
     header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelTestSupport.h
     header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartSamples.h
     header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportDocumentTestSupport.h
+    header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportRenderedScenarios.h
     header   src/AfterNightWorkflowDriver/ResidentMemory.h
     header   src/AfterNightWorkflowDriver/WorkflowDriver.h
     header   src/AfterNightTests/Test_ImageIntegration/workflow/CalibrationRun.h

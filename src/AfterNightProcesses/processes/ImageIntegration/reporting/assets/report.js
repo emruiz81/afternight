@@ -61,7 +61,9 @@
   });
   document.addEventListener('focusout', function () { tip.hidden = true; });
 
-  // A table of class sortable is put in the order of the column clicked, by each cell's data-v.
+  // A table of class sortable is put in the order of the column clicked: by each cell's data-v where it states
+  // one, and by its text otherwise.
+  function sortKey(cell) { return cell.hasAttribute('data-v') ? cell.getAttribute('data-v') : cell.textContent; }
   function sortBy(heading) {
     var table = heading.closest('table'), body = table.tBodies[0];
     var column = Array.prototype.indexOf.call(heading.parentNode.children, heading);
@@ -70,7 +72,7 @@
     heading.setAttribute('aria-sort', direction > 0 ? 'ascending' : 'descending');
     var rows = Array.prototype.slice.call(body.rows);
     rows.sort(function (first, second) {
-      var a = first.cells[column].getAttribute('data-v'), b = second.cells[column].getAttribute('data-v');
+      var a = sortKey(first.cells[column]), b = sortKey(second.cells[column]);
       var x = parseFloat(a), y = parseFloat(b);
       return (isNaN(x) || isNaN(y) ? String(a).localeCompare(String(b)) : x - y) * direction;
     });
