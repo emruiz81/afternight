@@ -9,10 +9,16 @@
 /// The integration's bounded previews: the run history's thumbnail and the report's master and map previews, each the
 /// image shrunk to a bound by the largest sample under each preview pixel - so a star smaller than the reduction stays
 /// visible - and then presented as the viewer presents an image, each channel its own automatic screen transfer.
+///
+/// A master has a second picture, its detail: the part at its centre at full scale, one picture pixel for each of the
+/// master's, presented through the statistics its whole-frame preview was presented through, so the two pictures of
+/// one master share one stretch. A preview is a picture of a file, not a workflow image: it carries no identity and
+/// is never published as one.
 
 #include <AfterNightConsumerRuntime/ImageAsset.h>
 
 #include <QImage>
+#include <QRect>
 #include <QSize>
 #include <QString>
 
@@ -26,6 +32,23 @@ class EngineSession;
 
 namespace ImageIntegration
 {
+/// The most of a master, in its own pixels, that its report's detail shows.
+inline constexpr QSize kReportDetailRegionSize{960, 540};
+
+/// The part of an image its report's detail shows: a rectangle of at most `kReportDetailRegionSize` at the image's
+/// centre. An image narrower or shorter than that is shown whole that way, so a small master is its own detail.
+///
+/// @param imageSize the image's size in pixels.
+/// @return the rectangle, in the image's pixels; empty for an image with no pixels.
+[[nodiscard]] AFTERNIGHTPROCESSES_API QRect reportDetailRegion(const QSize& imageSize);
+
+/// The previews one read of a master's file wrote, each by its name; nothing for one that was not written.
+struct ReportMasterPreviews
+{
+    std::optional<QString> whole;
+    std::optional<QString> detail;
+};
+
 struct PreviewGenerationDiagnostics
 {
     QSize sourceSize;
@@ -61,9 +84,26 @@ AFTERNIGHTPROCESSES_API std::optional<QString> generatePreviewThumbnail(const an
 
 /// Writes an autostretched report-grade preview of an output file as a JPEG, no larger than `maxSize` when given and
 /// than 2048 pixels on a side otherwise.
-std::optional<QString> generateReportPreviewJpeg(const an::consumer::EngineSession& session, const QString& outputPath,
-                                                 const QString& outputDir, const QString& fileName,
-                                                 std::optional<QSize> maxSize = std::nullopt, int quality = 90);
+AFTERNIGHTPROCESSES_API std::optional<QString>
+generateReportPreviewJpeg(const an::consumer::EngineSession& session, const QString& outputPath,
+                          const QString& outputDir, const QString& fileName,
+                          std::optional<QSize> maxSize = std::nullopt, int quality = 90);
+
+/// Writes a master's two report previews from one read of its file: the whole frame as `generateReportPreviewJpeg`
+/// writes it, and the detail - the region `reportDetailRegion` names, at full scale, presented through the statistics
+/// the whole frame was. The detail is written only when the whole frame was.
+///
+/// @param session the session the file is read and the previews are worked out in.
+/// @param outputPath the master's file.
+/// @param outputDir the folder the previews are written into, made when it is not there.
+/// @param wholeName the whole-frame preview's file name.
+/// @param detailName the detail's file name.
+/// @param maxSize the whole frame's bound; 2048 pixels on a side when none is given.
+/// @param quality the JPEG quality of both.
+/// @return the names of what was written.
+AFTERNIGHTPROCESSES_API ReportMasterPreviews generateReportMasterPreviews(
+    const an::consumer::EngineSession& session, const QString& outputPath, const QString& outputDir,
+    const QString& wholeName, const QString& detailName, std::optional<QSize> maxSize = std::nullopt, int quality = 90);
 
 /// Writes an autostretched report-grade preview of an output file as a PNG, no larger than `maxSize` when given and
 /// than 2048 pixels on a side otherwise.

@@ -523,6 +523,44 @@ void clearIncrementalSelections(WorkflowManifest& manifest)
     manifest.incrementalIntegrationGroups.clear();
 }
 
+/// Adds a reused group to a run's list once, by its key.
+void appendReusedGroup(std::vector<ReusedIntegrationGroup>& groups, const ReusedIntegrationGroup& group)
+{
+    const bool listed = std::any_of(groups.begin(), groups.end(), [&group](const ReusedIntegrationGroup& known) {
+        return known.groupKey == group.groupKey;
+    });
+    if (!listed)
+    {
+        groups.push_back(group);
+    }
+}
+
+/// The integration groups an incremental run's plan leaves out: the plan found each one's master still valid, so no
+/// stage visits the group and the run makes nothing of it.
+[[nodiscard]] std::vector<ReusedIntegrationGroup> groupsThePlanLeavesAsTheyAre(const WorkflowManifest& manifest)
+{
+    std::vector<ReusedIntegrationGroup> groups;
+    // A run that only registers stacks nothing, so it reuses no master either.
+    const bool registersOnly =
+        manifest.executionScope.trimmed().startsWith(QStringLiteral("registration"), Qt::CaseInsensitive);
+    if (manifest.executionMode != ExecutionMode::Incremental || registersOnly)
+    {
+        return groups;
+    }
+    for (const auto& group : manifest.integrationGroups)
+    {
+        if (std::find(manifest.incrementalIntegrationGroups.begin(), manifest.incrementalIntegrationGroups.end(),
+                      group.groupKey) != manifest.incrementalIntegrationGroups.end())
+        {
+            continue;
+        }
+        appendReusedGroup(groups, ReusedIntegrationGroup{
+                                      .groupKey = group.groupKey.toString(),
+                                      .outputPath = QDir(manifest.outputDirectory).filePath(group.outputFilename)});
+    }
+    return groups;
+}
+
 [[nodiscard]] std::optional<WorkflowManifest> buildCommittedSubsetManifest(const WorkflowManifest& manifest,
                                                                            const WorkflowExecutor::Result& result)
 {
@@ -1008,6 +1046,9 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
                                    manifest.combineRgbImages ? QStringLiteral("Yes") : QStringLiteral("No"));
     executorLogger.settingsApplied(QStringLiteral("Execution ID"), manifest.executionId);
 
+    // What the plan leaves as it is is known before any stage runs, and holds however the run ends.
+    result.reusedIntegrationGroups = groupsThePlanLeavesAsTheyAre(manifest);
+
     for (const auto& stage : m_impl->stages)
     {
         if (m_impl->cancellationToken.isCancellationRequested())
@@ -1181,6 +1222,12 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
                     }
                 }
             }
+        }
+
+        // The groups the stage found up to date, which have no result.
+        for (const auto& reused : stage_result.reusedGroups)
+        {
+            appendReusedGroup(result.reusedIntegrationGroups, reused);
         }
 
         // Aggregate alignment group results (SIP info)

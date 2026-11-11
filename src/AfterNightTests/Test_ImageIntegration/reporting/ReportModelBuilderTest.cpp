@@ -11,6 +11,9 @@
 #include "Test_ImageIntegration/reporting/ReportModelTestSupport.h"
 
 #include "processes/ImageIntegration/reporting/ReportFormat.h"
+#include "processes/ImageIntegration/reporting/ReportModelJson.h"
+#include "processes/ImageIntegration/workflow/ManifestDiff.h"
+#include "processes/ImageIntegration/workflow/ManifestHashing.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutionCounters.h"
 
 #include <AfterNightEngine/Core/Version.h>
@@ -19,6 +22,9 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
+#include <QImage>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QRegularExpression>
 #include <QSet>
 #include <QTimeZone>
@@ -312,7 +318,7 @@ TEST(ReportModelBuilder, ACancelledRunSaysWhichMastersItNeverReached)
     EXPECT_EQ(model.run.groups.made, 2);
     EXPECT_EQ(model.run.groups.notReached, 3);
     EXPECT_EQ(countOfState(model, ReportMasterState::Cancelled), 3);
-    EXPECT_EQ(countOfState(model, ReportMasterState::Reused), 0) << "a run that stopped reused nothing it can name";
+    EXPECT_EQ(countOfState(model, ReportMasterState::Reused), 0) << "the run's record names no master it reused";
 }
 
 TEST(ReportModelBuilder, ARunThatStoppedBeforeAnyMasterMadeNone)
@@ -374,7 +380,7 @@ TEST(ReportModelBuilder, EveryPlannedMasterMeetsTheFateItsScenarioStates)
         EXPECT_EQ(model.run.groups.notReached, facts.mastersNotReached);
         EXPECT_EQ(model.registrationGroups.size(), static_cast<std::size_t>(facts.registrationGroups));
         EXPECT_EQ(model.calibrationMasters.size(), static_cast<std::size_t>(facts.calibrationMasters));
-        EXPECT_EQ(model.run.frames + facts.lightsLeftOutByUser, facts.lightsTaken);
+        EXPECT_EQ(model.run.frames, facts.lightsTaken) << "the lights the user left out were taken too";
         EXPECT_EQ(static_cast<int>(model.run.nights.size()), facts.nights);
 
         // Every master has an anchor of its own.
@@ -1560,4 +1566,263 @@ TEST(ReportModelBuilder, LightsThatAreNotOnDiskStateNothingOfTheirHeaders)
     EXPECT_FALSE(model.run.headers.has_value());
     ASSERT_FALSE(model.masters.empty());
     EXPECT_EQ(model.masters.front().frames.size(), 2000u);
+}
+
+// ---- What a run records for its report.
+
+namespace
+{
+QByteArray fileBytes(const QString& path)
+{
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+
+bool statesNothingOf(const ReportModel& model, const QString& fragment)
+{
+    return std::any_of(model.notStated.begin(), model.notStated.end(), [&fragment](const ReportNotStated& entry) {
+        return entry.what.contains(fragment) || entry.why.contains(fragment);
+    });
+}
+} // namespace
+
+// A master is reused when the run's record of the groups it reused names it, and by nothing else: a master whose
+// file is there, which the run has neither a result for nor a record of reusing, is not called reused.
+TEST(ReportModelBuilder, AMasterIsReusedWhenTheRunsRecordNamesItAndByNothingElse)
+{
+    const auto scenario = built(ReportScenarioId::IncrementalRun);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_EQ(scenario->result.reusedIntegrationGroups.size(), 3u);
+
+    const ReportModel recorded = buildScenarioModel(*scenario);
+    EXPECT_EQ(countOfState(recorded, ReportMasterState::Reused), 3);
+    EXPECT_FALSE(statesNothingOf(recorded, QStringLiteral("nor a record of having reused")));
+
+    ReportScenario unrecorded = *scenario;
+    unrecorded.result.reusedIntegrationGroups.clear();
+    const ReportModel unnamed = buildScenarioModel(unrecorded);
+    EXPECT_EQ(countOfState(unnamed, ReportMasterState::Reused), 0);
+    EXPECT_EQ(countOfState(unnamed, ReportMasterState::Made), countOfState(recorded, ReportMasterState::Made));
+    int unaccounted = 0;
+    for (const ReportMaster& master : unnamed.masters)
+    {
+        if (master.state != ReportMasterState::NotReached)
+        {
+            continue;
+        }
+        ++unaccounted;
+        EXPECT_TRUE(QFileInfo::exists(master.file)) << "the file is there, and says nothing of the run";
+        EXPECT_FALSE(master.failure.isEmpty());
+        EXPECT_TRUE(master.madeByRun.isEmpty());
+    }
+    EXPECT_EQ(unaccounted, 3);
+    EXPECT_TRUE(statesNothingOf(unnamed, QStringLiteral("nor a record of having reused")));
+}
+
+// In a run that stopped, a master the run reused and one it never reached were once alike: the record tells them
+// apart.
+TEST(ReportModelBuilder, ARunThatStoppedStillNamesTheMastersItReused)
+{
+    auto scenario = built(ReportScenarioId::FailedInStacking);
+    ASSERT_TRUE(scenario.has_value());
+    const ReportModel before = buildScenarioModel(*scenario);
+    ASSERT_EQ(countOfState(before, ReportMasterState::NotReached), 1);
+    const auto notReached = std::find_if(before.masters.begin(), before.masters.end(), [](const ReportMaster& m) {
+        return m.state == ReportMasterState::NotReached;
+    });
+    ASSERT_NE(notReached, before.masters.end());
+
+    scenario->result.reusedIntegrationGroups.push_back(
+        ReusedIntegrationGroup{.groupKey = notReached->key, .outputPath = notReached->file});
+    const ReportModel after = buildScenarioModel(*scenario);
+
+    EXPECT_EQ(countOfState(after, ReportMasterState::NotReached), 0);
+    EXPECT_EQ(countOfState(after, ReportMasterState::Reused), 1);
+    EXPECT_EQ(after.run.groups.reused, 1);
+    EXPECT_EQ(after.run.groups.notReached, 0);
+    EXPECT_NE(after.run.outcome, ReportOutcome::Completed) << "the run still stopped";
+}
+
+TEST(ReportModelBuilder, AnArchivedRunStatesEachMastersDetailAndEachCalibrationMastersPicture)
+{
+    auto scenario = built(ReportScenarioId::FiveFilters);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+    const QDir run(scenario->runDirectory);
+
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+
+    int made = 0;
+    for (const ReportMaster& master : model.masters)
+    {
+        if (master.state != ReportMasterState::Made)
+        {
+            continue;
+        }
+        SCOPED_TRACE(master.name.toStdString());
+        ++made;
+        EXPECT_EQ(master.preview, QStringLiteral("report_previews/%1/master.jpg").arg(master.previewFolder));
+        EXPECT_EQ(master.detail, QStringLiteral("report_previews/%1/detail.jpg").arg(master.previewFolder));
+        const QImage detail(run.filePath(master.detail));
+        ASSERT_FALSE(detail.isNull());
+        // The scenario's masters are smaller than a detail's region: each is its own detail.
+        ASSERT_TRUE(master.statistics.has_value());
+        EXPECT_EQ(detail.size(),
+                  QSize(static_cast<int>(master.statistics->width), static_cast<int>(master.statistics->height)));
+        EXPECT_EQ(QImage(run.filePath(master.preview)).size(), detail.size());
+    }
+    EXPECT_EQ(made, scenario->facts.mastersMade);
+
+    ASSERT_EQ(model.calibrationMasters.size(), static_cast<std::size_t>(scenario->facts.calibrationMasters));
+    QSet<QString> pictures;
+    for (const ReportCalibrationMaster& master : model.calibrationMasters)
+    {
+        SCOPED_TRACE(master.name.toStdString());
+        EXPECT_TRUE(master.preview.startsWith(QStringLiteral("report_previews/calibration/")))
+            << master.preview.toStdString();
+        EXPECT_FALSE(QImage(run.filePath(master.preview)).isNull());
+        pictures.insert(master.preview);
+    }
+    EXPECT_EQ(pictures.size(), scenario->facts.calibrationMasters) << "each master has a picture of its own";
+
+    // The stored model keeps them.
+    const ReportModelRead read = ReportModelJson::fromJson(ReportModelJson::toJson(model));
+    ASSERT_TRUE(read.model.has_value());
+    EXPECT_EQ(*read.model, model);
+}
+
+TEST(ReportModelBuilder, WithoutASessionAnArchiveHoldsNoDetailAndNoCalibrationPicture)
+{
+    auto scenario = built(ReportScenarioId::FiveFiltersWithoutSession);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_EQ(scenario->session(), nullptr);
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+
+    for (const ReportMaster& master : model.masters)
+    {
+        EXPECT_TRUE(master.detail.isEmpty()) << master.name.toStdString();
+    }
+    for (const ReportCalibrationMaster& master : model.calibrationMasters)
+    {
+        EXPECT_TRUE(master.preview.isEmpty()) << master.name.toStdString();
+    }
+    EXPECT_FALSE(QDir(QDir(scenario->runDirectory).filePath(QStringLiteral("report_previews/calibration"))).exists());
+}
+
+TEST(ReportModelBuilder, AReusedMastersPicturesAreTheOnesTheRunThatMadeItArchived)
+{
+    auto scenario = built(ReportScenarioId::IncrementalRun);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_EQ(scenario->earlierRunDirectories.size(), 1);
+    const QDir earlier(scenario->earlierRunDirectories.front());
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+    const QDir run(scenario->runDirectory);
+
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+
+    int reused = 0;
+    for (const ReportMaster& master : model.masters)
+    {
+        if (master.state != ReportMasterState::Reused)
+        {
+            continue;
+        }
+        SCOPED_TRACE(master.name.toStdString());
+        ++reused;
+        ASSERT_FALSE(master.preview.isEmpty());
+        ASSERT_FALSE(master.detail.isEmpty());
+        const QByteArray whole = fileBytes(run.filePath(master.preview));
+        const QByteArray detail = fileBytes(run.filePath(master.detail));
+        ASSERT_FALSE(whole.isEmpty());
+        ASSERT_FALSE(detail.isEmpty());
+        // The copies keep this run's report whole after the history drops the earlier run.
+        EXPECT_EQ(whole, fileBytes(earlier.filePath(master.preview)));
+        EXPECT_EQ(detail, fileBytes(earlier.filePath(master.detail)));
+    }
+    EXPECT_EQ(reused, 3);
+}
+
+// Nothing a run decides has moved: for every scenario, the manifest that lists the lights left out has the hashes
+// and the fingerprints of the same manifest with the list emptied, differs from it by that key alone, and is no
+// change against it.
+TEST(ReportModelBuilder, TheLightsLeftOutMoveNothingARunDecidesBy)
+{
+    for (const ReportScenarioId id : allReportScenarios())
+    {
+        SCOPED_TRACE(scenarioName(id));
+        const auto scenario = built(id);
+        ASSERT_TRUE(scenario.has_value());
+
+        ReportScenario listed = *scenario;
+        if (listed.manifest.leftOutLights.empty() && !listed.manifest.integrationGroups.empty())
+        {
+            // A scenario that leaves no light out is given one of each kind, under a group it has and one it has not.
+            const WorkflowManifest::IntegrationGroup& group = listed.manifest.integrationGroups.front();
+            listed.manifest.leftOutLights = {
+                WorkflowManifest::LeftOutLight{
+                    .light = FrameId(group.lightFiles.front().canonicalPath() + QStringLiteral(".excluded.fit")),
+                    .kind = WorkflowManifest::LeftOutLight::Kind::Excluded,
+                    .groupKey = IntegrationGroupKey{GroupKey{QStringLiteral("not|made")}}},
+                WorkflowManifest::LeftOutLight{
+                    .light = FrameId(group.lightFiles.front().canonicalPath() + QStringLiteral(".from_stack.fit")),
+                    .kind = WorkflowManifest::LeftOutLight::Kind::StackExcluded,
+                    .groupKey = group.groupKey}};
+        }
+        ReportScenario emptied = listed;
+        emptied.manifest.leftOutLights.clear();
+        const WorkflowManifest& with = listed.manifest;
+        const WorkflowManifest& without = emptied.manifest;
+
+        QJsonObject withJson = with.toJson();
+        EXPECT_EQ(withJson.contains(QStringLiteral("leftOutLights")), !with.leftOutLights.empty());
+        withJson.remove(QStringLiteral("leftOutLights"));
+        EXPECT_EQ(QJsonDocument(withJson).toJson(QJsonDocument::Compact),
+                  QJsonDocument(without.toJson()).toJson(QJsonDocument::Compact));
+
+        ASSERT_EQ(with.integrationGroups.size(), without.integrationGroups.size());
+        for (std::size_t i = 0; i < with.integrationGroups.size(); ++i)
+        {
+            EXPECT_EQ(computeIntegrationGroupHash(with, with.integrationGroups[i]),
+                      computeIntegrationGroupHash(without, without.integrationGroups[i]));
+            EXPECT_EQ(
+                computeLightsCalibrationHashForSubset(with.lightsCalibration, with.integrationGroups[i].lightFiles),
+                computeLightsCalibrationHashForSubset(without.lightsCalibration,
+                                                      without.integrationGroups[i].lightFiles));
+        }
+        for (std::size_t i = 0; i < with.registrationGroups.size(); ++i)
+        {
+            EXPECT_EQ(registrationGroupMaterializationContractFingerprint(with, with.registrationGroups[i]),
+                      registrationGroupMaterializationContractFingerprint(without, without.registrationGroups[i]));
+        }
+        const auto calibrationHashes = [](const WorkflowManifest& manifest) {
+            QStringList hashes;
+            for (const auto* stage : {&manifest.biasStage, &manifest.darkStage, &manifest.flatStage})
+            {
+                if (stage->has_value())
+                {
+                    for (const auto& group : (*stage)->groups)
+                    {
+                        hashes << computeCalibrationGroupHash(manifest, group);
+                    }
+                }
+            }
+            return hashes;
+        };
+        EXPECT_EQ(calibrationHashes(with), calibrationHashes(without));
+
+        // The run's fingerprints are made of the integration group hashes, the registration settings hashes, the
+        // calibration group hashes and the lights' calibration hash.
+        const ReportModel withModel = buildScenarioModel(listed);
+        const ReportModel withoutModel = buildScenarioModel(emptied);
+        EXPECT_FALSE(withModel.run.settingsFingerprint.isEmpty());
+        EXPECT_EQ(withModel.run.settingsFingerprint, withoutModel.run.settingsFingerprint);
+        EXPECT_EQ(withModel.run.inputsFingerprint, withoutModel.run.inputsFingerprint);
+        EXPECT_EQ(withModel.run.fingerprint, withoutModel.run.fingerprint);
+
+        const ManifestDiff diff = compareManifests(without, with);
+        EXPECT_FALSE(diff.hasChanges()) << diff.toSummaryText().toStdString();
+        EXPECT_EQ(diff.totalModifications(), 0);
+    }
 }

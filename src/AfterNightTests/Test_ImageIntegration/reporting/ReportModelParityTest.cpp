@@ -135,11 +135,37 @@ TEST(ReportModelParity, TheRunsTotalsAreTheOnesTheMarkdownPrints)
         const ReportModel model = buildScenarioModel(*scenario);
         const ReportRun& run = model.run;
 
-        EXPECT_TRUE(states(markdown, QStringLiteral("| Light Frames | %1 |\n").arg(run.frames)));
-        if (run.capturedMs > 0)
+        // The Markdown counts the lights of the groups; the model counts the ones the user left out as taken too.
+        EXPECT_TRUE(states(markdown, QStringLiteral("| Light Frames | %1 |\n")
+                                         .arg(run.frames - static_cast<int>(scenario->manifest.leftOutLights.size()))));
+        // Likewise the time: the Markdown adds up the groups' lights, the model the lights left out as well.
+        qint64 leftOutMs = 0;
+        for (const ReportMaster& master : model.masters)
         {
-            EXPECT_TRUE(states(
-                markdown, QStringLiteral("| Total Integration Time | **%1** |").arg(markdownDuration(run.capturedMs))));
+            for (const ReportFrame& frame : master.frames)
+            {
+                const bool leftOut = frame.state == ReportFrameState::ExcludedByUser ||
+                                     frame.state == ReportFrameState::StackExcludedByUser;
+                if (leftOut && frame.exposureSeconds.has_value())
+                {
+                    leftOutMs += std::llround(*frame.exposureSeconds * 1000.0);
+                }
+            }
+        }
+        for (const ReportGroupNotStacked& group : model.groupsNotStacked)
+        {
+            for (const ReportFrame& frame : group.frames)
+            {
+                if (frame.exposureSeconds.has_value())
+                {
+                    leftOutMs += std::llround(*frame.exposureSeconds * 1000.0);
+                }
+            }
+        }
+        if (run.capturedMs - leftOutMs > 0)
+        {
+            EXPECT_TRUE(states(markdown, QStringLiteral("| Total Integration Time | **%1** |")
+                                             .arg(markdownDuration(run.capturedMs - leftOutMs))));
         }
         EXPECT_TRUE(
             states(markdown, QStringLiteral("| Processing Duration | %1 |").arg(markdownDuration(run.processingMs))));
