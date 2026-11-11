@@ -184,8 +184,9 @@ sources Test_FixtureEngine
 # neutral fixture layer writing the frames the scenarios read. Its cases link the processes and Controls libraries and
 # compile nothing of them.
 # The integration's durable documents fuzzed, class engine: the readers and writers of the session document, the
-# document envelope, the transform records, the drizzle descriptor and the coefficient set, linked from the processes
-# library, with the fuzz harness and its standalone driver - which a libFuzzer build leaves out.
+# document envelope, the transform records, the drizzle descriptor, the coefficient set and the report model a run's
+# archive keeps, linked from the processes library, with the fuzz harness and its standalone driver - which a
+# libFuzzer build leaves out.
 sources Fuzz_ConsumerDocuments
     unit     src/AfterNightTests/Fuzz_ConsumerDocuments/DocumentsFuzz.cpp
     unit     src/AfterNightTests/FuzzEngine/FuzzHarness.cpp
@@ -206,6 +207,9 @@ sources Fuzz_ConsumerDocuments
     header   src/AfterNightProcesses/processes/ImageIntegration/model/RegistrationGroupEngine.h
     header   src/AfterNightProcesses/processes/ImageIntegration/model/ValidationResult.h
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/SessionDocument.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportArchiveReader.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModel.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModelJson.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/DocumentPublication.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/DrizzleDescriptorDocument.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/stages/NormalizationArtifactSupport.h
@@ -4488,11 +4492,13 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportIssueFactsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportRunFactsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportComparisonTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportArchiveReaderTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelParityTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartSamples.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportHtmlWriterTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportHtmlPartsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportHtmlEarlierTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportSamplesTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/test_gaia_catalog_settings.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_image_integration_lite_process.cpp
@@ -4751,6 +4757,7 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportAssets.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportHtmlWriter.h
     header   src/AfterNightProcesses/processes/ImageIntegration/reporting/WorkflowReport.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportArchiveReader.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/BaseCalibrationPanel.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/CalibrationGroupTable.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/CalibrationPanelUtils.h

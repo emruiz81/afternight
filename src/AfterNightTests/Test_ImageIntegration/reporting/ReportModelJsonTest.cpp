@@ -231,12 +231,14 @@ ReportModel modelWithEveryKindOfValue()
                                      .archivedAt = run.archivedAt,
                                      .made = true,
                                      .frames = 87,
+                                     .framesTaken = 90,
                                      .integrationMs = qint64{5'000'000},
                                      .backgroundNoise = 9.1e-5,
                                      .snr = 44.0,
                                      .fwhm = 2.4,
                                      .effectiveFrames = 80.0,
                                      .rejectedFraction = 0.02,
+                                     .sideBySide = true,
                                      .preview = QStringLiteral("report_previews/x/previous_master.jpg"),
                                      .detail = {}};
     model.masters = {master, ReportMaster{}};
@@ -310,20 +312,63 @@ ReportModel modelWithEveryKindOfValue()
     ReportComparison comparison;
     comparison.baselineRunId = QStringLiteral("20261109_101500_000");
     comparison.baselineArchivedAt = run.archivedAt;
-    comparison.current =
-        ReportRunTotals{.frames = 174, .integrationMs = 9, .outputBytes = 8, .snr = 61.0, .overlapRetained = 0.9};
-    comparison.previous = ReportRunTotals{
-        .frames = 87, .integrationMs = 4, .outputBytes = 3, .snr = std::nullopt, .overlapRetained = std::nullopt};
+    comparison.current = ReportRunTotals{.frames = 174,
+                                         .integrationMs = 9,
+                                         .framesUsed = 168,
+                                         .integratedMs = qint64{7},
+                                         .masters = 6,
+                                         .outputBytes = 8,
+                                         .snr = 61.0,
+                                         .overlapRetained = 0.9};
+    comparison.previous = ReportRunTotals{.frames = 87,
+                                          .integrationMs = 4,
+                                          .framesUsed = std::nullopt,
+                                          .integratedMs = std::nullopt,
+                                          .masters = 0,
+                                          .outputBytes = 3,
+                                          .snr = std::nullopt,
+                                          .overlapRetained = std::nullopt};
     comparison.settingsChanged = {ReportSettingChange{.stage = QStringLiteral("Stacking"),
                                                       .groupKey = master.key,
                                                       .group = master.name,
+                                                      .block = QStringLiteral("Rejection"),
                                                       .name = QStringLiteral("Sigma High"),
                                                       .before = QStringLiteral("3"),
-                                                      .after = QStringLiteral("2.5")}};
-    comparison.inputsChanged = {ReportInputChange{
-        .groupKey = master.key, .group = master.name, .added = {QStringLiteral("l_061.fits")}, .removed = {}}};
+                                                      .after = QStringLiteral("2.5")},
+                                  ReportSettingChange{.stage = QStringLiteral("The run"),
+                                                      .groupKey = {},
+                                                      .group = {},
+                                                      .block = QStringLiteral("Execution"),
+                                                      .name = QStringLiteral("Threads"),
+                                                      .before = {},
+                                                      .after = QStringLiteral("16")}};
+    comparison.settingsCompared = 64;
+    comparison.groupsChanged = {ReportGroupChange{.stage = QStringLiteral("Registration"),
+                                                  .groupKey = registration.key,
+                                                  .group = QStringLiteral("M 20"),
+                                                  .added = true},
+                                ReportGroupChange{.stage = QStringLiteral("Calibration masters"),
+                                                  .groupKey = QStringLiteral("dark|600"),
+                                                  .group = QStringLiteral("Dark 600 s"),
+                                                  .added = false}};
+    comparison.inputsChanged = {ReportInputChange{.stage = QStringLiteral("Stacking"),
+                                                  .groupKey = master.key,
+                                                  .group = master.name,
+                                                  .added = {QStringLiteral("l_061.fits")},
+                                                  .removed = {}}};
     model.comparison = comparison;
-    model.history = {ReportHistoryEntry{.runId = QStringLiteral("20261109_101500_000"),
+    model.history = {ReportHistoryEntry{.runId = QStringLiteral("20261108_093000_000"),
+                                        .refusal = QStringLiteral("The archive keeps no stored report."),
+                                        .archivedAt = std::nullopt,
+                                        .outcome = std::nullopt,
+                                        .framesUsed = std::nullopt,
+                                        .frames = std::nullopt,
+                                        .integrationMs = std::nullopt,
+                                        .masters = std::nullopt,
+                                        .backgroundNoise = std::nullopt,
+                                        .report = {}},
+                     ReportHistoryEntry{.runId = QStringLiteral("20261109_101500_000"),
+                                        .refusal = {},
                                         .archivedAt = run.archivedAt,
                                         .outcome = ReportOutcome::Cancelled,
                                         .framesUsed = 80,

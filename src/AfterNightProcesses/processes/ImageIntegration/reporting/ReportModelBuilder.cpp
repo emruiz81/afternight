@@ -8,11 +8,10 @@
 
 #include "processes/ImageIntegration/core/ParallelExecutionUtils.h"
 
-#include "ReportModelJson.h"
+#include "ReportArchiveReader.h"
 
 #include <QDir>
 #include <QFileInfo>
-#include <QJsonDocument>
 
 #include <algorithm>
 #include <utility>
@@ -172,6 +171,12 @@ QString ReportBuild::referenceFrame(const QString& registrationGroupKey)
     return reference;
 }
 
+QString ReportBuild::historyDirectory() const
+{
+    const QString runDirectory = m_inputs.runDirectory.trimmed();
+    return runDirectory.isEmpty() ? QString() : QFileInfo(QDir::cleanPath(runDirectory)).dir().absolutePath();
+}
+
 const std::vector<StoredRun>& ReportBuild::earlierRuns()
 {
     if (m_earlierRuns.has_value())
@@ -184,7 +189,8 @@ const std::vector<StoredRun>& ReportBuild::earlierRuns()
     {
         return *m_earlierRuns;
     }
-    // The runs of a folder are named by when they started, so a name that sorts first is an earlier run.
+    // The runs of a folder are named by when they started, so a name that sorts first is an earlier run. The run
+    // being written and any run after it are never read.
     const QFileInfo own(QDir::cleanPath(runDirectory));
     const QDir history = own.dir();
     QStringList names = m_sources.files->folders(history.absolutePath());
@@ -195,24 +201,22 @@ const std::vector<StoredRun>& ReportBuild::earlierRuns()
         {
             continue;
         }
-        const std::optional<QString> stored =
-            m_sources.files->readText(history.filePath(name + QStringLiteral("/workflow_report.json")));
-        if (!stored.has_value())
-        {
-            continue;
-        }
-        const QJsonDocument document = QJsonDocument::fromJson(stored->toUtf8());
-        if (!document.isObject())
-        {
-            continue;
-        }
-        ReportModelRead read = ReportModelJson::fromJson(document.object());
+        ReportArchiveRead read = ReportArchiveReader::read(history.filePath(name), *m_sources.files);
+        EarlierArchive archive{.runId = name, .stored = std::nullopt, .refusal = read.why};
         if (read.model.has_value())
         {
+            archive.stored = m_earlierRuns->size();
             m_earlierRuns->push_back(StoredRun{.runId = name, .model = std::move(*read.model)});
         }
+        m_earlierArchives.push_back(std::move(archive));
     }
     return *m_earlierRuns;
+}
+
+const std::vector<EarlierArchive>& ReportBuild::earlierArchives()
+{
+    static_cast<void>(earlierRuns());
+    return m_earlierArchives;
 }
 
 void ReportBuild::notStated(const QString& what, const QString& why)

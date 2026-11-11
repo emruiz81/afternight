@@ -440,12 +440,28 @@ TEST_F(ReportHtmlWriterTest, EveryLinkLandsAndTheContentsNameEveryBlock)
         const ParsedDocument& parsed = report->linkedParsed;
         const QStringList ids = parsed.ids();
 
+        // A link leads to a place of the document, or - in the linked form, which lies in the folder's history - to
+        // the report of an earlier run of the folder, which is there.
+        QStringList earlierReports;
+        for (const ReportHistoryEntry& entry : report->model.history)
+        {
+            if (!entry.report.isEmpty())
+            {
+                earlierReports << entry.report;
+            }
+        }
         for (const DocumentElement* link : parsed.named("a"))
         {
             const QString target = link->attribute("href");
+            EXPECT_FALSE(link->text.trimmed().isEmpty()) << target.toStdString() << " has no words";
+            if (earlierReports.contains(target))
+            {
+                EXPECT_TRUE(QFileInfo::exists(QDir(report->scenario.runDirectory).filePath(target)))
+                    << target.toStdString() << " leads to a report that is not there";
+                continue;
+            }
             ASSERT_TRUE(target.startsWith(QLatin1Char('#'))) << target.toStdString();
             EXPECT_TRUE(ids.contains(target.mid(1))) << target.toStdString() << " leads nowhere";
-            EXPECT_FALSE(link->text.trimmed().isEmpty()) << target.toStdString() << " has no words";
         }
 
         // The contents lead to the overview, to every block and to every master's file, in the document's order,
@@ -466,6 +482,12 @@ TEST_F(ReportHtmlWriterTest, EveryLinkLandsAndTheContentsNameEveryBlock)
         {
             if (element.hasClass("block") || element.hasClass("file"))
             {
+                expected << element.attribute("id");
+            }
+            else if (element.hasClass("part") && parsed.ofClassInside(element, "block").empty() &&
+                     parsed.ofClassInside(element, "file").empty())
+            {
+                // A part of one sentence has no block: the contents lead to the part itself.
                 expected << element.attribute("id");
             }
         }
@@ -906,21 +928,9 @@ TEST_F(ReportHtmlWriterTest, NoTextHoldsAPlaceholderARawGroupKeyOrAValueThatIsNo
         ASSERT_NE(report, nullptr);
         const ParsedDocument& parsed = report->linkedParsed;
 
-        QStringList texts = {parsed.bodyText()};
-        for (const DocumentElement& element : parsed.elements)
-        {
-            for (const char* attribute : {"data-tip", "aria-label", "alt", "title"})
-            {
-                if (element.has(attribute))
-                {
-                    texts << element.attribute(attribute);
-                }
-            }
-        }
-        for (QString text : texts)
-        {
-            // A message of the run is printed word for word, a group's key included when the run wrote one: the
-            // report's own words are what is held here.
+        // A message of the run is printed word for word, a group's key included when the run wrote one: the
+        // report's own words are what is held here.
+        const auto withoutTheRunsMessages = [&report](QString text) {
             for (const ReportIssue& issue : report->model.issues)
             {
                 if (issue.kind == ReportIssueKind::RunMessage)
@@ -929,14 +939,51 @@ TEST_F(ReportHtmlWriterTest, NoTextHoldsAPlaceholderARawGroupKeyOrAValueThatIsNo
                     text.remove(issue.detail);
                 }
             }
-            // So is the run's log.
-            for (const DocumentElement* log : parsed.ofClass("log"))
+            return text;
+        };
+        const std::vector<const DocumentElement*> logs = parsed.ofClass("log");
+
+        // A placeholder is looked for run by run of the text: a table sets "1.3 %" in one cell and "1.4 %" in the
+        // next, and the two read as one line would pass for one.
+        QStringList pieces;
+        for (const DocumentTextRun& run : parsed.runs)
+        {
+            const DocumentElement& owner = parsed.elements[static_cast<std::size_t>(run.element)];
+            const bool logged = std::any_of(logs.begin(), logs.end(), [&](const DocumentElement* log) {
+                return log == &owner || parsed.isInside(owner, *log);
+            });
+            if (!logged)
             {
-                text.remove(log->text);
+                pieces << run.text;
             }
+        }
+        QStringList texts = {parsed.bodyText()};
+        for (const DocumentElement& element : parsed.elements)
+        {
+            for (const char* attribute : {"data-tip", "aria-label", "alt", "title"})
+            {
+                if (element.has(attribute))
+                {
+                    texts << element.attribute(attribute);
+                    pieces << element.attribute(attribute);
+                }
+            }
+        }
+        for (const QString& piece : pieces)
+        {
+            const QString text = withoutTheRunsMessages(piece);
             const QRegularExpressionMatch placeholder = kPlaceholder.match(text);
             EXPECT_FALSE(placeholder.hasMatch())
                 << text.mid((std::max)(qsizetype(0), placeholder.capturedStart() - 60), 120).toStdString();
+        }
+        for (const QString& whole : texts)
+        {
+            QString text = withoutTheRunsMessages(whole);
+            // The run's log is printed word for word too.
+            for (const DocumentElement* log : logs)
+            {
+                text.remove(log->text);
+            }
             const QRegularExpressionMatch notANumber = kNotANumber.match(text);
             EXPECT_FALSE(notANumber.hasMatch())
                 << text.mid((std::max)(qsizetype(0), notANumber.capturedStart() - 60), 120).toStdString();

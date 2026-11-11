@@ -187,31 +187,6 @@ struct SummaryPlan
     return "note";
 }
 
-/// How the run ended, in a word or two, and the kind of pill that says it.
-struct OutcomeWords
-{
-    const char* kind;
-    QString text;
-};
-
-[[nodiscard]] OutcomeWords outcomeWords(const ReportOutcome outcome)
-{
-    switch (outcome)
-    {
-    case ReportOutcome::Completed:
-        return {"good", documentText("Completed")};
-    case ReportOutcome::CompletedWithWarnings:
-        return {"warning", documentText("Completed with warnings")};
-    case ReportOutcome::Partial:
-        return {"critical", documentText("Partly completed")};
-    case ReportOutcome::Failed:
-        return {"critical", documentText("Failed")};
-    case ReportOutcome::Cancelled:
-        return {"critical", documentText("Cancelled")};
-    }
-    return {"note", {}};
-}
-
 /// The issues that are computed kinds, and the ones that are the run's own messages.
 struct IssueSplit
 {
@@ -348,7 +323,12 @@ void writeTile(ReportMarkup& out, const Tile& tile)
     }
     if (compared)
     {
-        lights.under = documentText("Earlier run: %1 lights taken").arg(formatCount(comparison->previous.frames));
+        // The earlier run's figure is the same figure: the lights used where both runs state them.
+        lights.under =
+            run.framesUsed.has_value() && comparison->previous.framesUsed.has_value()
+                ? documentText("Earlier run: %1 of %2")
+                      .arg(formatCount(*comparison->previous.framesUsed), formatCount(comparison->previous.frames))
+                : documentText("Earlier run: %1 lights taken").arg(formatCount(comparison->previous.frames));
     }
 
     Tile integration{.icon = "clock", .label = documentText("Integration")};
@@ -365,7 +345,9 @@ void writeTile(ReportMarkup& out, const Tile& tile)
     if (compared)
     {
         integration.under =
-            documentText("Earlier run: %1 captured").arg(formatDurationMs(comparison->previous.integrationMs));
+            run.integratedMs.has_value() && comparison->previous.integratedMs.has_value()
+                ? documentText("Earlier run: %1").arg(formatDurationMs(*comparison->previous.integratedMs))
+                : documentText("Earlier run: %1 captured").arg(formatDurationMs(comparison->previous.integrationMs));
     }
 
     Tile time{.icon = "clock", .label = documentText("Run time")};
@@ -396,6 +378,11 @@ void writeTile(ReportMarkup& out, const Tile& tile)
         {
             noise.under = words.text;
         }
+        else if (master.baseline.has_value() && master.baseline->made && master.baseline->backgroundNoise.has_value())
+        {
+            // The master's own baseline: the latest earlier run that made it.
+            noise.under = documentText("Earlier run: %1").arg(formatFigure(master.baseline->backgroundNoise));
+        }
         tiles = {lights, integration, noise, time};
     }
     else
@@ -407,6 +394,12 @@ void writeTile(ReportMarkup& out, const Tile& tile)
             masters.valueAside = documentText("of %1").arg(formatCount(run.groups.total));
         }
         masters.hint = groupCountsLine(run.groups);
+        if (compared)
+        {
+            masters.under = counted(comparison->previous.masters,
+                                    QT_TRANSLATE_NOOP("ImageIntegrationReport", "Earlier run: %1 master"),
+                                    QT_TRANSLATE_NOOP("ImageIntegrationReport", "Earlier run: %1 masters"));
+        }
         tiles = {masters, lights, integration, time};
     }
     return tiles;
@@ -520,7 +513,7 @@ void writeMasterNames(ReportMarkup& out, const ReportDocumentContext& context,
 void writeOutcome(ReportMarkup& out, const ReportDocumentContext& context, const QHash<QString, QString>& labels)
 {
     const ReportModel& model = context.model;
-    const OutcomeWords words = outcomeWords(model.run.outcome);
+    const ReportStateWords words = outcomeWords(model.run.outcome);
 
     // The run's own account of how it stopped: the first critical issue. Its action says what a new run makes.
     const auto first = std::find_if(model.issues.begin(), model.issues.end(), [](const ReportIssue& issue) {
@@ -1578,7 +1571,7 @@ ReportMarkup writeReportHeader(const ReportDocumentContext& context)
     out.element("p", {{"class", QStringLiteral("sub")}}, under.join(dotSeparator()));
     out.close("div");
     out.element("span", {{"class", QStringLiteral("sp")}}, QString());
-    const OutcomeWords words = outcomeWords(run.outcome);
+    const ReportStateWords words = outcomeWords(run.outcome);
     writePill(out, words.kind, words.text);
     out.open("button", {{"type", QStringLiteral("button")},
                         {"class", QStringLiteral("themebtn noprint")},
