@@ -10,15 +10,13 @@
 /// five filters over two nights, cloud over part of the first - with every state a light can end in. The figures
 /// come from a fixed sequence, so a chart of them is the same on every host and in every run.
 ///
-/// The page is how a person looks at the charts before the report has a document to put them in. Its stylesheet is
-/// a stand-in for the report's own: it gives the charts' classes their colours in both themes, and the colours are
-/// stated here as values so a case can hold their contrast.
+/// The page is how a person looks at the charts on their own, away from a report. It carries the report's own
+/// stylesheet and script, so a chart looks and answers there as it does in a report.
 
 #include "processes/ImageIntegration/reporting/ReportCharts.h"
 
 #include <QString>
 
-#include <array>
 #include <vector>
 
 namespace ReportChartSamples
@@ -111,41 +109,10 @@ struct SampleChart
 /// too large to mark light by light, a run that stopped, and nothing to draw.
 [[nodiscard]] std::vector<SampleChart> everySampleChart();
 
-/// The colours the stand-in stylesheet gives one theme.
-struct StandInTheme
-{
-    const char* name;
-
-    /// The surfaces a chart sits on: a card, and the page a master's inner panels take.
-    const char* card;
-    const char* background;
-
-    /// The three inks of text.
-    const char* ink;
-    const char* ink2;
-    const char* ink3;
-
-    /// The two series.
-    const char* series;
-    const char* series2;
-
-    /// The status colours.
-    const char* success;
-    const char* warning;
-    const char* error;
-
-    /// Lines that carry no value: the grid and the axes.
-    const char* grid;
-    const char* axis;
-};
-
-/// The stand-in stylesheet's two themes: dark, then light.
-[[nodiscard]] const std::array<StandInTheme, 2>& standInThemes();
-
-/// The stand-in stylesheet: the themes' colours as custom properties and a rule for each class the charts use.
-[[nodiscard]] QString standInStylesheet();
+/// The page's stylesheet: the report's own, and the few rules that lay the page out.
+[[nodiscard]] QString samplePageStylesheet();
 
 /// A document that shows every sample chart, well-formed XML and HTML at once. It follows the reader's theme and
-/// takes `?theme=light` or `?theme=dark`; its script shows the tips and does nothing else.
+/// takes `?theme=light` or `?theme=dark`, as a report does.
 [[nodiscard]] QString samplePage();
 } // namespace ReportChartSamples

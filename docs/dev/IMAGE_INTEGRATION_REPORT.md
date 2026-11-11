@@ -1,7 +1,8 @@
 # The Image Integration report
 
 How a run of `ImageIntegrationProcess` reports itself: when a report is written, what it is built from, the model
-a report is stated in, how its values are printed, how its charts are drawn, and the runs its suites are held to. The code is under
+a report is stated in, how its values are printed, how its charts are drawn, how its document is written, and the
+runs its suites are held to. The code is under
 `src/AfterNightProcesses/processes/ImageIntegration/reporting/`, the archive that calls it in
 `workflow/WorkflowArchiver.cpp`, and the suites in `src/AfterNightTests/Test_ImageIntegration/reporting/`.
 
@@ -424,8 +425,8 @@ output its suite holds to the character.
 
 `ReportCharts.h` draws the report's charts: a function per chart, from plain series to one inline `svg` element.
 The functions read no run and no report model - a caller hands each the values, the texts and the tips it is to
-draw - so a chart can be drawn, tested and looked at on its own. Nothing but their suite calls them yet: the report
-a run writes has no charts until its document is written from the model.
+draw - so a chart can be drawn, tested and looked at on its own. The document's summary draws six of them ("The
+document"); the report a run writes is still the Markdown one, which has none.
 
 | Function | Draws |
 | --- | --- |
@@ -499,11 +500,185 @@ Test_ImageIntegration.exe --gtest_filter=ReportChartSamples.*
 ```
 
 It writes `report_charts.html`, which opens from disk, follows the reader's theme and takes `?theme=light` or
-`?theme=dark`. Its stylesheet is a stand-in for the report's own, which is not written yet: it gives each class the
-charts use a rule, and states its two themes' colours as values (`standInThemes`). A case holds every class a chart
-emits to a rule of that stylesheet, and another holds the colours' contrast on the surfaces a chart sits on, a
-card and the page, in both themes: 3:1 or more for what a mark is drawn in (the two series, the status colours,
-the grey of a light the user left out) and 4.5:1 or more for what text is written in.
+`?theme=dark`. The page carries the report's own stylesheet and script, so a chart looks and answers there as it
+does in a report. The cases that hold every class a chart emits to a rule of that stylesheet, and its colours to
+their contrast, are the document's ("The style").
+
+## The document
+
+`ReportHtmlWriter.h` writes a report as one HTML file from its model: `writeReportDocument(model, options)` returns
+the document, and `writeWorkflowReport` (`WorkflowReport.h`) writes it to a file. No run calls either yet: the report
+a run writes is still the Markdown one, and the document is written by the suites, which is how it can be looked at
+before it replaces anything. It has the header and the first of its six parts; the others are not written yet, so
+nothing links to them.
+
+| Unit (`reporting/`) | Holds |
+| --- | --- |
+| `ReportHtmlWriter.h/.cpp` | `ReportMarkup`, the one way markup is written; the document's shell, its contents and its footer; the fragments the parts share; the two assets as the document carries them |
+| `ReportHtmlParts.h` | Private to the reporting units: what a part is, what every part is written from, the fragments' declarations, and `documentText`, the one way a word of the document is made |
+| `ReportHtmlSummary.cpp` | The header, and part 1: `outcome`, `attention`, `made`, `frames`, `nights`, `quality` |
+| `ReportAssets.h/.cpp` | What a document of each form writes for a picture, a path and a message of the run |
+| `WorkflowReport.h/.cpp` | The document as a file, in either form |
+| `assets/report.css`, `report.js`, `Report.qrc` | The style and the script, compiled into the library as a Qt resource |
+
+### The markup is XML and HTML at once
+
+The document is written so that an XML parser reads it and a browser shows it. That is what lets the suite read a
+report back with `QXmlStreamReader` and assert on its structure - an id that exists once, a link that lands, a
+table's cells against the model - instead of matching substrings of its bytes, which is all the Markdown report's
+suite could do. The XML parse proves half of it; the rules below and the browsers of the render tool prove the
+other.
+
+`ReportMarkup` keeps the rules, so no part can break them by hand: a part opens and closes elements by name and
+hands over text, and what the rules forbid is refused and named in the document's `faults` rather than written.
+
+- **Every element has an end tag, except the void ones** (`br`, `hr`, `img`, `input`, `meta`, `link`, `col`), which
+  are closed in their own tag. No other element is: HTML reads `<div/>` as a `div` left open. The one exception is
+  inside an `svg`, where HTML follows XML, and where the charts and the icons close an element with no content in
+  its own tag: an end tag for every mark would cost about a twentieth of a report.
+- **Attributes are quoted and escaped, and so is text.** The five characters XML reserves are written as
+  references, and no other named entity is written: an XML parser knows none. In an attribute a tab and a line
+  break are references too, since a parser would read each as a space and a tip's lines are separated by line
+  feeds.
+- **A character XML forbids is replaced by U+FFFD**: a control character other than a tab and a line break, and
+  half of a surrogate pair. A file's name, a header's value and a line of a log can hold any of them.
+- **Nothing a run wrote goes inside `style`, `script` or a CDATA section.** The style and the script are the
+  report's own two assets, each wrapped as CDATA inside comments so both parsers take it whole; a case holds the two
+  free of `]]>`, `</script`, `</style` and `<!--`. A run's words are text and attribute values, nowhere else.
+- **An element's name and an attribute's are plain**: lower-case letters and digits, with hyphens inside an
+  attribute's. A name that is not is refused, so a name can never be made of a run's words.
+- **An attribute with a null value is left out; one with an empty value is written.** That is how a part states an
+  attribute only sometimes (`href` on a card that has somewhere to lead), and still writes `alt=""`.
+
+A chart and a legend are taken as `ReportCharts` returned them (`ReportMarkup::chart`), since those functions keep
+the same rules; nothing else is handed to that function.
+
+### Parts, blocks and anchors
+
+A part is one unit's work: it states the anchors it will write, then writes its `section` and names its entries of
+the contents. The anchors are stated first, for the whole document, because a link is made only to a place the
+document has: an issue of the summary points at a master's file only when that file is written, and until then the
+master's name stands there as text. So a document never holds a link that leads nowhere, whichever parts exist.
+
+- **A block that has nothing to say is absent, and so is its entry in the contents.** `outcome` is there for a run
+  that stopped and for no other; `made` for a run of more than one master; `nights` when a light states a measure
+  to draw; `quality` when one states its sharpness or its weight. The contents are made from the parts and blocks
+  that are present, so every entry lands.
+- **A run of one master has no gallery and no table comparing masters.** Its picture stands in the header beside
+  the figures, and the header's third figure is that master's noise, where a run of several counts its masters.
+- **Several targets are grouped by target**: the title says how many, and the gallery and the comparison table
+  give each target its own line of lights and integration with its masters under it.
+- **A run that stopped leads with what happened**: what was kept, what was not made and why, and what to do, which
+  is the action of the issue that says how it stopped. Only a run that made a master is archived, so there is
+  always something kept.
+- **The issues are in the model's order**, the computed kinds first and the most severe first, each with its
+  action when it has one. The run's own warnings and errors follow under their own heading, word for word, and are
+  folded away when there are more than five. A run with nothing to attend to says so.
+- **A reason with no light is listed nowhere.** The table of why lights were left out has a row per state that has
+  a light, and the bar's legend an entry per segment.
+- **A status is never told by colour alone.** A pill is an icon and a word; a light's state in a table is a swatch
+  and its name; a chart marks a light left out with a cross.
+- **The same model is the same document.** Nothing reads a clock or a counter, so a report written again from its
+  stored model does not change.
+
+The ids a suite and the contents name: `top`; `summary` with `outcome`, `attention`, `made`, `frames`, `nights`
+and `quality`. An issue's anchor may also be `file-<slug>`, `cal` or `registration`, which the later parts write.
+
+### The words
+
+Every word the document says is made by `documentText` or `counted`, under the translation context
+`ImageIntegrationReport`, the one the model's words are made under. No translation ships: a report reads in
+English. A sentence handed to `translate` is kept to ASCII, with a sign such as the multiplication sign put in as
+an argument, so it does not depend on how a compiler reads a narrow literal. The charts say no word of their own:
+the writer gives each its title, its labels, its tips and the sentence it holds when it has nothing to draw.
+
+### The two forms
+
+One writer writes two forms, which differ only in what `ReportAssets` answers:
+
+- **Linked**, the one a run keeps: `workflow_report.html` in the run's folder, naming each picture by its path
+  under that folder. The pictures are used as the archive holds them.
+- **Embedded**, the one a person sends: one file with every picture inside it as a `data:` address, each read once,
+  reduced so its longer side is at most 1,280 pixels and written again as a JPEG of quality 82
+  (`boundedJpeg`). A path is printed as a file's name without its folders, and in a message of the run the output
+  folder's path is replaced by the folder's name and the folder of every file the model names is dropped, in
+  either spelling of the separator. A folder is noise to a stranger and says more than its owner may want. A
+  picture the embedded form cannot read is left out: it never names a file outside itself.
+
+Two forms rather than one because a run's own report should stay small and keep its full-size pictures one click
+away, and a report meant to be sent must open from an empty folder. The embedded form is an action on a run, not a
+setting: it works for a run archived earlier, and it is never written into `history/`, whose size is bounded.
+
+A case holds the linked form to pictures that are in the run's folder, the embedded one to no `src` but a `data:`
+address and no `href` but one inside the document, and both to their sizes: the linked form within 400 KB and
+2.5 KB a light, the embedded one within that and 1 MB a master.
+
+### The style
+
+`assets/report.css` is carried inside every report.
+
+- **The neutrals, the accent and the status colours are the user guide's**
+  (`docs/user-guide/theme/assets/guide/css/tokens.css`), which takes them from the application's design tokens, so
+  one copy serves both and a report looks like the application and the website. A case reads the guide's file and
+  fails when a token the two share differs. A report does not follow an accent the user picked in the application:
+  it is read away from it.
+- **Dark is the default; a reader who prefers light gets light; the toggle wins over both; print is always
+  light.** The light values are therefore stated three times - for the preference, for the choice, for print - and
+  the same case holds the three equal.
+- **The fonts are the system's.** Embedding the guide's three families would add about 300 KB to every report.
+- **The chart colours are the report's own.** The two series are told apart by a reader with a colour vision
+  deficiency. A case holds what a mark is drawn in (the two series, the status colours, the grey of a light the
+  user left out) to 3:1 or more on a card and on the page in both themes, and what text is written in to 4.5:1 or
+  more on those and on a tile. Another holds every class the document and the charts emit to a rule.
+- **The layout gives way in steps.** The contents stand beside the page from 1,181 pixels; the grids fall to one
+  column under 900; every grid child has `min-width: 0`, without which a table widens a phone's layout. A chart or
+  a table wider than its card scrolls sideways inside it instead of shrinking; the container can be reached with
+  the keyboard and says what it holds.
+- **It loads nothing**: no `url(`, no `@import`, no font face. A case holds that.
+
+### The script
+
+`assets/report.js` shows the tip of what the reader points at or reaches with the keyboard, switches and
+remembers the theme, sorts a table of class `sortable` by a column's `data-v`, opens a folded section a link leads
+into or that is about to be printed, and moves a comparison's divider. It computes no figure of the report: every
+number is written when the report is, so the same report is read with scripts off, where only those conveniences
+are lost, and so no product logic runs in a browser. A case holds the file free of `fetch`, `XMLHttpRequest`,
+`import`, `eval` and any address.
+
+### Looking at a report
+
+An opt-in case writes every scenario's report in both forms, with its stored model:
+
+```text
+set AFTERNIGHT_WRITE_REPORT_SAMPLES=<folder>
+Test_ImageIntegration.exe --gtest_filter=ReportSamples.*
+```
+
+Each scenario gets a folder there, laid out as a run's archive is: `workflow_report.html` beside the
+`report_previews/` it names, `workflow_report.json`, and `workflow_report.single.html`, the embedded form. The
+linked report opens from that folder; it takes `?theme=light` or `?theme=dark`.
+
+`build/scripts/render_integration_report.cjs` opens those samples in real browsers, as
+`render_user_guide.cjs` opens the guide, with the same Node packages and browsers outside the repository (that
+script's header says how they are set up):
+
+```text
+set NODE_PATH=%TEMP%\afternight-guide-render\node_modules
+node build/scripts/render_integration_report.cjs --samples <folder> [--shots <folder>]
+```
+
+It opens each scenario's linked report where it lies and its embedded one copied alone into an empty folder, from
+`file://` with the network blocked, in Chrome and Firefox, at 1,440, 1,024 and 390 pixels, in both themes, and
+fails a load on: a request that leaves the file, a console or page error, a picture that did not load, a page
+wider than its window, content that spills out of its card, a link that leads nowhere, a contents entry that does
+not land, a theme toggle, a measure switch, a sort, a divider or a link into a folded section that does nothing, a
+tip that does not show, a serious or critical axe-core finding, and a print render that is not light, shows the
+contents or leaves a section folded. `--shots` writes a picture of every load and, from Chromium, a PDF of the
+print render. The suite proves the document's structure; this proves what a reader sees.
+
+To add a block to a part: write it through `ReportMarkup` in the part's unit, state its anchor among the part's
+anchors under the same condition it is written under, name it in the part's entries, give every class it uses a
+rule in `report.css`, and hold it in `ReportHtmlWriterTest.cpp`, for every scenario where that is cheap.
 
 ## The suites, and the runs they build
 
@@ -525,6 +700,12 @@ the grey of a light the user left out) and 4.5:1 or more for what text is writte
 - `ReportChartsTest.cpp` - each chart, read back from the SVG it returns: a mark per value, a cross per light left
   out, a tip per mark, round ticks that span the data, and what a chart does with nothing, one value, equal values
   and a value that is not a number. Its series are in `ReportChartSamples.h` ("Looking at the charts").
+- `ReportHtmlWriterTest.cpp` - the document, read back as XML (`ReportDocumentTestSupport.h`): well-formed for
+  every scenario in both forms, each block there exactly when the run calls for it, every link landing, the
+  header's figures and the issues against the model, what a run wrote coming out as text whatever it holds, the
+  two forms' pictures and paths, and the style and the script held to their rules.
+- `ReportSamplesTest.cpp` - writes every scenario's report where a person or the render tool can open it; skipped
+  unless asked ("Looking at a report").
 
 `ReportScenarios.h` is where a suite gets a run from. `buildReportScenario(id)` writes one whole run under a
 temporary directory the scenario owns - the masters and the lights through the neutral FITS writer, the metrics
