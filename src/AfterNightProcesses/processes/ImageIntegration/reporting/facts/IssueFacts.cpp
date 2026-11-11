@@ -181,11 +181,16 @@ void addMasterOutcomes(const ReportModel& model, Issues& issues, const ReportIss
                 QStringList stated;
                 for (const QString& reason : reasons)
                 {
-                    stated.append(reportText("%1 lights: %2").arg(lightsByReason.value(reason)).arg(reason));
+                    const int lights = lightsByReason.value(reason);
+                    stated.append(lights == 1 ? reportText("1 light: %1").arg(reason)
+                                              : reportText("%1 lights: %2").arg(lights).arg(reason));
                 }
-                issues.add(kind, ReportIssueSeverity::Warning,
-                           reportText("The stack of %1 left %2 registered lights out").arg(master.name).arg(leftOut),
-                           stated.join(QLatin1Char(' ')), {}, master.key, masterAnchor(master));
+                issues.add(
+                    kind, ReportIssueSeverity::Warning,
+                    leftOut == 1
+                        ? reportText("The stack of %1 left 1 registered light out").arg(master.name)
+                        : reportText("The stack of %1 left %2 registered lights out").arg(master.name).arg(leftOut),
+                    stated.join(QLatin1Char(' ')), {}, master.key, masterAnchor(master));
             }
             break;
         case ReportIssueKind::StackedTwice:
@@ -193,9 +198,12 @@ void addMasterOutcomes(const ReportModel& model, Issues& issues, const ReportIss
             {
                 issues.add(kind, ReportIssueSeverity::Note,
                            reportText("The master %1 was stacked twice").arg(master.name),
-                           reportText("The first stack flagged %1 lights, and the master is the second stack, made "
-                                      "without them.")
-                               .arg(master.stack->restack->excluded.size()),
+                           master.stack->restack->excluded.size() == 1
+                               ? reportText("The first stack flagged 1 light, and the master is the second stack, "
+                                            "made without it.")
+                               : reportText("The first stack flagged %1 lights, and the master is the second stack, "
+                                            "made without them.")
+                                     .arg(master.stack->restack->excluded.size()),
                            {}, master.key, masterAnchor(master));
             }
             break;
