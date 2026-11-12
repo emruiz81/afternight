@@ -28,10 +28,12 @@
 #include "processes/ImageIntegration/workflow/stages/LightsStackingStage.h"
 #include "processes/ImageIntegration/workflow/stages/StageResult.h"
 
+#include <AfterNightEngine/Algorithms/Presentation/DisplayPresentation.h>
 #include <AfterNightEngine/Algorithms/Stacking/StackExecutor.h>
 #include <AfterNightEngine/Core/Result.h>
 #include <AfterNightEngine/Image/Image.h>
 
+#include <QImage>
 #include <QSize>
 #include <QString>
 #include <QStringList>
@@ -86,6 +88,34 @@ void restoreLocalStagedFiles(LocalOutputTransaction& transaction);
 /// The master's preview as the report and the window show it.
 [[nodiscard]] AFTERNIGHTPROCESSES_API StackPreviewAssets generateResidentStackPreviewAssets(
     const an::consumer::OperationScope& scope, const an::Image<float>& master, const QString& thumbnail_path);
+
+/// A master's two report pictures, and what they were presented through.
+struct ReportMasterPictures
+{
+    /// The whole frame, reduced as the report's preview of a master is.
+    QImage whole;
+
+    /// The master's centre at full scale; null when none could be made.
+    QImage detail;
+
+    /// The balance and statistics the whole frame was presented through: its own, or the ones it was given.
+    an::DisplayPresentationAnalysis analysis{};
+};
+
+/// Presents a master as the stacking stage presents the one it holds for its report - the whole frame reduced by
+/// taking every n-th sample, and the detail at full scale - through the master's own display stretch or through
+/// another master's. A run's own pictures are made this way of the master in memory, so a master pictured to be set
+/// beside them is made the same way and through the analysis this returns of the run's master: the two then differ
+/// as their samples do, in the stretch and in how they were reduced alike.
+///
+/// @param scope the operation the pictures are worked out in.
+/// @param master the master.
+/// @param through the analysis to present through, in place of the master's own; null for its own.
+/// @return the pictures; nothing when the master cannot be presented, or cannot be presented through the analysis
+///         given - a master of another number of channels - since its own stretch would not be the one asked for.
+[[nodiscard]] AFTERNIGHTPROCESSES_API std::optional<ReportMasterPictures>
+presentMasterForReport(const an::consumer::OperationScope& scope, const an::Image<float>& master,
+                       const an::DisplayPresentationAnalysis* through = nullptr);
 
 void clearPreparedStackPreviewAssets(IntegrationGroupResult& group_result);
 

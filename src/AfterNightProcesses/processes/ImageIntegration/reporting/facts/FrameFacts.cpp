@@ -564,7 +564,11 @@ void stateNormalization(ReportBuild& build, const WorkflowManifest::IntegrationG
     QHash<QString, std::size_t> placeByLight;
     for (std::size_t i = 0; i < set.logicalFrames.size(); ++i)
     {
-        placeByLight.insert(FrameId(set.logicalFrames[i]).identityKey(), i);
+        // A frame the artifact names by nothing is no light's coefficients.
+        if (!set.logicalFrames[i].trimmed().isEmpty())
+        {
+            placeByLight.insert(FrameId(set.logicalFrames[i]).identityKey(), i);
+        }
     }
     for (ReportFrame& frame : master.frames)
     {
@@ -773,9 +777,25 @@ void fillMetrics(ReportBuild& build, const WorkflowManifest::IntegrationGroup& g
             groupResult != nullptr && groupResult->success && !groupResult->qualityReport.lightWeights.empty();
         const QList<double> weights =
             recorded ? recordedWeightsForSamples(samples, groupResult->qualityReport, group) : QList<double>{};
+        // The lights the stack names. A measured light it does not name - one a second stack left out, one the
+        // stack dropped - weighs nothing in the master's exposure and is no part of the weights' own figures: the
+        // median and the count at the floor are of the lights the master combines.
+        QSet<QString> combined;
         if (recorded)
         {
-            weighting.medianWeight = medianOf(weights);
+            for (const StackLightWeight& entry : groupResult->qualityReport.lightWeights)
+            {
+                combined.insert(FrameId(entry.light).identityKey());
+            }
+            QList<double> ofCombined;
+            for (int i = 0; i < samples.size(); ++i)
+            {
+                if (combined.contains(FrameId(samples[i].frameId).identityKey()))
+                {
+                    ofCombined.append(weights[i]);
+                }
+            }
+            weighting.medianWeight = medianOf(ofCombined);
         }
 
         std::vector<FrameQualityMetrics> metricsForStatistics;
@@ -799,16 +819,17 @@ void fillMetrics(ReportBuild& build, const WorkflowManifest::IntegrationGroup& g
             const QualityWeightSample& sample = samples[i];
             ReportFrame& frame = master.frames[static_cast<std::size_t>(sampleFrames[i])];
             const double weight = recorded ? weights[i] : 0.0;
+            const bool named = recorded && combined.contains(FrameId(sample.frameId).identityKey());
             const double seconds = sample.exposureSeconds > 0.0 && std::isfinite(sample.exposureSeconds)
                                        ? sample.exposureSeconds * weight
                                        : 0.0;
             weightedSeconds.append(seconds);
             weighting.weightedIntegrationMs += std::llround(seconds * 1000.0);
-            if (recorded && weighting.floorApplies && weight <= weighting.minimumWeight + 1e-6)
+            if (named && weighting.floorApplies && weight <= weighting.minimumWeight + 1e-6)
             {
                 ++weighting.framesAtFloor;
             }
-            if (recorded)
+            if (named)
             {
                 frame.weight = weight;
             }

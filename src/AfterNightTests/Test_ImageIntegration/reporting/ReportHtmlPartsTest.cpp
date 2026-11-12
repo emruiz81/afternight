@@ -1794,6 +1794,62 @@ TEST_F(ReportHtmlWriterTest, ProvenanceStatesTheAcquisitionTheSoftwareAndEveryIn
     }
 }
 
+// A group's sensor temperature is one figure or a range. A group that states one bound and not the other prints
+// the bound it states, whichever it is, and the bound it does not state is never read; with both it prints the
+// range, or one figure where they are the same; with neither, no figure.
+TEST_F(ReportHtmlWriterTest, AGroupsSensorTemperatureIsPrintedFromWhicheverBoundsItStates)
+{
+    const Rendered* report = reportOf(ReportScenarioId::OneMonoMaster);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    ASSERT_FALSE(model.run.acquisition.empty());
+    ReportAcquisitionRow& row = model.run.acquisition.front();
+
+    // The cell under "Sensor" in the first row of the table, in the model written again.
+    const auto sensor = [&model, report]() {
+        const ParsedDocument parsed = writtenAgain(model, *report);
+        const DocumentElement* acquisition = one(parsed, QStringLiteral("acquisition"));
+        if (acquisition == nullptr)
+        {
+            return QString();
+        }
+        const std::vector<const DocumentElement*> tables = ofClassInside(parsed, *acquisition, "table", "acquisition");
+        if (tables.size() != 1u)
+        {
+            ADD_FAILURE() << "the acquisition is written as " << tables.size() << " tables";
+            return QString();
+        }
+        const qsizetype column = headings(parsed, *tables.front()).indexOf(QStringLiteral("Sensor"));
+        const std::vector<std::vector<const DocumentElement*>> rows = bodyRows(parsed, *tables.front());
+        if (column < 0 || rows.empty() || rows.front().size() <= static_cast<std::size_t>(column))
+        {
+            ADD_FAILURE() << "the table has no row with a cell under Sensor";
+            return QString();
+        }
+        return rows.front()[static_cast<std::size_t>(column)]->text;
+    };
+    const QString unit = QStringLiteral(" °C");
+
+    // The lowest alone, then the highest alone.
+    row.lowestTemperature = -10.5;
+    row.highestTemperature.reset();
+    EXPECT_EQ(sensor(), formatFigure(-10.5) + unit);
+    row.lowestTemperature.reset();
+    row.highestTemperature = -9.5;
+    EXPECT_EQ(sensor(), formatFigure(-9.5) + unit);
+
+    // Both: the range, and one figure where the two are the same.
+    row.lowestTemperature = -10.5;
+    EXPECT_EQ(sensor(), QStringLiteral("%1 to %2").arg(formatFigure(-10.5), formatFigure(-9.5)) + unit);
+    row.highestTemperature = -10.5;
+    EXPECT_EQ(sensor(), formatFigure(-10.5) + unit);
+
+    // Neither: the report prints no figure, never a zero.
+    row.lowestTemperature.reset();
+    row.highestTemperature.reset();
+    EXPECT_EQ(sensor(), noValueText());
+}
+
 TEST_F(ReportHtmlWriterTest, WhatTheReportCouldNotStateIsListedEntryByEntry)
 {
     std::size_t entries = 0;

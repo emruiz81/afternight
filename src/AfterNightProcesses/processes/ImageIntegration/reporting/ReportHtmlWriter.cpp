@@ -1049,6 +1049,7 @@ MasterUse useOf(const ReportMaster& master)
     MasterUse use;
     use.taken = static_cast<int>(master.frames.size());
     bool stated = false;
+    bool everyUsedLightStatesItsExposure = true;
     int used = 0;
     double seconds = 0.0;
     for (const ReportFrame& frame : master.frames)
@@ -1057,13 +1058,24 @@ MasterUse useOf(const ReportMaster& master)
         if (frame.state == ReportFrameState::Used)
         {
             ++used;
-            seconds += frame.exposureSeconds.value_or(0.0);
+            if (frame.exposureSeconds.has_value())
+            {
+                seconds += *frame.exposureSeconds;
+            }
+            else
+            {
+                everyUsedLightStatesItsExposure = false;
+            }
         }
     }
     if (stated)
     {
         use.used = used;
-        use.integratedMs = static_cast<qint64>(std::llround(seconds * 1000.0));
+        // A sum over the lights that state an exposure would read as the whole: it is stated only when all do.
+        if (everyUsedLightStatesItsExposure)
+        {
+            use.integratedMs = static_cast<qint64>(std::llround(seconds * 1000.0));
+        }
     }
     return use;
 }
@@ -1183,7 +1195,7 @@ std::optional<ReportDither> ditherOf(const ReportDocumentContext& context,
             {
                 point.tip.lines << documentText("Turned %1 degrees").arg(formatFigure(frame.rotationDegrees));
             }
-            point.tip.lines << fateLine(frame);
+            point.tip.lines << context.said(fateLine(frame));
             chart.nights[series].points.push_back(point);
             if (point.state != ChartState::Used &&
                 std::find(leftOut.begin(), leftOut.end(), point.state) == leftOut.end())

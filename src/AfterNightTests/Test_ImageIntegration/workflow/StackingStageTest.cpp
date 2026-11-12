@@ -650,6 +650,22 @@ TEST_F(LightsStackingTest, AnUnknownStoredMethodStopsTheGroupByName)
     EXPECT_FALSE(QFileInfo::exists(masterPath()));
 }
 
+// A group whose stack fails before a master of it is written makes no group result. The stage names the group with
+// why, so that the run's report says the master failed where it would otherwise find no record of it at all.
+TEST_F(LightsStackingTest, AGroupWhoseStackFailsBeforeItsMasterIsNamedWithWhy)
+{
+    useUnregisteredLights(
+        {writeFlatLight(QStringLiteral("a"), 0.1, 0.0, 1u), writeFlatLight(QStringLiteral("b"), 0.2, 0.0, 2u)});
+    updateGroup([](auto& group) { group.stacking.stackMethod = QStringLiteral("Fancy Mean"); });
+    const StageResult result = stack();
+    ASSERT_TRUE(result.isFailure());
+    EXPECT_TRUE(result.groupResults.empty());
+    ASSERT_EQ(result.failedGroups.size(), 1u);
+    EXPECT_EQ(result.failedGroups.front().groupKey, m_manifest.integrationGroups.front().groupKey.toString());
+    EXPECT_TRUE(result.failedGroups.front().error.contains(QStringLiteral("method")))
+        << result.failedGroups.front().error.toStdString();
+}
+
 // Lights stored compressed are combined in tiles of the rows one compressed piece of theirs spans, where a sample
 // history's cache band would be narrower and decode each piece again for every band: three lights 4096 pixels wide, in
 // subblocks of 256 KiB that hold 64 rows of each byte's stretch, are clipped in two tiles of 64 rows, and the master is
@@ -2282,6 +2298,41 @@ TEST_F(LightsStackingTest, AnExposureMergeBucketOfOneLightLeavesOutWhereItsFlatI
     EXPECT_NEAR(there, 10000.0 / 65535.0, 1e-6) << "below the highlight the longer exposure is kept";
 }
 
+// An exposure merge is made of one stack an exposure, so no one stack's report describes the master. What the run
+// records of it is the lights it combines, each with the weight its own exposure's stack gave it: that list is what
+// a report names a light as used by. The merge recorded nothing, and its report said the master combined none of
+// its lights.
+TEST_F(LightsStackingTest, AnExposureMergeRecordsTheLightsItCombines)
+{
+    const QString longFirst = writeCodeLight(QStringLiteral("long1"), 10000.0);
+    const QString longSecond = writeCodeLight(QStringLiteral("long2"), 10000.0);
+    const QString shortLight = writeCodeLight(QStringLiteral("short1"), 3000.0);
+    const QString flat = writeFlatMaster(QStringLiteral("flat"), kLightWidth, kLightHeight);
+    calibrateInMemoryBy(longFirst, flat);
+    calibrateInMemoryBy(longSecond, flat);
+    calibrateInMemoryBy(shortLight, flat);
+    useUnregisteredLights({longFirst, longSecond, shortLight});
+    updateGroup([](auto& group) {
+        group.lightExposureSeconds = {60.0, 60.0, 15.0};
+        group.stacking.hdr.enabled = true;
+    });
+
+    const StageResult result = stack();
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    ASSERT_EQ(result.groupResults.size(), 1u);
+    const StackQualityRecord& record = result.groupResults.front().qualityReport;
+    ASSERT_TRUE(record.valid);
+    ASSERT_EQ(record.lightWeights.size(), 3u);
+    QSet<QString> named;
+    for (const StackLightWeight& light : record.lightWeights)
+    {
+        named.insert(FrameId(light.light).identityKey());
+        EXPECT_GT(light.weight, 0.0) << light.light.toStdString();
+    }
+    EXPECT_EQ(named, (QSet<QString>{FrameId(longFirst).identityKey(), FrameId(longSecond).identityKey(),
+                                    FrameId(shortLight).identityKey()}));
+}
+
 // The exposure merge blends only samples: where the longer exposure holds none - a calibration left it not a number -
 // the shorter one, brought to its scale, is the master, and where the shorter holds none the longer stays, however
 // bright. A bucket's empty sample was blended as a zero, so the master was zero in both places.
@@ -2935,6 +2986,15 @@ protected:
                                         << m_run.loggedWarnings().join(QLatin1Char('\n')).toStdString();
         EXPECT_TRUE(result.groupResults.front().registrationInputPolicy.startsWith(QStringLiteral("Stars + comet")))
             << result.groupResults.front().registrationInputPolicy.toStdString();
+        // A composite is made of two stacks, so no one stack's report is its record: what the run records of it is
+        // the lights it combines, each named with a weight, which is what a report names a light as used by.
+        const StackQualityRecord& record = result.groupResults.front().qualityReport;
+        EXPECT_TRUE(record.valid);
+        EXPECT_EQ(record.lightWeights.size(), static_cast<std::size_t>(result.groupResults.front().lightFrameCount));
+        for (const StackLightWeight& light : record.lightWeights)
+        {
+            EXPECT_GT(light.weight, 0.0) << light.light.toStdString();
+        }
 
         const auto masterStamp = writtenIdentity(m_run.session(), masterPath());
         ASSERT_TRUE(masterStamp.has_value());

@@ -106,6 +106,19 @@ Facts worth knowing before changing what a report states:
   stacking stage before any `IntegrationGroupResult` is made, and the plan of an incremental run leaves such a
   group out before any stage sees it. Either way the group is in `Result::reusedIntegrationGroups`, which is the
   only thing that makes a master reused: a manifest group with neither a result nor that record was not reached.
+- **A stack that fails before its master is written has no result either, and the run names it.** A group result
+  is made of a group that reached its master's finalization. A group with too few registered lights, or one whose
+  stack the engine refused, returns from the stage with an error and nothing else, and the stage goes on with the
+  other groups. The run records such a group with the stage's reason (`Result::failedIntegrationGroups`), and the
+  model reads its master as failed, with that reason.
+- **A stage that went on after part of its work failed is partial, and the run is not.** A light the registration
+  finds no transform for ends the registration stage `partialSuccess` and puts an error among the run's; the run
+  goes on and makes every master. `Result::partialSuccess` says some frame or group failed and the run went on,
+  never that the run stopped. A run is partial in a report only when it left a master unmade.
+- **A master made of several stacks records the lights it combines, and nothing of one stack.** An exposure merge
+  is a stack an exposure, a stars and comet composite two: no one stack's report describes the master. The stage
+  records the lights the master combines, each with the weight its own stack gave it, and none of a stack's other
+  figures (`combinedLightsRecord`, `LightsStackingStage.cpp`).
 - **The stack's per-light figures are in the stack's order.** `StackQualityRecord::frameRejectionRates` runs
   parallel to `lightWeights`, the lights the stack combined in the order it read them. Neither is in the order of
   the group's `lightFiles`: a light the stack dropped is absent, and after a restack only the kept lights remain.
@@ -122,15 +135,16 @@ Facts worth knowing before changing what a report states:
   names each such light, which exclusion it was and the integration group it would have joined.
 - **A calibration group has a result when its stage ran, and the result says what the stage did with it.** The
   executor records one for every group of a bias, dark or flat stage that was not skipped, naming the master's
-  file, whether it is there, and whether the stage found it still valid and left it as it was
-  (`CalibrationGroupResult::reused`, from `StageResult::reusedCalibrationGroups`); a stage whose every master is
+  file, whether it is there, and whether the run left it as it was (`CalibrationGroupResult::reused`): the stage
+  found it still valid (`StageResult::reusedCalibrationGroups`), or the plan of an incremental run left the group
+  out, so that the stage, which visits only the groups the plan names, never saw it; a stage whose every master is
   supplied or still valid is skipped whole and leaves none. The model reads a master as supplied from its group's
   `existingMaster`, as reused from the absence of a result or from a result that says so, and as made otherwise.
   Without that record a master left as it was would read as made whenever another group of its stage was stacked.
 
 ## What a run records for its report
 
-Six things a report states have no other source, so a run records them. None of them changes what a run decides.
+Eight things a report states have no other source, so a run records them. None of them changes what a run decides.
 
 - **The lights the user left out are a list of the manifest's own** (`WorkflowManifest::leftOutLights`), each with
   its exclusion and the key of the integration group it would have joined. A list on the manifest and not on a
@@ -151,6 +165,14 @@ Six things a report states have no other source, so a run records them. None of 
   names before any stage runs, then the ones the stacking stage finds valid (`StageResult::reusedGroups`). The
   archive writes the list under `reusedIntegrationGroups`. No count of a run's successful groups reads it: a run
   that stopped is committed only when it made a master.
+- **The groups whose stack failed before a master was written are on the run's result**
+  (`WorkflowExecutor::Result::failedIntegrationGroups`, from the stacking stage's `StageResult::failedGroups`),
+  each with its key and why in the words the stage gives the person. The archive writes the list under
+  `failedIntegrationGroups`. Without it such a master had no record at all, and its report said the run completed
+  without one.
+- **The lights a master of several stacks combines are on its group's result**, as the stack record's
+  `lightWeights` with nothing else of a stack beside them. That list is what names a light as used; without it a
+  report of an exposure merge said the master combined none of its lights.
 - **Why a light's registration failed is on the run's result** (`WorkflowExecutor::Result::registrationFailures`,
   from the registration stage's `StageResult::registrationFailures`): the light, its registration group and the
   reason in the stage's own words - no star detected, fewer stars than the run requires, too few pairs matched
@@ -192,9 +214,17 @@ identity, is never reused by a run and is never published through `publishWorkfl
 - **The earlier master itself is pictured again under this run's stretch**, as `previous_master_matched.jpg` and
   `previous_detail_matched.jpg` in the same folder, when the history still holds a copy of it
   (`pictureEarlierMastersUnderThisStretch`, `WorkflowArchiver.cpp`). See the same section.
+- **A rejection map's clusters are outlined at the picture's scale.** The clusters' bounds are pixels of the map,
+  and the picture of a map larger than 2,048 pixels a side is smaller than the map: the outlines are scaled by
+  the picture's size over the map's, and a picture of one channel is made a colour one first, so the outlines
+  keep the colours that tell a low map's from a high one's.
 - **A calibration master's picture** is written for each bias, dark and flat group of the manifest whose file is
   there, when the archiver has a session, within 1,024 pixels a side: a report shows it small, and a frame of
-  noise compresses badly. `archivedCalibrationPreviews` names them, by the master's own file name
+  noise compresses badly. A master the latest earlier run of the history pictured - the same file by path, size
+  and modification time, as that run's stored report states it - takes that run's picture as a copy instead of
+  being read again: a project's supplied and still-valid calibration masters are the same files run after run,
+  and reading each in full for a small picture was the larger part of a rerun's report time. No more than the
+  latest three earlier runs are opened to find one. `archivedCalibrationPreviews` names them, by the master's own file name
   with a hash of its kind and group where two masters share a name, and the report model asks the same function
   for the name. `archiveGroupFolderNames` does the same for the groups' folders: the run's results first, then the
   groups it reused.
@@ -373,7 +403,7 @@ bytes are, and holds a document it reads to writing back as one that reads and w
 | Fact | Source | When the source is absent |
 | --- | --- | --- |
 | Lights taken, per group | The integration group's `lightFiles`, then the manifest's `leftOutLights` under the key they would have joined; a light left out of a group that does not exist is listed under that key in `groupsNotStacked` | - |
-| A master's state | `Made`: a result that succeeded. `Failed`: one that did not. `Reused`: named in `Result::reusedIntegrationGroups`. `NotReached`, `Cancelled`: any other planned group with no result | A group with neither a result nor that record in a run that completed: `NotReached`, and named |
+| A master's state | `Made`: a result that succeeded. `Failed`: one that did not, or a group named in `Result::failedIntegrationGroups`, whose stack failed before there was a result. `Reused`: named in `Result::reusedIntegrationGroups`. `NotReached`, `Cancelled`: any other planned group with no result | A group with neither a result nor that record in a run that completed: `NotReached`, and named |
 | A light's state | "A light's states", below | No metrics database: a light whose registration failed has no state, and the model says so |
 | A master's pictures | `report_previews/<folder>/master.jpg` and `detail.jpg` in the run's folder, the folder named by `archiveGroupFolderNames` | A whole frame the archive does not hold is the picture the group's result names (`previewPath`), as the result names it, and a map's likewise; a detail the archive does not hold is not stated |
 | A calibration master's picture | `report_previews/calibration/<name>` in the run's folder, named by `archivedCalibrationPreviews` | Not stated |
@@ -538,8 +568,8 @@ from the reports their archives keep: no master of an earlier run is measured ag
   not only the last. Their figures cost nothing: each is read from a stored report the builder has already read.
 - **The run as a whole is compared with the latest earlier run that completed**, with or without warnings: its
   totals, what changed, the application's version and the three fingerprints. A run that stopped is no baseline for
-  a run, and neither is one that ended `Partial` - a group failed inside it, or one of its issues is critical -
-  though the masters such a run did make are baselines for those masters.
+  a run, and neither is one that ended `Partial` - it left a master unmade - though the masters such a run did
+  make are baselines for those masters.
 - **An earlier run is its stored report, and nothing else.** A run's figures are the ones it stated when it was
   committed, so no image, manifest, result or metrics database of another run is opened: the output folder's
   metrics database is this run's, and is never read for another. An archive that keeps no report this version
@@ -547,7 +577,11 @@ from the reports their archives keep: no master of an earlier run is measured ag
   with no session and with no metrics database and finds the earlier runs' figures unchanged.
 - **Only earlier runs are read.** The runs of a folder are named by when they started, so an earlier run is a
   folder beside this run's whose name sorts before it. The run being written - whose folder may already keep a
-  report of itself, when the report is written again - and any run after it are never among them.
+  report of itself, when the report is written again - and any run after it are never among them. The names are
+  stamps of the local clock, which can go back - the autumn hour, another time zone - so a run's id is never at
+  or before the latest stamp already in the folder: it is that stamp and a millisecond then
+  (`executionIdAfterHistory`, `WorkflowArchiver.h`). The order of the names is the order the runs were made in,
+  which the archive's retention reads as well.
 - **Both sides of a figure are read by one function.** `ReportFigures.h` holds `masterFigures(master)` and
   `runTotals(model)`. The builder reads an earlier run's stored model through `masterFigures` and the document
   reads this run's master through it; the builder takes both runs' totals through `runTotals` and keeps the pair
@@ -582,7 +616,18 @@ makes a difference in brightness between them mean nothing. So when the archive 
 with still holds its copy of that master (`history/<run>/groups/<group>/<file>`), the archiver pictures that copy
 again, whole and at full scale, through the stretch this run's master is pictured through
 (`generateReportMasterPreviewsUnderStretchOf`, `PreviewThumbnailGenerator.h`), and names the two pictures on the
-baseline (`ReportBaseline::matchedPreview`, `matchedDetail`). The document then shows them in the earlier run's
+baseline (`ReportBaseline::matchedPreview`, `matchedDetail`). "The stretch this run's master is pictured
+through" is the one of the picture that stands beside it, so the earlier master is pictured the way that picture
+was made. A run's own pictures are the stacking stage's, of the master it held: every n-th sample of it, stretched
+by what those samples measure. The earlier master is reduced the same way and presented through the analysis that
+presentation gives of this run's master as it reads from its file (`presentMasterForReport`,
+`StackOutputFinalization.h`, which the stage's own pictures go through too). A master read back from its file may
+state its samples as a sensor's codes, which the presentation will not take; they are the samples the stage held
+as fractions of full scale, and are presented as that. Only a master the archive pictured
+itself, from its file, is matched the archive's way, shrunk by the largest sample of each footprint. The two ways
+measure different stretches of one master, so a picture made one way beside a picture made the other would differ
+with the masters alike. A master the stretch cannot present - one of another number of channels - gets no such
+picture: its own stretch would not be the one the caption names. The document then shows them in the earlier run's
 place and says that the two share a stretch; without them it shows the earlier run's own preview and says each
 has its own. They are files of this run's folder, so they stay when the history drops the earlier run. None is
 made for a history with no room for payloads, for two frames of different shapes, for a run before the latest,
@@ -681,6 +726,11 @@ The rules every chart keeps, and why:
 - **A value that is not a number is left out, never drawn at zero.** It breaks a line, has no mark, and takes no
   part in a scale. A light left out that states no value of a measure still carries its cross, on the axis, so it
   is seen at its time.
+- **A light left out is a cross in every chart that places it**, the chart of where each light sat included: a
+  light the stack left out that has a shift is drawn there as a cross of its state, as the chart's key says.
+- **The bins of a distribution with no stated bounds are the round ticks themselves**, so their edges are round
+  numbers and their count follows the ticks, a little off the count asked for. With stated bounds - a weight's
+  zero to one - the span is cut into the count asked for.
 - **Nothing to draw is said.** A chart with no value is a short SVG of class `is-empty` holding the sentence its
   description gives for that case; a measure no light states is a layer that says the same.
 - **A tip is one attribute.** An element a reader can point at carries `data-tip`: the heading, then the lines,
@@ -792,9 +842,15 @@ master's name stands there as text. So a document never holds a link that leads 
   leads with the count of its masters and states no noise there.
 - **Several targets are grouped by target**: the title says how many, the gallery gives each target its own line
   of lights and integration with its masters under it, and the comparison table a row that names it.
-- **A run that stopped leads with what happened**: what was kept, what was not made and why, and what to do, which
-  is the action of the issue that says how it stopped. Only a run that made a master is archived, so there is
-  always something kept.
+- **A run that fell short leads with what happened**: what was kept, what was not made and why, and what to do,
+  which is the action of the issue that says how it fell short. That is a run that failed or was cancelled, and a
+  run that left a master unmade, whether it stopped there or went on with its other masters. Only a run that made
+  a master is archived, so there is always something kept.
+- **A run is partial when it left a master unmade, and by nothing else.** A run that completed with every master
+  made or still valid completed, with warnings when one of its issues is a warning or an error the run wrote: a
+  light with no transform ends its stage partial and puts an error among the run's, and the run made what it
+  planned. Read as partial, such a run was led by what was kept and what was not, and its timeline said it had
+  stopped.
 - **The issues are in the model's order**, the computed kinds first and the most severe first, each with its
   action when it has one. The run's own warnings and errors follow under their own heading, word for word but for
   the folders the embedded form drops, and are folded away when there are more than five. A run with nothing to
@@ -850,15 +906,20 @@ purpose: a comparison shows this run's figure beside an earlier run's, and is no
 - **A master's lights are in the order they were taken**: one chart with a layer per measure a light of the group
   states and one set of hover bands, where each light sat against the reference, the lights left out with what
   each has to say, and every light in a table a heading sorts. A column no light states is left out, and so is the
-  exposure where every light has the same. A cell is sorted by its text, read as a number where it is one, and
-  states another key (`data-v`) only where the text does not say it: a time, a figure with a thin space or a power
-  of ten in it.
+  exposure where every light has the same. A cell is sorted by its text, read as a number where the whole of it
+  is one, and states another key (`data-v`) only where the text does not say it: a time, a figure with a thin
+  space or a power of ten in it. A light with no figure in a column stays at the bottom whichever way the column
+  is sorted, and names are sorted as names, the numbers inside them by their value.
+- **A sum is stated only when every part of it is.** The exposure a master's lights add up to, a night's and the
+  run's are printed when every light of the sum states its exposure; a sum over the lights that do would read as
+  the whole and be short of it, and a master whose lights state none would read "0 ms".
 
 ### Against earlier runs
 
 Part 3 is in every report. With no earlier run it is one sentence, and the contents lead to the part itself,
 since it has no block to lead to; otherwise each of its three blocks is there when the model has something to say
-in it.
+in it. A run that made no master to compare and left some as they were says so under the part's heading, naming
+them: without that, a run that reused every master said nothing of its masters here.
 
 - **Before and after is one comparison a target**, its masters one shown at a time. A radio button per master
   picks which and two more pick the whole frame or the detail, so both work with scripts off; the stylesheet has a
@@ -889,7 +950,9 @@ in it.
   totals in both runs and the application's version and fingerprints; after them, the frames each group both runs
   have gained and lost, by name, the first few and how many more.
 - **Over the runs** draws three figures as a column per run - the latest eight, this run in colour and a run that
-  stopped as a cross - and lists every run in a table, this run last. A run whose archive gave no report is a row
+  failed or was cancelled as a cross; a run that made only some of its masters states the figures of what it made
+  and is a column - and lists every run in a table, this run last. Two runs archived in one minute are told
+  apart by their seconds, in the table and in the charts as in the comparison's switch. A run whose archive gave no report is a row
   with its id and the reason. A run's report is a link in the linked form alone: the embedded form is one file and
   leads to no other.
 - **Printed, every master of a comparison is shown**, each with the whole frame.
@@ -910,12 +973,19 @@ The manifest holds settings on groups, so the document prints them there and now
 - **A setting the application decided** prints what it resolved to, with what was asked and why as its tip;
   `decisions` lists every such setting of the run.
 - **A setting of a mode is printed only in that mode.** The model states a row only when it applies - drizzle,
-  comet tracking, an exposure merge, local normalization, manual control points - and the document prints the
-  model's rows as they are.
+  comet tracking, an exposure merge, local normalization, manual control points, and what only a stack of lights
+  reads: per-pixel weighting, the rejection clusters and the second stack without the flagged lights, the quality
+  maps, overlap normalization, the final master's plate solve - and a feature's own settings only while it is on.
+  The document prints the model's rows as they are.
+- **Every setting that changes a master or a registration has a row.** "What changed" compares the two runs'
+  rows by name, so a setting with no row can change between two runs without being listed: the registration's
+  plate solve, its catalog enrichment and its chromatic aberration correction are rows for that reason, as the
+  stack's are.
 - **A run's words are made readable where the document quotes them.** `ReportDocumentContext::said` replaces a
   group's key inside a sentence the run wrote by the group's name, and in the embedded form drops the folders. The
   run's messages and its log are the exception: they keep their keys and are printed word for word, but for the
-  folders the embedded form drops there too.
+  folders the embedded form drops there too. What a tip says of a light's fate is a sentence the run may have
+  written, and goes the same way.
 
 ### One master, several targets, a run that stopped
 
@@ -926,7 +996,12 @@ The manifest holds settings on groups, so the document prints them there and now
 - **Several targets.** The masters' files, the map of groups and the acquisition table give each target its own
   line, with its masters under it.
 - **A run that stopped.** The timeline marks the stage it stopped in and the stages it did not reach, and leads
-  back to `outcome`; each master that was not made has a file that says why.
+  back to `outcome`; each master that was not made has a file that says why. A stage that went on after part of
+  its work failed did not stop the run: the timeline says that part of it failed and the run went on, and leads
+  to what needs attention.
+- **A master of a group that names no target** stands under the name the run's list of targets gives such groups
+  (`listedTargetName`), and an image made of other masters under theirs, so every block that lists the masters
+  target by target lists every master.
 - **An incremental run.** A reused master's file says so. Its figures, its stack and its lights are the ones the
   run that made it stated, when the history holds that run's report, and the file then leads to it; otherwise its
   picture and statistics are read from the master's file and the rest is named as not stated. The comparison
@@ -947,13 +1022,20 @@ the writer gives each its title, its labels, its tips and the sentence it holds 
 One writer writes two forms, which differ only in what `ReportAssets` answers:
 
 - **Linked**, the one a run keeps: `workflow_report.html` in the run's folder, naming each picture by its path
-  under that folder. The pictures are used as the archive holds them.
+  under that folder. The pictures are used as the archive holds them. A group's folder is named after its target,
+  which may hold `#`, `?` or `%`, and a browser reads those as the start of a fragment, a query and an escape:
+  each is escaped in the path (`ReportAssets::image`), so a target named "Panel #2" still has its pictures.
 - **Embedded**, the one a person sends: one file with every picture inside it as a `data:` address, each read once
   for each size it is shown at, reduced so its longer side is at most 1,280 pixels and written again as a JPEG of
   quality 82
   (`boundedJpeg`). A path is printed as a file's name without its folders, and in a message of the run the output
   folder's path is replaced by the folder's name and the folder of every file the model names is dropped, in
-  either spelling of the separator. A folder is noise to a stranger and says more than its owner may want. A
+  either spelling of the separator. What a run wrote also names folders none of those files is in - a catalog
+  under the person's profile, a solver's temporary file, the application's own: the folder of a profile
+  (`C:\Users\<name>\`, `/home/<name>/`) is taken out whole, since it is the person's name, and of any other
+  absolute path the last part is what stays (`hideOtherFolders`, `ReportAssets.cpp`). That is a rule over words,
+  not over files - a folder with a space in its name ends the part that is taken out - and it errs towards taking
+  out. A file in a drive's root has no folder to drop. A folder is noise to a stranger and says more than its owner may want. A
   picture the embedded form cannot read is left out: it never names a file outside itself. A picture the document
   shows small - on a card of the gallery, in a file's heading, in a table - is carried at 480 pixels
   (`ReportAssets::thumbnail`), so a picture shown small and whole is not in the document twice at its whole size.
@@ -999,7 +1081,7 @@ the one file of a run of two colour masters of 5,544 by 3,684 pixels, compared w
 
 `assets/report.js` shows the tip of what the reader points at or reaches with the keyboard, switches and
 remembers the theme, sorts a table of class `sortable` by a column - by a cell's `data-v` where it states one and
-by its text otherwise - opens a folded section a link leads into or that is about to be printed, and moves a
+by its text otherwise, numbers before the cells that state none - opens a folded section a link leads into or that is about to be printed, and moves a
 comparison's divider. It computes no figure of the report: every
 number is written when the report is, so the same report is read with scripts off, where only those conveniences
 are lost, and so no product logic runs in a browser. A case holds the file free of `fetch`, `XMLHttpRequest`,

@@ -72,9 +72,10 @@ public:
 
     /// What an `img` element takes as its source.
     ///
-    /// Linked: the path as given, with forward slashes. Embedded: a `data:` address holding the picture bounded to
-    /// `kEmbeddedImageLongestSide` and written as a JPEG of `kEmbeddedImageQuality`; a picture asked for twice is
-    /// read once.
+    /// Linked: the path as given, with forward slashes, and with the characters a browser does not read as part of
+    /// a path - `#`, `?` and `%`, which a folder named after a target may hold - escaped. Embedded: a `data:`
+    /// address holding the picture bounded to `kEmbeddedImageLongestSide` and written as a JPEG of
+    /// `kEmbeddedImageQuality`; a picture asked for twice is read once.
     ///
     /// @param relativePath the picture's path under the run's folder, as the model states it.
     /// @return the source; empty when the model states no picture, or when an embedded document cannot read it -
@@ -97,7 +98,9 @@ public:
 
     /// A message of the run as the document prints it. In an embedded document the output folder's path is replaced
     /// by the folder's name, and the folder of every file the model names is dropped, in either spelling of the
-    /// separator.
+    /// separator. What the run wrote may also name folders none of those files is in - a catalog's, a solver's
+    /// temporary file, the application's own: the folder of a person's profile is taken out whole, and of any
+    /// other absolute path its last part is what stays, so the document names no place on the machine it came from.
     [[nodiscard]] QString message(const QString& text) const;
 
 private:

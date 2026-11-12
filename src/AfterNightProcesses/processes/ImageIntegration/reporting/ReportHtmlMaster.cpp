@@ -1082,7 +1082,7 @@ void writeMeasures(ReportMarkup& out, const ReportDocumentContext& context, cons
                 light.tip.lines << documentText(measure->inTip).arg(formatFigure(*value));
             }
         }
-        light.tip.lines << fateLine(frame);
+        light.tip.lines << context.said(fateLine(frame));
         chart.lights.push_back(light);
         if (frame.night.has_value() && frame.night != night)
         {
@@ -1744,8 +1744,11 @@ void writeCombination(ReportMarkup& out, const ReportDocumentContext& context, c
         }
         else if (use.used.has_value())
         {
-            parts << documentText("%1 of %2 lights").arg(formatCount(*use.used), formatCount(use.taken))
-                  << formatDurationMs(*use.integratedMs);
+            parts << documentText("%1 of %2 lights").arg(formatCount(*use.used), formatCount(use.taken));
+            if (use.integratedMs.has_value())
+            {
+                parts << formatDurationMs(*use.integratedMs);
+            }
         }
         else
         {

@@ -59,19 +59,25 @@ namespace ImageIntegration::Reporting
 ReportBaseline masterFigures(const ReportMaster& master)
 {
     ReportBaseline figures;
-    bool fatesStated = false;
+    bool everyUsedLightStatesItsExposure = true;
     int used = 0;
     double seconds = 0.0;
     QList<double> widths;
     for (const ReportFrame& frame : master.frames)
     {
-        fatesStated = fatesStated || frame.state.has_value();
         if (frame.state != ReportFrameState::Used)
         {
             continue;
         }
         ++used;
-        seconds += frame.exposureSeconds.value_or(0.0);
+        if (frame.exposureSeconds.has_value())
+        {
+            seconds += *frame.exposureSeconds;
+        }
+        else
+        {
+            everyUsedLightStatesItsExposure = false;
+        }
         if (frame.fwhm.has_value() && std::isfinite(*frame.fwhm))
         {
             widths.append(*frame.fwhm);
@@ -81,10 +87,15 @@ ReportBaseline masterFigures(const ReportMaster& master)
     {
         figures.framesTaken = static_cast<int>(master.frames.size());
     }
-    if (fatesStated)
+    // The lights a master combines are the ones its stack names: a master whose stack named none states no count,
+    // whatever else is known of its lights, and the exposure is a sum only when every light of it states one.
+    if (used > 0)
     {
         figures.frames = used;
-        figures.integrationMs = static_cast<qint64>(std::llround(seconds * 1000.0));
+        if (everyUsedLightStatesItsExposure)
+        {
+            figures.integrationMs = static_cast<qint64>(std::llround(seconds * 1000.0));
+        }
     }
     figures.backgroundNoise = master.snapshot.backgroundNoise;
     figures.snr = master.snapshot.snr;

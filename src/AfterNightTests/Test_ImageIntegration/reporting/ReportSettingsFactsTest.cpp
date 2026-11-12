@@ -553,3 +553,295 @@ TEST(ReportSettingsFacts, AnExposureMergeNamesItsStackMethodAsAMerge)
                       QStringLiteral("Stack Method")),
               QStringLiteral("HDR Merge (Average)"));
 }
+
+// What only a stack of lights reads changes its master or what is written beside it, so each is a row of the group's
+// stacking with the value the group holds.
+TEST(ReportSettingsFacts, WhatOnlyAStackOfLightsReadsIsStatedAmongItsStackingSettings)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    StackingSettings& stacking = scenario->manifest.integrationGroups.front().stacking;
+    stacking.stackMethod = QStringLiteral("Average");
+    stacking.rejectionMethod = QStringLiteral("Winsorized Sigma Clipping");
+    stacking.weighting = QStringLiteral("Weighted FWHM");
+    stacking.normalizationMode = NormalizationMode::Global;
+    stacking.createQualityMaps = true;
+    stacking.spatialRejectionClustering = true;
+    stacking.restackExcludingFlaggedFrames = true;
+    stacking.localWeighting.enabled = true;
+    stacking.localWeighting.windowSize = 7;
+    stacking.localWeighting.gridSpacing = 48;
+    stacking.localWeighting.snrWeightExponent = 1.5;
+    stacking.overlapNormalization.enabled = true;
+    stacking.overlapNormalization.minOverlapPixels = 750;
+    stacking.overlapNormalization.minOverlapFraction = 0.05;
+    stacking.solveFinalMasterIfNeeded = true;
+
+    const std::vector<ReportSettingsBlock> settings = buildScenarioModel(*scenario).masters.front().settings;
+    const auto stated = [&settings](const QString& name) {
+        return valueOf(settings, QStringLiteral("Stacking"), name);
+    };
+
+    EXPECT_EQ(stated(QStringLiteral("Per-Pixel Weighting")), QStringLiteral("Yes"));
+    EXPECT_EQ(stated(QStringLiteral("Per-Pixel Weighting Window Size")), QStringLiteral("7"));
+    EXPECT_EQ(stated(QStringLiteral("Per-Pixel Weighting Grid Spacing")), QStringLiteral("48"));
+    EXPECT_EQ(stated(QStringLiteral("Per-Pixel Weighting SNR Exponent")), QStringLiteral("1.5"));
+    EXPECT_EQ(stated(QStringLiteral("Analyze Spatial Rejection Clusters")), QStringLiteral("Yes"));
+    EXPECT_EQ(stated(QStringLiteral("Re-Stack Excluding Flagged Frames")), QStringLiteral("Yes"));
+    EXPECT_EQ(stated(QStringLiteral("Create Quality Maps")), QStringLiteral("Yes"));
+    EXPECT_EQ(stated(QStringLiteral("Overlap Normalization")), QStringLiteral("Yes"));
+    EXPECT_EQ(stated(QStringLiteral("Min Overlap Pixels")), QStringLiteral("750"));
+    EXPECT_EQ(stated(QStringLiteral("Min Overlap Fraction")), QStringLiteral("0.05"));
+    EXPECT_EQ(stated(QStringLiteral("Plate-Solve Final Master If Needed")), QStringLiteral("Yes"));
+}
+
+// A feature that is off is stated as off, and nothing is said of the settings only it would read.
+TEST(ReportSettingsFacts, AFeaturesOwnSettingsAreStatedOnlyWhileItIsOn)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    StackingSettings& stacking = scenario->manifest.integrationGroups.front().stacking;
+    stacking.stackMethod = QStringLiteral("Average");
+    stacking.weighting = QStringLiteral("Weighted FWHM");
+    stacking.normalizationMode = NormalizationMode::Global;
+    stacking.localWeighting.enabled = false;
+    stacking.localWeighting.windowSize = 9;
+    stacking.overlapNormalization.enabled = false;
+    stacking.overlapNormalization.minOverlapPixels = 750;
+    RegistrationSettings& registration = scenario->manifest.registrationGroups.front().settings;
+    registration.chromaticAberration.enabled = false;
+    registration.chromaticAberration.minMatchedStars = 9;
+
+    const ReportModel model = buildScenarioModel(*scenario);
+
+    const std::vector<ReportSettingsBlock>& ofTheStack = model.masters.front().settings;
+    const ReportSettingsBlock* stackingRows = blockOf(ofTheStack, QStringLiteral("Stacking"));
+    EXPECT_EQ(valueOf(ofTheStack, QStringLiteral("Stacking"), QStringLiteral("Per-Pixel Weighting")),
+              QStringLiteral("No"));
+    EXPECT_EQ(valueOf(ofTheStack, QStringLiteral("Stacking"), QStringLiteral("Overlap Normalization")),
+              QStringLiteral("No"));
+    for (const QString& name :
+         {QStringLiteral("Per-Pixel Weighting Window Size"), QStringLiteral("Per-Pixel Weighting Grid Spacing"),
+          QStringLiteral("Per-Pixel Weighting SNR Exponent"), QStringLiteral("Min Overlap Pixels"),
+          QStringLiteral("Min Overlap Fraction")})
+    {
+        EXPECT_EQ(rowOf(stackingRows, name), nullptr) << name.toStdString();
+    }
+
+    const std::vector<ReportSettingsBlock>& ofTheRegistration = model.registrationGroups.front().settings;
+    const ReportSettingsBlock* registrationRows = blockOf(ofTheRegistration, QStringLiteral("Registration"));
+    EXPECT_EQ(valueOf(ofTheRegistration, QStringLiteral("Registration"),
+                      QStringLiteral("Correct Chromatic Aberration Before Registration")),
+              QStringLiteral("No"));
+    for (const QString& name : {QStringLiteral("CA Edge Fraction"), QStringLiteral("CA Fit Type"),
+                                QStringLiteral("CA Min Matched Stars"), QStringLiteral("CA Interpolation")})
+    {
+        EXPECT_EQ(rowOf(registrationRows, name), nullptr) << name.toStdString();
+    }
+}
+
+// A stack reads none of them outside the mode each belongs to, and a calibration master's stack reads none at all.
+TEST(ReportSettingsFacts, WhatAStackDoesNotReadInItsModeIsNotStated)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    WorkflowManifest::IntegrationGroup& group = scenario->manifest.integrationGroups.front();
+    StackingSettings& stacking = group.stacking;
+    stacking.stackMethod = QStringLiteral("Average");
+    stacking.rejectionMethod = QStringLiteral("Winsorized Sigma Clipping");
+    stacking.weighting = QStringLiteral("Weighted FWHM");
+    stacking.normalizationMode = NormalizationMode::Global;
+    stacking.createQualityMaps = true;
+    stacking.spatialRejectionClustering = true;
+    stacking.restackExcludingFlaggedFrames = true;
+    stacking.localWeighting.enabled = true;
+    stacking.overlapNormalization.enabled = true;
+    stacking.solveFinalMasterIfNeeded = true;
+
+    const QString perPixel = QStringLiteral("Per-Pixel Weighting");
+    const QString clusters = QStringLiteral("Analyze Spatial Rejection Clusters");
+    const QString restack = QStringLiteral("Re-Stack Excluding Flagged Frames");
+    const QString qualityMaps = QStringLiteral("Create Quality Maps");
+    const QString overlap = QStringLiteral("Overlap Normalization");
+    const QString finalSolve = QStringLiteral("Plate-Solve Final Master If Needed");
+    // The names of the rows the group's stacking states, as the manifest stands.
+    const auto stackingRows = [&scenario]() {
+        const ReportModel model = buildScenarioModel(*scenario);
+        const ReportSettingsBlock* block = blockOf(model.masters.front().settings, QStringLiteral("Stacking"));
+        QStringList names;
+        if (block != nullptr)
+        {
+            for (const ReportSettingsRow& row : block->rows)
+            {
+                names << row.name;
+            }
+        }
+        return names;
+    };
+
+    // An average that rejects, weighs its lights and matches them globally reads every one of them.
+    const QStringList all = stackingRows();
+    for (const QString& name : {perPixel, clusters, restack, qualityMaps, overlap, finalSolve})
+    {
+        EXPECT_TRUE(all.contains(name)) << name.toStdString();
+    }
+
+    // With no frame weighting, no light's weight varies over its frame.
+    stacking.weighting = QStringLiteral("None");
+    EXPECT_FALSE(stackingRows().contains(perPixel));
+    stacking.weighting = QStringLiteral("Weighted FWHM");
+
+    // A stack that rejects nothing has nothing to analyse.
+    stacking.rejectionMethod = QStringLiteral("None");
+    const QStringList unrejected = stackingRows();
+    EXPECT_FALSE(unrejected.contains(clusters));
+    EXPECT_FALSE(unrejected.contains(restack));
+    EXPECT_TRUE(unrejected.contains(qualityMaps));
+    stacking.rejectionMethod = QStringLiteral("Winsorized Sigma Clipping");
+
+    // A drizzled stack is analysed, and is not stacked again.
+    group.drizzle = WorkflowManifest::IntegrationGroup::DrizzleSettings{};
+    group.drizzle->enabled = true;
+    const QStringList drizzled = stackingRows();
+    EXPECT_TRUE(drizzled.contains(clusters));
+    EXPECT_FALSE(drizzled.contains(restack));
+    group.drizzle.reset();
+
+    // The lights are matched over the areas they share in a global normalization alone.
+    stacking.normalizationMode = NormalizationMode::Local;
+    stacking.localNormalization.enabled = true;
+    EXPECT_FALSE(stackingRows().contains(overlap));
+    stacking.localNormalization.enabled = false;
+    stacking.normalizationMode = NormalizationMode::None;
+    EXPECT_FALSE(stackingRows().contains(overlap));
+    stacking.normalizationMode = NormalizationMode::Global;
+
+    // A merge of exposures stacks each exposure on its own, and its master is solved as any other.
+    stacking.hdr.enabled = true;
+    const QStringList merged = stackingRows();
+    for (const QString& name : {perPixel, clusters, restack, qualityMaps, overlap})
+    {
+        EXPECT_FALSE(merged.contains(name)) << name.toStdString();
+    }
+    EXPECT_TRUE(merged.contains(finalSolve));
+
+    // A calibration master's stack reads none of them, whatever its settings hold.
+    auto calibrated = built(ReportScenarioId::OneColourMaster);
+    ASSERT_TRUE(calibrated.has_value());
+    for (std::optional<WorkflowManifest::CalibrationStage>* stage :
+         {&calibrated->manifest.biasStage, &calibrated->manifest.darkStage, &calibrated->manifest.flatStage})
+    {
+        ASSERT_TRUE(stage->has_value());
+        for (WorkflowManifest::CalibrationStage::Group& calibration : (*stage)->groups)
+        {
+            calibration.stacking.weighting = QStringLiteral("Weighted FWHM");
+            calibration.stacking.localWeighting.enabled = true;
+            calibration.stacking.spatialRejectionClustering = true;
+            calibration.stacking.restackExcludingFlaggedFrames = true;
+            calibration.stacking.createQualityMaps = true;
+            calibration.stacking.overlapNormalization.enabled = true;
+            calibration.stacking.solveFinalMasterIfNeeded = true;
+        }
+    }
+    const ReportModel calibratedModel = buildScenarioModel(*calibrated);
+    ASSERT_FALSE(calibratedModel.calibrationMasters.empty());
+    for (const ReportCalibrationMaster& master : calibratedModel.calibrationMasters)
+    {
+        SCOPED_TRACE(master.name.toStdString());
+        const ReportSettingsBlock* block = blockOf(master.settings, QStringLiteral("Stacking"));
+        ASSERT_NE(block, nullptr);
+        for (const QString& name : {perPixel, clusters, restack, qualityMaps, overlap, finalSolve})
+        {
+            EXPECT_EQ(rowOf(block, name), nullptr) << name.toStdString();
+        }
+    }
+}
+
+// What a group asks of the plate solver and of the catalog, and the correction of its lights' colour fringes with the
+// settings of that correction, are rows of its registration whatever its method.
+TEST(ReportSettingsFacts, TheRegistrationsSettingsStateThePlateSolveTheCatalogAndTheChromaticCorrection)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    RegistrationSettings& settings = scenario->manifest.registrationGroups.front().settings;
+    settings.autoSolveUnsolvedFrames = true;
+    settings.enrichWithGaiaCatalog = false;
+    settings.chromaticAberration.enabled = true;
+    settings.chromaticAberration.edgeFraction = 0.75;
+    settings.chromaticAberration.transformType = QStringLiteral("Affine");
+    settings.chromaticAberration.minMatchedStars = 9;
+    settings.chromaticAberration.interpolation = QStringLiteral("Bicubic");
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    const std::vector<ReportSettingsBlock>& blocks = model.registrationGroups.front().settings;
+    const auto stated = [&blocks](const QString& name) {
+        return valueOf(blocks, QStringLiteral("Registration"), name);
+    };
+
+    EXPECT_EQ(stated(QStringLiteral("Auto-Solve Unsolved Frames During Registration")), QStringLiteral("Yes"));
+    EXPECT_EQ(stated(QStringLiteral("Enrich With Gaia Catalog")), QStringLiteral("No"));
+    EXPECT_EQ(stated(QStringLiteral("Correct Chromatic Aberration Before Registration")), QStringLiteral("Yes"));
+    EXPECT_EQ(stated(QStringLiteral("CA Edge Fraction")), QStringLiteral("0.75"));
+    EXPECT_EQ(stated(QStringLiteral("CA Fit Type")), QStringLiteral("Affine"));
+    EXPECT_EQ(stated(QStringLiteral("CA Min Matched Stars")), QStringLiteral("9"));
+    EXPECT_EQ(stated(QStringLiteral("CA Interpolation")), QStringLiteral("Bicubic"));
+
+    // A group tracked on a comet states them as a group matched by its stars does.
+    const auto comet = built(ReportScenarioId::CometRun);
+    ASSERT_TRUE(comet.has_value());
+    const ReportModel cometModel = buildScenarioModel(*comet);
+    const std::vector<ReportSettingsBlock>& cometBlocks = cometModel.registrationGroups.front().settings;
+    EXPECT_EQ(valueOf(cometBlocks, QStringLiteral("Registration"),
+                      QStringLiteral("Auto-Solve Unsolved Frames During Registration")),
+              QStringLiteral("No"));
+    EXPECT_EQ(valueOf(cometBlocks, QStringLiteral("Registration"), QStringLiteral("Enrich With Gaia Catalog")),
+              QStringLiteral("Yes"));
+    EXPECT_EQ(valueOf(cometBlocks, QStringLiteral("Registration"),
+                      QStringLiteral("Correct Chromatic Aberration Before Registration")),
+              QStringLiteral("No"));
+}
+
+// A reference the application chose is stated as the light the registration's own records name. Where the run kept
+// no such record, the row can only say that the choice was left to the application.
+TEST(ReportSettingsFacts, AReferenceTheApplicationChoseIsStatedAsTheLightTheRegistrationRecorded)
+{
+    const auto scenario = built(ReportScenarioId::FiveFilters);
+    ASSERT_TRUE(scenario.has_value());
+
+    const ReportModel model = buildScenarioModel(*scenario);
+
+    ASSERT_EQ(model.registrationGroups.size(), scenario->manifest.registrationGroups.size());
+    for (std::size_t i = 0; i < model.registrationGroups.size(); ++i)
+    {
+        const ReportRegistrationGroup& group = model.registrationGroups[i];
+        const WorkflowManifest::RegistrationGroup& planned = scenario->manifest.registrationGroups[i];
+        SCOPED_TRACE(group.name.toStdString());
+        ASSERT_FALSE(planned.referenceFrame.has_value()) << "the manifest names no reference";
+        ASSERT_FALSE(planned.lightFiles.empty());
+        const ReportSettingsRow* row =
+            rowOf(blockOf(group.settings, QStringLiteral("Registration")), QStringLiteral("Reference Frame"));
+        ASSERT_NE(row, nullptr);
+        // The registration's own record names it: the group's first light.
+        EXPECT_EQ(row->value, QFileInfo(planned.lightFiles.front().canonicalPath()).fileName());
+        EXPECT_EQ(row->value, group.reference) << "the group states the same light as its reference";
+        EXPECT_EQ(row->requested, QStringLiteral("Automatic"));
+        EXPECT_FALSE(row->reason.isEmpty());
+    }
+    // The decision says what the choice resolved to.
+    const ReportDecision* decision = decisionOf(model, QStringLiteral("Registration: Reference Frame"));
+    ASSERT_NE(decision, nullptr);
+    EXPECT_EQ(decision->groupKey, model.registrationGroups.front().key);
+    EXPECT_EQ(decision->resolved, model.registrationGroups.front().reference);
+
+    // Without the registration's records no light is known.
+    const auto unrecorded = built(ReportScenarioId::FiveFiltersWithoutMetrics);
+    ASSERT_TRUE(unrecorded.has_value());
+    const ReportModel unknown = buildScenarioModel(*unrecorded);
+    ASSERT_FALSE(unknown.registrationGroups.empty());
+    const ReportSettingsRow* left =
+        rowOf(blockOf(unknown.registrationGroups.front().settings, QStringLiteral("Registration")),
+              QStringLiteral("Reference Frame"));
+    ASSERT_NE(left, nullptr);
+    EXPECT_EQ(left->value, QStringLiteral("Automatic"));
+    EXPECT_EQ(left->requested, QStringLiteral("Automatic"));
+}

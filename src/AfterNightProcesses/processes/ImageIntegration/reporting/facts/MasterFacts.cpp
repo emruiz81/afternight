@@ -87,7 +87,7 @@ namespace ImageIntegration::Reporting
 }
 
 std::optional<double> overlapRetainedPercent(const QString& captureResolution, const std::size_t width,
-                                             const std::size_t height)
+                                             const std::size_t height, const double outputScale)
 {
     const auto sourceDims = parseResolutionDimensions(captureResolution);
     if (!sourceDims.has_value())
@@ -95,7 +95,9 @@ std::optional<double> overlapRetainedPercent(const QString& captureResolution, c
         return std::nullopt;
     }
     const double sourceArea = static_cast<double>(sourceDims->first) * static_cast<double>(sourceDims->second);
-    const double outputArea = static_cast<double>(width) * static_cast<double>(height);
+    // A drizzled master's pixels are a fraction of a capture's: its area is counted in the capture's pixels.
+    const double scale = std::isfinite(outputScale) && outputScale > 0.0 ? outputScale : 1.0;
+    const double outputArea = static_cast<double>(width) * static_cast<double>(height) / (scale * scale);
     if (!(sourceArea > 0.0) || !(outputArea > 0.0))
     {
         return std::nullopt;
@@ -460,8 +462,19 @@ void fillMeasurement(ReportBuild& build, const QString& file, ReportMaster& mast
     const std::optional<ReportImageStatistics> statistics = std::move(measured->statistics);
     master.statistics = statistics;
 
+    // A drizzled master is measured in its own, finer pixels: the group's drizzle scale brings it back to the
+    // capture's before the two areas are compared.
+    double outputScale = 1.0;
+    for (const auto& group : build.manifest().integrationGroups)
+    {
+        if (group.groupKey.toString() == master.key && group.drizzle.has_value() && group.drizzle->enabled)
+        {
+            outputScale = group.drizzle->scale;
+            break;
+        }
+    }
     if (const std::optional<double> retained =
-            overlapRetainedPercent(master.captureResolution, statistics->width, statistics->height);
+            overlapRetainedPercent(master.captureResolution, statistics->width, statistics->height, outputScale);
         retained.has_value())
     {
         master.overlapRetained = *retained / 100.0;
@@ -500,6 +513,13 @@ void fillReused(ReportBuild& build, ReportMaster& master)
         if (made == run.model.masters.end())
         {
             continue;
+        }
+        // The latest run that made the master is the one whose figures are the file's, and only while the file is
+        // the size that run wrote: a master made again since, by a run whose report the history does not keep, is
+        // another file, and what an earlier run said of the one before it is not said of this one.
+        if (master.bytes.has_value() && made->bytes.has_value() && *master.bytes != *made->bytes)
+        {
+            break;
         }
         master.madeByRun = run.runId;
         master.lightsCombined = made->lightsCombined;
@@ -634,6 +654,13 @@ void fillMasters(ReportBuild& build, ReportModel& model)
     {
         reusedByKey.insert(reused.groupKey, &reused);
     }
+    // The groups whose stack failed before a master was written: the run names each with why, since none has a
+    // result.
+    QHash<QString, const FailedIntegrationGroup*> failedByKey;
+    for (const FailedIntegrationGroup& failed : result.failedIntegrationGroups)
+    {
+        failedByKey.insert(failed.groupKey, &failed);
+    }
     QSet<QString> combinedKeys;
     for (const auto& registrationGroup : manifest.registrationGroups)
     {
@@ -653,7 +680,7 @@ void fillMasters(ReportBuild& build, ReportModel& model)
         master.slug = build.slugs().slugFor(key);
         master.previewFolder = ImageIntegration::sanitizeFilename(key);
         master.name = friendlyGroupKey(key);
-        master.target = resolveTargetName(group);
+        master.target = listedTargetName(group);
         master.filter = group.filter.trimmed();
         master.kind = ReportMasterKind::Stack;
         master.fileName = group.outputFilename;
@@ -690,6 +717,13 @@ void fillMasters(ReportBuild& build, ReportModel& model)
             fillReused(build, master);
             fillPictures(build, master);
         }
+        else if (const auto failed = failedByKey.constFind(key); failed != failedByKey.constEnd())
+        {
+            // The stack failed before there was a master to finalize: the run says so, in the stage's own words.
+            master.state = ReportMasterState::Failed;
+            master.failure = (*failed)->error.trimmed().isEmpty() ? reportText("The stack of this master failed.")
+                                                                  : (*failed)->error.trimmed();
+        }
         else if (stopped)
         {
             master.state = result.cancelled ? ReportMasterState::Cancelled : ReportMasterState::NotReached;
@@ -723,12 +757,25 @@ void fillMasters(ReportBuild& build, ReportModel& model)
         master.previewFolder = folders.value(group.groupKey, ImageIntegration::sanitizeFilename(group.groupKey));
         master.name = friendlyGroupKey(group.groupKey);
         master.kind = combinedKeys.contains(group.groupKey) ? ReportMasterKind::CombinedRgb : ReportMasterKind::Stack;
-        for (const auto& registrationGroup : manifest.registrationGroups)
+        // An image made of other masters stands under their target: the target of the masters of its registration
+        // group, which is a target the run lists. Its registration group's own object is the next best name.
+        for (const ReportMaster& planned : model.masters)
         {
-            if (registrationGroup.groupKey.toString() == group.registrationGroupKey)
+            if (planned.registrationGroupKey == group.registrationGroupKey && !planned.target.isEmpty())
             {
-                master.target = registrationGroup.object.trimmed();
+                master.target = planned.target;
                 break;
+            }
+        }
+        if (master.target.isEmpty())
+        {
+            for (const auto& registrationGroup : manifest.registrationGroups)
+            {
+                if (registrationGroup.groupKey.toString() == group.registrationGroupKey)
+                {
+                    master.target = registrationGroup.object.trimmed();
+                    break;
+                }
             }
         }
         fillFromResult(build, group, nullptr, master);

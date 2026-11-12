@@ -329,7 +329,8 @@ struct MasterUse
 /// Whether a master's file is on disk: the run made it, or it was still valid.
 [[nodiscard]] bool isThere(const ReportMaster& master);
 
-/// Whether the run stopped before its end: it failed, was cancelled, or made only some of its masters.
+/// Whether the run fell short of what it planned: it failed, was cancelled, or left a master unmade - whether it
+/// stopped there or went on with its other masters. A run in which a light failed and every master was made did not.
 [[nodiscard]] bool runStopped(const ReportModel& model);
 
 /// A value that may not be stated, as a chart takes it: not a number where there is none.
@@ -387,7 +388,8 @@ struct ReportDither
 [[nodiscard]] QStringList earlierAnchors(const ReportModel& model);
 
 /// Part 3: each master beside the latest earlier run that made it, what changed since the latest earlier run that
-/// completed, and the runs of the folder; one sentence when there is no earlier run.
+/// completed, and the runs of the folder; one sentence when there is no earlier run. A run that made no master to
+/// compare and left some as they were says so under the part's heading, naming them.
 [[nodiscard]] ReportPart writeReportEarlier(const ReportDocumentContext& context);
 
 // ---- What the masters share (ReportHtmlShared.cpp).

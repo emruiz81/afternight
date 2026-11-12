@@ -721,3 +721,90 @@ TEST_F(PreviewThumbnailGenerator, AMasterIsPicturedUnderTheStretchOfAnother)
                      .whole.has_value());
     EXPECT_FALSE(QFile::exists(QDir(reportDir).filePath(QStringLiteral("a.jpg"))));
 }
+
+// A run's own pictures of a master are the stacking stage's, of the master it held: every n-th sample of a master
+// larger than the report's bound, stretched by what those samples measure. A master set beside them is pictured
+// the same way and through that analysis, so a master beside itself is the same picture twice. Pictured as the
+// archive pictures a file - shrunk by the largest sample of each footprint, which measures another stretch - the
+// same master came out another picture, and a comparison showed a difference no master had.
+TEST_F(PreviewThumbnailGenerator, AMasterSetBesideTheStagesOwnPicturesIsPicturedAsTheStagePicturedThem)
+{
+    const QString reportDir = QDir(tempPath()).filePath(QStringLiteral("report_previews/GroupD"));
+    const QString nowPath = QDir(tempPath()).filePath(QStringLiteral("large_now.fit"));
+    const QString earlierPath = QDir(tempPath()).filePath(QStringLiteral("large_earlier.fit"));
+    // Wider than the bound, so the whole frame is reduced: by three here. The earlier master is the same master.
+    const std::optional<an::consumer::ImageAsset> master =
+        makeImage(session(), 4200u, 600u, Channels::Grey, skewedMonoMap);
+    ASSERT_TRUE(master.has_value());
+    writeFits(session(), *master, nowPath);
+    writeFits(session(), *master, earlierPath);
+
+    StackPreviewAssets own;
+    {
+        an::Result<an::consumer::AssetReadLease> lease = master->read();
+        ASSERT_TRUE(lease.hasValue()) << lease.status().message();
+        const auto* held = std::get_if<an::Image<float>>(&lease->image());
+        ASSERT_NE(held, nullptr);
+        an::Result<an::consumer::OperationScope> scope = session().admit(
+            an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch, .maxConcurrency = 1u});
+        ASSERT_TRUE(scope.hasValue()) << scope.status().message();
+        own = ImageIntegration::detail::generateResidentStackPreviewAssets(
+            *scope, *held, QDir(tempPath()).filePath(QStringLiteral("large.preview.png")));
+    }
+    ASSERT_FALSE(own.reportPreviewJpeg.isEmpty());
+    ASSERT_FALSE(own.reportDetailJpeg.isEmpty());
+    const QImage ownWhole = QImage::fromData(own.reportPreviewJpeg, "JPEG");
+    ASSERT_EQ(ownWhole.size(), QSize(1400, 200));
+
+    const ImageIntegration::ReportMasterPreviews matched = ImageIntegration::generateReportMasterPreviewsUnderStretchOf(
+        session(), nowPath, earlierPath, reportDir, QStringLiteral("previous_master_matched.jpg"),
+        QStringLiteral("previous_detail_matched.jpg"), std::nullopt, 90,
+        ImageIntegration::ReportPicturePresentation::AsStacked);
+    ASSERT_TRUE(matched.whole.has_value());
+    ASSERT_TRUE(matched.detail.has_value());
+    EXPECT_TRUE(previewImagesMatch(QImage(QDir(reportDir).filePath(*matched.whole)), ownWhole));
+    EXPECT_TRUE(previewImagesMatch(QImage(QDir(reportDir).filePath(*matched.detail)),
+                                   QImage::fromData(own.reportDetailJpeg, "JPEG")));
+
+    // As the archive pictures a file the same master is not the stage's picture: it is fitted into the bound.
+    const ImageIntegration::ReportMasterPreviews bounded = ImageIntegration::generateReportMasterPreviewsUnderStretchOf(
+        session(), nowPath, earlierPath, reportDir, QStringLiteral("bounded.jpg"),
+        QStringLiteral("bounded_detail.jpg"));
+    ASSERT_TRUE(bounded.whole.has_value());
+    EXPECT_FALSE(previewImagesMatch(QImage(QDir(reportDir).filePath(*bounded.whole)), ownWhole));
+}
+
+// A master the other's stretch cannot present - one of another number of channels - gets no picture under it. The
+// viewer's presentation sets such an analysis aside and measures the image itself, so a picture was written under
+// the master's own stretch and named as one under the other's.
+TEST_F(PreviewThumbnailGenerator, AMasterTheOthersStretchCannotPresentGetsNoPictureUnderIt)
+{
+    const QString reportDir = QDir(tempPath()).filePath(QStringLiteral("report_previews/GroupE"));
+    const QString nowPath = QDir(tempPath()).filePath(QStringLiteral("grey_now.fit"));
+    const QString earlierPath = QDir(tempPath()).filePath(QStringLiteral("colour_earlier.fit"));
+    const std::optional<an::consumer::ImageAsset> now = makeImage(session(), 320u, 240u, Channels::Grey, skewedMonoMap);
+    const std::optional<an::consumer::ImageAsset> earlier =
+        makeImage(session(), 320u, 240u, Channels::Rgb,
+                  [](const std::uint32_t x, const std::uint32_t y, const std::uint32_t channel) {
+                      return (0.6f + 0.1f * static_cast<float>(channel)) * skewedMonoMap(x, y, channel);
+                  });
+    ASSERT_TRUE(now.has_value());
+    ASSERT_TRUE(earlier.has_value());
+    writeFits(session(), *now, nowPath);
+    writeFits(session(), *earlier, earlierPath);
+
+    int attempt = 0;
+    for (const ImageIntegration::ReportPicturePresentation presentation :
+         {ImageIntegration::ReportPicturePresentation::Bounded, ImageIntegration::ReportPicturePresentation::AsStacked})
+    {
+        const QString whole = QStringLiteral("matched_%1.jpg").arg(attempt);
+        const QString detail = QStringLiteral("matched_detail_%1.jpg").arg(attempt);
+        ++attempt;
+        const ImageIntegration::ReportMasterPreviews matched =
+            ImageIntegration::generateReportMasterPreviewsUnderStretchOf(session(), nowPath, earlierPath, reportDir,
+                                                                         whole, detail, std::nullopt, 90, presentation);
+        EXPECT_FALSE(matched.whole.has_value());
+        EXPECT_FALSE(matched.detail.has_value());
+        EXPECT_FALSE(QFile::exists(QDir(reportDir).filePath(whole)));
+    }
+}

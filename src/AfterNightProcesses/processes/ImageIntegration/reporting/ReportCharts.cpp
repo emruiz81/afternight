@@ -5,6 +5,7 @@
 #include "ReportCharts.h"
 
 #include "ReportFormat.h"
+#include "ReportHtmlWriter.h"
 
 #include <QByteArray>
 
@@ -16,7 +17,6 @@ namespace ImageIntegration::Reporting
 {
 namespace
 {
-constexpr QChar kReplacementCharacter{0xFFFD};
 constexpr QChar kEllipsis{0x2026};
 constexpr QChar kMinusSign{0x2212};
 
@@ -35,67 +35,8 @@ constexpr double kCharacterWidth = 0.56;
 /// a space.
 [[nodiscard]] QString escaped(const QString& text, bool attribute = false)
 {
-    QString out;
-    out.reserve(text.size() + 8);
-    for (qsizetype index = 0; index < text.size(); ++index)
-    {
-        const QChar character = text.at(index);
-        const char16_t unit = character.unicode();
-        switch (unit)
-        {
-        case u'&':
-            out += QLatin1String("&amp;");
-            continue;
-        case u'<':
-            out += QLatin1String("&lt;");
-            continue;
-        case u'>':
-            out += QLatin1String("&gt;");
-            continue;
-        case u'"':
-            out += QLatin1String("&quot;");
-            continue;
-        case u'\'':
-            out += QLatin1String("&#39;");
-            continue;
-        case u'\t':
-            out += attribute ? QString(QLatin1String("&#9;")) : QString(character);
-            continue;
-        case u'\n':
-            out += attribute ? QString(QLatin1String("&#10;")) : QString(character);
-            continue;
-        case u'\r':
-            out += attribute ? QString(QLatin1String("&#13;")) : QString(character);
-            continue;
-        default:
-            break;
-        }
-        if (unit < 0x20 || unit == 0xFFFE || unit == 0xFFFF)
-        {
-            out += kReplacementCharacter;
-        }
-        else if (character.isHighSurrogate())
-        {
-            if (index + 1 < text.size() && text.at(index + 1).isLowSurrogate())
-            {
-                out += character;
-                out += text.at(++index);
-            }
-            else
-            {
-                out += kReplacementCharacter;
-            }
-        }
-        else if (character.isLowSurrogate())
-        {
-            out += kReplacementCharacter;
-        }
-        else
-        {
-            out += character;
-        }
-    }
-    return out;
+    // The document's one rule for text in markup, so a chart and the page around it never escape differently.
+    return ReportMarkup::escaped(text, attribute);
 }
 
 /// A length or a place, to a tenth. A value that is not a number is never printed: it is zero.
@@ -666,19 +607,34 @@ std::vector<ChartBin> chartBins(const std::vector<double>& values, int count, st
         return {};
     }
     const std::vector<double> round = ticksOf(extent.lowest, extent.highest, count, false);
-    double low = lowest.has_value() && std::isfinite(*lowest) ? *lowest : round.front();
-    double high = highest.has_value() && std::isfinite(*highest) ? *highest : round.back();
-    if (!(high > low))
+    const bool lowStated = lowest.has_value() && std::isfinite(*lowest);
+    const bool highStated = highest.has_value() && std::isfinite(*highest);
+    const double low = lowStated ? *lowest : round.front();
+    const double high = highStated ? *highest : round.back();
+
+    // The edges. Where the caller states a bound, they cut the range between the bounds into `count` equal bins.
+    // Where it states none, they are the round numbers themselves, a bin from each to the next: `count` equal
+    // parts of the round numbers' span would have edges that are not round, and a reader is told a bin by its
+    // edges. Bounds that do not ascend are no bounds.
+    std::vector<double> edges;
+    if ((lowStated || highStated) && high > low)
     {
-        low = round.front();
-        high = round.back();
+        edges.reserve(static_cast<std::size_t>(count) + 1);
+        for (int index = 0; index <= count; ++index)
+        {
+            edges.push_back(tidy(low + (high - low) * index / count));
+        }
+    }
+    else
+    {
+        edges = round;
     }
 
-    std::vector<ChartBin> bins(static_cast<std::size_t>(count));
-    for (int index = 0; index < count; ++index)
+    std::vector<ChartBin> bins(edges.size() - 1);
+    for (std::size_t index = 0; index < bins.size(); ++index)
     {
-        bins[static_cast<std::size_t>(index)].low = tidy(low + (high - low) * index / count);
-        bins[static_cast<std::size_t>(index)].high = tidy(low + (high - low) * (index + 1) / count);
+        bins[index].low = edges[index];
+        bins[index].high = edges[index + 1];
     }
     for (const double value : values)
     {
@@ -686,9 +642,11 @@ std::vector<ChartBin> chartBins(const std::vector<double>& values, int count, st
         {
             continue;
         }
-        const double place = std::floor((value - low) / (high - low) * count);
-        const int index = static_cast<int>(std::clamp(place, 0.0, static_cast<double>(count - 1)));
-        ++bins[static_cast<std::size_t>(index)].count;
+        // A value on an edge is counted in the bin the edge opens; one on the top edge, or outside the edges, in
+        // the nearest bin.
+        const std::size_t over =
+            static_cast<std::size_t>(std::upper_bound(edges.begin(), edges.end(), value) - edges.begin());
+        ++bins[std::clamp<std::size_t>(over, 1, bins.size()) - 1].count;
     }
     return bins;
 }
@@ -1529,13 +1487,14 @@ QString ditherChart(const DitherChart& chart)
     appendText(out, QLatin1String("c-lab"), left + side / 2.0, height - 4.0, Anchor::Middle, chart.xAxis.title);
     appendUprightText(out, QLatin1String("c-lab"), 11.0, top + side / 2.0, chart.yAxis.title);
 
+    // The lights used first, each in its night's mark, so a cross is never under a mark.
     for (std::size_t night = 0; night < chart.nights.size(); ++night)
     {
         const QString cssClass = nightClass(static_cast<int>(night));
         QString together;
         for (const ChartPoint& point : chart.nights[night].points)
         {
-            if (!std::isfinite(point.x) || !std::isfinite(point.y))
+            if (!std::isfinite(point.x) || !std::isfinite(point.y) || point.state != ChartState::Used)
             {
                 continue;
             }
@@ -1552,6 +1511,19 @@ QString ditherChart(const DitherChart& chart)
         if (dense && !together.isEmpty())
         {
             out += QStringLiteral("<path class=\"%1 c-ns\" d=\"%2\"/>").arg(cssClass, together);
+        }
+    }
+    // A light left out is a cross in the class of its state, whichever night it was taken in. A dense chart has
+    // no circle to point at over each light, so there the cross keeps its light's tip.
+    for (const ChartSeries& night : chart.nights)
+    {
+        for (const ChartPoint& point : night.points)
+        {
+            if (std::isfinite(point.x) && std::isfinite(point.y) && point.state != ChartState::Used)
+            {
+                appendCross(out, xScale.at(point.x), yScale.at(point.y), 3.5, point.state,
+                            dense ? &point.tip : nullptr);
+            }
         }
     }
     if (!dense)
@@ -1953,7 +1925,7 @@ QString runsChart(const RunsChart& chart)
         }
         else
         {
-            // A run that stopped has no figure: a cross stands on the axis where its column would.
+            // A run that failed or was cancelled has no figure: a cross stands on the axis where its column would.
             out += QStringLiteral("<path class=\"c-x\" d=\"M%1 %2l8 8M%3 %2l-8 8\"/>")
                        .arg(num(centre - 4.0), num(base - 12.0), num(centre + 4.0));
         }

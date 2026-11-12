@@ -11,6 +11,7 @@
 #include <QImage>
 #include <QImageReader>
 #include <QImageWriter>
+#include <QRegularExpression>
 #include <QSet>
 
 #include <algorithm>
@@ -54,6 +55,50 @@ void replaceFolder(QString& text, const QString& folder, const QString& replacem
     {
         text.replace(native, replacement, Qt::CaseInsensitive);
     }
+}
+
+/// A relative path as a link's value. A browser reads `#` as the start of a fragment, `?` as the start of a query
+/// and `%` as the start of an escape, and a folder named after a target - "Panel #2" - holds them: each is escaped,
+/// so the path names the file it names on disk.
+[[nodiscard]] QString linkOf(QString path)
+{
+    path.replace(QLatin1Char('%'), QStringLiteral("%25"));
+    path.replace(QLatin1Char('#'), QStringLiteral("%23"));
+    path.replace(QLatin1Char('?'), QStringLiteral("%3F"));
+    return path;
+}
+
+/// Takes out of a text the folders of the paths the run wrote into it that the report's own files do not name: a
+/// catalog's folder, a solver's temporary file, the application's own. The folder of a person's profile goes first
+/// and whole, whatever is in its name, since it is their name; of any other absolute path what stays is its last
+/// part, as far as the path can be told from the words around it - a folder with a space in its name ends the part
+/// that is taken out. The text is a sentence or a log, so this is a rule over words, not over files: it is for a
+/// document meant to be sent, and errs towards taking out.
+void hideOtherFolders(QString& text)
+{
+    // A profile: `C:\Users\<name>\`, `/home/<name>/`, `/Users/<name>/`.
+    static const QRegularExpression windowsProfile(
+        QStringLiteral(R"((?<![A-Za-z0-9_])[A-Za-z]:[\\/]+Users[\\/]+[^\\/:*?"<>|\r\n]+[\\/]+)"),
+        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression windowsProfileAlone(
+        QStringLiteral(R"((?<![A-Za-z0-9_])[A-Za-z]:[\\/]+Users[\\/]+[^\\/:*?"<>|'\s]+)"),
+        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression posixProfile(
+        QStringLiteral(R"((?<![A-Za-z0-9_.~/\\:<])/(?:home|Users)/[^/\s:*?"<>|']+)"));
+    text.replace(windowsProfile, QStringLiteral("~/"));
+    text.replace(windowsProfileAlone, QStringLiteral("~"));
+    text.replace(posixProfile, QStringLiteral("~"));
+
+    // What is left of an absolute path: a drive's, a profile's, a share's, a root's. Its folders go, its last part
+    // stays.
+    static const QRegularExpression driveFolders(
+        QStringLiteral(R"((?<![A-Za-z0-9_])(?:[A-Za-z]:|~)[\\/]+(?:[^\\/:*?"<>|'\s]+[\\/]+)*)"));
+    static const QRegularExpression shareFolders(
+        QStringLiteral(R"((?<![A-Za-z0-9_:\\])\\\\[^\\/:*?"<>|'\s]+\\(?:[^\\/:*?"<>|'\s]+\\)*)"));
+    static const QRegularExpression rootFolders(QStringLiteral(R"((?<![A-Za-z0-9_.~/\\:<])/(?:[^/\s:*?"<>|']+/)+)"));
+    text.remove(driveFolders);
+    text.remove(shareFolders);
+    text.remove(rootFolders);
 }
 } // namespace
 
@@ -107,7 +152,9 @@ void ReportAssets::hideFoldersOf(const ReportModel& model)
     QSet<QString> folders;
     const auto add = [&folders](const QString& file) {
         const QString folder = folderOf(file);
-        if (!folder.isEmpty())
+        // A file in a drive's root has no folder to drop: the drive alone ("E:") has no name, and taking it out
+        // of a text would take the same two letters out of every word that ends in them before a colon.
+        if (!folder.isEmpty() && !QFileInfo(folder).fileName().isEmpty())
         {
             folders.insert(folder);
         }
@@ -141,7 +188,7 @@ void ReportAssets::hideFoldersOf(const ReportModel& model)
     }
     if (!m_runDirectory.trimmed().isEmpty())
     {
-        folders.insert(withForwardSlashes(m_runDirectory.trimmed()));
+        add(withForwardSlashes(m_runDirectory.trimmed()) + QStringLiteral("/."));
     }
     // The output folder keeps its name in a message, so it is replaced on its own and is no folder to drop.
     folders.remove(m_outputFolder);
@@ -162,7 +209,7 @@ QString ReportAssets::image(const QString& relativePath)
     }
     if (m_form == ReportForm::Linked)
     {
-        return relative;
+        return linkOf(relative);
     }
     return embedded(relative, kEmbeddedImageLongestSide);
 }
@@ -176,7 +223,7 @@ QString ReportAssets::thumbnail(const QString& relativePath)
     }
     if (m_form == ReportForm::Linked)
     {
-        return relative;
+        return linkOf(relative);
     }
     return embedded(relative, kEmbeddedThumbnailLongestSide);
 }
@@ -226,7 +273,13 @@ QString ReportAssets::message(const QString& text) const
         replaceFolder(shown, folder + QLatin1Char('/'), QString());
         replaceFolder(shown, folder, QFileInfo(folder).fileName());
     }
-    replaceFolder(shown, m_outputFolder, m_outputFolderName);
+    // An output folder that is a drive's root has no name to stand for it; the rule below takes the drive out.
+    if (!m_outputFolderName.isEmpty())
+    {
+        replaceFolder(shown, m_outputFolder, m_outputFolderName);
+    }
+    // What the run wrote may name folders none of the report's files is in.
+    hideOtherFolders(shown);
     return shown;
 }
 } // namespace ImageIntegration::Reporting

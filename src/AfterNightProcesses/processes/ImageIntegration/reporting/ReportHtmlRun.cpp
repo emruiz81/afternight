@@ -211,11 +211,25 @@ void writeTimeline(ReportMarkup& out, const ReportDocumentContext& context)
     out.open("div", {{"class", QStringLiteral("card")}});
     writeScrollingChart(out, timelineChart(chart), chart.description.label);
 
-    // A run that stopped says where, and leads to what it left unmade.
+    // A run that stopped says where, and leads to what it left unmade. A stage that went on after part of its work
+    // failed - a light with no transform, a group that could not be stacked - did not stop the run, and says that.
     const auto stoppedAt = std::find_if(model.stages.begin(), model.stages.end(), [](const ReportStage& stage) {
-        return stage.state == ReportStageState::Failed || stage.state == ReportStageState::Cancelled ||
-               stage.state == ReportStageState::Partial;
+        return stage.state == ReportStageState::Failed || stage.state == ReportStageState::Cancelled;
     });
+    const auto faltered = std::find_if(model.stages.begin(), model.stages.end(), [](const ReportStage& stage) {
+        return stage.state == ReportStageState::Partial;
+    });
+    if (stoppedAt == model.stages.end() && faltered != model.stages.end())
+    {
+        out.open("p", {{"class", QStringLiteral("cap")}});
+        out.text(documentText("Part of %1 failed, and the run went on.").arg(faltered->name));
+        if (context.hasAnchor(QStringLiteral("attention")))
+        {
+            out.text(QStringLiteral(" "));
+            out.element("a", {{"href", QStringLiteral("#attention")}}, documentText("What failed"));
+        }
+        out.close("p");
+    }
     if (stoppedAt != model.stages.end())
     {
         const int notReached =

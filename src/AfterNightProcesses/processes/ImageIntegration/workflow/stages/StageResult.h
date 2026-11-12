@@ -590,6 +590,31 @@ struct ReusedIntegrationGroup
     return groups;
 }
 
+/// An integration group whose stack failed before a master of it was written, and why, in the words the stage gives
+/// the person. A group result is made only of a group that reached its master's finalization, so a group that had
+/// too few registered lights, or whose stack the engine refused, has none: the run names it here, and its report
+/// says the master failed and why instead of finding no record of it.
+struct FailedIntegrationGroup
+{
+    QString groupKey;
+
+    /// Why the group's stack failed.
+    QString error;
+};
+
+[[nodiscard]] inline QJsonArray failedIntegrationGroupsToJson(const std::vector<FailedIntegrationGroup>& groups)
+{
+    QJsonArray array;
+    for (const FailedIntegrationGroup& group : groups)
+    {
+        QJsonObject obj;
+        obj[QStringLiteral("groupKey")] = group.groupKey;
+        obj[QStringLiteral("error")] = group.error;
+        array.append(obj);
+    }
+    return array;
+}
+
 /**
  * @brief Result metadata for a single integration group.
  */
@@ -883,6 +908,8 @@ struct StageResult
     std::vector<StagePhaseTiming> phaseTimings; ///< Timed sub-phases reported separately from the parent stage
     std::optional<StackExecutionCounters> engineExecutionCounters; ///< Optional stage-local diagnostics
     std::vector<ReusedIntegrationGroup> reusedGroups; ///< Groups whose output was still valid, which have no result
+    /// The groups whose stack failed before a master was written, which have no result either, each with why.
+    std::vector<FailedIntegrationGroup> failedGroups;
     /// The keys of the calibration groups whose master a calibration stage found still valid and left as it was.
     std::vector<QString> reusedCalibrationGroups;
     /// The lights the registration stage found no transform for in this run, each with its reason.

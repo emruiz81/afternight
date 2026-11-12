@@ -29,27 +29,27 @@ namespace ImageIntegration::Reporting
 {
     if (isAutoToken(interpolation))
     {
-        return QStringLiteral("Auto (Lanczos4)");
+        return reportText("Auto (Lanczos4)");
     }
-    return interpolation.trimmed().isEmpty() ? QStringLiteral("Lanczos4") : interpolation.trimmed();
+    return interpolation.trimmed().isEmpty() ? reportText("Lanczos4") : interpolation.trimmed();
 }
 
 [[nodiscard]] QString cfaPatternDisplayText(const QString& cfaPattern)
 {
     if (isAutoToken(cfaPattern))
     {
-        return QStringLiteral("Auto (from metadata)");
+        return reportText("Auto (from metadata)");
     }
-    return cfaPattern.trimmed().isEmpty() ? QStringLiteral("Auto (from metadata)") : cfaPattern.trimmed();
+    return cfaPattern.trimmed().isEmpty() ? reportText("Auto (from metadata)") : cfaPattern.trimmed();
 }
 
 [[nodiscard]] QString debayerMethodDisplayText(const QString& debayerMethod)
 {
     if (isAutoToken(debayerMethod))
     {
-        return QStringLiteral("Auto (engine-selected)");
+        return reportText("Auto (engine-selected)");
     }
-    return debayerMethod.trimmed().isEmpty() ? QStringLiteral("Auto (engine-selected)") : debayerMethod.trimmed();
+    return debayerMethod.trimmed().isEmpty() ? reportText("Auto (engine-selected)") : debayerMethod.trimmed();
 }
 
 [[nodiscard]] QString normalizationModeText(NormalizationMode mode)
@@ -57,14 +57,14 @@ namespace ImageIntegration::Reporting
     switch (mode)
     {
     case NormalizationMode::None:
-        return QStringLiteral("None");
+        return reportText("None");
     case NormalizationMode::Global:
-        return QStringLiteral("Global");
+        return reportText("Global");
     case NormalizationMode::Local:
-        return QStringLiteral("Local");
+        return reportText("Local");
     }
 
-    return QStringLiteral("Unknown");
+    return reportText("Unknown");
 }
 
 [[nodiscard]] QString globalNormalizationMethodText(GlobalNormalizationMethod method)
@@ -72,16 +72,16 @@ namespace ImageIntegration::Reporting
     switch (method)
     {
     case GlobalNormalizationMethod::Additive:
-        return QStringLiteral("Additive");
+        return reportText("Additive");
     case GlobalNormalizationMethod::AdditiveScaling:
-        return QStringLiteral("Additive + Scaling");
+        return reportText("Additive + Scaling");
     case GlobalNormalizationMethod::Multiplicative:
-        return QStringLiteral("Multiplicative");
+        return reportText("Multiplicative");
     case GlobalNormalizationMethod::MultiplicativeScaling:
-        return QStringLiteral("Multiplicative + Scaling");
+        return reportText("Multiplicative + Scaling");
     }
 
-    return QStringLiteral("Unknown");
+    return reportText("Unknown");
 }
 
 [[nodiscard]] QString scaleEstimatorText(ScaleEstimatorMethod method)
@@ -89,26 +89,29 @@ namespace ImageIntegration::Reporting
     switch (method)
     {
     case ScaleEstimatorMethod::MAD:
-        return QStringLiteral("MAD");
+        return reportText("MAD");
     case ScaleEstimatorMethod::IKSS:
-        return QStringLiteral("IKSS");
+        return reportText("IKSS");
     }
 
-    return QStringLiteral("Unknown");
+    return reportText("Unknown");
 }
 
 [[nodiscard]] QString rejectionMethodText(const StackingSettings& settings)
 {
-    const QString effective =
-        settings.rejectionMethod.trimmed().isEmpty() ? QStringLiteral("None") : settings.rejectionMethod.trimmed();
+    // A method the settings leave empty is none. The request is compared with the method as the settings spell it,
+    // and the report prints it in its own words.
+    const QString stored = settings.rejectionMethod.trimmed();
+    const QString method = stored.isEmpty() ? QStringLiteral("None") : stored;
+    const QString effective = stored.isEmpty() ? reportText("None") : stored;
     const QString requested = settings.requestedRejectionMethod.trimmed();
-    if (!requested.isEmpty() && requested.compare(effective, Qt::CaseInsensitive) != 0)
+    if (!requested.isEmpty() && requested.compare(method, Qt::CaseInsensitive) != 0)
     {
         if (requested.compare(QStringLiteral("Auto"), Qt::CaseInsensitive) == 0)
         {
-            return QStringLiteral("Auto (%1)").arg(effective);
+            return reportText("Auto (%1)").arg(effective);
         }
-        return QStringLiteral("%1 -> %2").arg(requested, effective);
+        return reportText("%1 -> %2").arg(requested, effective);
     }
     return effective;
 }
@@ -217,17 +220,25 @@ struct RejectionDecision
         return std::nullopt;
     }
     const QString effective =
-        stacking.rejectionMethod.trimmed().isEmpty() ? QStringLiteral("None") : stacking.rejectionMethod.trimmed();
+        stacking.rejectionMethod.trimmed().isEmpty() ? reportText("None") : stacking.rejectionMethod.trimmed();
     return RejectionDecision{
         .resolved = effective,
         .reason =
             reportText("Auto resolved to %1 from the stacking policy for %2 frame(s)").arg(effective).arg(frames)};
 }
 
-/// How a group's frames are combined. `exposure` is the group's lights by exposure, for a merge of exposures.
+/// How a group's frames are combined. `exposure` is the group's lights by exposure, for a merge of exposures; a
+/// calibration master has none, and its stack reads none of the settings a stack of lights alone has. `drizzled` is
+/// whether the group's lights are drizzled.
 [[nodiscard]] ReportSettingsBlock stackingBlock(const StackingSettings& stacking, const int frames,
-                                                const ReportExposure* exposure)
+                                                const ReportExposure* exposure, const bool drizzled)
 {
+    // The settings as the stack reads them: what its combination, a merge of exposures or a comet stack does not
+    // take is off in them.
+    const StackingSettings applied = ImageIntegration::sanitizeStackingSettings(stacking);
+    const bool lights = exposure != nullptr;
+    const bool merge = stacking.hdr.enabled;
+
     Rows rows(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Stacking"));
     rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Stack Method"),
              stacking.hdr.enabled ? reportText("HDR Merge (%1)").arg(stacking.stackMethod) : stacking.stackMethod);
@@ -254,7 +265,7 @@ struct RejectionDecision
     if (const std::optional<RejectionDecision> decided = rejectionDecision(stacking, frames); decided.has_value())
     {
         rows.addDecided(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Rejection Method"), decided->resolved,
-                        QStringLiteral("Auto"), decided->reason);
+                        reportText("Auto"), decided->reason);
     }
     else
     {
@@ -266,8 +277,46 @@ struct RejectionDecision
     rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Star Count Scaling"), stacking.starCountScaling);
     rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Exponential Alpha"), stacking.exponentialAlpha);
     rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Minimum Weight Floor"), stacking.minWeightFloor);
+    // A light's weight varies over its frame only beside a frame weighting the stack applies, and the settings of
+    // that variation are read only while it is on.
+    const QString weighting = applied.weighting.trimmed();
+    const bool weighs = !weighting.isEmpty() && weighting.compare(QStringLiteral("None"), Qt::CaseInsensitive) != 0;
+    if (lights && weighs)
+    {
+        const LocalWeightingSettings& perPixel = stacking.localWeighting;
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Per-Pixel Weighting"), perPixel.enabled);
+        if (perPixel.enabled)
+        {
+            rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Per-Pixel Weighting Window Size"),
+                     perPixel.windowSize);
+            rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Per-Pixel Weighting Grid Spacing"),
+                     perPixel.gridSpacing);
+            rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Per-Pixel Weighting SNR Exponent"),
+                     perPixel.snrWeightExponent);
+        }
+    }
     rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Create Rejection Maps"), stacking.createRejectionMaps);
     rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Merge Rejection Maps"), stacking.mergeRejectionMaps);
+    if (lights && !merge)
+    {
+        // The analysis reads what the stack rejected, so a stack that rejects nothing has none. A text the stack does
+        // not know stops the group by name, and no row is left out on its account.
+        const an::Result<ImageIntegration::IntegrationStackChoice> choice =
+            ImageIntegration::integrationStackChoice(applied);
+        if (!choice.hasValue() || choice->rejection != an::StackRejection::None)
+        {
+            // Stacking again without the flagged lights turns the analysis on, and a drizzled stack is not stacked
+            // again.
+            rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Analyze Spatial Rejection Clusters"),
+                     applied.spatialRejectionClustering);
+            if (!drizzled)
+            {
+                rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Re-Stack Excluding Flagged Frames"),
+                         applied.restackExcludingFlaggedFrames);
+            }
+        }
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Create Quality Maps"), stacking.createQualityMaps);
+    }
     rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Normalization Mode"),
              normalizationModeText(stacking.normalizationMode));
     if (stacking.normalizationMode != NormalizationMode::None)
@@ -286,6 +335,24 @@ struct RejectionDecision
             rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Scale Estimator"),
                      scaleEstimatorText(stacking.scaleEstimator));
         }
+        // The lights are matched over the areas they share only in a global normalization, and the floors of that
+        // match are read only while it is on.
+        if (lights && !merge && stacking.normalizationMode == NormalizationMode::Global)
+        {
+            const OverlapNormalizationSettings& overlap = stacking.overlapNormalization;
+            rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Overlap Normalization"), overlap.enabled);
+            if (overlap.enabled)
+            {
+                rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Min Overlap Pixels"), overlap.minOverlapPixels);
+                rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Min Overlap Fraction"),
+                         overlap.minOverlapFraction);
+            }
+        }
+    }
+    if (lights)
+    {
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Plate-Solve Final Master If Needed"),
+                 stacking.solveFinalMasterIfNeeded);
     }
     return rows.take();
 }
@@ -378,7 +445,7 @@ struct RejectionDecision
     if (drizzle.cfaAware && isAutoToken(drizzle.cfaPattern))
     {
         rows.addDecided(QT_TRANSLATE_NOOP("ImageIntegrationReport", "CFA Pattern"), reportText("from metadata"),
-                        QStringLiteral("Auto"),
+                        reportText("Auto"),
                         reportText("Auto reads the CFA pattern from image metadata before drizzle mapping"));
     }
     else
@@ -388,16 +455,28 @@ struct RejectionDecision
     return rows.take();
 }
 
-/// A registration group's settings. `transform` is what a transform left on Auto resolved to.
+/// A registration group's settings. `transform` is what a transform left on Auto resolved to, and `recordedReference`
+/// the light the registration's own records name as the reference, as `frameLabel` labels it; empty when they name
+/// none.
 [[nodiscard]] ReportSettingsBlock registrationBlock(const WorkflowManifest::RegistrationGroup& group,
-                                                    const AutoTransformResolution& transform)
+                                                    const AutoTransformResolution& transform,
+                                                    const QString& recordedReference)
 {
     namespace utils = ImageIntegration::RegistrationSettingsUtils;
     const RegistrationSettings& settings = group.settings;
     const bool automaticReference =
         settings.autoReferenceDuringRegistration || settings.referenceImage.trimmed().isEmpty();
-    const QString chosenReference =
-        group.referenceFrame.has_value() ? frameLabel(*group.referenceFrame) : reportText("Automatic");
+    // The manifest names a reference the user chose; one the application chose is in the registration's own records.
+    // With neither, the row can only say that the choice was left to the application.
+    QString chosenReference = reportText("Automatic");
+    if (group.referenceFrame.has_value())
+    {
+        chosenReference = frameLabel(*group.referenceFrame);
+    }
+    else if (!recordedReference.isEmpty())
+    {
+        chosenReference = recordedReference;
+    }
 
     Rows rows(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Registration"));
     rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Settings Version"), settings.version);
@@ -416,6 +495,11 @@ struct RejectionDecision
         rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Reference Image Requested"),
                  QFileInfo(settings.referenceImage).fileName());
     }
+    // Both are stated as the group stores them, whatever its method: a mosaic canvas has the lights the method could
+    // not register solved whatever the first says, and neither does anything without a solver or a catalog to call.
+    rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Auto-Solve Unsolved Frames During Registration"),
+             settings.autoSolveUnsolvedFrames);
+    rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Enrich With Gaia Catalog"), settings.enrichWithGaiaCatalog);
     if (utils::usesStarDetection(settings.registrationMethod))
     {
         rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Min Star Pairs"), settings.minStarPairs);
@@ -425,7 +509,7 @@ struct RejectionDecision
     if (settings.transformMode.trimmed().compare(QStringLiteral("Auto"), Qt::CaseInsensitive) == 0)
     {
         rows.addDecided(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Transform Model"), transformName,
-                        QStringLiteral("Auto"), transform.reason);
+                        reportText("Auto"), transform.reason);
     }
     else
     {
@@ -461,11 +545,23 @@ struct RejectionDecision
             rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Manual Control-Point Pairs"), pairs);
         }
     }
+    // The correction of the lights' colour fringes is asked of any method, and its own settings are read only while
+    // it is on.
+    const RegistrationSettings::ChromaticAberrationSettings& chromatic = settings.chromaticAberration;
+    rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Correct Chromatic Aberration Before Registration"),
+             chromatic.enabled);
+    if (chromatic.enabled)
+    {
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "CA Edge Fraction"), chromatic.edgeFraction);
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "CA Fit Type"), chromatic.transformType);
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "CA Min Matched Stars"), chromatic.minMatchedStars);
+        rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "CA Interpolation"), chromatic.interpolation);
+    }
     rows.add(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Alignment Mode"), settings.alignmentMode);
     if (isAutoToken(settings.interpolation))
     {
-        rows.addDecided(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Interpolation"), QStringLiteral("Lanczos4"),
-                        QStringLiteral("Auto"),
+        rows.addDecided(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Interpolation"), reportText("Lanczos4"),
+                        reportText("Auto"),
                         reportText("Auto resolves to Lanczos4 for high-quality sub-pixel resampling"));
     }
     else
@@ -494,7 +590,7 @@ struct RejectionDecision
     if (isAutoToken(settings.cfaPattern))
     {
         rows.addDecided(QT_TRANSLATE_NOOP("ImageIntegrationReport", "CFA Pattern"), reportText("from metadata"),
-                        QStringLiteral("Auto"),
+                        reportText("Auto"),
                         reportText("Auto reads the CFA pattern from image metadata at alignment time"));
     }
     else
@@ -505,7 +601,7 @@ struct RejectionDecision
     if (isAutoToken(settings.debayerMethod))
     {
         rows.addDecided(QT_TRANSLATE_NOOP("ImageIntegrationReport", "Debayer Method"), reportText("engine-selected"),
-                        QStringLiteral("Auto"),
+                        reportText("Auto"),
                         reportText("Auto lets the demosaic engine choose the default method for the detected CFA "
                                    "data"));
     }
@@ -631,7 +727,12 @@ void fillSettings(ReportBuild& build, ReportModel& model)
             }
             const AutoTransformResolution transform =
                 resolveAutoTransformDetail(group.settings, successfulTransformKinds(build.metrics(stated.key)));
-            stated.settings.push_back(registrationBlock(group, transform));
+            // A reference the application chose is in the registration's own records, which are asked only where the
+            // manifest names none.
+            const QString recorded =
+                group.referenceFrame.has_value() ? QString() : build.referenceFrame(stated.key).trimmed();
+            stated.settings.push_back(
+                registrationBlock(group, transform, recorded.isEmpty() ? QString() : frameLabel(FrameId(recorded))));
             collectDecisions(stated.settings.back(), stated.settings.back().title, stated.key, stated.name, model);
             break;
         }
@@ -653,7 +754,7 @@ void fillSettings(ReportBuild& build, ReportModel& model)
                     continue;
                 }
                 master.settings.push_back(
-                    stackingBlock(group.stacking, static_cast<int>(group.inputFiles.size()), nullptr));
+                    stackingBlock(group.stacking, static_cast<int>(group.inputFiles.size()), nullptr, false));
                 collectDecisions(master.settings.back(),
                                  QStringLiteral("%1 %2").arg(kindName, master.settings.back().title), master.key,
                                  master.name, model);
@@ -674,8 +775,11 @@ void fillSettings(ReportBuild& build, ReportModel& model)
             {
                 continue;
             }
+            // A group is drizzled when the run plans its drizzle or its stacking settings ask for one.
+            const bool drizzled =
+                group.stacking.drizzle.enabled || (group.drizzle.has_value() && group.drizzle->enabled);
             master.settings.push_back(
-                stackingBlock(group.stacking, static_cast<int>(group.lightFiles.size()), &master.exposure));
+                stackingBlock(group.stacking, static_cast<int>(group.lightFiles.size()), &master.exposure, drizzled));
             if (std::optional<ReportSettingsBlock> block = normalizationBlock(group); block.has_value())
             {
                 master.settings.push_back(std::move(*block));

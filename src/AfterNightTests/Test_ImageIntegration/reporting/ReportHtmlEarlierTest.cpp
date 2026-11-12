@@ -738,6 +738,219 @@ TEST_F(ReportHtmlWriterTest, AReusedMastersFileLeadsToTheReportOfTheRunThatMadeI
     EXPECT_EQ(report->linkedParsed.ofClassInside(*block, "cmpitem").size(), 2u);
 }
 
+// A run that found every master still valid sets none beside an earlier run, so it has no comparison to name them
+// under: the part's head names them and says why none is compared. A run that made some of its masters again says
+// it under its comparison, and only there.
+TEST_F(ReportHtmlWriterTest, ARunThatReusedEveryMasterNamesThemAndSaysWhyNoneIsCompared)
+{
+    const Rendered* report = reportOf(ReportScenarioId::EveryGroupReused);
+    ASSERT_NE(report, nullptr);
+    const ReportModel& model = report->model;
+    QStringList reused;
+    for (const ReportMaster& master : model.masters)
+    {
+        ASSERT_FALSE(master.baseline.has_value()) << master.name.toStdString();
+        if (master.state == ReportMasterState::Reused)
+        {
+            reused << master.filter;
+        }
+    }
+    ASSERT_GT(reused.size(), 1);
+    const QString said = QStringLiteral("%1 masters were still valid and were not made again, so they are compared "
+                                        "with nothing")
+                             .arg(formatCount(reused.size()));
+
+    for (const ParsedDocument* parsed : {&report->linkedParsed, &report->embeddedParsed})
+    {
+        const DocumentElement* part = only(*parsed, "earlier");
+        ASSERT_NE(part, nullptr);
+        EXPECT_TRUE(parsed->withId(QStringLiteral("before-after")).empty()) << "no master is beside an earlier run";
+        const std::vector<const DocumentElement*> heads = parsed->ofClassInside(*part, "parthead");
+        ASSERT_EQ(heads.size(), 1u);
+        const std::vector<const DocumentElement*> sentences = namedInside(*parsed, *heads.front(), "p");
+        ASSERT_EQ(sentences.size(), 2u) << "what the run is compared with, then its masters";
+        const QString& masters = sentences.back()->text;
+        EXPECT_TRUE(masters.startsWith(said)) << masters.toStdString();
+        for (const QString& filter : reused)
+        {
+            EXPECT_TRUE(masters.contains(filter)) << filter.toStdString();
+        }
+        EXPECT_EQ(part->text.count(said), 1);
+    }
+
+    const Rendered* incremental = reportOf(ReportScenarioId::IncrementalRun);
+    ASSERT_NE(incremental, nullptr);
+    const DocumentElement* part = only(incremental->linkedParsed, "earlier");
+    ASSERT_NE(part, nullptr);
+    const DocumentElement* block = only(incremental->linkedParsed, "before-after");
+    ASSERT_NE(block, nullptr);
+    const QString valid = QStringLiteral("were still valid and were not made again");
+    EXPECT_EQ(block->text.count(valid), 1);
+    EXPECT_EQ(part->text.count(valid), 1);
+}
+
+// The charts of the folder's runs draw a column for a run that states the figure and a cross for one that failed
+// or was cancelled, as the block's lead says. A run that made some of its masters and not the others states its
+// figures, so it is a column, and its tip says the figure.
+TEST_F(ReportHtmlWriterTest, ARunThatMadeSomeOfItsMastersIsAColumnAndOneThatFailedOrWasCancelledIsACross)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    const auto earlier = std::find_if(model.history.begin(), model.history.end(), [](const ReportHistoryEntry& entry) {
+        return entry.refusal.isEmpty() && entry.archivedAt.has_value();
+    });
+    ASSERT_NE(earlier, model.history.end());
+    // The run states each of the three figures the charts draw.
+    earlier->frames = 44;
+    earlier->framesUsed = 40;
+    earlier->integrationMs = 7'200'000;
+    earlier->backgroundNoise = 0.004;
+    const QStringList figures = {formatDurationMs(7'200'000), formatCount(40), formatFigure(0.004)};
+    const ReportTimeZone zone{.id = model.run.timeZoneId, .utcOffsetSeconds = model.run.utcOffsetSeconds};
+    const QString when = formatDateTime(*earlier->archivedAt, zone);
+
+    // What the block draws of the run once it ended a given way: the crosses of the three charts, the tips of the
+    // run's three columns, and whether the lead says what a cross is.
+    struct Drawn
+    {
+        std::size_t crosses = 0;
+        QStringList tips;
+        bool leadSaysWhatACrossIs = false;
+    };
+    const auto drawnWhen = [&](const ReportOutcome outcome) {
+        earlier->outcome = outcome;
+        Drawn drawn;
+        const ParsedDocument parsed = linkedDocument(model, report->scenario.runDirectory);
+        const DocumentElement* block = only(parsed, "history");
+        if (block == nullptr)
+        {
+            return drawn;
+        }
+        drawn.crosses = parsed.ofClassInside(*block, "c-x").size();
+        for (const DocumentElement* column : parsed.ofClassInside(*block, "c-hit"))
+        {
+            const QString tip = column->attribute("data-tip");
+            if (tip.startsWith(when + QLatin1Char('\n')))
+            {
+                drawn.tips << tip;
+            }
+        }
+        drawn.leadSaysWhatACrossIs =
+            block->text.contains(QStringLiteral("a cross is a run that failed or was cancelled"));
+        return drawn;
+    };
+    const auto tipsOf = [&when, &figures](const QString& ended, const bool stated) {
+        QStringList tips;
+        for (const QString& figure : figures)
+        {
+            const QString said = stated ? figure : QStringLiteral("Not stated");
+            tips << when + QLatin1Char('\n') + ended + QLatin1Char('\n') + said;
+        }
+        return tips;
+    };
+
+    const Drawn completed = drawnWhen(ReportOutcome::Completed);
+    EXPECT_TRUE(completed.leadSaysWhatACrossIs);
+    EXPECT_EQ(completed.tips, tipsOf(QStringLiteral("Completed"), true));
+
+    const Drawn partial = drawnWhen(ReportOutcome::Partial);
+    EXPECT_EQ(partial.crosses, completed.crosses) << "a run that made some of its masters is drawn";
+    EXPECT_EQ(partial.tips, tipsOf(QStringLiteral("Partly completed"), true));
+
+    const Drawn failed = drawnWhen(ReportOutcome::Failed);
+    EXPECT_EQ(failed.crosses, completed.crosses + 3u);
+    EXPECT_EQ(failed.tips, tipsOf(QStringLiteral("Failed"), false));
+
+    const Drawn cancelled = drawnWhen(ReportOutcome::Cancelled);
+    EXPECT_EQ(cancelled.crosses, completed.crosses + 3u);
+    EXPECT_EQ(cancelled.tips, tipsOf(QStringLiteral("Cancelled"), false));
+}
+
+// The runs of the folder are named by when they were archived, to the minute, in the table and under the charts
+// alike. Two runs archived within one minute are named to the second in both, or two rows and two columns would
+// read the same.
+TEST_F(ReportHtmlWriterTest, TwoRunsOfOneMinuteAreToldApartInTheTableAndTheChartsOfTheFoldersRuns)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFiltersAfterTwoEarlierRuns);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    const ReportTimeZone zone{.id = model.run.timeZoneId, .utcOffsetSeconds = model.run.utcOffsetSeconds};
+    std::vector<ReportHistoryEntry*> stated;
+    for (ReportHistoryEntry& entry : model.history)
+    {
+        if (entry.refusal.isEmpty() && entry.archivedAt.has_value())
+        {
+            stated.push_back(&entry);
+        }
+    }
+    ASSERT_GE(stated.size(), 2u);
+
+    // How the block names its runs: the first cell of each row of the table, the texts under and over the charts'
+    // columns, and the heading of each column's tip.
+    struct Named
+    {
+        QStringList rows;
+        QStringList ticks;
+        QStringList tips;
+    };
+    const auto namedIn = [](const ParsedDocument& parsed) {
+        Named named;
+        const DocumentElement* block = only(parsed, "history");
+        if (block == nullptr)
+        {
+            return named;
+        }
+        for (const DocumentElement* table : classedInside(parsed, *block, "table", "runs"))
+        {
+            for (const QStringList& cells : bodyCells(parsed, *table))
+            {
+                named.rows << (cells.isEmpty() ? QString() : cells.front());
+            }
+        }
+        for (const DocumentElement* tick : parsed.ofClassInside(*block, "c-tick"))
+        {
+            named.ticks << tick->text;
+        }
+        for (const DocumentElement* column : parsed.ofClassInside(*block, "c-hit"))
+        {
+            named.tips << column->attribute("data-tip").section(QLatin1Char('\n'), 0, 0);
+        }
+        return named;
+    };
+
+    // As the runs were archived, days apart, each is named to the minute: once in the table, and in each of the
+    // three charts.
+    const Named apart = namedIn(report->linkedParsed);
+    for (const ReportHistoryEntry* entry : stated)
+    {
+        const QString when = formatDateTime(*entry->archivedAt, zone);
+        EXPECT_EQ(apart.rows.count(when.simplified()), 1) << when.toStdString();
+        EXPECT_EQ(apart.tips.count(when), 3) << when.toStdString();
+    }
+
+    // Two of them archived within one minute.
+    const QDateTime minute(stated[0]->archivedAt->date(), QTime(21, 40, 0), stated[0]->archivedAt->timeZone());
+    stated[0]->archivedAt = minute.addSecs(5);
+    stated[1]->archivedAt = minute.addSecs(47);
+    const QString when = formatDateTime(minute, zone);
+    ASSERT_EQ(formatDateTime(*stated[0]->archivedAt, zone), when);
+    ASSERT_EQ(formatDateTime(*stated[1]->archivedAt, zone), when);
+    const QString clock = when.section(QStringLiteral(", "), -1);
+    ASSERT_FALSE(clock.isEmpty());
+
+    const Named alike = namedIn(linkedDocument(model, report->scenario.runDirectory));
+    for (const char* seconds : {":05", ":47"})
+    {
+        SCOPED_TRACE(seconds);
+        EXPECT_EQ(alike.rows.count((when + QLatin1String(seconds)).simplified()), 1);
+        EXPECT_EQ(alike.tips.count(when + QLatin1String(seconds)), 3);
+        EXPECT_EQ(alike.ticks.count(clock + QLatin1String(seconds)), 3);
+    }
+    EXPECT_EQ(alike.rows.count(when.simplified()), 0) << "two rows would read the same";
+    EXPECT_EQ(alike.tips.count(when), 0);
+}
+
 // ---- The header.
 
 TEST_F(ReportHtmlWriterTest, TheHeaderSetsTheEarlierRunsFiguresUnderItsOwn)

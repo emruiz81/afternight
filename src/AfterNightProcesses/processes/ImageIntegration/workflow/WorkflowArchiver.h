@@ -202,6 +202,23 @@ archivedCalibrationPreviews(const WorkflowManifest& manifest);
 [[nodiscard]] AFTERNIGHTPROCESSES_API bool runHasWorkflowReport(const WorkflowManifest& manifest,
                                                                 const WorkflowExecutor::Result& result);
 
+/// The id of a run that starts now in an output folder: the stamp of the wall clock, `yyyyMMdd_HHmmss_zzz`, which
+/// names the run's folder under `history/`, made to sort after every run the history already holds.
+///
+/// The history's retention and a report's earlier runs both take the folder whose name sorts first for the run
+/// that started first. A wall clock goes back - at the end of summer time, in another time zone, when it is set -
+/// and a run named by it alone would then sort before the runs made earlier: the history would drop it as its
+/// oldest, and its report would find no earlier run to set its masters beside. So a run that starts at or before
+/// the latest stamp of the history is named one millisecond after that stamp.
+///
+/// @param outputDirectory the run's output folder, whose `history/` holds the earlier runs; one with no history
+///        gives the clock's own stamp.
+/// @param now the wall clock's time, whose date and time are stamped as they read.
+/// @return the stamp of `now`, or the latest stamp among the history's folders plus one millisecond when that
+///         folder is at or after `now`. A folder whose name is no such stamp is not counted.
+[[nodiscard]] AFTERNIGHTPROCESSES_API QString executionIdAfterHistory(const QString& outputDirectory,
+                                                                      const QDateTime& now);
+
 /// The most the files an archive writes after it decides whether the run's payloads fit the history can weigh: the
 /// manifest, the log, and the report's model and document.
 ///

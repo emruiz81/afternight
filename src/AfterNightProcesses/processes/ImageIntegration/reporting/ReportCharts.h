@@ -184,11 +184,13 @@ struct ChartBin
     ChartTip tip;
 };
 
-/// Values counted into bins of equal width. Without stated bounds the bins span round numbers around the values
-/// (`chartTicks`); a value on the top edge is counted in the last bin, one outside stated bounds in the nearest.
+/// Values counted into bins of equal width. Between stated bounds there are `count` bins. Without stated bounds the
+/// bins' edges are the round numbers around the values (`chartTicks`, aimed at `count` steps), so every edge is
+/// round and the bins may be a few more or fewer than `count`. A value on an edge is counted in the bin the edge
+/// opens, one on the top edge in the last bin, one outside stated bounds in the nearest.
 ///
 /// @param values the values; one that is not a number is left out.
-/// @param count how many bins.
+/// @param count how many bins: as many as are made between stated bounds, and the number aimed at without them.
 /// @param lowest the first bin's lower edge, when the caller states it.
 /// @param highest the last bin's upper edge, when the caller states it.
 /// @return the bins, their tips empty for the caller to fill; none when `count` is not positive or no value is a
@@ -435,7 +437,8 @@ struct DitherChart
     int size = 300;
 };
 
-/// A mark per light on a square plot whose two axes share one scale, with the reference at its centre.
+/// A mark per light used, in its night's shape, and a cross per light left out, on a square plot whose two axes
+/// share one scale, with the reference at its centre. A light that lacks either shift is not drawn.
 [[nodiscard]] AFTERNIGHTPROCESSES_API QString ditherChart(const DitherChart& chart);
 
 // ---- The samples of a master.
@@ -587,7 +590,8 @@ struct ChartRun
     /// What stands under the column, a line each: the run's date, its time.
     QStringList label;
 
-    /// The figure; nothing for a run that stopped, which is a cross on the axis.
+    /// The figure; nothing for a run that has none to draw - one that failed or was cancelled - which is a cross on
+    /// the axis.
     std::optional<double> value;
 
     /// The figure as the report prints it, over the column.

@@ -20,18 +20,23 @@
 #include "processes/ImageIntegration/workflow/WorkflowExecutionCounters.h"
 #include "processes/ImageIntegration/workflow/WorkflowRunArchive.h"
 
+#include <QColor>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QImage>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
 #include <QThread>
+#include <QTimeZone>
 
 #include <algorithm>
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <vector>
 
 using namespace an::tests::integration::report;
 using namespace ImageIntegration::Reporting;
@@ -688,4 +693,151 @@ TEST(WorkflowArchiverReport, TheEarlierMasterIsPicturedUnderThisRunsStretchWhere
         EXPECT_FALSE(document.contains(sharedWords));
         EXPECT_TRUE(document.contains(ownWords));
     }
+}
+
+// A calibration master is read in full for its picture. One the latest earlier run of the folder pictured, and that
+// is still the same file - by its path, its size and when it was last changed - takes that run's picture instead;
+// one whose file has changed since is read and pictured anew.
+TEST(WorkflowArchiverReport, AnUnchangedCalibrationMasterTakesTheEarlierRunsPictureAndAChangedOneIsPicturedAnew)
+{
+    std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::FiveFiltersAfterEarlierRun);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_EQ(scenario->earlierRunDirectories.size(), 1);
+    const QDir earlier(scenario->earlierRunDirectories.front());
+    const std::optional<ReportModel> earlierModel = storedModel(earlier.absolutePath());
+    ASSERT_TRUE(earlierModel.has_value());
+
+    // Two masters the earlier run pictured, which this run has too: one is left as it is, the other is written
+    // again at another size.
+    std::vector<const ReportCalibrationMaster*> pictured;
+    for (const ReportCalibrationMaster& master : earlierModel->calibrationMasters)
+    {
+        if (!master.preview.isEmpty() && earlier.exists(master.preview) && QFileInfo(master.file).isFile())
+        {
+            pictured.push_back(&master);
+        }
+    }
+    ASSERT_GE(pictured.size(), 2u);
+    const ReportCalibrationMaster& same = *pictured[0];
+    const ReportCalibrationMaster& changed = *pictured[1];
+
+    // The earlier run's picture of each is replaced by one no master of the scenario gives: seven pixels by five.
+    const QSize recognisable(7, 5);
+    for (const ReportCalibrationMaster* master : {&same, &changed})
+    {
+        QImage picture(recognisable, QImage::Format_RGB888);
+        picture.fill(QColor(200, 40, 40));
+        ASSERT_TRUE(picture.save(earlier.filePath(master->preview), "JPEG", 90)) << master->preview.toStdString();
+    }
+    const QSize rewritten(40, 30);
+    writeNoisyMaster(changed.file, rewritten.width(), rewritten.height(), 0.03f);
+    ASSERT_TRUE(changed.bytes.has_value());
+    ASSERT_NE(QFileInfo(changed.file).size(), *changed.bytes) << "the master written again is the size it was";
+
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+    const std::optional<ReportModel> model = storedModel(scenario->runDirectory);
+    ASSERT_TRUE(model.has_value());
+    const QDir run(scenario->runDirectory);
+    // This run's picture of a master the earlier run's report states.
+    const auto pictureOf = [&model](const ReportCalibrationMaster& stated) {
+        const auto found = std::find_if(model->calibrationMasters.begin(), model->calibrationMasters.end(),
+                                        [&stated](const ReportCalibrationMaster& master) {
+                                            return master.kind == stated.kind && master.key == stated.key;
+                                        });
+        return found == model->calibrationMasters.end() ? QString() : found->preview;
+    };
+    const QString samePicture = pictureOf(same);
+    const QString changedPicture = pictureOf(changed);
+    ASSERT_FALSE(samePicture.isEmpty());
+    ASSERT_FALSE(changedPicture.isEmpty());
+
+    // The master that is the same file has the earlier run's picture, byte for byte: it was not read for one.
+    EXPECT_EQ(QImage(run.filePath(samePicture)).size(), recognisable);
+    EXPECT_EQ(bytesOf(run.filePath(samePicture)), bytesOf(earlier.filePath(same.preview)));
+    // The master written again is pictured from the file as it is now.
+    EXPECT_EQ(QImage(run.filePath(changedPicture)).size(), rewritten);
+}
+
+// A run's id is the wall clock's stamp, and names the run's folder in the history.
+TEST(WorkflowArchiverReport, ARunOfAFolderWithNoHistoryIsNamedByTheClocksStamp)
+{
+    QTemporaryDir output;
+    ASSERT_TRUE(output.isValid());
+    const QDateTime now(QDate(2026, 6, 15), QTime(12, 0, 0, 250), QTimeZone::UTC);
+    EXPECT_EQ(ImageIntegration::executionIdAfterHistory(output.path(), now), QStringLiteral("20260615_120000_250"));
+
+    // A history that holds no run moves it no more than no history does.
+    ASSERT_TRUE(QDir(output.path()).mkpath(QStringLiteral("history")));
+    EXPECT_EQ(ImageIntegration::executionIdAfterHistory(output.path(), now), QStringLiteral("20260615_120000_250"));
+}
+
+TEST(WorkflowArchiverReport, ARunThatStartsAfterEveryRunOfTheHistoryIsNamedByTheClocksStamp)
+{
+    QTemporaryDir output;
+    ASSERT_TRUE(output.isValid());
+    const QDir history(QDir(output.path()).filePath(QStringLiteral("history")));
+    for (const QString& earlier : {QStringLiteral("20260614_231500_000"), QStringLiteral("20260615_115959_999")})
+    {
+        ASSERT_TRUE(history.mkpath(earlier));
+    }
+    const QDateTime now(QDate(2026, 6, 15), QTime(12, 0, 0, 250), QTimeZone::UTC);
+    EXPECT_EQ(ImageIntegration::executionIdAfterHistory(output.path(), now), QStringLiteral("20260615_120000_250"));
+}
+
+// The history drops the run whose folder's name sorts first, and a report sets a run beside the runs whose names
+// sort before its own. A wall clock goes back - at the end of summer time, in another time zone - and a run named
+// by it alone would then sort before runs made earlier. Its id is the latest stamp of the history plus a millisecond
+// instead, so it sorts after every folder there.
+TEST(WorkflowArchiverReport, ARunThatStartsAtOrBeforeTheLatestRunOfTheHistoryIsNamedAMillisecondAfterIt)
+{
+    QTemporaryDir output;
+    ASSERT_TRUE(output.isValid());
+    const QDir history(QDir(output.path()).filePath(QStringLiteral("history")));
+    for (const QString& earlier : {QStringLiteral("20261024_221500_000"), QStringLiteral("20261025_024500_120"),
+                                   QStringLiteral("20261025_021000_999")})
+    {
+        ASSERT_TRUE(history.mkpath(earlier));
+    }
+
+    // The clock reads an hour it has read already: half past two, after a run stamped a quarter to three.
+    const QDateTime now(QDate(2026, 10, 25), QTime(2, 30, 0, 0), QTimeZone::UTC);
+    const QString id = ImageIntegration::executionIdAfterHistory(output.path(), now);
+    EXPECT_EQ(id, QStringLiteral("20261025_024500_121"));
+    for (const QString& earlier : history.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+    {
+        EXPECT_TRUE(earlier < id) << earlier.toStdString() << " sorts at or after " << id.toStdString();
+    }
+
+    // A run that starts at the latest stamp itself is moved past it as well.
+    const QDateTime atLatest(QDate(2026, 10, 25), QTime(2, 45, 0, 120), QTimeZone::UTC);
+    EXPECT_EQ(ImageIntegration::executionIdAfterHistory(output.path(), atLatest),
+              QStringLiteral("20261025_024500_121"));
+
+    // The millisecond is added to the stamp as a time: past the last one of a year it is the first of the next.
+    ASSERT_TRUE(history.mkpath(QStringLiteral("20261231_235959_999")));
+    EXPECT_EQ(ImageIntegration::executionIdAfterHistory(output.path(), now), QStringLiteral("20270101_000000_000"));
+}
+
+// The history holds what a person or another program put there too. Only a folder whose name is a stamp is a run
+// that started then.
+TEST(WorkflowArchiverReport, AFolderOfTheHistoryWhoseNameIsNoStampDoesNotMoveARunsId)
+{
+    QTemporaryDir output;
+    ASSERT_TRUE(output.isValid());
+    const QDir history(QDir(output.path()).filePath(QStringLiteral("history")));
+    // Each sorts after the clock's stamp, and none is a stamp: other words, a stamp cut short, one with more after
+    // it, one with other separators, and one of a day and a time that are none.
+    for (const QString& other : {QStringLiteral("TEST_EXEC_ID_001"), QStringLiteral("20270101"),
+                                 QStringLiteral("20270101_000000"), QStringLiteral("20270101_000000_000_copy"),
+                                 QStringLiteral("20270101-000000-000"), QStringLiteral("20271341_256199_000")})
+    {
+        ASSERT_TRUE(history.mkpath(other));
+    }
+    // A file named as a stamp is no run's folder.
+    QFile file(history.filePath(QStringLiteral("20270101_000000_000")));
+    ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+    file.close();
+
+    const QDateTime now(QDate(2026, 6, 15), QTime(12, 0, 0, 250), QTimeZone::UTC);
+    EXPECT_EQ(ImageIntegration::executionIdAfterHistory(output.path(), now), QStringLiteral("20260615_120000_250"));
 }

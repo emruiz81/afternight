@@ -45,15 +45,17 @@ struct ProvenancePlan
 
 // ---- Acquisition.
 
-/// A sensor's temperature over some lights: one figure, or the range.
+/// A sensor's temperature over some lights: one figure, or the range. Where only one bound is stated, that bound
+/// is the figure.
 [[nodiscard]] QString temperatureText(const std::optional<double>& lowest, const std::optional<double>& highest)
 {
     if (!lowest.has_value() && !highest.has_value())
     {
         return noValueText();
     }
-    const double low = lowest.value_or(*highest);
-    const double high = highest.value_or(*lowest);
+    // A bound is read only where it is stated: the other one stands in for a bound that is not.
+    const double low = lowest.has_value() ? *lowest : *highest;
+    const double high = highest.has_value() ? *highest : *lowest;
     const QString unit = QStringLiteral(" °C");
     return formatFigure(low) == formatFigure(high)
                ? formatFigure(low) + unit

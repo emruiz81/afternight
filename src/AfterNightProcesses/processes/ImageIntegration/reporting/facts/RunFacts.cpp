@@ -218,6 +218,12 @@ void addExposureBucket(QList<ReportExposureBucket>& buckets, double exposureSeco
     return parsedObject.trimmed();
 }
 
+QString listedTargetName(const WorkflowManifest::IntegrationGroup& group)
+{
+    const QString stated = resolveTargetName(group);
+    return stated.isEmpty() ? reportText("Unspecified Target") : stated;
+}
+
 [[nodiscard]] QString canonicalOrRawPath(const FrameId& id)
 {
     const QString canonical = id.canonicalPath();
@@ -553,9 +559,32 @@ QString reportVerdict(const ReportOutcome outcome, const ReportGroupCounts& grou
     case ReportOutcome::Failed:
         return groups.total == 1 ? reportText("The run failed before its master was made.")
                                  : reportText("The run failed before any of its %1 masters was made.").arg(total);
-    case ReportOutcome::Partial:
-        return reportText("The run made %1 of its %2 masters; %3 failed and %4 were not reached.")
-            .arg(made, total, QString::number(groups.failed), QString::number(groups.notReached));
+    case ReportOutcome::Partial: {
+        // What became of the others, each kind said only where there is one, so the counts add up to the total.
+        QStringList others;
+        if (groups.failed > 0)
+        {
+            others << reportText("%1 failed").arg(groups.failed);
+        }
+        if (groups.notReached > 0)
+        {
+            others << (groups.notReached == 1 ? reportText("1 was not reached")
+                                              : reportText("%1 were not reached").arg(groups.notReached));
+        }
+        if (groups.reused > 0)
+        {
+            others << (groups.reused == 1 ? reportText("1 was still valid")
+                                          : reportText("%1 were still valid").arg(groups.reused));
+        }
+        const QString sentence = reportText("The run made %1 of its %2 masters").arg(made, total);
+        if (others.isEmpty())
+        {
+            return sentence + QLatin1Char('.');
+        }
+        const QString last = others.takeLast();
+        return others.isEmpty() ? reportText("%1; %2.").arg(sentence, last)
+                                : reportText("%1; %2 and %3.").arg(sentence, others.join(QStringLiteral(", ")), last);
+    }
     case ReportOutcome::CompletedWithWarnings:
     case ReportOutcome::Completed:
         break;
@@ -1035,6 +1064,7 @@ void fillFrameStates(const ReportModel& model, ReportRun& run)
     QMap<int, int> byState;
     int stated = 0;
     qint64 integratedMs = 0;
+    bool everyUsedLightStatesItsExposure = true;
     const auto count = [&](const ReportFrame& frame) {
         const bool leftOutByUser =
             frame.state == ReportFrameState::ExcludedByUser || frame.state == ReportFrameState::StackExcludedByUser;
@@ -1049,9 +1079,16 @@ void fillFrameStates(const ReportModel& model, ReportRun& run)
         }
         ++stated;
         ++byState[static_cast<int>(*frame.state)];
-        if (*frame.state == ReportFrameState::Used && frame.exposureSeconds.has_value())
+        if (*frame.state == ReportFrameState::Used)
         {
-            integratedMs += std::llround(*frame.exposureSeconds * 1000.0);
+            if (frame.exposureSeconds.has_value())
+            {
+                integratedMs += std::llround(*frame.exposureSeconds * 1000.0);
+            }
+            else
+            {
+                everyUsedLightStatesItsExposure = false;
+            }
         }
     };
     for (const ReportMaster& master : model.masters)
@@ -1078,7 +1115,12 @@ void fillFrameStates(const ReportModel& model, ReportRun& run)
             ReportFrameStateCount{.state = static_cast<ReportFrameState>(it.key()), .frames = it.value()});
     }
     run.framesUsed = byState.value(static_cast<int>(ReportFrameState::Used), 0);
-    run.integratedMs = integratedMs;
+    // The exposure the masters combine is a sum only when every light of it states one: a sum over the lights that
+    // do would read as the whole and be short of it.
+    if (everyUsedLightStatesItsExposure)
+    {
+        run.integratedMs = integratedMs;
+    }
 }
 
 /// The equipment the headers of the masters the run made state, one row per distinct set.
@@ -1244,11 +1286,7 @@ void fillTargets(const ReportBuild& build, ReportModel& model)
     QMap<QString, Aggregate> byTarget;
     for (const auto& group : build.manifest().integrationGroups)
     {
-        QString target = resolveTargetName(group);
-        if (target.isEmpty())
-        {
-            target = reportText("Unspecified Target");
-        }
+        const QString target = listedTargetName(group);
         Aggregate& aggregate = byTarget[target];
         aggregate.frames += static_cast<int>(group.lightFiles.size());
         aggregate.integrationMs += buildExposureBreakdown(group).totalMs;
@@ -1300,7 +1338,9 @@ void fillTargets(const ReportBuild& build, ReportModel& model)
 }
 
 /// How the run ended. A run that stopped is partial when it made a master, since those are kept; a run that
-/// completed is partial when a group failed inside it.
+/// completed is partial when it left a master unmade. A stage that went on after part of its work failed - a light
+/// with no transform, say - makes no run partial by itself: what the run was for is its masters, and the failure is
+/// stated among the run's issues.
 [[nodiscard]] ReportOutcome outcomeOf(const WorkflowExecutor::Result& result, const ReportGroupCounts& groups)
 {
     if (result.cancelled)
@@ -1311,9 +1351,13 @@ void fillTargets(const ReportBuild& build, ReportModel& model)
     {
         return groups.made > 0 ? ReportOutcome::Partial : ReportOutcome::Failed;
     }
-    if (result.partialSuccess || groups.failed > 0)
+    if (groups.failed > 0 || groups.notReached > 0)
     {
         return ReportOutcome::Partial;
+    }
+    if (result.partialSuccess || !result.errors.isEmpty())
+    {
+        return ReportOutcome::CompletedWithWarnings;
     }
     if (result.warningCount > 0 || !result.warnings.isEmpty())
     {

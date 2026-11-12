@@ -543,7 +543,7 @@ void writeOutcome(ReportMarkup& out, const ReportDocumentContext& context, const
     else
     {
         writeMasterNames(out, context, kept, labels, false);
-        writeCaption(out, documentText("These masters are whole: a run that stops leaves what it finished."));
+        writeCaption(out, documentText("These masters are whole: what a run finishes it leaves as it is."));
     }
     out.close("div");
 
@@ -740,7 +740,10 @@ void writeMasterCard(ReportMarkup& out, const ReportDocumentContext& context, co
         writeSentence(out, documentText("%1 of %2 lights").arg(QStringLiteral("%1"), formatCount(use.taken)),
                       {formatCount(*use.used)});
         out.close("span");
-        out.element("b", formatDurationMs(*use.integratedMs));
+        if (use.integratedMs.has_value())
+        {
+            out.element("b", formatDurationMs(*use.integratedMs));
+        }
     }
     else
     {
@@ -1071,6 +1074,8 @@ void writeNightsTable(ReportMarkup& out, const ReportDocumentContext& context, c
         int taken = 0;
         int used = 0;
         bool fatesStated = false;
+        /// Whether every light the stacks used states its exposure: their sum is the night's only then.
+        bool exposuresStated = true;
         double usedSeconds = 0.0;
         std::vector<double> fwhm;
     };
@@ -1096,6 +1101,7 @@ void writeNightsTable(ReportMarkup& out, const ReportDocumentContext& context, c
         {
             ++night->used;
             night->usedSeconds += frame.exposureSeconds.value_or(0.0);
+            night->exposuresStated = night->exposuresStated && frame.exposureSeconds.has_value();
             if (frame.fwhm.has_value())
             {
                 night->fwhm.push_back(*frame.fwhm);
@@ -1132,8 +1138,9 @@ void writeNightsTable(ReportMarkup& out, const ReportDocumentContext& context, c
                     night.fatesStated ? documentText("%1 of %2").arg(formatCount(night.used), formatCount(night.taken))
                                       : formatCount(night.taken));
         out.element("td", {{"class", QStringLiteral("r num")}},
-                    night.fatesStated ? formatDurationMs(static_cast<qint64>(std::llround(night.usedSeconds * 1000.0)))
-                                      : noValueText());
+                    night.fatesStated && night.exposuresStated
+                        ? formatDurationMs(static_cast<qint64>(std::llround(night.usedSeconds * 1000.0)))
+                        : noValueText());
         const std::optional<double> median = medianOfValues(night.fwhm);
         out.element("td", {{"class", QStringLiteral("r num")}},
                     median.has_value() ? documentText("%1 px").arg(formatFigure(*median)) : noValueText());
@@ -1298,7 +1305,7 @@ void writeFrames(ReportMarkup& out, const ReportDocumentContext& context, const 
         {
             entry.tip.lines << documentText("Background noise %1 %2").arg(QChar(0x00D7)).arg(formatFigure(relative));
         }
-        entry.tip.lines << fateLine(frame);
+        entry.tip.lines << context.said(fateLine(frame));
         chart.lights.push_back(entry);
     }
     return chart;
@@ -1362,7 +1369,8 @@ void writeQuality(ReportMarkup& out, const ReportDocumentContext& context, const
             point.state = chartStateOf(frame);
             point.tip.heading = lightHeading(light, groups);
             point.tip.lines = {documentText("FWHM %1 px").arg(formatFigure(*frame.fwhm)),
-                               documentText("Eccentricity %1").arg(formatFigure(*frame.eccentricity)), fateLine(frame)};
+                               documentText("Eccentricity %1").arg(formatFigure(*frame.eccentricity)),
+                               context.said(fateLine(frame))};
             scatter.points.push_back(point);
             if (point.state != ChartState::Used &&
                 std::find(leftOutDrawn.begin(), leftOutDrawn.end(), point.state) == leftOutDrawn.end())

@@ -347,17 +347,19 @@ TEST(ReportCharts, BinsWithoutStatedBoundsSpanRoundNumbers)
 {
     const std::vector<double> values = {2.31, 2.9, 3.4, 3.41, 4.87};
     const std::vector<ChartBin> bins = chartBins(values, 12);
-    ASSERT_EQ(bins.size(), 12u);
+    // A bin lies between each round number an axis of the same values would be marked at and the next, so the
+    // bins are as many as those steps and not always as many as were asked for.
+    const std::vector<double> ticks = chartTicks(2.31, 4.87, 12);
+    ASSERT_EQ(bins.size(), ticks.size() - 1u);
+    EXPECT_EQ(bins.size(), 11u);
     EXPECT_LE(bins.front().low, 2.31);
     EXPECT_GE(bins.back().high, 4.87);
-    // The bins lie between the round numbers an axis of the same values would start and end on.
-    const std::vector<double> ticks = chartTicks(2.31, 4.87, 12);
-    EXPECT_DOUBLE_EQ(bins.front().low, ticks.front());
-    EXPECT_DOUBLE_EQ(bins.back().high, ticks.back());
     std::uint64_t counted = 0;
-    for (const ChartBin& bin : bins)
+    for (std::size_t index = 0; index < bins.size(); ++index)
     {
-        counted += bin.count;
+        EXPECT_DOUBLE_EQ(bins[index].low, ticks[index]);
+        EXPECT_DOUBLE_EQ(bins[index].high, ticks[index + 1]);
+        counted += bins[index].count;
     }
     EXPECT_EQ(counted, values.size());
 
@@ -366,8 +368,55 @@ TEST(ReportCharts, BinsWithoutStatedBoundsSpanRoundNumbers)
     EXPECT_TRUE(chartBins({kNotANumber}, 10).empty());
     // Equal values still get a range to lie in.
     const std::vector<ChartBin> equal = chartBins({3.0, 3.0, 3.0}, 10);
-    ASSERT_EQ(equal.size(), 10u);
-    EXPECT_LT(equal.front().low, equal.back().high);
+    ASSERT_EQ(equal.size(), chartTicks(3.0, 3.0, 10).size() - 1u);
+    EXPECT_LT(equal.front().low, 3.0);
+    EXPECT_GT(equal.back().high, 3.0);
+}
+
+TEST(ReportCharts, TheEdgesOfBinsWithoutStatedBoundsAreMultiplesOfOneRoundStep)
+{
+    struct Span
+    {
+        double lowest;
+        double highest;
+        int count;
+    };
+    const std::vector<Span> spans = {{2.1, 4.7, 12}, {0.0117, 0.0142, 10}, {84.0, 1017.0, 12}, {-13.4, 11.9, 8}};
+    for (const Span& span : spans)
+    {
+        SCOPED_TRACE(testing::Message() << span.lowest << " to " << span.highest);
+        const std::vector<ChartBin> bins = chartBins({span.lowest, span.highest}, span.count);
+        ASSERT_FALSE(bins.empty());
+        // The edges, as a reader meets them under the bars and in the bins' tips.
+        std::vector<double> edges = {bins.front().low};
+        for (std::size_t index = 0; index < bins.size(); ++index)
+        {
+            if (index > 0)
+            {
+                EXPECT_DOUBLE_EQ(bins[index].low, bins[index - 1].high);
+            }
+            edges.push_back(bins[index].high);
+        }
+        EXPECT_TRUE(ticksAreRound(edges));
+        EXPECT_LE(edges.front(), span.lowest);
+        EXPECT_GE(edges.back(), span.highest);
+        // About as many bins as were asked for.
+        EXPECT_GE(bins.size() * 2u, static_cast<std::size_t>(span.count));
+        EXPECT_LE(bins.size(), static_cast<std::size_t>(span.count) + 2u);
+        EXPECT_EQ(bins.front().count + bins.back().count, 2u);
+    }
+
+    // Sharpness from 2.1 to 4.7 pixels asked for in twelve bins: a quarter of a pixel each, from 2 to 4.75.
+    const std::vector<ChartBin> sharp = chartBins({2.1, 2.5, 2.74, 4.7}, 12);
+    ASSERT_EQ(sharp.size(), 11u);
+    EXPECT_DOUBLE_EQ(sharp.front().low, 2.0);
+    EXPECT_DOUBLE_EQ(sharp.front().high, 2.25);
+    EXPECT_DOUBLE_EQ(sharp.back().high, 4.75);
+    // A value on an inner edge is counted in the bin that edge opens.
+    EXPECT_EQ(sharp[0].count, 1u);
+    EXPECT_EQ(sharp[1].count, 0u);
+    EXPECT_EQ(sharp[2].count, 2u);
+    EXPECT_EQ(sharp[10].count, 1u);
 }
 
 // ---- What every chart keeps.
@@ -1182,14 +1231,22 @@ TEST(ReportCharts, TheDitherChartMarksEachNightInItsOwnShape)
     const DitherChart chart = ditherOf(lights, 6);
     const Parsed parsed = parsedChart(ditherChart(chart));
     std::size_t placed = 0;
+    std::size_t leftOut = 0;
     for (const SampleLight& light : lights)
     {
-        placed += std::isfinite(light.shiftX) ? 1u : 0u;
+        if (std::isfinite(light.shiftX))
+        {
+            ++placed;
+            leftOut += light.state != ChartState::Used ? 1u : 0u;
+        }
     }
     ASSERT_LT(placed, lights.size());
-    // A mark and a tip per light that has a place; a light with none is not in the chart.
+    ASSERT_GT(leftOut, 0u);
+    // A night's mark per light used that has a place, a cross per light left out that has one, and a tip per
+    // light of either kind; a light with no place is not in the chart.
     const std::vector<Element> marks = parsed.ofClass("c-n");
-    ASSERT_EQ(marks.size(), placed);
+    ASSERT_EQ(marks.size(), placed - leftOut);
+    EXPECT_EQ(parsed.count("c-x"), leftOut);
     const std::vector<Element> hits = parsed.ofClass("c-hitc");
     ASSERT_EQ(hits.size(), placed);
     for (const Element& hit : hits)
@@ -1255,6 +1312,48 @@ TEST(ReportCharts, ADitherChartOfOneLightAtTheReferenceIsDrawn)
     EXPECT_EQ(parsed.count("c-zero"), 2u);
 }
 
+TEST(ReportCharts, TheDitherChartHasAMarkPerLightUsedAndACrossPerLightLeftOut)
+{
+    DitherChart chart;
+    chart.description = described();
+    const ChartTip tip{QStringLiteral("A light"), {}};
+    ChartSeries first{QStringLiteral("14 July"), {}};
+    first.points.push_back({1.0, 2.0, ChartState::Used, tip});
+    first.points.push_back({-3.0, 0.5, ChartState::LeftOutByStack, tip});
+    first.points.push_back({kNotANumber, kNotANumber, ChartState::RegistrationFailed, tip});
+    ChartSeries second{QStringLiteral("15 July"), {}};
+    second.points.push_back({2.5, -1.0, ChartState::ExcludedOnRestack, tip});
+    second.points.push_back({0.0, 4.0, ChartState::Used, tip});
+    chart.nights = {first, second};
+    const Parsed parsed = parsedChart(ditherChart(chart));
+
+    // The lights used are their nights' marks. The lights left out are crosses in their states' classes, as the
+    // chart's legend explains them, and no night's mark. The light that states no shift is not in the chart.
+    const std::vector<Element> marks = parsed.ofClass("c-n");
+    ASSERT_EQ(marks.size(), 2u);
+    EXPECT_TRUE(marks[0].hasClass("c-shape-0"));
+    EXPECT_TRUE(marks[1].hasClass("c-shape-1"));
+    const std::vector<Element> crosses = parsed.ofClass("c-x");
+    ASSERT_EQ(crosses.size(), 2u);
+    EXPECT_TRUE(crosses[0].hasClass("s-stack"));
+    EXPECT_TRUE(crosses[1].hasClass("s-restack"));
+
+    // Every light drawn can be pointed at, and a cross is where its light sat. The circle over a light holds the
+    // light's tip, so the cross's ring holds none.
+    const std::vector<Element> hits = parsed.ofClass("c-hitc");
+    ASSERT_EQ(hits.size(), 4u);
+    const std::vector<Element> rings = parsed.ofClass("c-xring");
+    ASSERT_EQ(rings.size(), 2u);
+    EXPECT_DOUBLE_EQ(rings[0].number("cx"), hits[1].number("cx"));
+    EXPECT_DOUBLE_EQ(rings[0].number("cy"), hits[1].number("cy"));
+    EXPECT_DOUBLE_EQ(rings[1].number("cx"), hits[2].number("cx"));
+    EXPECT_DOUBLE_EQ(rings[1].number("cy"), hits[2].number("cy"));
+    for (const Element& ring : rings)
+    {
+        EXPECT_FALSE(ring.has("data-tip"));
+    }
+}
+
 TEST(ReportCharts, ADenseDitherChartDrawsEachNightAsOnePath)
 {
     const std::vector<SampleLight> lights = sampleLights(1, 400, 2);
@@ -1263,13 +1362,26 @@ TEST(ReportCharts, ADenseDitherChartDrawsEachNightAsOnePath)
     const std::vector<Element> nights = parsed.ofClass("c-n");
     ASSERT_EQ(nights.size(), 2u);
     std::size_t placed = 0;
+    std::size_t leftOut = 0;
     for (const SampleLight& light : lights)
     {
-        placed += std::isfinite(light.shiftX) ? 1u : 0u;
+        if (std::isfinite(light.shiftX))
+        {
+            ++placed;
+            leftOut += light.state != ChartState::Used ? 1u : 0u;
+        }
     }
-    EXPECT_EQ(static_cast<std::size_t>(subpaths(nights[0]) + subpaths(nights[1])), placed);
+    ASSERT_GT(leftOut, 0u);
+    EXPECT_EQ(static_cast<std::size_t>(subpaths(nights[0]) + subpaths(nights[1])), placed - leftOut);
     EXPECT_TRUE(nights[0].hasClass("c-n0"));
     EXPECT_TRUE(nights[1].hasClass("c-n1"));
+    // With no circle to point at over each light, a cross keeps its light's tip.
+    const std::vector<Element> rings = parsed.ofClass("c-xring");
+    ASSERT_EQ(rings.size(), leftOut);
+    for (const Element& ring : rings)
+    {
+        EXPECT_FALSE(ring.attribute("data-tip").isEmpty());
+    }
 }
 
 // ---- A master's samples.

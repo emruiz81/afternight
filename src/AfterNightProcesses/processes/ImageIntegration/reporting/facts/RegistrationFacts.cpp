@@ -29,7 +29,7 @@ namespace ImageIntegration::Reporting
 [[nodiscard]] QString registrationBaseTransformDisplayName(const RegistrationSettings& settings)
 {
     const QString trimmed = settings.transformation.trimmed();
-    return trimmed.isEmpty() ? QStringLiteral("Homography") : trimmed;
+    return trimmed.isEmpty() ? reportText("Homography") : trimmed;
 }
 
 [[nodiscard]] QString transformKindDisplayName(const QString& kind)
@@ -37,27 +37,27 @@ namespace ImageIntegration::Reporting
     const QString normalized = kind.trimmed().toLower();
     if (normalized == QStringLiteral("similarity"))
     {
-        return QStringLiteral("Similarity");
+        return reportText("Similarity");
     }
     if (normalized == QStringLiteral("affine"))
     {
-        return QStringLiteral("Affine");
+        return reportText("Affine");
     }
     if (normalized == QStringLiteral("homography"))
     {
-        return QStringLiteral("Homography");
+        return reportText("Homography");
     }
     if (normalized == QStringLiteral("polynomial2"))
     {
-        return QStringLiteral("Polynomial 2");
+        return reportText("Polynomial 2");
     }
     if (normalized == QStringLiteral("polynomial3"))
     {
-        return QStringLiteral("Polynomial 3");
+        return reportText("Polynomial 3");
     }
     if (normalized == QStringLiteral("polynomial4"))
     {
-        return QStringLiteral("Polynomial 4");
+        return reportText("Polynomial 4");
     }
     return kind.trimmed();
 }
@@ -100,18 +100,17 @@ namespace ImageIntegration::Reporting
 
     if (!polynomialKinds.isEmpty())
     {
-        return {
-            QStringLiteral("%1 + %2").arg(base, polynomialKinds.join(QStringLiteral(" / "))),
-            QStringLiteral("Auto requested; metrics show %1 was used").arg(polynomialKinds.join(QStringLiteral(", ")))};
+        return {reportText("%1 + %2").arg(base, polynomialKinds.join(QStringLiteral(" / "))),
+                reportText("Auto requested; metrics show %1 was used").arg(polynomialKinds.join(QStringLiteral(", ")))};
     }
     if (!linearKinds.isEmpty())
     {
         return {linearKinds.join(QStringLiteral(" / ")),
-                QStringLiteral("Auto requested; metrics show %1 was used").arg(linearKinds.join(QStringLiteral(", ")))};
+                reportText("Auto requested; metrics show %1 was used").arg(linearKinds.join(QStringLiteral(", ")))};
     }
 
-    return {QStringLiteral("%1 + adaptive Polynomial 2-4").arg(base),
-            QStringLiteral("Auto starts with %1 and tries Polynomial 2-4 only when the fit improves").arg(base)};
+    return {reportText("%1 + adaptive Polynomial 2-4").arg(base),
+            reportText("Auto starts with %1 and tries Polynomial 2-4 only when the fit improves").arg(base)};
 }
 
 [[nodiscard]] QString registrationTransformDisplayName(const RegistrationSettings& settings,
@@ -121,15 +120,15 @@ namespace ImageIntegration::Reporting
         ImageIntegration::RegistrationSettingsUtils::normalizeRegistrationMethod(settings.registrationMethod);
     if (method == QStringLiteral("phase_correlation"))
     {
-        return QStringLiteral("Phase Correlation");
+        return reportText("Phase Correlation");
     }
     if (method == QStringLiteral("manual_points"))
     {
-        return QStringLiteral("Manual Points");
+        return reportText("Manual Points");
     }
     if (method == QStringLiteral("comet_tracking"))
     {
-        return QStringLiteral("Comet Tracking");
+        return reportText("Comet Tracking");
     }
 
     const QString transform_mode = settings.transformMode.trimmed().toLower();
@@ -137,9 +136,9 @@ namespace ImageIntegration::Reporting
     {
         const QString detail =
             resolvedAutoDetail.trimmed().isEmpty()
-                ? QStringLiteral("%1 + adaptive Polynomial 2-4").arg(registrationBaseTransformDisplayName(settings))
+                ? reportText("%1 + adaptive Polynomial 2-4").arg(registrationBaseTransformDisplayName(settings))
                 : resolvedAutoDetail.trimmed();
-        return QStringLiteral("Auto (%1)").arg(detail);
+        return reportText("Auto (%1)").arg(detail);
     }
 
     // The mode decides, as the star matcher reads it.
@@ -147,7 +146,7 @@ namespace ImageIntegration::Reporting
         settings.transformMode, settings.transformOrder, settings.transformation);
     if (selection.startsWith(QStringLiteral("polynomial")))
     {
-        return QStringLiteral("Polynomial %1").arg(settings.transformOrder);
+        return reportText("Polynomial %1").arg(settings.transformOrder);
     }
 
     return registrationBaseTransformDisplayName(settings);

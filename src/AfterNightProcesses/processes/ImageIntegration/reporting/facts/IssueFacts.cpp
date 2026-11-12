@@ -530,17 +530,16 @@ void fillIssues(ReportBuild& build, ReportModel& model)
                                            .anchor = {}});
     }
 
-    // A run that completed is held to its issues: a critical one makes it partial, a warning says so.
+    // A run that completed with every master made or still valid is held to its issues: a warning or an error the
+    // run wrote says it completed with warnings, and notes alone leave it clean. Only a master left unmade makes a
+    // run that completed partial, and the run's facts have already said so.
     ReportRun& run = model.run;
     if (run.outcome == ReportOutcome::Completed || run.outcome == ReportOutcome::CompletedWithWarnings)
     {
-        const auto has = [&model](const ReportIssueSeverity severity) {
-            return std::any_of(model.issues.begin(), model.issues.end(),
-                               [severity](const ReportIssue& issue) { return issue.severity == severity; });
-        };
-        run.outcome = has(ReportIssueSeverity::Critical)  ? ReportOutcome::Partial
-                      : has(ReportIssueSeverity::Warning) ? ReportOutcome::CompletedWithWarnings
-                                                          : ReportOutcome::Completed;
+        const bool warned = std::any_of(model.issues.begin(), model.issues.end(), [](const ReportIssue& issue) {
+            return issue.severity == ReportIssueSeverity::Critical || issue.severity == ReportIssueSeverity::Warning;
+        });
+        run.outcome = warned ? ReportOutcome::CompletedWithWarnings : ReportOutcome::Completed;
         run.verdict = reportVerdict(run.outcome, run.groups);
     }
 }

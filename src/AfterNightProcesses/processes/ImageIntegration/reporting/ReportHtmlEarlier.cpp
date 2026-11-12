@@ -11,6 +11,10 @@
 /// groups both runs have, the groups only one has, the frames gained and lost, and the application. "Over the runs"
 /// lists every earlier run of the folder with this one.
 ///
+/// A master the run found still valid is the earlier run's own and is compared with nothing. Such masters are named,
+/// with that reason, under the comparison; a run that set no master beside an earlier run has no comparison, so
+/// there the part's head names them.
+///
 /// Every figure of an earlier run is the one its stored report states, and both sides of a comparison are read by
 /// the same functions (`ReportFigures.h`). The change between two figures is put in words here, where the document
 /// is written; the document's script moves the divider and computes nothing. With no earlier run the part is one
@@ -67,6 +71,36 @@ struct EarlierPlan
                                const ReportDocumentContext& context)
 {
     return archivedAt.has_value() && archivedAt->isValid() ? formatDateTime(*archivedAt, context.zone) : runId;
+}
+
+/// What a run is named by: when it was archived, and its id.
+struct RunStamp
+{
+    std::optional<QDateTime> archivedAt;
+    QString runId;
+};
+
+/// The seconds that follow each run's name where some runs stand together: the runs a master is switched between,
+/// the rows of the folder's runs, the columns of its charts. A run is named by when it was archived, to the minute
+/// (`whenText`), and two runs of one minute would read alike. Where two of the runs would, every one that states a
+/// time is named to the second, `:47` after its minute; otherwise, and for a run that states no time, nothing
+/// follows its name.
+[[nodiscard]] QStringList secondsWhereAlike(const std::vector<RunStamp>& runs, const ReportDocumentContext& context)
+{
+    QSet<QString> names;
+    for (const RunStamp& run : runs)
+    {
+        names.insert(whenText(run.archivedAt, run.runId, context));
+    }
+    const bool alike = names.size() != static_cast<qsizetype>(runs.size());
+    QStringList seconds;
+    for (const RunStamp& run : runs)
+    {
+        const bool timed = run.archivedAt.has_value() && run.archivedAt->isValid();
+        seconds << (alike && timed ? run.archivedAt->toTimeZone(context.zone.resolved()).toString(QStringLiteral(":ss"))
+                                   : QString());
+    }
+    return seconds;
 }
 
 // ---- A change, in words.
@@ -591,22 +625,17 @@ void writeComparedMaster(ReportMarkup& out, const ReportDocumentContext& context
     }
     // A run is named by when it was archived, to the minute. Two runs of one minute would read alike, so the runs
     // of such a switch are named to the second.
-    QStringList names;
+    std::vector<RunStamp> stamps;
+    stamps.reserve(runs.size());
     for (const ReportBaseline* run : runs)
     {
-        names << whenText(run->archivedAt, run->runId, context);
+        stamps.push_back({run->archivedAt, run->runId});
     }
-    if (QSet<QString>(names.begin(), names.end()).size() != names.size())
+    const QStringList seconds = secondsWhereAlike(stamps, context);
+    QStringList names;
+    for (std::size_t run = 0; run < runs.size(); ++run)
     {
-        for (std::size_t run = 0; run < runs.size(); ++run)
-        {
-            const std::optional<QDateTime>& archivedAt = runs[run]->archivedAt;
-            if (archivedAt.has_value() && archivedAt->isValid())
-            {
-                names[static_cast<qsizetype>(run)] +=
-                    archivedAt->toTimeZone(context.zone.resolved()).toString(QStringLiteral(":ss"));
-            }
-        }
+        names << whenText(runs[run]->archivedAt, runs[run]->runId, context) + seconds.at(static_cast<qsizetype>(run));
     }
     out.open("div", {{"class", QStringLiteral("cmpbar runbar noprint")}});
     out.element("span", {{"class", QStringLiteral("lab")}}, documentText("Against the run of"));
@@ -744,6 +773,32 @@ void writeComparator(ReportMarkup& out, const ReportDocumentContext& context,
     return comparisons;
 }
 
+/// The masters the run found still valid, by name, and why they stand beside no earlier run: such a master is the
+/// earlier run's own, so there are not two of it to compare. Empty for a run that made every master it has.
+[[nodiscard]] QString reusedMastersSentence(const ReportDocumentContext& context)
+{
+    QStringList reused;
+    for (const ReportMaster& master : context.model.masters)
+    {
+        if (master.state == ReportMasterState::Reused)
+        {
+            reused << context.labelOf(master);
+        }
+    }
+    if (reused.isEmpty())
+    {
+        return {};
+    }
+    return counted(reused.size(),
+                   QT_TRANSLATE_NOOP("ImageIntegrationReport",
+                                     "%1 master was still valid and was not made again, so it is compared with "
+                                     "nothing: %2."),
+                   QT_TRANSLATE_NOOP("ImageIntegrationReport",
+                                     "%1 masters were still valid and were not made again, so they are compared "
+                                     "with nothing: %2."))
+        .arg(reused.join(QStringLiteral(", ")));
+}
+
 void writeBeforeAfter(ReportMarkup& out, const ReportDocumentContext& context)
 {
     const ReportModel& model = context.model;
@@ -767,25 +822,10 @@ void writeBeforeAfter(ReportMarkup& out, const ReportDocumentContext& context)
         out.close("div");
     }
 
-    // A master the run found still valid is the earlier run's own: there are not two of it to compare.
-    QStringList reused;
-    for (const ReportMaster& master : model.masters)
+    // The masters the run found still valid are named under the comparison, with why they are not in it.
+    if (const QString reused = reusedMastersSentence(context); !reused.isEmpty())
     {
-        if (master.state == ReportMasterState::Reused)
-        {
-            reused << context.labelOf(master);
-        }
-    }
-    if (!reused.isEmpty())
-    {
-        writeCaption(out, counted(reused.size(),
-                                  QT_TRANSLATE_NOOP("ImageIntegrationReport",
-                                                    "%1 master was still valid and was not made again, so it is "
-                                                    "compared with nothing: %2."),
-                                  QT_TRANSLATE_NOOP("ImageIntegrationReport",
-                                                    "%1 masters were still valid and were not made again, so they "
-                                                    "are compared with nothing: %2."))
-                              .arg(reused.join(QStringLiteral(", "))));
+        writeCaption(out, reused);
     }
     out.close("section");
 }
@@ -1117,6 +1157,10 @@ struct FolderRun
     std::optional<double> backgroundNoise;
     QString report;
     bool thisRun = false;
+
+    /// The seconds that follow the run's name, `:47`, where two runs of the folder were archived in one minute;
+    /// empty otherwise (`secondsWhereAlike`).
+    QString seconds;
 };
 
 /// The master whose noise the runs are compared by: the first of this run's that is there.
@@ -1127,8 +1171,9 @@ struct FolderRun
 }
 
 /// The earlier runs of the folder, oldest first, then this run.
-[[nodiscard]] std::vector<FolderRun> folderRuns(const ReportModel& model)
+[[nodiscard]] std::vector<FolderRun> folderRuns(const ReportDocumentContext& context)
 {
+    const ReportModel& model = context.model;
     std::vector<FolderRun> runs;
     runs.reserve(model.history.size() + 1);
     for (const ReportHistoryEntry& entry : model.history)
@@ -1143,7 +1188,8 @@ struct FolderRun
                                  .masters = entry.masters,
                                  .backgroundNoise = entry.backgroundNoise,
                                  .report = entry.report,
-                                 .thisRun = false});
+                                 .thisRun = false,
+                                 .seconds = {}});
     }
     const ReportRun& run = model.run;
     const ReportMaster* master = noiseMaster(model);
@@ -1157,17 +1203,34 @@ struct FolderRun
                              .masters = run.groups.made + run.groups.reused,
                              .backgroundNoise = master != nullptr ? master->snapshot.backgroundNoise : std::nullopt,
                              .report = {},
-                             .thisRun = true});
+                             .thisRun = true,
+                             .seconds = {}});
+
+    // The runs stand together in the table and under the charts, so two of one minute are named to the second. A
+    // run that gave no report is listed by its id, whatever time its entry states.
+    std::vector<RunStamp> stamps;
+    stamps.reserve(runs.size());
+    for (const FolderRun& listed : runs)
+    {
+        stamps.push_back({listed.refusal.isEmpty() ? listed.archivedAt : std::nullopt, listed.runId});
+    }
+    const QStringList seconds = secondsWhereAlike(stamps, context);
+    for (std::size_t index = 0; index < runs.size(); ++index)
+    {
+        runs[index].seconds = seconds.at(static_cast<qsizetype>(index));
+    }
     return runs;
 }
 
-[[nodiscard]] bool stoppedOutcome(const std::optional<ReportOutcome>& outcome)
+/// Whether a run ended with no figure to draw: it failed or was cancelled. A run that made some of its masters and
+/// not the others states its figures as a run that made them all does, so its column is drawn.
+[[nodiscard]] bool failedOrCancelled(const std::optional<ReportOutcome>& outcome)
 {
-    return outcome == ReportOutcome::Partial || outcome == ReportOutcome::Failed || outcome == ReportOutcome::Cancelled;
+    return outcome == ReportOutcome::Failed || outcome == ReportOutcome::Cancelled;
 }
 
 /// One figure over the latest runs that keep a report: a column per run, this run in the series colour, a run that
-/// stopped as a cross.
+/// failed or was cancelled as a cross.
 [[nodiscard]] QString runsFigure(const ReportDocumentContext& context, const std::vector<FolderRun>& runs,
                                  const QString& label,
                                  const std::function<std::optional<double>(const FolderRun&)>& valueOf,
@@ -1191,17 +1254,19 @@ struct FolderRun
     for (const FolderRun* run : drawn)
     {
         ChartRun column;
-        const QString when = whenText(run->archivedAt, run->runId, context);
+        // The run is named as its row of the table names it: to the second where two runs share a minute.
+        const QString when = whenText(run->archivedAt, run->runId, context) + run->seconds;
         if (run->archivedAt.has_value() && run->archivedAt->isValid())
         {
             const QString day = formatDate(run->archivedAt->toTimeZone(context.zone.resolved()).date());
-            column.label = {day.left(day.lastIndexOf(QLatin1Char(' '))), clockText(*run->archivedAt, context.zone)};
+            column.label = {day.left(day.lastIndexOf(QLatin1Char(' '))),
+                            clockText(*run->archivedAt, context.zone) + run->seconds};
         }
         else
         {
             column.label = {run->runId.left(8)};
         }
-        const std::optional<double> value = stoppedOutcome(run->outcome) ? std::nullopt : valueOf(*run);
+        const std::optional<double> value = failedOrCancelled(run->outcome) ? std::nullopt : valueOf(*run);
         column.value = value;
         column.valueText = value.has_value() ? textOf(*value) : QString();
         column.thisRun = run->thisRun;
@@ -1219,7 +1284,7 @@ struct FolderRun
 void writeHistory(ReportMarkup& out, const ReportDocumentContext& context)
 {
     const ReportModel& model = context.model;
-    const std::vector<FolderRun> runs = folderRuns(model);
+    const std::vector<FolderRun> runs = folderRuns(context);
     const ReportMaster* noiseOf = noiseMaster(model);
     const bool anyReport =
         context.assets.form() == ReportForm::Linked &&
@@ -1230,7 +1295,7 @@ void writeHistory(ReportMarkup& out, const ReportDocumentContext& context)
     openBlock(out, "history", documentText("Over the runs of this folder"),
               counted(static_cast<qint64>(runs.size()), QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 run"),
                       QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 runs, oldest first")),
-              documentText("This run is drawn in colour; a cross is a run that stopped before its end."));
+              documentText("This run is drawn in colour; a cross is a run that failed or was cancelled."));
     out.open("div", {{"class", QStringLiteral("card")}});
 
     out.open("div", {{"class", QStringLiteral("hist3")}});
@@ -1296,7 +1361,7 @@ void writeHistory(ReportMarkup& out, const ReportDocumentContext& context)
         out.open("td", {{"class", QStringLiteral("nowrap")}});
         if (run.refusal.isEmpty())
         {
-            out.text(whenText(run.archivedAt, run.runId, context));
+            out.text(whenText(run.archivedAt, run.runId, context) + run.seconds);
         }
         else
         {
@@ -1425,6 +1490,16 @@ ReportPart writeReportEarlier(const ReportDocumentContext& context)
     out.open("p");
     writeSentence(out, lead, bold);
     out.close("p");
+    // A run that set no master beside an earlier run has no comparison for the masters it found still valid to be
+    // named under. The part would then say nothing of its masters, so its head names them and says why none is
+    // compared.
+    if (!plan.beforeAfter)
+    {
+        if (const QString reused = reusedMastersSentence(context); !reused.isEmpty())
+        {
+            out.element("p", reused);
+        }
+    }
     out.close("div");
 
     if (plan.beforeAfter)

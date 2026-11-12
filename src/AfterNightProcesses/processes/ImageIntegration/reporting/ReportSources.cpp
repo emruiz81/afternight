@@ -389,6 +389,9 @@ constexpr std::uint64_t kLevelSampleLimit = 4'000'000u;
 
         const an::ui::DisplayNormalization normalization = an::ui::displayNormalization(ImageT::kSampleType);
         const std::uint32_t channelCount = layout.extent().channelCount();
+        // A channel with no sample to measure - every one of them clipped - states no level and no noise: not a
+        // number, which a reader is shown as a figure that is not stated, never as a zero.
+        constexpr double kNotMeasured = std::numeric_limits<double>::quiet_NaN();
         // Each channel's median and robust deviation, in the image's own units: what a hot pixel stands above.
         std::vector<double> medians(channelCount, 0.0);
         std::vector<double> deviations(channelCount, 0.0);
@@ -396,8 +399,8 @@ constexpr std::uint64_t kLevelSampleLimit = 4'000'000u;
         {
             if (selected->admitsNothing)
             {
-                levels.level.push_back(0.0);
-                levels.noise.push_back(0.0);
+                levels.level.push_back(kNotMeasured);
+                levels.noise.push_back(kNotMeasured);
                 continue;
             }
             const an::Result<an::BasicStatistics> basic = an::computeImageBasicStatistics(
@@ -406,8 +409,8 @@ constexpr std::uint64_t kLevelSampleLimit = 4'000'000u;
             {
                 if (basic.status().code() == an::ErrorCode::EmptySelection)
                 {
-                    levels.level.push_back(0.0);
-                    levels.noise.push_back(0.0);
+                    levels.level.push_back(kNotMeasured);
+                    levels.noise.push_back(kNotMeasured);
                     continue;
                 }
                 LOG_WARNING("IntegrationReport: the level of channel {} could not be measured: {}", channel,
@@ -876,7 +879,13 @@ loadRegistrationMetricsByFrame(QSqlDatabase& db, const QString& groupKey, int se
 
     while (query.next())
     {
-        const QString frameId = FrameId(query.value(0).toString()).canonicalPath();
+        // A row that names no light is no light's record; a light's identity cannot be made of nothing.
+        const QString stored = query.value(0).toString();
+        if (stored.trimmed().isEmpty())
+        {
+            continue;
+        }
+        const QString frameId = FrameId(stored).canonicalPath();
         if (frameId.isEmpty())
         {
             continue;
@@ -980,7 +989,13 @@ loadRegistrationNoiseByFrame(QSqlDatabase& db, const QString& groupKey, int sett
     }
     while (query.next())
     {
-        const QString frameId = FrameId(query.value(0).toString()).canonicalPath();
+        // A row that names no light is no light's record; a light's identity cannot be made of nothing.
+        const QString stored = query.value(0).toString();
+        if (stored.trimmed().isEmpty())
+        {
+            continue;
+        }
+        const QString frameId = FrameId(stored).canonicalPath();
         if (frameId.isEmpty())
         {
             continue;

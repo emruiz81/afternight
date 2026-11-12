@@ -248,6 +248,9 @@ public:
         /// incremental run's plan left out, then the ones the stacking stage found up to date. None has a group
         /// result, and no count of the run's successful groups reads the list.
         std::vector<ReusedIntegrationGroup> reusedIntegrationGroups;
+        /// The integration groups whose stack failed before a master of it was written, each with why. None has a
+        /// group result, which is made only of a group that reached its master's finalization.
+        std::vector<FailedIntegrationGroup> failedIntegrationGroups;
         /// The lights this run's registration found no transform for, each with its reason. A light registered by an
         /// earlier run is not among them: that run recorded it.
         std::vector<RegistrationFailure> registrationFailures;

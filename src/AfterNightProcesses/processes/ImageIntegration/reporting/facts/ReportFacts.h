@@ -275,6 +275,10 @@ void addExposureBucket(QList<ReportExposureBucket>& buckets, double exposureSeco
 [[nodiscard]] InputFileSets collectInputFileSets(const WorkflowManifest& manifest);
 [[nodiscard]] QString sha256Hex(const QByteArray& bytes);
 [[nodiscard]] QString resolveTargetName(const WorkflowManifest::IntegrationGroup& group);
+/// The target a group's master is listed under: the group's own, or the name the report gives the masters of
+/// a group that states none. A master and the run's list of targets both take it from here, so every master stands
+/// under a target the run lists.
+[[nodiscard]] QString listedTargetName(const WorkflowManifest::IntegrationGroup& group);
 [[nodiscard]] QString canonicalOrRawPath(const FrameId& id);
 [[nodiscard]] QStringList collectTargets(const WorkflowManifest& manifest);
 [[nodiscard]] QString normalizeMetadataText(const QString& rawText);
@@ -353,8 +357,11 @@ template <typename ValueFn>
 
 /// The share of a capture's area an output of the given size covers, as a percentage; nothing when the resolution
 /// is not a size or either area is empty.
+///
+/// @param outputScale how many output pixels a capture's pixel spans a side: a drizzled master's scale, one for any
+///        other. The output's area is brought to the capture's pixels by it before the two are compared.
 [[nodiscard]] std::optional<double> overlapRetainedPercent(const QString& captureResolution, std::size_t width,
-                                                           std::size_t height);
+                                                           std::size_t height, double outputScale = 1.0);
 
 // ---- The registration.
 

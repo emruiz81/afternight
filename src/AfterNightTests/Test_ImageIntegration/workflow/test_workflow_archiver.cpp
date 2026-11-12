@@ -2334,4 +2334,79 @@ TEST(WorkflowArchiver, TheRetentionDecisionCountsThePicturesWrittenForTheReport)
               OutputRetentionStatus::RetainedInHistory);
 }
 
+// A rejection map's clusters are stated in the map's pixels, and the picture a report shows of a map larger than a
+// picture's bound is the map shrunk. Each cluster is outlined where the picture shows it, at the picture's scale of
+// the map, and not at the coordinates the map states.
+TEST(WorkflowArchiver, TheClustersOfARejectionMapLargerThanItsPictureAreOutlinedAtThePicturesScale)
+{
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+    const QString outputDir = tempDir.path();
+    an::Result<an::consumer::EngineSession> session = an::tests::integration::openImportSession();
+    ASSERT_TRUE(session.hasValue()) << session.status().message();
+
+    // A map twice as wide as a picture's bound, its three channels alike: its picture is half its size and grey
+    // wherever nothing is drawn on it.
+    const QString mapPath = QDir(outputDir).filePath(QStringLiteral("stacked_Group1_rejection.fits"));
+    {
+        const std::optional<an::consumer::ImageAsset> map =
+            an::tests::viewer::makeAsset<float>(*session, 4096u, 64u, an::tests::viewer::Channels::Rgb,
+                                                [](std::uint32_t x, std::uint32_t y, std::uint32_t) {
+                                                    return 0.05f + 0.002f * static_cast<float>((x + y) % 9u);
+                                                });
+        ASSERT_TRUE(map.has_value());
+        const an::Result<an::OutputIntent> intent =
+            an::OutputIntent::create(an::OutputIntentRequest{.sampleType = an::SampleType::Float32});
+        ASSERT_TRUE(intent.hasValue()) << intent.status().message();
+        const an::Status written = an::ui::writeViewImage(*session, *map, mapPath, *intent, {});
+        ASSERT_TRUE(written.ok()) << written.message();
+    }
+
+    WorkflowManifest manifest = createTestManifest(outputDir);
+    WorkflowExecutor::Result result = createTestResult(outputDir);
+    auto& group = result.integrationGroupResults.front();
+    group.rejectionMaps.push_back(RejectionMapResult{QStringLiteral("Rejection Map"), mapPath, {}});
+    // One cluster of the merged map, from (600, 8) to (1000, 28) of the map. Those coordinates lie inside the picture
+    // as well, so an outline drawn at them would show there.
+    group.qualityReport.hasSpatialRejectionClusters = true;
+    group.qualityReport.spatialClusterCount = 1;
+    group.qualityReport.spatialClusterPixels = 36;
+    group.qualityReport.spatialLargestClusterPixels = 36;
+    group.qualityReport.spatialClusters.push_back(
+        {RejectionClusterMapKind::Merged, 0, 36, 600, 8, 1000, 28, 800.0, 18.0, 0.45, 0.9, 16.2});
+
+    WorkflowArchiver archiver(outputDir);
+    archiver.setEngineSession(&*session);
+    const auto archived = archiver.commit(manifest, result);
+    ASSERT_TRUE(archived.success) << archived.error.toStdString();
+
+    const QImage picture(
+        QDir(archived.archivePath).filePath(QStringLiteral("report_previews/Group1/rejection_map_1.jpg")));
+    ASSERT_FALSE(picture.isNull());
+    ASSERT_EQ(picture.size(), QSize(2048, 32));
+
+    // A merged map's outline is orange, the one colour of a picture that is grey elsewhere: far more red than blue.
+    const auto outlinedWithin = [&picture](const QPoint& topLeft, const QPoint& bottomRight) {
+        for (int y = topLeft.y(); y <= bottomRight.y(); ++y)
+        {
+            for (int x = topLeft.x(); x <= bottomRight.x(); ++x)
+            {
+                const QRgb pixel = picture.pixel(x, y);
+                if (qRed(pixel) - qBlue(pixel) > 60)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+    // At half the map's coordinates, from (300, 4) to (500, 14): the outline's right side and its bottom side,
+    // clear of the label at its top left.
+    EXPECT_TRUE(outlinedWithin(QPoint(496, 6), QPoint(505, 12))) << "the right side of the outline is not at x = 500";
+    EXPECT_TRUE(outlinedWithin(QPoint(400, 11), QPoint(480, 18))) << "the bottom side of the outline is not at y = 14";
+    // And nothing where the map's own coordinates fall in the picture.
+    EXPECT_FALSE(outlinedWithin(QPoint(590, 0), QPoint(1010, 31)))
+        << "an outline is drawn at the map's coordinates, not the picture's";
+}
+
 } // namespace

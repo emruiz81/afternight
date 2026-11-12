@@ -1617,3 +1617,146 @@ TEST_F(ReportHtmlWriterTest, TheEmbeddedReportOpensAloneFromAnEmptyFolder)
     EXPECT_FALSE(unnamed.isWritten());
     EXPECT_FALSE(unnamed.error.isEmpty());
 }
+
+// A stage that went on after part of its work failed - a light with no transform - did not stop the run, and a run
+// that made every master is not led by what was kept and what was not. The timeline said the run stopped in that
+// stage.
+TEST_F(ReportHtmlWriterTest, ARunWhoseStageWentOnAfterAFailureIsNotSaidToHaveStopped)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFilters);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    const auto ran = std::find_if(model.stages.begin(), model.stages.end(),
+                                  [](const ReportStage& stage) { return stage.state == ReportStageState::Ran; });
+    ASSERT_NE(ran, model.stages.end());
+    ran->state = ReportStageState::Partial;
+    model.run.outcome = ReportOutcome::CompletedWithWarnings;
+
+    const ParsedDocument parsed = parseDocument(writeReportDocument(model, {}).html);
+    ASSERT_TRUE(parsed.error.isEmpty()) << parsed.error.toStdString();
+    EXPECT_TRUE(parsed.withId(QStringLiteral("outcome")).empty());
+    const DocumentElement* timeline = parsed.byId("timeline");
+    ASSERT_NE(timeline, nullptr);
+    EXPECT_TRUE(timeline->text.contains(QStringLiteral("Part of %1 failed, and the run went on.").arg(ran->name)))
+        << timeline->text.toStdString();
+    EXPECT_FALSE(timeline->text.contains(QStringLiteral("The run stopped in")));
+}
+
+// What a run wrote may name folders none of the report's files is in: a catalog under the person's profile, a
+// solver's temporary file. The single file is meant to be sent, so it names none of them: a profile goes whole, and
+// of any other path its last part stays. The linked report is the run's own, on the machine it ran on, and keeps
+// the run's words.
+TEST_F(ReportHtmlWriterTest, TheSingleFileNamesNoFolderOfTheMachineInWhatTheRunWrote)
+{
+    const Rendered* report = reportOf(ReportScenarioId::OneMonoMaster);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    const QString catalog =
+        QStringLiteral("Gaia enrichment is on, but no Gaia catalog is installed at "
+                       "'C:/Users/John Smith/AppData/Local/AfterNight/catalogs/gaia-dr3': 3 solved light(s) were "
+                       "registered without the catalog's photometric figures.");
+    const QString solver =
+        QStringLiteral("The fallback solve of C:\\Users\\jane\\AppData\\Local\\Temp\\solve_1\\field.fits failed.");
+    const QString elsewhere = QStringLiteral("Read /home/ana/astro/flat_master.fits and D:\\Catalogs\\ucac4\\z001");
+    const QString prose = QStringLiteral("Stage: stacking 3/4 done (I/O 12 ms), and/or nothing");
+    model.run.log = QStringList{catalog, solver, elsewhere, prose}.join(QLatin1Char('\n'));
+    model.issues.push_back(ReportIssue{.kind = ReportIssueKind::RunMessage,
+                                       .severity = ReportIssueSeverity::Warning,
+                                       .title = catalog,
+                                       .detail = {},
+                                       .action = {},
+                                       .groupKey = {},
+                                       .anchor = {}});
+
+    const QString embedded =
+        writeReportDocument(model, {.form = ReportForm::Embedded, .runDirectory = report->scenario.runDirectory}).html;
+    for (const QString& told :
+         {QStringLiteral("John Smith"), QStringLiteral("jane"), QStringLiteral("/home/ana"), QStringLiteral("AppData"),
+          QStringLiteral("C:/Users"), QStringLiteral("C:\\Users"), QStringLiteral("D:\\Catalogs")})
+    {
+        EXPECT_FALSE(embedded.contains(told)) << told.toStdString();
+    }
+    for (const QString& kept : {QStringLiteral("gaia-dr3"), QStringLiteral("field.fits failed."),
+                                QStringLiteral("flat_master.fits"), QStringLiteral("z001"), prose})
+    {
+        EXPECT_TRUE(embedded.contains(kept)) << kept.toStdString();
+    }
+
+    const QString linked =
+        writeReportDocument(model, {.form = ReportForm::Linked, .runDirectory = report->scenario.runDirectory}).html;
+    EXPECT_TRUE(linked.contains(QStringLiteral("C:/Users/John Smith/AppData/Local/AfterNight/catalogs/gaia-dr3")));
+}
+
+// A file in a drive's root has no folder to drop from the single file's words. The drive alone was taken for one,
+// and the same two letters went out of every word that ends in them before a colon: "Stage:" read "Stag".
+TEST_F(ReportHtmlWriterTest, AFileInADrivesRootTakesNothingOutOfTheSingleFilesWords)
+{
+    const Rendered* report = reportOf(ReportScenarioId::OneMonoMaster);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    ASSERT_FALSE(model.masters.empty());
+    model.masters.front().file = QStringLiteral("E:/stacked_master.fits");
+    model.run.log = QStringLiteral("Stage: LightsStacking\nGroup failure: none\nWrote E:/stacked_master.fits");
+
+    const QString embedded =
+        writeReportDocument(model, {.form = ReportForm::Embedded, .runDirectory = report->scenario.runDirectory}).html;
+    EXPECT_TRUE(embedded.contains(QStringLiteral("Stage: LightsStacking")));
+    EXPECT_TRUE(embedded.contains(QStringLiteral("Group failure: none")));
+    EXPECT_TRUE(embedded.contains(QStringLiteral("Wrote stacked_master.fits")));
+}
+
+// A group's folder is named after its target, and a target may hold a character a browser does not read as part of
+// a path: after "#" it reads a fragment. The linked report escapes it, so the picture's address names the file.
+TEST_F(ReportHtmlWriterTest, APictureInAFolderNamedWithAHashIsLinkedByAPathABrowserReadsWhole)
+{
+    const Rendered* report = reportOf(ReportScenarioId::OneMonoMaster);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    ASSERT_FALSE(model.masters.empty());
+    model.masters.front().preview = QStringLiteral("report_previews/Panel_#2_50%/master.jpg");
+
+    const ParsedDocument parsed = parseDocument(writeReportDocument(model, {}).html);
+    ASSERT_TRUE(parsed.error.isEmpty()) << parsed.error.toStdString();
+    int pictures = 0;
+    for (const DocumentElement& element : parsed.elements)
+    {
+        if (element.has("src") && element.attribute("src").contains(QStringLiteral("Panel_")))
+        {
+            ++pictures;
+            EXPECT_EQ(element.attribute("src"), QStringLiteral("report_previews/Panel_%232_50%25/master.jpg"));
+        }
+    }
+    EXPECT_GT(pictures, 0);
+}
+
+// The exposure a master's lights add up to is a sum only when every light of it states one. A master whose lights
+// state none printed "0 ms" beside their count.
+TEST_F(ReportHtmlWriterTest, AMasterWhoseLightsStateNoExposureStatesNoIntegrationBesideItsLights)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFilters);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    for (ReportMaster& master : model.masters)
+    {
+        for (ReportFrame& frame : master.frames)
+        {
+            frame.exposureSeconds.reset();
+        }
+    }
+
+    const ParsedDocument parsed = parseDocument(writeReportDocument(model, {}).html);
+    ASSERT_TRUE(parsed.error.isEmpty()) << parsed.error.toStdString();
+    const std::vector<const DocumentElement*> lines = parsed.ofClass("fline");
+    ASSERT_FALSE(lines.empty());
+    bool counted = false;
+    for (const DocumentElement* line : lines)
+    {
+        counted = counted || line->text.contains(QStringLiteral(" lights"));
+        EXPECT_FALSE(line->text.contains(QStringLiteral("0 ms"))) << line->text.toStdString();
+    }
+    EXPECT_TRUE(counted) << "a master's line still counts its lights";
+    for (const DocumentElement* card : parsed.ofClass("mcard"))
+    {
+        EXPECT_FALSE(card->text.contains(QStringLiteral("0 ms"))) << card->text.toStdString();
+    }
+}

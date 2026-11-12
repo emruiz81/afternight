@@ -774,8 +774,8 @@ std::vector<SampleChart> everySampleChart()
     add(QStringLiteral("Stage by stage, a run that stopped"), QStringLiteral("A stage failed; one was not reached"),
         timelineChart(timelineOf(true)), true);
     add(QStringLiteral("Written to disk"), QStringLiteral("Plain bars"), barsChart(bars()));
-    add(QStringLiteral("Over the runs of the folder"), QStringLiteral("This run filled; a cross is a run that stopped"),
-        runsChart(runs()));
+    add(QStringLiteral("Over the runs of the folder"),
+        QStringLiteral("This run filled; a cross is a run that failed or was cancelled"), runsChart(runs()));
 
     FrameMeasureChart nothing;
     nothing.description = describe(QStringLiteral("A chart with nothing to draw"));

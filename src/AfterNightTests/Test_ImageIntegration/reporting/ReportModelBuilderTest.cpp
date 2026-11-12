@@ -1962,3 +1962,185 @@ TEST(ReportModelBuilder, AMasterStatesTheNormalizationItsStackApplied)
     EXPECT_EQ(model.masters.front().stack->normalization,
               QStringLiteral("Additive + Scaling, against the stack's own reference"));
 }
+
+// A group that states no object has no target of its own: its master stands under the name the run's list of
+// targets gives such groups, so every block that lists the masters target by target lists it. It stood under no
+// name, and in a run of several targets no heading showed it.
+TEST(ReportModelBuilder, AMasterOfAGroupThatNamesNoTargetStandsUnderATargetTheRunLists)
+{
+    auto scenario = built(ReportScenarioId::TwoTargets);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_GT(scenario->manifest.integrationGroups.size(), 1u);
+    WorkflowManifest::IntegrationGroup& group = scenario->manifest.integrationGroups.front();
+    const QString keyWas = group.groupKey.toString();
+    // The sixth part of a group's key is its target: a group of lights taken with no OBJECT states none there.
+    QStringList parts = keyWas.split(QLatin1Char('|'));
+    ASSERT_EQ(parts.size(), 7) << keyWas.toStdString();
+    parts[5] = QStringLiteral("-");
+    const QString key = parts.join(QLatin1Char('|'));
+    group.groupKey = IntegrationGroupKey{GroupKey{key}};
+    group.object.clear();
+    for (IntegrationGroupResult& result : scenario->result.integrationGroupResults)
+    {
+        if (result.groupKey == keyWas)
+        {
+            result.groupKey = key;
+        }
+    }
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    const auto unnamed = std::find_if(model.masters.begin(), model.masters.end(),
+                                      [&key](const ReportMaster& master) { return master.key == key; });
+    ASSERT_NE(unnamed, model.masters.end());
+    EXPECT_FALSE(unnamed->target.isEmpty());
+    for (const ReportMaster& master : model.masters)
+    {
+        EXPECT_TRUE(std::any_of(model.targets.begin(), model.targets.end(),
+                                [&master](const ReportTarget& target) { return target.name == master.target; }))
+            << master.name.toStdString() << " stands under \"" << master.target.toStdString() << "\"";
+    }
+}
+
+// The exposure the masters combine is a sum only when every light of it states one: a sum over the lights that do
+// would read as the whole and be short of it. A light that states none added nothing and the sum was printed.
+TEST(ReportModelBuilder, TheExposureTheMastersCombineIsNotStatedWhenALightOfItStatesNone)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    WorkflowManifest::IntegrationGroup& group = scenario->manifest.integrationGroups.front();
+    const QString was = group.lightFiles.front().canonicalPath();
+    // A light whose exposure neither the manifest, its name nor its group states.
+    const FrameId unnamed(QStringLiteral("D:/lights/unnamed_light.fits"));
+    group.exposure = QStringLiteral("-");
+    group.lightExposureSeconds.assign(group.lightFiles.size(), 0.0);
+    group.lightFiles.front() = unnamed;
+    // The stack combined it all the same, and its record names the light by its file.
+    StackQualityRecord& quality = scenario->result.integrationGroupResults.front().qualityReport;
+    bool renamed = false;
+    for (StackLightWeight& light : quality.lightWeights)
+    {
+        if (FrameId(light.light).identityKey() == FrameId(was).identityKey())
+        {
+            light.light = unnamed.canonicalPath();
+            renamed = true;
+        }
+    }
+    ASSERT_TRUE(renamed);
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    const ReportMaster& master = model.masters.front();
+    ASSERT_TRUE(std::any_of(master.frames.begin(), master.frames.end(), [](const ReportFrame& frame) {
+        return frame.state == ReportFrameState::Used && !frame.exposureSeconds.has_value();
+    })) << "the light the stack combined states no exposure";
+    ASSERT_TRUE(model.run.framesUsed.has_value());
+    EXPECT_FALSE(model.run.integratedMs.has_value());
+}
+
+// A drizzled master is measured in its own, finer pixels. The share of the capture it covers is of areas in the
+// same pixels: a master at twice the scale that covers a little over half the frame covers that, where its four
+// times as many pixels read as the whole frame and more.
+TEST(ReportModelBuilder, ADrizzledMastersOverlapIsCountedInTheCapturesPixels)
+{
+    auto scenario = built(ReportScenarioId::DrizzledGroup);
+    ASSERT_TRUE(scenario.has_value());
+    const auto drizzled =
+        std::find_if(scenario->manifest.integrationGroups.begin(), scenario->manifest.integrationGroups.end(),
+                     [](const WorkflowManifest::IntegrationGroup& group) {
+                         return group.drizzle.has_value() && group.drizzle->enabled;
+                     });
+    ASSERT_NE(drizzled, scenario->manifest.integrationGroups.end());
+    ASSERT_DOUBLE_EQ(drizzled->drizzle->scale, 2.0);
+    const QString key = drizzled->groupKey.toString();
+    const auto result =
+        std::find_if(scenario->result.integrationGroupResults.begin(), scenario->result.integrationGroupResults.end(),
+                     [&key](const IntegrationGroupResult& made) { return made.groupKey == key; });
+    ASSERT_NE(result, scenario->result.integrationGroupResults.end());
+    // The capture is 64 by 48: a master of 96 by 72 at twice the scale covers 48 by 36 of it.
+    ASSERT_FALSE(writeNoisyMaster(result->outputPath, 96, 72).isEmpty());
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    const auto master = std::find_if(model.masters.begin(), model.masters.end(),
+                                     [&key](const ReportMaster& candidate) { return candidate.key == key; });
+    ASSERT_NE(master, model.masters.end());
+    ASSERT_TRUE(master->overlapRetained.has_value());
+    EXPECT_NEAR(*master->overlapRetained, (48.0 * 36.0) / (64.0 * 48.0), 1e-9);
+}
+
+// A reused master takes the figures of the run that made it only while its file is the one that run wrote. A
+// master made again since, by a run whose report the history does not keep, is another file: it is measured, and
+// nothing an earlier run said of the one before it is said of it.
+TEST(ReportModelBuilder, AReusedMasterWhoseFileIsNoLongerTheOneTheEarlierRunWroteIsMeasuredAnew)
+{
+    auto scenario = built(ReportScenarioId::IncrementalRun);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+    ASSERT_FALSE(scenario->result.reusedIntegrationGroups.empty());
+    const QString changedKey = scenario->result.reusedIntegrationGroups.front().groupKey;
+    ASSERT_FALSE(writeNoisyMaster(scenario->result.reusedIntegrationGroups.front().outputPath, 40, 30).isEmpty());
+
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+    int asTheEarlierRunSaid = 0;
+    for (const ReportMaster& master : model.masters)
+    {
+        if (master.state != ReportMasterState::Reused)
+        {
+            continue;
+        }
+        SCOPED_TRACE(master.name.toStdString());
+        if (master.key == changedKey)
+        {
+            EXPECT_TRUE(master.madeByRun.isEmpty());
+            ASSERT_TRUE(master.statistics.has_value());
+            EXPECT_EQ(master.statistics->width, 40u);
+        }
+        else
+        {
+            EXPECT_FALSE(master.madeByRun.isEmpty());
+            ++asTheEarlierRunSaid;
+        }
+    }
+    EXPECT_EQ(asTheEarlierRunSaid, 2);
+}
+
+// The weights' own figures are of the lights the master combines. A measured light the stack does not name - one a
+// second stack left out - weighs nothing in the master, and counted as a light at the floor and into the median.
+TEST(ReportModelBuilder, TheWeightsFiguresAreOfTheLightsTheMasterCombines)
+{
+    const auto scenario = built(ReportScenarioId::EveryLightState);
+    ASSERT_TRUE(scenario.has_value());
+    const ReportModel model = buildScenarioModel(*scenario);
+    int leftOutAndMeasured = 0;
+    for (const ReportMaster& master : model.masters)
+    {
+        if (master.state != ReportMasterState::Made || !master.weighting.has_value())
+        {
+            continue;
+        }
+        SCOPED_TRACE(master.name.toStdString());
+        std::vector<double> ofUsed;
+        for (const ReportFrame& frame : master.frames)
+        {
+            if (frame.state == ReportFrameState::Used)
+            {
+                if (frame.weight.has_value())
+                {
+                    ofUsed.push_back(*frame.weight);
+                }
+            }
+            else
+            {
+                EXPECT_FALSE(frame.weight.has_value()) << frame.fileName.toStdString();
+                leftOutAndMeasured += frame.registered.value_or(false) ? 1 : 0;
+            }
+        }
+        ASSERT_FALSE(ofUsed.empty());
+        std::sort(ofUsed.begin(), ofUsed.end());
+        const double median = ofUsed.size() % 2u == 0u
+                                  ? (ofUsed[ofUsed.size() / 2u - 1u] + ofUsed[ofUsed.size() / 2u]) / 2.0
+                                  : ofUsed[ofUsed.size() / 2u];
+        ASSERT_TRUE(master.weighting->medianWeight.has_value());
+        EXPECT_NEAR(*master.weighting->medianWeight, median, 1e-12);
+        EXPECT_LE(master.weighting->framesAtFloor, static_cast<int>(ofUsed.size()));
+    }
+    EXPECT_GT(leftOutAndMeasured, 0) << "the run has a registered light its master does not combine";
+}

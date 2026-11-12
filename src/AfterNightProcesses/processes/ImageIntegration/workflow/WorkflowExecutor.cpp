@@ -13,6 +13,7 @@
 
 #include "WorkflowRunStateStore.h"
 #include "WorkflowRunArchive.h"
+#include "WorkflowArchiver.h"
 #include "ExecutionPreparationSnapshot.h"
 #include "ManifestHashing.h"
 #include "WorkflowImageCache.h"
@@ -786,11 +787,14 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
 {
     // Stamp a unique execution ID so all groups produced by this workflow run
     // can be identified together in run manifests and the history UI.
-    // Use timestamp-based ID for better sorting and readability in the history folder.
+    // Use timestamp-based ID for better sorting and readability in the history folder. The history is ordered by
+    // these names, so the id is never at or before the latest run already there, whatever the clock says: a clock
+    // that went back an hour would otherwise put this run before the one it follows.
     WorkflowManifest manifest = incoming;
     if (manifest.executionId.isEmpty())
     {
-        manifest.executionId = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss_zzz"));
+        manifest.executionId =
+            ImageIntegration::executionIdAfterHistory(manifest.outputDirectory, QDateTime::currentDateTime());
     }
     ensureCometStackingStageDependencies(manifest);
     // The parallel-cores setting narrows each stage operation the run admits; it caps nothing outside the run.
@@ -1162,7 +1166,7 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
 
         const auto appendCalibrationGroups =
             [&](const QString& type, const std::optional<WorkflowManifest::CalibrationStage>& calibrationStage,
-                QStringList& generatedMasters) {
+                const std::vector<GroupKey>& plannedGroups, QStringList& generatedMasters) {
                 if (!calibrationStage.has_value())
                 {
                     return;
@@ -1170,6 +1174,11 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
 
                 for (const auto& group : calibrationStage->groups)
                 {
+                    // An incremental run's stage visits only the groups its plan names: the plan found every other
+                    // group's master still valid, so the run made nothing of it.
+                    const bool leftOutByThePlan =
+                        manifest.executionMode == ExecutionMode::Incremental &&
+                        std::find(plannedGroups.begin(), plannedGroups.end(), group.groupKey) == plannedGroups.end();
                     const QString masterPath = resolvedCalibrationGroupPath(manifest, group);
                     const bool exists = QFileInfo::exists(masterPath);
 
@@ -1180,6 +1189,7 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
                     calibrationResult.inputCount = static_cast<int>(group.inputFiles.size());
                     calibrationResult.success = stage_result.isSuccess() && exists;
                     calibrationResult.reused =
+                        leftOutByThePlan ||
                         std::find(stage_result.reusedCalibrationGroups.begin(),
                                   stage_result.reusedCalibrationGroups.end(),
                                   calibrationResult.groupKey) != stage_result.reusedCalibrationGroups.end();
@@ -1198,13 +1208,16 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
             switch (stage->stageId())
             {
             case WorkflowStage::Bias:
-                appendCalibrationGroups(QStringLiteral("Bias"), manifest.biasStage, result.generatedBiasMasters);
+                appendCalibrationGroups(QStringLiteral("Bias"), manifest.biasStage, manifest.incrementalBiasGroups,
+                                        result.generatedBiasMasters);
                 break;
             case WorkflowStage::Dark:
-                appendCalibrationGroups(QStringLiteral("Dark"), manifest.darkStage, result.generatedDarkMasters);
+                appendCalibrationGroups(QStringLiteral("Dark"), manifest.darkStage, manifest.incrementalDarkGroups,
+                                        result.generatedDarkMasters);
                 break;
             case WorkflowStage::Flat:
-                appendCalibrationGroups(QStringLiteral("Flat"), manifest.flatStage, result.generatedFlatMasters);
+                appendCalibrationGroups(QStringLiteral("Flat"), manifest.flatStage, manifest.incrementalFlatGroups,
+                                        result.generatedFlatMasters);
                 break;
             default:
                 break;
@@ -1232,6 +1245,12 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
         for (const auto& reused : stage_result.reusedGroups)
         {
             appendReusedGroup(result.reusedIntegrationGroups, reused);
+        }
+
+        // The groups whose stack failed before a master was written, which have no result either.
+        for (const auto& failed : stage_result.failedGroups)
+        {
+            result.failedIntegrationGroups.push_back(failed);
         }
 
         // The lights the registration found no transform for, each with its reason.

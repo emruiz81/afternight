@@ -932,6 +932,27 @@ TEST(ReportRunFacts, OneReadOfACalibrationMasterCountsItsHotPixelsAndWeighsItsCo
     EXPECT_DOUBLE_EQ(ofFlat->hotFraction.front(), 0.0) << "a vignetted flat has no hot pixel";
 }
 
+// A master whose every sample is clipped has no sample to measure. Its level and its noise are not stated: a zero
+// would read as a master that is black, which a saturated flat is the opposite of.
+TEST(ReportRunFacts, ACalibrationMasterWithNoSampleToMeasureStatesNoLevelAndNoNoise)
+{
+    const auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    const QString flat = QDir(scenario->outputDirectory).filePath(QStringLiteral("saturated_flat.fit"));
+    ASSERT_TRUE(writeFloatImage(flat, 160, 120, an::tests::fixtures::FixtureChannels::Mono, 1.0,
+                                [](const std::uint32_t, const std::uint32_t, std::uint32_t) { return 1.0; }, {}));
+
+    const ProductionReportSources production(scenario->session(), QString());
+    IReportImages* images = production.sources().images;
+    ASSERT_NE(images, nullptr);
+    const std::optional<ReportImageLevels> levels = images->measureLevels(flat, 1u);
+    ASSERT_TRUE(levels.has_value());
+    ASSERT_EQ(levels->level.size(), 1u);
+    ASSERT_EQ(levels->noise.size(), 1u);
+    EXPECT_TRUE(std::isnan(levels->level.front())) << levels->level.front();
+    EXPECT_TRUE(std::isnan(levels->noise.front())) << levels->noise.front();
+}
+
 // Each kind states the figure it is checked by, and no other: a bias and a dark their hot pixels, a flat its
 // corners. A master an earlier run measured takes the figure with its level from that run's report.
 TEST(ReportRunFacts, ACalibrationMasterStatesTheFigureItsKindIsCheckedBy)

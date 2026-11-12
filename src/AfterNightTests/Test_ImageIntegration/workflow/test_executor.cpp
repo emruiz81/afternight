@@ -1549,6 +1549,74 @@ TEST(WorkflowExecutor, ACalibrationGroupsResultSaysWhetherItsStageLeftTheMasterA
     }
 }
 
+// An incremental run's calibration stage visits only the groups its plan names: the plan found every other group's
+// master still valid. Such a group is in the manifest's stage all the same and gets a result with the others, and
+// its result says the run left the master as it was. It read as a master the run stacked, since only the stage
+// could say otherwise and the stage never saw the group.
+TEST(WorkflowExecutor, ACalibrationGroupAnIncrementalPlanLeftOutIsLeftAsItWas)
+{
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = dir.path();
+    manifest.stageSequence = {QStringLiteral("Bias")};
+
+    WorkflowManifest::CalibrationStage biasStage;
+    biasStage.frameType = QStringLiteral("BIAS");
+    const auto groupOf = [&dir](const QString& name) {
+        WorkflowManifest::CalibrationStage::Group group;
+        group.groupKey = GroupKey{QStringLiteral("bias|%1").arg(name)};
+        group.outputFilename = QStringLiteral("master_bias_%1.fit").arg(name);
+        group.inputFiles = {FrameId(writeFrame(dir.path(), group.outputFilename, 4, 4, "Bias"))};
+        return group;
+    };
+    const WorkflowManifest::CalibrationStage::Group kept = groupOf(QStringLiteral("kept"));
+    const WorkflowManifest::CalibrationStage::Group stacked = groupOf(QStringLiteral("stacked"));
+    biasStage.groups = {kept, stacked};
+    manifest.biasStage = biasStage;
+    manifest.executionMode = ExecutionMode::Incremental;
+    manifest.incrementalBiasGroups = {stacked.groupKey};
+
+    // The stage ran for the one group the plan named and found nothing to leave as it was.
+    WorkflowExecutor executor;
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("Bias"), WorkflowStage::Bias, StageResult::success()));
+
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+    ASSERT_TRUE(result.success) << result.errorMessage.toStdString();
+    ASSERT_EQ(result.calibrationGroupResults.size(), 2u);
+    for (const WorkflowExecutor::Result::CalibrationGroupResult& group : result.calibrationGroupResults)
+    {
+        EXPECT_TRUE(group.success) << group.groupKey.toStdString();
+        EXPECT_EQ(group.reused, group.groupKey == kept.groupKey.toString()) << group.groupKey.toStdString();
+    }
+}
+
+// A group whose stack fails before a master of it is written has no group result: the stacking stage names it with
+// why, and the run keeps what the stage says, so that a planned master with no result is one that failed and not one
+// the run has no record of.
+TEST(WorkflowExecutor, TheRunKeepsTheGroupsWhoseStackFailedBeforeAMaster)
+{
+    IntegrationErrorReport report;
+    report.addError(IntegrationError::stackingFailed(QStringLiteral("Not enough registered frames to integrate")));
+    StageResult stageResult = StageResult::partialSuccess(report);
+    stageResult.failedGroups = {FailedIntegrationGroup{
+        .groupKey = QStringLiteral("group-a"), .error = QStringLiteral("Not enough registered frames to integrate")}};
+    WorkflowExecutor executor;
+    executor.addStage(
+        std::make_unique<TestStage>(QStringLiteral("LightsStacking"), WorkflowStage::LightsStacking, stageResult));
+
+    const WorkflowExecutor::Result result = executor.execute(makeValidManifest());
+
+    ASSERT_TRUE(result.success) << result.errorMessage.toStdString();
+    EXPECT_TRUE(result.partialSuccess);
+    ASSERT_EQ(result.failedIntegrationGroups.size(), 1u);
+    EXPECT_EQ(result.failedIntegrationGroups.front().groupKey, QStringLiteral("group-a"));
+    EXPECT_EQ(result.failedIntegrationGroups.front().error,
+              QStringLiteral("Not enough registered frames to integrate"));
+    EXPECT_TRUE(result.integrationGroupResults.empty());
+}
+
 // The registration stage says why of each light it finds no transform for, and the run keeps what it says: the
 // metrics database records only that a registration failed.
 TEST(WorkflowExecutor, TheRunKeepsWhyEachLightFailedRegistration)

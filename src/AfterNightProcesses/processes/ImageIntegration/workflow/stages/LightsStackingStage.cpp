@@ -878,6 +878,27 @@ struct RejectionScans
     return record;
 }
 
+/// The record of a master made of several stacks - a stars and comet composite, an exposure merge - which no one
+/// stack's report describes: the lights the master combines, each with the weight its own stack gave it. The list is
+/// what names a light as one the master was made of; the figures of one stack are left unstated.
+///
+/// @param lights the lights the master combines.
+/// @param weights the weight of each, in the lights' order; a light with none is given one.
+[[nodiscard]] StackQualityRecord combinedLightsRecord(const std::vector<FrameId>& lights,
+                                                      const std::vector<double>& weights)
+{
+    StackQualityRecord record;
+    record.valid = true;
+    record.inputFrameCount = static_cast<std::uint64_t>(lights.size());
+    record.lightWeights.reserve(lights.size());
+    for (std::size_t index = 0u; index < lights.size(); ++index)
+    {
+        record.lightWeights.push_back(StackLightWeight{.light = lights[index].canonicalPath(),
+                                                       .weight = index < weights.size() ? weights[index] : 1.0});
+    }
+    return record;
+}
+
 /// A stack run over a frame source: the result, the frames' rejection rates, which frames stood out, and what brought
 /// the frames to the reference.
 struct StackRun
@@ -1039,6 +1060,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
     std::vector<IntegrationGroupResult> completedGroupResults;
     completedGroupResults.reserve(groups.size());
     std::vector<ReusedIntegrationGroup> reusedGroups;
+    std::vector<FailedIntegrationGroup> failedGroups;
     QSet<QString> processedGroupKeys;
     QStringList stageWarnings;
 
@@ -1055,6 +1077,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
             StageResult cancelled = StageResult::cancelled();
             cancelled.groupResults = std::move(completedGroupResults);
             cancelled.reusedGroups = std::move(reusedGroups);
+            cancelled.failedGroups = std::move(failedGroups);
             return cancelled;
         }
         if (group.lightFiles.empty())
@@ -2162,6 +2185,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 refusal(an::ErrorCode::Internal, QStringLiteral("the group was not stacked"));
             std::optional<an::Image<float>> exposureMerged;
             std::optional<StarsPlusCometCompositeOutput> composite;
+            // The weight each light took in the stack it was part of, for a master made of several stacks.
+            std::vector<double> combinedLightWeights;
             std::optional<an::ImageMetadata> referenceMetadata;
             StackQualityRecord quality;
             std::optional<DrizzleMasterGeometry> drizzleMaster;
@@ -2358,6 +2383,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 if (starRun.has_value())
                 {
                     stacked = std::move(*starRun);
+                    // Every light is in both layers; the weight said of each is its weight among the stars.
+                    combinedLightWeights = stacked->frameWeights;
                 }
             }
             else if (sanitized.hdr.enabled)
@@ -2388,6 +2415,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 std::vector<an::Image<float>> bucketStacks;
                 // Which samples each bucket holds: its stack's mask, or the samples its one light's rule admits.
                 std::vector<an::ValidityMask> bucketSamples;
+                // A light's weight is the one its exposure's stack gave it; the one light of a bucket has one.
+                combinedLightWeights.assign(stackedLights.size(), 1.0);
                 for (const ImageIntegration::ExposureBucket& bucket : *buckets)
                 {
                     if (bucket.frames.size() == 1u)
@@ -2434,6 +2463,16 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     {
                         return engineFailure(image.status(), IntegrationErrorCode::StackingFailed,
                                              QStringLiteral("An exposure bucket could not be stacked"), outputPath);
+                    }
+                    if (run->frameWeights.size() == bucket.frames.size())
+                    {
+                        for (std::size_t index = 0u; index < bucket.frames.size(); ++index)
+                        {
+                            if (bucket.frames[index] < combinedLightWeights.size())
+                            {
+                                combinedLightWeights[bucket.frames[index]] = run->frameWeights[index];
+                            }
+                        }
                     }
                     bucketStacks.push_back(std::move(*image));
                     bucketSamples.push_back(std::move(run->result->mask));
@@ -2656,10 +2695,12 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
             if (composite.has_value())
             {
                 master = an::Result<an::Image<float>>(std::move(composite->composite));
+                quality = combinedLightsRecord(stackedLights, combinedLightWeights);
             }
             else if (exposureMerged.has_value())
             {
                 master = an::Result<an::Image<float>>(std::move(*exposureMerged));
+                quality = combinedLightsRecord(stackedLights, combinedLightWeights);
             }
             else
             {
@@ -3268,10 +3309,18 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
             StageResult cancelled = StageResult::cancelled();
             cancelled.groupResults = std::move(completedGroupResults);
             cancelled.reusedGroups = std::move(reusedGroups);
+            cancelled.failedGroups = std::move(failedGroups);
             return cancelled;
         }
         if (groupResult.status == StageResult::Status::Failure)
         {
+            // A group that failed before its master's finalization made no result: the run is told which group
+            // failed and why, so its report does not find a planned master with no record at all.
+            if (groupResult.groupResults.empty())
+            {
+                failedGroups.push_back(FailedIntegrationGroup{.groupKey = group.groupKey.toString(),
+                                                              .error = groupResult.error.toUserString()});
+            }
             errorReport.addError(groupResult.error);
             reporter.logger().warning(QStringLiteral("Group '%1' failed: %2 - continuing with remaining groups")
                                           .arg(groupLabel, groupResult.error.toUserString()));
@@ -3291,6 +3340,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
         StageResult cancelled = StageResult::cancelled();
         cancelled.groupResults = std::move(completedGroupResults);
         cancelled.reusedGroups = std::move(reusedGroups);
+        cancelled.failedGroups = std::move(failedGroups);
         return cancelled;
     }
 
@@ -3318,6 +3368,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
     }
     outcome.groupResults = std::move(completedGroupResults);
     outcome.reusedGroups = std::move(reusedGroups);
+    outcome.failedGroups = std::move(failedGroups);
     if (executionCounterAccumulator() != nullptr && countersTouched)
     {
         outcome.engineExecutionCounters = engineCounters;

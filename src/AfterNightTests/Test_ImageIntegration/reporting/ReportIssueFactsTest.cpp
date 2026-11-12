@@ -216,11 +216,118 @@ TEST(ReportIssueFacts, ARunIsHeldToItsIssuesANoteAloneLeavesItClean)
     EXPECT_GT(countOfKind(noted, ReportIssueKind::NoFlats), 0);
     EXPECT_EQ(noted.run.outcome, ReportOutcome::Completed);
 
-    // An error the run wrote makes a run that completed partial.
+    // An error the run wrote says the run completed with warnings: its master was made, so it is not partial.
     solved->result.errors.append(QStringLiteral("The preview of the master could not be written."));
     const ReportModel withError = buildScenarioModel(*solved);
-    EXPECT_EQ(withError.run.outcome, ReportOutcome::Partial);
+    EXPECT_EQ(withError.run.outcome, ReportOutcome::CompletedWithWarnings);
     EXPECT_FALSE(withError.run.verdict.isEmpty());
+}
+
+// A light the registration finds no transform for ends its stage partial and puts an error among the run's, and the
+// run goes on and makes every master. That is a run that completed with a warning. It read as a run that made only
+// part of what it planned, and its report led with what was kept and what was not.
+TEST(ReportIssueFacts, ALightThatFailedRegistrationLeavesARunThatMadeItsMastersCompleted)
+{
+    auto scenario = built(ReportScenarioId::EveryLightState);
+    ASSERT_TRUE(scenario.has_value());
+    // As the executor records a registration that went on after a light failed.
+    scenario->result.partialSuccess = true;
+    scenario->result.errors.append(
+        QStringLiteral("[LightsRegistration] Frame registration failed: light_007.fits (no stars were detected)"));
+    for (auto& stage : scenario->result.stageResults)
+    {
+        if (stage.stageName.contains(QStringLiteral("Registration")))
+        {
+            stage.status = QStringLiteral("partial");
+        }
+    }
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    ASSERT_EQ(model.run.groups.failed, 0);
+    ASSERT_EQ(model.run.groups.notReached, 0);
+    EXPECT_EQ(model.run.outcome, ReportOutcome::CompletedWithWarnings);
+    EXPECT_EQ(countOfKind(model, ReportIssueKind::RunFailed), 0);
+    // The error is still among the run's messages, as the run wrote it.
+    EXPECT_TRUE(std::any_of(model.issues.begin(), model.issues.end(), [](const ReportIssue& issue) {
+        return issue.kind == ReportIssueKind::RunMessage && issue.title.contains(QStringLiteral("light_007.fits"));
+    }));
+}
+
+// A group whose stack fails before a master of it is written has no group result; the run names it with why. Its
+// master is one that failed, with the stage's reason, and a run that completed without it is partial. It read as a
+// master the run completed without any record of.
+TEST(ReportIssueFacts, AStackThatFailedBeforeItsMasterIsAMasterThatFailedAndTheRunIsPartial)
+{
+    auto scenario = built(ReportScenarioId::FiveFilters);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_FALSE(scenario->manifest.integrationGroups.empty());
+    const QString key = scenario->manifest.integrationGroups.front().groupKey.toString();
+    auto& results = scenario->result.integrationGroupResults;
+    const auto before = results.size();
+    results.erase(std::remove_if(results.begin(), results.end(),
+                                 [&key](const IntegrationGroupResult& result) { return result.groupKey == key; }),
+                  results.end());
+    ASSERT_EQ(results.size(), before - 1u);
+    const QString why = QStringLiteral("Not enough registered frames to integrate");
+    scenario->result.failedIntegrationGroups.push_back(FailedIntegrationGroup{.groupKey = key, .error = why});
+    scenario->result.partialSuccess = true;
+    scenario->result.errors.append(QStringLiteral("[LightsStacking] %1").arg(why));
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    const auto master = std::find_if(model.masters.begin(), model.masters.end(),
+                                     [&key](const ReportMaster& candidate) { return candidate.key == key; });
+    ASSERT_NE(master, model.masters.end());
+    EXPECT_EQ(master->state, ReportMasterState::Failed);
+    EXPECT_EQ(master->failure, why);
+    EXPECT_EQ(model.run.outcome, ReportOutcome::Partial);
+    EXPECT_EQ(model.run.groups.failed, 1);
+    EXPECT_GT(countOfKind(model, ReportIssueKind::MasterFailed), 0);
+    EXPECT_EQ(countOfKind(model, ReportIssueKind::MasterNotReached), 0);
+    EXPECT_TRUE(model.run.verdict.contains(QStringLiteral("1 failed"))) << model.run.verdict.toStdString();
+    for (const ReportNotStated& entry : model.notStated)
+    {
+        EXPECT_FALSE(entry.why.contains(QStringLiteral("neither a result"))) << entry.what.toStdString();
+    }
+}
+
+// The verdict of a run that made only some of its masters says what became of every other one, so its counts add up
+// to the masters the run planned: the ones still valid are among them.
+TEST(ReportIssueFacts, ThePartialVerdictAccountsForEveryMasterTheRunPlanned)
+{
+    // A run that stopped: some masters made, one failed, the rest not reached.
+    const auto failed = built(ReportScenarioId::FailedInStacking);
+    ASSERT_TRUE(failed.has_value());
+    const ReportModel stopped = buildScenarioModel(*failed);
+    ASSERT_EQ(stopped.run.outcome, ReportOutcome::Partial);
+    const ReportGroupCounts& counts = stopped.run.groups;
+    ASSERT_GT(counts.failed, 0);
+    ASSERT_GT(counts.notReached, 0);
+    ASSERT_EQ(counts.made + counts.reused + counts.failed + counts.notReached, counts.total);
+    EXPECT_TRUE(stopped.run.verdict.startsWith(
+        QStringLiteral("The run made %1 of its %2 masters; ").arg(counts.made).arg(counts.total)))
+        << stopped.run.verdict.toStdString();
+    EXPECT_TRUE(stopped.run.verdict.contains(QStringLiteral("%1 failed").arg(counts.failed)))
+        << stopped.run.verdict.toStdString();
+    EXPECT_TRUE(stopped.run.verdict.contains(counts.notReached == 1
+                                                 ? QStringLiteral("1 was not reached")
+                                                 : QStringLiteral("%1 were not reached").arg(counts.notReached)))
+        << stopped.run.verdict.toStdString();
+
+    // A run that left most of its masters as they were and failed to make one of the others: the masters still
+    // valid are said too.
+    auto incremental = built(ReportScenarioId::IncrementalRun);
+    ASSERT_TRUE(incremental.has_value());
+    auto& results = incremental->result.integrationGroupResults;
+    ASSERT_FALSE(results.empty());
+    const QString key = results.front().groupKey;
+    results.erase(results.begin());
+    incremental->result.failedIntegrationGroups.push_back(
+        FailedIntegrationGroup{.groupKey = key, .error = QStringLiteral("The stack was refused.")});
+    const ReportModel partial = buildScenarioModel(*incremental);
+    ASSERT_EQ(partial.run.outcome, ReportOutcome::Partial);
+    ASSERT_GT(partial.run.groups.reused, 1);
+    EXPECT_TRUE(partial.run.verdict.contains(QStringLiteral("%1 were still valid").arg(partial.run.groups.reused)))
+        << partial.run.verdict.toStdString();
 }
 
 TEST(ReportIssueFacts, ARunThatStoppedSaysWhatWasKeptAndWhatANewRunMakes)

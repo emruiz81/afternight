@@ -8,6 +8,7 @@
 #include "PreviewThumbnailGenerator.h"
 
 #include "controls/ImageViewFiles.h"
+#include "processes/ImageIntegration/workflow/stages/StackOutputFinalization.h"
 #include "widgets/PresentationBridge.h"
 #include "widgets/ViewPresentation.h"
 
@@ -283,6 +284,12 @@ struct PresentedPreview
                     presented.hasValue() ? "nothing was presented" : presented.status().message());
         return std::nullopt;
     }
+    // A view sets aside an analysis it cannot present through and measures the image itself. A picture asked for
+    // under another image's stretch is of that stretch or it is none: its own would not be what was asked for.
+    if (through != nullptr && !presented->analysisReused)
+    {
+        return std::nullopt;
+    }
     PresentedPreview preview;
     preview.image = an::ui::presentedQImage(presented->image).copy();
     preview.analysis = presented->analysis;
@@ -302,9 +309,13 @@ struct PresentedPreview
 /// The detail of an image under a read lease: the region at its centre at full scale, presented through the analysis
 /// its whole-frame preview was presented through. An analysis the presentation refuses is set aside and the whole
 /// image measured, as a view measures it.
+///
+/// @param onlyThroughIt whether a detail the analysis cannot present is no detail at all: so for the analysis of
+///        another image, whose stretch is what the detail is asked for under.
 [[nodiscard]] std::optional<QImage> detailPreview(const an::consumer::EngineSession& session,
                                                   const an::consumer::AssetReadLease& source,
-                                                  const an::DisplayPresentationAnalysis& analysis)
+                                                  const an::DisplayPresentationAnalysis& analysis,
+                                                  const bool onlyThroughIt = false)
 {
     const std::optional<an::ImageDescriptor> descriptor = descriptorOf(source.image());
     if (!descriptor.has_value())
@@ -343,6 +354,10 @@ struct PresentedPreview
                     presented.hasValue() ? "nothing was presented" : presented.status().message());
         return std::nullopt;
     }
+    if (onlyThroughIt && !presented->analysisReused)
+    {
+        return std::nullopt;
+    }
     QImage detail = an::ui::presentedQImage(presented->image).copy();
     if (detail.isNull())
     {
@@ -359,8 +374,11 @@ struct FilePreviews
 };
 
 /// Reads a file once and previews it: the whole frame within `maxSize`, and its detail when asked.
+///
+/// @param diagnostics what the whole frame's preview measured, when asked; untouched when the file does not read.
 [[nodiscard]] FilePreviews previewsFromPath(const an::consumer::EngineSession& session, const QString& path,
-                                            const std::optional<QSize>& maxSize, const bool withDetail)
+                                            const std::optional<QSize>& maxSize, const bool withDetail,
+                                            PreviewGenerationDiagnostics* diagnostics = nullptr)
 {
     FilePreviews previews;
     an::Result<an::ui::ViewReadResult> read =
@@ -377,7 +395,7 @@ struct FilePreviews
         return previews;
     }
     std::optional<PresentedPreview> whole =
-        boundedPreview(session, lease->image(), maxSize.value_or(kDefaultMaximumReportPreviewSize), nullptr);
+        boundedPreview(session, lease->image(), maxSize.value_or(kDefaultMaximumReportPreviewSize), diagnostics);
     if (!whole.has_value())
     {
         return previews;
@@ -391,9 +409,10 @@ struct FilePreviews
 }
 
 [[nodiscard]] std::optional<QImage> previewFromPath(const an::consumer::EngineSession& session, const QString& path,
-                                                    const std::optional<QSize>& maxSize)
+                                                    const std::optional<QSize>& maxSize,
+                                                    PreviewGenerationDiagnostics* diagnostics = nullptr)
 {
-    return previewsFromPath(session, path, maxSize, false).whole;
+    return previewsFromPath(session, path, maxSize, false, diagnostics).whole;
 }
 
 /// Writes a picture as a JPEG of the quality stated.
@@ -403,6 +422,23 @@ struct FilePreviews
     writer.setQuality(std::clamp(quality, 1, 100));
     writer.setOptimizedWrite(true);
     return writer.write(image);
+}
+
+/// The image as one of Float32 samples, which a master is; null for an image of another sample type.
+[[nodiscard]] const an::Image<float>* floatImageOf(const an::consumer::AnyImage& image)
+{
+    return std::visit(
+        [](const auto& typed) -> const an::Image<float>* {
+            if constexpr (std::is_same_v<std::remove_cvref_t<decltype(typed)>, an::Image<float>>)
+            {
+                return &typed;
+            }
+            else
+            {
+                return nullptr;
+            }
+        },
+        image);
 }
 
 [[nodiscard]] bool prepareOutputDirectory(const QString& outputPath, const QString& outputDir, const QString& fileName)
@@ -462,13 +498,19 @@ std::optional<QString> generatePreviewThumbnail(const an::consumer::EngineSessio
 
 std::optional<QString> generateReportPreviewJpeg(const an::consumer::EngineSession& session, const QString& outputPath,
                                                  const QString& outputDir, const QString& fileName,
-                                                 std::optional<QSize> maxSize, int quality)
+                                                 std::optional<QSize> maxSize, int quality,
+                                                 PreviewGenerationDiagnostics* diagnostics)
 {
+    if (diagnostics)
+    {
+        // A file that is not previewed leaves nothing of an earlier one behind.
+        *diagnostics = {};
+    }
     if (!prepareOutputDirectory(outputPath, outputDir, fileName))
     {
         return std::nullopt;
     }
-    const auto preview = previewFromPath(session, outputPath, maxSize);
+    const auto preview = previewFromPath(session, outputPath, maxSize, diagnostics);
     if (!preview.has_value() || !writeJpeg(*preview, QDir(outputDir).filePath(fileName), quality))
     {
         return std::nullopt;
@@ -502,7 +544,8 @@ ReportMasterPreviews generateReportMasterPreviewsUnderStretchOf(const an::consum
                                                                 const QString& stretchPath, const QString& outputPath,
                                                                 const QString& outputDir, const QString& wholeName,
                                                                 const QString& detailName, std::optional<QSize> maxSize,
-                                                                int quality)
+                                                                int quality,
+                                                                const ReportPicturePresentation presentation)
 {
     ReportMasterPreviews written;
     if (!prepareOutputDirectory(outputPath, outputDir, wholeName) || detailName.trimmed().isEmpty() ||
@@ -521,6 +564,79 @@ ReportMasterPreviews generateReportMasterPreviewsUnderStretchOf(const an::consum
         }
         return file;
     };
+
+    if (presentation == ReportPicturePresentation::AsStacked)
+    {
+        // The other image's own pictures are of the master the stacking stage held, every n-th sample of it. The
+        // picture set beside them is made of this master the same way, through the analysis that presentation
+        // measures of the other image as it reads from its file - the samples the stage held.
+        const auto present =
+            [&session](const an::Image<float>& master,
+                       const an::DisplayPresentationAnalysis* through) -> std::optional<detail::ReportMasterPictures> {
+            an::Result<an::consumer::OperationScope> scope = session.admit(
+                an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Batch, .maxConcurrency = 1u});
+            if (!scope.hasValue())
+            {
+                return std::nullopt;
+            }
+            return detail::presentMasterForReport(*scope, master, through);
+        };
+        std::optional<an::DisplayPresentationAnalysis> stretch;
+        {
+            an::Result<an::ui::ViewReadResult> other = read(stretchPath);
+            if (!other.hasValue())
+            {
+                return written;
+            }
+            an::Result<an::consumer::AssetReadLease> lease = other->asset.read(std::stop_token{});
+            const an::Image<float>* master = lease.hasValue() ? floatImageOf(lease->image()) : nullptr;
+            if (master == nullptr)
+            {
+                LOG_WARNING("PreviewThumbnailGenerator: '{}' is no master of Float32 samples to take a stretch of",
+                            stretchPath.toStdString());
+                return written;
+            }
+            const std::optional<detail::ReportMasterPictures> own = present(*master, nullptr);
+            if (!own.has_value())
+            {
+                LOG_WARNING("PreviewThumbnailGenerator: '{}' was not presented, so there is no stretch of it",
+                            stretchPath.toStdString());
+                return written;
+            }
+            stretch = own->analysis;
+        }
+        an::Result<an::ui::ViewReadResult> image = read(outputPath);
+        if (!image.hasValue())
+        {
+            return written;
+        }
+        an::Result<an::consumer::AssetReadLease> lease = image->asset.read(std::stop_token{});
+        const an::Image<float>* master = lease.hasValue() ? floatImageOf(lease->image()) : nullptr;
+        if (master == nullptr)
+        {
+            LOG_WARNING("PreviewThumbnailGenerator: '{}' is no master of Float32 samples to picture",
+                        outputPath.toStdString());
+            return written;
+        }
+        const std::optional<detail::ReportMasterPictures> pictures = present(*master, &*stretch);
+        if (!pictures.has_value())
+        {
+            LOG_WARNING("PreviewThumbnailGenerator: '{}' was not presented under the stretch of '{}'",
+                        outputPath.toStdString(), stretchPath.toStdString());
+        }
+        if (!pictures.has_value() || !writeJpeg(pictures->whole.convertToFormat(QImage::Format_RGB888),
+                                                QDir(outputDir).filePath(wholeName), quality))
+        {
+            return written;
+        }
+        written.whole = wholeName;
+        if (!pictures->detail.isNull() && writeJpeg(pictures->detail.convertToFormat(QImage::Format_RGB888),
+                                                    QDir(outputDir).filePath(detailName), quality))
+        {
+            written.detail = detailName;
+        }
+        return written;
+    }
 
     // The stretch is the one the other image's own whole-frame preview is presented through.
     std::optional<an::DisplayPresentationAnalysis> stretch;
@@ -561,7 +677,7 @@ ReportMasterPreviews generateReportMasterPreviewsUnderStretchOf(const an::consum
         return written;
     }
     written.whole = wholeName;
-    const std::optional<QImage> detail = detailPreview(session, *lease, *stretch);
+    const std::optional<QImage> detail = detailPreview(session, *lease, *stretch, true);
     if (detail.has_value() && writeJpeg(*detail, QDir(outputDir).filePath(detailName), quality))
     {
         written.detail = detailName;

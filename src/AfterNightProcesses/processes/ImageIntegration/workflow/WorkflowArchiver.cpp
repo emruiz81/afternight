@@ -10,6 +10,7 @@
 #include "processes/ImageIntegration/core/FilenameUtils.h"
 #include "processes/ImageIntegration/core/RejectionMapUtils.h"
 #include "processes/ImageIntegration/core/SqliteConnection.h"
+#include "processes/ImageIntegration/reporting/ReportArchiveReader.h"
 #include "processes/ImageIntegration/reporting/ReportModel.h"
 #include "processes/ImageIntegration/reporting/ReportModelBuilder.h"
 #include "processes/ImageIntegration/reporting/ReportSources.h"
@@ -168,6 +169,11 @@ struct DirectoryUse
         variableMetadata[QStringLiteral("reusedIntegrationGroups")] =
             reusedIntegrationGroupsToJson(result.reusedIntegrationGroups);
     }
+    if (!result.failedIntegrationGroups.empty())
+    {
+        variableMetadata[QStringLiteral("failedIntegrationGroups")] =
+            failedIntegrationGroupsToJson(result.failedIntegrationGroups);
+    }
     if (!result.registrationFailures.empty())
     {
         variableMetadata[QStringLiteral("registrationFailures")] =
@@ -223,11 +229,17 @@ struct DirectoryUse
 /// master, and the difference left is the masters'. The pictures are files of this run's folder, so they stay
 /// when the history drops the earlier run.
 ///
+/// The stretch is the one this run's own picture of the master was presented through, so the earlier master is
+/// pictured the way that picture was made: as the stacking stage pictures the master it holds, for a master whose
+/// pictures the stage prepared, and as the archive pictures a master's file, for one it pictured itself.
+///
 /// @param session the session the masters are read in.
 /// @param model the run's report model, whose baselines say which earlier run made each master.
 /// @param runDirectory the run's folder under `history/`.
+/// @param preparedByTheStage the keys of the groups whose own pictures the stacking stage prepared.
 void pictureEarlierMastersUnderThisStretch(const an::consumer::EngineSession& session,
-                                           ImageIntegration::Reporting::ReportModel& model, const QString& runDirectory)
+                                           ImageIntegration::Reporting::ReportModel& model, const QString& runDirectory,
+                                           const QSet<QString>& preparedByTheStage)
 {
     using namespace ImageIntegration::Reporting;
     const QDir run(runDirectory);
@@ -254,7 +266,9 @@ void pictureEarlierMastersUnderThisStretch(const an::consumer::EngineSession& se
             ImageIntegration::generateReportMasterPreviewsUnderStretchOf(
                 session, master.file, earlier, run.filePath(folder),
                 QString::fromLatin1(kPreviousMasterMatchedPictureName),
-                QString::fromLatin1(kPreviousDetailMatchedPictureName));
+                QString::fromLatin1(kPreviousDetailMatchedPictureName), std::nullopt, 90,
+                preparedByTheStage.contains(master.key) ? ImageIntegration::ReportPicturePresentation::AsStacked
+                                                        : ImageIntegration::ReportPicturePresentation::Bounded);
         if (written.whole.has_value())
         {
             baseline.matchedPreview = folder + QLatin1Char('/') + *written.whole;
@@ -341,6 +355,14 @@ constexpr QSize kMaximumReportPreviewSize{2048, 2048};
 /// The bound of a calibration master's picture: a report shows it small, and a frame of noise at a master's bound is
 /// a megabyte of JPEG in every run's archive.
 constexpr QSize kMaximumCalibrationPreviewSize{1024, 1024};
+
+/// The JPEG quality of a report's pictures: the one `generateReportPreviewJpeg` writes at when none is stated.
+constexpr int kReportPreviewJpegQuality = 90;
+
+/// The most earlier runs of a history that are opened for their pictures of the calibration masters. A master
+/// pictured before is stated by the latest run's report, and a stored report weighs megabytes for a run of
+/// thousands of lights.
+constexpr int kEarlierRunsOpenedForCalibrationPictures = 3;
 
 [[nodiscard]] bool isValidPreparedReportPreview(const QByteArray& jpegBytes, const QSize& declaredSize)
 {
@@ -765,8 +787,92 @@ copyPicturesOfTheRunThatMade(std::vector<std::pair<QString, std::optional<Earlie
     return false;
 }
 
+/// The calibration masters the stored report of an earlier run states, with that run's folder: what tells which of
+/// the run's pictures is of a master a later run has too.
+struct EarlierCalibrationPictures
+{
+    QString runPath;
+    std::vector<ImageIntegration::Reporting::ReportCalibrationMaster> masters;
+};
+
+/// Reads the calibration masters of the latest earlier run whose stored report reads. No more than the latest
+/// `kEarlierRunsOpenedForCalibrationPictures` runs are opened, and none after the first whose report reads.
+///
+/// @param earlierRuns the history's earlier runs, oldest first.
+/// @return that run's folder and its masters; nothing when no run that was opened keeps a report that reads.
+[[nodiscard]] std::optional<EarlierCalibrationPictures>
+latestEarlierCalibrationPictures(const std::vector<QFileInfo>& earlierRuns)
+{
+    int opened = 0;
+    for (auto run = earlierRuns.rbegin();
+         run != earlierRuns.rend() && opened < kEarlierRunsOpenedForCalibrationPictures; ++run, ++opened)
+    {
+        ImageIntegration::Reporting::ReportArchiveRead read =
+            ImageIntegration::Reporting::ReportArchiveReader::read(run->absoluteFilePath());
+        if (read.model.has_value())
+        {
+            return EarlierCalibrationPictures{.runPath = run->absoluteFilePath(),
+                                              .masters = std::move(read.model->calibrationMasters)};
+        }
+    }
+    return std::nullopt;
+}
+
+/// Copies the picture an earlier run keeps of a calibration master, when the master on disk is the very file that
+/// run pictured: the same path, the same size and the same modification time, to the millisecond a stored report
+/// keeps. That is what a report takes an earlier run's figures of a calibration master by, so the picture and the
+/// figures are taken of the same file. A master the user supplied, or one still valid and reused, is then not read
+/// in full again for a picture the history already holds.
+///
+/// @param earlier the earlier run and the calibration masters its stored report states.
+/// @param masterPath the master's file.
+/// @param destination the picture's file in this run's folder.
+/// @return whether the picture was copied.
+[[nodiscard]] bool copyCalibrationPictureOfEarlierRun(const EarlierCalibrationPictures& earlier,
+                                                      const QString& masterPath, const QString& destination)
+{
+    const QFileInfo master(masterPath);
+    const QDateTime modified = master.lastModified();
+    if (!master.isFile() || !modified.isValid())
+    {
+        return false;
+    }
+    const QString masterFile = QDir::cleanPath(master.absoluteFilePath());
+    const QDir run(earlier.runPath);
+    for (const ImageIntegration::Reporting::ReportCalibrationMaster& pictured : earlier.masters)
+    {
+        if (pictured.preview.trimmed().isEmpty() || pictured.file.trimmed().isEmpty() || !pictured.bytes.has_value() ||
+            *pictured.bytes != master.size() || !pictured.modifiedAt.has_value() ||
+            pictured.modifiedAt->toMSecsSinceEpoch() != modified.toMSecsSinceEpoch())
+        {
+            continue;
+        }
+        // A path the report states relative to its run's folder is resolved there, as the report resolves it.
+        const QString picturedFile = QDir::cleanPath(QFileInfo(run, pictured.file).absoluteFilePath());
+        if (picturedFile.compare(masterFile, archivePathCaseSensitivity()) != 0)
+        {
+            continue;
+        }
+        const QString picture = run.filePath(pictured.preview);
+        if (!isPathContainedBy(earlier.runPath, picture) || !QFileInfo(picture).isFile())
+        {
+            continue;
+        }
+        return QDir().mkpath(QFileInfo(destination).absolutePath()) && QFile::copy(picture, destination);
+    }
+    return false;
+}
+
+/// Outlines a rejection map's clusters on the picture the report shows of the map, each with its size beside it.
+///
+/// @param previewPath the map's picture, which is written again with the outlines on it.
+/// @param qualityReport the stack's quality report, whose clusters are stated in the map's own pixels.
+/// @param mapKind the map the picture is of; the clusters of the other maps are left out.
+/// @param mapSize the map's size in its own pixels. A map larger than a picture's bound is pictured shrunk, so a
+///        cluster is outlined at the picture's scale of the map; an empty size, or the picture's own, outlines the
+///        clusters at the coordinates they state.
 void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRecord& qualityReport,
-                                const RejectionClusterMapKind mapKind)
+                                const RejectionClusterMapKind mapKind, const QSize& mapSize)
 {
     if (!qualityReport.hasSpatialRejectionClusters || qualityReport.spatialClusters.empty())
     {
@@ -777,6 +883,12 @@ void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRe
     if (preview.isNull())
     {
         return;
+    }
+    // A map of one channel is pictured in grey, and a colour painted onto a grey picture is a grey: the picture is
+    // made a colour one first, so the outlines keep the colours that tell a low map's from a high one's.
+    if (preview.format() != QImage::Format_RGB888)
+    {
+        preview = preview.convertToFormat(QImage::Format_RGB888);
     }
 
     // Intentionally fixed colours, NOT theme tokens. These are painted into a PNG that is baked into
@@ -801,6 +913,13 @@ void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRe
     pen.setWidth(2);
     painter.setPen(pen);
 
+    // A cluster's coordinates are the map's, and the picture is the map at the picture's size: a coordinate is drawn
+    // at its share of the picture's side. A picture of the map's own size keeps every coordinate as it is stated.
+    const QSize stated = mapSize.isEmpty() ? preview.size() : mapSize;
+    const auto inPicture = [](const int coordinate, const int pictureSide, const int mapSide) {
+        return static_cast<int>(static_cast<qint64>(coordinate) * pictureSide / mapSide);
+    };
+
     int labels_drawn = 0;
     for (const auto& cluster : qualityReport.spatialClusters)
     {
@@ -809,13 +928,16 @@ void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRe
             continue;
         }
 
-        const QRect rect(QPoint(cluster.minX, cluster.minY), QPoint(cluster.maxX, cluster.maxY));
+        const QRect rect(QPoint(inPicture(cluster.minX, preview.width(), stated.width()),
+                                inPicture(cluster.minY, preview.height(), stated.height())),
+                         QPoint(inPicture(cluster.maxX, preview.width(), stated.width()),
+                                inPicture(cluster.maxY, preview.height(), stated.height())));
         painter.drawRect(rect);
 
         if (labels_drawn < 6)
         {
             const QString label = QStringLiteral("%1 px").arg(static_cast<qulonglong>(cluster.pixelCount));
-            const QRect textRect(cluster.minX, (std::max)(0, cluster.minY - 16), 72, 14);
+            const QRect textRect(rect.left(), (std::max)(0, rect.top() - 16), 72, 14);
             painter.fillRect(textRect.adjusted(-1, -1, 1, 1), QColor(0, 0, 0, 160));
             painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, label);
             ++labels_drawn;
@@ -823,6 +945,33 @@ void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRe
     }
 
     preview.save(previewPath);
+}
+
+/// The form of a run's id, which names its folder under `history/`: the date, the time and the milliseconds, so
+/// that the names sort as the stamps do.
+[[nodiscard]] QString executionStampFormat()
+{
+    return QStringLiteral("yyyyMMdd_HHmmss_zzz");
+}
+
+/// The date and the time a run folder's name states, on a calendar with no zone - an hour a zone skips or repeats
+/// is there a time like any other - or nothing for a name that is no such stamp.
+[[nodiscard]] std::optional<QDateTime> executionStampOf(const QString& name)
+{
+    constexpr qsizetype kDateLength = 8;
+    const QDate date = QDate::fromString(name.left(kDateLength), QStringLiteral("yyyyMMdd"));
+    const QTime time = QTime::fromString(name.mid(kDateLength + 1), QStringLiteral("HHmmss_zzz"));
+    if (!date.isValid() || !time.isValid())
+    {
+        return std::nullopt;
+    }
+    const QDateTime stamp(date, time, QTimeZone::UTC);
+    // The name is the stamp and nothing else: a folder that only begins or reads like one is another folder.
+    if (stamp.toString(executionStampFormat()) != name)
+    {
+        return std::nullopt;
+    }
+    return stamp;
 }
 } // namespace
 
@@ -843,6 +992,28 @@ bool runHasWorkflowReport(const WorkflowManifest& manifest, const WorkflowExecut
     }
 
     return !manifest.integrationGroups.empty() || !result.integrationGroupResults.empty();
+}
+
+QString executionIdAfterHistory(const QString& outputDirectory, const QDateTime& now)
+{
+    // The clock's date and time as they read, on a calendar with no zone: a millisecond is added to a stamp there
+    // without meeting an hour a zone skips or repeats.
+    QDateTime stamp(now.date(), now.time(), QTimeZone::UTC);
+    if (!outputDirectory.trimmed().isEmpty())
+    {
+        const QDir history(QDir(outputDirectory).filePath(QStringLiteral("history")));
+        const QStringList names = history.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString& name : names)
+        {
+            // Each folder at or after the stamp moves it past that folder, so it ends past the latest of them.
+            const std::optional<QDateTime> archived = executionStampOf(name);
+            if (archived.has_value() && *archived >= stamp)
+            {
+                stamp = archived->addMSecs(1);
+            }
+        }
+    }
+    return stamp.toString(executionStampFormat());
 }
 
 qint64 estimatedArchiveMetadataBytes(const WorkflowManifest& manifest, const WorkflowExecutor::Result& result)
@@ -1176,6 +1347,8 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     QHash<QString, QJsonArray> archivedQualityMapsByGroup;
     std::vector<QString> groupDirNames;
     groupDirNames.reserve(result.integrationGroupResults.size());
+    // The groups whose own report pictures are the ones the stacking stage prepared of the master it held.
+    QSet<QString> preparedByTheStage;
 
     auto moveFile = [this](const QString& src, const QString& dst) -> bool {
         if (QFile::exists(dst))
@@ -1266,6 +1439,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
                 LOG_WARNING("WorkflowArchiver: Failed to write prepared report preview for group {}",
                             groupResult.groupKey.toStdString());
             }
+            else
+            {
+                preparedByTheStage.insert(groupResult.groupKey);
+            }
             // The detail the run prepared beside it: the master's centre at full scale, stretched as the whole
             // frame is. One that is not a picture of at most the detail's size is not written.
             if (isValidPreparedReportPreview(groupResult.reportDetailJpeg, groupResult.reportDetailSize) &&
@@ -1333,14 +1510,17 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
             {
                 rejectionJson["sizeBytes"] = mapInfo.size();
 
-                // Report-grade rejection map preview JPEG, bounded like the master preview.
+                // Report-grade rejection map preview JPEG, bounded like the master preview. The clusters are stated
+                // in the map's pixels, so the map's size is taken with its picture for the outlines' places.
                 const QString previewName = QStringLiteral("rejection_map_%1.jpg").arg(rejectionPreviewIndex);
-                if (m_session != nullptr &&
-                    ImageIntegration::generateReportPreviewJpeg(*m_session, rejectionMap.path, reportPreviewDirPath,
-                                                                previewName, kMaximumReportPreviewSize))
+                ImageIntegration::PreviewGenerationDiagnostics pictured;
+                if (m_session != nullptr && ImageIntegration::generateReportPreviewJpeg(
+                                                *m_session, rejectionMap.path, reportPreviewDirPath, previewName,
+                                                kMaximumReportPreviewSize, kReportPreviewJpegQuality, &pictured))
                 {
                     applySpatialClusterOverlay(QDir(reportPreviewDirPath).filePath(previewName),
-                                               groupResult.qualityReport, rejectionMapKindForTitle(rejectionMap.title));
+                                               groupResult.qualityReport, rejectionMapKindForTitle(rejectionMap.title),
+                                               pictured.sourceSize);
                 }
             }
 
@@ -1426,14 +1606,33 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         if (m_session != nullptr)
         {
             const QString calibrationDir = runDir.filePath(QStringLiteral("report_previews/calibration"));
+            // The latest earlier run's pictures of its calibration masters, looked for once, at the first master
+            // whose file is there: a run with no calibration master to picture opens no earlier run.
+            std::optional<EarlierCalibrationPictures> earlierPictures;
+            bool earlierPicturesLookedFor = false;
             for (const ImageIntegration::ArchivedCalibrationPreview& preview :
                  ImageIntegration::archivedCalibrationPreviews(persistedManifest))
             {
-                if (!preview.masterPath.isEmpty() && QFile::exists(preview.masterPath))
+                if (preview.masterPath.isEmpty() || !QFile::exists(preview.masterPath))
                 {
-                    (void)ImageIntegration::generateReportPreviewJpeg(*m_session, preview.masterPath, calibrationDir,
-                                                                      preview.fileName, kMaximumCalibrationPreviewSize);
+                    continue;
                 }
+                if (!earlierPicturesLookedFor)
+                {
+                    earlierPicturesLookedFor = true;
+                    earlierPictures =
+                        latestEarlierCalibrationPictures(sortedHistoryRunDirectories(historyDir, runDirPath));
+                }
+                // A master that run pictured, and that is still the same file, takes that picture: a master is
+                // read in full for its picture, and most masters of a run are ones an earlier run had too.
+                if (earlierPictures.has_value() &&
+                    copyCalibrationPictureOfEarlierRun(*earlierPictures, preview.masterPath,
+                                                       QDir(calibrationDir).filePath(preview.fileName)))
+                {
+                    continue;
+                }
+                (void)ImageIntegration::generateReportPreviewJpeg(*m_session, preview.masterPath, calibrationDir,
+                                                                  preview.fileName, kMaximumCalibrationPreviewSize);
             }
         }
     }
@@ -1736,14 +1935,24 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
             .counters = m_counters != nullptr ? std::optional<WorkflowExecutionCounters>(m_counters->snapshot())
                                               : std::nullopt};
         m_runDirectory = runDirPath;
-        m_reportModel = std::make_shared<ReportModel>(buildReportModel(inputs, sources.sources()));
-        if (m_session != nullptr)
-        {
-            pictureEarlierMastersUnderThisStretch(*m_session, *m_reportModel, runDirPath);
-        }
         // A report that cannot be written does not fail the commit: the run's outputs and its history are what the
-        // commit is for, and the reason is logged.
-        archiveResult.reportPath = storeKeptReport();
+        // commit is for, and the reason is logged. That holds for a report that fails by throwing too - a record
+        // it cannot make sense of, memory it is refused - which would otherwise end the commit before the run's
+        // manifest is written.
+        try
+        {
+            m_reportModel = std::make_shared<ReportModel>(buildReportModel(inputs, sources.sources()));
+            if (m_session != nullptr)
+            {
+                pictureEarlierMastersUnderThisStretch(*m_session, *m_reportModel, runDirPath, preparedByTheStage);
+            }
+            archiveResult.reportPath = storeKeptReport();
+        }
+        catch (const std::exception& error)
+        {
+            LOG_WARNING("WorkflowArchiver: The workflow report was not written: {}", error.what());
+            m_reportModel.reset();
+        }
 
         archiveResult.reportMs += capturePhaseDuration();
     };
@@ -1887,6 +2096,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     {
         root[QStringLiteral("reusedIntegrationGroups")] = reusedIntegrationGroupsToJson(result.reusedIntegrationGroups);
     }
+    if (!result.failedIntegrationGroups.empty())
+    {
+        root[QStringLiteral("failedIntegrationGroups")] = failedIntegrationGroupsToJson(result.failedIntegrationGroups);
+    }
     if (!result.registrationFailures.empty())
     {
         root[QStringLiteral("registrationFailures")] = registrationFailuresToJson(result.registrationFailures);
@@ -2013,8 +2226,17 @@ QString WorkflowArchiver::storeKeptReport()
     {
         return {};
     }
-    const ImageIntegration::Reporting::WorkflowReportStored stored =
-        ImageIntegration::Reporting::storeWorkflowReport(*m_reportModel, m_runDirectory);
+    ImageIntegration::Reporting::WorkflowReportStored stored;
+    try
+    {
+        stored = ImageIntegration::Reporting::storeWorkflowReport(*m_reportModel, m_runDirectory);
+    }
+    catch (const std::exception& error)
+    {
+        // Storing a report again is no reason to end what calls it: the report that is there stays.
+        LOG_WARNING("WorkflowArchiver: The workflow report was not stored: {}", error.what());
+        return {};
+    }
     for (const QString& picture : stored.picturesNotCopied)
     {
         LOG_WARNING("WorkflowArchiver: An earlier run's picture was not copied into the report: {}",

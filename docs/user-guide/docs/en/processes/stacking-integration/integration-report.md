@@ -106,8 +106,8 @@ The pill says how the run ended:
 | Pill | Means |
 | --- | --- |
 | **Completed** | Every master was made or was still good, and nothing needs attention but notes. |
-| **Completed with warnings** | The run finished, and **Needs attention** holds a warning. |
-| **Partly completed** | Some masters were made and kept, and a group failed or the run failed after them. |
+| **Completed with warnings** | The run finished and made every master, and **Needs attention** holds a warning or an error the run wrote, such as a light whose registration failed. |
+| **Partly completed** | Some masters were made and kept, and a master was left unmade: its group failed, or the run failed after the others. |
 | **Cancelled** | You stopped the run. The masters finished by then were kept. |
 
 A sentence then sums the run up, and four tiles give its figures:
@@ -130,7 +130,7 @@ say is left out, and so is its entry in the contents.
 
 | Block | Shows | Is there |
 | --- | --- | --- |
-| **What happened** | For a run that stopped: what happened, what was kept, what was not made and what to do | Only when the run failed or was cancelled |
+| **What happened** | For a run that fell short: what happened, what was kept, what was not made and what to do | Only when the run failed, was cancelled or left a master unmade |
 | **Needs attention** | The issues of the run, the most serious first, each with what to do where there is something to do, and a **See it** link to the place that shows it | Always; it says so when there is nothing |
 | **What was made** | A card for each master with its stretched picture, its lights and its integration, and the table **How the masters compare** | With more than one master |
 | **Lights** | The lights used and left out as one bar, the reasons lights were left out, and a row for each night | Always |
@@ -280,7 +280,7 @@ reports and no image of theirs, so the figures of an earlier run are the ones th
 | --- | --- |
 | **Before and after** | Each master this run made with the latest earlier run that made the same master: the two pictures, then the lights used, the integration, the noise, the signal to noise, the median FWHM, the effective frames and the samples rejected. Where several earlier runs made the master, **Against the run of** picks which of them it stands beside. |
 | **What changed** | The run as a whole with the latest earlier run that completed: the totals, the application's version and the fingerprints, the settings that differ, and the frames each group gained and lost. |
-| **Over the runs of this folder** | The runs the folder keeps, the oldest first: the integration, the lights used and the noise of the first master as a column for each of the latest eight runs, then a table of every run with a link to its report. |
+| **Over the runs of this folder** | The runs the folder keeps, the oldest first: the integration, the lights used and the noise of the first master as a column for each of the latest eight runs, a run that failed or was cancelled as a cross, then a table of every run with a link to its report. |
 
 - The two pictures of a master lie under one divider: the earlier run is left of it and this run right of it. Drag
   the divider, or move it with the arrow keys. **Whole frame** and **Detail** choose the picture, and with several
@@ -347,7 +347,8 @@ table of groups.
   instead.
 - In the one-file form each picture is reduced to 1,280 pixels on its longer side. A file is printed by its name,
   without its folder, and the output folder by its name alone, so the report does not show how your disk is laid
-  out. No link leads out of the file.
+  out. Any other folder the run's messages and its log name, such as a catalog's or a temporary file's, is taken
+  out too, and the folder of your user profile is taken out whole. No link leads out of the file.
 - The one-file form still names your files, your equipment, your site and your session notes, and holds the log.
   Read it before you send it.
 - **Save As...** is offered for a run whose folder keeps its report as data, `workflow_report.json`. A run made by

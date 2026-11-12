@@ -62,8 +62,14 @@
   document.addEventListener('focusout', function () { tip.hidden = true; });
 
   // A table of class sortable is put in the order of the column clicked: by each cell's data-v where it states
-  // one, and by its text otherwise.
-  function sortKey(cell) { return cell.hasAttribute('data-v') ? cell.getAttribute('data-v') : cell.textContent; }
+  // one, and by its text otherwise. A key is a number only where the whole of it is one, so a name led by a date
+  // is a text. Two numbers are compared as numbers; two texts as texts whose runs of digits count as numbers, which
+  // puts a file ended 0002 before the one ended 0010. A number comes before a text whichever way the column is
+  // sorted: a light with no figure, whose cell holds a dash, stays under the ones that have it.
+  function sortKey(cell) {
+    return (cell.hasAttribute('data-v') ? cell.getAttribute('data-v') : cell.textContent).trim();
+  }
+  function isNumber(key) { return key !== '' && isFinite(Number(key)); }
   function sortBy(heading) {
     var table = heading.closest('table'), body = table.tBodies[0];
     var column = Array.prototype.indexOf.call(heading.parentNode.children, heading);
@@ -73,8 +79,10 @@
     var rows = Array.prototype.slice.call(body.rows);
     rows.sort(function (first, second) {
       var a = sortKey(first.cells[column]), b = sortKey(second.cells[column]);
-      var x = parseFloat(a), y = parseFloat(b);
-      return (isNaN(x) || isNaN(y) ? String(a).localeCompare(String(b)) : x - y) * direction;
+      var x = isNumber(a), y = isNumber(b);
+      if (x && y) { return (Number(a) - Number(b)) * direction; }
+      if (x !== y) { return x ? -1 : 1; }
+      return a.localeCompare(b, undefined, {numeric: true}) * direction;
     });
     rows.forEach(function (row) { body.appendChild(row); });
   }
