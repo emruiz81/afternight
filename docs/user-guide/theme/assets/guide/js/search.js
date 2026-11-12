@@ -16,11 +16,30 @@
   var SEPARATOR = /[\s\-,:!=\[\]()"\/]+/;
   var MAX_RESULTS = 40;
   var PER_PAGE = 3;
-  var base = root.getAttribute("data-base") || ".";
+  // What a path within the guide's site is made of. It holds no colon, so it names no scheme.
+  var SITE_PATH = /^[A-Za-z0-9._~\/-]+$/;
+
+  // An address the page states for one of the guide's own files, as a path within the site: relative to the page, or
+  // from the site's root. The theme writes these addresses itself, but none is taken on trust. One with a scheme or a
+  // host of its own names another place: no script is loaded from it and no result links to it. Returns null for it.
+  function sitePath(stated) {
+    if (typeof stated !== "string" || !SITE_PATH.test(stated) || stated.indexOf("//") === 0) {
+      return null;
+    }
+    // A path of those characters is spelled as an address the same way; it is handed on as one.
+    return encodeURI(stated);
+  }
+
+  var base = sitePath(root.getAttribute("data-base")) || ".";
   var state = { loading: null, index: null, entries: [], options: [], active: -1, timer: 0, query: "" };
 
-  function load(src) {
+  function load(stated) {
     return new Promise(function (resolve, reject) {
+      var src = sitePath(stated);
+      if (!src) {
+        reject(new Error("The search could not load its files: the page states no address of them within the guide."));
+        return;
+      }
       var script = document.createElement("script");
       script.src = src;
       script.onload = resolve;
