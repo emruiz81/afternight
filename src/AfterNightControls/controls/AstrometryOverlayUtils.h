@@ -181,6 +181,13 @@ struct OverlayGridLayout
 
     /// Where the scene's origin lies in the image, in its own pixels.
     QPointF origin;
+
+    /// How many of the scene's units make one image pixel. A scene's frame is a whole number of its units, and the
+    /// part a view shows is not a whole number of image pixels: zoomed in, the frame rounded up to whole pixels ended
+    /// most of a pixel - tens of screen pixels - past what the view shows, and the labels set against its right and
+    /// bottom edges were cut off or hidden. The scene is laid out in units no larger than a screen pixel instead, so
+    /// its frame ends within one of the part shown.
+    double unitsPerPixel = 1.0;
 };
 
 /// Lays out the equatorial grid of the part of an image a view shows, as an annotated picture lays out its grid: the

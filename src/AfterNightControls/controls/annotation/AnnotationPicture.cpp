@@ -89,11 +89,26 @@ an::Result<AnnotationCatalogEntries> queryAnnotationCatalogs(const an::consumer:
     AnnotationCatalogEntries entries;
     for (const BundledCatalog catalog : {BundledCatalog::DeepSky, BundledCatalog::BrightStars})
     {
-        // A picture asks only what lies in its field, so the catalog is built without a name index.
-        an::Result<an::SkyCatalog> loaded = loadBundledCatalog(session, catalog, stop, source, false);
-        if (!loaded.hasValue())
+        // A picture asks only what lies in its field, so the catalog has no name index: the product's own is the one
+        // every reader of fields shares, and a source the picture was given is read for it alone.
+        std::shared_ptr<const an::SkyCatalog> loaded;
+        if (source)
         {
-            return loaded.status();
+            an::Result<an::SkyCatalog> read = loadBundledCatalog(session, catalog, stop, source, false);
+            if (!read.hasValue())
+            {
+                return read.status();
+            }
+            loaded = std::make_shared<const an::SkyCatalog>(std::move(*read));
+        }
+        else
+        {
+            an::Result<std::shared_ptr<const an::SkyCatalog>> shared = sharedBundledCatalog(session, catalog, stop);
+            if (!shared.hasValue())
+            {
+                return shared.status();
+            }
+            loaded = std::move(*shared);
         }
         an::Result<an::consumer::OperationScope> scope = session.admit(
             an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Preview, .stopToken = stop});
@@ -241,17 +256,37 @@ an::Result<AnnotatedPicture> composeAnnotatedPicture(const AnnotationBase* base,
     if (opaque)
     {
         const QImage source = base->image();
-        const QSize target(static_cast<int>(std::lround(base->covers.width() * scaleX)),
-                           static_cast<int>(std::lround(base->covers.height() * scaleY)));
-        if (source.size() == target)
-        {
-            painter.drawImage(QPointF(0.0, 0.0), source);
-        }
-        else if (!target.isEmpty())
+        const QSize target(
+            (std::min)(pictureSize.width(), static_cast<int>(std::lround(base->covers.width() * scaleX))),
+            (std::min)(pictureSize.height(), static_cast<int>(std::lround(base->covers.height() * scaleY))));
+        if (!target.isEmpty())
         {
             // The smooth scaling averages the pixels a reduction folds together, which a painter's own filter does not.
-            painter.drawImage(QPointF(0.0, 0.0),
-                              source.scaled(target, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+            const QImage scaled = source.size() == target
+                                      ? source
+                                      : source.scaled(target, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            painter.drawImage(QPointF(0.0, 0.0), scaled);
+            // A reduction leaves out the partial blocks at the image's right and bottom edges, so what it presents
+            // may end a column or a row short of the picture - under a pixel of it, since the reduction is never
+            // larger than the picture's own. That last column and row are the image's too: they take the pixels
+            // beside them rather than stay the colour the picture was cleared to.
+            const int missingColumns = pictureSize.width() - target.width();
+            const int missingRows = pictureSize.height() - target.height();
+            if (missingColumns > 0)
+            {
+                painter.drawImage(QRect(target.width(), 0, missingColumns, target.height()), scaled,
+                                  QRect(target.width() - 1, 0, 1, target.height()));
+            }
+            if (missingRows > 0)
+            {
+                painter.drawImage(QRect(0, target.height(), target.width(), missingRows), scaled,
+                                  QRect(0, target.height() - 1, target.width(), 1));
+                if (missingColumns > 0)
+                {
+                    painter.fillRect(QRect(target.width(), target.height(), missingColumns, missingRows),
+                                     scaled.pixelColor(target.width() - 1, target.height() - 1));
+                }
+            }
         }
     }
     painter.scale(scaleX, scaleY);
@@ -283,6 +318,12 @@ std::optional<an::ImageDescriptor> annotatedPictureDescriptor(const an::EngineLi
                                    .coordinateOrigin = an::CoordinateOrigin::TopLeft,
                                    .pixelAspectRatio = 1.0});
 }
+
+namespace
+{
+/// The rows of a picture laid out into its image at a time.
+constexpr std::uint32_t kPictureBandRows = 256u;
+} // namespace
 
 an::Result<an::consumer::ImageAsset> annotatedPictureAsset(const an::consumer::EngineSession& session,
                                                            const QImage& picture, const an::CodecMetadata& frame,
@@ -356,31 +397,44 @@ an::Result<an::consumer::ImageAsset> annotatedPictureAsset(const an::consumer::E
         {
             return refused(an::ErrorCode::NotInitialized, "the picture's image holds nothing");
         }
-        // The painter's premultiplied pixels as straight interleaved bytes, then laid out a plane per channel.
-        const QImage interleaved = picture.convertToFormat(alpha ? QImage::Format_RGBA8888 : QImage::Format_RGB888);
-        const std::optional<an::ImageLayout> packed =
-            an::ImageLayout::create(an::ImageLayoutRequest{.extent = extent,
-                                                           .elementSizeBytes = 1u,
-                                                           .samplesPerPixel = channels,
-                                                           .planeCount = 1u,
-                                                           .rowAlignmentBytes = 1u},
-                                    scope->engine().limits());
-        if (interleaved.isNull() || !packed.has_value())
+        // The painter's premultiplied pixels as straight bytes, laid out a plane per channel. They are taken a band
+        // of rows at a time, so the picture is never held a second and a third time whole beside the image it
+        // becomes: a band's interleaved bytes are all that is held besides.
+        const an::ImageLayout& layout = access->view().layout();
+        std::uint8_t* const samples = access->view().data();
+        if (samples == nullptr || layout.extent().width() != width || layout.extent().height() != height ||
+            layout.planeCount() != channels)
         {
-            return refused(an::ErrorCode::AllocationFailed, "the picture's pixels could not be laid out");
+            return refused(an::ErrorCode::Internal, "the picture's image is not laid out a plane per channel");
         }
-        std::vector<std::uint8_t> rows(static_cast<std::size_t>(packed->totalBytes()));
-        const auto rowBytes = static_cast<std::size_t>(width) * channels;
-        for (std::uint32_t row = 0u; row < height; ++row)
+        const auto rowStride = static_cast<std::size_t>(layout.rowStrideBytes());
+        const auto planeStride = static_cast<std::size_t>(layout.planeStrideBytes());
+        for (std::uint32_t first = 0u; first < height; first += kPictureBandRows)
         {
-            std::memcpy(rows.data() + static_cast<std::size_t>(packed->rowStrideBytes()) * row,
-                        interleaved.constScanLine(static_cast<int>(row)), rowBytes);
-        }
-        if (an::Status repacked = an::repackImageSamples(scope->execution(), an::SampleType::UInt8, rows.data(),
-                                                         *packed, access->view().data(), access->view().layout());
-            repacked.failed())
-        {
-            return repacked;
+            if (an::Status stopped = scope->execution().checkCancellation(); stopped.failed())
+            {
+                return stopped;
+            }
+            const std::uint32_t rows = (std::min)(kPictureBandRows, height - first);
+            const QImage band =
+                picture.copy(0, static_cast<int>(first), static_cast<int>(width), static_cast<int>(rows))
+                    .convertToFormat(alpha ? QImage::Format_RGBA8888 : QImage::Format_RGB888);
+            if (band.isNull())
+            {
+                return refused(an::ErrorCode::AllocationFailed, "the picture's pixels could not be laid out");
+            }
+            for (std::uint32_t row = 0u; row < rows; ++row)
+            {
+                const uchar* const interleaved = band.constScanLine(static_cast<int>(row));
+                for (std::uint32_t channel = 0u; channel < channels; ++channel)
+                {
+                    std::uint8_t* const plane = samples + planeStride * channel + rowStride * (first + row);
+                    for (std::uint32_t x = 0u; x < width; ++x)
+                    {
+                        plane[x] = interleaved[static_cast<std::size_t>(x) * channels + channel];
+                    }
+                }
+            }
         }
     }
     scope->end();

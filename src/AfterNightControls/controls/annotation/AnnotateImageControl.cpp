@@ -123,7 +123,8 @@ template <typename WorkT, typename DoneT> void runThenLand(WorkT work, DoneT don
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setPen(QPen(rim, 1.0));
     painter.setBrush(color);
-    painter.drawRoundedRect(QRectF(0.5, 0.5, 27.0, 15.0), 3.0, 3.0);
+    const double radius = an::ui::tokens().radius.sm;
+    painter.drawRoundedRect(QRectF(0.5, 0.5, 27.0, 15.0), radius, radius);
     return QIcon(pixmap);
 }
 
@@ -138,8 +139,9 @@ constexpr QSize kPaletteSwatchSize(44, 16);
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing, true);
     const QRectF box(0.5, 0.5, kPaletteSwatchSize.width() - 1.0, kPaletteSwatchSize.height() - 1.0);
+    const double radius = an::ui::tokens().radius.sm;
     QPainterPath rounded;
-    rounded.addRoundedRect(box, 3.0, 3.0);
+    rounded.addRoundedRect(box, radius, radius);
     painter.setClipPath(rounded);
     QColor panel = colors.panel;
     panel.setAlpha(255);
@@ -158,9 +160,41 @@ constexpr QSize kPaletteSwatchSize(44, 16);
     painter.setClipping(false);
     painter.setPen(QPen(an::ui::tokens().colors.borderSubtle, 1.0));
     painter.setBrush(Qt::NoBrush);
-    painter.drawRoundedRect(box, 3.0, 3.0);
+    painter.drawRoundedRect(box, radius, radius);
     return QIcon(pixmap);
 }
+
+/// Tells the window when the display of the view it annotates changes: its mode, or the settings of its automatic
+/// stretch. It draws nothing.
+class ViewDisplayWatcher final : public ImageViewWidgetDisplayModule
+{
+public:
+    explicit ViewDisplayWatcher(std::function<void()> changed) : m_changed(std::move(changed)) {}
+
+    void onDraw(QPainter& painter) override
+    {
+        Q_UNUSED(painter);
+    }
+
+    bool supportsContextMenu() override
+    {
+        return false;
+    }
+
+    void onDisplayModeChanged(const ImageViewMode mode) override
+    {
+        Q_UNUSED(mode);
+        m_changed();
+    }
+
+    void onAutostretchContextChanged() override
+    {
+        m_changed();
+    }
+
+private:
+    std::function<void()> m_changed;
+};
 
 /// What a change of the choices makes the window do again.
 enum class Change : std::uint8_t
@@ -255,9 +289,22 @@ public:
         }
         if (m_scene != nullptr && m_layout != nullptr && !m_scene->imageSize.isEmpty())
         {
-            // The scene is laid out in the image's own pixels, as the picture draws it, at the view's zoom.
-            painter.scale(image.width() / m_scene->imageSize.width(), image.height() / m_scene->imageSize.height());
-            paintAnnotations(painter, *m_scene, *m_layout, m_style);
+            // The scene is laid out in the image's own pixels, as the picture draws it, at the view's zoom. Only
+            // what lies in the part of the image the preview shows is drawn, so a paint costs what it shows.
+            const double scaleX = image.width() / m_scene->imageSize.width();
+            const double scaleY = image.height() / m_scene->imageSize.height();
+            painter.scale(scaleX, scaleY);
+            const QRectF visible = m_ViewWidget->visibleRegion().boundingRect();
+            if (visible.isEmpty())
+            {
+                paintAnnotations(painter, *m_scene, *m_layout, m_style);
+            }
+            else
+            {
+                paintAnnotations(painter, *m_scene, *m_layout, m_style,
+                                 QRectF(visible.left() / scaleX, visible.top() / scaleY, visible.width() / scaleX,
+                                        visible.height() / scaleY));
+            }
         }
         painter.restore();
 
@@ -429,6 +476,13 @@ struct AnnotateImageControl::Impl
     std::unique_ptr<AnnotationOverlay> overlay;
     PreviewFit* previewFit = nullptr;
     QSize previewImageSize;
+
+    /// The revision of the image the preview was last given: what says whether the view's image is still that one.
+    std::optional<an::consumer::AssetRevision> previewRevision;
+
+    /// Watches the display of the view the window annotates, so the preview and the picture follow it while they
+    /// present the image as the view shows it.
+    std::unique_ptr<ViewDisplayWatcher> viewWatcher;
     QLabel* summary = nullptr;
     AnInfoBanner* banner = nullptr;
     QButtonGroup* detailGroup = nullptr;
@@ -589,6 +643,15 @@ struct AnnotateImageControl::Impl
         banner->setVisible(false);
         if (solutionChanged || catalogs == nullptr)
         {
+            if (solutionChanged)
+            {
+                // The marks of the solution before are of another sky: none of them is shown, or drawn into a
+                // picture, while the catalogues are read again, and a drawing of them still on its way is not taken.
+                scene.reset();
+                layout.reset();
+                overlay->setDrawing(nullptr, nullptr);
+                drawingStale = drawingBusy;
+            }
             catalogs.reset();
             requestCatalogs();
         }
@@ -612,9 +675,12 @@ struct AnnotateImageControl::Impl
                 preview->clear();
             }
             previewImageSize = QSize();
+            previewRevision.reset();
             return;
         }
-        if (preview->hasImage() && preview->document().asset() == asset)
+        // The image is the one the preview shows while its revision is the one the preview was given.
+        const an::consumer::AssetRevision revision = asset->revision();
+        if (preview->hasImage() && previewRevision == revision)
         {
             return;
         }
@@ -625,13 +691,25 @@ struct AnnotateImageControl::Impl
             LOG_WARNING("Annotate Image: the preview cannot show the image: {}", shared.status().message());
             preview->clear();
             previewImageSize = QSize();
+            previewRevision.reset();
             return;
         }
         preview->setDocument(std::move(*shared));
+        previewRevision = revision;
         if (imageSize != previewImageSize)
         {
             previewImageSize = imageSize;
             previewFit->fit();
+        }
+    }
+
+    /// The view changed how it shows its image: the preview, and the picture drawn from it, follow while they present
+    /// the image as the view shows it.
+    void viewDisplayChanged()
+    {
+        if (view != nullptr && settings.output.stretch == AnnotationStretch::AsShown)
+        {
+            presentPreviewAsChosen();
         }
     }
 
@@ -761,14 +839,13 @@ struct AnnotateImageControl::Impl
                 }
                 Impl& impl = *guard->m_impl;
                 impl.drawingBusy = false;
-                if (drawn.first == nullptr || drawn.second == nullptr)
+                const bool laidOut = drawn.first != nullptr && drawn.second != nullptr;
+                const bool changedMeanwhile = impl.drawingAgain || impl.drawingStale;
+                if (!laidOut)
                 {
-                    impl.pendingPicture.reset();
                     impl.showProblem(translated("The annotations could not be laid out."));
-                    impl.refreshBusy();
-                    return;
                 }
-                if (request == impl.drawingRequest && impl.solution.has_value() && !impl.drawingStale)
+                else if (request == impl.drawingRequest && impl.solution.has_value() && !impl.drawingStale)
                 {
                     impl.scene = std::move(drawn.first);
                     impl.layout = std::move(drawn.second);
@@ -776,15 +853,21 @@ struct AnnotateImageControl::Impl
                     impl.overlay->setStyle(impl.settings.style);
                     impl.refreshSummary();
                 }
-                if (impl.drawingAgain || impl.drawingStale)
+                switch (detail::afterDrawingLanded(laidOut, changedMeanwhile, impl.pendingPicture.has_value()))
                 {
+                case detail::AfterDrawing::DrawAgain:
                     impl.requestDrawing();
-                }
-                else if (impl.pendingPicture.has_value())
-                {
+                    break;
+                case detail::AfterDrawing::MakePicture: {
                     const auto [open, path] = *impl.pendingPicture;
                     impl.pendingPicture.reset();
                     impl.makePicture(open, path);
+                    break;
+                }
+                case detail::AfterDrawing::Rest:
+                    // A picture that waited for a drawing that could not be laid out is not made.
+                    impl.pendingPicture.reset();
+                    break;
                 }
                 impl.refreshBusy();
             });
@@ -1088,6 +1171,16 @@ struct AnnotateImageControl::Impl
         const bool wasSyncing = syncing;
         syncing = true;
         palette->setCurrentIndex(palette->findData(static_cast<int>(paletteChoice)));
+        // The swatches are drawn again each time, in the theme's colours as they are now: a swatch keeps the rim it
+        // was drawn with, and a theme switched since would leave the old one.
+        for (int index = 0; index < palette->count(); ++index)
+        {
+            const auto value = static_cast<AnnotationPalette>(palette->itemData(index).toInt());
+            if (value != AnnotationPalette::Custom)
+            {
+                palette->setItemIcon(index, paletteSwatch(annotationPaletteColors(value)));
+            }
+        }
         const QColor rim = an::ui::tokens().colors.borderSubtle;
         for (const auto& [button, member] : colorButtons)
         {
@@ -2060,11 +2153,17 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     impl.overlay->setStyle(impl.settings.style);
     resize(1320, 860);
     setMinimumSize(980, 640);
+    if (ImageViewWidget* shown = impl.view != nullptr ? impl.view->getViewWidget() : nullptr; shown != nullptr)
+    {
+        impl.viewWatcher = std::make_unique<ViewDisplayWatcher>([this]() { m_impl->viewDisplayChanged(); });
+        impl.viewWatcher->attachToViewWidget(shown);
+    }
     impl.refreshFromImage();
 }
 
 AnnotateImageControl::~AnnotateImageControl()
 {
+    m_impl->viewWatcher.reset();
     m_impl->closing.request_stop();
     if (m_impl->saveTimer != nullptr && m_impl->saveTimer->isActive())
     {
@@ -2094,6 +2193,8 @@ void AnnotateImageControl::onImageRenamed(ImageViewControl* ctrl)
 void AnnotateImageControl::onImageViewControlDestroyed(ImageViewControl* ctrl)
 {
     ImageViewControlListener::onImageViewControlDestroyed(ctrl);
+    // The watcher leaves the view's widget while the view still has it.
+    m_impl->viewWatcher.reset();
     m_impl->view = nullptr;
     m_impl->closing.request_stop();
     close();
@@ -2162,5 +2263,29 @@ void AnnotateImageControl::closeEvent(QCloseEvent* event)
     m_impl->save();
     QDialog::closeEvent(event);
 }
+
+void AnnotateImageControl::changeEvent(QEvent* event)
+{
+    QDialog::changeEvent(event);
+    // A switch of theme reaches a window as a change of style or of palette: the swatches the window drew into
+    // pictures are drawn again in the theme's colours.
+    if (m_impl != nullptr && m_impl->palette != nullptr &&
+        (event->type() == QEvent::StyleChange || event->type() == QEvent::PaletteChange))
+    {
+        m_impl->refreshPalette();
+    }
+}
+
+namespace detail
+{
+AfterDrawing afterDrawingLanded(const bool laidOut, const bool changedMeanwhile, const bool pictureWaiting) noexcept
+{
+    if (changedMeanwhile)
+    {
+        return AfterDrawing::DrawAgain;
+    }
+    return laidOut && pictureWaiting ? AfterDrawing::MakePicture : AfterDrawing::Rest;
+}
+} // namespace detail
 
 } // namespace an::ui

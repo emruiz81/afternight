@@ -510,6 +510,10 @@ TEST(ReportHtmlEarlier, ARunComparedWithTheSameRunStatesNoChange)
         QFile file(QDir(earlier).filePath(QLatin1String(kStoredReportFileName)));
         ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
         file.write(QJsonDocument(ReportModelJson::toJson(alone)).toJson(QJsonDocument::Compact));
+        // A stored report is a run's beside the run's manifest.
+        QFile manifest(QDir(earlier).filePath(QLatin1String(kRunManifestFileName)));
+        ASSERT_TRUE(manifest.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        manifest.write("{}");
     }
 
     const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);

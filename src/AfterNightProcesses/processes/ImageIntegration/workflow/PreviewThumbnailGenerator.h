@@ -23,7 +23,13 @@
 #include <QString>
 
 #include <cstddef>
+#include <memory>
 #include <optional>
+
+namespace an
+{
+struct DisplayPresentationAnalysis;
+} // namespace an
 
 namespace an::consumer
 {
@@ -47,6 +53,10 @@ struct ReportMasterPreviews
 {
     std::optional<QString> whole;
     std::optional<QString> detail;
+
+    /// The display stretch the whole frame was presented through, when it was written: what a picture set beside
+    /// it is presented through, without the master's file being read again to measure it.
+    std::shared_ptr<const an::DisplayPresentationAnalysis> stretch;
 };
 
 struct PreviewGenerationDiagnostics
@@ -140,13 +150,16 @@ enum class ReportPicturePresentation
 ///        stage makes one takes that stage's bound, whatever this is.
 /// @param quality the JPEG quality of both.
 /// @param presentation how the other image's own pictures were made.
+/// @param knownStretch the stretch the other image's own pictures were presented through, when whoever made them
+///        kept it; the other image's file is then not read, and need not be there. Null to measure it of the file.
 /// @return the names of what was written; nothing when either file does not read or the stretch cannot present the
 ///         master.
 AFTERNIGHTPROCESSES_API ReportMasterPreviews generateReportMasterPreviewsUnderStretchOf(
     const an::consumer::EngineSession& session, const QString& stretchPath, const QString& outputPath,
     const QString& outputDir, const QString& wholeName, const QString& detailName,
     std::optional<QSize> maxSize = std::nullopt, int quality = 90,
-    ReportPicturePresentation presentation = ReportPicturePresentation::Bounded);
+    ReportPicturePresentation presentation = ReportPicturePresentation::Bounded,
+    const an::DisplayPresentationAnalysis* knownStretch = nullptr);
 
 /// Writes an autostretched report-grade preview of an output file as a PNG, no larger than `maxSize` when given and
 /// than 2048 pixels on a side otherwise.

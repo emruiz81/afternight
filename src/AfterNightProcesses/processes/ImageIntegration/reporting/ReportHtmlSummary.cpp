@@ -297,6 +297,32 @@ void writeTile(ReportMarkup& out, const Tile& tile)
     return parts.join(QStringLiteral(", "));
 }
 
+/// What the run recorded of its lights' fates, counted from the states it lists.
+struct LightFates
+{
+    /// The lights that state what became of them.
+    int recorded = 0;
+
+    /// Those of them that went into a master, and those that did not.
+    int used = 0;
+    int leftOut = 0;
+
+    /// The lights the run took that state no fate: neither used nor left out, as far as the run knows.
+    int notRecorded = 0;
+};
+
+[[nodiscard]] LightFates lightFatesOf(const ReportRun& run)
+{
+    LightFates fates;
+    for (const ReportFrameStateCount& count : run.frameStates)
+    {
+        fates.recorded += count.frames;
+        (count.state == ReportFrameState::Used ? fates.used : fates.leftOut) += count.frames;
+    }
+    fates.notRecorded = (std::max)(0, run.frames - fates.recorded);
+    return fates;
+}
+
 [[nodiscard]] std::vector<Tile> headerTiles(const ReportDocumentContext& context)
 {
     const ReportModel& model = context.model;
@@ -305,15 +331,25 @@ void writeTile(ReportMarkup& out, const Tile& tile)
     const bool compared = comparison.has_value() && !comparison->baselineRunId.isEmpty();
 
     Tile lights{.icon = "frames", .label = documentText("Lights used")};
+    const LightFates fates = lightFatesOf(run);
     if (run.framesUsed.has_value())
     {
         lights.value = formatCount(*run.framesUsed);
         lights.valueAside = documentText("of %1").arg(formatCount(run.frames));
-        const int leftOut = run.frames - *run.framesUsed;
         lights.hint =
-            leftOut > 0 ? counted(leftOut, QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 left out, with its reason"),
-                                  QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 left out, each with its reason"))
-                        : documentText("Every light was used");
+            fates.leftOut > 0
+                ? counted(fates.leftOut, QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 left out, with its reason"),
+                          QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 left out, each with its reason"))
+                : documentText("Every light was used");
+    }
+    else if (fates.recorded > 0)
+    {
+        // Some lights state what became of them and some do not: the ones that do not are neither used nor left out
+        // as far as the run knows, so the lights taken are the figure and the rest is said beside it.
+        lights.label = documentText("Lights taken");
+        lights.value = formatCount(run.frames);
+        lights.hint = documentText("%1 used; the fate of %2 is not recorded")
+                          .arg(formatCount(fates.used), formatCount(fates.notRecorded));
     }
     else
     {
@@ -332,22 +368,34 @@ void writeTile(ReportMarkup& out, const Tile& tile)
     }
 
     Tile integration{.icon = "clock", .label = documentText("Integration")};
+    // The captured time is the exposure of every light the run took only when every one of them states its own: a sum
+    // over the lights that do would read as the whole and be short of it, so the tile says how many state none.
+    const bool capturedWhole = everyLightStatesItsExposure(run.frames, run.framesWithExposure);
+    const QString withoutExposure = lightsWithoutExposureNote(run.frames, run.framesWithExposure);
     if (run.integratedMs.has_value())
     {
         integration.value = formatDurationMs(*run.integratedMs);
-        integration.hint = documentText("of %1 captured").arg(formatDurationMs(run.capturedMs));
+        integration.hint =
+            capturedWhole ? documentText("of %1 captured").arg(formatDurationMs(run.capturedMs)) : withoutExposure;
     }
     else
     {
         integration.label = documentText("Captured");
-        integration.value = formatDurationMs(run.capturedMs);
+        integration.value = capturedWhole ? formatDurationMs(run.capturedMs) : noValueText();
+        integration.hint = withoutExposure;
     }
     if (compared)
     {
-        integration.under =
-            run.integratedMs.has_value() && comparison->previous.integratedMs.has_value()
-                ? documentText("Earlier run: %1").arg(formatDurationMs(*comparison->previous.integratedMs))
-                : documentText("Earlier run: %1 captured").arg(formatDurationMs(comparison->previous.integrationMs));
+        if (run.integratedMs.has_value() && comparison->previous.integratedMs.has_value())
+        {
+            integration.under =
+                documentText("Earlier run: %1").arg(formatDurationMs(*comparison->previous.integratedMs));
+        }
+        else if (comparison->previous.integrationMs.has_value())
+        {
+            integration.under =
+                documentText("Earlier run: %1 captured").arg(formatDurationMs(*comparison->previous.integrationMs));
+        }
     }
 
     Tile time{.icon = "clock", .label = documentText("Run time")};
@@ -438,8 +486,16 @@ void writeVerdict(ReportMarkup& out, const ReportDocumentContext& context)
     else if (run.frames > 0)
     {
         out.text(QStringLiteral(" "));
-        writeSentence(out, documentText("The run took %1 lights, %2 of exposure."),
-                      {formatCount(run.frames), formatDurationMs(run.capturedMs)});
+        if (everyLightStatesItsExposure(run.frames, run.framesWithExposure))
+        {
+            writeSentence(out, documentText("The run took %1 lights, %2 of exposure."),
+                          {formatCount(run.frames), formatDurationMs(run.capturedMs)});
+        }
+        else
+        {
+            // Some light states no exposure: the sum of the ones that do is not the run's.
+            writeSentence(out, documentText("The run took %1 lights."), {formatCount(run.frames)});
+        }
     }
     if (run.processingMs > 0)
     {
@@ -749,7 +805,10 @@ void writeMasterCard(ReportMarkup& out, const ReportDocumentContext& context, co
     {
         out.element("span", counted(use.taken, QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 light"),
                                     QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 lights")));
-        out.element("b", formatDurationMs(master.exposure.integrationMs));
+        if (everyLightStatesItsExposure(master.exposure))
+        {
+            out.element("b", formatDurationMs(master.exposure.integrationMs));
+        }
     }
     out.close("div");
     if (!master.failure.trimmed().isEmpty())
@@ -922,9 +981,7 @@ void writeMade(ReportMarkup& out, const ReportDocumentContext& context, const QH
         {
             out.open("h4", {{"class", QStringLiteral("target")}});
             out.element("span", target.name);
-            out.element("small", counted(target.frames, QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 light"),
-                                         QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 lights")) +
-                                     dotSeparator() + formatDurationMs(target.integrationMs));
+            out.element("small", targetLightsLine(target));
             out.close("h4");
             writeGallery(target.name, true);
         }
@@ -1182,13 +1239,26 @@ void writeFrames(ReportMarkup& out, const ReportDocumentContext& context, const 
     const bool anyLeftOut = std::any_of(counts.begin(), counts.end(), [](const auto& entry) {
         return entry.first != ChartState::Used && entry.second > 0;
     });
+    // A light that states no fate is neither used nor left out as far as the run knows, and the card says how many.
+    const int notRecorded = lightFatesOf(run).notRecorded;
     if (anyLeftOut)
     {
         writeReasons(out, context, lights, groups);
     }
-    else if (!counts.empty())
+    else if (!counts.empty() && notRecorded == 0)
     {
         writeCaption(out, documentText("Every light the run took went into a master."));
+    }
+    if (!counts.empty() && notRecorded > 0)
+    {
+        writeCaption(out, counted(notRecorded,
+                                  QT_TRANSLATE_NOOP("ImageIntegrationReport",
+                                                    "What became of %1 light is not recorded: the report of the stack "
+                                                    "it went into is not kept, or that stack recorded no weights."),
+                                  QT_TRANSLATE_NOOP("ImageIntegrationReport",
+                                                    "What became of %1 lights is not recorded: the report of the "
+                                                    "stack they went into is not kept, or that stack recorded no "
+                                                    "weights.")));
     }
     if (!model.groupsNotStacked.empty())
     {
@@ -1318,11 +1388,16 @@ void writeNights(ReportMarkup& out, const ReportDocumentContext& context, const 
     const ConditionsChart chart = conditionsOf(context, lights, groups);
     const bool byClock = conditionsLayout(chart) == ConditionsLayout::ByClock;
 
+    // A dense chart draws no mark to point at over each light used; its crosses keep their tips.
+    const bool dense = chart.lights.size() > kChartDenseAbove;
     openBlock(out, "nights",
               nights > 1 ? documentText("The %1 nights").arg(formatCount(static_cast<qint64>(nights)))
                          : documentText("The night"),
               documentText("every light at the time it was taken"),
-              documentText("A cross is a light the stacks left out. Point at a light for its figures."));
+              dense ? documentText("A cross is a light the stacks left out: point at one for its figures. With this "
+                                   "many lights the chart draws the lights used without a mark to point at; their "
+                                   "figures are in each master's table of lights.")
+                    : documentText("A cross is a light the stacks left out. Point at a light for its figures."));
     out.open("div", {{"class", QStringLiteral("card")}});
     writeScrollingChart(out, conditionsChart(chart), chart.description.label);
     writeCaption(out, byClock ? documentText("Each night is a column on one clock axis, and each group's lights a "
@@ -1486,7 +1561,8 @@ void writeQuality(ReportMarkup& out, const ReportDocumentContext& context, const
         weights.axis.title = documentText("Weight");
         weights.width = 340;
         weights.height = 232;
-        weights.bins = chartBins(usedWeights, 10, 0.0, 1.0);
+        const double end = weightDistributionEnd(usedWeights);
+        weights.bins = chartBins(usedWeights, 10, 0.0, end);
         for (ChartBin& bin : weights.bins)
         {
             bin.tip.heading = documentText("Weight %1 to %2").arg(formatFigure(bin.low), formatFigure(bin.high));
@@ -1500,7 +1576,11 @@ void writeQuality(ReportMarkup& out, const ReportDocumentContext& context, const
             counted(static_cast<qint64>(usedWeights.size()), QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 light"),
                     QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 lights")));
         out.chart(distributionChart(weights));
-        writeCaption(out, documentText("A weight is relative to the heaviest light: a light at 1 counts fully."));
+        writeCaption(out, end > 1.0
+                              ? documentText("A weight is relative to the heaviest light of its stack, where a light "
+                                             "at 1 counts fully; a photometric weight is at a mean of one, so a "
+                                             "stack's heavier lights pass 1.")
+                              : documentText("A weight is relative to the heaviest light: a light at 1 counts fully."));
         out.close("div");
     }
 

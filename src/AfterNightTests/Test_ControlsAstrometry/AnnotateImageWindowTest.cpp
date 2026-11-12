@@ -10,6 +10,7 @@
 #include "Test_ControlsAstrometry/AstrometryTestSupport.h"
 
 #include "app/FilePolicies.h"
+#include "app/PlateSolveUtils.h"
 #include "components/AnCollapsibleSection.h"
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
@@ -18,6 +19,7 @@
 #include "controls/annotation/AnnotationLayout.h"
 #include "controls/annotation/AnnotationScene.h"
 #include "controls/annotation/AnnotationSettings.h"
+#include "theme/AnDesignTokens.h"
 #include "widgets/ImageViewWidget.h"
 #include "widgets/ViewPresentation.h"
 
@@ -27,6 +29,7 @@
 #include <QComboBox>
 #include <QDialog>
 #include <QDoubleSpinBox>
+#include <QEvent>
 #include <QFileInfo>
 #include <QFontComboBox>
 #include <QLabel>
@@ -39,11 +42,15 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
+#include <variant>
 #include <vector>
 
 namespace
@@ -294,6 +301,174 @@ TEST_F(AnnotateImageWindowTest, ThePreviewPresentsTheImageAsTheViewShowsItOrAsIt
     stored.output.stretch = an::ui::AnnotationStretch::AsShown;
     window.setSettings(stored);
     EXPECT_EQ(keyOf(*preview->getViewWidget()), keyOf(*m_view->getViewWidget()));
+}
+
+// While the picture presents the image as the view shows it, a change of how the view shows it is the preview's
+// change too: the window follows the view's display mode and the settings of its automatic stretch, not only the
+// display the view had when the window was opened.
+TEST_F(AnnotateImageWindowTest, ThePreviewFollowsTheViewsDisplayWhileItPresentsTheImageAsTheViewShowsIt)
+{
+    show(fieldCards());
+    m_view->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
+    an::ui::AnnotateImageControl& window = open();
+    ASSERT_TRUE(settled());
+    ImageViewControl* preview = previewOf(window);
+    ASSERT_NE(preview, nullptr);
+    const auto keyOf = [](const ImageViewWidget& widget) {
+        an::ui::ViewPresentationSettings settings;
+        settings.request = widget.presentationRequest();
+        return an::ui::viewPresentationKey(settings);
+    };
+    ASSERT_EQ(preview->getViewWidget()->presentationRequest().stretch, an::PresentationStretch::Automatic);
+
+    m_view->setViewMode(ImageViewMode::LINEAR_MODE);
+    EXPECT_EQ(preview->getViewWidget()->presentationRequest().stretch, an::PresentationStretch::Linear)
+        << "the view shows the image unstretched now";
+
+    m_view->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
+    AutostretchParams params = m_view->getViewWidget()->getAutostretchSettings();
+    params.targetBackground = 0.31;
+    params.contrast = 7;
+    m_view->getViewWidget()->setAutostretchSettings(params);
+    EXPECT_EQ(preview->getViewWidget()->presentationRequest().stretch, an::PresentationStretch::Automatic);
+    EXPECT_EQ(keyOf(*preview->getViewWidget()), keyOf(*m_view->getViewWidget()))
+        << "the stretch settings the view has now";
+
+    // A picture of the image as it is stored does not follow the view.
+    an::ui::AnnotationSettings stored = window.settings();
+    stored.output.stretch = an::ui::AnnotationStretch::AsStored;
+    window.setSettings(stored);
+    m_view->setViewMode(ImageViewMode::LINEAR_MODE);
+    m_view->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
+    EXPECT_EQ(preview->getViewWidget()->presentationRequest().stretch, an::PresentationStretch::Linear);
+    ASSERT_TRUE(pumpUntil([&]() { return !window.isWorking(); }));
+}
+
+// An image solved again is another sky. Until the catalogues of the new field are read, the window shows no mark of
+// the solution before and offers no picture: a picture made then would draw the old marks over the image and state
+// the new solution.
+TEST_F(AnnotateImageWindowTest, AnImageSolvedAgainShowsNoMarkOfTheSolutionBeforeAndOffersNoPictureMeanwhile)
+{
+    show(fieldCards());
+    an::ui::AnnotateImageControl& window = open();
+    ASSERT_TRUE(settled());
+    ASSERT_NE(window.scene(), nullptr);
+
+    // The catalogues are held back, so the window stays between the new solution and its marks.
+    const auto released = std::make_shared<std::atomic<bool>>(false);
+    const an::ui::BundledCatalogSource catalogs = fixedCatalogs(deepSkyText(), brightStarText());
+    window.setCatalogSource([released, catalogs](const an::ui::BundledCatalog catalog) {
+        while (!released->load())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+        return catalogs(catalog);
+    });
+
+    // The same image, solved at twice the scale.
+    std::vector<an::CodecCard> solvedAgain = tangentPlaneCards(northUpPlane(200.5, 150.5, 120.0, 10.0, 0.02));
+    addCard(solvedAgain, "RADESYS", "'ICRS'");
+    addCard(solvedAgain, "OBJECT", "'Test Field'");
+    show(std::move(solvedAgain));
+
+    EXPECT_EQ(window.scene(), nullptr) << "the marks of the solution before are of another sky";
+    EXPECT_EQ(window.layout(), nullptr);
+    const auto* exportButton = window.findChild<QPushButton*>(QStringLiteral("annotateExport"));
+    const auto* openButton = window.findChild<QPushButton*>(QStringLiteral("annotateOpen"));
+    ASSERT_NE(exportButton, nullptr);
+    ASSERT_NE(openButton, nullptr);
+    EXPECT_FALSE(exportButton->isEnabled());
+    EXPECT_FALSE(openButton->isEnabled());
+
+    released->store(true);
+    ASSERT_TRUE(settled());
+    ASSERT_NE(window.scene(), nullptr);
+    EXPECT_TRUE(exportButton->isEnabled());
+}
+
+// What follows a landed drawing: a change made while it was on its way is drawn even when that drawing could not be
+// laid out, and a picture that was waiting is made only of a drawing that was laid out and is still current.
+TEST(AnnotateImageWindow, AChangeMadeWhileADrawingWasOnItsWayIsDrawnWhetherOrNotThatDrawingWasLaidOut)
+{
+    using an::ui::detail::AfterDrawing;
+    using an::ui::detail::afterDrawingLanded;
+    EXPECT_EQ(afterDrawingLanded(false, true, false), AfterDrawing::DrawAgain);
+    EXPECT_EQ(afterDrawingLanded(false, true, true), AfterDrawing::DrawAgain);
+    EXPECT_EQ(afterDrawingLanded(true, true, true), AfterDrawing::DrawAgain);
+    EXPECT_EQ(afterDrawingLanded(true, false, true), AfterDrawing::MakePicture);
+    EXPECT_EQ(afterDrawingLanded(true, false, false), AfterDrawing::Rest);
+    EXPECT_EQ(afterDrawingLanded(false, false, true), AfterDrawing::Rest) << "no picture of a drawing that failed";
+    EXPECT_EQ(afterDrawingLanded(false, false, false), AfterDrawing::Rest);
+}
+
+// The swatches of the palettes' list are pictures the window drew, in the theme's colours of the time. A switch of
+// theme draws them again, so their rims are the theme's as it is now.
+TEST_F(AnnotateImageWindowTest, ASwitchOfThemeDrawsThePalettesSwatchesAgainInTheThemesColours)
+{
+    show(fieldCards());
+    an::ui::AnnotateImageControl& window = open();
+    ASSERT_TRUE(settled());
+    auto* palette = window.findChild<QComboBox*>(QStringLiteral("annotatePalette"));
+    ASSERT_NE(palette, nullptr);
+    const auto rim = [palette]() {
+        // The middle of the swatch's top edge, where the rim is a straight line a pixel thick.
+        const QSize size = palette->iconSize();
+        return palette->itemIcon(0).pixmap(size).toImage().pixelColor(size.width() / 2, 0);
+    };
+    const an::ui::ThemePreference before = an::ui::themePreference();
+    const auto switchTo = [&window](const an::ui::ThemePreference preference) {
+        an::ui::setThemePreference(preference);
+        QEvent changed(QEvent::StyleChange);
+        QCoreApplication::sendEvent(&window, &changed);
+    };
+
+    // The rim is the theme's border colour over the palette's own panel, so it is told by what it changes to.
+    switchTo(an::ui::ThemePreference::Light);
+    const QColor light = an::ui::tokens().colors.borderSubtle;
+    const QColor underLight = rim();
+    switchTo(an::ui::ThemePreference::Dark);
+    const QColor dark = an::ui::tokens().colors.borderSubtle;
+    ASSERT_NE(light.rgba(), dark.rgba()) << "the two themes draw a rim in two colours";
+    const QColor underDark = rim();
+    EXPECT_NE(underDark.rgba(), underLight.rgba()) << "the swatch still has the rim of the theme before";
+    switchTo(an::ui::ThemePreference::Light);
+    EXPECT_EQ(rim().rgba(), underLight.rgba());
+
+    an::ui::setThemePreference(before);
+    QEvent restored(QEvent::StyleChange);
+    QCoreApplication::sendEvent(&window, &restored);
+}
+
+// What the menus offer of an image follows whether it states a solution - Annotate Image is offered for one that
+// does. A view whose image loses its solution while it stays the active one has the application's actions read again,
+// as one that gains a solution does: the entry no longer waits for another view to be made active.
+TEST_F(AnnotateImageWindowTest, AViewWhoseImageLosesItsSolutionHasTheApplicationsActionsReadAgain)
+{
+    show(fieldCards());
+    ASSERT_TRUE(m_view->canAnnotateCurrentImage());
+    const int before = m_context->activeImageActionRefreshes;
+
+    bool shown = false;
+    m_view->editImage(
+        "Clear Astrometry", "Removed the astrometric solution",
+        [](const an::consumer::EngineSession& session, const an::consumer::AssetWriteLease& image,
+           std::stop_token stop) -> an::Result<an::consumer::ImageAsset> {
+            an::Result<an::ImageMetadata> metadata =
+                std::visit([](const auto& typed) { return an::ui::metadataWithoutPlateSolution(typed.metadata()); },
+                           image.image());
+            if (!metadata.hasValue())
+            {
+                return metadata.status();
+            }
+            return an::ui::copyImageWithMetadata(session, image, std::move(*metadata), std::move(stop));
+        },
+        [&shown](const bool edited) { shown = edited; });
+    ASSERT_TRUE(pumpUntil([&shown]() { return shown; }));
+    ASSERT_TRUE(settle(*m_view));
+
+    EXPECT_FALSE(m_view->canAnnotateCurrentImage());
+    EXPECT_GT(m_context->activeImageActionRefreshes, before)
+        << "the menus would still offer what only a solved image has";
 }
 
 // Another image in the view is the preview's image too.

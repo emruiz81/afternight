@@ -26,6 +26,7 @@
 
 #include <AfterNightEngine/Algorithms/Astrometry/WcsCards.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
+#include <AfterNightEngine/IO/CodecMetadataProjection.h>
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/OperationEffect.h>
 #include <AfterNightEngine/Image/OperationTransition.h>
@@ -127,22 +128,12 @@ struct CarriedSolution
                                      std::move(*codec), source.outputIntent());
 }
 
-/// The number a card's value states, blanks and one pair of quotes around it removed; nothing for any other text.
-[[nodiscard]] std::optional<double> cardNumber(std::string value)
+/// The size a card's value states, read as every reader of a card's number reads it - the spellings one of them
+/// takes are the spellings all take - and nothing for a card that states no number or none above zero.
+[[nodiscard]] std::optional<double> cardNumber(const std::string& value)
 {
-    const auto trimmed = [](const std::string& text) {
-        const std::size_t first = text.find_first_not_of(" \t");
-        return first == std::string::npos ? std::string()
-                                          : text.substr(first, text.find_last_not_of(" \t") - first + 1u);
-    };
-    value = trimmed(value);
-    if (value.size() >= 2u && value.front() == '\'' && value.back() == '\'')
-    {
-        value = trimmed(value.substr(1u, value.size() - 2u));
-    }
-    bool parsed = false;
-    const double number = QString::fromStdString(value).toDouble(&parsed);
-    return parsed && std::isfinite(number) && number > 0.0 ? std::optional<double>(number) : std::nullopt;
+    const an::Result<double> number = an::parseNumericCard(value);
+    return number.hasValue() && *number > 0.0 ? std::optional<double>(*number) : std::nullopt;
 }
 
 /// The observing context of a frame rescaled by a step: each pixel-size card divided by the step's scale along its

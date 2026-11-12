@@ -15,6 +15,7 @@
 
 #include <QHash>
 #include <QList>
+#include <QRegularExpression>
 #include <QString>
 
 #include <algorithm>
@@ -189,5 +190,26 @@ rowOf(const ImageIntegration::Reporting::ReportSettingsBlock* block, const QStri
         std::find_if(block->rows.begin(), block->rows.end(),
                      [&name](const ImageIntegration::Reporting::ReportSettingsRow& row) { return row.name == name; });
     return found == block->rows.end() ? nullptr : &*found;
+}
+/// A text without the names a run gives its targets and filters that hold what a place marker looks like - `%1` -
+/// however a file's name spells their spaces. A case that looks for a marker a sentence left unfilled looks in what
+/// is left: a name is the run's, and a marker inside it is no sentence's.
+[[nodiscard]] inline QString withoutNamesThatHoldMarkers(QString text,
+                                                         const ImageIntegration::Reporting::ReportModel& model)
+{
+    for (const ImageIntegration::Reporting::ReportMaster& master : model.masters)
+    {
+        for (const QString& name : {master.target, master.filter})
+        {
+            if (!name.contains(QLatin1Char('%')))
+            {
+                continue;
+            }
+            QString pattern = QRegularExpression::escape(name);
+            pattern.replace(QStringLiteral("\\ "), QStringLiteral("[ _]"));
+            text.remove(QRegularExpression(pattern));
+        }
+    }
+    return text;
 }
 } // namespace an::tests::integration::report

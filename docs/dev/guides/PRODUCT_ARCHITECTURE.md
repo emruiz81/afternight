@@ -306,10 +306,13 @@ acquisition record's exposure start (`app/ObservationEpochUtils.h`). The interna
 the session and solves with `solvePlate` against `GaiaCatalogSource::regionCatalog` - the installed chunk catalog's
 tiles inside a HEALPix disc, mapped, decoded and carried to the epoch - one region for a hinted solve and one per
 blind centre; the astrometry.net web solver is one state machine on the worker (`setAstrometryWebEndpoint` points it
-elsewhere). The bundled catalogs are read by `loadBundledCatalog` on a worker by each owner and never kept in process
-state, because a `SkyCatalog` leases the session's engine. A reader that only asks what lies in a field - the overlays,
-Annotate Image - builds no name index: the bright stars, 83 479 to magnitude 9, then hold about 19 MiB and load in
-about 40 ms, where the catalog search's copy with its index holds about 51 MiB. The overlays (`controls/*DisplayModule`,
+elsewhere). The bundled catalogs are read on a worker. A reader that only asks what lies in a field - the overlays of
+every view, Annotate Image - shares one copy of each (`sharedBundledCatalog`, `app/BundledCatalogs.h`): it is read
+once, a second reader waits for the first one's read, and it is kept for the engine context the session held when it
+was read and read again for another, because a `SkyCatalog` leases the session's engine. It builds no name index: the
+bright stars, 83 479 to magnitude 9, then hold about 19 MiB and load in about 40 ms, where the catalog search's copy
+with its index holds about 51 MiB. A reader that names a source of its own, and the search by name, read their own
+(`loadBundledCatalog`). The overlays (`controls/*DisplayModule`,
 made behind the seam in `controls/AstrometryOverlays.cpp`) ask `FieldCatalogQueries` for the field's entries on a
 worker, project the last answer at paint and draw an engine pixel coordinate times the scale, with no half pixel to
 subtract; the star labels are measured when the view or the answer changes, brightest first, and a fainter star whose
@@ -1079,7 +1082,7 @@ hash a choice's key. A window refused its stored session starts empty and keeps 
 statistics with `readViewImage` and the
 engine's statistics, header facts with `probeImage` and weights through `deriveStackWeights`
 (`core/StackWeightingInputs.h`), the measurement and request the stack uses, all in the `EngineSession*` it is given.
-It is built once, as the archiver commits the run, into a model the archive keeps as `workflow_report.json`; the
+It is built once, as the archiver commits the run, into a model the archive keeps (`kStoredReportFileName`); the
 document is written from that model, and written again or saved as one file from it on the thread pool, with no
 image read. Previews are `generateBoundedPreview` - the largest-sample shrink presented through `presentForView`.
 When a report is written, what it reads, how its values are printed (`reporting/ReportFormat.h`) and the runs its

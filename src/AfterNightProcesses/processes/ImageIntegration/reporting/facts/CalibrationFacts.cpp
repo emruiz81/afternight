@@ -359,8 +359,10 @@ void fillLineage(ReportBuild& build, ReportModel& model)
         {
             const SharedCalibration& calibration = shared[i];
             ReportLightGroup lights;
-            lights.key = shared.size() == 1 ? masterKey : QStringLiteral("%1#%2").arg(masterKey).arg(i + 1);
-            lights.name = shared.size() == 1 ? master->name : reportText("%1, part %2").arg(master->name).arg(i + 1);
+            // Both parts are set in one pass: a key or a name that holds a place marker of its own keeps it.
+            const QString part = QString::number(i + 1);
+            lights.key = shared.size() == 1 ? masterKey : QStringLiteral("%1#%2").arg(masterKey, part);
+            lights.name = shared.size() == 1 ? master->name : reportText("%1, part %2").arg(master->name, part);
             lights.masterKey = masterKey;
             lights.lights = calibration.lights;
             lights.preCalibrated = calibration.preCalibrated;

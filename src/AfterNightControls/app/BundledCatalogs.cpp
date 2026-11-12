@@ -11,6 +11,10 @@
 #include <QFile>
 #include <QString>
 
+#include <array>
+#include <cstdint>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 
@@ -70,6 +74,53 @@ an::Result<an::SkyCatalog> loadBundledCatalog(const an::consumer::EngineSession&
     }
     return buildBundledCatalog(scope->execution(), catalog,
                                std::string_view(text->constData(), static_cast<std::size_t>(text->size())), nameIndex);
+}
+
+namespace
+{
+/// The catalogs of fields the readers of the product's own share, one of each kind.
+struct SharedCatalogs
+{
+    struct Slot
+    {
+        /// Orders the reads of this catalog, so a second reader waits for the first one's.
+        std::mutex reading;
+
+        /// The catalog while a reader holds it, and the engine context it was built in.
+        std::weak_ptr<const an::SkyCatalog> catalog;
+        std::uint64_t contextId = 0u;
+    };
+
+    std::array<Slot, 2u> kinds;
+};
+
+[[nodiscard]] SharedCatalogs& sharedCatalogs()
+{
+    static SharedCatalogs catalogs;
+    return catalogs;
+}
+} // namespace
+
+an::Result<std::shared_ptr<const an::SkyCatalog>>
+sharedBundledCatalog(const an::consumer::EngineSession& session, const BundledCatalog catalog, std::stop_token stop)
+{
+    SharedCatalogs::Slot& slot = sharedCatalogs().kinds[catalog == BundledCatalog::DeepSky ? 0u : 1u];
+    const std::lock_guard<std::mutex> reading(slot.reading);
+    const std::uint64_t contextId = session.contextId();
+    if (std::shared_ptr<const an::SkyCatalog> held = slot.catalog.lock();
+        held != nullptr && contextId != 0u && slot.contextId == contextId)
+    {
+        return held;
+    }
+    an::Result<an::SkyCatalog> read = loadBundledCatalog(session, catalog, std::move(stop), {}, false);
+    if (!read.hasValue())
+    {
+        return read.status();
+    }
+    std::shared_ptr<const an::SkyCatalog> shared = std::make_shared<const an::SkyCatalog>(std::move(*read));
+    slot.catalog = shared;
+    slot.contextId = contextId;
+    return shared;
 }
 
 an::CatalogRegionQuery bundledCatalogRegionQuery(const BundledCatalog catalog, const an::SkyCoordinate& center,

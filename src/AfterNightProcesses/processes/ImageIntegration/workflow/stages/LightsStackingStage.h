@@ -39,6 +39,8 @@ struct StackPreviewAssets
     QSize reportPreviewSize; ///< Pixel dimensions of reportPreviewJpeg.
     QByteArray reportDetailJpeg; ///< JPEG bytes of the master's centre at full scale, stretched as the whole frame is.
     QSize reportDetailSize; ///< Pixel dimensions of reportDetailJpeg; empty when there is no detail.
+    /// The display stretch the whole frame was presented through; null when the generator kept none.
+    std::shared_ptr<const an::DisplayPresentationAnalysis> reportPreviewStretch;
 };
 
 /// Makes a master's preview: its report JPEG, and the thumbnail written at the path given.

@@ -65,6 +65,14 @@ public:
     /// the model names. A linked document prints paths as they are and needs none.
     void hideFoldersOf(const ReportModel& model);
 
+    /// States the profile folder of the person the document is written for, which a message never names. A path
+    /// that ends at the profile has nothing after it to mark where a name with a space in it stops, so the folder
+    /// is taken out as it is known rather than as it is guessed. The constructor takes the profile of the person
+    /// running the application.
+    ///
+    /// @param folder the profile's folder, with either separator; empty for none.
+    void setProfileFolder(const QString& folder);
+
     [[nodiscard]] ReportForm form() const noexcept
     {
         return m_form;
@@ -76,6 +84,11 @@ public:
     /// a path - `#`, `?` and `%`, which a folder named after a target may hold - escaped. Embedded: a `data:`
     /// address holding the picture bounded to `kEmbeddedImageLongestSide` and written as a JPEG of
     /// `kEmbeddedImageQuality`; a picture asked for twice is read once.
+    ///
+    /// An embedded document holds only pictures of the history the run's folder is in: the run's own and, beside
+    /// an earlier run, that run's, in the folder next to it. A path that is absolute, or that leaves that history,
+    /// is no picture of the report - the model may come from a stored report someone edited or sent - and nothing
+    /// is read by it.
     ///
     /// @param relativePath the picture's path under the run's folder, as the model states it.
     /// @return the source; empty when the model states no picture, or when an embedded document cannot read it -
@@ -113,6 +126,9 @@ private:
 
     /// The folders dropped from a message, longest first.
     QStringList m_hiddenFolders;
+
+    /// The profile folder of the person the document is written for, with forward slashes; empty for none.
+    QString m_profileFolder;
 
     /// A picture's source inside an embedded document, bounded to a longest side; a picture is read once per bound.
     [[nodiscard]] QString embedded(const QString& relative, int longestSide);

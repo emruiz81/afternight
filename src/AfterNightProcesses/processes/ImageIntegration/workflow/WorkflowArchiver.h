@@ -23,6 +23,7 @@
 namespace ImageIntegration::Reporting
 {
 struct ReportModel;
+struct WorkflowReportStoreMemo;
 } // namespace ImageIntegration::Reporting
 
 /**
@@ -143,6 +144,9 @@ private:
     /// The model of the run last committed, kept so the final steps state the run's last figures on it; null for a
     /// run that has no report.
     std::shared_ptr<ImageIntegration::Reporting::ReportModel> m_reportModel;
+    /// What the stores of that model have done, so its later stores copy no picture and read no earlier run's
+    /// report again; null with the model.
+    std::shared_ptr<ImageIntegration::Reporting::WorkflowReportStoreMemo> m_reportStoreMemo;
     std::optional<ArchiveStamp> m_archiveStamp;
     WorkflowExecutionCounterAccumulator* m_counters = nullptr;
     const an::consumer::EngineSession* m_session = nullptr;
@@ -171,6 +175,17 @@ namespace ImageIntegration
 /// @return one folder name per key, in the same order.
 [[nodiscard]] AFTERNIGHTPROCESSES_API std::vector<QString>
 archiveGroupFolderNames(const std::vector<QString>& groupKeys);
+
+/// The keys of the groups an archive names a folder for, in the order it names them: the ones the run has a result
+/// for, then the ones it reused that have none, each once. The commit names the folders over this list and a later
+/// run reads them back over it, so both take the list from here and a folder's name never depends on which of the
+/// two worked it out.
+///
+/// @param resultKeys the keys of the run's integration group results, in their order.
+/// @param reusedKeys the keys of the groups the run found still valid, in their order.
+/// @return the keys to name folders for with `archiveGroupFolderNames`.
+[[nodiscard]] AFTERNIGHTPROCESSES_API std::vector<QString> archivedGroupKeys(const std::vector<QString>& resultKeys,
+                                                                             const std::vector<QString>& reusedKeys);
 
 /// A calibration master of a run and the preview its archive keeps of it.
 struct ArchivedCalibrationPreview

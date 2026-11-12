@@ -368,6 +368,37 @@ TEST(CombinedMetadataTest, TheFirstSourcesWorldCoordinateCardsFollowItsSolution)
     EXPECT_EQ(keywordsOf(withoutSolution), (std::vector<std::string>{"Fits:OBJECT"}));
 }
 
+TEST(CombinedMetadataTest, AnIntegrationCardThatStatesNoLightIsNotTheSourcesIntegration)
+{
+    // A card of whole integration a writer left at zero, or below it, states no light: the exposure the source
+    // states stands for it, and the combination is not refused for an exposure no image can have.
+    const an::ImageMetadata zero = source({.acquisition = {.exposureSeconds = 300.0}, .cards = {fits("TOTEXP", "0")}});
+    const an::ImageMetadata negative =
+        source({.acquisition = {.exposureSeconds = 120.0}, .cards = {fits("LIVETIME", "-5.0")}});
+    const std::array<const an::ImageMetadata*, 2u> sources{&zero, &negative};
+    const an::Result<an::ImageMetadata> combined = an::combinedImageMetadata(sources, kPreserving, preserved());
+    ASSERT_TRUE(combined.hasValue()) << combined.status().message();
+    EXPECT_EQ(combined->acquisition().exposureSeconds(), std::optional<double>(420.0));
+
+    // Neither an exposure nor a card of light: the combination states no exposure, and is made.
+    const an::ImageMetadata unstated = source({.cards = {fits("TOTEXP", "0")}});
+    const std::array<const an::ImageMetadata*, 2u> none{&unstated, &unstated};
+    const an::Result<an::ImageMetadata> bare = an::combinedImageMetadata(none, kPreserving, preserved());
+    ASSERT_TRUE(bare.hasValue()) << bare.status().message();
+    EXPECT_EQ(bare->acquisition().exposureSeconds(), std::nullopt);
+}
+
+TEST(CombinedMetadataTest, AnIntegrationCardIsReadInEverySpellingACardsNumberTakes)
+{
+    // A sign, a pair of quotes and the exponent letter of a FITS real are spellings of a number, read here as every
+    // reader of a card's number reads them.
+    const an::ImageMetadata signedCard =
+        source({.acquisition = {.exposureSeconds = 10.0}, .cards = {fits("TOTEXP", "+600")}});
+    const an::ImageMetadata fitsReal =
+        source({.acquisition = {.exposureSeconds = 10.0}, .cards = {fits("TOTEXP", "'6.0D2'")}});
+    EXPECT_EQ(combine(signedCard, fitsReal).acquisition().exposureSeconds(), std::optional<double>(1200.0));
+}
+
 TEST(CombinedMetadataTest, AValueContinuedAcrossCardsIsComparedAndKeptWhole)
 {
     // Two processing histories that share their first card's text and differ after it: kept as a truncated first

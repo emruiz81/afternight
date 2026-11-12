@@ -1241,6 +1241,7 @@ template <> struct Fields<ReportTarget>
     {
         v("name", s.name);
         v("frames", s.frames);
+        v("framesWithExposure", s.framesWithExposure);
         v("integrationMs", s.integrationMs);
         v("filters", s.filters);
         v("masters", s.masters);
@@ -1283,6 +1284,7 @@ template <> struct Fields<ReportRun>
         v("frames", s.frames);
         v("framesUsed", s.framesUsed);
         v("frameStates", s.frameStates);
+        v("framesWithExposure", s.framesWithExposure);
         v("capturedMs", s.capturedMs);
         v("integratedMs", s.integratedMs);
         v("warnings", s.warnings);

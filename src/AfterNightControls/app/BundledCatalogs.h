@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <stop_token>
 #include <string_view>
@@ -88,6 +89,23 @@ buildBundledCatalog(const an::ExecutionContext& execution, BundledCatalog catalo
 [[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<an::SkyCatalog>
 loadBundledCatalog(const an::consumer::EngineSession& session, BundledCatalog catalog, std::stop_token stop,
                    const BundledCatalogSource& source = {}, bool nameIndex = true);
+
+/// A bundled catalog as every reader of fields shares it: read once from the product's resources, without the index
+/// a search by name reads, and kept while any reader holds it. Every solved view's overlay and every Annotate Image
+/// window ask what lies in a field of the same two catalogs, and each used to read and keep a copy of its own - the
+/// bright stars alone are tens of megabytes. A reader that names a source of its own reads its own
+/// (`loadBundledCatalog`), and so does a search by name, which needs the index.
+///
+/// The catalog belongs to the engine context the session held when it was read: a session that holds another one
+/// since reads it again. For a worker: the read waits for the admission, and a second reader waits for the first
+/// one's read instead of making its own.
+///
+/// @param session the process's session.
+/// @param catalog which catalog.
+/// @param stop the read's stop.
+/// @return the shared catalog; or what the text read, the admission, the text parse or the catalog build refused.
+[[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<std::shared_ptr<const an::SkyCatalog>>
+sharedBundledCatalog(const an::consumer::EngineSession& session, BundledCatalog catalog, std::stop_token stop);
 
 /// The region query a bundled catalog is asked for an overlay: at a limit, the deep-sky objects admit a named object
 /// nobody measured a magnitude for, and the bright stars do not; with none, every entry of the region is admitted.

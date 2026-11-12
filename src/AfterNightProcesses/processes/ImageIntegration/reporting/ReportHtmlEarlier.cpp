@@ -856,11 +856,9 @@ void writeBeforeAfter(ReportMarkup& out, const ReportDocumentContext& context)
                         countChange(wide(before.framesUsed), wide(now.framesUsed), Better::More),
                         documentText("The lights the masters combine.")});
     }
-    rows.push_back({documentText("Exposure taken"),
-                    formatDurationMs(before.integrationMs),
-                    formatDurationMs(now.integrationMs),
+    rows.push_back({documentText("Exposure taken"), duration(before.integrationMs), duration(now.integrationMs),
                     durationChange(before.integrationMs, now.integrationMs, Better::Neither),
-                    {}});
+                    documentText("The exposure of every light the run took, where every one of them states its own.")});
     if (before.integratedMs.has_value() || now.integratedMs.has_value())
     {
         rows.push_back({documentText("Integration"), duration(before.integratedMs), duration(now.integratedMs),

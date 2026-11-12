@@ -30,6 +30,7 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QTemporaryDir>
+#include <QUrl>
 
 #include <algorithm>
 #include <cmath>
@@ -805,6 +806,364 @@ TEST_F(ReportHtmlWriterTest, ARunOfOneMasterHasItsPictureInTheHeaderAndNoGallery
     EXPECT_TRUE(namedInside(plain, *plain.byId("top"), "img").empty());
 }
 
+// Lights whose fate no record states - those of a master reused from a run whose report the history does not keep -
+// are not called left out: the header counts the lights taken and says how many state no fate, and the lights' card
+// does not say that every light went into a master.
+TEST_F(ReportHtmlWriterTest, LightsWhoseFateIsNotRecordedAreNotCalledLeftOut)
+{
+    const std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::IncrementalRun);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_EQ(scenario->earlierRunDirectories.size(), 1);
+    ASSERT_TRUE(
+        QFile::remove(QDir(scenario->earlierRunDirectories.front()).filePath(QStringLiteral("workflow_report.json"))));
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+    int recorded = 0;
+    int used = 0;
+    for (const ReportFrameStateCount& count : model.run.frameStates)
+    {
+        recorded += count.frames;
+        used += count.state == ReportFrameState::Used ? count.frames : 0;
+    }
+    const int notRecorded = model.run.frames - recorded;
+    ASSERT_GT(recorded, 0);
+    ASSERT_GT(notRecorded, 0);
+
+    const QString html = writeReportDocument(model, {}).html;
+    const ParsedDocument parsed = parseDocument(html);
+    ASSERT_TRUE(parsed.error.isEmpty()) << parsed.error.toStdString();
+    const DocumentElement* top = parsed.byId("top");
+    ASSERT_NE(top, nullptr);
+    const std::vector<const DocumentElement*> tiles = parsed.ofClassInside(*top, "tile");
+    ASSERT_EQ(tiles.size(), 4u);
+    const auto lightsTile = std::find_if(tiles.begin(), tiles.end(), [](const DocumentElement* tile) {
+        return tile->text.contains(QStringLiteral("Lights"));
+    });
+    ASSERT_NE(lightsTile, tiles.end());
+    const QString lights = (*lightsTile)->text;
+    EXPECT_TRUE(lights.contains(QStringLiteral("Lights taken"))) << lights.toStdString();
+    EXPECT_TRUE(lights.contains(formatCount(model.run.frames))) << lights.toStdString();
+    EXPECT_TRUE(lights.contains(
+        QStringLiteral("%1 used; the fate of %2 is not recorded").arg(formatCount(used), formatCount(notRecorded))))
+        << lights.toStdString();
+
+    EXPECT_FALSE(html.contains(QStringLiteral("left out, each with its reason")));
+    EXPECT_FALSE(html.contains(QStringLiteral("left out, with its reason")));
+    EXPECT_FALSE(html.contains(QStringLiteral("Every light the run took went into a master")));
+    EXPECT_FALSE(lights.contains(QStringLiteral("recorded no light"))) << "it recorded the fate of some";
+    const DocumentElement* frames = parsed.byId("frames");
+    ASSERT_NE(frames, nullptr);
+    EXPECT_TRUE(
+        frames->text.contains(QStringLiteral("What became of %1 lights is not recorded").arg(formatCount(notRecorded))))
+        << frames->text.toStdString();
+}
+
+// A master's file is named by its slug, and the sections inside it by the file's name and their own. A slug can
+// end in a section's name - a target called "M 31 lights" gives one - so a section's anchor is set apart from every
+// file's by what no slug holds, and no id is written twice.
+TEST_F(ReportHtmlWriterTest, AMastersSectionsAreNamedApartFromEveryMastersFile)
+{
+    const Rendered* report = reportOf(ReportScenarioId::TwoTargets);
+    ASSERT_NE(report, nullptr);
+    ReportModel model = report->model;
+    ASSERT_GE(model.masters.size(), 2u);
+    for (const char* section : {"picture", "stack", "lights", "made"})
+    {
+        SCOPED_TRACE(section);
+        model.masters[0].slug = QStringLiteral("m31");
+        model.masters[1].slug = QStringLiteral("m31-") + QLatin1String(section);
+
+        const ParsedDocument parsed = parseDocument(writeReportDocument(model, {}).html);
+        ASSERT_TRUE(parsed.error.isEmpty()) << parsed.error.toStdString();
+
+        QStringList ids = parsed.ids();
+        const qsizetype written = ids.size();
+        ids.removeDuplicates();
+        EXPECT_EQ(ids.size(), written) << "an id is written twice";
+        EXPECT_EQ(parsed.withId(QStringLiteral("file-m31-") + QLatin1String(section)).size(), 1u)
+            << "the second master's file";
+        EXPECT_EQ(parsed.withId(QStringLiteral("file-m31")).size(), 1u);
+    }
+    // The sections the first master's file holds are the ones named with two hyphens.
+    const ParsedDocument parsed = parseDocument(writeReportDocument(model, {}).html);
+    EXPECT_EQ(parsed.withId(QStringLiteral("file-m31--lights")).size(), 1u);
+    EXPECT_EQ(parsed.withId(QStringLiteral("file-m31--made")).size(), 1u);
+}
+
+// The chart of the nights draws a mark to point at over each light - until there are too many, when it draws the
+// lights used without one. Its caption promises a light's figures only where the chart has them.
+TEST_F(ReportHtmlWriterTest, TheNightsChartPromisesALightsFiguresOnlyWhereItDrawsAMarkToPointAt)
+{
+    const Rendered* report = reportOf(ReportScenarioId::FiveFilters);
+    ASSERT_NE(report, nullptr);
+    const DocumentElement* nights = report->linkedParsed.byId("nights");
+    ASSERT_NE(nights, nullptr);
+    EXPECT_TRUE(nights->text.contains(QStringLiteral("Point at a light for its figures")));
+
+    // The same run with more lights than a chart draws a mark for.
+    ReportModel model = report->model;
+    ASSERT_FALSE(model.masters.empty());
+    ReportMaster& master = model.masters.front();
+    const std::vector<ReportFrame> frames = master.frames;
+    ASSERT_FALSE(frames.empty());
+    std::size_t lights = 0;
+    for (const ReportMaster& counted : model.masters)
+    {
+        lights += counted.frames.size();
+    }
+    for (int copy = 0; lights <= kChartDenseAbove; ++copy)
+    {
+        for (ReportFrame frame : frames)
+        {
+            frame.fileName = QStringLiteral("copy%1_%2").arg(QString::number(copy), frame.fileName);
+            frame.path = QStringLiteral("%1.copy%2").arg(frame.path, QString::number(copy));
+            master.frames.push_back(std::move(frame));
+            ++lights;
+        }
+    }
+
+    const ParsedDocument parsed = parseDocument(writeReportDocument(model, {}).html);
+    ASSERT_TRUE(parsed.error.isEmpty()) << parsed.error.toStdString();
+    const DocumentElement* dense = parsed.byId("nights");
+    ASSERT_NE(dense, nullptr);
+    EXPECT_FALSE(dense->text.contains(QStringLiteral("Point at a light for its figures")))
+        << "a light used has no mark to point at in a chart of this many";
+    EXPECT_TRUE(dense->text.contains(QStringLiteral("With this many lights")));
+    EXPECT_TRUE(dense->text.contains(QStringLiteral("point at one for its figures")));
+}
+
+// A sum of exposures is stated only when every light of it states its own: a sum over the lights that do would read
+// as the whole and be short of it. The run here recorded no light's fate, so each figure is the exposure taken, and
+// two lights of one group state none.
+TEST_F(ReportHtmlWriterTest, ASumOfExposuresIsStatedOnlyWhenEveryLightOfItStatesOne)
+{
+    std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::TwoTargets);
+    ASSERT_TRUE(scenario.has_value());
+    const auto withoutFates = [](ReportModel model) {
+        model.run.framesUsed.reset();
+        model.run.integratedMs.reset();
+        model.run.frameStates.clear();
+        for (ReportMaster& master : model.masters)
+        {
+            for (ReportFrame& frame : master.frames)
+            {
+                frame.state.reset();
+            }
+        }
+        return model;
+    };
+    const QString groupKey = scenario->manifest.integrationGroups.front().groupKey.toString();
+    const auto masterOf = [&](const ReportModel& model) {
+        const auto found = std::find_if(model.masters.begin(), model.masters.end(),
+                                        [&](const ReportMaster& master) { return master.key == groupKey; });
+        return found != model.masters.end() ? &*found : nullptr;
+    };
+    const auto targetOf = [&](const ReportModel& model) -> const ReportTarget* {
+        const ReportMaster* master = masterOf(model);
+        const auto found = std::find_if(model.targets.begin(), model.targets.end(), [&](const ReportTarget& target) {
+            return master != nullptr && target.name == master->target;
+        });
+        return found != model.targets.end() ? &*found : nullptr;
+    };
+    struct Stated
+    {
+        QString top;
+        QString made;
+        QString shareLine;
+        QString acquisition;
+        QString html;
+    };
+    const auto render = [](const ReportModel& model) -> std::optional<Stated> {
+        Stated stated;
+        stated.html = writeReportDocument(model, {}).html;
+        const ParsedDocument parsed = parseDocument(stated.html);
+        const DocumentElement* top = parsed.byId("top");
+        const DocumentElement* made = parsed.byId("made");
+        const DocumentElement* acquisition = parsed.byId("acquisition");
+        const std::vector<const DocumentElement*> shareLines = parsed.ofClass("shareline");
+        if (!parsed.error.isEmpty() || top == nullptr || made == nullptr || acquisition == nullptr ||
+            shareLines.size() != 1u)
+        {
+            return std::nullopt;
+        }
+        stated.top = top->text;
+        stated.made = made->text;
+        stated.shareLine = shareLines.front()->text;
+        stated.acquisition = acquisition->text;
+        return stated;
+    };
+
+    // Every light states its exposure: each sum is stated.
+    const ReportModel whole = withoutFates(buildScenarioModel(*scenario));
+    ASSERT_EQ(whole.targets.size(), 2u);
+    ASSERT_NE(masterOf(whole), nullptr);
+    ASSERT_NE(targetOf(whole), nullptr);
+    const std::optional<Stated> wholeStated = render(whole);
+    ASSERT_TRUE(wholeStated.has_value());
+    EXPECT_TRUE(wholeStated->top.contains(formatDurationMs(whole.run.capturedMs))) << wholeStated->top.toStdString();
+    EXPECT_TRUE(wholeStated->html.contains(QStringLiteral("of exposure.")));
+    EXPECT_TRUE(wholeStated->made.contains(formatDurationMs(masterOf(whole)->exposure.integrationMs)));
+    EXPECT_TRUE(wholeStated->made.contains(formatDurationMs(targetOf(whole)->integrationMs)));
+    EXPECT_TRUE(wholeStated->shareLine.contains(formatDurationMs(whole.run.capturedMs)));
+    EXPECT_TRUE(wholeStated->acquisition.contains(QStringLiteral("%")));
+
+    // Two lights whose names state no exposure, in a group that states none either.
+    WorkflowManifest::IntegrationGroup& group = scenario->manifest.integrationGroups.front();
+    group.exposure = QStringLiteral("-");
+    for (std::size_t light = 0; light < 2u; ++light)
+    {
+        group.lightFiles[light] = FrameId(QStringLiteral("C:/lights/unnamed_%1.fits").arg(light));
+        group.lightExposureSeconds[light] = 0.0;
+    }
+    const ReportModel model = withoutFates(buildScenarioModel(*scenario));
+    const ReportMaster* master = masterOf(model);
+    const ReportTarget* target = targetOf(model);
+    ASSERT_NE(master, nullptr);
+    ASSERT_NE(target, nullptr);
+    ASSERT_EQ(master->exposure.framesWithExposure, master->exposure.frames - 2);
+    ASSERT_EQ(target->framesWithExposure, target->frames - 2);
+    ASSERT_EQ(model.run.framesWithExposure, model.run.frames - 2);
+    // What the sums that are short would read as, and that nothing else in the run reads the same.
+    const QString shortOfTheRun = formatDurationMs(model.run.capturedMs);
+    const QString shortOfTheTarget = formatDurationMs(target->integrationMs);
+    const QString shortOfTheMaster = formatDurationMs(master->exposure.integrationMs);
+    for (const ReportMaster& other : model.masters)
+    {
+        if (&other != master)
+        {
+            ASSERT_NE(formatDurationMs(other.exposure.integrationMs), shortOfTheMaster);
+            ASSERT_NE(formatDurationMs(other.exposure.integrationMs), shortOfTheTarget);
+        }
+    }
+    for (const ReportTarget& other : model.targets)
+    {
+        if (&other != target)
+        {
+            ASSERT_NE(formatDurationMs(other.integrationMs), shortOfTheTarget);
+            ASSERT_NE(formatDurationMs(other.integrationMs), shortOfTheMaster);
+        }
+    }
+
+    const std::optional<Stated> stated = render(model);
+    ASSERT_TRUE(stated.has_value());
+
+    // The header says how many lights state none, and states no captured time.
+    EXPECT_FALSE(stated->top.contains(shortOfTheRun)) << stated->top.toStdString();
+    EXPECT_TRUE(stated->top.contains(QStringLiteral("Captured"))) << stated->top.toStdString();
+    EXPECT_TRUE(stated->top.contains(QStringLiteral("2 lights state no exposure"))) << stated->top.toStdString();
+    EXPECT_FALSE(stated->html.contains(QStringLiteral("of exposure.")));
+    // The target's line and the master's card state their lights and no exposure; the other target states its own.
+    EXPECT_FALSE(stated->made.contains(shortOfTheTarget)) << stated->made.toStdString();
+    EXPECT_FALSE(stated->made.contains(shortOfTheMaster)) << stated->made.toStdString();
+    for (const ReportTarget& other : model.targets)
+    {
+        if (&other != target)
+        {
+            EXPECT_TRUE(stated->made.contains(formatDurationMs(other.integrationMs))) << other.name.toStdString();
+        }
+    }
+    // The line to copy states no time, and no group states a share of an exposure that is not whole.
+    EXPECT_FALSE(stated->shareLine.contains(shortOfTheRun)) << stated->shareLine.toStdString();
+    EXPECT_FALSE(stated->acquisition.contains(QStringLiteral("%"))) << stated->acquisition.toStdString();
+    EXPECT_TRUE(stated->acquisition.contains(QStringLiteral("2 that state none"))) << stated->acquisition.toStdString();
+}
+
+namespace
+{
+/// One bar of a weight distribution, as its tip states it.
+struct WeightBin
+{
+    double low = 0.0;
+    double high = 0.0;
+    int lights = 0;
+};
+
+/// The weight distribution drawn inside an element, bar by bar in the order drawn.
+std::vector<WeightBin> weightBinsInside(const ParsedDocument& parsed, const DocumentElement& ancestor)
+{
+    std::vector<WeightBin> bins;
+    for (const DocumentElement& element : parsed.elements)
+    {
+        const QString tip = element.attribute("data-tip");
+        if (!tip.startsWith(QStringLiteral("Weight ")) || !parsed.isInside(element, ancestor))
+        {
+            continue;
+        }
+        const QStringList edges = tip.section(QLatin1Char('\n'), 0, 0).mid(7).split(QStringLiteral(" to "));
+        if (edges.size() != 2)
+        {
+            continue;
+        }
+        bins.push_back(
+            WeightBin{.low = edges[0].toDouble(),
+                      .high = edges[1].toDouble(),
+                      .lights = tip.section(QLatin1Char('\n'), 1, 1).section(QLatin1Char(' '), 0, 0).toInt()});
+    }
+    return bins;
+}
+
+/// Whether a distribution's bars hold the weights they say they do: every weight inside the edges, counted once,
+/// and no bar counting more lights than weigh between its edges.
+void expectBinsHold(const std::vector<WeightBin>& bins, const std::vector<double>& weights)
+{
+    ASSERT_FALSE(bins.empty());
+    ASSERT_FALSE(weights.empty());
+    // An edge is printed at four significant digits.
+    const double printed = 2e-3;
+    const double heaviest = *std::max_element(weights.begin(), weights.end());
+    EXPECT_GE(bins.back().high + printed, heaviest) << "no light weighs more than the distribution reaches";
+    int counted = 0;
+    for (const WeightBin& bin : bins)
+    {
+        counted += bin.lights;
+        const auto between = std::count_if(weights.begin(), weights.end(), [&](const double weight) {
+            return weight >= bin.low - printed && weight <= bin.high + printed;
+        });
+        EXPECT_LE(bin.lights, between) << "the bar of " << bin.low << " to " << bin.high;
+    }
+    EXPECT_EQ(counted, static_cast<int>(weights.size()));
+}
+} // namespace
+
+// A photometric weight is at a mean of one, so a stack's heavier lights weigh more than one. A distribution of
+// weights reaches the heaviest of them: a light above one is not counted in the bar that ends at one.
+TEST_F(ReportHtmlWriterTest, AWeightDistributionReachesTheHeaviestWeightOfItsLights)
+{
+    const Rendered* report = reportOf(ReportScenarioId::PhotometricAndLocalWeighting);
+    ASSERT_NE(report, nullptr);
+    const ParsedDocument& parsed = report->linkedParsed;
+
+    std::vector<double> all;
+    bool aboveOne = false;
+    for (const ReportMaster& master : report->model.masters)
+    {
+        std::vector<double> weights;
+        for (const ReportFrame& frame : master.frames)
+        {
+            if (frame.state == ReportFrameState::Used && frame.weight.has_value())
+            {
+                weights.push_back(*frame.weight);
+            }
+        }
+        if (weights.empty())
+        {
+            continue;
+        }
+        SCOPED_TRACE(master.name.toStdString());
+        all.insert(all.end(), weights.begin(), weights.end());
+        aboveOne = aboveOne || *std::max_element(weights.begin(), weights.end()) > 1.0;
+        const DocumentElement* file = parsed.byId(QStringLiteral("file-%1").arg(master.slug).toUtf8().constData());
+        ASSERT_NE(file, nullptr);
+        expectBinsHold(weightBinsInside(parsed, *file), weights);
+    }
+    ASSERT_TRUE(aboveOne) << "the scenario weighs one master photometrically, at a mean of one";
+
+    const DocumentElement* quality = parsed.byId("quality");
+    ASSERT_NE(quality, nullptr);
+    expectBinsHold(weightBinsInside(parsed, *quality), all);
+    EXPECT_TRUE(quality->text.contains(QStringLiteral("a photometric weight is at a mean of one")))
+        << "the caption says why a weight passes one";
+}
+
 TEST_F(ReportHtmlWriterTest, TheMastersOfSeveralMastersAreACardAndARowEach)
 {
     const Rendered* report = reportOf(ReportScenarioId::FiveFilters);
@@ -998,7 +1357,8 @@ TEST_F(ReportHtmlWriterTest, NoTextHoldsAPlaceholderARawGroupKeyOrAValueThatIsNo
         }
         for (const QString& piece : pieces)
         {
-            const QString text = withoutTheRunsMessages(piece);
+            // A target or a filter named with a marker of its own is the run's name, not a sentence left unfilled.
+            const QString text = withoutNamesThatHoldMarkers(withoutTheRunsMessages(piece), report->model);
             const QRegularExpressionMatch placeholder = kPlaceholder.match(text);
             EXPECT_FALSE(placeholder.hasMatch())
                 << text.mid((std::max)(qsizetype(0), placeholder.capturedStart() - 60), 120).toStdString();
@@ -1059,7 +1419,9 @@ TEST_F(ReportHtmlWriterTest, TheLinkedFormNamesPicturesThatAreInTheRunsFolder)
             EXPECT_TRUE(QDir::isRelativePath(source)) << source.toStdString();
             EXPECT_FALSE(source.contains(QLatin1Char('\\'))) << source.toStdString();
             EXPECT_FALSE(source.startsWith(QStringLiteral("data:"))) << "a picture inside a linked report";
-            EXPECT_TRUE(QFileInfo::exists(run.filePath(source))) << source.toStdString();
+            // A link is read as a browser reads it: a `%` of a folder's name is written as its escape.
+            EXPECT_TRUE(QFileInfo::exists(run.filePath(QUrl::fromPercentEncoding(source.toUtf8()))))
+                << source.toStdString();
         }
     }
     EXPECT_GT(pictures, 0u);
@@ -1318,6 +1680,78 @@ TEST(ReportHtmlAssets, TheScriptNamesNoNetworkAndRunsNoText)
     }
 }
 
+// A link into the document names its target in the address's hash, and a hash can be anything - one typed by hand,
+// one cut short. Decoding one that is no well-formed escape throws, which stopped the script where it opens the
+// section a link leads into: the decode is tried, and the name is looked up as written when it fails.
+TEST(ReportHtmlAssets, TheScriptDecodesAnAddresssHashWhereAFailureIsCaught)
+{
+    const QString script = reportScript();
+    ASSERT_FALSE(script.isEmpty());
+    const qsizetype decode = script.indexOf(QStringLiteral("decodeURIComponent("));
+    ASSERT_GE(decode, 0) << "the script no longer decodes the hash: this case holds nothing";
+    EXPECT_EQ(script.count(QStringLiteral("decodeURIComponent(")), 1);
+    // The decode stands inside a try block that is still open where it stands, and that block has its catch.
+    const qsizetype attempt = script.lastIndexOf(QStringLiteral("try {"), decode);
+    ASSERT_GE(attempt, 0) << "the hash is decoded outside any try block";
+    const QString between = script.mid(attempt, decode - attempt);
+    EXPECT_FALSE(between.contains(QLatin1Char('\n'))) << "the nearest try block is another statement's";
+    EXPECT_EQ(between.count(QLatin1Char('{')) - between.count(QLatin1Char('}')), 1)
+        << "the try block before the decode is closed before it";
+    const qsizetype caught = script.indexOf(QStringLiteral("catch ("), decode);
+    ASSERT_GE(caught, 0);
+    EXPECT_FALSE(script.mid(decode, caught - decode).contains(QLatin1Char('\n')))
+        << "the catch is not the one of the decode's own statement";
+}
+
+// A rule written for one element is not overruled by a more general one that also reaches it. A caption directly in
+// a card is a paragraph of the card, whose rule is the more specific of the two; the lineage table boxes every
+// cell, and the rule that leaves a table's last row open below is more specific than the box.
+TEST(ReportHtmlAssets, ARuleForOneElementIsRestatedWhereAMoreGeneralOneWouldOverruleIt)
+{
+    const std::vector<CssRule> rules = cssRules(reportStylesheet());
+    const auto declared = [&rules](const QString& selector, const QString& property) {
+        for (const CssRule& rule : rules)
+        {
+            if (rule.selector == selector)
+            {
+                const auto found = rule.declarations.find(property);
+                if (found != rule.declarations.end())
+                {
+                    return found->second;
+                }
+            }
+        }
+        return QString();
+    };
+    const auto position = [&rules](const QString& selector) {
+        for (std::size_t index = 0; index < rules.size(); ++index)
+        {
+            if (rules[index].selector == selector)
+            {
+                return static_cast<int>(index);
+            }
+        }
+        return -1;
+    };
+
+    // The caption: `.card > p` (a class and an element) outweighs `.cap` (a class), so the caption's size is stated
+    // again for a caption directly in a card, by a rule of two classes.
+    const QString captionSize = declared(QStringLiteral(".cap"), QStringLiteral("font-size"));
+    ASSERT_FALSE(captionSize.isEmpty());
+    ASSERT_FALSE(declared(QStringLiteral(".card > p"), QStringLiteral("font-size")).isEmpty());
+    EXPECT_NE(declared(QStringLiteral(".card > p"), QStringLiteral("font-size")), captionSize)
+        << "the two sizes are one: this case holds nothing";
+    EXPECT_EQ(declared(QStringLiteral(".card > .cap"), QStringLiteral("font-size")), captionSize);
+
+    // The lineage table: `tr:last-child td` (a pseudo-class and two elements) outweighs `.lin td` (a class and an
+    // element), so the last row's lower border is stated again by a rule that outweighs both.
+    ASSERT_EQ(declared(QStringLiteral("tr:last-child td"), QStringLiteral("border-bottom")), QStringLiteral("0"));
+    const QString box = declared(QStringLiteral(".lin td, .lin th"), QStringLiteral("border"));
+    ASSERT_FALSE(box.isEmpty());
+    EXPECT_EQ(declared(QStringLiteral(".lin tr:last-child td"), QStringLiteral("border-bottom")), box);
+    EXPECT_GT(position(QStringLiteral(".lin tr:last-child td")), position(QStringLiteral("tr:last-child td")));
+}
+
 TEST(ReportHtmlAssets, TheStylesheetLoadsNothing)
 {
     const QString stylesheet = reportStylesheet();
@@ -1472,6 +1906,94 @@ TEST_F(ReportHtmlWriterTest, TheStylesheetStylesEveryClassTheDocumentAndTheChart
 }
 
 // ---- The pictures and the paths of each form.
+
+// The single file holds the pictures it reads. A model may come from a stored report someone edited or sent, so
+// a picture is read only from the history the run's folder is in - the run's own, and an earlier run's in the
+// folder beside it. A path that climbs out of that history, or names a file outright, is no picture of the report.
+TEST(ReportAssets, AnEmbeddedDocumentReadsNoPictureFromOutsideTheHistoryOfItsRun)
+{
+    QTemporaryDir folder;
+    ASSERT_TRUE(folder.isValid());
+    const QDir output(folder.path());
+    ASSERT_TRUE(output.mkpath(QStringLiteral("history/run_b/report_previews/group")));
+    ASSERT_TRUE(output.mkpath(QStringLiteral("history/run_a/report_previews/group")));
+    QImage picture(320, 200, QImage::Format_RGB32);
+    picture.fill(QColor(40, 60, 90));
+    const QString own = output.filePath(QStringLiteral("history/run_b/report_previews/group/master.jpg"));
+    const QString earlier = output.filePath(QStringLiteral("history/run_a/report_previews/group/master.jpg"));
+    const QString outside = output.filePath(QStringLiteral("elsewhere.jpg"));
+    for (const QString& file : {own, earlier, outside})
+    {
+        ASSERT_TRUE(picture.save(file, "JPG", 90));
+    }
+    const QString run = output.filePath(QStringLiteral("history/run_b"));
+    const QString embeddedPicture = QStringLiteral("data:image/jpeg;base64,");
+
+    ReportAssets embedded(ReportForm::Embedded, run);
+    // The run's own picture, and the earlier run's beside it.
+    EXPECT_TRUE(embedded.image(QStringLiteral("report_previews/group/master.jpg")).startsWith(embeddedPicture));
+    EXPECT_TRUE(
+        embedded.image(QStringLiteral("../run_a/report_previews/group/master.jpg")).startsWith(embeddedPicture));
+    // The file is there and reads, by each of these: none is a picture of the report.
+    ASSERT_TRUE(QFileInfo(QDir(run).filePath(QStringLiteral("../../elsewhere.jpg"))).isFile());
+    for (const QString& leaving :
+         {QStringLiteral("../../elsewhere.jpg"), QStringLiteral("..\\..\\elsewhere.jpg"),
+          QStringLiteral("../run_a/../../elsewhere.jpg"), QStringLiteral("report_previews/../../../elsewhere.jpg"),
+          outside, QDir::toNativeSeparators(outside)})
+    {
+        EXPECT_TRUE(embedded.image(leaving).isEmpty()) << leaving.toStdString();
+        EXPECT_TRUE(embedded.thumbnail(leaving).isEmpty()) << leaving.toStdString();
+    }
+
+    // What a path is held to before anything is read or copied by it.
+    for (const QString& inside : {QStringLiteral("report_previews/group/master.jpg"), QStringLiteral("a/../b.jpg"),
+                                  QStringLiteral("report_previews\\group\\master.jpg")})
+    {
+        EXPECT_TRUE(staysInsideItsFolder(inside)) << inside.toStdString();
+    }
+    for (const QString& leaving :
+         {QString(), QStringLiteral("  "), QStringLiteral(".."), QStringLiteral("../x.jpg"),
+          QStringLiteral("a/../../x.jpg"), QStringLiteral("/etc/x.jpg"), QStringLiteral("\\\\server\\share\\x.jpg"),
+          QStringLiteral("C:/x.jpg"), QStringLiteral("C:x.jpg"), QStringLiteral("file:///C:/x.jpg"),
+          QStringLiteral("..\\x.jpg")})
+    {
+        EXPECT_FALSE(staysInsideItsFolder(leaving)) << leaving.toStdString();
+    }
+}
+
+// A profile's folder is a person's name, and the single file names none. A path that ends at the profile has nothing
+// after it to say where a name with a space in it stops: inside quotes the closing quote says it, and the profile of
+// the person the document is written for is known. "C:/Users/John Smith" read "~ Smith".
+TEST(ReportAssets, AProfileNamedToItsEndIsTakenOutWholeWhereItsNameCanBeTold)
+{
+    ReportAssets embedded(ReportForm::Embedded, QString());
+    embedded.setProfileFolder(QStringLiteral("C:\\Users\\John Smith"));
+
+    // Inside quotes, anyone's.
+    EXPECT_EQ(embedded.message(QStringLiteral("The folder 'C:/Users/Ana Maria' could not be read.")),
+              QStringLiteral("The folder '~' could not be read."));
+    EXPECT_EQ(embedded.message(QStringLiteral("Reading \"C:\\Users\\Ana Maria\" failed")),
+              QStringLiteral("Reading \"~\" failed"));
+    EXPECT_EQ(embedded.message(QStringLiteral("The folder '/home/ana maria' could not be read.")),
+              QStringLiteral("The folder '~' could not be read."));
+    // With nothing around it, the person's own, in either spelling of the separator.
+    EXPECT_EQ(embedded.message(QStringLiteral("C:\\Users\\John Smith is full")), QStringLiteral("~ is full"));
+    EXPECT_EQ(embedded.message(QStringLiteral("No room in c:/users/john smith.")), QStringLiteral("No room in ~."));
+    // A longer name that begins the same is another profile, and goes whole with what is under it.
+    EXPECT_EQ(embedded.message(QStringLiteral("Read C:/Users/John Smithson/astro/flat.fits")),
+              QStringLiteral("Read flat.fits"));
+    // A name with a space, with something under it: the separator ends it.
+    EXPECT_EQ(embedded.message(QStringLiteral("Read /home/ana maria/astro/flat.fits")),
+              QStringLiteral("Read flat.fits"));
+    EXPECT_EQ(embedded.message(QStringLiteral("Read C:\\Users\\Ana Maria\\astro\\flat.fits")),
+              QStringLiteral("Read flat.fits"));
+
+    // The linked report is the run's own, on the machine it ran on, and keeps the run's words.
+    ReportAssets linked(ReportForm::Linked, QString());
+    linked.setProfileFolder(QStringLiteral("C:/Users/John Smith"));
+    EXPECT_EQ(linked.message(QStringLiteral("C:/Users/John Smith is full")),
+              QStringLiteral("C:/Users/John Smith is full"));
+}
 
 TEST(ReportAssets, APictureInsideADocumentIsBoundedAndWrittenAgainAsAJpeg)
 {

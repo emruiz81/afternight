@@ -442,14 +442,6 @@ TEST(ReportFrameFacts, EveryLightOfAStackHasOneStateAndTheStatesAddUpToTheRunsFa
                   facts.lightsLeftOutByUser);
         EXPECT_EQ(model.run.frames, facts.lightsTaken);
 
-        if (facts.lightsCombined > 0)
-        {
-            ASSERT_TRUE(model.run.framesUsed.has_value());
-            EXPECT_EQ(*model.run.framesUsed, facts.lightsCombined);
-            ASSERT_TRUE(model.run.integratedMs.has_value());
-            EXPECT_GT(*model.run.integratedMs, 0);
-            EXPECT_LE(*model.run.integratedMs, model.run.capturedMs);
-        }
         int counted = 0;
         for (const ReportFrameStateCount& count : model.run.frameStates)
         {
@@ -458,6 +450,25 @@ TEST(ReportFrameFacts, EveryLightOfAStackHasOneStateAndTheStatesAddUpToTheRunsFa
             counted += count.frames;
         }
         EXPECT_LE(counted, model.run.frames);
+        // The lights used are counted, and their exposure summed, only when every light the run took states its
+        // fate: beside lights that state none - those of a master reused from a run whose report is not kept - a
+        // count of the ones used would read the others as left out.
+        const bool everyLightStatesItsFate = counted > 0 && counted == model.run.frames;
+        EXPECT_EQ(model.run.framesUsed.has_value(), everyLightStatesItsFate);
+        if (everyLightStatesItsFate)
+        {
+            EXPECT_EQ(*model.run.framesUsed, facts.lightsCombined);
+            if (facts.lightsCombined > 0)
+            {
+                ASSERT_TRUE(model.run.integratedMs.has_value());
+                EXPECT_GT(*model.run.integratedMs, 0);
+                EXPECT_LE(*model.run.integratedMs, model.run.capturedMs);
+            }
+        }
+        else
+        {
+            EXPECT_FALSE(model.run.integratedMs.has_value());
+        }
         // The run's count of each stack agrees with its records, so nothing is named as not stated about it.
         EXPECT_FALSE(namesNotStated(model, QStringLiteral("Which lights the master")));
     }

@@ -185,12 +185,11 @@ void addMasterOutcomes(const ReportModel& model, Issues& issues, const ReportIss
                     stated.append(lights == 1 ? reportText("1 light: %1").arg(reason)
                                               : reportText("%1 lights: %2").arg(lights).arg(reason));
                 }
-                issues.add(
-                    kind, ReportIssueSeverity::Warning,
-                    leftOut == 1
-                        ? reportText("The stack of %1 left 1 registered light out").arg(master.name)
-                        : reportText("The stack of %1 left %2 registered lights out").arg(master.name).arg(leftOut),
-                    stated.join(QLatin1Char(' ')), {}, master.key, masterAnchor(master));
+                issues.add(kind, ReportIssueSeverity::Warning,
+                           leftOut == 1 ? reportText("The stack of %1 left 1 registered light out").arg(master.name)
+                                        : reportText("The stack of %1 left %2 registered lights out")
+                                              .arg(master.name, QString::number(leftOut)),
+                           stated.join(QLatin1Char(' ')), {}, master.key, masterAnchor(master));
             }
             break;
         case ReportIssueKind::StackedTwice:

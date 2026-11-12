@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QtTest/QSignalSpy>
 
@@ -955,6 +956,40 @@ TEST(WorkflowExecutor, SuccessCapturesExclusiveCompletionPhasesBeforeTotal)
     EXPECT_EQ(run_metadata->stateCommitMs, result.executorTiming.stateCommitMs);
     EXPECT_EQ(run_metadata->archiveMs, result.executorTiming.archiveMs);
     EXPECT_EQ(run_metadata->reportMs, result.executorTiming.reportMs);
+}
+
+// A run the caller gave no id takes one from the executor: a stamp of the clock, and never at or before the latest
+// run already in the folder's history. The history is ordered by these names, so a clock that went back - the
+// autumn hour, another time zone - would otherwise put the run before the one it follows.
+TEST(WorkflowExecutor, ARunGivenNoIdIsNamedAfterTheLatestRunOfItsFolder)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    // A run of the folder's history that the clock has not reached yet.
+    const QString latest = QStringLiteral("20990101_000000_000");
+    ASSERT_TRUE(QDir(temp_dir.path()).mkpath(QStringLiteral("history/") + latest));
+
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = temp_dir.path();
+    manifest.executionId.clear();
+
+    WorkflowExecutor executor(makeAdvancingClock());
+    const auto archive = installRecordingArchive(executor);
+    executor.addStage(
+        std::make_unique<TestStage>(QStringLiteral("Stage"), WorkflowStage::LightsStacking, StageResult::success()));
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+
+    ASSERT_TRUE(result.success) << result.errors.join(QLatin1Char('\n')).toStdString();
+    ASSERT_EQ(archive->commits, 1);
+    // The recording archive writes its report into the folder the run's id names.
+    const QStringList runs = QDir(QDir(temp_dir.path()).filePath(QStringLiteral("history")))
+                                 .entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    ASSERT_EQ(runs.size(), 2) << runs.join(QLatin1Char(' ')).toStdString();
+    EXPECT_EQ(runs.front(), latest);
+    const QString named = runs.back();
+    EXPECT_GT(named, latest) << "the run is named at or before the latest run of its folder";
+    static const QRegularExpression stamp(QStringLiteral("^\\d{8}_\\d{6}_\\d{3}$"));
+    EXPECT_TRUE(stamp.match(named).hasMatch()) << named.toStdString();
 }
 
 TEST(WorkflowExecutor, PartialSuccessPreservesCompletionTimingAndArchiveReportBehavior)

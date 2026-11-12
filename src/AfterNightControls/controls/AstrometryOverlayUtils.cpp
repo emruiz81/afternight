@@ -309,23 +309,30 @@ OverlayGridLayout layoutOverlayGrid(const an::WcsSolution& solution, const QRect
     }
 
     // The part as a frame of its own, its origin at the part's corner: the picture's layout sets the grid's labels
-    // where the lines meet the frame's edges, the edges of what the view shows.
+    // where the lines meet the frame's edges, the edges of what the view shows. A frame is a whole number of the
+    // scene's units, so the scene is laid out in units no larger than a screen pixel - a whole number of them to an
+    // image pixel - and its frame ends within a screen pixel of the part, whatever the zoom.
     std::vector<AnnotationGridLine> lines = buildAnnotationGrid(solution, part, AnnotationGridDensity::Normal);
     const QPointF origin = part.topLeft();
+    const double units = std::ceil((std::max)(1.0, scale));
     for (AnnotationGridLine& line : lines)
     {
         for (QPolygonF& segment : line.segments)
         {
-            segment.translate(-origin);
+            for (QPointF& point : segment)
+            {
+                point = (point - origin) * units;
+            }
         }
         for (AnnotationGridLine::Crossing& crossing : line.crossings)
         {
-            crossing.point -= origin;
+            crossing.point = (crossing.point - origin) * units;
         }
     }
     auto scene = std::make_shared<AnnotationScene>();
-    scene->imageSize = QSize(static_cast<int>(std::ceil(part.width())), static_cast<int>(std::ceil(part.height())));
-    scene->referenceLength = fontPixels / (scale * unitFont);
+    scene->imageSize =
+        QSize(static_cast<int>(std::ceil(part.width() * units)), static_cast<int>(std::ceil(part.height() * units)));
+    scene->referenceLength = fontPixels * units / (scale * unitFont);
     scene->grid = std::move(lines);
 
     AnnotationContent content;
@@ -336,6 +343,7 @@ OverlayGridLayout layoutOverlayGrid(const an::WcsSolution& solution, const QRect
     result.scene = std::move(scene);
     result.layout = std::move(layout);
     result.origin = origin;
+    result.unitsPerPixel = units;
     return result;
 }
 
@@ -357,7 +365,7 @@ struct FieldCatalogQueries::State
     double marginDegrees = 0.0;
 
     /// The catalog, read by the first query of its source; touched only by the one worker a query runs on at a time.
-    std::shared_ptr<an::SkyCatalog> loaded;
+    std::shared_ptr<const an::SkyCatalog> loaded;
 
     /// Which source the catalog was read from; touched only by that worker.
     std::uint64_t loadedGeneration = 0u;
@@ -413,9 +421,9 @@ struct FieldQueryOutcome
 /// The catalog's entries inside a solution's field and a margin, for a scene's choices, read and queried on a worker.
 [[nodiscard]] FieldQueryOutcome queryField(const an::consumer::EngineSession& session, const BundledCatalog catalog,
                                            const BundledCatalogSource& source, const std::uint64_t generation,
-                                           std::shared_ptr<an::SkyCatalog>& loaded, std::uint64_t& loadedGeneration,
-                                           const an::WcsSolution& solution, const AnnotationContent& content,
-                                           const double marginDegrees)
+                                           std::shared_ptr<const an::SkyCatalog>& loaded,
+                                           std::uint64_t& loadedGeneration, const an::WcsSolution& solution,
+                                           const AnnotationContent& content, const double marginDegrees)
 {
     FieldQueryOutcome outcome;
     const an::Result<an::SkyCoordinate> center = solution.fieldCenter();
@@ -428,14 +436,28 @@ struct FieldQueryOutcome
     if (!loaded || loadedGeneration != generation)
     {
         loaded.reset();
-        // The overlay asks only what lies in a field, so the catalog is built without a name index.
-        an::Result<an::SkyCatalog> read = loadBundledCatalog(session, catalog, {}, source, false);
-        if (!read.hasValue())
+        // The overlay asks only what lies in a field, so the catalog has no name index. The product's own catalog
+        // is the one every reader of fields shares; a source the overlay was given is read for it alone.
+        if (source)
         {
-            outcome.failure = QString::fromUtf8(read.status().message());
-            return outcome;
+            an::Result<an::SkyCatalog> read = loadBundledCatalog(session, catalog, {}, source, false);
+            if (!read.hasValue())
+            {
+                outcome.failure = QString::fromUtf8(read.status().message());
+                return outcome;
+            }
+            loaded = std::make_shared<const an::SkyCatalog>(std::move(*read));
         }
-        loaded = std::make_shared<an::SkyCatalog>(std::move(*read));
+        else
+        {
+            an::Result<std::shared_ptr<const an::SkyCatalog>> shared = sharedBundledCatalog(session, catalog, {});
+            if (!shared.hasValue())
+            {
+                outcome.failure = QString::fromUtf8(shared.status().message());
+                return outcome;
+            }
+            loaded = std::move(*shared);
+        }
         loadedGeneration = generation;
     }
     an::Result<an::consumer::OperationScope> scope =

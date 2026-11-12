@@ -308,7 +308,9 @@ private:
     bool m_PromptCancelPendingAfterActiveCancellation = false;
     bool m_OperationInProgress = false;
     bool m_RepositoryRefreshInProgress = false;
-    bool m_RepositoryRefreshOutdated = false;
+    /// The refresh asked for while another was on its way, as its own caller asked for it - whether to keep the cards
+    /// shown: it is run when the one on its way lands. Nothing while no refresh waits.
+    std::optional<bool> m_RepositoryRefreshWaiting;
 };
 
 } // namespace an::ui

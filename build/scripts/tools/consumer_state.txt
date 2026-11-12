@@ -329,6 +329,17 @@ state src/AfterNightControls/app/ProcessRegistry.cpp registry
     synchronization  GUI thread: registration runs before the menus are wired, and every launch reads it there
     reason           The process registry every menu, launcher and favourite list reads.
 
+state src/AfterNightControls/app/BundledCatalogs.cpp catalogs
+    scope            sharedCatalogs
+    category         ui-state
+    owner            the first call to sharedBundledCatalog; each catalog is held by the readers that asked for it and
+                     released with the last of them
+    lifetime         from first use to process exit; a catalog only while a reader holds it
+    synchronization  each catalog's own mutex orders its reads and the reads of its weak reference, from the workers
+                     that ask for it
+    reason           Lets every solved view's overlay and every Annotate Image window read what lies in a field from one
+                     catalog instead of each keeping tens of megabytes of its own.
+
 state src/AfterNightControls/app/ExtensionManager.cpp registry
     scope            ExtensionRuntimeStatusRegistry::instance
     category         ui-registration

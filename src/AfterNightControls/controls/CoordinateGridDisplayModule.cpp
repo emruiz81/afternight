@@ -101,10 +101,12 @@ void CoordinateGridDisplayModule::onDraw(QPainter& painter)
     {
         return;
     }
+    // The scene is in its own units, a whole number of them to an image pixel, from the corner of the part shown.
     const double scale = impl.cacheKey.view.scale;
+    const double units = impl.grid.unitsPerPixel;
     painter.save();
-    painter.scale(scale, scale);
-    painter.translate(impl.grid.origin);
+    painter.scale(scale / units, scale / units);
+    painter.translate(impl.grid.origin * units);
     paintAnnotations(painter, *impl.grid.scene, *impl.grid.layout, impl.style);
     painter.restore();
 }
@@ -209,7 +211,9 @@ QVector<QRectF> CoordinateGridDisplayModule::projectedLabelBoxes() const
     {
         if (label.role == AnnotationLabelRole::Grid && label.source < grid.scene->grid.size())
         {
-            const QRectF box = label.box.translated(grid.origin);
+            // From the scene's units to image pixels, then to the widget's.
+            const double units = grid.unitsPerPixel;
+            const QRectF box = QRectF(label.box.topLeft() / units, label.box.size() / units).translated(grid.origin);
             boxes.push_back(QRectF(box.topLeft() * scale, box.size() * scale));
         }
     }

@@ -50,6 +50,11 @@ enum class FitsStage : std::uint8_t
 struct FitsHandle
 {
     std::unique_ptr<openfits::reader> reader; ///< The open file.
+
+    /// The decoded tiles of a compressed image whose tiles span several rows, kept between the strips and the bands
+    /// of rows a decode reads, so each tile is decoded once; null for every other image, whose tiles are a row each
+    /// and are never met twice.
+    std::unique_ptr<openfits::tile_cache> tiles;
 };
 
 /// The selected image's description, as read from its header, and the facts a decode needs from it.
@@ -62,6 +67,7 @@ struct FitsHeader
     double scale = 1.0; ///< BSCALE, or 1 when absent.
     double zero = 0.0; ///< BZERO, or 0 when absent.
     bool compressed = false; ///< Whether the image is tile-compressed.
+    bool tilesSpanRows = false; ///< Whether a compressed image's tiles are more than one row high.
 };
 
 /// Builds a refusal this adapter decided the meaning of.
@@ -103,8 +109,23 @@ Status fitsLibraryFailure(const openfits::error& error, FitsStage stage, std::st
 /// @return the handle, or the library's refusal through `fitsLibraryFailure`.
 Result<FitsHandle> openFits(std::string_view path, const EngineLimits& limits);
 
+/// Opens a FITS file as `openFits` does, with one record of a header read as blanks.
+///
+/// The record is a card the library cannot take and the codec does not need: read as blanks it is a card with no
+/// keyword, which the standard allows anywhere in a header, and everything else of the file is read as it is.
+/// @param path literal UTF-8 disk path.
+/// @param limits the engine limits whose image size bounds the library's allocations.
+/// @param record the file offset of the 80-byte record.
+/// @return the handle, or the library's refusal through `fitsLibraryFailure`.
+Result<FitsHandle> openFitsWithoutRecord(std::string_view path, const EngineLimits& limits, std::uint64_t record);
+
 /// Selects the requested image and reads its header into a description, without reading a pixel.
-/// @param file the open file.
+///
+/// An integer image whose `BLANK` card states no integer is one the library cannot describe, and one whose samples
+/// the codec reads all the same, since it reads no sample as undefined: the file is then opened again with that
+/// card read as blanks, and `file` holds the new reader. A compressed image whose tiles span several rows is given
+/// the cache its decodes keep those tiles in.
+/// @param file the open file; its reader is replaced when the file had to be opened again.
 /// @param engine the engine context whose limits bound the geometry.
 /// @param execution the operation; cancellation is checked per header-data unit and per card.
 /// @param request the image index, and whether to read metadata and validate the payload.
@@ -112,9 +133,9 @@ Result<FitsHandle> openFits(std::string_view path, const EngineLimits& limits);
 /// @param enumerateImages whether to count every image, which a probe reports; a decode after its
 ///        probe passes false and stops at the selected image.
 /// @return the header, or the failures `createFitsCodec` lists for a read.
-Result<FitsHeader> readFitsHeader(const openfits::reader& file, const EngineContext& engine,
-                                  const ExecutionContext& execution, const CodecReadRequest& request,
-                                  FitsInteger64Policy integer64, bool enumerateImages = true);
+Result<FitsHeader> readFitsHeader(FitsHandle& file, const EngineContext& engine, const ExecutionContext& execution,
+                                  const CodecReadRequest& request, FitsInteger64Policy integer64,
+                                  bool enumerateImages = true);
 
 /// Opens a file, reads the selected image's header without validating the payload, and decodes it.
 /// @param engine the engine context that owns the frame.
@@ -136,13 +157,14 @@ Result<CodecDecodeResult> readFits(const EngineContext& engine, const ExecutionC
 /// @param integer64 the BITPIX=64 policy.
 /// @param file the open file; borrowed.
 /// @param header the selected image's header, consumed.
+/// @param tiles the handle's tile cache, or null.
 /// @return the frame and its metadata; `ErrorCode::OutOfRange` for a region outside the image or a 64-bit code the
 ///         policy refuses; `ErrorCode::InvalidData` with `CodecFailure::PayloadUnreadable` for pixels the library
 ///         cannot read; or the engine context's memory refusal.
 Result<CodecDecodeResult> readPreparedFits(const EngineContext& engine, const ExecutionContext& execution,
                                            const CodecReadRequest& request, const CodecRegion* region,
                                            FitsInteger64Policy integer64, const openfits::reader& file,
-                                           FitsHeader header);
+                                           FitsHeader header, openfits::tile_cache* tiles = nullptr);
 
 /// Decodes a checked region of the selected image into memory laid out as `layout`.
 ///
@@ -159,10 +181,13 @@ Result<CodecDecodeResult> readPreparedFits(const EngineContext& engine, const Ex
 /// @param header the selected image's header.
 /// @param samples where the region's first sample goes.
 /// @param layout the region's layout in that memory.
+/// @param tiles the handle's tile cache, or null: where the strips of a compressed image whose tiles span several
+///        rows find the tiles an earlier strip decoded.
 /// @return success, or the typed failure of the first strip that could not be read or admitted.
 Status readFitsPixels(const EngineContext& engine, const ExecutionContext& execution, const CodecReadRequest& request,
                       const CodecRegion& area, FitsInteger64Policy integer64, const openfits::reader& file,
-                      const FitsHeader& header, std::byte* samples, const ImageLayout& layout);
+                      const FitsHeader& header, std::byte* samples, const ImageLayout& layout,
+                      openfits::tile_cache* tiles = nullptr);
 
 /// Writes a frame and its cards to the request's pending path.
 /// @param engine the engine context that owns the staging.

@@ -28,6 +28,18 @@ namespace ImageIntegration::Reporting
 /// What the report prints where a value is not stated: an en dash. A missing value is never printed as a zero.
 [[nodiscard]] AFTERNIGHTPROCESSES_API QString noValueText();
 
+/// Whether a path names a file inside the folder it is relative to: it is relative, names no drive, and no part of
+/// it climbs out of the folder.
+///
+/// A stored report and a run's records are files on disk - one may have been edited, or have come in a folder
+/// someone sent - so a path one of them states is held to this before a file is read, copied or linked by it. A
+/// path that fails is no picture of the run: read, it would bring a file from elsewhere on the machine into a
+/// document meant to be sent.
+///
+/// @param relativePath the path as stated, with either separator.
+/// @return whether the path stays inside its folder; false for an empty path.
+[[nodiscard]] AFTERNIGHTPROCESSES_API bool staysInsideItsFolder(const QString& relativePath);
+
 /// A measured figure at four significant digits, the zeros its digits end in dropped.
 ///
 /// - From one thousandth up to a thousand, in plain decimals: `0.01743`, `2.5`, `123.5`.

@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
 #include <QGuiApplication>
 #include <QIcon>
@@ -25,6 +26,9 @@
 #include "controls/PersistenceDbExecutor.h"
 #include "controls/SettingsDialog.h"
 #include "controls/settings/GeneralSettingsPage.h"
+
+#include <AfterNightPlatform/Logging.h>
+#include <AfterNightPlatform/LoggingConfig.h>
 #include "controls/settings/SettingsPage.h"
 #include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
@@ -352,6 +356,32 @@ TEST_F(SettingsDialogTest, GeneralSettingsPage_RecognizesLoggingOnlyImport)
     EXPECT_TRUE(an::ui::settings::containsRecognizedImmediateImportSection(root));
     EXPECT_FALSE(an::ui::settings::containsRecognizedImmediateImportSection(
         QJsonObject{{QStringLiteral("unknown"), QJsonObject{}}}));
+}
+
+// A log folder that cannot be written leaves the log in the file it was in. The settings say so to the person who
+// chose the folder, naming it, where only a line of the log itself used to.
+TEST_F(SettingsDialogTest, ALogFolderThatCannotBeWrittenIsSaidToThePersonWhoChoseIt)
+{
+    ASSERT_TRUE(an::platform::isLoggingInitialized()) << "the suite logs to a file of its own";
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+    // A folder under a file can be neither made nor written.
+    const QString occupied = tempDir.filePath(QStringLiteral("occupied"));
+    {
+        QFile file(occupied);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+        file.write("x");
+    }
+    an::platform::LoggingConfig config;
+    static_cast<void>(an::platform::loadLoggingConfig(config));
+    config.logDirectory = QDir(occupied).filePath(QStringLiteral("logs")).toStdString();
+
+    const QString problem = an::ui::settings::applyLoggingConfigOrSayWhy(config);
+
+    EXPECT_FALSE(problem.isEmpty());
+    EXPECT_TRUE(problem.contains(QDir::toNativeSeparators(QString::fromStdString(config.logDirectory))))
+        << problem.toStdString();
+    EXPECT_TRUE(problem.contains(QStringLiteral("cannot be written"))) << problem.toStdString();
 }
 
 TEST_F(SettingsDialogTest, GeneralSettingsPage_DefaultSaveFormatUsesCanonicalToken)

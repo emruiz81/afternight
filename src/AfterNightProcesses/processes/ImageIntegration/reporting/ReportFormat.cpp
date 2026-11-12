@@ -7,6 +7,7 @@
 #include "processes/ImageIntegration/model/GroupingKeys.h"
 
 #include <QByteArray>
+#include <QDir>
 #include <QLocale>
 #include <QStringList>
 #include <QTime>
@@ -151,6 +152,19 @@ struct RoundedMagnitude
 QString noValueText()
 {
     return QStringLiteral("–");
+}
+
+bool staysInsideItsFolder(const QString& relativePath)
+{
+    QString path = relativePath.trimmed();
+    path.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    // Nothing; a root's or a share's path; one that names a drive or a scheme.
+    if (path.isEmpty() || path.startsWith(QLatin1Char('/')) || path.contains(QLatin1Char(':')))
+    {
+        return false;
+    }
+    const QString clean = QDir::cleanPath(path);
+    return clean != QStringLiteral(".") && clean != QStringLiteral("..") && !clean.startsWith(QStringLiteral("../"));
 }
 
 QString formatFigure(double value)

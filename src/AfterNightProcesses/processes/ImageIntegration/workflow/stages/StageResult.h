@@ -25,8 +25,14 @@
 #include <QStringList>
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <vector>
+
+namespace an
+{
+struct DisplayPresentationAnalysis;
+} // namespace an
 
 /**
  * @brief Represents a file that was replaced during execution and staged for archiving.
@@ -631,6 +637,9 @@ struct IntegrationGroupResult
     bool reportPreviewPreparedForCurrentRun = false; ///< Suppresses a master reload after a current-run attempt.
     QByteArray reportDetailJpeg; ///< JPEG of the master's centre at full scale, stretched as reportPreviewJpeg is.
     QSize reportDetailSize; ///< Pixel dimensions of reportDetailJpeg; empty when no detail was prepared.
+    /// The display stretch reportPreviewJpeg was presented through, so an earlier master set beside it is presented
+    /// through the same one without this master's file being read again; null when none was kept.
+    std::shared_ptr<const an::DisplayPresentationAnalysis> reportPreviewStretch;
     OutputRetentionStatus outputRetentionStatus = OutputRetentionStatus::Unknown;
     QString outputRetentionReason;
     int lightFrameCount = 0;

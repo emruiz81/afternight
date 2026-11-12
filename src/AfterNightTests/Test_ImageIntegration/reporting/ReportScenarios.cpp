@@ -1206,9 +1206,9 @@ private:
             {
                 group.inputFiles.push_back(
                     FrameId(QStringLiteral("%1/%2_%3_%4s_%5.fits")
-                                .arg(inputFolder, folder, ImageIntegration::sanitizeFilename(key))
-                                .arg(exposureSeconds, 0, 'f', 2)
-                                .arg(frame, 4, 10, QLatin1Char('0'))));
+                                .arg(inputFolder, folder, ImageIntegration::sanitizeFilename(key),
+                                     QString::number(exposureSeconds, 'f', 2),
+                                     QStringLiteral("%1").arg(frame, 4, 10, QLatin1Char('0')))));
             }
             group.skipIfExists = origin == CalibrationOrigin::Reused;
         }
@@ -1328,10 +1328,11 @@ private:
 
                 const QDateTime local =
                     light.captureUtc.toTimeZone(QTimeZone::fromSecondsAheadOfUtc(kSiteUtcOffsetSeconds));
+                // Every part is set in one pass: a folder or a filter named with a place marker keeps it.
                 light.path = QStringLiteral("%1/%2_%3_-10.00_%4s_%5.fits")
-                                 .arg(folder, local.toString(QStringLiteral("yyyy-MM-dd_HH-mm-ss")), plan.filter)
-                                 .arg(light.exposureSeconds, 0, 'f', 2)
-                                 .arg(index, 4, 10, QLatin1Char('0'));
+                                 .arg(folder, local.toString(QStringLiteral("yyyy-MM-dd_HH-mm-ss")), plan.filter,
+                                      QString::number(light.exposureSeconds, 'f', 2),
+                                      QStringLiteral("%1").arg(index, 4, 10, QLatin1Char('0')));
                 light.id = FrameId(light.path);
                 if (m_lightFilesWritten && !writeLight(plan, light))
                 {
@@ -2074,6 +2075,7 @@ const std::vector<ReportScenarioId>& allReportScenarios()
         ReportScenarioId::EveryLightState,
         ReportScenarioId::PhotometricAndLocalWeighting,
         ReportScenarioId::DistortionCorrectionsAndManualPoints,
+        ReportScenarioId::PlaceMarkersInNames,
     };
     return kScenarios;
 }
@@ -2130,6 +2132,8 @@ QString reportScenarioName(ReportScenarioId id)
         return QStringLiteral("photometric-and-local-weighting");
     case ReportScenarioId::DistortionCorrectionsAndManualPoints:
         return QStringLiteral("distortion-corrections-and-manual-points");
+    case ReportScenarioId::PlaceMarkersInNames:
+        return QStringLiteral("place-markers-in-names");
     }
     return QStringLiteral("unknown");
 }
@@ -2569,6 +2573,22 @@ std::optional<ReportScenario> buildReportScenario(ReportScenarioId id)
         {
             group.settings.manualControlPointsByFrame.insert(group.lightFiles[light].canonicalPath(), points);
         }
+        break;
+    }
+
+    case ReportScenarioId::PlaceMarkersInNames: {
+        // A target and a filter can be named anything: these names hold what a sentence fills in.
+        builder.beginRun(runId);
+        const FrameId dark = builder.addDark(120.0, 20);
+        const int registration = builder.addRegistrationGroup(QStringLiteral("Field %1"));
+        LightGroupPlan plan;
+        plan.target = QStringLiteral("Field %1");
+        plan.filter = QStringLiteral("Band %2");
+        plan.lightsPerNight = {14, 12};
+        plan.registrationGroup = registration;
+        plan.dark = dark;
+        plan.droppedByStack = 2;
+        builder.addLightGroup(plan);
         break;
     }
     }

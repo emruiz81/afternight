@@ -680,6 +680,27 @@ TEST(ReportModelBuilder, LightsOfSeveralExposuresAreCountedLightByLight)
     EXPECT_EQ(model.run.capturedMs, exposure.integrationMs);
 }
 
+// A master's picture is one of its run's folder. The run's own preview stands in where the archive pictured
+// nothing - as the archive names it, inside the run's folder. One the archive could not move there is still where
+// the stage wrote it, named by its whole path: the report states no picture rather than one outside its folder.
+TEST(ReportModelBuilder, ARunsPreviewThatIsNotInItsFolderIsNoPictureOfTheReport)
+{
+    auto scenario = built(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_FALSE(scenario->result.integrationGroupResults.empty());
+    auto& group = scenario->result.integrationGroupResults.front();
+
+    group.previewPath = QStringLiteral("groups/luminance/preview.png");
+    EXPECT_EQ(buildScenarioModel(*scenario).masters.front().preview, QStringLiteral("groups/luminance/preview.png"));
+
+    group.previewPath = QDir(scenario->outputDirectory).filePath(QStringLiteral("master.fits.preview.png"));
+    ASSERT_TRUE(QDir::isAbsolutePath(group.previewPath));
+    EXPECT_TRUE(buildScenarioModel(*scenario).masters.front().preview.isEmpty());
+
+    group.previewPath = QStringLiteral("../elsewhere/preview.png");
+    EXPECT_TRUE(buildScenarioModel(*scenario).masters.front().preview.isEmpty());
+}
+
 TEST(ReportModelBuilder, ALightThatStatesNoExposureIsCountedAndAddsNoTime)
 {
     auto scenario = built(ReportScenarioId::OneMonoMaster);

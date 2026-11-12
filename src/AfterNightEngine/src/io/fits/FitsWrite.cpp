@@ -57,6 +57,11 @@ constexpr std::uint64_t kStagedPayloadBytes = std::uint64_t{4u} << 20u;
 /// The most header and fill a staged file may hold beside its payload.
 constexpr std::uint64_t kStagedHeaderBytes = std::uint64_t{64u} << 10u;
 
+/// The most records the library adds to the header it is given: the cards that describe the unit, and for a
+/// compressed image those of its table and its tiling.
+constexpr std::size_t kLibraryRecords = 16u;
+constexpr std::size_t kLibraryCompressedRecords = 48u;
+
 /// Bounded optional staging for a small uncompressed file: the library writes every header and sample into it, and
 /// the disk sees one completed write. A tight memory budget simply keeps the streamed path.
 class StagedFile
@@ -133,10 +138,20 @@ private:
     std::size_t m_position = 0u;
 };
 
+/// Whether the writer states a keyword itself, so that a card given under it is left out. `CONTINUE` is the
+/// library's to write and is not one of these: a continuation given as a card of its own is the rest of the string
+/// before it, and is joined to that string, which the library then continues over records of its own.
 bool managedKeyword(std::string_view key)
 {
-    return isStructuralFitsKeyword(key) || openfits::is_structural(key) || key == "ROWORDER" || key == "BAYERPAT" ||
-           key == "XBAYROFF" || key == "YBAYROFF" || key == "SOFTWARE" || key == "PROGRAM";
+    return isStructuralFitsKeyword(key) || (openfits::is_structural(key) && key != "CONTINUE") || key == "ROWORDER" ||
+           key == "BAYERPAT" || key == "XBAYROFF" || key == "YBAYROFF" || key == "SOFTWARE" || key == "PROGRAM";
+}
+
+/// Whether a card's value is a string that says more of it follows: quoted, and ending in an ampersand.
+bool continuedString(const CodecCard& card)
+{
+    const std::string& value = card.value();
+    return value.size() >= 3u && value.front() == '\'' && value.back() == '\'' && value[value.size() - 2u] == '&';
 }
 
 bool ascii(std::string_view value)
@@ -235,9 +250,30 @@ Result<std::vector<CodecCard>> outputCards(const CodecEncodeRequest& request, co
         auto normalized = CodecCard::create(CodecNamespace::Fits, key, card.value(), card.comment());
         if (!normalized.hasValue())
             return normalized.status();
+        if (key == "CONTINUE")
+        {
+            // A continuation stays behind the string it continues, which the header joins it to; one with no
+            // string to continue - nothing before it, or a card that says no more follows - is left out.
+            if (!cards.empty() && continuedString(cards.back()))
+                cards.push_back(std::move(*normalized));
+            return {};
+        }
         if (key != "HISTORY" && key != "COMMENT")
         {
-            std::erase_if(cards, [&](const CodecCard& old) { return old.keyword() == key; });
+            // A keyword stated again replaces the card before it, and the continuations that card had with it.
+            for (std::size_t index = 0u; index < cards.size();)
+            {
+                if (cards[index].keyword() != key)
+                {
+                    ++index;
+                    continue;
+                }
+                std::size_t end = index + 1u;
+                while (end < cards.size() && cards[end].keyword() == "CONTINUE")
+                    ++end;
+                cards.erase(cards.begin() + static_cast<std::ptrdiff_t>(index),
+                            cards.begin() + static_cast<std::ptrdiff_t>(end));
+            }
         }
         cards.push_back(std::move(*normalized));
         return {};
@@ -454,8 +490,38 @@ Result<CodecEncodeReport> writeFits(const EngineContext& engine, const Execution
             openfits::image_info image;
             image.geometry.axes = planes == 1u ? std::vector<std::uint64_t>{extent.width(), extent.height()}
                                                : std::vector<std::uint64_t>{extent.width(), extent.height(), planes};
-            for (const CodecCard& card : *cards)
-                addCard(image.header, card);
+            for (std::size_t index = 0u; index < cards->size(); ++index)
+            {
+                const CodecCard& card = (*cards)[index];
+                if (!continuedString(card) || index + 1u == cards->size() ||
+                    (*cards)[index + 1u].keyword() != "CONTINUE")
+                {
+                    addCard(image.header, card);
+                    continue;
+                }
+                // A string given in pieces - its first under its keyword, the others as continuations - is one
+                // string: each piece gives up the ampersand that said more followed, and the library continues the
+                // whole over records of its own. The first comment the pieces state is the string's.
+                std::string text = unquoted(card.value());
+                text.pop_back();
+                std::string comment = card.comment();
+                while (index + 1u < cards->size() && (*cards)[index + 1u].keyword() == "CONTINUE")
+                {
+                    const CodecCard& piece = (*cards)[++index];
+                    const std::string& value = piece.value();
+                    const bool quoted = value.size() >= 2u && value.front() == '\'' && value.back() == '\'';
+                    std::string more = quoted ? unquoted(value) : value;
+                    const bool continues = continuedString(piece);
+                    if (continues)
+                        more.pop_back();
+                    text += more;
+                    if (comment.empty())
+                        comment = piece.comment();
+                    if (!continues)
+                        break;
+                }
+                image.header.append(openfits::card(card.keyword(), text, comment));
+            }
             image.header.set("SOFTWARE", kEngineVersionString);
             image.header.set("PROGRAM", "AfterNight");
             image.header.set("ROWORDER",
@@ -497,6 +563,16 @@ Result<CodecEncodeReport> writeFits(const EngineContext& engine, const Execution
                 packed.tile[0] = extent.width();
                 imageOptions.compression = std::move(packed);
             }
+            // A header of more records than a read of this codec takes is not written: the file would be one its own
+            // read refuses. The records are the ones given here, as the library writes them, and the ones it adds.
+            const std::size_t givenRecords = image.header.to_string().size() / 80u;
+            if (givenRecords + (compressionType.has_value() ? kLibraryCompressedRecords : kLibraryRecords) >
+                kMaxCodecCards)
+                return Status::failure(ErrorCode::LimitExceeded,
+                                       StatusDetail{.message = "the FITS header would hold more records than a read "
+                                                               "of this codec takes",
+                                                    .operation = "write FITS header",
+                                                    .domain = ErrorDomain::Io});
             openfits::writer writer;
             if (lent)
             {

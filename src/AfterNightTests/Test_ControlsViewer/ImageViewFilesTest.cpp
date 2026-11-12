@@ -318,6 +318,55 @@ TEST(ImageViewFilesTest, AFloatingMosaicKeepsItsColoursWhateverItsBrightestSampl
     }
 }
 
+// Sensor codes over a dark sky are not fractions of full scale. A calibrated light in codes whose sky sits under one
+// code - a short or narrowband exposure - has a median below one, and by the median alone it was taken for fractions:
+// with a white level of one, every sample of the object it shows was past full scale. Its noise carries far more
+// than a quarter of its samples above one, which fractions of full scale never have, so it keeps its brightest
+// sample for its white level and its colours are estimated as any sensor codes are.
+TEST(ImageViewFilesTest, AFloatingMosaicOfSensorCodesOverADarkSkyKeepsItsBrightestSampleForItsWhiteLevel)
+{
+    std::optional<an::tests::viewer::TestSessionProvider> provider = openFileProvider(2u);
+    ASSERT_TRUE(provider.has_value());
+    const auto& session = provider->engineSession();
+    const std::optional<an::CfaDescriptor> rggb = an::CfaDescriptor::create(an::CfaPattern::Rggb, 0u, 0u);
+    ASSERT_TRUE(rggb.has_value());
+    constexpr double kRed = 0.020;
+    constexpr double kGreen = 0.035;
+    constexpr double kBlue = 0.022;
+    constexpr double kScale = 50000.0;
+    std::uint32_t aboveOne = 0u;
+    std::optional<an::consumer::ImageAsset> mosaic = makeAsset<float>(
+        session, 64u, 64u, Channels::Grey,
+        [&](std::uint32_t x, std::uint32_t y, std::uint32_t) {
+            if (x >= 20u && x < 44u && y >= 20u && y < 44u)
+            {
+                // A bright extended object of one colour.
+                const bool evenRow = y % 2u == 0u;
+                const bool evenColumn = x % 2u == 0u;
+                const double level = evenRow && evenColumn ? kRed : (!evenRow && !evenColumn ? kBlue : kGreen);
+                return static_cast<float>(level * kScale);
+            }
+            // The sky: half a code, under noise six codes wide.
+            const double noise = static_cast<double>(((x * 73856093u) ^ (y * 19349663u)) % 1000u) / 1000.0;
+            const float code = static_cast<float>(0.5 + 6.0 * (noise - 0.5));
+            aboveOne += code > 1.0f ? 1u : 0u;
+            return code;
+        },
+        an::NumericDomain::PhysicalScaled, *rggb);
+    ASSERT_TRUE(mosaic.has_value());
+    // The sky's median is under one code, and well over a quarter of the frame lies above one.
+    ASSERT_LT(aboveOne + 24u * 24u, 64u * 64u / 2u);
+    ASSERT_GT(aboveOne + 24u * 24u, 64u * 64u / 4u);
+
+    const an::Result<an::consumer::ImageAsset> colour =
+        an::ui::demosaicViewImage(session, *mosaic, an::DemosaicMethod::Rcd, {});
+    ASSERT_TRUE(colour.hasValue()) << describe(colour.status());
+    EXPECT_NEAR(floatAt(*colour, 32u, 32u, 1u), kGreen * kScale, 0.02 * kGreen * kScale);
+    EXPECT_NEAR(floatAt(*colour, 33u, 33u, 1u), kGreen * kScale, 0.02 * kGreen * kScale);
+    EXPECT_NEAR(floatAt(*colour, 33u, 32u, 0u), kRed * kScale, 0.02 * kRed * kScale);
+    EXPECT_NEAR(floatAt(*colour, 33u, 32u, 2u), kBlue * kScale, 0.02 * kBlue * kScale);
+}
+
 // Every method the product offers is written for a two-by-two Bayer block, and every read and demosaic of the view
 // asked the engine for it over an X-Trans mosaic too, which the engine refuses, so no X-Trans image was ever shown in
 // colour. Each entry point demosaics one by the asked method's tabulated counterpart: the two fast estimates by the

@@ -200,6 +200,16 @@ inline constexpr double kAnnotationLayoutMostCells = 262144.0;
 /// @return the cell's side, in the frame's pixels.
 [[nodiscard]] AFTERNIGHTCONTROLS_API double annotationLayoutCellSize(QSizeF frame, double fontSize) noexcept;
 
+/// The cells of a grid a layout keeps boxes in over a frame, for the cell it is asked for: whole rows and columns of
+/// the cell asked for, never under a pixel, widened until the frame holds no more than `kAnnotationLayoutMostCells`
+/// of them. Every grid of a layout is sized by this - the labels' and the one of the marks a label must not cover -
+/// so none grows with the zoom.
+///
+/// @param frame the frame's size.
+/// @param cell the cell's side asked for, in the frame's pixels.
+/// @return how many cells the grid holds.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::size_t annotationLayoutGridCells(QSizeF frame, double cell) noexcept;
+
 /// A mark's label text as the choices say: its first line and its second - the name under the designation - which is
 /// empty for a label of one line. A view's overlay that labels a mark on one line draws the first.
 ///

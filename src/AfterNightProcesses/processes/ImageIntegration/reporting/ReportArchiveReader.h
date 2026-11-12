@@ -29,6 +29,10 @@ class IReportFiles;
 /// The name of the stored report model in a run's folder.
 inline constexpr char kStoredReportFileName[] = "workflow_report.json";
 
+/// The manifest a run's archive is committed with, written last. A stored report is a run's only beside it: a
+/// folder that keeps a report and no manifest is what a commit that failed left behind, and no run to compare with.
+inline constexpr char kRunManifestFileName[] = "workflow_manifest.json";
+
 /// Why an archive gives no report model.
 enum class ReportArchiveRefusal
 {

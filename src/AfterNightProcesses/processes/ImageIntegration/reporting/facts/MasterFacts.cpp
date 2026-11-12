@@ -500,28 +500,15 @@ void fillMeasurement(ReportBuild& build, const QString& file, ReportMaster& mast
     }
 }
 
-/// A master the run reused: what the run that made it stated of it, when the folder's history keeps that run's
-/// report; else what one read of the file measures. The figures of another run are marked by `madeByRun`.
+/// A master the run reused: what the run that made it stated of it, when the folder's history keeps a report that
+/// accounts for the file - that run's own, or the one of a later run that reused the master and carried its figures;
+/// else what one read of the file measures. The figures of another run are marked by `madeByRun`.
 void fillReused(ReportBuild& build, ReportMaster& master)
 {
-    for (const StoredRun& run : build.earlierRuns())
+    if (const ReusedMasterStatement stated = statementOfReusedMaster(build, master); stated.master != nullptr)
     {
-        const auto made =
-            std::find_if(run.model.masters.begin(), run.model.masters.end(), [&master](const ReportMaster& candidate) {
-                return candidate.key == master.key && candidate.state == ReportMasterState::Made;
-            });
-        if (made == run.model.masters.end())
-        {
-            continue;
-        }
-        // The latest run that made the master is the one whose figures are the file's, and only while the file is
-        // the size that run wrote: a master made again since, by a run whose report the history does not keep, is
-        // another file, and what an earlier run said of the one before it is not said of this one.
-        if (master.bytes.has_value() && made->bytes.has_value() && *master.bytes != *made->bytes)
-        {
-            break;
-        }
-        master.madeByRun = run.runId;
+        const ReportMaster* made = stated.master;
+        master.madeByRun = stated.madeByRun;
         master.lightsCombined = made->lightsCombined;
         master.statistics = made->statistics;
         master.distribution = made->distribution;
@@ -592,11 +579,23 @@ void fillFromResult(ReportBuild& build, const IntegrationGroupResult& group,
     }
     if (!group.success)
     {
+        const auto phaseThatEnded = [&master](const QString& status) {
+            return std::find_if(
+                master.finalization.begin(), master.finalization.end(),
+                [&status](const ReportPhase& phase) { return phase.status.compare(status, Qt::CaseInsensitive) == 0; });
+        };
+        // A run stopped while a stack was being finished leaves the group a result with no master and the phase it
+        // stopped in marked as cancelled. No stack went wrong: the master was cancelled, not failed.
+        if (const auto cancelledPhase = phaseThatEnded(QStringLiteral("cancelled"));
+            cancelledPhase != master.finalization.end())
+        {
+            master.state = ReportMasterState::Cancelled;
+            master.failure = reportText("The run was cancelled while this master was in its phase \"%1\".")
+                                 .arg(cancelledPhase->name);
+            return;
+        }
         // The phase a failed stack stopped in is the one record of why; the run's own words are among its messages.
-        const auto failedPhase =
-            std::find_if(master.finalization.begin(), master.finalization.end(), [](const ReportPhase& phase) {
-                return phase.status.compare(QStringLiteral("failed"), Qt::CaseInsensitive) == 0;
-            });
+        const auto failedPhase = phaseThatEnded(QStringLiteral("failed"));
         master.failure = failedPhase != master.finalization.end()
                              ? reportText("The stack failed in its phase \"%1\".").arg(failedPhase->name)
                              : reportText("The stack failed.");
@@ -622,13 +621,61 @@ void fillFromResult(ReportBuild& build, const IntegrationGroupResult& group,
     }
 
     fillPictures(build, master);
-    if (master.preview.isEmpty())
+    // The run's own preview stands in where the archive pictured nothing - as the archive names it, inside the
+    // run's folder. A preview the archive could not move there is still where the stage wrote it, by its whole
+    // path: a report names no picture outside its run's folder.
+    if (master.preview.isEmpty() && staysInsideItsFolder(group.previewPath))
     {
         master.preview = group.previewPath.trimmed();
     }
     fillMaps(build, group, definition, master);
 }
 } // namespace
+
+ReusedMasterStatement statementOfReusedMaster(ReportBuild& build, const ReportMaster& master)
+{
+    // The earlier runs are read latest first: the latest one that names the master is the one that knows the file.
+    for (const StoredRun& run : build.earlierRuns())
+    {
+        const auto stated =
+            std::find_if(run.model.masters.begin(), run.model.masters.end(),
+                         [&master](const ReportMaster& candidate) { return candidate.key == master.key; });
+        if (stated == run.model.masters.end())
+        {
+            continue;
+        }
+        QString madeByRun;
+        if (stated->state == ReportMasterState::Made)
+        {
+            madeByRun = run.runId;
+        }
+        else if (stated->state == ReportMasterState::Reused)
+        {
+            // A run that reused the master states what the run that made it did, and names that run. One that could
+            // not account for the master says nothing of it, and a run before it describes a file that may have
+            // been made again since.
+            if (stated->madeByRun.isEmpty())
+            {
+                break;
+            }
+            madeByRun = stated->madeByRun;
+        }
+        else
+        {
+            // A run that did not make the master left the file as an earlier run wrote it.
+            continue;
+        }
+        // The figures are the file's only while the file is the size that run stated: a master made again since, by
+        // a run whose report the history does not keep, is another file, and what an earlier run said of the one
+        // before it is not said of this one.
+        if (master.bytes.has_value() && stated->bytes.has_value() && *master.bytes != *stated->bytes)
+        {
+            break;
+        }
+        return ReusedMasterStatement{.master = &*stated, .madeByRun = madeByRun};
+    }
+    return {};
+}
 
 void fillMasters(ReportBuild& build, ReportModel& model)
 {

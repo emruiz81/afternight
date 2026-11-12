@@ -6,6 +6,7 @@
 #include "SettingsKeys.h"
 #include "SettingsDefaults.h"
 #include "PathPickerWidget.h"
+#include "GeneralSettingsPage.h"
 #include "../GlobalSettingsPersistence.h"
 
 #include <AfterNightPlatform/Logging.h>
@@ -201,8 +202,9 @@ void LoggingSettingsPage::saveSettings()
     // Save to the config file
     an::platform::saveLoggingConfig(config);
 
-    // Apply log level change immediately at runtime
-    an::platform::applyLoggingConfig(config);
+    // Apply the change to the running logger at once; a folder that cannot be written leaves the log where it was,
+    // and the page says so rather than leave it to a line of that log.
+    an::ui::settings::sayLoggingConfigProblem(this, an::ui::settings::applyLoggingConfigOrSayWhy(config));
 
     clearModified();
 }

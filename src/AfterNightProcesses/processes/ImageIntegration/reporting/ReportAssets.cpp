@@ -74,18 +74,50 @@ void replaceFolder(QString& text, const QString& folder, const QString& replacem
 /// part, as far as the path can be told from the words around it - a folder with a space in its name ends the part
 /// that is taken out. The text is a sentence or a log, so this is a rule over words, not over files: it is for a
 /// document meant to be sent, and errs towards taking out.
-void hideOtherFolders(QString& text)
+///
+/// A profile named to its end has no separator after it to say where a name with a space in it stops. Inside quotes
+/// the name runs to the closing quote; the profile of the person the document is written for is known and goes as it
+/// is; of any other, what goes is the name as far as its first space.
+///
+/// @param profile the profile folder of the person the document is written for, with forward slashes; empty for
+///     none.
+void hideOtherFolders(QString& text, const QString& profile)
 {
-    // A profile: `C:\Users\<name>\`, `/home/<name>/`, `/Users/<name>/`.
+    // A profile with something under it: `C:\Users\<name>\`, `/home/<name>/`, `/Users/<name>/`. The separator
+    // after the name ends it, whatever is in it.
     static const QRegularExpression windowsProfile(
         QStringLiteral(R"((?<![A-Za-z0-9_])[A-Za-z]:[\\/]+Users[\\/]+[^\\/:*?"<>|\r\n]+[\\/]+)"),
         QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression posixProfileFolder(
+        QStringLiteral(R"((?<![A-Za-z0-9_.~/\\:<])/(?:home|Users)/[^/:*?"<>|\r\n]+/)"));
+    // A profile named to its end inside quotes: the closing quote ends the name.
+    static const QRegularExpression quotedWindowsProfile(
+        QStringLiteral(R"((['"])[A-Za-z]:[\\/]+Users[\\/]+[^\\/:*?"<>|'\r\n]+\1)"),
+        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression quotedPosixProfile(QStringLiteral(R"((['"])/(?:home|Users)/[^/:*?"<>|'\r\n]+\1)"));
+    // A profile named to its end with nothing around it: the name as far as its first space.
     static const QRegularExpression windowsProfileAlone(
         QStringLiteral(R"((?<![A-Za-z0-9_])[A-Za-z]:[\\/]+Users[\\/]+[^\\/:*?"<>|'\s]+)"),
         QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression posixProfile(
         QStringLiteral(R"((?<![A-Za-z0-9_.~/\\:<])/(?:home|Users)/[^/\s:*?"<>|']+)"));
     text.replace(windowsProfile, QStringLiteral("~/"));
+    text.replace(posixProfileFolder, QStringLiteral("~/"));
+    text.replace(quotedWindowsProfile, QStringLiteral("\\1~\\1"));
+    text.replace(quotedPosixProfile, QStringLiteral("\\1~\\1"));
+    if (!profile.isEmpty())
+    {
+        // The known profile, in either spelling of the separator, where the name ends: not the start of a longer
+        // name that begins the same.
+        QStringList parts;
+        for (const QString& part : profile.split(QLatin1Char('/')))
+        {
+            parts << QRegularExpression::escape(part);
+        }
+        const QRegularExpression known(parts.join(QStringLiteral("[\\\\/]+")) + QStringLiteral("(?![A-Za-z0-9_-])"),
+                                       QRegularExpression::CaseInsensitiveOption);
+        text.replace(known, QStringLiteral("~"));
+    }
     text.replace(windowsProfileAlone, QStringLiteral("~"));
     text.replace(posixProfile, QStringLiteral("~"));
 
@@ -99,6 +131,34 @@ void hideOtherFolders(QString& text)
     text.remove(driveFolders);
     text.remove(shareFolders);
     text.remove(rootFolders);
+}
+
+/// The file a picture's path names, when it is one of the history the run's folder is in: the run's own pictures
+/// and, beside an earlier run, that run's, in the folder next to it. A path that is absolute, or that leaves that
+/// history however it is spelled - through a link as well - names no picture of the report.
+///
+/// @param runDirectory the run's folder under `history/`.
+/// @param relative the picture's path under the run's folder, as the model states it.
+/// @return the file, as the file system names it; empty when the path names none inside the history.
+[[nodiscard]] QString pictureFile(const QString& runDirectory, const QString& relative)
+{
+    if (QDir::isAbsolutePath(relative) || relative.contains(QLatin1Char(':')))
+    {
+        return {};
+    }
+    const QString file = QFileInfo(QDir(runDirectory).filePath(relative)).canonicalFilePath();
+    const QString history = QFileInfo(QDir::cleanPath(runDirectory)).dir().canonicalPath();
+    if (file.isEmpty() || history.isEmpty())
+    {
+        return {};
+    }
+    const QString bound = history.endsWith(QLatin1Char('/')) ? history : history + QLatin1Char('/');
+#if defined(Q_OS_WIN)
+    const Qt::CaseSensitivity sensitivity = Qt::CaseInsensitive;
+#else
+    const Qt::CaseSensitivity sensitivity = Qt::CaseSensitive;
+#endif
+    return file.startsWith(bound, sensitivity) ? file : QString();
 }
 } // namespace
 
@@ -136,8 +196,13 @@ QByteArray boundedJpeg(const QString& file, const int longestSide, const int qua
 }
 
 ReportAssets::ReportAssets(const ReportForm form, QString runDirectory)
-    : m_form(form), m_runDirectory(std::move(runDirectory))
+    : m_form(form), m_runDirectory(std::move(runDirectory)), m_profileFolder(withForwardSlashes(QDir::homePath()))
 {
+}
+
+void ReportAssets::setProfileFolder(const QString& folder)
+{
+    m_profileFolder = withForwardSlashes(folder.trimmed());
 }
 
 void ReportAssets::hideFoldersOf(const ReportModel& model)
@@ -239,8 +304,9 @@ QString ReportAssets::embedded(const QString& relative, const int longestSide)
     QString source;
     if (!m_runDirectory.trimmed().isEmpty())
     {
-        const QByteArray jpeg =
-            boundedJpeg(QDir(m_runDirectory).filePath(relative), longestSide, kEmbeddedImageQuality);
+        // Only a picture of the history the run's folder is in is read: the document carries what it reads.
+        const QString file = pictureFile(m_runDirectory, relative);
+        const QByteArray jpeg = file.isEmpty() ? QByteArray() : boundedJpeg(file, longestSide, kEmbeddedImageQuality);
         if (!jpeg.isEmpty())
         {
             source = QStringLiteral("data:image/jpeg;base64,") + QString::fromLatin1(jpeg.toBase64());
@@ -279,7 +345,7 @@ QString ReportAssets::message(const QString& text) const
         replaceFolder(shown, m_outputFolder, m_outputFolderName);
     }
     // What the run wrote may name folders none of the report's files is in.
-    hideOtherFolders(shown);
+    hideOtherFolders(shown, m_profileFolder);
     return shown;
 }
 } // namespace ImageIntegration::Reporting

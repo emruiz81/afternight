@@ -462,8 +462,7 @@ void writePicture(ReportMarkup& out, const ReportDocumentContext& context, const
                          QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 channels"))
               << documentText("measured on the linear master");
     }
-    openSection(out, masterFileAnchor(master) + QStringLiteral("-picture"), documentText("The picture"),
-                aside.join(dotSeparator()));
+    openSection(out, masterSectionAnchor(master, "picture"), documentText("The picture"), aside.join(dotSeparator()));
 
     if (views.empty() && !measured)
     {
@@ -894,7 +893,8 @@ void writeTime(ReportMarkup& out, const ReportMaster& master)
         chart.axis.title = documentText("Weight");
         chart.width = 340;
         chart.height = 170;
-        chart.bins = chartBins(weights, 10, 0.0, 1.0);
+        const double end = weightDistributionEnd(weights);
+        chart.bins = chartBins(weights, 10, 0.0, end);
         for (ChartBin& bin : chart.bins)
         {
             bin.tip.heading = documentText("Weight %1 to %2").arg(formatFigure(bin.low), formatFigure(bin.high));
@@ -907,13 +907,17 @@ void writeTime(ReportMarkup& out, const ReportMaster& master)
                                 QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 used"),
                                 QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 used")));
         out.chart(distributionChart(chart));
+        if (end > 1.0)
+        {
+            writeCaption(out, documentText("These weights are at a mean of one, so the heavier lights pass 1."));
+        }
     }
     out.close("div");
 }
 
 void writeStack(ReportMarkup& out, const ReportDocumentContext& context, const ReportMaster& master)
 {
-    openSection(out, masterFileAnchor(master) + QStringLiteral("-stack"), documentText("The stack"),
+    openSection(out, masterSectionAnchor(master, "stack"), documentText("The stack"),
                 master.stack.has_value() && master.stack->inputFrames > 0
                     ? counted(static_cast<qint64>(master.stack->inputFrames),
                               QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 light combined"),
@@ -1435,8 +1439,7 @@ void writeLights(ReportMarkup& out, const ReportDocumentContext& context, const 
 {
     const std::vector<const ReportFrame*> lights = lightsInCaptureOrder(master);
     const std::vector<const Measure*> stated = measuresOf(lights);
-    openSection(out, masterFileAnchor(master) + QStringLiteral("-lights"), documentText("Its lights"),
-                exposuresText(master.exposure));
+    openSection(out, masterSectionAnchor(master, "lights"), documentText("Its lights"), exposuresText(master.exposure));
 
     const std::optional<ReportDither> dither = ditherOf(context, {&master}, 280);
     if (!stated.empty() || dither.has_value())
@@ -1544,12 +1547,14 @@ void writeFiles(ReportMarkup& out, const ReportDocumentContext& context, const R
                                        [](const ReportMap& map) { return map.kind == ReportMapKind::Rejection; }));
     if (isThere(master) && master.rejectionMapsExpected.has_value() && rejectionMaps < *master.rejectionMapsExpected)
     {
-        writeCaption(out, counted(*master.rejectionMapsExpected,
-                                  QT_TRANSLATE_NOOP("ImageIntegrationReport",
-                                                    "The settings ask for %1 rejection map; %2 were written."),
-                                  QT_TRANSLATE_NOOP("ImageIntegrationReport",
-                                                    "The settings ask for %1 rejection maps; %2 were written."))
-                              .arg(formatCount(rejectionMaps)));
+        // Each half takes the number of its own count: "2 rejection maps", "1 was written".
+        writeCaption(out,
+                     counted(*master.rejectionMapsExpected,
+                             QT_TRANSLATE_NOOP("ImageIntegrationReport", "The settings ask for %1 rejection map;"),
+                             QT_TRANSLATE_NOOP("ImageIntegrationReport", "The settings ask for %1 rejection maps;")) +
+                         QLatin1Char(' ') +
+                         counted(rejectionMaps, QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 was written."),
+                                 QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 were written.")));
     }
     out.close("div");
 }
@@ -1624,7 +1629,7 @@ void writeMade(ReportMarkup& out, const ReportDocumentContext& context, const Re
                const ReportSettingsMajority& stacking, const ReportSettingsMajority& calibration)
 {
     const bool several = context.model.masters.size() > 1;
-    openSection(out, masterFileAnchor(master) + QStringLiteral("-made"), documentText("How it was made"),
+    openSection(out, masterSectionAnchor(master, "made"), documentText("How it was made"),
                 several ? documentText("this master's own settings; what it shares with others is stated once, "
                                        "further down")
                         : QString());
@@ -1674,7 +1679,7 @@ void writeMade(ReportMarkup& out, const ReportDocumentContext& context, const Re
 
 void writeCombination(ReportMarkup& out, const ReportDocumentContext& context, const ReportMaster& master)
 {
-    openSection(out, masterFileAnchor(master) + QStringLiteral("-made"), documentText("How it was made"), {});
+    openSection(out, masterSectionAnchor(master, "made"), documentText("How it was made"), {});
     out.open("div", {{"class", QStringLiteral("g3")}});
 
     openPanel(out, "h5", documentText("Made from"));
@@ -1753,8 +1758,11 @@ void writeCombination(ReportMarkup& out, const ReportDocumentContext& context, c
         else
         {
             parts << counted(use.taken, QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 light"),
-                             QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 lights"))
-                  << formatDurationMs(master.exposure.integrationMs);
+                             QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 lights"));
+            if (everyLightStatesItsExposure(master.exposure))
+            {
+                parts << formatDurationMs(master.exposure.integrationMs);
+            }
         }
     }
     if (isThere(master) && !master.fileName.isEmpty())
@@ -1960,6 +1968,11 @@ QString masterFileAnchor(const ReportMaster& master)
     return QStringLiteral("file-") + master.slug;
 }
 
+QString masterSectionAnchor(const ReportMaster& master, const char* section)
+{
+    return masterFileAnchor(master) + QStringLiteral("--") + QLatin1String(section);
+}
+
 QStringList mastersAnchors(const ReportModel& model)
 {
     QStringList anchors;
@@ -2039,9 +2052,7 @@ ReportPart writeReportMasters(const ReportDocumentContext& context)
         {
             out.open("p", {{"class", QStringLiteral("targethead")}});
             out.element("b", target.name);
-            out.element("small", counted(target.frames, QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 light"),
-                                         QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 lights")) +
-                                     dotSeparator() + formatDurationMs(target.integrationMs));
+            out.element("small", targetLightsLine(target));
             out.close("p");
             writeFilesOf(target.name, true);
         }

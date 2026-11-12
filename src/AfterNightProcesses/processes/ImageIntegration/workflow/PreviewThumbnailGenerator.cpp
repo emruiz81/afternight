@@ -371,6 +371,9 @@ struct FilePreviews
 {
     std::optional<QImage> whole;
     std::optional<QImage> detail;
+
+    /// What the whole frame's presentation measured, when there is a whole frame.
+    std::optional<an::DisplayPresentationAnalysis> analysis;
 };
 
 /// Reads a file once and previews it: the whole frame within `maxSize`, and its detail when asked.
@@ -404,6 +407,7 @@ struct FilePreviews
     {
         previews.detail = detailPreview(session, *lease, whole->analysis);
     }
+    previews.analysis = whole->analysis;
     previews.whole = std::move(whole->image);
     return previews;
 }
@@ -533,6 +537,10 @@ ReportMasterPreviews generateReportMasterPreviews(const an::consumer::EngineSess
         return written;
     }
     written.whole = wholeName;
+    if (previews.analysis.has_value())
+    {
+        written.stretch = std::make_shared<const an::DisplayPresentationAnalysis>(*previews.analysis);
+    }
     if (previews.detail.has_value() && writeJpeg(*previews.detail, QDir(outputDir).filePath(detailName), quality))
     {
         written.detail = detailName;
@@ -540,16 +548,15 @@ ReportMasterPreviews generateReportMasterPreviews(const an::consumer::EngineSess
     return written;
 }
 
-ReportMasterPreviews generateReportMasterPreviewsUnderStretchOf(const an::consumer::EngineSession& session,
-                                                                const QString& stretchPath, const QString& outputPath,
-                                                                const QString& outputDir, const QString& wholeName,
-                                                                const QString& detailName, std::optional<QSize> maxSize,
-                                                                int quality,
-                                                                const ReportPicturePresentation presentation)
+ReportMasterPreviews generateReportMasterPreviewsUnderStretchOf(
+    const an::consumer::EngineSession& session, const QString& stretchPath, const QString& outputPath,
+    const QString& outputDir, const QString& wholeName, const QString& detailName, std::optional<QSize> maxSize,
+    int quality, const ReportPicturePresentation presentation, const an::DisplayPresentationAnalysis* knownStretch)
 {
     ReportMasterPreviews written;
+    // The other image's file is read only to measure its stretch: with the stretch at hand it is not needed.
     if (!prepareOutputDirectory(outputPath, outputDir, wholeName) || detailName.trimmed().isEmpty() ||
-        stretchPath.trimmed().isEmpty() || !QFileInfo::exists(stretchPath))
+        (knownStretch == nullptr && (stretchPath.trimmed().isEmpty() || !QFileInfo::exists(stretchPath))))
     {
         return written;
     }
@@ -582,6 +589,11 @@ ReportMasterPreviews generateReportMasterPreviewsUnderStretchOf(const an::consum
             return detail::presentMasterForReport(*scope, master, through);
         };
         std::optional<an::DisplayPresentationAnalysis> stretch;
+        if (knownStretch != nullptr)
+        {
+            stretch = *knownStretch;
+        }
+        else
         {
             an::Result<an::ui::ViewReadResult> other = read(stretchPath);
             if (!other.hasValue())
@@ -640,6 +652,11 @@ ReportMasterPreviews generateReportMasterPreviewsUnderStretchOf(const an::consum
 
     // The stretch is the one the other image's own whole-frame preview is presented through.
     std::optional<an::DisplayPresentationAnalysis> stretch;
+    if (knownStretch != nullptr)
+    {
+        stretch = *knownStretch;
+    }
+    else
     {
         an::Result<an::ui::ViewReadResult> other = read(stretchPath);
         if (!other.hasValue())

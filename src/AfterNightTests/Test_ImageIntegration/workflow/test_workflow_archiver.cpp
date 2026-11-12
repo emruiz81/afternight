@@ -2062,6 +2062,116 @@ TEST(WorkflowArchiver, TheFoldersOfAnArchiveAreNamedOverItsResultsAndThenItsReus
         ImageIntegration::archiveGroupFolderNames({QStringLiteral("Group:1"), QStringLiteral("Group?1")});
     ASSERT_EQ(colliding.size(), 2u);
     EXPECT_NE(colliding[0], colliding[1]);
+
+    // The list the folders are named over is one list, for the commit that names them and for the later run that
+    // reads them back: the results, then the reused groups that have no result, each once.
+    const std::vector<QString> results{QStringLiteral("Luminance"), QStringLiteral("Red")};
+    EXPECT_EQ(ImageIntegration::archivedGroupKeys(results, {QStringLiteral("Green"), QStringLiteral("Blue")}),
+              (std::vector<QString>{QStringLiteral("Luminance"), QStringLiteral("Red"), QStringLiteral("Green"),
+                                    QStringLiteral("Blue")}));
+    EXPECT_EQ(ImageIntegration::archivedGroupKeys(
+                  results, {QStringLiteral("Red"), QStringLiteral("Green"), QStringLiteral("Green")}),
+              (std::vector<QString>{QStringLiteral("Luminance"), QStringLiteral("Red"), QStringLiteral("Green")}))
+        << "a group named twice has one folder";
+    EXPECT_EQ(ImageIntegration::archivedGroupKeys({}, {}), std::vector<QString>{});
+}
+
+// A later run finds a reused master's pictures in the folder the run that made it named for the group, so it names
+// that run's folders as the run did. A manifest that lists a group among its results and among its reused groups
+// too - none is written today - had the group named twice when it was read back, and two keys of one name take a
+// hash each: the folder looked in was not the one the pictures are in.
+TEST(WorkflowArchiver, ALaterRunNamesAnEarlierRunsFoldersAsThatRunNamedThem)
+{
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+    const QString outputDir = tempDir.path();
+    an::Result<an::consumer::EngineSession> session = an::tests::integration::openImportSession();
+    ASSERT_TRUE(session.hasValue()) << session.status().message();
+    const QString masterPath = createTestResult(outputDir).integrationGroupResults.front().outputPath;
+    writeFitsMaster(*session, masterPath);
+
+    // The run that made the master, with the pictures it prepared.
+    WorkflowManifest madeManifest = createTestManifest(outputDir);
+    madeManifest.executionId = QStringLiteral("20260101_000000_001");
+    WorkflowExecutor::Result madeResult = createTestResult(outputDir);
+    auto& made = madeResult.integrationGroupResults.front();
+    made.outputBytes = QFileInfo(masterPath).size();
+    made.reportPreviewJpeg = preparedJpeg(QSize(32, 16), QColor(48, 96, 144));
+    made.reportPreviewSize = QSize(32, 16);
+    const QByteArray wholeBytes = made.reportPreviewJpeg;
+    WorkflowArchiver madeArchiver(outputDir);
+    const auto madeArchived = madeArchiver.commit(madeManifest, madeResult);
+    ASSERT_TRUE(madeArchived.success) << madeArchived.error.toStdString();
+    ASSERT_EQ(bytesOf(QDir(madeArchived.archivePath).filePath(QStringLiteral("report_previews/Group1/master.jpg"))),
+              wholeBytes);
+
+    // That run's manifest, made to list the group among the ones it reused as well.
+    QFile manifestFile(QDir(madeArchived.archivePath).filePath(QStringLiteral("workflow_manifest.json")));
+    ASSERT_TRUE(manifestFile.open(QIODevice::ReadOnly));
+    QJsonObject root = QJsonDocument::fromJson(manifestFile.readAll()).object();
+    manifestFile.close();
+    ASSERT_FALSE(root.value(QStringLiteral("integrationGroupResults")).toArray().isEmpty());
+    root[QStringLiteral("reusedIntegrationGroups")] = QJsonArray{QJsonObject{
+        {QStringLiteral("groupKey"), QStringLiteral("Group1")}, {QStringLiteral("outputPath"), masterPath}}};
+    ASSERT_TRUE(manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    manifestFile.write(QJsonDocument(root).toJson());
+    manifestFile.close();
+
+    // A later run that reused the master, with no session: its pictures are that run's, copied.
+    WorkflowManifest manifest = createTestManifest(outputDir);
+    manifest.executionId = QStringLiteral("20260102_000000_001");
+    WorkflowExecutor::Result result = createTestResult(outputDir);
+    result.integrationGroupResults.clear();
+    result.reusedIntegrationGroups.push_back(
+        ReusedIntegrationGroup{.groupKey = QStringLiteral("Group1"), .outputPath = masterPath});
+    WorkflowArchiver archiver(outputDir);
+    const auto archived = archiver.commit(manifest, result);
+    ASSERT_TRUE(archived.success) << archived.error.toStdString();
+    EXPECT_EQ(bytesOf(QDir(archived.archivePath).filePath(QStringLiteral("report_previews/Group1/master.jpg"))),
+              wholeBytes)
+        << "the earlier run's folder was named another way than that run named it";
+}
+
+// A group whose stack failed before a master was written has no result: the run names it with the stage's
+// reason, and the manifest the archive keeps states it under `failedIntegrationGroups`, where a reader of the run
+// finds why the master is not there. A run with none names none.
+TEST(WorkflowArchiver, TheManifestNamesTheGroupsWhoseStackFailedBeforeAResult)
+{
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+    const QString outputDir = tempDir.path();
+    an::Result<an::consumer::EngineSession> session = an::tests::integration::openImportSession();
+    ASSERT_TRUE(session.hasValue()) << session.status().message();
+    writeFitsMaster(*session, createTestResult(outputDir).integrationGroupResults.front().outputPath);
+    const auto manifestOf = [](const QString& archivePath) {
+        QFile file(QDir(archivePath).filePath(QStringLiteral("workflow_manifest.json")));
+        return file.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(file.readAll()).object() : QJsonObject();
+    };
+
+    WorkflowManifest manifest = createTestManifest(outputDir);
+    manifest.executionId = QStringLiteral("20260101_000000_001");
+    WorkflowExecutor::Result result = createTestResult(outputDir);
+    result.failedIntegrationGroups.push_back(FailedIntegrationGroup{
+        .groupKey = QStringLiteral("Group2"), .error = QStringLiteral("Too few registered lights: 1 of 3.")});
+    WorkflowArchiver archiver(outputDir);
+    const auto archived = archiver.commit(manifest, result);
+    ASSERT_TRUE(archived.success) << archived.error.toStdString();
+
+    const QJsonObject root = manifestOf(archived.archivePath);
+    ASSERT_FALSE(root.isEmpty());
+    const QJsonArray failed = root.value(QStringLiteral("failedIntegrationGroups")).toArray();
+    ASSERT_EQ(failed.size(), 1);
+    EXPECT_EQ(failed.at(0).toObject().value(QStringLiteral("groupKey")).toString(), QStringLiteral("Group2"));
+    EXPECT_EQ(failed.at(0).toObject().value(QStringLiteral("error")).toString(),
+              QStringLiteral("Too few registered lights: 1 of 3."));
+
+    WorkflowManifest clean = createTestManifest(outputDir);
+    clean.executionId = QStringLiteral("20260102_000000_001");
+    WorkflowExecutor::Result cleanResult = createTestResult(outputDir);
+    WorkflowArchiver cleanArchiver(outputDir);
+    const auto cleanArchived = cleanArchiver.commit(clean, cleanResult);
+    ASSERT_TRUE(cleanArchived.success) << cleanArchived.error.toStdString();
+    EXPECT_FALSE(manifestOf(cleanArchived.archivePath).contains(QStringLiteral("failedIntegrationGroups")));
 }
 
 TEST(WorkflowArchiver, AReusedMastersPicturesAreCopiedFromTheRunThatMadeItAndReadFromTheFileWhenThatRunIsGone)

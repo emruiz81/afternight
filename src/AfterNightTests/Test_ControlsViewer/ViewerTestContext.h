@@ -329,8 +329,14 @@ public:
     void updateImageCelestialCoordsInStatusBar(double, double) override {}
     void clearImageCelestialCoordsInStatusBar() override {}
     void setCustomImageActionEnabled(ImageViewControl*, GlobalViewControlActions, bool) override {}
-    void updateActiveImageActions() override {}
+    void updateActiveImageActions() override
+    {
+        ++activeImageActionRefreshes;
+    }
     void updateActiveImageHistory() override {}
+
+    /// How often a view asked for the application's image actions to be read again.
+    int activeImageActionRefreshes = 0;
 
     // ---- IOutputIntentProvider: the source's representation.
 

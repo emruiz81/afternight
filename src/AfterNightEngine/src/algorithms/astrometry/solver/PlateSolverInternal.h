@@ -15,7 +15,10 @@
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightEngine/Core/Status.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <span>
 
 /// The AfterNight engine namespace; `Core/LibraryInfo.h` states what it holds.
 namespace an
@@ -86,6 +89,78 @@ enum class TrialRoute : std::uint8_t
     /// A pixel centre of the blind HEALPix grid, when there is no hint.
     BlindSearch
 };
+
+/// The radius of the matching disc, in pixels: the largest circle about the image centre that lies inside the frame.
+///
+/// @param request the checked request, for the image dimensions.
+/// @return half the shorter side.
+[[nodiscard]] inline double matchingDiscRadius(const PlateSolveRequest& request) noexcept
+{
+    return 0.5 * static_cast<double>((std::min)(request.imageWidth, request.imageHeight));
+}
+
+/// Whether an image position lies inside the matching disc.
+///
+/// @param position the position, in engine pixel coordinates.
+/// @param request the checked request, for the image dimensions.
+/// @return true when it is no farther from the image centre than the disc's radius.
+[[nodiscard]] inline bool insideMatchingDisc(const PixelCoordinate& position, const PlateSolveRequest& request) noexcept
+{
+    return std::hypot(position.x - 0.5 * static_cast<double>(request.imageWidth),
+                      position.y - 0.5 * static_cast<double>(request.imageHeight)) <= matchingDiscRadius(request);
+}
+
+/// Whether the image's stars were kept over the matching disc: none of them lies outside it.
+///
+/// That is the case of a crowded frame, whose input keeps the disc's stars alone, and of a frame whose every star
+/// happens to lie there. Either way the image has nothing outside the disc to set beside a catalog star, so the
+/// catalog keeps the disc too; a frame with a star outside it keeps its whole extent, and so does the catalog.
+///
+/// @param input the prepared image stars.
+/// @param plan the checked plan, for the image dimensions.
+/// @return true when every prepared star lies inside the disc.
+[[nodiscard]] inline bool keptOverMatchingDisc(const PlateSolveInput& input, const PlateSolvePlan& plan) noexcept
+{
+    return std::all_of(input.stars.begin(), input.stars.end(), [&plan](const PlateSolveStar& star) {
+        return insideMatchingDisc(star.position, plan.request());
+    });
+}
+
+/// An accepted refinement, refitted over the whole frame where that was possible.
+struct FrameExtension
+{
+    /// The refinement: as it was given, or with its fit replaced by the one over the frame.
+    PlateSolveRefinementResult refinement;
+
+    /// Whether the fit was replaced. Its matches then name their stars among the stars supplied to the solve, not
+    /// among the prepared ones.
+    bool extended = false;
+};
+
+/// Refits an accepted solution over the whole frame when its image stars were kept over the matching disc alone.
+///
+/// A crowded frame is matched over its disc, so the fit a trial centre accepts is of the disc's stars, and the
+/// distortion it retains is carried from there to the corners, well beyond the stars it was fitted to. Here the
+/// catalog's point sources of the cone are placed by that solution, each is set beside the supplied star nearest
+/// to where it falls - within a reach of a few pixels that follows the fit's residual - and the model is fitted
+/// again to all of those pairs by `fitPlateSolveModel`. The fit is kept when it holds more stars than the one
+/// before; a few passes carry it outward, each from the solution of the last, and the first that finds or keeps no
+/// more ends them. A frame whose stars were kept over its whole extent, or that supplies none outside the disc, is
+/// returned as it came.
+///
+/// @param execution operation policy and engine-context lease.
+/// @param catalog immutable catalog to search.
+/// @param stars the stars supplied to the solve, in brightness order.
+/// @param input the prepared image stars the refinement was made from.
+/// @param plan checked plate-solve plan.
+/// @param refinement the accepted refinement.
+/// @param counters the complete solve's running totals, or null.
+/// @return the refinement and whether its fit was replaced; cancellation; or an allocation failure. A catalog
+///         query or a fit that fails for any other reason leaves the accepted refinement as it was.
+[[nodiscard]] Result<FrameExtension> extendOverFrame(const ExecutionContext& execution, const SkyCatalog& catalog,
+                                                     std::span<const PlateSolveStar> stars,
+                                                     const PlateSolveInput& input, const PlateSolvePlan& plan,
+                                                     PlateSolveRefinementResult refinement, RunCounters* counters);
 
 /// The refinement behind `refinePlateSolveAtCenter`, optionally publishing its work.
 ///

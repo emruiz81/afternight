@@ -13,6 +13,7 @@
 
 #include <AfterNightEngine/Algorithms/Astrometry/PlateSolver.h>
 
+#include <AfterNightEngine/Algorithms/Astrometry/GnomonicProjection.h>
 #include <AfterNightEngine/Algorithms/Catalog/SkyCatalog.h>
 #include <AfterNightEngine/Algorithms/Stars/StarAlignment.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
@@ -29,6 +30,7 @@
 #include <limits>
 #include <memory_resource>
 #include <new>
+#include <numeric>
 #include <optional>
 #include <span>
 #include <utility>
@@ -233,9 +235,9 @@ struct SipCandidate
 /// @param count how many leading rows and columns participate.
 /// @param solution the answer.
 /// @return false when a pivot is at most 1e-24 in magnitude or the answer is not finite.
-[[nodiscard]] bool
-solveNormalEquations(std::array<std::array<long double, kMaximumSipTerms + 1u>, kMaximumSipTerms>& augmented,
-                     std::size_t count, std::array<double, kMaximumSipTerms>& solution) noexcept
+template <std::size_t Terms>
+[[nodiscard]] bool solveNormalEquations(std::array<std::array<long double, Terms + 1u>, Terms>& augmented,
+                                        std::size_t count, std::array<double, Terms>& solution) noexcept
 {
     constexpr long double kPivotFloor = 1.0e-24L;
     for (std::size_t column = 0u; column < count; ++column)
@@ -434,6 +436,150 @@ solveNormalEquations(std::array<std::array<long double, kMaximumSipTerms + 1u>, 
     return SipCandidate{.distortion = *distortion, .rmsResidualPixels = rms, .order = order};
 }
 
+/// The most terms of the polynomial the linear model is refined with: every monomial of degree zero through four.
+constexpr std::size_t kMaximumJointTerms = 15u;
+
+/// How often the linear model is refined; the correction of the second round is already far below a pixel.
+constexpr std::uint32_t kLinearRefinementRounds = 3u;
+
+/// Refines the linear model under the distortion its correspondences show.
+///
+/// The robust fit finds the straight model that best fits the positions as they are, and a distortion that grows
+/// with the distance from the centre - any lens's - is partly taken into that model as a change of scale. The
+/// distortion polynomial, which has no constant and no linear term, cannot give that part back, so fitted after
+/// the fact it leaves a residual that grows with the area the stars cover. Here the two are fitted together: what
+/// the linear model leaves is fitted by a polynomial of every degree from zero to the distortion's order, and its
+/// constant and linear terms - the part of the residual a linear model can take - are folded into the linear
+/// model. With `t` a star's tangent coordinates, `p(t) = S t + r` the linear model, `u` the star's offset from the
+/// reference pixel `r`, and the fitted residual `p(t) - (r + u) = c + C u + A(u)`, the refined model is
+/// `S' = (I + C)^-1 S` and `r' = r - (I + C)^-1 c`. The offsets are then measured from a reference pixel that moved
+/// by a fraction of a pixel, so the fit is repeated from the refined model; the distortion itself is fitted
+/// afterwards, by `fitSip`, against the model this returns.
+///
+/// @param execution the operation, for its cancellation.
+/// @param transform the robust linear fit, tangent degrees to pixels.
+/// @param matches the inliers.
+/// @param plan the checked plan, for the image dimensions.
+/// @return the refined model; the model as it stood when a round's system is singular or its correction is not
+///         finite; or the cancellation.
+[[nodiscard]] Result<StarTransform> refineLinearUnderDistortion(const ExecutionContext& execution,
+                                                                StarTransform transform,
+                                                                std::span<const PlateSolveMatch> matches,
+                                                                const PlateSolvePlan& plan)
+{
+    const std::uint32_t order = chooseSipOrder(matches.size());
+    if (order == 0u)
+    {
+        return transform;
+    }
+    std::array<SipTerm, kMaximumJointTerms> terms{};
+    std::size_t termCount = 0u;
+    for (std::uint32_t degree = 0u; degree <= order; ++degree)
+    {
+        for (std::uint32_t yPower = 0u; yPower <= degree; ++yPower)
+        {
+            terms[termCount++] = SipTerm{.xPower = degree - yPower, .yPower = yPower};
+        }
+    }
+    const double normalization =
+        (std::max)(static_cast<double>(plan.request().imageWidth), static_cast<double>(plan.request().imageHeight));
+
+    for (std::uint32_t round = 0u; round < kLinearRefinementRounds; ++round)
+    {
+        std::array<std::array<long double, kMaximumJointTerms + 1u>, kMaximumJointTerms> systemX{};
+        std::array<std::array<long double, kMaximumJointTerms + 1u>, kMaximumJointTerms> systemY{};
+        const double a = transform.sourceToReference[0u];
+        const double b = transform.sourceToReference[1u];
+        const double c = transform.sourceToReference[3u];
+        const double d = transform.sourceToReference[4u];
+        const double referenceX = transform.sourceToReference[2u];
+        const double referenceY = transform.sourceToReference[5u];
+        for (std::size_t row = 0u; row < matches.size(); ++row)
+        {
+            if ((row & 63u) == 0u)
+            {
+                const Status cancellation = execution.checkCancellation();
+                if (cancellation.failed())
+                {
+                    return plate_solver_detail::cancelledFailure(plate_solver_detail::kFitOperation, cancellation);
+                }
+            }
+            const PlateSolveMatch& match = matches[row];
+            const double targetX =
+                a * match.tangentXDegrees + b * match.tangentYDegrees + referenceX - match.imagePosition.x;
+            const double targetY =
+                c * match.tangentXDegrees + d * match.tangentYDegrees + referenceY - match.imagePosition.y;
+            const double u = (match.imagePosition.x - referenceX) / normalization;
+            const double v = (match.imagePosition.y - referenceY) / normalization;
+            std::array<long double, kMaximumJointTerms> design{};
+            for (std::size_t column = 0u; column < termCount; ++column)
+            {
+                design[column] = static_cast<long double>(integerPower(u, terms[column].xPower) *
+                                                          integerPower(v, terms[column].yPower));
+            }
+            for (std::size_t left = 0u; left < termCount; ++left)
+            {
+                systemX[left][termCount] += design[left] * static_cast<long double>(targetX);
+                systemY[left][termCount] += design[left] * static_cast<long double>(targetY);
+                for (std::size_t right = 0u; right < termCount; ++right)
+                {
+                    systemX[left][right] += design[left] * design[right];
+                    systemY[left][right] += design[left] * design[right];
+                }
+            }
+        }
+        std::array<double, kMaximumJointTerms> fittedX{};
+        std::array<double, kMaximumJointTerms> fittedY{};
+        if (!solveNormalEquations(systemX, termCount, fittedX) || !solveNormalEquations(systemY, termCount, fittedY))
+        {
+            return transform;
+        }
+        // The terms are in ascending degree: the constant, then the horizontal and the vertical linear term, whose
+        // coefficients are of the offsets divided by the normalization.
+        const double constantX = fittedX[0u];
+        const double constantY = fittedY[0u];
+        const double m11 = 1.0 + fittedX[1u] / normalization;
+        const double m12 = fittedX[2u] / normalization;
+        const double m21 = fittedY[1u] / normalization;
+        const double m22 = 1.0 + fittedY[2u] / normalization;
+        const double determinant = m11 * m22 - m12 * m21;
+        if (!std::isfinite(determinant) || std::abs(determinant) <= 1.0e-12)
+        {
+            return transform;
+        }
+        const double i11 = m22 / determinant;
+        const double i12 = -m12 / determinant;
+        const double i21 = -m21 / determinant;
+        const double i22 = m11 / determinant;
+        StarTransform refined = transform;
+        refined.sourceToReference[0u] = i11 * a + i12 * c;
+        refined.sourceToReference[1u] = i11 * b + i12 * d;
+        refined.sourceToReference[3u] = i21 * a + i22 * c;
+        refined.sourceToReference[4u] = i21 * b + i22 * d;
+        refined.sourceToReference[2u] = referenceX - (i11 * constantX + i12 * constantY);
+        refined.sourceToReference[5u] = referenceY - (i21 * constantX + i22 * constantY);
+        if (!std::all_of(refined.sourceToReference.begin(), refined.sourceToReference.end(),
+                         [](double entry) { return std::isfinite(entry); }))
+        {
+            return transform;
+        }
+        transform = refined;
+    }
+    return transform;
+}
+
+/// How a fit treats the correspondences it is given.
+struct FitChoices
+{
+    /// The distance a correspondence may lie from the robust linear fit and still be kept, in pixels; nothing for
+    /// the request's residual limit.
+    std::optional<double> linearReach{};
+
+    /// Whether the linear model is refined under the distortion before the distortion is fitted
+    /// (`refineLinearUnderDistortion`).
+    bool refineLinear = false;
+};
+
 /// Whether a fit meets the request's match-count and residual limits.
 ///
 /// @param fit the finished fit.
@@ -446,10 +592,26 @@ solveNormalEquations(std::array<std::array<long double, kMaximumSipTerms + 1u>, 
            fit.finalRmsResidualPixels <= plan.request().maximumRmsResidualPixels;
 }
 
-} // namespace
-
-Result<PlateSolveFitResult> fitPlateSolveModel(const ExecutionContext& execution, const PlateSolveMatchResult& matches,
-                                               const SkyCoordinate& trialCenter, const PlateSolvePlan& plan)
+/// The fit behind `fitPlateSolveModel`, with the distance a correspondence may lie from the linear model and still
+/// be kept stated apart from the request's residual limit.
+///
+/// The robust linear fit keeps the correspondences within `linearReach` of it, and the distortion is then fitted to
+/// those. Correspondences a triangle match proposed are held to the residual limit itself, since a wrong one is
+/// only told from a right one by it. Correspondences taken by position under a solution that already places the
+/// catalog - the fit over the frame - are right to within a few pixels of the whole model, so the linear step may
+/// keep the ones a real distortion carries farther from a straight fit than the limit, which is what lets the
+/// distortion be fitted to them. The finished fit is held to the request's match and residual limits either way.
+///
+/// @param execution operation policy and engine-context lease.
+/// @param matches the correspondences.
+/// @param trialCenter the tangent point.
+/// @param plan checked plate-solve plan.
+/// @param choices the linear fit's inlier distance, and whether the linear model is refined under the distortion.
+/// @return the fit, with the failures `fitPlateSolveModel` documents.
+[[nodiscard]] Result<PlateSolveFitResult> fitModel(const ExecutionContext& execution,
+                                                   const PlateSolveMatchResult& matches,
+                                                   const SkyCoordinate& trialCenter, const PlateSolvePlan& plan,
+                                                   const FitChoices& choices)
 {
     if (!execution.valid())
     {
@@ -508,7 +670,8 @@ Result<PlateSolveFitResult> fitPlateSolveModel(const ExecutionContext& execution
                                               .maximumTriangleNeighbours = 5u,
                                               .minimumVotes = 1u,
                                               .minimumMatches = plan.request().minimumMatchedStars,
-                                              .inlierThreshold = plan.request().maximumRmsResidualPixels,
+                                              .inlierThreshold =
+                                                  choices.linearReach.value_or(plan.request().maximumRmsResidualPixels),
                                               .minimumInlierFraction = 0.25,
                                               .ransacIterations = plan.request().ransacIterations,
                                               .seed = plan.request().deterministicSeed};
@@ -517,18 +680,6 @@ Result<PlateSolveFitResult> fitPlateSolveModel(const ExecutionContext& execution
         {
             return fitted.status();
         }
-        const StarTransform& transform = fitted->transform;
-        const double a = transform.sourceToReference[0u];
-        const double b = transform.sourceToReference[1u];
-        const double c = transform.sourceToReference[3u];
-        const double d = transform.sourceToReference[4u];
-        const double determinant = a * d - b * c;
-        if (!std::isfinite(determinant) || std::abs(determinant) <= 1.0e-18)
-        {
-            return failure(ErrorCode::InvalidData, plate_solver_detail::kFitOperation,
-                           "the tangent-to-pixel fit is singular");
-        }
-
         std::vector<PlateSolveMatch> retained;
         retained.reserve(fitted->matches.size());
         for (const StarMatch& inlier : fitted->matches)
@@ -541,6 +692,27 @@ Result<PlateSolveFitResult> fitPlateSolveModel(const ExecutionContext& execution
             PlateSolveMatch retainedMatch = matches.matches[inlier.sourceIndex];
             retainedMatch.residualPixels = inlier.residual;
             retained.push_back(std::move(retainedMatch));
+        }
+
+        StarTransform transform = fitted->transform;
+        if (choices.refineLinear)
+        {
+            Result<StarTransform> refined = refineLinearUnderDistortion(execution, transform, retained, plan);
+            if (!refined.hasValue())
+            {
+                return refined.status();
+            }
+            transform = *refined;
+        }
+        const double a = transform.sourceToReference[0u];
+        const double b = transform.sourceToReference[1u];
+        const double c = transform.sourceToReference[3u];
+        const double d = transform.sourceToReference[4u];
+        const double determinant = a * d - b * c;
+        if (!std::isfinite(determinant) || std::abs(determinant) <= 1.0e-18)
+        {
+            return failure(ErrorCode::InvalidData, plate_solver_detail::kFitOperation,
+                           "the tangent-to-pixel fit is singular");
         }
 
         const Result<SipCandidate> sip =
@@ -604,6 +776,14 @@ Result<PlateSolveFitResult> fitPlateSolveModel(const ExecutionContext& execution
     {
         return Status::failure(ErrorCode::AllocationFailed);
     }
+}
+
+} // namespace
+
+Result<PlateSolveFitResult> fitPlateSolveModel(const ExecutionContext& execution, const PlateSolveMatchResult& matches,
+                                               const SkyCoordinate& trialCenter, const PlateSolvePlan& plan)
+{
+    return fitModel(execution, matches, trialCenter, plan, FitChoices{});
 }
 
 namespace plate_solver_detail
@@ -716,6 +896,288 @@ Result<PlateSolveRefinementResult> refineAtCenter(const ExecutionContext& execut
                                       .finalCenter = currentCenter,
                                       .iterations = iterations,
                                       .converged = converged};
+}
+
+namespace
+{
+
+/// A catalog point source of the cone about the final centre, as the fit over the frame uses it.
+struct FrameCatalogStar
+{
+    /// Position in `SkyCatalog::entries()`.
+    std::uint32_t catalogIndex = 0u;
+
+    /// Catalog direction.
+    SkyCoordinate coordinate{};
+
+    /// Tangent-plane coordinates at the final centre, in degrees.
+    double tangentXDegrees = 0.0;
+    double tangentYDegrees = 0.0;
+};
+
+/// The most supplied stars, and the most catalog point sources, the fit over the frame sets side by side: more than
+/// any detector's list of one frame holds, and a bound on the work a list of a million would ask for.
+constexpr std::size_t kFrameExtensionImageStars = 8192u;
+constexpr std::size_t kFrameExtensionCatalogStars = 32768u;
+
+/// The most passes the fit over the frame makes, each from the solution of the one before.
+constexpr std::uint32_t kFrameExtensionPasses = 5u;
+
+/// The side of a cell of the grid the image stars are found through, in pixels.
+constexpr double kFrameExtensionCellPixels = 32.0;
+
+/// How far from where the solution places a catalog star an image star may lie and still be taken for it, in pixels:
+/// four times the fit's residual, and no less and no more than these.
+constexpr double kFrameExtensionMinimumReach = 3.0;
+constexpr double kFrameExtensionMaximumReach = 8.0;
+
+/// No catalog star, in the list of the catalog star nearest each image star.
+constexpr std::uint32_t kNoCatalogStar = (std::numeric_limits<std::uint32_t>::max)();
+
+} // namespace
+
+Result<FrameExtension> extendOverFrame(const ExecutionContext& execution, const SkyCatalog& catalog,
+                                       std::span<const PlateSolveStar> stars, const PlateSolveInput& input,
+                                       const PlateSolvePlan& plan, PlateSolveRefinementResult refinement,
+                                       RunCounters* counters)
+{
+    FrameExtension outcome{.refinement = std::move(refinement), .extended = false};
+    const PlateSolveRequest& request = plan.request();
+    const std::size_t considered = (std::min)(stars.size(), kFrameExtensionImageStars);
+    const std::span<const PlateSolveStar> candidates = stars.first(considered);
+    // A frame whose stars were kept over its whole extent was fitted over it, and one that supplies no star outside
+    // the disc has nothing more to be fitted to.
+    if (!keptOverMatchingDisc(input, plan) ||
+        std::all_of(candidates.begin(), candidates.end(),
+                    [&request](const PlateSolveStar& star) { return insideMatchingDisc(star.position, request); }))
+    {
+        return outcome;
+    }
+    MemoryResource* const memoryResource = execution.memoryResource();
+    if (memoryResource == nullptr)
+    {
+        return outcome;
+    }
+
+    const SkyCoordinate center = outcome.refinement.finalCenter;
+    if (counters != nullptr)
+    {
+        ++counters->catalogQueries;
+    }
+    const Result<CatalogQueryResult> queried =
+        queryCatalogRegion(execution, catalog,
+                           CatalogRegionQuery{.center = center,
+                                              .radiusDegrees = plan.catalogQueryRadiusDegrees(),
+                                              .magnitudeLimit = request.magnitudeLimit,
+                                              .admitNamedEntriesWithoutMagnitude = false,
+                                              .maximumResults = request.maximumCatalogCandidates});
+    if (!queried.hasValue())
+    {
+        // The accepted solution stands when its catalog cannot be read again, unless the operation was stopped.
+        if (queried.code() == ErrorCode::Cancelled)
+        {
+            return queried.status();
+        }
+        return outcome;
+    }
+    if (counters != nullptr)
+    {
+        counters->examinedCatalogEntries += queried->examinedCount;
+        counters->admittedCatalogEntries += queried->admittedCount;
+    }
+
+    try
+    {
+        ExecutionMemory memory(*memoryResource);
+        const auto stopped = [&execution]() { return execution.checkCancellation(); };
+
+        // The catalog's point sources, brightest first, each on the final centre's tangent plane.
+        std::pmr::vector<FrameCatalogStar> sources(&memory);
+        sources.reserve((std::min)(queried->entryIndices.size(), kFrameExtensionCatalogStars));
+        for (std::size_t position = 0u;
+             position < queried->entryIndices.size() && sources.size() < kFrameExtensionCatalogStars; ++position)
+        {
+            if ((position & 255u) == 0u)
+            {
+                if (const Status cancellation = stopped(); cancellation.failed())
+                {
+                    return cancelledFailure(kRefineOperation, cancellation);
+                }
+            }
+            const std::uint32_t index = queried->entryIndices[position];
+            const CatalogEntry* entry = catalog.entry(index);
+            if (entry == nullptr || entry->extent.has_value())
+            {
+                continue;
+            }
+            const Result<GnomonicCoordinate> tangent = projectGnomonic(entry->coordinate, center);
+            if (!tangent.hasValue())
+            {
+                continue;
+            }
+            sources.push_back(FrameCatalogStar{.catalogIndex = index,
+                                               .coordinate = entry->coordinate,
+                                               .tangentXDegrees = tangent->xDegrees,
+                                               .tangentYDegrees = tangent->yDegrees});
+        }
+
+        // The supplied stars, found through a grid of the frame: the stars of each cell, cell after cell.
+        const double width = static_cast<double>(request.imageWidth);
+        const double height = static_cast<double>(request.imageHeight);
+        const std::size_t columns =
+            (std::max)(std::size_t{1u}, static_cast<std::size_t>(std::ceil(width / kFrameExtensionCellPixels)));
+        const std::size_t rows =
+            (std::max)(std::size_t{1u}, static_cast<std::size_t>(std::ceil(height / kFrameExtensionCellPixels)));
+        const auto column = [columns](double x) {
+            return static_cast<std::size_t>(
+                std::clamp(std::floor(x / kFrameExtensionCellPixels), 0.0, static_cast<double>(columns - 1u)));
+        };
+        const auto row = [rows](double y) {
+            return static_cast<std::size_t>(
+                std::clamp(std::floor(y / kFrameExtensionCellPixels), 0.0, static_cast<double>(rows - 1u)));
+        };
+        const auto inFrame = [width, height](const PixelCoordinate& position) {
+            return std::isfinite(position.x) && std::isfinite(position.y) && position.x >= 0.0 && position.y >= 0.0 &&
+                   position.x <= width && position.y <= height;
+        };
+        std::pmr::vector<std::uint32_t> cellStart(columns * rows + 1u, 0u, &memory);
+        for (const PlateSolveStar& star : candidates)
+        {
+            if (inFrame(star.position))
+            {
+                ++cellStart[row(star.position.y) * columns + column(star.position.x) + 1u];
+            }
+        }
+        std::partial_sum(cellStart.begin(), cellStart.end(), cellStart.begin());
+        std::pmr::vector<std::uint32_t> cellStars(cellStart.back(), 0u, &memory);
+        std::pmr::vector<std::uint32_t> filled(cellStart.begin(), cellStart.end() - 1, &memory);
+        for (std::size_t index = 0u; index < candidates.size(); ++index)
+        {
+            const PixelCoordinate& position = candidates[index].position;
+            if (inFrame(position))
+            {
+                cellStars[filled[row(position.y) * columns + column(position.x)]++] = static_cast<std::uint32_t>(index);
+            }
+        }
+
+        std::pmr::vector<std::uint32_t> nearestSource(&memory);
+        std::pmr::vector<double> nearestDistance(&memory);
+        for (std::uint32_t pass = 0u; pass < kFrameExtensionPasses; ++pass)
+        {
+            const PlateSolveFitResult& fit = outcome.refinement.fit;
+            const double reach =
+                std::clamp(4.0 * fit.finalRmsResidualPixels, kFrameExtensionMinimumReach, kFrameExtensionMaximumReach);
+            // Each catalog star is placed by the solution and offered to the image star nearest to where it falls;
+            // an image star two of them reach keeps the nearer.
+            nearestSource.assign(candidates.size(), kNoCatalogStar);
+            nearestDistance.assign(candidates.size(), (std::numeric_limits<double>::infinity)());
+            for (std::size_t source = 0u; source < sources.size(); ++source)
+            {
+                if ((source & 255u) == 0u)
+                {
+                    if (const Status cancellation = stopped(); cancellation.failed())
+                    {
+                        return cancelledFailure(kRefineOperation, cancellation);
+                    }
+                }
+                const Result<PixelCoordinate> placed = fit.solution.worldToPixel(sources[source].coordinate);
+                if (!placed.hasValue() || !std::isfinite(placed->x) || !std::isfinite(placed->y) ||
+                    placed->x < -reach || placed->y < -reach || placed->x > width + reach || placed->y > height + reach)
+                {
+                    continue;
+                }
+                std::uint32_t nearest = kNoCatalogStar;
+                double distance = reach;
+                for (std::size_t cellRow = row(placed->y - reach); cellRow <= row(placed->y + reach); ++cellRow)
+                {
+                    for (std::size_t cellColumn = column(placed->x - reach); cellColumn <= column(placed->x + reach);
+                         ++cellColumn)
+                    {
+                        const std::size_t cell = cellRow * columns + cellColumn;
+                        for (std::uint32_t at = cellStart[cell]; at < cellStart[cell + 1u]; ++at)
+                        {
+                            const PixelCoordinate& position = candidates[cellStars[at]].position;
+                            const double apart = std::hypot(position.x - placed->x, position.y - placed->y);
+                            if (apart <= distance)
+                            {
+                                distance = apart;
+                                nearest = cellStars[at];
+                            }
+                        }
+                    }
+                }
+                if (nearest != kNoCatalogStar && distance < nearestDistance[nearest])
+                {
+                    nearestDistance[nearest] = distance;
+                    nearestSource[nearest] = static_cast<std::uint32_t>(source);
+                }
+            }
+
+            PlateSolveMatchResult matched;
+            for (std::size_t index = 0u; index < candidates.size(); ++index)
+            {
+                if (nearestSource[index] == kNoCatalogStar)
+                {
+                    continue;
+                }
+                const FrameCatalogStar& source = sources[nearestSource[index]];
+                matched.matches.push_back(PlateSolveMatch{.imageStarIndex = static_cast<std::uint32_t>(index),
+                                                          .catalogIndex = source.catalogIndex,
+                                                          .imagePosition = candidates[index].position,
+                                                          .catalogCoordinate = source.coordinate,
+                                                          .tangentXDegrees = source.tangentXDegrees,
+                                                          .tangentYDegrees = source.tangentYDegrees,
+                                                          .votes = 1u,
+                                                          .confidence = 1.0,
+                                                          .residualPixels = nearestDistance[index]});
+            }
+            // A pass that sets no more stars beside the catalog than the fit already holds has nothing to add.
+            if (matched.matches.size() <= fit.matches.size())
+            {
+                break;
+            }
+            matched.candidateMatches = static_cast<std::uint32_t>(matched.matches.size());
+            if (counters != nullptr)
+            {
+                ++counters->fittingAttempts;
+            }
+            // These pairs were taken where the solution places the catalog, so the linear step keeps the ones a
+            // distortion carries as far from a straight fit as the reach allows, and the linear model and the
+            // distortion are fitted to them together.
+            Result<PlateSolveFitResult> refit = fitModel(
+                execution, matched, center, plan,
+                FitChoices{.linearReach = (std::max)(request.maximumRmsResidualPixels, kFrameExtensionMaximumReach),
+                           .refineLinear = true});
+            if (!refit.hasValue())
+            {
+                if (refit.code() == ErrorCode::Cancelled)
+                {
+                    return refit.status();
+                }
+                break;
+            }
+            if (refit->matches.size() <= fit.matches.size())
+            {
+                break;
+            }
+            if (counters != nullptr)
+            {
+                counters->peakWorkingBytes =
+                    (std::max)(counters->peakWorkingBytes, memory.peakBytes() + refit->peakWorkingBytes);
+            }
+            outcome.refinement.fit = std::move(*refit);
+            outcome.extended = true;
+        }
+        return outcome;
+    }
+    catch (const ContextAllocationFailure& allocation)
+    {
+        return allocation.status();
+    }
+    catch (const std::bad_alloc&)
+    {
+        return Status::failure(ErrorCode::AllocationFailed);
+    }
 }
 
 } // namespace plate_solver_detail

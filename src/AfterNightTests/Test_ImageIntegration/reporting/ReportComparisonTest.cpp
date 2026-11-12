@@ -62,14 +62,27 @@ ReportModel storedReport(const QString& runDirectory)
     return read.model.value_or(ReportModel{});
 }
 
-/// Writes a model as the report a run's archive keeps.
-void writeStoredReport(const QString& runDirectory, const ReportModel& model)
+/// Writes a model as the report a folder keeps, and nothing else of a run.
+void writeReportAlone(const QString& runDirectory, const ReportModel& model)
 {
     ASSERT_TRUE(QDir().mkpath(runDirectory));
     QFile file(QDir(runDirectory).filePath(QLatin1String(kStoredReportFileName)));
     ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
     const QByteArray bytes = QJsonDocument(ReportModelJson::toJson(model)).toJson(QJsonDocument::Compact);
     ASSERT_EQ(file.write(bytes), bytes.size());
+}
+
+/// Writes a model as the report a run's archive keeps. A run's folder is one that holds its manifest, so a folder
+/// made here is given one.
+void writeStoredReport(const QString& runDirectory, const ReportModel& model)
+{
+    writeReportAlone(runDirectory, model);
+    QFile manifest(QDir(runDirectory).filePath(QLatin1String(kRunManifestFileName)));
+    if (!manifest.exists())
+    {
+        ASSERT_TRUE(manifest.open(QIODevice::WriteOnly));
+        ASSERT_EQ(manifest.write("{}"), 2);
+    }
 }
 
 const ReportMaster* combinedOf(const ReportModel& model)
@@ -398,6 +411,43 @@ TEST(ReportComparison, ARunWithNoEarlierRunComparesNothing)
     }
 }
 
+// The exposure a run took is compared only when every light of it states one. A sum over the lights that do, set
+// beside the earlier run's whole, would read as exposure lost.
+TEST(ReportComparison, TheExposureARunTookIsComparedOnlyWhenEveryLightOfItStatesOne)
+{
+    auto scenario = archived(ReportScenarioId::FiveFiltersAfterEarlierRun);
+    ASSERT_TRUE(scenario.has_value());
+    const ReportModel whole = buildScenarioModel(*scenario, scenario->runDirectory);
+    ASSERT_TRUE(whole.comparison.has_value());
+    EXPECT_EQ(whole.run.framesWithExposure, whole.run.frames);
+    ASSERT_TRUE(whole.comparison->current.integrationMs.has_value());
+    EXPECT_EQ(*whole.comparison->current.integrationMs, whole.run.capturedMs);
+    EXPECT_TRUE(whole.comparison->previous.integrationMs.has_value());
+
+    // Two lights whose names state no exposure, in a group that states none either.
+    WorkflowManifest::IntegrationGroup& group = scenario->manifest.integrationGroups.front();
+    group.exposure = QStringLiteral("-");
+    for (std::size_t light = 0; light < 2u; ++light)
+    {
+        group.lightFiles[light] = FrameId(QStringLiteral("C:/lights/unnamed_%1.fits").arg(light));
+        group.lightExposureSeconds[light] = 0.0;
+    }
+
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+
+    EXPECT_EQ(model.run.framesWithExposure, model.run.frames - 2);
+    ASSERT_TRUE(model.comparison.has_value());
+    EXPECT_FALSE(model.comparison->current.integrationMs.has_value())
+        << "a sum over the lights that state an exposure is not the exposure the run took";
+    EXPECT_TRUE(model.comparison->previous.integrationMs.has_value());
+    // The target of those lights counts them too.
+    const auto target = std::find_if(model.targets.begin(), model.targets.end(), [](const ReportTarget& candidate) {
+        return candidate.framesWithExposure != candidate.frames;
+    });
+    ASSERT_NE(target, model.targets.end());
+    EXPECT_EQ(target->framesWithExposure, target->frames - 2);
+}
+
 TEST(ReportComparison, ARunThatHasNoFolderOfItsOwnIsComparedWithNothing)
 {
     const auto scenario = built(ReportScenarioId::FiveFiltersAfterEarlierRun);
@@ -411,6 +461,53 @@ TEST(ReportComparison, ARunThatHasNoFolderOfItsOwnIsComparedWithNothing)
     {
         EXPECT_FALSE(master.baseline.has_value()) << master.name.toStdString();
     }
+}
+
+// A stored report is a run's only beside the run's manifest: the commit writes the report first and the manifest
+// last, and removes the folder when it fails in between. A folder that could not be removed keeps a report of a
+// run whose outputs were put back. Nothing is compared with it, and the history lists it with why.
+TEST(ReportComparison, AFolderThatKeepsAReportAndNoManifestIsNoEarlierRun)
+{
+    const auto scenario = archived(ReportScenarioId::FiveFiltersAfterEarlierRun);
+    ASSERT_TRUE(scenario.has_value());
+    const QString earlier = scenario->earlierRunDirectories.front();
+    const ReportModel before = buildScenarioModel(*scenario, scenario->runDirectory);
+    ASSERT_TRUE(before.comparison.has_value());
+    ASSERT_EQ(before.comparison->baselineRunId, runIdOf(earlier));
+    ASSERT_EQ(before.history.size(), 1u);
+
+    // What a failed commit left behind, after the earlier run and before this one: its report and no manifest.
+    const QDir history = QFileInfo(scenario->runDirectory).dir();
+    const QString leftBehind = history.filePath(QStringLiteral("20260325_120000_000"));
+    ASSERT_GT(QFileInfo(leftBehind).fileName(), runIdOf(earlier));
+    ASSERT_LT(QFileInfo(leftBehind).fileName(), runIdOf(scenario->runDirectory));
+    writeReportAlone(leftBehind, storedReport(earlier));
+
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+
+    ASSERT_TRUE(model.comparison.has_value());
+    EXPECT_EQ(model.comparison->baselineRunId, runIdOf(earlier)) << "the folder with no manifest was compared with";
+    ASSERT_EQ(model.history.size(), 2u);
+    EXPECT_EQ(model.history.front().runId, runIdOf(earlier));
+    EXPECT_TRUE(model.history.front().refusal.isEmpty());
+    EXPECT_EQ(model.history.back().runId, QFileInfo(leftBehind).fileName());
+    EXPECT_TRUE(model.history.back().refusal.contains(QStringLiteral("no manifest")))
+        << model.history.back().refusal.toStdString();
+    for (const ReportMaster& master : model.masters)
+    {
+        if (master.baseline.has_value())
+        {
+            EXPECT_EQ(master.baseline->runId, runIdOf(earlier)) << master.name.toStdString();
+        }
+    }
+
+    // With its manifest the same folder is a run of the history, and the latest before this one.
+    writeStoredReport(leftBehind, storedReport(earlier));
+    const ReportModel listed = buildScenarioModel(*scenario, scenario->runDirectory);
+    ASSERT_TRUE(listed.comparison.has_value());
+    EXPECT_EQ(listed.comparison->baselineRunId, QFileInfo(leftBehind).fileName());
+    ASSERT_EQ(listed.history.size(), 2u);
+    EXPECT_TRUE(listed.history.back().refusal.isEmpty()) << listed.history.back().refusal.toStdString();
 }
 
 TEST(ReportComparison, TheRunBeingWrittenAndTheRunsAfterItAreNeverRead)
@@ -758,6 +855,129 @@ TEST(ReportComparison, APictureThatCannotBeCopiedIsNotStatedInTheReportStored)
     {
         EXPECT_TRUE(entry.report.isEmpty()) << entry.runId.toStdString();
     }
+}
+
+// A stored report is a file on disk, and one that was edited - or that came in a folder someone sent - may name a
+// picture by a path that leaves its run's folder. Such a path names no picture of that run: nothing is compared by
+// it, nothing is copied by it, and the report stored states no picture. Copied, a file from elsewhere on the machine
+// would be in the run's folder under a picture's name, and in the one file a report is sent as.
+TEST(ReportComparison, APictureAStoredReportNamesOutsideItsRunsFolderIsNeitherComparedNorCopied)
+{
+    const auto scenario = archived(ReportScenarioId::FiveFiltersAfterEarlierRun);
+    ASSERT_TRUE(scenario.has_value());
+    const QString earlier = scenario->earlierRunDirectories.front();
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+    const ReportMaster* luminance = masterOfFilter(model, QStringLiteral("Luminance"));
+    ASSERT_NE(luminance, nullptr);
+    ASSERT_TRUE(luminance->baseline.has_value());
+    const QString preview = luminance->baseline->preview;
+    const QString detail = luminance->baseline->detail;
+    ASSERT_FALSE(preview.isEmpty());
+    ASSERT_FALSE(detail.isEmpty());
+
+    // A picture outside the history, which the earlier run's stored report is made to name in place of its own: by
+    // a path that climbs out of its folder, and by a whole path.
+    ReportModel edited = storedReport(earlier);
+    const auto made = std::find_if(edited.masters.begin(), edited.masters.end(), [](const ReportMaster& master) {
+        return master.filter == QStringLiteral("Luminance");
+    });
+    ASSERT_NE(made, edited.masters.end());
+    const QString outside = QDir(scenario->outputDirectory).filePath(QStringLiteral("elsewhere.jpg"));
+    ASSERT_TRUE(QFile::copy(QDir(earlier).filePath(made->preview), outside));
+    ASSERT_TRUE(QFileInfo(QDir(earlier).filePath(QStringLiteral("../../elsewhere.jpg"))).isFile());
+    made->preview = QStringLiteral("../../elsewhere.jpg");
+    made->detail = outside;
+    writeStoredReport(earlier, edited);
+    // The run holds no copy of either yet.
+    ASSERT_TRUE(QFile::remove(QDir(scenario->runDirectory).filePath(preview)));
+    ASSERT_TRUE(QFile::remove(QDir(scenario->runDirectory).filePath(detail)));
+
+    // A report stored of the model built before the edit still asks for both pictures, and copies neither.
+    const WorkflowReportStored stored = storeWorkflowReport(model, scenario->runDirectory);
+
+    ASSERT_TRUE(stored.isStored());
+    ASSERT_EQ(stored.picturesNotCopied.size(), 2) << stored.picturesNotCopied.join(QLatin1Char('\n')).toStdString();
+    for (const QString& refused : stored.picturesNotCopied)
+    {
+        EXPECT_TRUE(refused.contains(QStringLiteral("outside its own folder"))) << refused.toStdString();
+    }
+    EXPECT_FALSE(QFileInfo::exists(QDir(scenario->runDirectory).filePath(preview)));
+    EXPECT_FALSE(QFileInfo::exists(QDir(scenario->runDirectory).filePath(detail)));
+    const ReportModel kept = storedReport(scenario->runDirectory);
+    const ReportMaster* keptLuminance = masterOfFilter(kept, QStringLiteral("Luminance"));
+    ASSERT_NE(keptLuminance, nullptr);
+    ASSERT_TRUE(keptLuminance->baseline.has_value());
+    EXPECT_TRUE(keptLuminance->baseline->preview.isEmpty());
+    EXPECT_TRUE(keptLuminance->baseline->detail.isEmpty());
+
+    // And a model built after the edit states no picture of the earlier master to begin with.
+    const ReportModel built = buildScenarioModel(*scenario, scenario->runDirectory);
+    const ReportMaster* builtLuminance = masterOfFilter(built, QStringLiteral("Luminance"));
+    ASSERT_NE(builtLuminance, nullptr);
+    ASSERT_TRUE(builtLuminance->baseline.has_value());
+    EXPECT_TRUE(builtLuminance->baseline->preview.isEmpty());
+    EXPECT_TRUE(builtLuminance->baseline->detail.isEmpty());
+}
+
+// A run's report is stored as its archive is committed, and again as its timings and its log are known. The pictures
+// of the earlier runs it is compared with are copied by the first store; the later ones find them there, and read
+// no earlier run's stored report to copy them again.
+TEST(ReportComparison, AReportStoredAgainReadsNoEarlierRunsReportForThePicturesItAlreadyCopied)
+{
+    const auto scenario = archived(ReportScenarioId::FiveFiltersAfterEarlierRun);
+    ASSERT_TRUE(scenario.has_value());
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+    const QDir run(scenario->runDirectory);
+    QStringList copies;
+    for (const ReportMaster& master : model.masters)
+    {
+        if (master.baseline.has_value() && master.baseline->made)
+        {
+            for (const QString& picture : {master.baseline->preview, master.baseline->detail})
+            {
+                if (!picture.isEmpty())
+                {
+                    copies << picture;
+                }
+            }
+        }
+    }
+    ASSERT_FALSE(copies.isEmpty());
+    // The run holds no copy yet.
+    for (const QString& copy : copies)
+    {
+        ASSERT_TRUE(QFile::remove(run.filePath(copy))) << copy.toStdString();
+    }
+
+    WorkflowReportStoreMemo memo;
+    const WorkflowReportStored first = storeWorkflowReport(model, scenario->runDirectory, &memo);
+    ASSERT_TRUE(first.isStored());
+    EXPECT_TRUE(first.picturesNotCopied.isEmpty());
+    EXPECT_EQ(memo.earlierReportsRead, 1) << "one earlier run made every master the run is compared with";
+    EXPECT_EQ(memo.picturesCopied.size(), copies.size());
+    const ReportModel storedFirst = storedReport(scenario->runDirectory);
+
+    // The store of the timings and the store of the log: the same model, the pictures there.
+    for (int store = 0; store < 2; ++store)
+    {
+        const WorkflowReportStored again = storeWorkflowReport(model, scenario->runDirectory, &memo);
+        ASSERT_TRUE(again.isStored());
+        EXPECT_TRUE(again.picturesNotCopied.isEmpty());
+    }
+    EXPECT_EQ(memo.earlierReportsRead, 1) << "a later store read an earlier run's report for pictures it had";
+    EXPECT_EQ(storedReport(scenario->runDirectory), storedFirst);
+    for (const QString& copy : copies)
+    {
+        EXPECT_TRUE(QFileInfo(run.filePath(copy)).isFile()) << copy.toStdString();
+    }
+
+    // A copy that went away in between is made again, which the earlier run's report is read for.
+    ASSERT_TRUE(QFile::remove(run.filePath(copies.front())));
+    const WorkflowReportStored restored = storeWorkflowReport(model, scenario->runDirectory, &memo);
+    ASSERT_TRUE(restored.isStored());
+    EXPECT_TRUE(restored.picturesNotCopied.isEmpty());
+    EXPECT_EQ(memo.earlierReportsRead, 2);
+    EXPECT_TRUE(QFileInfo(run.filePath(copies.front())).isFile());
 }
 
 // ---- Why a light's registration failed.

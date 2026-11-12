@@ -714,9 +714,10 @@ namespace
 }
 
 /// The run's stages in the order the manifest lists them: the ones the run timed, as it timed them, and the ones it
-/// has no result for. Such a stage was not reached in a run that stopped; in a run that completed, what it makes was
-/// still valid when the run was incremental and the stage has groups, and the run had no work for it otherwise. A
-/// stage the run timed and the manifest does not list follows them.
+/// has no result for. Such a stage was not reached when the run stopped before it - no stage after it was timed. A
+/// stage the run went past, in a run that stopped as in one that completed, made nothing because what it makes was
+/// still valid - the run was incremental and the stage has groups - or because the run had no work for it: its
+/// masters were supplied. A stage the run timed and the manifest does not list follows them.
 void fillStages(const ReportBuild& build, ReportModel& model)
 {
     const WorkflowManifest& manifest = build.manifest();
@@ -738,11 +739,25 @@ void fillStages(const ReportBuild& build, ReportModel& model)
 
     const bool stopped = result.cancelled || !result.success;
     const bool incremental = manifest.executionMode == ExecutionMode::Incremental;
+    // The last stage of the sequence the run timed. A run that stopped went past every stage before it: one of those
+    // with no result was not unreached, it had nothing to make.
+    qsizetype lastTimed = -1;
+    for (qsizetype index = 0; index < manifest.stageSequence.size(); ++index)
+    {
+        const QString resultName = stageResultName(manifest.stageSequence[index].trimmed());
+        if (std::any_of(result.stageResults.begin(), result.stageResults.end(),
+                        [&resultName](const WorkflowExecutor::Result::StageTiming& stage) {
+                            return stage.stageName == resultName;
+                        }))
+        {
+            lastTimed = index;
+        }
+    }
     std::vector<bool> stated(result.stageResults.size(), false);
     model.stages.reserve(result.stageResults.size() + static_cast<std::size_t>(manifest.stageSequence.size()));
-    for (const QString& sequenceName : manifest.stageSequence)
+    for (qsizetype sequenceIndex = 0; sequenceIndex < manifest.stageSequence.size(); ++sequenceIndex)
     {
-        const QString resultName = stageResultName(sequenceName.trimmed());
+        const QString resultName = stageResultName(manifest.stageSequence[sequenceIndex].trimmed());
         bool found = false;
         for (std::size_t i = 0; i < result.stageResults.size(); ++i)
         {
@@ -762,7 +777,7 @@ void fillStages(const ReportBuild& build, ReportModel& model)
         untimed.key = resultName;
         untimed.name = stageDisplayName(resultName);
         untimed.groups = stageGroupCount(manifest, resultName);
-        if (stopped)
+        if (stopped && sequenceIndex > lastTimed)
         {
             untimed.state = ReportStageState::NotReached;
             untimed.status = QStringLiteral("not reached");
@@ -1062,16 +1077,19 @@ void fillAcquisition(const ReportModel& model, ReportRun& run)
 void fillFrameStates(const ReportModel& model, ReportRun& run)
 {
     QMap<int, int> byState;
+    int seen = 0;
     int stated = 0;
     qint64 integratedMs = 0;
     bool everyUsedLightStatesItsExposure = true;
     const auto count = [&](const ReportFrame& frame) {
+        ++seen;
         const bool leftOutByUser =
             frame.state == ReportFrameState::ExcludedByUser || frame.state == ReportFrameState::StackExcludedByUser;
         if (leftOutByUser && frame.exposureSeconds.has_value())
         {
             // The groups' own lights are in the captured time already; a light the user left out is in no group.
             run.capturedMs += std::llround(*frame.exposureSeconds * 1000.0);
+            ++run.framesWithExposure;
         }
         if (!frame.state.has_value())
         {
@@ -1113,6 +1131,13 @@ void fillFrameStates(const ReportModel& model, ReportRun& run)
     {
         run.frameStates.push_back(
             ReportFrameStateCount{.state = static_cast<ReportFrameState>(it.key()), .frames = it.value()});
+    }
+    // The lights used are counted only when every light the run took states what became of it. Beside lights that
+    // state no fate - those of a master reused from a run whose report the history does not keep, or of a stack
+    // that recorded no weights - a count of the ones used would read the others as left out.
+    if (stated != seen)
+    {
+        return;
     }
     run.framesUsed = byState.value(static_cast<int>(ReportFrameState::Used), 0);
     // The exposure the masters combine is a sum only when every light of it states one: a sum over the lights that
@@ -1271,6 +1296,7 @@ void fillTargets(const ReportBuild& build, ReportModel& model)
     struct Aggregate
     {
         int frames = 0;
+        int framesWithExposure = 0;
         qint64 integrationMs = 0;
         QSet<QString> filters;
         QSet<QString> masters;
@@ -1288,8 +1314,10 @@ void fillTargets(const ReportBuild& build, ReportModel& model)
     {
         const QString target = listedTargetName(group);
         Aggregate& aggregate = byTarget[target];
+        const ExposureBreakdown breakdown = buildExposureBreakdown(group);
         aggregate.frames += static_cast<int>(group.lightFiles.size());
-        aggregate.integrationMs += buildExposureBreakdown(group).totalMs;
+        aggregate.framesWithExposure += breakdown.knownFrames;
+        aggregate.integrationMs += breakdown.totalMs;
         if (!group.filter.trimmed().isEmpty())
         {
             aggregate.filters.insert(group.filter.trimmed());
@@ -1328,6 +1356,7 @@ void fillTargets(const ReportBuild& build, ReportModel& model)
         ReportTarget target;
         target.name = it.key();
         target.frames = it->frames;
+        target.framesWithExposure = it->framesWithExposure;
         target.integrationMs = it->integrationMs;
         target.filters = sorted(it->filters);
         target.masters = sorted(it->masters);
@@ -1424,6 +1453,7 @@ void fillRun(ReportBuild& build, ReportModel& model)
     {
         const ExposureBreakdown breakdown = buildExposureBreakdown(group);
         run.frames += breakdown.totalFrames;
+        run.framesWithExposure += breakdown.knownFrames;
         run.capturedMs += breakdown.totalMs;
     }
     // The lights the user left out were taken too; their exposure joins the captured time with their states.

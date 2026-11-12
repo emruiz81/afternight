@@ -407,7 +407,9 @@ TEST_F(ReportHtmlWriterTest, EveryMasterHasAFileWithItsSectionsOrTheFormOfOneNot
             EXPECT_NE(firstInside(parsed, *summary, "h3"), nullptr);
 
             const auto section = [&](const char* name) {
-                const std::vector<const DocumentElement*> found = parsed.withId(anchor + QLatin1Char('-') + name);
+                // A section is named by its file and its own name, two hyphens between them.
+                const std::vector<const DocumentElement*> found =
+                    parsed.withId(anchor + QStringLiteral("--") + QLatin1String(name));
                 EXPECT_LE(found.size(), 1u);
                 if (!found.empty())
                 {
@@ -620,7 +622,7 @@ TEST_F(ReportHtmlWriterTest, AMasterStatesItsStatisticsAndItsSamplesPerChannel)
     const auto held = [](const Rendered& report, const ReportMaster& master) {
         SCOPED_TRACE(master.name.toStdString());
         const ParsedDocument& parsed = report.linkedParsed;
-        const DocumentElement* picture = one(parsed, fileAnchor(master) + QStringLiteral("-picture"));
+        const DocumentElement* picture = one(parsed, fileAnchor(master) + QStringLiteral("--picture"));
         ASSERT_NE(picture, nullptr);
         ASSERT_TRUE(master.statistics.has_value());
         const std::size_t channels = master.statistics->channelStats.size();
@@ -686,7 +688,7 @@ TEST_F(ReportHtmlWriterTest, AMasterStatesItsStatisticsAndItsSamplesPerChannel)
     for (const ReportMaster& master : blind->model.masters)
     {
         EXPECT_FALSE(master.statistics.has_value());
-        const DocumentElement* picture = one(blind->linkedParsed, fileAnchor(master) + QStringLiteral("-picture"));
+        const DocumentElement* picture = one(blind->linkedParsed, fileAnchor(master) + QStringLiteral("--picture"));
         ASSERT_NE(picture, nullptr);
         EXPECT_TRUE(ofClassInside(blind->linkedParsed, *picture, "table", "stats").empty());
         EXPECT_TRUE(blind->linkedParsed.ofClassInside(*picture, "chart-samples").empty());
@@ -873,7 +875,7 @@ TEST_F(ReportHtmlWriterTest, AMastersLightsAreChartedMeasureByMeasureWithASwitch
             continue;
         }
         SCOPED_TRACE(master.name.toStdString());
-        const DocumentElement* lights = one(parsed, fileAnchor(master) + QStringLiteral("-lights"));
+        const DocumentElement* lights = one(parsed, fileAnchor(master) + QStringLiteral("--lights"));
         ASSERT_NE(lights, nullptr);
         const std::vector<const DocumentElement*> charts = parsed.ofClassInside(*lights, "fchart");
         ASSERT_EQ(charts.size(), 1u);
@@ -904,7 +906,7 @@ TEST_F(ReportHtmlWriterTest, AMastersLightsAreChartedMeasureByMeasureWithASwitch
         {
             continue;
         }
-        const DocumentElement* lights = one(blind->linkedParsed, fileAnchor(master) + QStringLiteral("-lights"));
+        const DocumentElement* lights = one(blind->linkedParsed, fileAnchor(master) + QStringLiteral("--lights"));
         ASSERT_NE(lights, nullptr);
         EXPECT_TRUE(blind->linkedParsed.ofClassInside(*lights, "chart-dither").empty());
     }
@@ -973,7 +975,9 @@ TEST_F(ReportHtmlWriterTest, AStacksClustersAndTheMapsItDidNotWriteAreStatedInTh
     EXPECT_EQ(rows.front()[2]->text, formatCount(987));
     EXPECT_EQ(rows[1][0]->text, QStringLiteral("Low"));
     EXPECT_TRUE(file->text.contains(QStringLiteral("the 20 largest of 25")));
-    EXPECT_TRUE(file->text.contains(QStringLiteral("The settings ask for 2 rejection maps; 1 were written.")));
+    // Each half of the sentence takes the number of its own count.
+    EXPECT_TRUE(file->text.contains(QStringLiteral("The settings ask for 2 rejection maps; 1 was written.")))
+        << file->text.toStdString();
 }
 
 // ---- Settings.
@@ -1490,6 +1494,9 @@ TEST_F(ReportHtmlWriterTest, ACometsPathAndTheCatalogSourcesKeptAreStatedInTheir
     run.inputsRejected = 2;
     run.pointsAutomatic = 18;
     run.readiness = QStringLiteral("Ready");
+    // The run counted the transforms it made and the ones that failed, and states no count of the missing.
+    run.transformsSucceeded = 17;
+    run.transformsFailed = 1;
     model.registrationGroups.front().cometRuns.push_back(run);
     ReportCatalogHandoff handoff;
     handoff.frames = 20;
@@ -1511,6 +1518,9 @@ TEST_F(ReportHtmlWriterTest, ACometsPathAndTheCatalogSourcesKeptAreStatedInTheir
     }
     // A count of nothing is not listed.
     EXPECT_FALSE(card->text.contains(QStringLiteral("Manifest mismatch")));
+    // A count the comet run does not state is not a count of nought.
+    EXPECT_TRUE(card->text.contains(QStringLiteral("17 made, 1 failed"))) << card->text.toStdString();
+    EXPECT_FALSE(card->text.contains(QStringLiteral("missing"))) << card->text.toStdString();
 
     // The run as built states neither.
     const DocumentElement* asBuilt = one(report->linkedParsed, report->model.registrationGroups.front().slug);
@@ -2005,7 +2015,7 @@ TEST_F(ReportHtmlWriterTest, TheEffectiveFramesHaveOneNameWhereverTheyArePrinted
         });
     ASSERT_NE(luminance, report->model.masters.end());
     ASSERT_TRUE(luminance->stack.has_value());
-    const DocumentElement* stack = one(report->linkedParsed, fileAnchor(*luminance) + QStringLiteral("-stack"));
+    const DocumentElement* stack = one(report->linkedParsed, fileAnchor(*luminance) + QStringLiteral("--stack"));
     ASSERT_NE(stack, nullptr);
     EXPECT_TRUE(stack->text.contains(QStringLiteral("Effective frames"))) << stack->text.left(400).toStdString();
 }
@@ -2020,7 +2030,7 @@ TEST_F(ReportHtmlWriterTest, ATurnedLightGivesTheTableOfLightsATurnColumn)
     ASSERT_FALSE(model.masters.empty());
     ReportMaster& master = model.masters.front();
     ASSERT_GE(master.frames.size(), 2u);
-    const QString anchor = fileAnchor(master) + QStringLiteral("-lights");
+    const QString anchor = fileAnchor(master) + QStringLiteral("--lights");
 
     const auto headings = [&anchor](const ParsedDocument& parsed) {
         QStringList found;
@@ -2063,7 +2073,7 @@ TEST_F(ReportHtmlWriterTest, AStackThatRecordedNoEffectiveFramesGainOrCoveragePr
     });
     ASSERT_NE(luminance, model.masters.end());
     ASSERT_TRUE(luminance->stack.has_value());
-    const QString anchor = fileAnchor(*luminance) + QStringLiteral("-stack");
+    const QString anchor = fileAnchor(*luminance) + QStringLiteral("--stack");
 
     // As built, the stack states all three.
     {

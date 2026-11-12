@@ -101,7 +101,7 @@ TEST(ReportScenarios, EveryScenarioHasANameOfItsOwn)
         EXPECT_FALSE(names.contains(name)) << name.toStdString() << " names two scenarios";
         names.insert(name);
     }
-    EXPECT_EQ(names.size(), 24);
+    EXPECT_EQ(names.size(), 25);
 }
 
 TEST(ReportScenarios, EveryScenarioHoldsWhatItSaysItHolds)
@@ -827,6 +827,17 @@ TEST(ReportScenarios, EachScenarioStatesTheThingItIsFor)
         EXPECT_FALSE(
             QFileInfo::exists(QDir(scenario->outputDirectory).filePath(QStringLiteral("registration_metrics.db"))));
         EXPECT_EQ(scenario->facts.mastersMade, 6);
+    }
+    if (const auto scenario = built(ReportScenarioId::PlaceMarkersInNames))
+    {
+        // The group's key, which a master is named from, holds both markers; two lights were dropped by its stack.
+        ASSERT_EQ(scenario->manifest.integrationGroups.size(), 1u);
+        const QString key = scenario->manifest.integrationGroups.front().groupKey.toString();
+        EXPECT_TRUE(key.contains(QStringLiteral("%1"))) << key.toStdString();
+        EXPECT_TRUE(key.contains(QStringLiteral("%2"))) << key.toStdString();
+        EXPECT_EQ(scenario->facts.lightsDroppedByStack, 2);
+        EXPECT_EQ(scenario->facts.nights, 2);
+        EXPECT_EQ(scenario->manifest.lightsCalibration.size(), 26u);
     }
 }
 

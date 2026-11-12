@@ -720,6 +720,18 @@ TEST_F(PreviewThumbnailGenerator, AMasterIsPicturedUnderTheStretchOfAnother)
                      session(), nowPath, absent, reportDir, QStringLiteral("b.jpg"), QStringLiteral("b_detail.jpg"))
                      .whole.has_value());
     EXPECT_FALSE(QFile::exists(QDir(reportDir).filePath(QStringLiteral("a.jpg"))));
+
+    // Whoever made a master's own pictures keeps the stretch they were presented through. With it the master's file
+    // is not read again to measure it - it need not be there - and the picture is the one measuring the file gives.
+    ASSERT_NE(nowOwn.stretch, nullptr);
+    const ImageIntegration::ReportMasterPreviews known = ImageIntegration::generateReportMasterPreviewsUnderStretchOf(
+        session(), absent, earlierPath, reportDir, QStringLiteral("known.jpg"), QStringLiteral("known_detail.jpg"),
+        std::nullopt, 90, ImageIntegration::ReportPicturePresentation::Bounded, nowOwn.stretch.get());
+    ASSERT_TRUE(known.whole.has_value());
+    ASSERT_TRUE(known.detail.has_value());
+    EXPECT_TRUE(previewImagesMatch(QImage(QDir(reportDir).filePath(*known.whole)), matchedPicture));
+    EXPECT_TRUE(previewImagesMatch(QImage(QDir(reportDir).filePath(*known.detail)),
+                                   QImage(QDir(reportDir).filePath(*matched.detail))));
 }
 
 // A run's own pictures of a master are the stacking stage's, of the master it held: every n-th sample of a master
@@ -753,6 +765,7 @@ TEST_F(PreviewThumbnailGenerator, AMasterSetBesideTheStagesOwnPicturesIsPictured
     }
     ASSERT_FALSE(own.reportPreviewJpeg.isEmpty());
     ASSERT_FALSE(own.reportDetailJpeg.isEmpty());
+    ASSERT_NE(own.reportPreviewStretch, nullptr) << "the stage keeps the stretch it presented its master through";
     const QImage ownWhole = QImage::fromData(own.reportPreviewJpeg, "JPEG");
     ASSERT_EQ(ownWhole.size(), QSize(1400, 200));
 
@@ -764,6 +777,18 @@ TEST_F(PreviewThumbnailGenerator, AMasterSetBesideTheStagesOwnPicturesIsPictured
     ASSERT_TRUE(matched.detail.has_value());
     EXPECT_TRUE(previewImagesMatch(QImage(QDir(reportDir).filePath(*matched.whole)), ownWhole));
     EXPECT_TRUE(previewImagesMatch(QImage(QDir(reportDir).filePath(*matched.detail)),
+                                   QImage::fromData(own.reportDetailJpeg, "JPEG")));
+
+    // Through the stretch the stage kept, the run's master is not read from its file again: the file need not be
+    // there, and the picture is the same one.
+    const ImageIntegration::ReportMasterPreviews kept = ImageIntegration::generateReportMasterPreviewsUnderStretchOf(
+        session(), QDir(tempPath()).filePath(QStringLiteral("not_there.fit")), earlierPath, reportDir,
+        QStringLiteral("kept.jpg"), QStringLiteral("kept_detail.jpg"), std::nullopt, 90,
+        ImageIntegration::ReportPicturePresentation::AsStacked, own.reportPreviewStretch.get());
+    ASSERT_TRUE(kept.whole.has_value());
+    ASSERT_TRUE(kept.detail.has_value());
+    EXPECT_TRUE(previewImagesMatch(QImage(QDir(reportDir).filePath(*kept.whole)), ownWhole));
+    EXPECT_TRUE(previewImagesMatch(QImage(QDir(reportDir).filePath(*kept.detail)),
                                    QImage::fromData(own.reportDetailJpeg, "JPEG")));
 
     // As the archive pictures a file the same master is not the stage's picture: it is fitted into the bound.

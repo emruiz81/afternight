@@ -124,7 +124,12 @@ ReportRunTotals runTotals(const ReportModel& model)
 {
     ReportRunTotals totals;
     totals.frames = model.run.frames;
-    totals.integrationMs = model.run.capturedMs;
+    // The exposure the run took is a sum only when every light of it states one: a sum over the lights that do, set
+    // beside another run's whole, would read as exposure lost.
+    if (everyLightStatesItsExposure(model.run.frames, model.run.framesWithExposure))
+    {
+        totals.integrationMs = model.run.capturedMs;
+    }
     totals.framesUsed = model.run.framesUsed;
     totals.integratedMs = model.run.integratedMs;
 
@@ -230,8 +235,11 @@ void fillBaselines(ReportBuild& build, ReportModel& model)
             figures.made = true;
             figures.sideBySide = shapesDiffer(master, *made);
             const QDir archive(history.filePath(run.runId));
-            const bool hasPreview = !made->preview.trimmed().isEmpty() && build.exists(archive.filePath(made->preview));
-            const bool hasDetail = !made->detail.trimmed().isEmpty() && build.exists(archive.filePath(made->detail));
+            // A picture an earlier run's stored report names is one of that run's folder, or it is none.
+            const bool hasPreview =
+                staysInsideItsFolder(made->preview) && build.exists(archive.filePath(made->preview.trimmed()));
+            const bool hasDetail =
+                staysInsideItsFolder(made->detail) && build.exists(archive.filePath(made->detail.trimmed()));
             if (!baseline.made)
             {
                 // The latest run that made the master. Its pictures are the ones that run archived, each under its

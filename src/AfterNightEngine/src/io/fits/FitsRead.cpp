@@ -40,10 +40,11 @@ Result<CodecDecodeResult> readFits(const EngineContext& engine, const ExecutionC
         return file.status();
     auto headerRequest = request;
     headerRequest.validatePayload = false;
-    auto header = readFitsHeader(*file->reader, engine, execution, headerRequest, integer64, false);
+    auto header = readFitsHeader(*file, engine, execution, headerRequest, integer64, false);
     if (!header.hasValue())
         return header.status();
-    return readPreparedFits(engine, execution, request, region, integer64, *file->reader, std::move(*header));
+    return readPreparedFits(engine, execution, request, region, integer64, *file->reader, std::move(*header),
+                            file->tiles.get());
 }
 
 namespace
@@ -77,6 +78,7 @@ struct Strip
 struct RegionRead
 {
     const openfits::reader& file; ///< The open file.
+    openfits::tile_cache* tiles; ///< Where the strips keep the tiles they decode; null for tiles of one row.
     const FitsHeader& header; ///< The selected image.
     const CodecReadRequest& request; ///< The source selection, for failures.
     const CodecRegion& area; ///< The region.
@@ -157,6 +159,8 @@ Status readStrip(const RegionRead& read, const Strip& strip, std::span<std::byte
             options.blank = openfits::blank_policy::ignore;
             // A decode reads what the file holds; a checksum is verified by a probe that asks for it.
             options.verify_checksum = false;
+            // A tile that spans several rows is met by more than one strip, and decoded once.
+            options.cache = read.tiles;
             if (direct)
             {
                 options.region = stripRegion(read, strip);
@@ -228,7 +232,8 @@ Status readStrip(const RegionRead& read, const Strip& strip, std::span<std::byte
 
 Status readFitsPixels(const EngineContext& engine, const ExecutionContext& execution, const CodecReadRequest& request,
                       const CodecRegion& area, FitsInteger64Policy integer64, const openfits::reader& file,
-                      const FitsHeader& header, std::byte* samples, const ImageLayout& layout)
+                      const FitsHeader& header, std::byte* samples, const ImageLayout& layout,
+                      openfits::tile_cache* tiles)
 {
     const ImageExtent& sourceExtent = header.info.descriptor.extent();
     const RawSampleFormat format = header.info.descriptor.sampleFormat();
@@ -240,6 +245,7 @@ Status readFitsPixels(const EngineContext& engine, const ExecutionContext& execu
         return Status::failure(ErrorCode::Internal);
     const bool identity = header.scale == 1.0 && header.zero == 0.0;
     const RegionRead read{.file = file,
+                          .tiles = tiles,
                           .header = header,
                           .request = request,
                           .area = area,
@@ -297,7 +303,7 @@ Status readFitsPixels(const EngineContext& engine, const ExecutionContext& execu
 Result<CodecDecodeResult> readPreparedFits(const EngineContext& engine, const ExecutionContext& execution,
                                            const CodecReadRequest& request, const CodecRegion* region,
                                            FitsInteger64Policy integer64, const openfits::reader& file,
-                                           FitsHeader header)
+                                           FitsHeader header, openfits::tile_cache* tiles)
 {
     auto description = header.info.descriptor.toRequest();
     const auto sourceExtent = description.extent;
@@ -326,7 +332,7 @@ Result<CodecDecodeResult> readPreparedFits(const EngineContext& engine, const Ex
     if (!output.hasValue())
         return output.status();
     if (const auto read = readFitsPixels(engine, execution, request, area, integer64, file, header,
-                                         output->mutableBytes()->data(), layout);
+                                         output->mutableBytes()->data(), layout, tiles);
         read.failed())
         return read;
     const bool integerImage = header.bitpix == 64;

@@ -490,49 +490,42 @@ void stateFatesWithoutStack(ReportMaster& master)
     }
 }
 
-/// What the run that made a reused master stated of its lights' part in the stack, light by light.
+/// What the run that made a reused master stated of its lights' part in the stack, light by light: read from the
+/// stored report the master's own figures were taken from, which is that run's or the one of a later run that
+/// carried them.
 void stateFatesOfReused(ReportBuild& build, ReportMaster& master)
 {
     if (master.madeByRun.isEmpty())
     {
         return;
     }
-    for (const StoredRun& run : build.earlierRuns())
+    const ReusedMasterStatement statement = statementOfReusedMaster(build, master);
+    const ReportMaster* made = statement.master;
+    if (made == nullptr)
     {
-        if (run.runId != master.madeByRun)
+        return;
+    }
+    QHash<QString, const ReportFrame*> byPath;
+    for (const ReportFrame& frame : made->frames)
+    {
+        byPath.insert(frame.path, &frame);
+    }
+    for (ReportFrame& frame : master.frames)
+    {
+        const ReportFrame* stated = byPath.value(frame.path, nullptr);
+        if (stated == nullptr)
         {
             continue;
         }
-        const auto made =
-            std::find_if(run.model.masters.begin(), run.model.masters.end(),
-                         [&master](const ReportMaster& candidate) { return candidate.key == master.key; });
-        if (made == run.model.masters.end())
-        {
-            return;
-        }
-        QHash<QString, const ReportFrame*> byPath;
-        for (const ReportFrame& frame : made->frames)
-        {
-            byPath.insert(frame.path, &frame);
-        }
-        for (ReportFrame& frame : master.frames)
-        {
-            const ReportFrame* stated = byPath.value(frame.path, nullptr);
-            if (stated == nullptr)
-            {
-                continue;
-            }
-            frame.state = stated->state;
-            frame.stateDetail = stated->stateDetail;
-            frame.weight = stated->weight;
-            frame.stackShare = stated->stackShare;
-            frame.rejectedFraction = stated->rejectedFraction;
-            frame.normalizationScale = stated->normalizationScale;
-            frame.normalizationOffset = stated->normalizationOffset;
-        }
-        master.weighting = made->weighting;
-        return;
+        frame.state = stated->state;
+        frame.stateDetail = stated->stateDetail;
+        frame.weight = stated->weight;
+        frame.stackShare = stated->stackShare;
+        frame.rejectedFraction = stated->rejectedFraction;
+        frame.normalizationScale = stated->normalizationScale;
+        frame.normalizationOffset = stated->normalizationOffset;
     }
+    master.weighting = made->weighting;
 }
 
 /// The scale and the offset the normalization gave each light per channel, where the group's coefficients are one

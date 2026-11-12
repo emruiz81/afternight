@@ -314,6 +314,23 @@ struct ReportExposure
     friend bool operator==(const ReportExposure&, const ReportExposure&) = default;
 };
 
+/// Whether the exposures a set of lights states add up to the exposure of the whole set: the set holds a light, and
+/// every light of it states its own. A sum over the lights that do would read as the whole and be short of it, so a
+/// document states a sum only where this holds.
+///
+/// @param frames how many lights the set holds.
+/// @param framesWithExposure how many of them state an exposure.
+[[nodiscard]] constexpr bool everyLightStatesItsExposure(const int frames, const int framesWithExposure) noexcept
+{
+    return frames > 0 && framesWithExposure == frames;
+}
+
+/// Whether the sum of a set's exposures is the exposure of the whole set.
+[[nodiscard]] inline bool everyLightStatesItsExposure(const ReportExposure& exposure) noexcept
+{
+    return everyLightStatesItsExposure(exposure.frames, exposure.framesWithExposure);
+}
+
 /// One channel's figures of an image, each a fraction of the representation's display range, over the samples the
 /// image's validity admits that lie strictly inside the range.
 struct ReportChannelStatistics
@@ -1278,6 +1295,8 @@ struct ReportNightFilter
 {
     QString filter;
     int frames = 0;
+
+    /// The sum of the exposures the lights state: short of the whole where a light states none.
     qint64 integrationMs = 0;
 
     friend bool operator==(const ReportNightFilter&, const ReportNightFilter&) = default;
@@ -1288,6 +1307,8 @@ struct ReportNight
 {
     QDate date;
     int frames = 0;
+
+    /// The sum of the exposures the night's lights state: short of the whole where a light states none.
     qint64 integrationMs = 0;
     std::vector<ReportNightFilter> filters;
 
@@ -1362,6 +1383,10 @@ struct ReportTarget
 {
     QString name;
     int frames = 0;
+
+    /// How many of the lights state an exposure, and the sum of those: the exposure of the target's lights only when
+    /// every one of them states its own.
+    int framesWithExposure = 0;
     qint64 integrationMs = 0;
     QStringList filters;
 
@@ -1421,7 +1446,11 @@ struct ReportRun
     /// The lights by what became of them, the fates no light met left out; empty when no light's fate is stated.
     std::vector<ReportFrameStateCount> frameStates;
 
-    /// The exposure of every light, and of the lights the masters combine.
+    /// How many of the lights the run took state an exposure.
+    int framesWithExposure = 0;
+
+    /// The sum of the exposures those lights state - the exposure of every light the run took only when every one of
+    /// them states its own - and the exposure of the lights the masters combine.
     qint64 capturedMs = 0;
     std::optional<qint64> integratedMs;
 
@@ -1489,9 +1518,9 @@ struct ReportRun
 /// A run's totals, as a comparison of two runs states them.
 struct ReportRunTotals
 {
-    /// The lights the run took and their exposure.
+    /// The lights the run took, and their exposure when every one of them states its own.
     int frames = 0;
-    qint64 integrationMs = 0;
+    std::optional<qint64> integrationMs;
 
     /// The lights the masters combine and their exposure, when the run recorded the lights' fates.
     std::optional<int> framesUsed;

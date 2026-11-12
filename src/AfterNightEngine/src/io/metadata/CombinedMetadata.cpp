@@ -20,6 +20,7 @@
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightEngine/Core/Status.h>
 #include <AfterNightEngine/IO/ArtifactIdentity.h>
+#include <AfterNightEngine/IO/CodecMetadataProjection.h>
 #include <AfterNightEngine/IO/ProcessingStateCards.h>
 
 #include "image/CardContinuation.h"
@@ -152,22 +153,11 @@ constexpr std::array kPointingKeywords = {"RA"sv,    "DEC"sv,    "OBJCTRA"sv, "O
     return isFitsKeywordOf(card, kPointingKeywords);
 }
 
-/// The number a card's value states: blanks and one pair of quotes around it removed, then one decimal number.
+/// The number a card's value states, as every reader of a card's number reads it (`parseNumericCard`).
 [[nodiscard]] std::optional<double> cardNumber(std::string_view value) noexcept
 {
-    const auto trim = [](std::string_view text) {
-        const std::size_t first = text.find_first_not_of(" \t");
-        return first == std::string_view::npos ? std::string_view{}
-                                               : text.substr(first, text.find_last_not_of(" \t") - first + 1u);
-    };
-    value = trim(value);
-    if (value.size() >= 2u && value.front() == '\'' && value.back() == '\'')
-        value = trim(value.substr(1u, value.size() - 2u));
-    double number = 0.0;
-    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), number);
-    if (error != std::errc{} || end != value.data() + value.size() || !std::isfinite(number))
-        return std::nullopt;
-    return number;
+    const Result<double> number = parseNumericCard(value);
+    return number.hasValue() ? std::optional<double>(*number) : std::nullopt;
 }
 
 /// The first FITS card of a set that states a number under one of `keywords`, read in that order.
@@ -203,7 +193,11 @@ struct SourceIntegration
     if (const std::optional<double> frames = firstNumber(cards, kFrameCountKeywords);
         frames.has_value() && *frames >= 1.0)
         integration.frames = *frames;
-    integration.seconds = firstNumber(cards, kIntegrationKeywords);
+    // A card of whole integration that states no light - zero, or below it - states nothing: the exposure the
+    // source states stands for it, as when there is no such card.
+    if (const std::optional<double> stated = firstNumber(cards, kIntegrationKeywords);
+        stated.has_value() && *stated > 0.0)
+        integration.seconds = stated;
     if (!integration.seconds.has_value())
         if (const std::optional<double> exposure = source.acquisition().exposureSeconds(); exposure.has_value())
             integration.seconds = *exposure * integration.frames;

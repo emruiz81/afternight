@@ -84,8 +84,11 @@ TEST(ReportIssueFacts, EveryScenarioRaisesWhatItsRecordsCallFor)
         for (const ReportIssue& issue : model.issues)
         {
             EXPECT_FALSE(issue.title.isEmpty());
-            EXPECT_FALSE(issue.title.contains(QStringLiteral("%1"))) << issue.title.toStdString();
-            EXPECT_FALSE(issue.detail.contains(QStringLiteral("%1"))) << issue.detail.toStdString();
+            // A marker a sentence left unfilled; one inside a target's or a filter's own name is the run's.
+            EXPECT_FALSE(withoutNamesThatHoldMarkers(issue.title, model).contains(QStringLiteral("%1")))
+                << issue.title.toStdString();
+            EXPECT_FALSE(withoutNamesThatHoldMarkers(issue.detail, model).contains(QStringLiteral("%1")))
+                << issue.detail.toStdString();
         }
     }
 }
@@ -290,6 +293,56 @@ TEST(ReportIssueFacts, AStackThatFailedBeforeItsMasterIsAMasterThatFailedAndTheR
     }
 }
 
+// A run cancelled while a master is being saved leaves that group a result: no file, and the phase it stopped in
+// marked as cancelled. Its master was cancelled, not failed - no stack went wrong - so the run counts no failed
+// master and raises no critical issue for it.
+TEST(ReportIssueFacts, AMasterCancelledWhileItWasBeingSavedIsCancelledAndNotFailed)
+{
+    auto scenario = built(ReportScenarioId::CancelledAfterTwoMasters);
+    ASSERT_TRUE(scenario.has_value());
+    const ReportModel before = buildScenarioModel(*scenario);
+    const auto notReached = std::find_if(before.masters.begin(), before.masters.end(), [](const ReportMaster& master) {
+        return master.state == ReportMasterState::Cancelled;
+    });
+    ASSERT_NE(notReached, before.masters.end());
+    const QString key = notReached->key;
+    ASSERT_EQ(before.run.groups.failed, 0);
+
+    // What the stacking stage hands back for the group it was saving when the user stopped the run.
+    IntegrationGroupResult interrupted;
+    interrupted.groupKey = key;
+    interrupted.success = false;
+    interrupted.durationMs = 4200;
+    interrupted.finalizationTiming.captured = true;
+    interrupted.finalizationTiming.phases.push_back(
+        StagePhaseTiming{.stageName = QStringLiteral("Master statistics"), .status = QStringLiteral("completed")});
+    interrupted.finalizationTiming.phases.push_back(
+        StagePhaseTiming{.stageName = QStringLiteral("Final master save"), .status = QStringLiteral("cancelled")});
+    scenario->result.integrationGroupResults.push_back(interrupted);
+
+    const ReportModel model = buildScenarioModel(*scenario);
+    const auto master = std::find_if(model.masters.begin(), model.masters.end(),
+                                     [&key](const ReportMaster& candidate) { return candidate.key == key; });
+    ASSERT_NE(master, model.masters.end());
+    EXPECT_EQ(master->state, ReportMasterState::Cancelled);
+    EXPECT_TRUE(master->failure.contains(QStringLiteral("cancelled"))) << master->failure.toStdString();
+    EXPECT_TRUE(master->failure.contains(QStringLiteral("Final master save"))) << master->failure.toStdString();
+    EXPECT_FALSE(master->failure.contains(QStringLiteral("failed"))) << master->failure.toStdString();
+    EXPECT_EQ(model.run.outcome, ReportOutcome::Cancelled);
+    EXPECT_EQ(model.run.groups.failed, 0);
+    EXPECT_EQ(model.run.groups, before.run.groups) << "the master is counted as it was before it had a result";
+    EXPECT_EQ(countOfKind(model, ReportIssueKind::MasterFailed), 0);
+    EXPECT_EQ(countOfKind(model, ReportIssueKind::MasterNotReached),
+              countOfKind(before, ReportIssueKind::MasterNotReached));
+    for (const ReportFrame& frame : master->frames)
+    {
+        if (frame.state.has_value() && *frame.state == ReportFrameState::NotStacked)
+        {
+            EXPECT_FALSE(frame.stateDetail.contains(QStringLiteral("failed"))) << frame.stateDetail.toStdString();
+        }
+    }
+}
+
 // The verdict of a run that made only some of its masters says what became of every other one, so its counts add up
 // to the masters the run planned: the ones still valid are among them.
 TEST(ReportIssueFacts, ThePartialVerdictAccountsForEveryMasterTheRunPlanned)
@@ -391,6 +444,40 @@ TEST(ReportIssueFacts, FewLightsCombinedIsWarnedAboutAtTwoThresholds)
     low = firstOfKind(few, ReportIssueKind::LowFrameUse);
     ASSERT_NE(low, nullptr);
     EXPECT_TRUE(low->title.contains(QStringLiteral("three in five"))) << low->title.toStdString();
+}
+
+// A name is set into a sentence as it is. A target or a filter can be named with what a sentence's place markers
+// look like - `%1`, `%2` - and a sentence filled one part after another read the name's markers as its own: the
+// count of the lights left out landed inside the master's name.
+TEST(ReportIssueFacts, ANameThatHoldsAPlaceMarkerIsStatedAsItIs)
+{
+    auto scenario = built(ReportScenarioId::PlaceMarkersInNames);
+    ASSERT_TRUE(scenario.has_value());
+    // The second half of the lights take no dark, so the group's lights are calibrated in two parts.
+    auto& calibrations = scenario->manifest.lightsCalibration;
+    ASSERT_GE(calibrations.size(), 4u);
+    for (std::size_t light = calibrations.size() / 2u; light < calibrations.size(); ++light)
+    {
+        calibrations[light].darkPath.reset();
+    }
+
+    const ReportModel model = buildScenarioModel(*scenario);
+
+    ASSERT_EQ(model.masters.size(), 1u);
+    const ReportMaster& master = model.masters.front();
+    ASSERT_TRUE(master.name.contains(QStringLiteral("%1")) && master.name.contains(QStringLiteral("%2")))
+        << master.name.toStdString();
+
+    const ReportIssue* leftOut = firstOfKind(model, ReportIssueKind::LightsLeftOutByStack);
+    ASSERT_NE(leftOut, nullptr);
+    EXPECT_EQ(leftOut->title,
+              QStringLiteral("The stack of ") + master.name + QStringLiteral(" left 2 registered lights out"));
+
+    ASSERT_EQ(model.lightGroups.size(), 2u);
+    EXPECT_EQ(model.lightGroups[0].name, master.name + QStringLiteral(", part 1"));
+    EXPECT_EQ(model.lightGroups[1].name, master.name + QStringLiteral(", part 2"));
+    EXPECT_EQ(model.lightGroups[0].key, master.key + QStringLiteral("#1"));
+    EXPECT_EQ(model.lightGroups[1].key, master.key + QStringLiteral("#2"));
 }
 
 TEST(ReportIssueFacts, LightsThatStateNoExposureAreWarnedAbout)

@@ -237,9 +237,12 @@ struct DirectoryUse
 /// @param model the run's report model, whose baselines say which earlier run made each master.
 /// @param runDirectory the run's folder under `history/`.
 /// @param preparedByTheStage the keys of the groups whose own pictures the stacking stage prepared.
-void pictureEarlierMastersUnderThisStretch(const an::consumer::EngineSession& session,
-                                           ImageIntegration::Reporting::ReportModel& model, const QString& runDirectory,
-                                           const QSet<QString>& preparedByTheStage)
+/// @param ownStretches by group key, the stretch the run's own picture of the master was presented through, where
+///        whoever made that picture kept it. A master with one is not read from disk again to measure it.
+void pictureEarlierMastersUnderThisStretch(
+    const an::consumer::EngineSession& session, ImageIntegration::Reporting::ReportModel& model,
+    const QString& runDirectory, const QSet<QString>& preparedByTheStage,
+    const QHash<QString, std::shared_ptr<const an::DisplayPresentationAnalysis>>& ownStretches)
 {
     using namespace ImageIntegration::Reporting;
     const QDir run(runDirectory);
@@ -268,7 +271,8 @@ void pictureEarlierMastersUnderThisStretch(const an::consumer::EngineSession& se
                 QString::fromLatin1(kPreviousMasterMatchedPictureName),
                 QString::fromLatin1(kPreviousDetailMatchedPictureName), std::nullopt, 90,
                 preparedByTheStage.contains(master.key) ? ImageIntegration::ReportPicturePresentation::AsStacked
-                                                        : ImageIntegration::ReportPicturePresentation::Bounded);
+                                                        : ImageIntegration::ReportPicturePresentation::Bounded,
+                ownStretches.value(master.key).get());
         if (written.whole.has_value())
         {
             baseline.matchedPreview = folder + QLatin1Char('/') + *written.whole;
@@ -714,13 +718,14 @@ struct EarlierRunPictures
     {
         run.groupKeys.push_back(value.toObject().value(QStringLiteral("groupKey")).toString());
     }
-    std::vector<QString> named = run.groupKeys;
+    std::vector<QString> reusedKeys;
     for (const ReusedIntegrationGroup& reused :
          reusedIntegrationGroupsFromJson(root.value(QStringLiteral("reusedIntegrationGroups")).toArray()))
     {
-        named.push_back(reused.groupKey);
+        reusedKeys.push_back(reused.groupKey);
     }
-    run.folders = ImageIntegration::archiveGroupFolderNames(named);
+    run.folders =
+        ImageIntegration::archiveGroupFolderNames(ImageIntegration::archivedGroupKeys(run.groupKeys, reusedKeys));
     return run;
 }
 
@@ -1021,6 +1026,20 @@ qint64 estimatedArchiveMetadataBytes(const WorkflowManifest& manifest, const Wor
     return pendingMandatoryMetadataBytes(manifest, result);
 }
 
+std::vector<QString> archivedGroupKeys(const std::vector<QString>& resultKeys, const std::vector<QString>& reusedKeys)
+{
+    std::vector<QString> keys = resultKeys;
+    keys.reserve(resultKeys.size() + reusedKeys.size());
+    for (const QString& reused : reusedKeys)
+    {
+        if (std::find(keys.begin(), keys.end(), reused) == keys.end())
+        {
+            keys.push_back(reused);
+        }
+    }
+    return keys;
+}
+
 std::vector<QString> archiveGroupFolderNames(const std::vector<QString>& groupKeys)
 {
     QHash<QString, int> baseCounts;
@@ -1265,6 +1284,7 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     ArchiveResult archiveResult;
     m_runDirectory.clear();
     m_reportModel.reset();
+    m_reportStoreMemo.reset();
     m_manifestPath.clear();
     m_logPath.clear();
 
@@ -1333,6 +1353,7 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         m_manifestPath.clear();
         m_runDirectory.clear();
         m_reportModel.reset();
+        m_reportStoreMemo.reset();
         m_logPath.clear();
     };
     const WorkflowManifest persistedManifest = manifest.redactedForPersistence();
@@ -1349,6 +1370,8 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     groupDirNames.reserve(result.integrationGroupResults.size());
     // The groups whose own report pictures are the ones the stacking stage prepared of the master it held.
     QSet<QString> preparedByTheStage;
+    // By group, the stretch the run's own picture of the master was presented through, where its maker kept it.
+    QHash<QString, std::shared_ptr<const an::DisplayPresentationAnalysis>> ownStretches;
 
     auto moveFile = [this](const QString& src, const QString& dst) -> bool {
         if (QFile::exists(dst))
@@ -1370,21 +1393,28 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     };
 
     // The groups the archive names a folder for: the ones the run has a result for, then the ones it reused, which
-    // have none.
-    std::vector<QString> archivedGroupKeys;
-    archivedGroupKeys.reserve(result.integrationGroupResults.size() + result.reusedIntegrationGroups.size());
+    // have none. A later run reads the folders back over the same list.
+    std::vector<QString> resultKeys;
+    resultKeys.reserve(result.integrationGroupResults.size());
     for (const auto& groupResult : result.integrationGroupResults)
     {
-        archivedGroupKeys.push_back(groupResult.groupKey);
+        resultKeys.push_back(groupResult.groupKey);
     }
-    std::vector<const ReusedIntegrationGroup*> reusedGroups;
+    std::vector<QString> reusedKeys;
+    reusedKeys.reserve(result.reusedIntegrationGroups.size());
     for (const ReusedIntegrationGroup& reused : result.reusedIntegrationGroups)
     {
-        if (std::find(archivedGroupKeys.begin(), archivedGroupKeys.end(), reused.groupKey) == archivedGroupKeys.end())
-        {
-            archivedGroupKeys.push_back(reused.groupKey);
-            reusedGroups.push_back(&reused);
-        }
+        reusedKeys.push_back(reused.groupKey);
+    }
+    const std::vector<QString> archivedGroupKeys = ImageIntegration::archivedGroupKeys(resultKeys, reusedKeys);
+    // The reused groups that are named, in the order they are: the first the result lists of each key.
+    std::vector<const ReusedIntegrationGroup*> reusedGroups;
+    for (std::size_t index = resultKeys.size(); index < archivedGroupKeys.size(); ++index)
+    {
+        const auto reused = std::find_if(
+            result.reusedIntegrationGroups.begin(), result.reusedIntegrationGroups.end(),
+            [&](const ReusedIntegrationGroup& candidate) { return candidate.groupKey == archivedGroupKeys[index]; });
+        reusedGroups.push_back(&*reused);
     }
     const std::vector<QString> archivedGroupFolders = ImageIntegration::archiveGroupFolderNames(archivedGroupKeys);
 
@@ -1442,6 +1472,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
             else
             {
                 preparedByTheStage.insert(groupResult.groupKey);
+                if (groupResult.reportPreviewStretch != nullptr)
+                {
+                    ownStretches.insert(groupResult.groupKey, groupResult.reportPreviewStretch);
+                }
             }
             // The detail the run prepared beside it: the master's centre at full scale, stretched as the whole
             // frame is. One that is not a picture of at most the detail's size is not written.
@@ -1472,17 +1506,23 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         if (m_session != nullptr && !preparedPreviewIsValid && !groupResult.reportPreviewPreparedForCurrentRun &&
             !groupResult.outputPath.trimmed().isEmpty() && QFile::exists(groupResult.outputPath))
         {
-            // One read of the master gives both of its pictures.
-            (void)ImageIntegration::generateReportMasterPreviews(
+            // One read of the master gives both of its pictures, and the stretch they were presented through.
+            const ImageIntegration::ReportMasterPreviews own = ImageIntegration::generateReportMasterPreviews(
                 *m_session, groupResult.outputPath, reportPreviewDirPath, QStringLiteral("master.jpg"),
                 QStringLiteral("detail.jpg"), kMaximumReportPreviewSize);
+            if (own.stretch != nullptr)
+            {
+                ownStretches.insert(groupResult.groupKey, own.stretch);
+            }
         }
         groupResult.reportPreviewJpeg.clear();
         groupResult.reportPreviewSize = {};
+        groupResult.reportPreviewStretch.reset();
         groupResult.reportDetailJpeg.clear();
         groupResult.reportDetailSize = {};
         reportGroupResult.reportPreviewJpeg.clear();
         reportGroupResult.reportPreviewSize = {};
+        reportGroupResult.reportPreviewStretch.reset();
         reportGroupResult.reportDetailJpeg.clear();
         reportGroupResult.reportDetailSize = {};
 
@@ -1942,9 +1982,11 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         try
         {
             m_reportModel = std::make_shared<ReportModel>(buildReportModel(inputs, sources.sources()));
+            m_reportStoreMemo = std::make_shared<WorkflowReportStoreMemo>();
             if (m_session != nullptr)
             {
-                pictureEarlierMastersUnderThisStretch(*m_session, *m_reportModel, runDirPath, preparedByTheStage);
+                pictureEarlierMastersUnderThisStretch(*m_session, *m_reportModel, runDirPath, preparedByTheStage,
+                                                      ownStretches);
             }
             archiveResult.reportPath = storeKeptReport();
         }
@@ -1952,6 +1994,7 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         {
             LOG_WARNING("WorkflowArchiver: The workflow report was not written: {}", error.what());
             m_reportModel.reset();
+            m_reportStoreMemo.reset();
         }
 
         archiveResult.reportMs += capturePhaseDuration();
@@ -2229,7 +2272,8 @@ QString WorkflowArchiver::storeKeptReport()
     ImageIntegration::Reporting::WorkflowReportStored stored;
     try
     {
-        stored = ImageIntegration::Reporting::storeWorkflowReport(*m_reportModel, m_runDirectory);
+        stored =
+            ImageIntegration::Reporting::storeWorkflowReport(*m_reportModel, m_runDirectory, m_reportStoreMemo.get());
     }
     catch (const std::exception& error)
     {

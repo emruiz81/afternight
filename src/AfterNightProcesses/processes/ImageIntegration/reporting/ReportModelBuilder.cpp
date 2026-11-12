@@ -201,6 +201,20 @@ const std::vector<StoredRun>& ReportBuild::earlierRuns()
         {
             continue;
         }
+        // A stored report is a run's only in a folder that holds the run's manifest, which a commit writes last. A
+        // commit that failed after its report was stored, and whose folder could not be removed, left a report of
+        // a run whose outputs were put back: it is read by nothing, and the folder is listed with why.
+        const QDir folder(history.filePath(name));
+        if (m_sources.files->exists(folder.filePath(QLatin1String(kStoredReportFileName))) &&
+            !m_sources.files->exists(folder.filePath(QLatin1String(kRunManifestFileName))))
+        {
+            m_earlierArchives.push_back(
+                EarlierArchive{.runId = name,
+                               .stored = std::nullopt,
+                               .refusal = reportText("The folder keeps a report and no manifest: the run's archive was "
+                                                     "not committed, so its report is not read.")});
+            continue;
+        }
         ReportArchiveRead read = ReportArchiveReader::read(history.filePath(name), *m_sources.files);
         EarlierArchive archive{.runId = name, .stored = std::nullopt, .refusal = read.why};
         if (read.model.has_value())

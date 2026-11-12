@@ -91,6 +91,13 @@ void storeModel(const ReportScenario& scenario, const QString& runId, const Repo
     QFile file(QDir(folder).filePath(QStringLiteral("workflow_report.json")));
     ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
     file.write(QJsonDocument(ReportModelJson::toJson(model)).toJson(QJsonDocument::Compact));
+    // A run's folder is one that holds its manifest: a folder made here is given one.
+    QFile manifest(QDir(folder).filePath(QStringLiteral("workflow_manifest.json")));
+    if (!manifest.exists())
+    {
+        ASSERT_TRUE(manifest.open(QIODevice::WriteOnly));
+        manifest.write("{}");
+    }
 }
 
 int readsOf(const CountedBuild& build, const QString& path)
@@ -431,6 +438,150 @@ TEST(ReportRunFacts, AReusedMasterStatesWhatTheRunThatMadeItStatedWhenTheHistory
     }
 }
 
+// The lights a run used are counted only when every light it took states what became of it. A master the run reused
+// whose making no kept report states leaves its lights without a fate: as far as the report knows they were neither
+// used nor left out, so the run states no count of the lights used and no sum of their exposures.
+TEST(ReportRunFacts, ARunWhoseReusedMastersStateNoFateStatesNoCountOfTheLightsUsed)
+{
+    const auto scenario = built(ReportScenarioId::IncrementalRun);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_EQ(scenario->earlierRunDirectories.size(), 1);
+
+    // With the report of the run that made the reused masters kept, every light states its fate.
+    const ReportModel accounted = buildScenarioModel(*scenario, scenario->runDirectory);
+    ASSERT_TRUE(accounted.run.framesUsed.has_value());
+    ASSERT_TRUE(accounted.run.integratedMs.has_value());
+
+    ASSERT_TRUE(
+        QFile::remove(QDir(scenario->earlierRunDirectories.front()).filePath(QStringLiteral("workflow_report.json"))));
+    const ReportModel model = buildScenarioModel(*scenario, scenario->runDirectory);
+
+    int stated = 0;
+    int withoutAFate = 0;
+    for (const ReportMaster& master : model.masters)
+    {
+        for (const ReportFrame& frame : master.frames)
+        {
+            ++(frame.state.has_value() ? stated : withoutAFate);
+        }
+    }
+    ASSERT_GT(stated, 0) << "the lights of the masters the run made";
+    ASSERT_GT(withoutAFate, 0) << "the lights of the masters it reused";
+
+    int counted = 0;
+    for (const ReportFrameStateCount& count : model.run.frameStates)
+    {
+        counted += count.frames;
+    }
+    EXPECT_EQ(counted, stated) << "the fates the run does state are still counted";
+    EXPECT_FALSE(model.run.framesUsed.has_value()) << "a count of the lights used would call the others left out";
+    EXPECT_FALSE(model.run.integratedMs.has_value()) << "a sum over the lights that state a fate is short of the whole";
+}
+
+// The run that made a master may have left the history while a later run that reused it is still there. That later
+// run's report states the master as the run that made it did and names that run, so what it states is this run's
+// account of the master too.
+TEST(ReportRunFacts, AReusedMasterStatesWhatALaterRunThatReusedItCarriedOnceTheRunThatMadeItIsGone)
+{
+    const auto scenario = built(ReportScenarioId::IncrementalRun);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_EQ(scenario->earlierRunDirectories.size(), 1);
+    const QString earlierRun = QFileInfo(scenario->earlierRunDirectories.front()).fileName();
+    ASSERT_TRUE(
+        QFile::remove(QDir(scenario->earlierRunDirectories.front()).filePath(QStringLiteral("workflow_report.json"))));
+    const CountedBuild fromFiles = buildCounting(*scenario, scenario->runDirectory);
+
+    // The earlier run's report as that of a run which itself reused the masters, of a run no longer in the folder.
+    const QString runThatMadeThem = QStringLiteral("20200102_030405_006");
+    ReportModel stored = fromFiles.model;
+    for (ReportMaster& master : stored.masters)
+    {
+        if (master.state != ReportMasterState::Reused)
+        {
+            continue;
+        }
+        master.madeByRun = runThatMadeThem;
+        master.statistics->width = 999u;
+        master.stack = ReportStack{.inputFrames = 30u, .effectiveFrames = 28.5};
+        master.lightsCombined = 30;
+        for (ReportFrame& frame : master.frames)
+        {
+            frame.state = ReportFrameState::Used;
+            frame.weight = 0.5;
+        }
+    }
+    storeModel(*scenario, earlierRun, stored);
+
+    const CountedBuild fromHistory = buildCounting(*scenario, scenario->runDirectory);
+
+    int reused = 0;
+    for (const ReportMaster& master : fromHistory.model.masters)
+    {
+        if (master.state != ReportMasterState::Reused)
+        {
+            continue;
+        }
+        SCOPED_TRACE(master.name.toStdString());
+        ++reused;
+        EXPECT_EQ(master.madeByRun, runThatMadeThem) << "the run that made it, not the one that carried its figures";
+        EXPECT_EQ(readsOf(fromHistory, master.file), 0);
+        ASSERT_TRUE(master.statistics.has_value());
+        EXPECT_EQ(master.statistics->width, 999u);
+        EXPECT_EQ(master.lightsCombined, 30);
+        for (const ReportFrame& frame : master.frames)
+        {
+            EXPECT_EQ(frame.state, ReportFrameState::Used);
+            EXPECT_DOUBLE_EQ(frame.weight.value_or(0.0), 0.5);
+        }
+        EXPECT_FALSE(namesNotStated(fromHistory.model, QStringLiteral("How the master %1").arg(master.name)));
+    }
+    EXPECT_EQ(reused, scenario->facts.mastersReused);
+    EXPECT_TRUE(fromHistory.model.run.framesUsed.has_value()) << "every light states its fate again";
+}
+
+// A later run that reused the master without knowing what made it says nothing of it, and what a run before that one
+// said is of a file that may have been made again since: the master is measured, and no earlier run is named.
+TEST(ReportRunFacts, AReusedMasterALaterRunCouldNotAccountForTakesNothingFromARunBeforeIt)
+{
+    const auto scenario = built(ReportScenarioId::IncrementalRun);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_EQ(scenario->earlierRunDirectories.size(), 1);
+    const QString earlierRun = QFileInfo(scenario->earlierRunDirectories.front()).fileName();
+    ASSERT_TRUE(
+        QFile::remove(QDir(scenario->earlierRunDirectories.front()).filePath(QStringLiteral("workflow_report.json"))));
+    const CountedBuild fromFiles = buildCounting(*scenario, scenario->runDirectory);
+
+    // The run before the earlier one made the masters and says so; the earlier one reused them and names no maker.
+    const QString runBefore = QStringLiteral("20200102_030405_006");
+    ASSERT_LT(runBefore, earlierRun);
+    ReportModel made = fromFiles.model;
+    for (ReportMaster& master : made.masters)
+    {
+        if (master.state == ReportMasterState::Reused)
+        {
+            master.state = ReportMasterState::Made;
+            master.statistics->width = 999u;
+        }
+    }
+    storeModel(*scenario, runBefore, made);
+    storeModel(*scenario, earlierRun, fromFiles.model);
+
+    const CountedBuild build = buildCounting(*scenario, scenario->runDirectory);
+
+    for (const ReportMaster& master : build.model.masters)
+    {
+        if (master.state != ReportMasterState::Reused)
+        {
+            continue;
+        }
+        SCOPED_TRACE(master.name.toStdString());
+        EXPECT_TRUE(master.madeByRun.isEmpty());
+        EXPECT_EQ(readsOf(build, master.file), 1) << "measured from its file";
+        ASSERT_TRUE(master.statistics.has_value());
+        EXPECT_NE(master.statistics->width, 999u);
+    }
+}
+
 TEST(ReportRunFacts, TheLightsOfAMasterThatShareACalibrationAreAGroupOfTheirOwn)
 {
     auto scenario = built(ReportScenarioId::FiveFilters);
@@ -684,6 +835,31 @@ TEST(ReportRunFacts, AStageTheRunDidNotTimeSaysWhy)
     {
         EXPECT_TRUE(stage.durationMs.has_value()) << stage.name.toStdString();
     }
+}
+
+// A run that stopped went past the stages before the one it stopped in. One of those it has no result for - what
+// it makes was supplied, or still valid - was not stopped before: the run had no work for it.
+TEST(ReportRunFacts, AStageARunThatStoppedWentPastIsNotCalledUnreached)
+{
+    auto scenario = built(ReportScenarioId::FailedBeforeAnyMaster);
+    ASSERT_TRUE(scenario.has_value());
+    // The first stage the run timed, taken out of its results: as if what it makes had been supplied.
+    ASSERT_GE(scenario->result.stageResults.size(), 2u);
+    const QString passed = scenario->result.stageResults.front().stageName;
+    scenario->result.stageResults.erase(scenario->result.stageResults.begin());
+
+    const ReportModel model = buildScenarioModel(*scenario);
+
+    const auto stage = std::find_if(model.stages.begin(), model.stages.end(),
+                                    [&passed](const ReportStage& candidate) { return candidate.key == passed; });
+    ASSERT_NE(stage, model.stages.end());
+    EXPECT_NE(stage->state, ReportStageState::NotReached) << stage->name.toStdString();
+    EXPECT_FALSE(stage->note.contains(QStringLiteral("stopped before"))) << stage->note.toStdString();
+    EXPECT_FALSE(stage->note.isEmpty());
+    // The stages after the one the run stopped in are still the ones it did not reach.
+    ASSERT_FALSE(model.stages.empty());
+    EXPECT_EQ(model.stages.back().state, ReportStageState::NotReached);
+    EXPECT_TRUE(model.stages.back().note.contains(QStringLiteral("stopped before")));
 }
 
 TEST(ReportRunFacts, TheEnginesMemoryAndTheCachesCountersAreStatedWhenTheRunCollectedThem)

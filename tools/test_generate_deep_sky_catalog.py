@@ -11,10 +11,17 @@ would also invent the orientation its outline is drawn at.
 from __future__ import annotations
 
 import csv
+import sys
 import unittest
 from pathlib import Path
 
-from tools import generate_deep_sky_catalog as generator
+# The generator is a module of the repository's `tools` package. Run as a file - `python
+# tools/test_generate_deep_sky_catalog.py` - the interpreter knows this folder and not the repository's, so the
+# repository's root is named here; `python -m unittest tools.test_generate_deep_sky_catalog` from the root finds
+# it either way.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from tools import generate_deep_sky_catalog as generator  # noqa: E402
 
 BUNDLED_CATALOG = Path(__file__).resolve().parent.parent / "src" / "AfterNightControls" / "data" / "deep_sky_catalog.csv"
 

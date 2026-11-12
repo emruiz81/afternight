@@ -38,7 +38,8 @@ public:
     Result<CodecDecodeResult> decode(const EngineContext& engine, const ExecutionContext& execution,
                                      const CodecReadRequest& request, const CodecRegion* region) override
     {
-        return readPreparedFits(engine, execution, request, region, m_integer64, *m_file.reader, std::move(m_header));
+        return readPreparedFits(engine, execution, request, region, m_integer64, *m_file.reader, std::move(m_header),
+                                m_file.tiles.get());
     }
     bool decodesRowsInto() const noexcept override
     {
@@ -50,7 +51,7 @@ public:
     {
         const CodecRegion area{0u, firstRow, m_header.info.descriptor.extent().width(), rows};
         return readFitsPixels(engine, execution, request, area, m_integer64, *m_file.reader, m_header,
-                              destination.data(), layout);
+                              destination.data(), layout, m_file.tiles.get());
     }
 
 private:
@@ -72,7 +73,7 @@ public:
             return file.status();
         auto headerRequest = request;
         headerRequest.validatePayload = false;
-        auto header = readFitsHeader(*file->reader, engine, execution, headerRequest, m_integer64, false);
+        auto header = readFitsHeader(*file, engine, execution, headerRequest, m_integer64, false);
         if (!header.hasValue())
             return header.status();
         return std::unique_ptr<PreparedCodecRead>{
@@ -98,7 +99,7 @@ public:
         auto file = openFits(request.path, engine.limits());
         if (!file.hasValue())
             return file.status();
-        auto header = readFitsHeader(*file->reader, engine, execution, request, m_integer64);
+        auto header = readFitsHeader(*file, engine, execution, request, m_integer64);
         if (!header.hasValue())
             return header.status();
         return std::move(header->info);
@@ -150,7 +151,7 @@ Result<bool> supportsBoundedFitsRegionDecode(const EngineContext& engine, const 
             auto file = openFits(path, engine.limits());
             if (!file.hasValue())
                 return file.status();
-            auto header = readFitsHeader(*file->reader, engine, execution,
+            auto header = readFitsHeader(*file, engine, execution,
                                          {.path = path, .readMetadata = false, .validatePayload = false},
                                          FitsInteger64Policy::PreserveRaw);
             if (!header.hasValue())

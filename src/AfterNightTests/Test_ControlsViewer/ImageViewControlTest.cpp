@@ -161,6 +161,35 @@ TEST_F(ImageViewControlTest, AViewShowsTheDocumentItIsHandedAndClosesTheOneBefor
     EXPECT_TRUE(stillReading->valid()) << "work already reading the document it let go finishes on its own";
 }
 
+// What a preview's owner set of its own - no banner over an automatic stretch, no statistics measured - is its
+// owner's to change. Taking the presentation choices away and offering them again leaves both as the owner set them.
+TEST_F(ImageViewControlTest, OfferingThePresentationChoicesAgainKeepsWhatTheOwnerSetOfTheBannerAndTheStatistics)
+{
+    open();
+    ViewHandle quiet = makeView("quiet", ViewControlMode::st_preview);
+    std::optional<an::ui::ImageDocument> shown = flatDocument(session(), 0.25f, 16u, 8u);
+    ASSERT_TRUE(shown.has_value());
+    quiet->setDocument(std::move(*shown));
+    ASSERT_TRUE(settle(*quiet));
+    quiet->setShowAutostretchBanner(false);
+    quiet->setMeasuresPreviewStatistics(false);
+    quiet->setPresentationChoicesOffered(false);
+    quiet->setPresentationChoicesOffered(true);
+    EXPECT_FALSE(quiet->isShowAutostretchBannerEnabled()) << "the owner asked for no banner";
+    EXPECT_FALSE(quiet->measuresPreviewStatistics()) << "the owner keeps its files' statistics itself";
+
+    // A preview whose owner set neither has both, through the same.
+    ViewHandle plain = makeView("plain", ViewControlMode::st_preview);
+    std::optional<an::ui::ImageDocument> other = flatDocument(session(), 0.5f, 16u, 8u);
+    ASSERT_TRUE(other.has_value());
+    plain->setDocument(std::move(*other));
+    ASSERT_TRUE(settle(*plain));
+    plain->setPresentationChoicesOffered(false);
+    plain->setPresentationChoicesOffered(true);
+    EXPECT_TRUE(plain->isShowAutostretchBannerEnabled());
+    EXPECT_TRUE(plain->measuresPreviewStatistics());
+}
+
 TEST_F(ImageViewControlTest, AFileIsReadOnAWorkerAndShownUnderItsName)
 {
     open();

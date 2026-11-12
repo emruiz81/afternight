@@ -46,6 +46,19 @@ namespace ImageIntegration::Reporting
     return documentText(count == 1 ? singular : plural).arg(formatCount(count));
 }
 
+/// Why a sum of exposures is not stated, in the words a figure's small print takes: how many lights of the set state
+/// no exposure. Nothing when every one of them does.
+///
+/// @param frames how many lights the set holds.
+/// @param framesWithExposure how many of them state an exposure.
+[[nodiscard]] inline QString lightsWithoutExposureNote(const int frames, const int framesWithExposure)
+{
+    const int without = frames - framesWithExposure;
+    return without > 0 ? counted(without, QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 light states no exposure"),
+                                 QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 lights state no exposure"))
+                       : QString();
+}
+
 /// One entry of the contents.
 struct ReportContentsEntry
 {
@@ -182,6 +195,15 @@ void openPanel(ReportMarkup& out, const char* heading, const QString& title, con
 
 /// A line of small print under a chart or a table.
 void writeCaption(ReportMarkup& out, const QString& text);
+
+/// Where a distribution of lights' weights ends. A weight relative to the heaviest light of its stack is at most
+/// one, and the distribution ends there; a photometric weight is at a mean of one, so a stack's heavier lights pass
+/// one, and the distribution ends at the next half above the heaviest of them - a light above one is never counted
+/// in the bar that ends at one.
+///
+/// @param weights the weights drawn.
+/// @return one, or the next half above the heaviest weight when it is above one.
+[[nodiscard]] double weightDistributionEnd(const std::vector<double>& weights);
 
 /// Opens a section a reader unfolds: a `details` with its title and a few words beside it.
 void openFold(ReportMarkup& out, const QString& title, const QString& aside = {});
@@ -326,6 +348,9 @@ struct MasterUse
 
 [[nodiscard]] MasterUse useOf(const ReportMaster& master);
 
+/// A target's lights in a line of small print: how many, and their exposure when every one of them states its own.
+[[nodiscard]] QString targetLightsLine(const ReportTarget& target);
+
 /// Whether a master's file is on disk: the run made it, or it was still valid.
 [[nodiscard]] bool isThere(const ReportMaster& master);
 
@@ -374,6 +399,14 @@ struct ReportDither
 
 /// The anchor of a master's file.
 [[nodiscard]] QString masterFileAnchor(const ReportMaster& master);
+
+/// The anchor of a section inside a master's file: the file's anchor and the section's name, two hyphens between
+/// them. A slug never holds two hyphens in a row, so a section's anchor is never the file of another master - one
+/// whose slug is this master's with `-lights` after it, as a target named "M 31 lights" gives.
+///
+/// @param master the master whose file holds the section.
+/// @param section the section's name: `picture`, `stack`, `lights`, `made`.
+[[nodiscard]] QString masterSectionAnchor(const ReportMaster& master, const char* section);
 
 /// The anchors part 2 writes for a model.
 [[nodiscard]] QStringList mastersAnchors(const ReportModel& model);

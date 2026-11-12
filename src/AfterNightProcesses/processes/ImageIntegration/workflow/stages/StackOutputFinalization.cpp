@@ -436,6 +436,7 @@ StackPreviewAssets generateResidentStackPreviewAssets(const an::consumer::Operat
     if (!assets.reportPreviewJpeg.isEmpty())
     {
         assets.reportPreviewSize = preview->size();
+        assets.reportPreviewStretch = std::make_shared<const an::DisplayPresentationAnalysis>(pictures->analysis);
         // A detail is kept beside the whole frame it shares a stretch with, never alone.
         if (!pictures->detail.isNull())
         {
@@ -466,6 +467,7 @@ void clearPreparedStackPreviewAssets(IntegrationGroupResult& group_result)
     }
     group_result.reportPreviewJpeg.clear();
     group_result.reportPreviewSize = {};
+    group_result.reportPreviewStretch.reset();
     group_result.reportDetailJpeg.clear();
     group_result.reportDetailSize = {};
 }
@@ -489,6 +491,7 @@ void prepareResidentStackPreviewAssets(const StackPreviewGenerator& preview_gene
         {
             group_result.reportPreviewJpeg = assets.reportPreviewJpeg;
             group_result.reportPreviewSize = assets.reportPreviewSize;
+            group_result.reportPreviewStretch = assets.reportPreviewStretch;
             if (!assets.reportDetailJpeg.isEmpty() && assets.reportDetailSize.isValid() &&
                 assets.reportDetailSize.width() <= ImageIntegration::kReportDetailRegionSize.width() &&
                 assets.reportDetailSize.height() <= ImageIntegration::kReportDetailRegionSize.height())

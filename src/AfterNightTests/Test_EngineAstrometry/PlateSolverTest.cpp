@@ -471,7 +471,7 @@ private:
     std::uint64_t m_state;
 };
 
-[[nodiscard]] CrowdedField makeCrowdedField()
+[[nodiscard]] CrowdedField makeCrowdedField(const an::SipDistortion& distortion = {})
 {
     // The orientation of a refractor's frame on a German mount, mirrored as many cameras write their rows.
     const double scaleDegrees = kCrowdedScaleArcsec / 3600.0;
@@ -484,6 +484,7 @@ private:
                       .cd22 = -0.305 * scaleDegrees};
     request.imageWidth = kCrowdedWidth;
     request.imageHeight = kCrowdedHeight;
+    request.distortion = distortion;
     const an::Result<an::WcsSolution> truth = an::WcsSolution::create(request);
     EXPECT_TRUE(truth.hasValue()) << truth.status().message();
 
@@ -616,6 +617,138 @@ TEST(PlateSolverTest, ACrowdedFieldIsMatchedOverTheSameDiscOnBothSides)
         EXPECT_GE(magnitude, previous);
         previous = magnitude;
     }
+}
+
+/// The distortion of a fast refractor without a flattener: a displacement that grows with the cube of the distance
+/// from the centre, under two pixels at the edge of the matching disc and near seven at the frame's corners.
+[[nodiscard]] an::SipDistortion crowdedDistortion()
+{
+    constexpr double kCubic = 4.0e-9;
+    an::SipDistortionRequest request;
+    request.referencePixel = {.x = 0.5 * kCrowdedWidth, .y = 0.5 * kCrowdedHeight};
+    request.forwardX.order = 3u;
+    request.forwardX.coefficients[3u][0u] = kCubic;
+    request.forwardX.coefficients[1u][2u] = kCubic;
+    request.forwardY.order = 3u;
+    request.forwardY.coefficients[0u][3u] = kCubic;
+    request.forwardY.coefficients[2u][1u] = kCubic;
+    const an::Result<an::SipDistortion> made = an::SipDistortion::create(request);
+    EXPECT_TRUE(made.hasValue()) << made.status().message();
+    return made.hasValue() ? *made : an::SipDistortion{};
+}
+
+// A crowded frame is matched over its central disc, which ranks the same stars first on both sides. The solution a
+// complete solve keeps is then fitted over the whole frame: the stars between the disc and the corners constrain the
+// distortion there, where a polynomial fitted to the disc alone is carried far beyond the stars it was fitted to.
+TEST(PlateSolverTest, ACrowdedFieldsSolutionIsFittedOverTheWholeFrame)
+{
+    const CrowdedField field = makeCrowdedField(crowdedDistortion());
+    ASSERT_EQ(field.detections.size(), 512u);
+    an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    const an::SkyCatalog catalog = buildOrFail(execution, field.catalogEntries,
+                                               an::SkyCatalogRequest{.photometricBand = "G", .buildNameIndex = false});
+
+    const an::Result<an::PlateSolveResult> solved =
+        an::solvePlate(execution, catalog, field.detections, crowdedRequest());
+    ASSERT_TRUE(solved.hasValue()) << solved.status().message();
+    EXPECT_TRUE(solved->diagnostics.fittedSipDistortion);
+
+    // Its matches reach past the disc, and each names its star among the stars supplied.
+    const double disc = 0.5 * (std::min)(kCrowdedWidth, kCrowdedHeight);
+    std::size_t outside = 0u;
+    for (const an::PlateSolveMatch& match : solved->matches)
+    {
+        ASSERT_LT(match.imageStarIndex, field.detections.size());
+        EXPECT_EQ(field.detections[match.imageStarIndex].position.x, match.imagePosition.x);
+        EXPECT_EQ(field.detections[match.imageStarIndex].position.y, match.imagePosition.y);
+        outside +=
+            std::hypot(match.imagePosition.x - 0.5 * kCrowdedWidth, match.imagePosition.y - 0.5 * kCrowdedHeight) > disc
+                ? 1u
+                : 0u;
+    }
+    EXPECT_GT(outside, 40u) << "of " << solved->matches.size() << " matches";
+    EXPECT_EQ(solved->diagnostics.matchedStars, solved->matches.size());
+
+    // The solution places the corners and the edges of the frame where the truth does, to a fraction of a pixel.
+    double worst = 0.0;
+    std::string errors;
+    for (const double x : {8.0, 0.5 * kCrowdedWidth, kCrowdedWidth - 8.0})
+    {
+        for (const double y : {8.0, 0.5 * kCrowdedHeight, kCrowdedHeight - 8.0})
+        {
+            const an::PixelCoordinate pixel{.x = x, .y = y};
+            const an::Result<an::SkyCoordinate> expected = field.truth.pixelToWorld(pixel);
+            const an::Result<an::SkyCoordinate> placed = solved->solution.pixelToWorld(pixel);
+            ASSERT_TRUE(expected.hasValue()) << expected.status().message();
+            ASSERT_TRUE(placed.hasValue()) << placed.status().message();
+            const double error = an::angularSeparationDegrees(*expected, *placed) * 3600.0 / kCrowdedScaleArcsec;
+            errors += " (" + std::to_string(static_cast<int>(x)) + "," + std::to_string(static_cast<int>(y)) +
+                      "): " + std::to_string(error);
+            worst = (std::max)(worst, error);
+        }
+    }
+    EXPECT_LT(worst, 0.5) << "pixels, at the worst of the frame's corners, edges and centre:" << errors << "; "
+                          << solved->matches.size() << " matches, " << outside << " outside the disc";
+}
+
+// The catalog keeps the region the image's stars were kept over, so the two sides never differ in it: a frame matched
+// over its disc is set beside the catalog's stars of the disc, however few, and a frame too sparse for that keeps its
+// whole extent and is set beside the catalog's stars of the frame, however crowded the disc is.
+TEST(PlateSolveStageTest, TheCatalogKeepsTheRegionTheImagesStarsWereKeptOver)
+{
+    const CrowdedField field = makeCrowdedField();
+    an::EngineContext engine = makeEngine();
+    const an::ExecutionContext execution = makeExecution(engine);
+    const an::Result<an::PlateSolvePlan> plan = an::planPlateSolve(crowdedRequest());
+    ASSERT_TRUE(plan.hasValue()) << plan.status().message();
+    const double disc = 0.5 * (std::min)(kCrowdedWidth, kCrowdedHeight);
+    const auto outsideDisc = [disc](const an::PlateSolveCatalogStar& star) {
+        return std::hypot(star.matchingX, star.matchingY) > disc;
+    };
+    const auto insideDisc = [disc](const an::PlateSolveStar& star) {
+        return std::hypot(star.position.x - 0.5 * kCrowdedWidth, star.position.y - 0.5 * kCrowdedHeight) <= disc;
+    };
+
+    // A crowded frame beside a catalog that reaches only its brightest stars, fewer than sixty of them in the disc.
+    std::vector<an::CatalogEntry> brightest;
+    for (const an::CatalogEntry& entry : field.catalogEntries)
+    {
+        if (entry.magnitude.value_or(99.0) <= 11.0)
+        {
+            brightest.push_back(entry);
+        }
+    }
+    const an::SkyCatalog shallow =
+        buildOrFail(execution, brightest, an::SkyCatalogRequest{.photometricBand = "G", .buildNameIndex = false});
+    const an::Result<an::PlateSolveInput> crowded = an::preparePlateSolveInput(execution, field.detections, *plan);
+    ASSERT_TRUE(crowded.hasValue()) << crowded.status().message();
+    ASSERT_TRUE(std::all_of(crowded->stars.begin(), crowded->stars.end(), insideDisc));
+    const an::Result<an::PlateSolveCatalogSearchResult> ofTheDisc =
+        an::searchPlateSolveCatalog(execution, shallow, *crowded, *plan, kCrowdedCenter);
+    ASSERT_TRUE(ofTheDisc.hasValue()) << ofTheDisc.status().message();
+    EXPECT_GE(ofTheDisc->stars.size(), 3u);
+    EXPECT_LT(ofTheDisc->stars.size(), 60u);
+    EXPECT_TRUE(std::none_of(ofTheDisc->stars.begin(), ofTheDisc->stars.end(), outsideDisc))
+        << "a catalog star outside the disc has no image star to be matched with";
+
+    // A sparse frame, its stars over its whole extent, beside the crowded catalog.
+    std::vector<an::PlateSolveStar> few;
+    for (std::size_t index = 0u; index < field.detections.size(); index += 12u)
+    {
+        few.push_back(field.detections[index]);
+    }
+    ASSERT_LT(static_cast<std::size_t>(std::count_if(few.begin(), few.end(), insideDisc)), 60u);
+    ASSERT_FALSE(std::all_of(few.begin(), few.end(), insideDisc));
+    const an::SkyCatalog deep = buildOrFail(execution, field.catalogEntries,
+                                            an::SkyCatalogRequest{.photometricBand = "G", .buildNameIndex = false});
+    const an::Result<an::PlateSolveInput> sparse = an::preparePlateSolveInput(execution, few, *plan);
+    ASSERT_TRUE(sparse.hasValue()) << sparse.status().message();
+    const an::Result<an::PlateSolveCatalogSearchResult> ofTheFrame =
+        an::searchPlateSolveCatalog(execution, deep, *sparse, *plan, kCrowdedCenter);
+    ASSERT_TRUE(ofTheFrame.hasValue()) << ofTheFrame.status().message();
+    EXPECT_TRUE(std::any_of(ofTheFrame->stars.begin(), ofTheFrame->stars.end(), outsideDisc))
+        << "the image's stars outside the disc need the catalog's";
 }
 
 } // namespace

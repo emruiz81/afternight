@@ -396,13 +396,16 @@ TEST(CodecMetadataProjectionTest, DateAndNumberSpellingsParseExactlyOrAreRefused
     EXPECT_EQ(an::formatDateCard({1789074845250000000LL}, an::CodecNamespace::Ser), "2026-09-10T21:14:05.25");
     for (const auto [text, value] :
          {std::pair{"0.004", 0.004}, std::pair{"1/250", 0.004}, std::pair{" 12 ", 12.0}, std::pair{"1e-3", 0.001},
-          std::pair{"'120.0'", 120.0}, std::pair{"-10.5", -10.5}, std::pair{"3 / 4", 0.75}, std::pair{"+7", 7.0}})
+          std::pair{"'120.0'", 120.0}, std::pair{"-10.5", -10.5}, std::pair{"3 / 4", 0.75}, std::pair{"+7", 7.0},
+          // The exponent letter a FITS real may be written with.
+          std::pair{"1.5D2", 150.0}, std::pair{"2.5d-1", 0.25}, std::pair{"'+6.0D2'", 600.0}})
     {
         const auto parsed = an::parseNumericCard(text);
         ASSERT_TRUE(parsed.hasValue()) << text;
         EXPECT_DOUBLE_EQ(*parsed, value) << text;
     }
-    for (const auto text : {"", "abc", "1/0", "inf", "nan", "1/", "/2", "1/2/3", "12x", "0x10", "1e400"})
+    for (const auto text :
+         {"", "abc", "1/0", "inf", "nan", "1/", "/2", "1/2/3", "12x", "0x10", "1e400", "D", "1D", "1D400"})
         EXPECT_EQ(an::parseNumericCard(text).status().code(), an::ErrorCode::InvalidData) << text;
 }
 } // namespace

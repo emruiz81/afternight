@@ -203,6 +203,17 @@ class SurvivingMentionTests(RemovalCase):
         self.assertEqual(len(problems), 1, problems)
         self.assertIn('build/scripts/extra.py:1', problems[0])
 
+    def test_an_open_cluster_is_not_the_proof(self):
+        # A catalog's open clusters carry the token's letters and have nothing to do with a GPU.
+        self.write('build/scripts/extra.py', 'KINDS = ("openCluster", "OpenCluster", "OPENCLUSTER")\n')
+        self.assertEqual(self.check(), [])
+
+    def test_a_line_that_names_an_open_cluster_and_the_proof_is_still_found(self):
+        self.write('build/scripts/extra.py', 'PAIR = ("openCluster", "OpenClBackend")\n')
+        problems = self.check()
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn('build/scripts/extra.py:1', problems[0])
+
     def test_an_exempt_guard_file_may_name_the_sdk_it_refuses(self):
         self.assertEqual(self.check(), [])
 

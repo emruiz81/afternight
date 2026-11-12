@@ -1049,6 +1049,7 @@ sources Test_ControlsAstrometry
     header   src/AfterNightControls/session/DerivedResultKey.h
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
+    header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h

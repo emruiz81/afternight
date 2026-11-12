@@ -95,6 +95,11 @@ void writeAcquisition(ReportMarkup& out, const ReportDocumentContext& context)
          {documentText("Sensor")},
          {documentText("First light")},
          {documentText("Last light")}});
+    // A group's share is of the exposure of every light the run took, which the groups' sums add up to only when
+    // every light states its own.
+    const bool sharesStated =
+        std::all_of(model.run.acquisition.begin(), model.run.acquisition.end(),
+                    [](const ReportAcquisitionRow& row) { return everyLightStatesItsExposure(row.exposure); });
     const auto writeRows = [&](const QString& target, const bool byTarget) {
         for (const ReportAcquisitionRow& row : model.run.acquisition)
         {
@@ -132,8 +137,15 @@ void writeAcquisition(ReportMarkup& out, const ReportDocumentContext& context)
             out.element("td", {{"class", QStringLiteral("r num")}}, formatCount(row.exposure.frames));
             out.element("td", exposureBins(row.exposure));
             out.open("td", {{"class", QStringLiteral("r num")}});
-            out.text(percentText(row.share));
-            out.chart(cellBar(row.share));
+            if (sharesStated)
+            {
+                out.text(percentText(row.share));
+                out.chart(cellBar(row.share));
+            }
+            else
+            {
+                out.text(noValueText());
+            }
             out.close("td");
             out.element("td", row.gain.isEmpty() ? noValueText() : row.gain.join(QStringLiteral(", ")));
             out.element("td", row.offset.isEmpty() ? noValueText() : row.offset.join(QStringLiteral(", ")));
@@ -288,7 +300,15 @@ void writeEquipment(ReportMarkup& out, const ReportDocumentContext& context)
                   ? documentText("%1 of %2 lights").arg(formatCount(*run.framesUsed), formatCount(run.frames))
                   : counted(run.frames, QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 light"),
                             QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 lights")));
-    parts << (run.integratedMs.has_value() ? formatDurationMs(*run.integratedMs) : formatDurationMs(run.capturedMs));
+    if (run.integratedMs.has_value())
+    {
+        parts << formatDurationMs(*run.integratedMs);
+    }
+    else if (everyLightStatesItsExposure(run.frames, run.framesWithExposure))
+    {
+        // The captured time stands in for the integration only where it is the exposure of every light.
+        parts << formatDurationMs(run.capturedMs);
+    }
     parts << counted(static_cast<qint64>(model.masters.size()),
                      QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 master"),
                      QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 masters"));

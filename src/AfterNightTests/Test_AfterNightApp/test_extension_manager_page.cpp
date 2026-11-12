@@ -4308,6 +4308,57 @@ TEST_F(ExtensionManagerPageTest, UninstallElsewhereShowsCachedPackageNotInstalle
     drainThreadPool();
 }
 
+// A refresh asked for while another is on its way is run when that one lands, as its own caller asked for it. A
+// reset of the page asks for a refresh that clears the cards; an uninstall elsewhere, noted meanwhile, shows its
+// package's card again and asks for a refresh that keeps the cards. That refresh took the wish of the one it waited
+// behind, and cleared them.
+TEST_F(ExtensionManagerPageTest, ARefreshThatWaitedBehindAnotherKeepsTheCardsItsOwnCallerAskedToKeep)
+{
+    drainThreadPool();
+    QTemporaryDir cache_dir;
+    ASSERT_TRUE(cache_dir.isValid());
+    ScopedEnvironmentVariable cache_override("AFTERNIGHT_EXTENSION_MANAGER_CACHE_DIR",
+                                             cache_dir.path().toUtf8().constData());
+    writeRepositorySnapshotCache(
+        cache_dir.path(), QJsonArray{cachedRepositoryEntry(
+                              QStringLiteral("cached_tools"), QStringLiteral("Cached Tools"), QStringLiteral("1.2.3"),
+                              QStringLiteral("1.2.3"), ExtensionRepositoryInstallState::Installed)});
+
+    ThreadPoolGate gate;
+    an::ui::ExtensionManagerPage page(nullptr);
+    page.setDiscoveryOptionsProvider([]() { return buildUiOnlyDiscoveryOptions(); });
+
+    // The run keeps the repository offline, so the page shows the cached snapshot and refreshes nothing at load.
+    page.loadSettings();
+    const QString card_name = QStringLiteral("anExtensionManagerCard_cached_tools");
+    ASSERT_NE(page.findChild<QWidget*>(card_name), nullptr);
+
+    // The reset's refresh clears the cards, and is held back on the pool.
+    gate.close();
+    page.resetToDefaults();
+    ASSERT_EQ(page.findChild<QWidget*>(card_name), nullptr);
+    ASSERT_TRUE(hasLabelContaining(page, QStringLiteral("Checking repository packages")));
+    // The uninstall noted meanwhile shows the package's card as not installed and asks for a refresh that keeps it.
+    page.noteExtensionUninstalled("cached_tools");
+    ASSERT_NE(page.findChild<QWidget*>(card_name), nullptr);
+
+    // The reset's refresh runs, and the pool is held again before its answer lands: the refresh that waited is asked
+    // for as that answer lands, and stays on the pool.
+    gate.open();
+    QThreadPool::globalInstance()->waitForDone(30000);
+    gate.close();
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+
+    EXPECT_NE(page.findChild<QWidget*>(card_name), nullptr) << "the refresh that waited was asked to keep the cards";
+    EXPECT_FALSE(hasLabelContaining(page, QStringLiteral("Checking repository packages")))
+        << "the refresh that waited cleared the page as the one before it was asked to";
+
+    gate.open();
+    // The refresh that waited lands: offline, the repository lists nothing, and only now does the card go.
+    EXPECT_TRUE(waitFor([&]() { return page.findChild<QWidget*>(card_name) == nullptr; }, 10000));
+    drainThreadPool();
+}
+
 TEST_F(ExtensionManagerPageTest, PostMutationRepositoryRefreshPreservesBrowseCards)
 {
     drainThreadPool();

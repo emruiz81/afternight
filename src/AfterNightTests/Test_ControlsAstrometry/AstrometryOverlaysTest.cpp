@@ -465,8 +465,10 @@ TEST_F(AstrometryOverlaysTest, TheGridsLabelsKeepTheirSizeOnTheScreenAndLieInsid
     auto* grid = dynamic_cast<an::ui::CoordinateGridDisplayModule*>(overlay.get());
     ASSERT_NE(grid, nullptr);
 
+    // Up to the deepest zoom a view takes: the part shown is then a fraction of an image pixel short of a whole
+    // number of them, and a frame rounded up to whole pixels ended tens of screen pixels past it.
     QVector<double> heights;
-    for (const double zoom : {1.0, 3.0})
+    for (const double zoom : {1.0, 3.0, 16.0, 37.0, 64.0})
     {
         m_view->getViewWidget()->scaleImageView(zoom, true);
         paint();
@@ -475,11 +477,16 @@ TEST_F(AstrometryOverlaysTest, TheGridsLabelsKeepTheirSizeOnTheScreenAndLieInsid
         const QRectF visible = an::ui::detail::visibleOverlayWidgetRect(m_view.get());
         for (const QRectF& box : boxes)
         {
-            EXPECT_TRUE(visible.adjusted(-1.0, -1.0, 1.0, 1.0).contains(box)) << "zoom " << zoom;
+            EXPECT_TRUE(visible.adjusted(-1.5, -1.5, 1.5, 1.5).contains(box))
+                << "zoom " << zoom << ": a label from " << box.left() << "," << box.top() << " to " << box.right()
+                << "," << box.bottom() << " in a part of " << visible.width() << " by " << visible.height();
         }
         heights.push_back(boxes.front().height());
     }
-    EXPECT_NEAR(heights[1], heights[0], 0.5);
+    for (const double height : heights)
+    {
+        EXPECT_NEAR(height, heights[0], 0.5);
+    }
 }
 
 TEST_F(AstrometryOverlaysTest, TheDistortionMapSamplesAForwardPolynomialAndNothingElse)

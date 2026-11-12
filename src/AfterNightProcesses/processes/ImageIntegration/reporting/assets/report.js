@@ -22,7 +22,12 @@
     }
   }
   function openHash() {
-    var target = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    // A hash that is no well-formed escape - a bare "%" - is looked up as it is written: decoding it throws.
+    var name = location.hash.slice(1), target = null;
+    if (name) {
+      try { target = document.getElementById(decodeURIComponent(name)); } catch (malformed) { target = null; }
+      target = target || document.getElementById(name);
+    }
     if (target) { openAround(target); target.scrollIntoView(); }
   }
   addEventListener('hashchange', openHash);

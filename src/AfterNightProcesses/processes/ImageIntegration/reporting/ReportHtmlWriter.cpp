@@ -576,6 +576,24 @@ void writeCaption(ReportMarkup& out, const QString& text)
     out.element("p", {{"class", QStringLiteral("cap")}}, text);
 }
 
+double weightDistributionEnd(const std::vector<double>& weights)
+{
+    double heaviest = 0.0;
+    for (const double weight : weights)
+    {
+        if (std::isfinite(weight))
+        {
+            heaviest = (std::max)(heaviest, weight);
+        }
+    }
+    // A relative weight of one may be stored a rounding above it.
+    if (heaviest <= 1.0 + 1e-9)
+    {
+        return 1.0;
+    }
+    return std::ceil(heaviest * 2.0) / 2.0;
+}
+
 void openFold(ReportMarkup& out, const QString& title, const QString& aside)
 {
     out.open("details", {{"class", QStringLiteral("fold")}});
@@ -1078,6 +1096,18 @@ MasterUse useOf(const ReportMaster& master)
         }
     }
     return use;
+}
+
+QString targetLightsLine(const ReportTarget& target)
+{
+    QString line = counted(target.frames, QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 light"),
+                           QT_TRANSLATE_NOOP("ImageIntegrationReport", "%1 lights"));
+    // A sum over the lights that state an exposure would read as the target's whole and be short of it.
+    if (everyLightStatesItsExposure(target.frames, target.framesWithExposure))
+    {
+        line += dotSeparator() + formatDurationMs(target.integrationMs);
+    }
+    return line;
 }
 
 bool isThere(const ReportMaster& master)

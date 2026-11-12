@@ -26,13 +26,18 @@
 #include <openfits/hdu.h>
 #include <openfits/header.h>
 #include <openfits/image.h>
+#include <openfits/io.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace an
@@ -128,9 +133,66 @@ Result<Selection> selectImage(const openfits::reader& file, const ExecutionConte
         ++selection.imageCount;
         if (!enumerateImages && selection.unit.has_value())
             break;
-        next = file.first_image(*next + 1u);
+        try
+        {
+            next = file.first_image(*next + 1u);
+        }
+        catch (const openfits::cancelled_error&)
+        {
+            throw;
+        }
+        catch (const openfits::error&)
+        {
+            // A unit the library cannot walk past - a header that gives no size for its data - ends the file's
+            // images: the ones before it are the file's images, and stay readable.
+            next.reset();
+        }
     }
     return selection;
+}
+
+/// Where the record of a unit's `BLANK` card begins in the file, when that card is what stops the library describing
+/// the unit's image: it is there, its value is not the integer the standard asks of an integer image, and the file
+/// holds it at the offset the header gives - which the content of a gzip-compressed file does not.
+///
+/// @param file the open file.
+/// @param unit the unit the library could not describe.
+/// @param path the file's path, to read the record's own bytes.
+/// @return the record's offset, or nothing when `BLANK` is not the problem or the record is not where it should be.
+std::optional<std::uint64_t> malformedBlankRecord(const openfits::reader& file, std::size_t unit, std::string_view path)
+{
+    constexpr std::string_view kKeyword = "BLANK   ";
+    try
+    {
+        const openfits::hdu_info& described = file.hdu(unit);
+        const openfits::header& cards = described.header();
+        const std::optional<std::size_t> card = cards.index_of("BLANK");
+        if (!card.has_value())
+            return std::nullopt;
+        try
+        {
+            (void)cards.find<std::int64_t>("BLANK");
+            return std::nullopt;
+        }
+        catch (const openfits::invalid_data_error&)
+        {
+            // The card states no integer: it is the one to leave out.
+        }
+        // A header read from a file holds a card for each of its records, in their order.
+        const std::uint64_t record = described.header_offset() + 80u * static_cast<std::uint64_t>(*card);
+        const openfits::file_source bytes(path);
+        std::array<std::byte, 8u> keyword{};
+        if (record + keyword.size() > bytes.size())
+            return std::nullopt;
+        bytes.read(record, keyword);
+        if (std::memcmp(keyword.data(), kKeyword.data(), keyword.size()) != 0)
+            return std::nullopt;
+        return record;
+    }
+    catch (const openfits::error&)
+    {
+        return std::nullopt;
+    }
 }
 
 /// Whether the selected unit's data end inside the file and match the checksums its header states.
@@ -169,9 +231,13 @@ bool payloadIsWhole(const openfits::reader& file, std::size_t unit, const Execut
 }
 
 /// Reads the selected image's header, inside the library's boundary.
+///
+/// @param malformedBlank set to where the selected unit's `BLANK` record begins when that card is what stopped the
+///        library describing the image, so the caller may open the file again without it; left as it is otherwise.
 Result<FitsHeader> describe(const openfits::reader& file, const EngineContext& engine,
                             const ExecutionContext& execution, const CodecReadRequest& request,
-                            FitsInteger64Policy integer64, bool enumerateImages)
+                            FitsInteger64Policy integer64, bool enumerateImages,
+                            std::optional<std::uint64_t>& malformedBlank)
 {
     const auto selection = selectImage(file, execution, request.imageIndex, enumerateImages);
     if (!selection.hasValue())
@@ -179,7 +245,24 @@ Result<FitsHeader> describe(const openfits::reader& file, const EngineContext& e
     if (!selection->unit.has_value())
         return Status::failure(ErrorCode::OutOfRange);
     const std::size_t selected = *selection->unit;
-    const openfits::image_info image = file.image(selected);
+    // A header the file ends in before its END record describes no image: the library reads what is there as if it
+    // were complete, and says so among the unit's diagnostics.
+    for (const openfits::diagnostic& problem : file.hdu(selected).diagnostics())
+        if (problem.code == openfits::errc::missing_end)
+            return Status::failure(ErrorCode::InvalidData,
+                                   StatusDetail{.message = "the FITS header has no END record before the file ends",
+                                                .operation = "read FITS header",
+                                                .domain = ErrorDomain::Io});
+    openfits::image_info image;
+    try
+    {
+        image = file.image(selected);
+    }
+    catch (const openfits::invalid_data_error&)
+    {
+        malformedBlank = malformedBlankRecord(file, selected, request.path);
+        throw;
+    }
     const std::vector<std::uint64_t>& axes = image.geometry.axes;
     if (axes.empty() || axes.size() > kMaxFitsAxes || !image.bitpix.has_value())
         return Status::failure(ErrorCode::Unsupported);
@@ -278,6 +361,24 @@ Result<FitsHeader> describe(const openfits::reader& file, const EngineContext& e
         metadata = ImageMetadata::create({}, {}, {}, {}, std::move(*codec), std::nullopt);
     }
     const bool compressed = file.hdu(selected).kind() == openfits::hdu_kind::compressed_image;
+    // A tile is one row of the image unless the unit states a taller one along its second axis or a deeper one along
+    // its third.
+    bool tilesSpanRows = false;
+    if (compressed)
+    {
+        const openfits::header& unitCards = file.hdu(selected).header();
+        for (const char* const keyword : {"ZTILE2", "ZTILE3"})
+        {
+            try
+            {
+                tilesSpanRows = tilesSpanRows || unitCards.find<std::int64_t>(keyword).value_or(1) > 1;
+            }
+            catch (const openfits::invalid_data_error&)
+            {
+                // A tile size that is no integer is the library's to refuse when the image is read.
+            }
+        }
+    }
     auto disposition = CodecProbeDisposition::DecodeRequired;
     if (request.validatePayload)
     {
@@ -293,34 +394,66 @@ Result<FitsHeader> describe(const openfits::reader& file, const EngineContext& e
                       .bitpix = bitpix,
                       .scale = scale,
                       .zero = zero,
-                      .compressed = compressed};
+                      .compressed = compressed,
+                      .tilesSpanRows = tilesSpanRows};
 }
+
+/// The most decoded tiles a handle keeps between the strips of one image, in bytes, under the engine's own bound
+/// on an image: enough for the whole-image tile of any frame the engine reads.
+constexpr std::uint64_t kFitsTileCacheBytes = std::uint64_t{1u} << 31u;
 } // namespace
 
-Result<FitsHeader> readFitsHeader(const openfits::reader& file, const EngineContext& engine,
-                                  const ExecutionContext& execution, const CodecReadRequest& request,
-                                  FitsInteger64Policy integer64, bool enumerateImages)
+Result<FitsHeader> readFitsHeader(FitsHandle& file, const EngineContext& engine, const ExecutionContext& execution,
+                                  const CodecReadRequest& request, FitsInteger64Policy integer64, bool enumerateImages)
 {
-    auto described = evaluateAcrossBoundary(kFitsBoundary, [&]() -> Result<FitsHeader> {
-        try
+    std::optional<std::uint64_t> malformedBlank;
+    const auto describeFile = [&]() {
+        return evaluateAcrossBoundary(kFitsBoundary, [&]() -> Result<FitsHeader> {
+            try
+            {
+                return describe(*file.reader, engine, execution, request, integer64, enumerateImages, malformedBlank);
+            }
+            catch (const openfits::cancelled_error&)
+            {
+                auto stopped = execution.checkCancellation();
+                return stopped.failed() ? stopped : Status::failure(ErrorCode::Cancelled);
+            }
+            catch (const openfits::error& error)
+            {
+                return fitsLibraryFailure(error, FitsStage::Open, "read FITS header", request.path);
+            }
+        });
+    };
+    auto described = describeFile();
+    if (described.hasValue() && !described->hasValue() && malformedBlank.has_value())
+    {
+        // The image's BLANK card states no integer. The codec reads no sample as undefined, so the card is not
+        // needed: the file is opened again with that record read as blanks, and described from there.
+        auto reopened = openFitsWithoutRecord(request.path, engine.limits(), *malformedBlank);
+        if (reopened.hasValue())
         {
-            return describe(file, engine, execution, request, integer64, enumerateImages);
+            file = std::move(*reopened);
+            malformedBlank.reset();
+            described = describeFile();
         }
-        catch (const openfits::cancelled_error&)
-        {
-            auto stopped = execution.checkCancellation();
-            return stopped.failed() ? stopped : Status::failure(ErrorCode::Cancelled);
-        }
-        catch (const openfits::error& error)
-        {
-            return fitsLibraryFailure(error, FitsStage::Open, "read FITS header", request.path);
-        }
-    });
+    }
     if (!described.hasValue())
         return codecFailure(described.status().code(), CodecFailure::MetadataUnreadable, CodecFormat::Fits,
                             "read FITS header", request.path, described.status());
     if (!described->hasValue())
         return described->status();
+    if ((*described)->tilesSpanRows && file.tiles == nullptr)
+    {
+        // What the library decodes stays outside the engine's budget and under its bound on one image, as the open
+        // set it: the tiles kept are no more than that.
+        const Status kept = callAcrossBoundary(kFitsBoundary, [&] {
+            file.tiles = std::make_unique<openfits::tile_cache>(
+                (std::min)(kFitsTileCacheBytes, static_cast<std::uint64_t>(engine.limits().maxImageBytes)));
+        });
+        // A cache that could not be had costs a decode its saving, and nothing else.
+        if (kept.failed())
+            file.tiles.reset();
+    }
     return std::move(**described);
 }
 } // namespace an

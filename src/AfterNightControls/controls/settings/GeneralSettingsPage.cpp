@@ -33,6 +33,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFile>
+#include <QCoreApplication>
 #include <QDir>
 #include <QDateTime>
 #include <algorithm>
@@ -40,6 +41,37 @@
 #include <optional>
 
 W_OBJECT_IMPL(GeneralSettingsPage)
+
+namespace an::ui::settings
+{
+QString applyLoggingConfigOrSayWhy(const an::platform::LoggingConfig& config)
+{
+    if (an::platform::applyLoggingConfig(config))
+    {
+        return {};
+    }
+    return QCoreApplication::translate("an::ui::settings",
+                                       "The log folder '%1' cannot be written, so the log stays in the file it was "
+                                       "in. Choose a folder AfterNight can write to.")
+        .arg(QDir::toNativeSeparators(QString::fromStdString(config.logDirectory)));
+}
+
+void sayLoggingConfigProblem(QWidget* parent, const QString& problem)
+{
+    if (problem.isEmpty())
+    {
+        return;
+    }
+    if (auto* context = an::ui::appContext())
+    {
+        if (auto* dialogs = context->getDialogService())
+        {
+            dialogs->notifyWarnMessageAsync(parent, QCoreApplication::translate("an::ui::settings", "Log Folder"),
+                                            problem);
+        }
+    }
+}
+} // namespace an::ui::settings
 
 namespace
 {
@@ -936,9 +968,9 @@ bool GeneralSettingsPage::stageImportedSettings(const QJsonObject& root)
         }
         // Note: logToConsole option has been removed
 
-        // Save to config file and apply log level immediately
+        // Save to config file and apply log level immediately; a folder that cannot be written is said.
         an::platform::saveLoggingConfig(logConfig);
-        an::platform::applyLoggingConfig(logConfig);
+        an::ui::settings::sayLoggingConfigProblem(this, an::ui::settings::applyLoggingConfigOrSayWhy(logConfig));
     }
 
     if (root.contains("platesolve") && root["platesolve"].isObject())

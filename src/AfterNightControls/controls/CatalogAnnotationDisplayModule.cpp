@@ -13,6 +13,8 @@
 #include "controls/annotation/AnnotationSettings.h"
 #include "widgets/ImageViewWidget.h"
 
+#include <AfterNightPlatform/Logging.h>
+
 #include <QCoreApplication>
 #include <QMetaObject>
 #include <QPainter>
@@ -21,6 +23,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <exception>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -102,9 +105,19 @@ struct CatalogAnnotationDisplayModule::Impl
         const std::weak_ptr<LayoutState> weak = layouts;
         QPointer<QWidget> widget(repaint);
         QThreadPool::globalInstance()->start([key, drawnStyle = style, weak, widget, generation]() {
-            auto made = std::make_shared<detail::OverlayAnnotationLayout>(
-                detail::layoutOverlayAnnotations(key.deepSky.get(), key.stars.get(), key.scale, key.fontPixels,
-                                                 drawnStyle, key.labelText, key.smallestMajorPixels));
+            // A layout that cannot be had - memory - lands as none: nothing above a pool's worker catches what it
+            // throws, and the overlay keeps the layout it has.
+            std::shared_ptr<detail::OverlayAnnotationLayout> made;
+            try
+            {
+                made = std::make_shared<detail::OverlayAnnotationLayout>(
+                    detail::layoutOverlayAnnotations(key.deepSky.get(), key.stars.get(), key.scale, key.fontPixels,
+                                                     drawnStyle, key.labelText, key.smallestMajorPixels));
+            }
+            catch (const std::exception& error)
+            {
+                LOG_ERROR("Catalogue overlay: the labels could not be laid out: {}", error.what());
+            }
             QCoreApplication* application = QCoreApplication::instance();
             if (application == nullptr)
             {
@@ -119,7 +132,7 @@ struct CatalogAnnotationDisplayModule::Impl
                         return;
                     }
                     landed->asking = false;
-                    if (landed->generation == generation)
+                    if (made != nullptr && landed->generation == generation)
                     {
                         landed->drawnKey = key;
                         landed->drawn = std::move(*made);

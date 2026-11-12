@@ -710,6 +710,19 @@ TEST(AnnotationScene, ThePanelStatesTheTargetTheFieldTheOpticsAndTheIntegrationT
     scene = sceneOf(*solution, {}, {}, cards, content);
     EXPECT_EQ(scene.panel.title, QStringLiteral("NGC 3372"));
     EXPECT_TRUE(valueOf("Integration").isEmpty());
+
+    // A card's number is read in every spelling a card's number takes: the exponent letter of a FITS real, a sign
+    // and a pair of quotes are the same numbers.
+    std::vector<an::CodecCard> spelled;
+    addCard(spelled, "TELESCOP", "'Askar 107PHQ'");
+    addCard(spelled, "FOCALLEN", "4.32D2");
+    addCard(spelled, "APTDIA", "'+108'");
+    addCard(spelled, "EXPTIME", "1.2D2");
+    addCard(spelled, "TOTEXP", "5.856D4");
+    addCard(spelled, "STACKCNT", "488");
+    scene = sceneOf(*solution, {}, {}, spelled, an::ui::defaultAnnotationSettings().content);
+    EXPECT_EQ(valueOf("Optics"), QStringLiteral("Askar 107PHQ  ·  432 mm f/4"));
+    EXPECT_EQ(valueOf("Integration"), QStringLiteral("16 h 16 min  ·  488 frames"));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1128,6 +1141,25 @@ TEST(AnnotationLayout, ALayoutsCellsStayBoundedHoweverSmallItsTextIsSet)
     }
 }
 
+// Every grid a layout keeps boxes in is bounded, whatever cell it is asked for. The grid of the marks a label must not
+// cover is asked for cells of four font sizes as the labels' own is, and a view zoomed far into a large image sets its
+// text a fraction of an image pixel tall: a cell under a pixel over sixty megapixels was a grid of sixty million cells.
+TEST(AnnotationLayout, NoGridOfALayoutHoldsMoreCellsThanTheBoundHoweverSmallACellIsAsked)
+{
+    const QSizeF frame(9576.0, 6388.0);
+    for (const double cell : {1600.0, 60.0, 3.75, 1.0, 0.9375, 0.004})
+    {
+        const std::size_t cells = an::ui::annotationLayoutGridCells(frame, cell);
+        EXPECT_GE(cells, 1u);
+        EXPECT_LE(static_cast<double>(cells), an::ui::kAnnotationLayoutMostCells) << "a cell of " << cell << " pixels";
+    }
+    // A cell the frame holds few of is the cell asked for.
+    EXPECT_EQ(an::ui::annotationLayoutGridCells(QSizeF(1000.0, 500.0), 100.0), 50u);
+    // The labels' grid is the same grid, asked for cells of four font sizes.
+    EXPECT_EQ(an::ui::annotationLayoutGridCells(frame, an::ui::annotationLayoutCellSize(frame, 0.25)),
+              an::ui::annotationLayoutGridCells(frame, 1.0));
+}
+
 // Drawn for the part of the image a view shows, only what lies in that part is drawn, so a view's paint costs what it
 // shows: an object and its label outside the part are not drawn.
 TEST(AnnotationDrawing, OnlyWhatLiesInThePartShownIsDrawn)
@@ -1450,6 +1482,37 @@ protected:
     an::ui::AnnotationLayout m_layout;
 };
 
+// Every reader of fields - a solved view's overlay, an Annotate Image window - reads the product's own catalogues,
+// and each kept a copy of its own. They share one now: read once, handed to every reader that asks while one holds
+// it, and read again only once its last reader let it go.
+TEST_F(AnnotatedPictureTest, TheProductsCataloguesAreReadOnceAndSharedByEveryReaderOfFields)
+{
+    for (const an::ui::BundledCatalog catalog : {an::ui::BundledCatalog::DeepSky, an::ui::BundledCatalog::BrightStars})
+    {
+        SCOPED_TRACE(catalog == an::ui::BundledCatalog::DeepSky ? "the deep-sky objects" : "the bright stars");
+        an::Result<std::shared_ptr<const an::SkyCatalog>> first = an::ui::sharedBundledCatalog(session(), catalog, {});
+        ASSERT_TRUE(first.hasValue()) << first.status().message();
+        ASSERT_NE(*first, nullptr);
+        EXPECT_GT((*first)->entryCount(), 1000u) << "the catalogue the product ships";
+
+        an::Result<std::shared_ptr<const an::SkyCatalog>> second = an::ui::sharedBundledCatalog(session(), catalog, {});
+        ASSERT_TRUE(second.hasValue()) << second.status().message();
+        EXPECT_EQ(second->get(), first->get()) << "the second reader holds the first one's catalogue";
+
+        const std::weak_ptr<const an::SkyCatalog> held = *first;
+        first->reset();
+        EXPECT_FALSE(held.expired()) << "kept while a reader holds it";
+        second->reset();
+        EXPECT_TRUE(held.expired()) << "and let go with its last reader";
+
+        const an::Result<std::shared_ptr<const an::SkyCatalog>> again =
+            an::ui::sharedBundledCatalog(session(), catalog, {});
+        ASSERT_TRUE(again.hasValue()) << again.status().message();
+        ASSERT_NE(*again, nullptr);
+        EXPECT_GT((*again)->entryCount(), 1000u);
+    }
+}
+
 TEST_F(AnnotatedPictureTest, TheCataloguesAreAskedForTheFieldAndTwoDegreesAroundIt)
 {
     ASSERT_EQ(m_entries.deepSky.size(), 1u);
@@ -1496,6 +1559,53 @@ TEST_F(AnnotatedPictureTest, ASmallerPictureIsTheSameDrawingAtItsScale)
     EXPECT_TRUE(holdsColor(*drawn, scaled, m_style.colors.galaxy));
 }
 
+// A reduction leaves out the partial blocks at an image's right and bottom edges, so the presented image covers a
+// little less than the image and, scaled to the picture, may end a row or a column short of it. The picture is the
+// image to its last row and column all the same: none of it is left the colour the picture was cleared to.
+TEST_F(AnnotatedPictureTest, APictureOfAnImageNoReductionDividesIsTheImageToItsLastRowAndColumn)
+{
+    // 958 by 639 pixels at a sixth: the reduction by five covers 955 by 635 of them.
+    constexpr std::uint32_t kWide = 958u;
+    constexpr std::uint32_t kTall = 639u;
+    const QSize image(static_cast<int>(kWide), static_cast<int>(kTall));
+    const std::optional<an::consumer::ImageAsset> asset = makeAssetWithMetadata<float>(
+        session(), kWide, kTall, Channels::Grey, [](std::uint32_t, std::uint32_t, std::uint32_t) { return 0.25F; },
+        metadataWithCards(m_cards));
+    ASSERT_TRUE(asset.has_value());
+    const QSize size = an::ui::annotationPictureSize(image, 160u);
+    ASSERT_EQ(an::ui::annotationPresentationFactor(image, size), 5u);
+
+    an::Result<an::consumer::AssetReadLease> lease = asset->read({});
+    ASSERT_TRUE(lease.hasValue());
+    std::optional<an::consumer::OperationScope> scope = an::tests::viewer::admitted(session());
+    ASSERT_TRUE(scope.has_value());
+    const an::ui::ViewPresentationSettings settings =
+        an::ui::annotationPresentationSettings(std::nullopt, an::ui::AnnotationStretch::AsStored, true);
+    an::Result<an::ui::AnnotationBase> base =
+        an::ui::presentAnnotationBase(*scope, *lease, settings, nullptr, &session().memory(), size);
+    ASSERT_TRUE(base.hasValue()) << base.status().message();
+    ASSERT_LT(base->covers.width(), static_cast<double>(kWide)) << "the reduction left a partial block out";
+    ASSERT_LT(base->covers.height(), static_cast<double>(kTall));
+
+    // Nothing is annotated: the picture is the image alone.
+    an::ui::AnnotationScene nothing;
+    nothing.imageSize = image;
+    nothing.referenceLength = m_scene.referenceLength;
+    const an::ui::AnnotationLayout empty = an::ui::layoutAnnotations(nothing, m_content, m_style);
+    an::Result<an::ui::AnnotatedPicture> drawn =
+        an::ui::composeAnnotatedPicture(&*base, size, nothing, empty, m_style, &session().memory());
+    ASSERT_TRUE(drawn.hasValue()) << drawn.status().message();
+    ASSERT_EQ(drawn->image.size(), size);
+    for (int x = 0; x < size.width(); ++x)
+    {
+        EXPECT_NEAR(drawn->image.pixelColor(x, size.height() - 1).red(), 64, 1) << "the last row, at column " << x;
+    }
+    for (int y = 0; y < size.height(); ++y)
+    {
+        EXPECT_NEAR(drawn->image.pixelColor(size.width() - 1, y).red(), 64, 1) << "the last column, at row " << y;
+    }
+}
+
 TEST_F(AnnotatedPictureTest, ATransparentPictureHoldsTheAnnotationsAlone)
 {
     const std::optional<QImage> drawn =
@@ -1505,6 +1615,56 @@ TEST_F(AnnotatedPictureTest, ATransparentPictureHoldsTheAnnotationsAlone)
     const an::ui::AnnotationLabel* galaxy = labelOf(QStringLiteral("NGC 1001"));
     ASSERT_NE(galaxy, nullptr);
     EXPECT_TRUE(holdsColor(*drawn, galaxy->box, m_style.colors.galaxy));
+}
+
+// The picture's pixels are laid out into its image a band of rows at a time, so the picture is never held twice more
+// beside the image it becomes. A picture taller than a band is the same image all the same, pixel for pixel and plane
+// for plane, with its transparency kept when it has one.
+TEST_F(AnnotatedPictureTest, ThePicturesImageHoldsEveryPixelOfAPictureTallerThanOneBand)
+{
+    an::Result<an::CodecMetadata> frame = an::CodecMetadata::create(an::SourceEncoding{}, m_cards);
+    ASSERT_TRUE(frame.hasValue());
+    for (const bool alpha : {false, true})
+    {
+        SCOPED_TRACE(alpha ? "with transparency" : "opaque");
+        QImage picture(37, 700, QImage::Format_ARGB32_Premultiplied);
+        for (int y = 0; y < picture.height(); ++y)
+        {
+            for (int x = 0; x < picture.width(); ++x)
+            {
+                picture.setPixelColor(
+                    x, y, QColor((x * 7 + y) % 256, (y * 3) % 256, (x + 2 * y) % 256, alpha ? 55 + y % 200 : 255));
+            }
+        }
+        const QImage expected = picture.convertToFormat(alpha ? QImage::Format_RGBA8888 : QImage::Format_RGB888);
+        const std::uint32_t channels = alpha ? 4u : 3u;
+
+        an::Result<an::consumer::ImageAsset> asset =
+            an::ui::annotatedPictureAsset(session(), picture, *frame, *m_solution, alpha, {});
+        ASSERT_TRUE(asset.hasValue()) << asset.status().message();
+        an::Result<an::consumer::AssetReadLease> lease = asset->read({});
+        ASSERT_TRUE(lease.hasValue());
+        const auto* image = std::get_if<an::Image<std::uint8_t>>(&lease->image());
+        ASSERT_NE(image, nullptr);
+        ASSERT_TRUE(image->view().has_value());
+        ASSERT_EQ(image->view()->layout().extent().channelCount(), channels);
+        std::size_t different = 0u;
+        for (int y = 0; y < picture.height(); ++y)
+        {
+            const uchar* const row = expected.constScanLine(y);
+            for (int x = 0; x < picture.width(); ++x)
+            {
+                for (std::uint32_t channel = 0u; channel < channels; ++channel)
+                {
+                    const std::uint8_t* sample = image->view()->sampleAt(channel, static_cast<std::uint32_t>(x),
+                                                                         static_cast<std::uint32_t>(y), 0u);
+                    ASSERT_NE(sample, nullptr);
+                    different += *sample == row[static_cast<std::size_t>(x) * channels + channel] ? 0u : 1u;
+                }
+            }
+        }
+        EXPECT_EQ(different, 0u) << "samples that are not the picture's";
+    }
 }
 
 TEST_F(AnnotatedPictureTest, ThePicturesImageCarriesTheFramesFactsAndItsSolutionAtItsScale)

@@ -115,8 +115,8 @@ A sentence then sums the run up, and four tiles give its figures:
 | Tile | Reads |
 | --- | --- |
 | **Masters** | The masters of the run, and how many were made, reused, failed or not reached. |
-| **Lights used** | The lights the masters combine, of the lights the run took, and how many were left out. |
-| **Integration** | The exposure of the lights used, of the exposure captured. |
+| **Lights used** | The lights the masters combine, of the lights the run took, and how many were left out. When the fate of some lights is not recorded, as for a master reused from a run whose report the folder no longer keeps, the tile reads **Lights taken** and says how many lights have no recorded fate. |
+| **Integration** | The exposure of the lights used, of the exposure captured. A total is given only when every light of it states its exposure; otherwise the tile says how many lights state none. |
 | **Run time** | How long the run took, and when it was archived. |
 
 When an earlier run of the folder is there to compare with, each tile adds that run's figure, as **Earlier run:**.

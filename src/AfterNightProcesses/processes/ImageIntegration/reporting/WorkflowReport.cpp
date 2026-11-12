@@ -3,6 +3,8 @@
 
 #include "processes/ImageIntegration/reporting/WorkflowReport.h"
 
+#include "processes/ImageIntegration/reporting/ReportFormat.h"
+
 #include "processes/ImageIntegration/reporting/ReportArchiveReader.h"
 #include "processes/ImageIntegration/reporting/ReportHtmlWriter.h"
 #include "processes/ImageIntegration/reporting/ReportModel.h"
@@ -66,6 +68,12 @@ public:
     {
     }
 
+    /// How many stored reports were read.
+    [[nodiscard]] int read() const noexcept
+    {
+        return m_read;
+    }
+
     /// A master of an earlier run as that run's stored report states it; null when the archive gives no report or
     /// the report no such master.
     [[nodiscard]] const ReportMaster* master(const QString& runId, const QString& key)
@@ -74,6 +82,7 @@ public:
         if (known == m_models.end())
         {
             known = m_models.insert(runId, ReportArchiveReader::read(m_history.filePath(runId)).model);
+            ++m_read;
         }
         if (!known->has_value())
         {
@@ -85,22 +94,25 @@ public:
         return found == masters.end() ? nullptr : &*found;
     }
 
-    /// A picture of an earlier run, as a file.
+    /// A picture of an earlier run, as a file; empty for a path that is not inside that run's folder.
     [[nodiscard]] QString file(const QString& runId, const QString& picture) const
     {
-        return QDir(m_history.filePath(runId)).filePath(picture);
+        return staysInsideItsFolder(picture) ? QDir(m_history.filePath(runId)).filePath(picture.trimmed()) : QString();
     }
 
 private:
     QDir m_history;
     QHash<QString, std::optional<ReportModel>> m_models;
+    int m_read = 0;
 };
 
 /// Copies the pictures the model's baselines name into the run's folder.
 ///
 /// @param model the model; a baseline's picture that could not be copied is taken out of it.
+/// @param memo what the earlier stores of this report copied, which this store adds to; null for none.
 /// @return the pictures that could not be copied, each with why.
-[[nodiscard]] QStringList copyBaselinePictures(ReportModel& model, const QString& runDirectory)
+[[nodiscard]] QStringList copyBaselinePictures(ReportModel& model, const QString& runDirectory,
+                                               WorkflowReportStoreMemo* memo)
 {
     QStringList failures;
     BaselineArchives archives(runDirectory);
@@ -112,19 +124,43 @@ private:
             continue;
         }
         ReportBaseline& baseline = *master.baseline;
-        const ReportMaster* earlier = archives.master(baseline.runId, master.key);
         const auto copy = [&](QString& target, const QString ReportMaster::* source) {
             if (target.isEmpty())
             {
                 return;
             }
-            const QString why =
-                earlier == nullptr || (earlier->*source).trimmed().isEmpty()
-                    ? storeText("the run %1 no longer states the picture").arg(baseline.runId)
-                    : copyPicture(archives.file(baseline.runId, earlier->*source), run.filePath(target));
+            // A picture an earlier store of this report copied, and that is still there, is the picture: the
+            // earlier run's stored report is not read again to copy it again.
+            if (memo != nullptr && memo->picturesCopied.contains(target) && QFileInfo(run.filePath(target)).isFile())
+            {
+                return;
+            }
+            const ReportMaster* earlier = archives.master(baseline.runId, master.key);
+            QString why;
+            if (earlier == nullptr || (earlier->*source).trimmed().isEmpty())
+            {
+                why = storeText("the run %1 no longer states the picture").arg(baseline.runId);
+            }
+            else if (const QString from = archives.file(baseline.runId, earlier->*source); from.isEmpty())
+            {
+                // The stored report names a path outside its own run's folder: no picture of that run.
+                why = storeText("the run %1 names a picture outside its own folder").arg(baseline.runId);
+            }
+            else
+            {
+                why = copyPicture(from, run.filePath(target));
+            }
+            if (why.isEmpty())
+            {
+                if (memo != nullptr)
+                {
+                    memo->picturesCopied.insert(target);
+                }
+                return;
+            }
             // A report is stored more than once, and the history may drop the earlier run in between: the copy
             // made the first time is the picture, whatever became of the run it was copied from.
-            if (!why.isEmpty() && !QFileInfo(run.filePath(target)).isFile())
+            if (!QFileInfo(run.filePath(target)).isFile())
             {
                 failures << QStringLiteral("%1: %2").arg(target, why);
                 target.clear();
@@ -132,6 +168,10 @@ private:
         };
         copy(baseline.preview, &ReportMaster::preview);
         copy(baseline.detail, &ReportMaster::detail);
+    }
+    if (memo != nullptr)
+    {
+        memo->earlierReportsRead += archives.read();
     }
     return failures;
 }
@@ -242,7 +282,8 @@ WorkflowReportWritten writeWorkflowReport(const ReportModel& model, const QStrin
     return WorkflowReportWritten{.path = path, .error = {}, .faults = document.faults};
 }
 
-WorkflowReportStored storeWorkflowReport(const ReportModel& model, const QString& runDirectory)
+WorkflowReportStored storeWorkflowReport(const ReportModel& model, const QString& runDirectory,
+                                         WorkflowReportStoreMemo* memo)
 {
     WorkflowReportStored stored;
     if (runDirectory.trimmed().isEmpty() || !QDir(runDirectory).exists())
@@ -253,7 +294,7 @@ WorkflowReportStored storeWorkflowReport(const ReportModel& model, const QString
 
     // The pictures first: what the model and the document name must be there when they are written.
     ReportModel kept = model;
-    stored.picturesNotCopied = copyBaselinePictures(kept, runDirectory);
+    stored.picturesNotCopied = copyBaselinePictures(kept, runDirectory, memo);
     dropLinksToReportsThatAreGone(kept, runDirectory);
 
     const QString modelPath = QDir(runDirectory).filePath(QLatin1String(kStoredReportFileName));

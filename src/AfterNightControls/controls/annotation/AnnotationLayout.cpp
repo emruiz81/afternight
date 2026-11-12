@@ -134,10 +134,27 @@ private:
 };
 
 /// The boxes placed so far, kept in cells so a test reads only the boxes near the box it tests.
+/// The side of the cells of a grid over a frame: the side asked for, never under a pixel, widened until the frame
+/// holds no more than `kAnnotationLayoutMostCells` of them in whole rows and columns.
+[[nodiscard]] double boundedCell(const QSizeF frame, const double asked) noexcept
+{
+    const double width = (std::max)(1.0, frame.width());
+    const double height = (std::max)(1.0, frame.height());
+    double cell = (std::max)(1.0, std::isfinite(asked) ? asked : 1.0);
+    cell = (std::max)(cell, std::sqrt(width * height / kAnnotationLayoutMostCells));
+    // The cells cover the frame in whole rows and columns: widen them until those fit the bound.
+    while (std::ceil(width / cell) * std::ceil(height / cell) > kAnnotationLayoutMostCells)
+    {
+        cell *= 1.01;
+    }
+    return cell;
+}
+
+/// The boxes placed over a frame, found through a grid of cells; the grid is bounded whatever cell it is asked for.
 class Occupancy
 {
 public:
-    Occupancy(const QRectF& frame, const double cell) : m_frame(frame), m_cell((std::max)(1.0, cell))
+    Occupancy(const QRectF& frame, const double cell) : m_frame(frame), m_cell(boundedCell(frame.size(), cell))
     {
         m_columns = (std::max)(1, static_cast<int>(std::ceil(frame.width() / m_cell)));
         m_rows = (std::max)(1, static_cast<int>(std::ceil(frame.height() / m_cell)));
@@ -170,6 +187,12 @@ public:
             return false;
         });
         return found;
+    }
+
+    /// How many cells the grid holds.
+    [[nodiscard]] std::size_t cellCount() const noexcept
+    {
+        return m_cells.size();
     }
 
     /// How many boxes a box meets, its owner's own left out.
@@ -704,16 +727,20 @@ std::pair<QString, QString> annotationLabelLines(const AnnotationMark& mark, con
 
 double annotationLayoutCellSize(const QSizeF frame, const double fontSize) noexcept
 {
-    const double width = (std::max)(1.0, frame.width());
-    const double height = (std::max)(1.0, frame.height());
-    double cell = (std::max)(1.0, std::isfinite(fontSize) ? 4.0 * fontSize : 1.0);
-    cell = (std::max)(cell, std::sqrt(width * height / kAnnotationLayoutMostCells));
-    // The cells cover the frame in whole rows and columns: widen them until those fit the bound.
-    while (std::ceil(width / cell) * std::ceil(height / cell) > kAnnotationLayoutMostCells)
+    return boundedCell(frame, std::isfinite(fontSize) ? 4.0 * fontSize : 1.0);
+}
+
+std::size_t annotationLayoutGridCells(const QSizeF frame, const double cell) noexcept
+{
+    // The grid itself, as a layout makes it: what it holds is what a layout allocates.
+    try
     {
-        cell *= 1.01;
+        return Occupancy(QRectF(QPointF(0.0, 0.0), frame), cell).cellCount();
     }
-    return cell;
+    catch (const std::exception&)
+    {
+        return (std::numeric_limits<std::size_t>::max)();
+    }
 }
 
 AnnotationMetrics annotationMetrics(const double referenceLength, const AnnotationStyle& style) noexcept
@@ -805,9 +832,8 @@ AnnotationLayout layoutAnnotations(const AnnotationScene& scene, const Annotatio
         placeGridLabels(scene, metrics, shaper, style, frame, occupied, layout.labels);
     }
 
-    // The small marks a label must not cover.
     // The small marks a label must not cover, and the larger outlines it should not cross; a region that spans much of
-    // the frame is crossed freely, since every label inside it would.
+    // the frame is crossed freely, since every label inside it would. Their grid is bounded as the labels' is.
     Occupancy marks(frame, 4.0 * metrics.fontSize);
     std::vector<QRectF> anchors;
     anchors.reserve(scene.marks.size());

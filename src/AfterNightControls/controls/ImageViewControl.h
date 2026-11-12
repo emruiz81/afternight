@@ -206,6 +206,11 @@ public:
     /// @param measures whether the preview measures them.
     void setMeasuresPreviewStatistics(bool measures);
 
+    /// Whether the static preview's owner has it measure the statistics its overlay shows
+    /// (`setMeasuresPreviewStatistics`). A preview whose presentation choices are not offered measures none
+    /// whatever this says, and measures again as its owner set once they are offered.
+    [[nodiscard]] bool measuresPreviewStatistics() const;
+
     /// Shows statistics in the static preview's overlay, measured elsewhere for the image it shows.
     ///
     /// @param statistics the statistics, or nothing to show none.

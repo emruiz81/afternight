@@ -28,6 +28,7 @@
 #include <verdigris/wobjectdefs.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 
 class ImageViewControl;
@@ -38,6 +39,33 @@ namespace an::ui
 
 struct AnnotationLayout;
 struct AnnotationScene;
+
+namespace detail
+{
+/// What the Annotate Image window does once a drawing it asked for has landed.
+enum class AfterDrawing : std::uint8_t
+{
+    /// Nothing more: the drawing is shown, or the window has said why there is none.
+    Rest,
+
+    /// Draw once more: the choices or the image changed while the drawing was on its way.
+    DrawAgain,
+
+    /// Make the picture that was waiting for this drawing.
+    MakePicture
+};
+
+/// Decides what follows a landed drawing. A change made while the drawing was on its way is drawn whether or not
+/// that drawing could be laid out - the choices as they are now may be ones that can - and a picture that was
+/// waiting is made only from a drawing that was laid out and that nothing has changed since.
+///
+/// @param laidOut whether the drawing could be laid out.
+/// @param changedMeanwhile whether the choices or the image changed while it was on its way.
+/// @param pictureWaiting whether a picture waits for the drawing.
+/// @return what the window does next.
+[[nodiscard]] AFTERNIGHTCONTROLS_API AfterDrawing afterDrawingLanded(bool laidOut, bool changedMeanwhile,
+                                                                     bool pictureWaiting) noexcept;
+} // namespace detail
 
 class AFTERNIGHTCONTROLS_API AnnotateImageControl : public QDialog, public ImageViewControlListener
 {
@@ -91,6 +119,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
 private:
     struct Impl;

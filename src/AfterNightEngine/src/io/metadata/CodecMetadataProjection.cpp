@@ -71,6 +71,17 @@ std::optional<double> parseDecimal(std::string_view text) noexcept
         text.remove_prefix(1u);
     if (text.empty())
         return std::nullopt;
+    // A FITS real may spell its exponent with a D (standard 4.2.4), which no decimal parser of the language reads:
+    // such a number is read with the letter made an E, from a copy on the stack.
+    std::array<char, 64u> spelled{};
+    if (text.find_first_of("Dd") != std::string_view::npos)
+    {
+        if (text.size() > spelled.size())
+            return std::nullopt;
+        std::transform(text.begin(), text.end(), spelled.begin(),
+                       [](char letter) { return letter == 'D' || letter == 'd' ? 'E' : letter; });
+        text = std::string_view(spelled.data(), text.size());
+    }
     double value = 0.0;
     const std::from_chars_result result = std::from_chars(text.data(), text.data() + text.size(), value);
     if (result.ec != std::errc{} || result.ptr != text.data() + text.size() || !std::isfinite(value))

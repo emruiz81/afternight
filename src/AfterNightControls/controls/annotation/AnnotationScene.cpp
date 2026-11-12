@@ -8,6 +8,8 @@
 #include "controls/CatalogAnnotationDisplayModule.h"
 #include "controls/ImageAstrometryInfoFormatter.h"
 
+#include <AfterNightEngine/IO/CodecMetadataProjection.h>
+
 #include <QCoreApplication>
 #include <QHash>
 #include <QPainterPath>
@@ -892,9 +894,9 @@ void addStars(const AnnotationSceneSources& sources, const AnnotationContent& co
     {
         return std::nullopt;
     }
-    bool ok = false;
-    const double value = text.toDouble(&ok);
-    return ok && std::isfinite(value) ? std::optional<double>(value) : std::nullopt;
+    // Read as every reader of a card's number reads it, so no two of them differ in the spellings they take.
+    const an::Result<double> value = an::parseNumericCard(text.toStdString());
+    return value.hasValue() ? std::optional<double>(*value) : std::nullopt;
 }
 
 [[nodiscard]] QString numberText(const double value, const int decimals)

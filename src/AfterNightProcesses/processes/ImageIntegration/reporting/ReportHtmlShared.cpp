@@ -775,12 +775,21 @@ void writeCometRun(ReportMarkup& out, const ReportDocumentContext& context, cons
     facts.push_back({documentText("Ready to stack"), context.said(run.readiness), {}});
     if (run.transformsSucceeded.has_value() || run.transformsFailed.has_value() || run.transformsMissing.has_value())
     {
-        facts.push_back(
-            {documentText("Transforms"),
-             documentText("%1 made, %2 failed, %3 missing")
-                 .arg(formatCount(run.transformsSucceeded.value_or(0)), formatCount(run.transformsFailed.value_or(0)),
-                      formatCount(run.transformsMissing.value_or(0))),
-             {}});
+        // Each count the run states, and none it does not: a count left out is not a count of nought.
+        QStringList transforms;
+        if (run.transformsSucceeded.has_value())
+        {
+            transforms << documentText("%1 made").arg(formatCount(*run.transformsSucceeded));
+        }
+        if (run.transformsFailed.has_value())
+        {
+            transforms << documentText("%1 failed").arg(formatCount(*run.transformsFailed));
+        }
+        if (run.transformsMissing.has_value())
+        {
+            transforms << documentText("%1 missing").arg(formatCount(*run.transformsMissing));
+        }
+        facts.push_back({documentText("Transforms"), transforms.join(QStringLiteral(", ")), {}});
     }
     facts.push_back({documentText("Why not ready"), context.said(run.readinessFailure), {}});
     facts.push_back({documentText("Written on"), context.said(run.outputPlane), {}});

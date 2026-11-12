@@ -597,12 +597,15 @@ readMaster(const an::consumer::EngineSession& session, const QString& path, an::
 
 /// The white level a mosaic's samples read at full exposure, which every threshold of the demosaic is derived from: an
 /// integer's largest code, and one for a floating sample stated as a fraction of full scale. A floating mosaic in a
-/// physical or sensor-code domain has no full scale. One whose meaningful finite samples lie mostly inside zero to one
-/// - their median at most one - is a fraction of full scale, as a light calibrated into fractions is, and is demosaiced
-/// with a white level of one whatever its brightest sample: a light divided by a flat whose dark border reads nearly
-/// zero holds samples in the hundreds of thousands there, and as its white level they made the rest of the frame read
-/// as nothing, below the demosaic's smallest threshold. Any other floating mosaic's brightest meaningful finite sample
-/// stands for full scale.
+/// physical or sensor-code domain has no full scale. One whose meaningful finite samples lie inside zero to one but
+/// for a few - no more than a quarter of them above one - is a fraction of full scale, as a light calibrated into
+/// fractions is, and is demosaiced with a white level of one whatever its brightest sample: a light divided by a flat
+/// whose dark border reads nearly zero holds samples in the hundreds of thousands there, and as its white level they
+/// made the rest of the frame read as nothing, below the demosaic's smallest threshold. Any other floating mosaic's
+/// brightest meaningful finite sample stands for full scale. The quarter, rather than the half a median tells, is
+/// what keeps sensor codes over a dark sky apart: a calibrated light in codes whose sky sits under one code has its
+/// noise - several codes wide - carry far more than a quarter of its samples above one, where fractions of full
+/// scale have next to none there.
 template <typename SampleT>
 [[nodiscard]] an::Result<double> whiteLevelOf(const an::ExecutionContext& execution, const an::Image<SampleT>& mosaic,
                                               const an::ImageView<const SampleT>& view,
@@ -620,8 +623,8 @@ template <typename SampleT>
         {
             return 1.0;
         }
-        // The brightest sample and the median are measured among the finite ones the image's rule admits; they do not
-        // restate which samples mean something.
+        // The brightest sample and the upper quartile are measured among the finite ones the image's rule admits; they
+        // do not restate which samples mean something.
         const an::ValidityDescriptor validity = mosaic.metadata().semantics().validity();
         double brightest = 0.0;
         bool fractions = false;
@@ -631,9 +634,11 @@ template <typename SampleT>
             selection.validity =
                 an::ValidityDescriptor::create(an::ValidityDescriptorRequest{.rule = an::ValidityRule::FiniteOnly})
                     .value_or(validity);
-            const an::Result<an::RobustStatistics> measured =
-                an::computeImageRobustStatistics(execution, an::kSampleTypeOf<SampleT>, view.data(), view.layout(), 0u,
-                                                 selection, an::RobustStatisticsRequest{});
+            constexpr std::array<double, 1u> kUpperQuartile{0.75};
+            std::array<double, 1u> upperQuartile{};
+            const an::Result<an::RobustStatistics> measured = an::computeImageRobustStatistics(
+                execution, an::kSampleTypeOf<SampleT>, view.data(), view.layout(), 0u, selection,
+                an::RobustStatisticsRequest{.quantiles = kUpperQuartile}, upperQuartile);
             if (!measured.hasValue())
             {
                 // A mosaic with no finite sample has no brightest one, and nothing for a white level to clip.
@@ -644,13 +649,14 @@ template <typename SampleT>
                 return measured.status();
             }
             brightest = measured->maximum;
-            fractions = measured->median <= 1.0;
+            fractions = upperQuartile.front() <= 1.0;
         }
         else
         {
             // Another rule may keep a non-finite sample among those that mean something, and the statistics refuse a
             // selection holding one, so the plane is read here: a sample counts when the rule, its mask and its
-            // finiteness all admit it. Their median is at most one when no more than half of them lie above one.
+            // finiteness all admit it. Their upper quartile is at most one when no more than a quarter of them lie
+            // above one.
             std::uint64_t counted = 0u;
             std::uint64_t aboveOne = 0u;
             for (std::uint32_t y = 0u; y < view.height(); ++y)
@@ -680,7 +686,7 @@ template <typename SampleT>
                     }
                 }
             }
-            fractions = aboveOne <= counted / 2u;
+            fractions = aboveOne <= counted / 4u;
         }
         return !fractions && std::isfinite(brightest) && brightest > 1.0
                    ? (std::min)(brightest, static_cast<double>((std::numeric_limits<float>::max)()))

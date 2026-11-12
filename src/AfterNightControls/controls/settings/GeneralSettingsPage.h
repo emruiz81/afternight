@@ -18,8 +18,28 @@ class QPushButton;
 class PathPickerWidget;
 class GlobalSettingsPersistence;
 
+namespace an::platform
+{
+struct LoggingConfig;
+} // namespace an::platform
+
 namespace an::ui::settings
 {
+/// Applies a logging configuration to the running logger and says, for the person who set it, why it could not be
+/// applied. A log folder that cannot be written leaves the log in the file it was in, and until now only a line of
+/// that log said so: both settings pages that apply a configuration say it instead.
+///
+/// @param config the configuration to apply.
+/// @return nothing when it was applied; else the sentence to show, naming the folder.
+[[nodiscard]] AFTERNIGHTCONTROLS_API QString applyLoggingConfigOrSayWhy(const an::platform::LoggingConfig& config);
+
+/// Says a problem of the logging configuration to the person who set it, through the application's dialogs, without
+/// waiting for an answer; nothing for an empty problem.
+///
+/// @param parent the page the problem belongs to.
+/// @param problem the sentence `applyLoggingConfigOrSayWhy` gave.
+AFTERNIGHTCONTROLS_API void sayLoggingConfigProblem(QWidget* parent, const QString& problem);
+
 [[nodiscard]] inline bool containsRecognizedImmediateImportSection(const QJsonObject& root)
 {
     return root.value(QStringLiteral("logging")).isObject();

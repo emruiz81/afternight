@@ -10,10 +10,13 @@
 
 #include <AfterNightEngine/Image/CodecMetadata.h>
 
+#include <openfits/io.h>
 #include <openfits/limits.h>
 #include <openfits/version.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <span>
 #include <string>
 #include <utility>
 
@@ -130,40 +133,102 @@ Status fitsLibraryFailure(const openfits::error& error, FitsStage stage, std::st
     return codecFailure(code, reason, CodecFormat::Fits, operation, path, std::move(cause));
 }
 
-Result<FitsHandle> openFits(std::string_view path, const EngineLimits& limits)
+namespace
 {
-    auto opened = evaluateAcrossBoundary(kFitsBoundary, [&]() -> Result<FitsHandle> {
-        openfits::read_options options;
-        // A unit of the file that cannot be used - a header that gives no size, a damaged compressed unit - leaves the
-        // units before it readable, as the library walks them; the selected image's own problem is the one a read
-        // reports.
-        options.strict = false;
-        // A tile the library decodes and the content of a gzip-compressed file it inflates stay outside the engine's
-        // budget, so no more of either than one image may hold is allocated; nothing is inflated into a temporary
-        // file, since no directory is named for one.
-        options.limits.max_allocation = limits.maxImageBytes;
-        options.limits.max_inflated_bytes = (std::min)(options.limits.max_inflated_bytes, limits.maxImageBytes);
-        options.limits.max_tile_bytes = (std::min)(options.limits.max_tile_bytes, limits.maxImageBytes);
-        options.limits.max_header_bytes = kMaxFitsHeaderBytes;
-        options.limits.max_total_header_bytes = kMaxFitsTotalHeaderBytes;
-        // One unit past the bound a probe refuses at, so that a file with more units than an image index reaches is
-        // told from one with exactly as many.
-        options.limits.max_hdus = kMaxCodecCards + 1u;
+/// The bytes of one record of a header.
+constexpr std::uint64_t kFitsRecordBytes = 80u;
+
+/// A file with one record of a header read as blanks, and every other byte as the file holds it.
+class RecordMaskedSource final : public openfits::input_source
+{
+public:
+    RecordMaskedSource(std::string_view path, std::uint64_t record) : m_file(path), m_record(record) {}
+
+    [[nodiscard]] std::uint64_t size() const override
+    {
+        return m_file.size();
+    }
+
+    void read(std::uint64_t offset, std::span<std::byte> destination) const override
+    {
+        m_file.read(offset, destination);
+        const std::uint64_t end = offset + destination.size();
+        const std::uint64_t first = (std::max)(offset, m_record);
+        const std::uint64_t last = (std::min)(end, m_record + kFitsRecordBytes);
+        for (std::uint64_t at = first; at < last; ++at)
+            destination[static_cast<std::size_t>(at - offset)] = std::byte{' '};
+    }
+
+    [[nodiscard]] bool supports_concurrent_reads() const override
+    {
+        return m_file.supports_concurrent_reads();
+    }
+
+    [[nodiscard]] std::string description() const override
+    {
+        return m_file.description();
+    }
+
+private:
+    openfits::file_source m_file;
+    std::uint64_t m_record;
+};
+
+/// The options every open of a FITS file reads under.
+openfits::read_options readOptions(const EngineLimits& limits)
+{
+    openfits::read_options options;
+    // A unit of the file that cannot be used - a header that gives no size, a damaged compressed unit - leaves the
+    // units before it readable, as the library walks them; the selected image's own problem is the one a read
+    // reports.
+    options.strict = false;
+    // A tile the library decodes and the content of a gzip-compressed file it inflates stay outside the engine's
+    // budget, so no more of either than one image may hold is allocated; nothing is inflated into a temporary
+    // file, since no directory is named for one.
+    options.limits.max_allocation = limits.maxImageBytes;
+    options.limits.max_inflated_bytes = (std::min)(options.limits.max_inflated_bytes, limits.maxImageBytes);
+    options.limits.max_tile_bytes = (std::min)(options.limits.max_tile_bytes, limits.maxImageBytes);
+    options.limits.max_header_bytes = kMaxFitsHeaderBytes;
+    options.limits.max_total_header_bytes = kMaxFitsTotalHeaderBytes;
+    // One unit past the bound a probe refuses at, so that a file with more units than an image index reaches is
+    // told from one with exactly as many.
+    options.limits.max_hdus = kMaxCodecCards + 1u;
+    return options;
+}
+
+/// Runs an open inside the library's boundary and translates what it throws.
+template <typename Open> Result<FitsHandle> opened(std::string_view path, Open&& open)
+{
+    auto handle = evaluateAcrossBoundary(kFitsBoundary, [&]() -> Result<FitsHandle> {
         try
         {
-            return FitsHandle{std::make_unique<openfits::reader>(path, options)};
+            return FitsHandle{.reader = open(), .tiles = nullptr};
         }
         catch (const openfits::error& error)
         {
             return fitsLibraryFailure(error, FitsStage::Open, "open FITS", path);
         }
     });
-    if (!opened.hasValue())
-        return codecFailure(opened.status().code(), CodecFailure::MetadataUnreadable, CodecFormat::Fits, "open FITS",
-                            path, opened.status());
-    if (!opened->hasValue())
-        return opened->status();
-    return std::move(**opened);
+    if (!handle.hasValue())
+        return codecFailure(handle.status().code(), CodecFailure::MetadataUnreadable, CodecFormat::Fits, "open FITS",
+                            path, handle.status());
+    if (!handle->hasValue())
+        return handle->status();
+    return std::move(**handle);
+}
+} // namespace
+
+Result<FitsHandle> openFits(std::string_view path, const EngineLimits& limits)
+{
+    return opened(path, [&] { return std::make_unique<openfits::reader>(path, readOptions(limits)); });
+}
+
+Result<FitsHandle> openFitsWithoutRecord(std::string_view path, const EngineLimits& limits, std::uint64_t record)
+{
+    return opened(path, [&] {
+        return std::make_unique<openfits::reader>(std::make_unique<RecordMaskedSource>(path, record),
+                                                  readOptions(limits));
+    });
 }
 
 std::optional<openfits::numeric_type> fitsNumericType(RawSampleFormat format) noexcept

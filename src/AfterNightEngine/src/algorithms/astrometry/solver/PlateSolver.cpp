@@ -20,11 +20,17 @@
 
 #include "algorithms/astrometry/solver/PlateSolverInternal.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
+#include <new>
 #include <numbers>
+#include <numeric>
 #include <optional>
+#include <span>
 #include <utility>
+#include <vector>
 
 namespace an
 {
@@ -143,19 +149,96 @@ struct Candidate
     return candidate.refinement.fit.matches.size() >= 12u && candidate.refinement.fit.finalRmsResidualPixels <= 1.0;
 }
 
+/// Restates each match's star as its place among the stars supplied to the solve.
+///
+/// The fit names a star by its place among the prepared stars, which a caller of the complete solve never sees. A
+/// prepared star is a supplied star with its position untouched, so each is found again by its position - the
+/// earliest of the supplied stars that share it.
+///
+/// @param matches the matches of a fit made from the prepared stars.
+/// @param input the prepared stars.
+/// @param stars the stars supplied to the solve.
+void nameSuppliedStars(std::vector<PlateSolveMatch>& matches, const PlateSolveInput& input,
+                       std::span<const PlateSolveStar> stars)
+{
+    const auto before = [](const PixelCoordinate& left, const PixelCoordinate& right) {
+        return left.x != right.x ? left.x < right.x : left.y < right.y;
+    };
+    std::vector<std::uint32_t> byPosition(input.stars.size());
+    std::iota(byPosition.begin(), byPosition.end(), 0u);
+    std::sort(byPosition.begin(), byPosition.end(), [&](std::uint32_t left, std::uint32_t right) {
+        return before(input.stars[left].position, input.stars[right].position);
+    });
+    constexpr std::uint32_t kUnnamed = (std::numeric_limits<std::uint32_t>::max)();
+    std::vector<std::uint32_t> supplied(input.stars.size(), kUnnamed);
+    for (std::size_t index = 0u; index < stars.size(); ++index)
+    {
+        const PixelCoordinate& position = stars[index].position;
+        auto found = std::lower_bound(byPosition.begin(), byPosition.end(), position,
+                                      [&](std::uint32_t prepared, const PixelCoordinate& wanted) {
+                                          return before(input.stars[prepared].position, wanted);
+                                      });
+        for (; found != byPosition.end() && !before(position, input.stars[*found].position); ++found)
+        {
+            if (supplied[*found] == kUnnamed)
+            {
+                supplied[*found] = static_cast<std::uint32_t>(index);
+            }
+        }
+    }
+    for (PlateSolveMatch& match : matches)
+    {
+        if (match.imageStarIndex < supplied.size() && supplied[match.imageStarIndex] != kUnnamed)
+        {
+            match.imageStarIndex = supplied[match.imageStarIndex];
+        }
+    }
+}
+
 /// Builds the complete answer from the selected candidate and the run's totals.
 ///
+/// A candidate whose image stars were kept over the matching disc is first fitted over the whole frame
+/// (`extendOverFrame`), so the stars between the disc and the corners constrain the solution there, and every
+/// match names its star among the stars supplied.
+///
 /// @param candidate the selected candidate, whose matches are moved out.
+/// @param catalog the catalog the candidate was matched against.
+/// @param stars the stars supplied to the solve.
 /// @param input the prepared image stars.
 /// @param plan the checked plan.
 /// @param execution the operation, for its admitted concurrency.
-/// @param counters the work every trial centre added.
+/// @param counters the work every trial centre added, and the fit over the frame adds to.
 /// @param examinedTrialCenters trial centres attempted, the selected one included.
-/// @return the solution, its matches and its diagnostics.
-[[nodiscard]] PlateSolveResult finish(Candidate candidate, const PlateSolveInput& input, const PlateSolvePlan& plan,
-                                      const ExecutionContext& execution, const RunCounters& counters,
-                                      std::uint32_t examinedTrialCenters)
+/// @return the solution, its matches and its diagnostics; cancellation; or an allocation failure.
+[[nodiscard]] Result<PlateSolveResult> finish(Candidate candidate, const SkyCatalog& catalog,
+                                              std::span<const PlateSolveStar> stars, const PlateSolveInput& input,
+                                              const PlateSolvePlan& plan, const ExecutionContext& execution,
+                                              RunCounters& counters, std::uint32_t examinedTrialCenters)
 {
+    Result<plate_solver_detail::FrameExtension> overFrame = plate_solver_detail::extendOverFrame(
+        execution, catalog, stars, input, plan, std::move(candidate.refinement), &counters);
+    if (!overFrame.hasValue())
+    {
+        return overFrame.status();
+    }
+    candidate.refinement = std::move(overFrame->refinement);
+    if (overFrame->extended)
+    {
+        execution.reportDiagnostic(DiagnosticSeverity::Info, ErrorDomain::Algorithms,
+                                   plate_solver_detail::kSolveOperation,
+                                   "plate solving fitted its solution over the whole frame");
+    }
+    else
+    {
+        try
+        {
+            nameSuppliedStars(candidate.refinement.fit.matches, input, stars);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return Status::failure(ErrorCode::AllocationFailed);
+        }
+    }
     PlateSolveDiagnostics diagnostics{.suppliedImageStars = input.suppliedStarCount,
                                       .selectedImageStars = static_cast<std::uint32_t>(input.stars.size()),
                                       .plannedTrialCenters = plan.trialCenterCount(),
@@ -263,7 +346,7 @@ Result<PlateSolveResult> solvePlate(const ExecutionContext& execution, const Sky
             execution.reportDiagnostic(DiagnosticSeverity::Info, ErrorDomain::Algorithms,
                                        plate_solver_detail::kSolveOperation,
                                        "plate solving selected the exact supplied centre hint");
-            return finish(std::move(candidate), *input, *plan, execution, counters, examined);
+            return finish(std::move(candidate), catalog, stars, *input, *plan, execution, counters, examined);
         }
         if (!best.has_value() || better(candidate, *best))
         {
@@ -275,7 +358,7 @@ Result<PlateSolveResult> solvePlate(const ExecutionContext& execution, const Sky
                 DiagnosticSeverity::Info, ErrorDomain::Algorithms, plate_solver_detail::kSolveOperation,
                 best->route == TrialRoute::BlindSearch ? "plate solving selected a blind HEALPix centre"
                                                        : "plate solving selected an offset near-search centre");
-            return finish(std::move(*best), *input, *plan, execution, counters, examined);
+            return finish(std::move(*best), catalog, stars, *input, *plan, execution, counters, examined);
         }
     }
 
@@ -297,7 +380,7 @@ Result<PlateSolveResult> solvePlate(const ExecutionContext& execution, const Sky
                                best->route == TrialRoute::BlindSearch
                                    ? "plate solving selected a blind HEALPix centre"
                                    : "plate solving selected an offset near-search centre");
-    return finish(std::move(*best), *input, *plan, execution, counters, examined);
+    return finish(std::move(*best), catalog, stars, *input, *plan, execution, counters, examined);
 }
 
 } // namespace an

@@ -3072,7 +3072,8 @@ void ImageViewControl::notifyImageLoaded()
 
 void ImageViewControl::requestPreviewStatistics()
 {
-    if (!m_impl->m_MeasuresPreviewStatistics)
+    // The owner's own choice, and the presentation choices being offered at all: neither is the other's to change.
+    if (!m_impl->m_MeasuresPreviewStatistics || !m_impl->m_PresentationChoicesOffered)
     {
         return;
     }
@@ -3111,6 +3112,11 @@ void ImageViewControl::setMeasuresPreviewStatistics(const bool measures)
     }
 }
 
+bool ImageViewControl::measuresPreviewStatistics() const
+{
+    return m_impl->m_MeasuresPreviewStatistics;
+}
+
 void ImageViewControl::setPresentationChoicesOffered(const bool offered)
 {
     CHECK_IF_CONTROL_IS_CLOSING;
@@ -3126,12 +3132,17 @@ void ImageViewControl::setPresentationChoicesOffered(const bool offered)
         }
     }
     m_impl->refreshAutostretchSettingsAvailability();
-    setMeasuresPreviewStatistics(offered);
+    // Whether the preview measures statistics and whether it shows the banner over an automatic stretch are its
+    // owner's own choices (`setMeasuresPreviewStatistics`, `setShowAutostretchBanner`). Taking the presentation
+    // choices away stops both; offering them again leaves each as its owner set it.
+    if (!offered)
+    {
+        m_impl->m_Statistics.cancel();
+    }
     m_impl->m_StaticPreviewStatsOverlayVisible =
         offered && (m_impl->m_StatsOverlayToggleAction == nullptr || m_impl->m_StatsOverlayToggleAction->isChecked());
     m_impl->updateStaticPreviewStatsOverlay(offered ? m_impl->m_StaticPreviewOverlayStats : std::nullopt);
-    m_impl->m_ShowAutostretchBanner = offered;
-    enableAutostretchBanner(offered && m_impl->m_ImageViewWidget != nullptr &&
+    enableAutostretchBanner(offered && m_impl->m_ShowAutostretchBanner && m_impl->m_ImageViewWidget != nullptr &&
                             m_impl->m_ImageViewWidget->getViewMode() == ImageViewMode::AUTOSTRETCH_MODE);
     if (auto* customToolBar = dynamic_cast<CustomToolBar*>(m_impl->m_ToolBar))
     {
@@ -3248,7 +3259,22 @@ void ImageViewControl::notifyImageUpdatedImpl(std::optional<an::DisplayPresentat
     // A real-time preview's frames keep the source's metadata, so its coordinates are not read again per frame.
     if (m_impl->m_ViewControlMode != ViewControlMode::rt_preview)
     {
+        const bool solvedBefore = m_impl->m_CelestialCoordinateSystem.has_value();
         refreshCelestialCoordinateSystemCache();
+        // What the menus offer of an image follows whether it states a solution - Annotate Image is offered for one
+        // that does - so a view that gains or loses its solution, as a plate solve or an edit makes it, has the
+        // application's actions read again. The view's own toolbar is refreshed with every update.
+        if (m_impl->m_ViewControlMode == ViewControlMode::standard &&
+            solvedBefore != m_impl->m_CelestialCoordinateSystem.has_value())
+        {
+            if (auto* context = an::ui::appContext())
+            {
+                if (auto* actionStateManager = context->getActionStateManager())
+                {
+                    actionStateManager->updateActiveImageActions();
+                }
+            }
+        }
     }
 
     updateSupportedImageChannels();
@@ -4700,7 +4726,7 @@ void ImageViewControl::enableRTPreviewAutostretchControls(bool enabled)
 void ImageViewControl::setShowAutostretchBanner(bool show)
 {
     m_impl->m_ShowAutostretchBanner = show;
-    enableAutostretchBanner(show);
+    enableAutostretchBanner(show && m_impl->m_PresentationChoicesOffered);
 }
 
 bool ImageViewControl::isShowAutostretchBannerEnabled()
@@ -5515,7 +5541,7 @@ void ImageViewControl::on_imageViewModeComboBox_currentTextChanged(const QString
     {
         m_impl->m_ImageViewWidget->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
         m_impl->refreshAutostretchSettingsAvailability();
-        enableAutostretchBanner(m_impl->m_ShowAutostretchBanner);
+        enableAutostretchBanner(m_impl->m_ShowAutostretchBanner && m_impl->m_PresentationChoicesOffered);
     }
 
     if (auto* customToolBar = dynamic_cast<CustomToolBar*>(m_impl->m_ToolBar))

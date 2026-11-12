@@ -31,6 +31,7 @@
 #include <AfterNightEngine/Algorithms/Astrometry/WcsCards.h>
 #include <AfterNightEngine/Algorithms/Astrometry/WcsSolution.h>
 #include <AfterNightEngine/Algorithms/Demosaic/Demosaic.h>
+#include <AfterNightEngine/IO/CodecMetadataProjection.h>
 #include <AfterNightEngine/Image/ImageMetadata.h>
 #include <AfterNightEngine/Image/ValidityDescriptor.h>
 #include <AfterNightEngine/Image/ValidityMask.h>
@@ -1938,6 +1939,67 @@ TEST_F(GeometryProcessCase, AGeometryChangeKeepsTheFramesObservingContextAndResc
         window.reset();
         dropView(context(), target);
     }
+}
+
+// A pixel size is read as every reader of a card's number reads it: a FITS real may spell its exponent with a D,
+// and a writer may quote a number. A resize rescales the size whichever way the card spells it; read by a rule of
+// its own, a size spelled with a D stayed the source's and the plate scale it implies was the source's too.
+TEST_F(GeometryProcessCase, AResizeRescalesAPixelSizeInEverySpellingACardsNumberTakes)
+{
+    const std::optional<an::consumer::ImageAsset> plain = sceneAsset(session(), "scene-rgb-float32");
+    ASSERT_TRUE(plain.has_value());
+    std::vector<an::CodecCard> stated;
+    for (const auto& [keyword, value] : std::vector<std::pair<std::string, std::string>>{
+             {"XPIXSZ", "2.315D0"}, {"YPIXSZ", "'+23.15E-1'"}, {"FOCALLEN", "432.0"}})
+    {
+        an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, keyword, value, "");
+        ASSERT_TRUE(card.hasValue()) << card.status().message();
+        stated.push_back(std::move(*card));
+    }
+    an::Result<an::CodecMetadata> cards = an::CodecMetadata::create(an::SourceEncoding{}, std::move(stated));
+    ASSERT_TRUE(cards.hasValue());
+    const an::ImageMetadata metadata =
+        an::ImageMetadata::create(an::AcquisitionMetadata{}, an::ImageSemantics{}, an::AstrometricSolution{},
+                                  an::Provenance{}, *cards, std::nullopt);
+    const GeometryProcess* resize = nullptr;
+    for (const GeometryProcess& process : geometryProcesses())
+    {
+        if (std::string_view(process.name) == "Resize")
+        {
+            resize = &process;
+        }
+    }
+    ASSERT_NE(resize, nullptr);
+    std::optional<an::consumer::ImageAsset> described = withMetadata(session(), *plain, metadata);
+    ASSERT_TRUE(described.has_value());
+    ViewHandle target = assetView(std::move(*described), "target");
+    activate(context(), *target);
+    WindowHandle window = resize->open(target.get());
+    resize->configure(*window, "percent-50-auto");
+    ASSERT_TRUE(applyAndSettle(context(), *window));
+    const std::optional<an::ImageMetadata> made = documentMetadata(target->document());
+    ASSERT_TRUE(made.has_value());
+    const auto sizeOf = [&made](const char* keyword) -> std::optional<double> {
+        const an::CodecCard* found = made->codec().find(an::CodecNamespace::Fits, keyword);
+        if (found == nullptr)
+        {
+            return std::nullopt;
+        }
+        const an::Result<double> size = an::parseNumericCard(found->value());
+        return size.hasValue() ? std::optional<double>(*size) : std::nullopt;
+    };
+    for (const char* keyword : {"XPIXSZ", "YPIXSZ"})
+    {
+        const std::optional<double> size = sizeOf(keyword);
+        ASSERT_TRUE(size.has_value()) << keyword;
+        EXPECT_NEAR(*size, 4.63, 1e-9) << keyword << ": the result's pixels are twice the source's";
+    }
+    // What states no pixel size is kept as it is.
+    const an::CodecCard* focal = made->codec().find(an::CodecNamespace::Fits, "FOCALLEN");
+    ASSERT_NE(focal, nullptr);
+    EXPECT_EQ(focal->value(), "432.0");
+    window.reset();
+    dropView(context(), target);
 }
 
 // A resize that keeps the aspect ratio lands each side of its result on a whole pixel, so a frame its percentage does

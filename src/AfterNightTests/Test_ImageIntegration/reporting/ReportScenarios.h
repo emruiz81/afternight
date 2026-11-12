@@ -205,6 +205,10 @@ enum class ReportScenarioId
 
     /// Distortion and chromatic aberration corrections in one registration group, manual control points in another.
     DistortionCorrectionsAndManualPoints,
+
+    /// One group whose target and filter are named with what a sentence's place markers look like - `%1`, `%2` -
+    /// over two nights, calibrated with a dark, two of its lights dropped by the stack.
+    PlaceMarkersInNames,
 };
 
 /// What a scenario was built to hold, counted as it was built: the figures a suite holds a report to.

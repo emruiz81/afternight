@@ -2784,12 +2784,13 @@ void ExtensionManagerPage::refreshRepository(const bool preserveCurrentCards)
     if (m_RepositoryRefreshWatcher)
     {
         // The refresh in flight may have read the installed packages before the change that asked for this one, so
-        // what it brings back is not shown: it is read again when it lands.
-        m_RepositoryRefreshOutdated = true;
+        // what it brings back is not shown: it is read again when it lands, as this caller asked for it - keeping
+        // the cards it asked to keep, whatever the refresh it waits behind was asked.
+        m_RepositoryRefreshWaiting = preserveCurrentCards;
         return;
     }
 
-    m_RepositoryRefreshOutdated = false;
+    m_RepositoryRefreshWaiting.reset();
     m_RepositoryRefreshInProgress = true;
     if (!preserveCurrentCards)
     {
@@ -2821,9 +2822,9 @@ void ExtensionManagerPage::refreshRepository(const bool preserveCurrentCards)
                              m_RepositoryRefreshWatcher = nullptr;
                          }
                          m_RepositoryRefreshInProgress = false;
-                         if (m_RepositoryRefreshOutdated)
+                         if (const std::optional<bool> waiting = m_RepositoryRefreshWaiting; waiting.has_value())
                          {
-                             refreshRepository(preserveCurrentCards);
+                             refreshRepository(*waiting);
                              return;
                          }
                          if (!snapshot.success && preserveCurrentCards && m_LastSnapshot.from_cache &&

@@ -26,6 +26,7 @@
 
 #include "processes/ImageIntegration/reporting/ReportAssets.h"
 
+#include <QSet>
 #include <QString>
 #include <QStringList>
 
@@ -100,6 +101,19 @@ struct WorkflowReportStored
     }
 };
 
+/// What the stores of one run's report have done so far. A run's report is stored as its archive is committed and
+/// again as its timings and its log are known, each time of the same model but for those facts; what a store did
+/// that the next need not do again is kept here, by whoever stores the report more than once.
+struct WorkflowReportStoreMemo
+{
+    /// The pictures of earlier runs copied into the run's folder, by their path under it. One that is listed and
+    /// still there is not copied again, and the earlier run's stored report is not read again to find it.
+    QSet<QString> picturesCopied;
+
+    /// How many stored reports of earlier runs the stores have read.
+    int earlierReportsRead = 0;
+};
+
 /// Stores a run's report in its archive: copies the pictures of the earlier runs the model's masters are compared
 /// with into the run's folder, then writes the model as `workflow_report.json` and the linked document beside it.
 ///
@@ -109,11 +123,16 @@ struct WorkflowReportStored
 /// neither the stored model nor the document names a file that is not there. A link to the report of an earlier
 /// run that is no longer there is taken out the same way.
 ///
+/// A picture is copied only from inside the folder of the run that made it: a stored report is a file that may
+/// have been edited, and a path in it that leaves its run's folder names no picture of that run.
+///
 /// @param model the run's report model, built with `runDirectory` as the run's folder.
 /// @param runDirectory the run's folder under `history/`.
+/// @param memo what the earlier stores of this report did, which this one adds to; null for a report stored once.
 /// @return the files written, or why the report was not stored.
 [[nodiscard]] AFTERNIGHTPROCESSES_API WorkflowReportStored storeWorkflowReport(const ReportModel& model,
-                                                                               const QString& runDirectory);
+                                                                               const QString& runDirectory,
+                                                                               WorkflowReportStoreMemo* memo = nullptr);
 
 /// Writes a run's linked report again from the model its archive keeps.
 ///

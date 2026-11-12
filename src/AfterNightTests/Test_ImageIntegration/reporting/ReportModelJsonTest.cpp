@@ -47,6 +47,7 @@ ReportModel modelWithEveryKindOfValue()
     run.groups = ReportGroupCounts{.total = 2, .made = 1, .reused = 0, .failed = 1, .notReached = 0};
     run.frames = 174;
     run.framesUsed = 168;
+    run.framesWithExposure = 172;
     run.capturedMs = 35'400'000;
     run.integratedMs = 34'000'000;
     run.processingMs = 5'000'000'000LL;
@@ -113,6 +114,7 @@ ReportModel modelWithEveryKindOfValue()
                                 .anchor = QStringLiteral("file-luminance")}};
     model.targets = {ReportTarget{.name = QStringLiteral("M 20"),
                                   .frames = 174,
+                                  .framesWithExposure = 172,
                                   .integrationMs = 35'400'000,
                                   .filters = {QStringLiteral("Ha"), QStringLiteral("Luminance")},
                                   .masters = {QStringLiteral("l.fits")},

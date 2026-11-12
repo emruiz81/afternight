@@ -201,6 +201,28 @@ private:
 /// recorded, its maps and its pictures.
 void fillMasters(ReportBuild& build, ReportModel& model);
 
+/// What a stored report of the folder's history states of a master a later run reused.
+struct ReusedMasterStatement
+{
+    /// The master as the stored report states it; null when none accounts for the file.
+    const ReportMaster* master = nullptr;
+
+    /// The run that made the master: the stored run itself, or the run it names when it only carried the figures.
+    QString madeByRun;
+};
+
+/// What an earlier run's stored report states of a master this run reused, when the folder's history keeps one that
+/// accounts for the file on disk: the latest earlier run that names the master either made it, or reused it and
+/// carried the figures of the run that did. A run that reused it without knowing what made it ends the search - what
+/// a run before that one said is of a file that may have been made again since - and so does a file whose size is
+/// not the one the report states.
+///
+/// @param build the build, for the earlier runs' stored reports.
+/// @param master the reused master, its key and its size on disk stated.
+/// @return the stored account of the master and the run that made it, or a null master when no report accounts for
+///         the file.
+[[nodiscard]] ReusedMasterStatement statementOfReusedMaster(ReportBuild& build, const ReportMaster& master);
+
 /// Each master's lights, with what the registration recorded of them and how the stack weighed them.
 void fillFrames(ReportBuild& build, ReportModel& model);
 
