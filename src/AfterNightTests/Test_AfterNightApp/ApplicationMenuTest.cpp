@@ -671,6 +671,26 @@ TEST_F(ApplicationMenu, ShowInFileBrowserSaysSoWhenTheFileIsNoLongerOnDisk)
     EXPECT_TRUE(warning.text.contains(QDir::cleanPath(path))) << warning.text.toStdString();
 }
 
+// The poll that answers a file dialog's refusal - a message box shown from inside the dialog's accept - ends when the
+// accept returns. Left armed for its ten seconds, it answered the next message box of the case, whichever asked for
+// it: a case that opened a file through the menu and then waited for a box of its own lost that box to the poll
+// about every other run.
+TEST_F(ApplicationMenu, AMessageBoxShownAfterAFileIsOpenedIsAnsweredByNoPollTheOpenLeftBehind)
+{
+    const QString path = filePath(QStringLiteral("opened-before-a-box.fits"));
+    writeFile(path, an::CodecFormat::Fits, 0.5f);
+    ASSERT_NE(openThroughTheFileMenu(path), nullptr);
+
+    // A box this case asks no poll to answer: nothing presses its button.
+    QMessageBox box(QMessageBox::Information, QStringLiteral("Later"),
+                    QStringLiteral("A box no poll of this case was asked to answer."), QMessageBox::Ok, s_window);
+    box.open();
+    processEventsUntil([]() { return false; }, 300);
+
+    EXPECT_TRUE(box.isVisible()) << "a poll the file dialog left armed answered a box that was not its own";
+    box.close();
+}
+
 // The image's own context menu ends with the same entry, offered as the Image menu offers it.
 class ApplicationMenuContextMenu : public ApplicationMenu
 {
