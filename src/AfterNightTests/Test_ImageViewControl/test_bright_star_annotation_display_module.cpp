@@ -118,4 +118,3 @@ TEST(BrightStarCatalog, LoadFromCsvRejectsInvalidRows)
     ASSERT_FALSE(catalog.hasValue());
     EXPECT_FALSE(std::string(catalog.status().message()).empty());
 }
-

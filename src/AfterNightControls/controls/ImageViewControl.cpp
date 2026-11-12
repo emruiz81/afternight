@@ -1794,43 +1794,43 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     // Astrometry master toggle
     if (m_impl->m_AstrometryToggleAction)
     {
-        QObject::connect(
-            m_impl->m_AstrometryToggleAction, &QAction::toggled, this, [this, persistBoolSetting](bool enabled) {
-                if (m_impl->m_AstrometrySettingsAction)
-                {
-                    m_impl->m_AstrometrySettingsAction->setEnabled(enabled);
-                }
+        QObject::connect(m_impl->m_AstrometryToggleAction, &QAction::toggled, this,
+                         [this, persistBoolSetting](bool enabled) {
+                             if (m_impl->m_AstrometrySettingsAction)
+                             {
+                                 m_impl->m_AstrometrySettingsAction->setEnabled(enabled);
+                             }
 
-                const bool gridChecked =
-                    m_impl->m_AstrometryGridMenuAction && m_impl->m_AstrometryGridMenuAction->isChecked();
-                const bool annotationsChecked =
-                    m_impl->m_AstrometryAnnotationsMenuAction && m_impl->m_AstrometryAnnotationsMenuAction->isChecked();
-                const bool starLabelsChecked =
-                    m_impl->m_AstrometryStarLabelsMenuAction && m_impl->m_AstrometryStarLabelsMenuAction->isChecked();
-                const bool sipChecked =
-                    m_impl->m_AstrometrySipMenuAction && m_impl->m_AstrometrySipMenuAction->isChecked();
-                const bool starsChecked = m_impl->m_AstrometryDetectedStarsMenuAction &&
-                                          m_impl->m_AstrometryDetectedStarsMenuAction->isChecked();
+                             const bool gridChecked =
+                                 m_impl->m_AstrometryGridMenuAction && m_impl->m_AstrometryGridMenuAction->isChecked();
+                             const bool annotationsChecked = m_impl->m_AstrometryAnnotationsMenuAction &&
+                                                             m_impl->m_AstrometryAnnotationsMenuAction->isChecked();
+                             const bool starLabelsChecked = m_impl->m_AstrometryStarLabelsMenuAction &&
+                                                            m_impl->m_AstrometryStarLabelsMenuAction->isChecked();
+                             const bool sipChecked =
+                                 m_impl->m_AstrometrySipMenuAction && m_impl->m_AstrometrySipMenuAction->isChecked();
+                             const bool starsChecked = m_impl->m_AstrometryDetectedStarsMenuAction &&
+                                                       m_impl->m_AstrometryDetectedStarsMenuAction->isChecked();
 
-                if (m_impl->m_CoordinateGridDisplayModule)
-                {
-                    m_impl->m_CoordinateGridDisplayModule->enableDisplayModule(enabled && gridChecked);
-                }
-                if (m_impl->m_DistortionMapDisplayModule)
-                {
-                    m_impl->m_DistortionMapDisplayModule->enableDisplayModule(enabled && sipChecked);
-                }
-                m_impl->showCatalogAnnotations(enabled, annotationsChecked, starLabelsChecked);
-                if (m_impl->m_AstrometryStarDisplayModule)
-                {
-                    m_impl->m_AstrometryStarDisplayModule->enableDisplayModule(enabled && starsChecked);
-                }
-                // Master toggle state intentionally not persisted; starts unchecked per session.
-                if (m_impl->m_ImageViewWidget)
-                {
-                    m_impl->m_ImageViewWidget->update();
-                }
-            });
+                             if (m_impl->m_CoordinateGridDisplayModule)
+                             {
+                                 m_impl->m_CoordinateGridDisplayModule->enableDisplayModule(enabled && gridChecked);
+                             }
+                             if (m_impl->m_DistortionMapDisplayModule)
+                             {
+                                 m_impl->m_DistortionMapDisplayModule->enableDisplayModule(enabled && sipChecked);
+                             }
+                             m_impl->showCatalogAnnotations(enabled, annotationsChecked, starLabelsChecked);
+                             if (m_impl->m_AstrometryStarDisplayModule)
+                             {
+                                 m_impl->m_AstrometryStarDisplayModule->enableDisplayModule(enabled && starsChecked);
+                             }
+                             // Master toggle state intentionally not persisted; starts unchecked per session.
+                             if (m_impl->m_ImageViewWidget)
+                             {
+                                 m_impl->m_ImageViewWidget->update();
+                             }
+                         });
     }
 
     // Astrometry settings button opens popup menu
