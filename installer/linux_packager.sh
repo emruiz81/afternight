@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$SCRIPT_DIR"
 
 APP_NAME="AfterNight"
-APP_VERSION="1.0.1"
+APP_VERSION="1.1.0"
 DEPLOY_DIR="$SCRIPT_DIR/../bin/clang/release"
 APPDIR="$SCRIPT_DIR/AppDir"
 APPIMAGE_TOOL="$SCRIPT_DIR/appimagetool-x86_64.AppImage"

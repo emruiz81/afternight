@@ -12,7 +12,7 @@
 #endif
 
 #define MyAppName "AfterNight"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "Ezequiel Ruiz"
 #define MyAppExeName "AfterNight.exe"
 #define MyAppId "{9D5A6D59-2A02-4464-A8CA-939FCDA20912}"

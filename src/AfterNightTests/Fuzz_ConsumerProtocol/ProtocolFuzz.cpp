@@ -79,7 +79,7 @@ enum Mode : std::uint8_t
     protocol::RuntimeHelloMessage hello;
     hello.extension_id = "an.demo";
     hello.session_id = "session-1";
-    hello.host_version = "1.0.1";
+    hello.host_version = "1.1.0";
     hello.capabilities = {"execute", "preview"};
     messages.push_back(protocol::toProtocolMessage(hello));
     protocol::ExecutionExecuteMessage execute;
