@@ -40,6 +40,16 @@ namespace
     return slash > 0 ? normal.left(slash) : QString();
 }
 
+/// The name a folder goes by: the last part of its path, with forward slashes. Empty for a drive alone ("E:") and
+/// for a root, which have none. It is told from the path's text and not asked of the host: a host without drives
+/// reads "E:" as a file's name, and a report names the paths of the machine the run was on.
+[[nodiscard]] QString folderName(const QString& folder)
+{
+    const QString last = folder.mid(folder.lastIndexOf(QLatin1Char('/')) + 1);
+    const bool driveAlone = folder.size() == 2 && folder.at(1) == QLatin1Char(':') && folder.at(0).isLetter();
+    return driveAlone ? QString() : last;
+}
+
 /// Replaces every occurrence of a folder's path, in either spelling of the separator, without regard to case: a
 /// message may spell a path as the host does or as Qt does, and a drive's letter in either case.
 void replaceFolder(QString& text, const QString& folder, const QString& replacement)
@@ -212,14 +222,14 @@ void ReportAssets::hideFoldersOf(const ReportModel& model)
         return;
     }
     m_outputFolder = withForwardSlashes(model.run.outputFolder.trimmed());
-    m_outputFolderName = QFileInfo(m_outputFolder).fileName();
+    m_outputFolderName = folderName(m_outputFolder);
 
     QSet<QString> folders;
     const auto add = [&folders](const QString& file) {
         const QString folder = folderOf(file);
         // A file in a drive's root has no folder to drop: the drive alone ("E:") has no name, and taking it out
         // of a text would take the same two letters out of every word that ends in them before a colon.
-        if (!folder.isEmpty() && !QFileInfo(folder).fileName().isEmpty())
+        if (!folder.isEmpty() && !folderName(folder).isEmpty())
         {
             folders.insert(folder);
         }
@@ -337,7 +347,7 @@ QString ReportAssets::message(const QString& text) const
     {
         // The folder goes with the separator after it, so the file's name is what stays.
         replaceFolder(shown, folder + QLatin1Char('/'), QString());
-        replaceFolder(shown, folder, QFileInfo(folder).fileName());
+        replaceFolder(shown, folder, folderName(folder));
     }
     // An output folder that is a drive's root has no name to stand for it; the rule below takes the drive out.
     if (!m_outputFolderName.isEmpty())
