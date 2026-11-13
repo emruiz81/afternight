@@ -8,6 +8,9 @@
       {%- for section in guide.header %}
       <li><a href="{{ section.url|url }}"{% if gp and gp.section == section.title %} aria-current="true"{% endif %}>{{ section.label }}</a></li>
       {%- endfor %}
+      {%- if config.extra.website_url %}
+      <li><a href="{{ config.extra.website_url }}">AfterNight website</a></li>
+      {%- endif %}
     </ul>
   </nav>
   {%- if gp and gp.kind == 'process' %}

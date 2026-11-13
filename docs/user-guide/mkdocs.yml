@@ -51,6 +51,8 @@ extra_css: []
 extra_javascript: []
 
 extra:
+  # The project's website, linked from the header, the drawer and the footer of every page.
+  website_url: https://afternightastro.org/
   # The runtimes, which a page loads only when its content has an element of the class (hooks/guide_hooks.py).
   # Mermaid is 1 MB to download and 3.5 MB to compile, and few pages have a diagram; MathJax is 0.3 MB and 1 MB, and
   # many pages have no equation. Both are vendored, so a copy opened from disk needs no network.

@@ -1,11 +1,15 @@
-{#- The version the guide was built for (AFTERNIGHT_GUIDE_VERSION, set by a release), the copyright and licence, and
-    the form for reporting a problem with the page. -#}
+{#- The version the guide was built for (AFTERNIGHT_GUIDE_VERSION, set by a release), the copyright and licence, the
+    project's website and the form for reporting a problem with the page. -#}
 {%- set issue_title = 'Guide: ' ~ (gp.title if gp else 'page not found') -%}
 <footer class="site-footer">
   <div class="wrap footer-row">
     <p>AfterNight {{ guide.version if guide.version else 'development build' }} user guide &middot; {{ config.copyright|safe }} &middot; GPL-3.0-or-later</p>
-    {%- if config.repo_url %}
-    <p><a href="{{ config.repo_url }}/issues/new?template=documentation.yml&amp;title={{ issue_title|urlencode }}">Report a documentation issue</a></p>
+    {%- if config.extra.website_url or config.repo_url %}
+    <p>
+      {%- if config.extra.website_url %}<a href="{{ config.extra.website_url }}">AfterNight website</a>{% endif %}
+      {%- if config.extra.website_url and config.repo_url %} &middot; {% endif %}
+      {%- if config.repo_url %}<a href="{{ config.repo_url }}/issues/new?template=documentation.yml&amp;title={{ issue_title|urlencode }}">Report a documentation issue</a>{% endif -%}
+    </p>
     {%- endif %}
   </div>
 </footer>
