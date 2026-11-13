@@ -172,6 +172,12 @@ def dress_sections(content, kind):
     return _map_sections(content, dress)
 
 
+def has_class(content, name):
+    """Whether an element of the content has the class `name`. The class in a code sample or in the page's words is
+    not one: Markdown escapes the quotes of the attribute there."""
+    return re.search(r'<[A-Za-z][^<>]*\sclass="(?:[^"]*\s)?%s(?:\s[^"]*)?"' % re.escape(name), content) is not None
+
+
 def controls_of(content):
     """(id, name) of every control row the page's `controls` blocks drew, in order."""
     return [(match.group('id'), text_of(match.group('name'))) for match in _CONTROL.finditer(content)]

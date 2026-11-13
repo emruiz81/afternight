@@ -6,20 +6,28 @@ mkdocs.yml names this file under `hooks:`. MkDocs puts the file's folder on the 
 so it imports its siblings directly.
 
 - on_config: reads data/stages.yml, registers the `controls` and `figure` blocks of guide_fences.py with
-  pymdownx.superfences, and reads AFTERNIGHT_GUIDE_VERSION into `extra.guide_version` for the footer.
+  pymdownx.superfences, reads AFTERNIGHT_GUIDE_VERSION into `extra.guide_version` for the footer, and reads the
+  runtimes `extra.guide_runtimes` states.
 - on_nav: keeps the nav for the later events.
 - on_page_markdown: tells guide_fences.py which page renders next and where its blocks are, for their messages.
 - on_page_content: lifts the page's H1 out of its content (the page head renders it), wraps tables, makes scrolling
-  blocks reachable by the keyboard, collects the page's search entries, and dresses the sections the theme draws as
-  components (guide_html.dress_sections).
+  blocks reachable by the keyboard, collects the page's search entries, dresses the sections the theme draws as
+  components (guide_html.dress_sections), and notes which runtimes the page's content uses.
 - on_env: builds `extra.guide`, the data the layouts share: the stages with their pages in nav order and by nav group,
   the guide's sections with their page counts, the header's links, and what the home page draws - its picture, its
   actions, paths and popular pages, and the steps of the first tutorial. It warns about every page whose front matter
   does not fit the schema of guide_model.py, and about a home page that names a page or a picture the guide does not
-  have, so a page the theme cannot draw fails the strict build.
+  have, so a page the theme cannot draw fails the strict build. It warns as well about a runtime that names a script
+  the docs do not have, and about a logo far wider than the header draws it.
 - on_page_context: adds `gp`, what a page's layout renders: its head and chips, crumbs, stepper, left nav, lead and
-  body, table of contents, and on a process page its position among the stages and its "At a glance" card.
+  body, table of contents, the scripts of the runtimes it uses, and on a process page its position among the stages
+  and its "At a glance" card.
 - on_post_build: writes search/search_index.js.
+
+A runtime is a script too heavy to load with every page - the one that draws the diagrams, the one that typesets the
+equations. `extra.guide_runtimes` names each by the class of the elements it draws, and a page loads a runtime's
+scripts only when its content has such an element: few pages have a diagram and many have no equation, and a reader
+of those would download and compile megabytes of script that draw nothing.
 
 The guide's data folder sits beside the configuration file; a configuration elsewhere - a fixture site - names the
 guide's folder in `extra.guide_root`, relative to itself.
@@ -62,6 +70,9 @@ STAGE_NOTES = {
     'nonlinear': 'The image is nonlinear at this stage.',
 }
 SUPERFENCES = 'pymdownx.superfences'
+RUNTIMES = 'guide_runtimes'
+# The header draws the logo 30 px wide, and every page loads it: this many pixels are sharp on any screen.
+LOGO_PIXELS = 128
 
 
 @dataclass
@@ -72,6 +83,8 @@ class _State:
     search: list = field(default_factory=list)
     controls: dict = field(default_factory=dict)
     home: dict = field(default_factory=dict)
+    runtimes: list = field(default_factory=list)
+    scripts: dict = field(default_factory=dict)
 
 
 _state = _State()
@@ -91,6 +104,9 @@ def on_config(config):
     except guide_model.GuideDataError as error:
         raise PluginError(str(error)) from error
     config.extra['guide_version'] = os.environ.get('AFTERNIGHT_GUIDE_VERSION', '').strip() or None
+    _state.runtimes, problem = guide_model.page_runtimes(config.extra.get(RUNTIMES))
+    if problem:
+        log.warning('`extra.%s` must be %s', RUNTIMES, problem)
     fences = config.mdx_configs.setdefault(SUPERFENCES, {}).setdefault('custom_fences', [])
     names = [fence.get('name') for fence in fences]
     fences.extend(fence for fence in guide_fences.custom_fences() if fence['name'] not in names)
@@ -146,6 +162,10 @@ def on_page_content(html, page, config, files):
         menu[0] if menu else None))
     html = guide_html.dress_sections(html, kind)
     _state.controls[page.file.src_uri] = guide_html.controls_of(html)
+    # A page drawn from data shows no body, so nothing in its body needs a runtime.
+    _state.scripts[page.file.src_uri] = [] if kind in DATA_DRAWN else [
+        script for runtime in _state.runtimes if guide_html.has_class(html, runtime.marker)
+        for script in runtime.scripts]
     # The anchors the layouts add, which MkDocs cannot see in the Markdown: a link to one from another page is valid.
     anchors = getattr(page, 'present_anchor_ids', None)
     if anchors is not None:
@@ -296,7 +316,25 @@ def _validate(page, stage_ids):
         log.warning('%s: %s', where, message)
 
 
+def _check_assets(config, files):
+    """Warns about what every page would load and the docs do not hold as they should: a runtime's script that is no
+    file of the docs folder, and a logo far wider than the header draws it."""
+    for runtime in _state.runtimes:
+        for script in runtime.scripts:
+            if files.get_file_from_path(script) is None:
+                log.warning('`extra.%s`: the runtime of `%s` names %s, which is no file of the docs folder', RUNTIMES,
+                            runtime.marker, script)
+    logo = config.theme['logo'] if 'logo' in config.theme else None
+    if isinstance(logo, str):
+        path = os.path.join(config.docs_dir, logo)
+        size = guide_model.image_size(path) if os.path.isfile(path) else None
+        if size and size[0] > LOGO_PIXELS:
+            log.warning('`theme.logo` (%s) is %d px wide; every page loads it and the header draws it 30 px wide, so '
+                        'keep it within %d px', logo, size[0], LOGO_PIXELS)
+
+
 def on_env(env, config, files):
+    _check_assets(config, files)
     nav = _state.nav
     stage_ids = [stage.id for stage in _state.stages]
     pages = list(nav.pages) if nav else []
@@ -513,6 +551,7 @@ def on_page_context(context, page, config, nav):
         'lead': lead,
         'body': body,
         'toc': toc,
+        'scripts': _state.scripts.get(page.file.src_uri, []),
     }
     return context
 

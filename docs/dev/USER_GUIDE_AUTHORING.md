@@ -322,8 +322,18 @@ The installers bundle the built site, and it works opened from disk without a ne
 - Every script, style, font, image and data file the site uses is inside it. The theme's own are under
   `theme/assets/guide/`, which MkDocs copies to the site's `assets/guide/`, apart from the docs' `assets/images` and
   `assets/javascripts`; MathJax and Mermaid are vendored under `assets/javascripts/` and listed in
-  `extra_javascript`. Do not add a CDN script, a remote font or a network fallback: rule R1 of `check_user_guide.py`
-  refuses a reference that leaves the site, and the render tool a request that does.
+  `extra.guide_runtimes`. Do not add a CDN script, a remote font or a network fallback: rule R1 of
+  `check_user_guide.py` refuses a reference that leaves the site, and the render tool a request that does.
+- **A page loads a runtime only when it uses it.** MathJax and Mermaid are 1.3 MB to download and 4.5 MB to compile
+  between them, Mermaid three quarters of it; few pages have a diagram and many have no equation, and loaded with
+  every page the two were most of what a first visit downloaded. `extra.guide_runtimes` of `mkdocs.yml` names each
+  runtime by the class of the elements it draws (`arithmatex`, `an-mermaid`) with its scripts in the order they load,
+  the hooks note which of those classes a page's content has, and `base.html` writes the scripts of those runtimes
+  after the theme's own. A page drawn from data - the home page, the catalog - shows no body and loads none. A
+  runtime added later is one more entry there, never an `extra_javascript` line: `extra_javascript` stays empty,
+  which a test of the hooks holds, and a runtime that names a script the docs do not have fails the strict build.
+- **The logo is small.** Every page loads it and the header draws it 30 px wide, so it is the 128 px icon; the strict
+  build refuses a logo wider than that.
 - Nothing the site does needs a server. A page opened from disk can neither `fetch()` a file nor start a worker nor
   load a module script, so data reaches a page as a plain script - the search index is one - and the theme's scripts
   are plain scripts. `localStorage` is read and written inside `try`: a browser may keep none for a local file, and
@@ -335,7 +345,8 @@ The installers bundle the built site, and it works opened from disk without a ne
   the loopback address when it is named.
 - The pages write their equations as LaTeX, which is easier to write and to review than MathML by hand, and
   MathJax typesets them. Its fonts and font data are vendored with it, under `assets/javascripts/mathjax/fonts/`, and
-  `assets/javascripts/mathjax/mathjax-config.js`, listed before MathJax, points it at them. MathJax otherwise fetches
+  `assets/javascripts/mathjax/mathjax-config.js`, listed before MathJax among its runtime's scripts, points it at
+  them. MathJax otherwise fetches
   them from jsDelivr, and an equation opened offline renders with wrong glyphs. The configuration also turns semantic
   enrichment off, because its speech worker is made from a `blob:` URL that a page opened from disk may not load;
   assistive MathML gives screen readers each equation instead. The fonts are updated with MathJax, to the font
