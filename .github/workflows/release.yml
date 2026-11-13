@@ -189,8 +189,8 @@ jobs:
             --target "$GITHUB_SHA"
 
   # ===== Publish the User Guide =====
-  # GitHub Pages carries the latest release's guide, so it changes only once a release is published, and a
-  # pre-release leaves it alone. What goes up is the guide this run built, the one the installers bundle. The
+  # GitHub Pages carries the latest release's guide, so a release changes it once the release is published, and a
+  # pre-release leaves it alone; between releases a correction goes up from main by docs-publish.yml. What goes up is the guide this run built, the one the installers bundle. The
   # github-pages environment admits deployments from main, where releases are dispatched; a release started by pushing
   # a tag needs a v* tag rule there as well.
   deploy-guide:

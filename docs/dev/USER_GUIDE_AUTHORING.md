@@ -370,6 +370,10 @@ The installers bundle the built site, and it works opened from disk without a ne
   pre-release leaves Pages alone). A dispatch of the documentation workflow with `deploy_pages: true` publishes
   the guide the latest release attached (`AfterNight-Documentation-v<version>.zip`), as that release built it; the
   workflow never checks out or runs another ref's code, which code scanning holds against a default-branch run. A
+  correction to the guide goes up without a release: a dispatch of `Publish User Guide`
+  (`.github/workflows/docs-publish.yml`) from `main` builds and checks the guide at `main`'s head through the
+  documentation workflow and publishes that build. Its footer and home page state the latest published release's
+  version, or the one the dispatch names in `guide_version`, so keep what it publishes true of that release. A
   push to `main` builds the guide and does not publish it.
 - **Help > User Guide** (`DialogOrchestrationCoordinator::openHelp`) opens the bundled site first and falls back to
   the published guide, whose address is `kAfterNightUserGuideOnlineUrl` in

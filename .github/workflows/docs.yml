@@ -3,7 +3,8 @@ name: Documentation
 # Builds the user guide strictly on every pull request that touches it and on every push to main that does. GitHub
 # Pages carries the latest release's guide, so that Help's online fallback describes the build people have installed:
 # the release workflow publishes the guide it built once the release is published, and a dispatch that asks for a
-# deployment publishes the guide the latest release attached, as that release built it. A release calls this to build
+# deployment publishes the guide the latest release attached, as that release built it. A correction to the guide is
+# published from main's head by docs-publish.yml, which calls this to build and check it. A release calls this to build
 # the guide its installers bundle and to hand the release workflow the archive it attaches; nothing here writes to the
 # repository, and nothing here checks out or runs another ref's code.
 
@@ -18,6 +19,7 @@ on:
       - 'README.md'
       - 'AGENTS.md'
       - '.github/workflows/docs.yml'
+      - '.github/workflows/docs-publish.yml'
       - '.github/workflows/release.yml'
       - '.github/workflows/build-linux.yml'
       - '.github/workflows/build-windows.yml'
