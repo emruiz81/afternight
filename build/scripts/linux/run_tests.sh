@@ -127,7 +127,7 @@ sweep_stale_test_scratch() {
 cd "$BIN_DIR"
 
 expected_tests=(Test_AfterNightApp Test_AfterNightCLI Test_ConsumerFaults Test_ConsumerRuntime Test_ControlsAstrometry
-    Test_ControlsDialogs Test_ControlsExtensionSeam Test_ControlsFiles Test_ControlsHistory
+    Test_ControlsDialogs Test_ControlsDocking Test_ControlsExtensionSeam Test_ControlsFiles Test_ControlsHistory
     Test_ControlsProcessFramework Test_ControlsSeams Test_ControlsSequences Test_ControlsServices Test_ControlsSession
     Test_ControlsStatistics Test_ControlsViewer Test_ExtensionHostNative Test_ExtensionRuntimeBackend
     Test_FixtureNeutral Test_FixtureEngine Test_ImageIntegration Test_ImageProcessControl Test_ImageRTPreviewControl

@@ -69,12 +69,30 @@ file in an existing suite needs only the projects generated again - except in an
 Processes suites among them), which compiles exactly its list in `build/scripts/tools/isolated_sources.txt`, so a new
 file there needs its entry too.
 
-A new suite needs four things in the change that adds it: its directory, with its cases written before the code
+A new suite needs five things in the change that adds it: its directory, with its cases written before the code
 they prove; its project in `build/premake/afternight-test-pm5.lua`, following an existing suite; its record in
-`consumer_targets.txt`, without which generation stops; and its entry in both runners' lists. A suite that writes
+`consumer_targets.txt`, without which generation stops; its entry in both runners' lists; and its row in every
+configuration of `build/scripts/tools/sanitizer_matrix.txt`, run or skipped with its reason. A suite that writes
 files owns a temporary root, sets `AFTERNIGHT_TEST_STORAGE_ROOT` before it constructs a `QApplication`, resolves its
 paths through `app/ApplicationStorage.h` and removes the root on success and failure alike, as the isolation policy
 in `AGENTS.md` requires.
+
+`Test_ControlsDocking` holds the dock library to what the interface is built on ("The dock area" in
+[the product guide](PRODUCT_ARCHITECTURE.md) lists it) and drives the library the way a user does, because the
+library's drag controller is not in its installed interface: a drag is a press, moves and a release delivered to the
+widget the library drags by - events outside the client area where a floating window has the system's title bar, as on
+Windows, and ordinary mouse events on the library's title bar or tab strip elsewhere - and what the library is doing is
+read from the hooks it calls, the dragged window's opacity and the drop indicators. The events are sent to the widget
+and not injected through the window system: on Windows the library cancels a drag whose button Qt believes pressed
+while the system reports it released, which an injected press is. The suite runs under the `offscreen` platform on
+every host, the one platform that keeps a cursor a case can place, where the other suites run under `minimal` on
+Windows; one case, on Windows, starts the executable again under the native platform to start and end a drag with a
+real window and the system's title bar. Its cases are the library's contract, so a case that fails after the library
+is updated states a behaviour the interface relies on, to be read before it is changed. What no case can do is hold a
+real button down, so whether a window pulled out by a pressed widget follows the cursor is a trial for a person:
+`ProgrammaticDrag.HandTrialATaskPulledOutByItsThumbnailFollowsTheCursor` is skipped unless
+`AFTERNIGHT_TEST_DOCKING_HAND_TRIAL` is set, then opens a window to drag from under the platform it is given
+(`-platform windows`, `xcb` or `wayland`) and prints what it saw when the window is closed.
 
 Two cases of `Test_ImageIntegration` write files for a person to look at, and are skipped unless
 `AFTERNIGHT_WRITE_REPORT_SAMPLES` names the folder to write them into: `ReportSamples.*` writes the Image Integration

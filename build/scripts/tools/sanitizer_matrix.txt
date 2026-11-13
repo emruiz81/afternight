@@ -200,6 +200,7 @@ run address suite.consumer.consumerFaults Test_ConsumerFaults whole
 run address suite.consumer.consumerRuntime Test_ConsumerRuntime whole
 run address suite.consumer.controlsAstrometry Test_ControlsAstrometry whole
 run address suite.consumer.controlsDialogs Test_ControlsDialogs whole
+run address suite.consumer.controlsDocking Test_ControlsDocking whole
 run address suite.consumer.controlsExtensionSeam Test_ControlsExtensionSeam whole
 run address suite.consumer.controlsFiles Test_ControlsFiles whole
 run address suite.consumer.controlsHistory Test_ControlsHistory whole
@@ -254,6 +255,7 @@ run leak suite.consumer.consumerFaults Test_ConsumerFaults whole
 run leak suite.consumer.consumerRuntime Test_ConsumerRuntime whole
 run leak suite.consumer.controlsAstrometry Test_ControlsAstrometry whole
 run leak suite.consumer.controlsDialogs Test_ControlsDialogs whole
+run leak suite.consumer.controlsDocking Test_ControlsDocking whole
 run leak suite.consumer.controlsExtensionSeam Test_ControlsExtensionSeam whole
 run leak suite.consumer.controlsFiles Test_ControlsFiles whole
 run leak suite.consumer.controlsHistory Test_ControlsHistory whole
@@ -308,6 +310,7 @@ run thread suite.consumer.consumerFaults Test_ConsumerFaults skip=Its concurrenc
 run thread suite.consumer.consumerRuntime Test_ConsumerRuntime whole
 run thread suite.consumer.controlsAstrometry Test_ControlsAstrometry skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.controlsDialogs Test_ControlsDialogs skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.controlsDocking Test_ControlsDocking skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.controlsExtensionSeam Test_ControlsExtensionSeam skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.controlsFiles Test_ControlsFiles skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.controlsHistory Test_ControlsHistory skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.

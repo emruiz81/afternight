@@ -600,6 +600,20 @@ target Test_ControlsDialogs
                  are compiled from its explicit list and linked against the Controls library, so the library's own
                  companions answer it.
 
+target Test_ControlsDocking
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform
+    sources      @Test_ControlsDocking
+    fixture      none
+    runner       product
+    note         The dock library held to what the interface is built on - several main windows as the pages of one
+                 stack, affinities, one saved layout for all of them, the three process-wide hooks, a drag started by
+                 code - and the application's dock decorations and dock style over it. Its cases are compiled from its
+                 explicit list and linked against the Controls library.
+
 target Test_ProcessesShared
     workspace    tests
     kind         console

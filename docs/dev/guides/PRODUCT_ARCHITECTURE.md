@@ -478,6 +478,63 @@ every tool window, the astrometry and plate-solve windows once per view. The Pix
 `pixelMathVocabulary()`, the engine's function tables and the syntax's operators. `Test_ControlsDialogs` holds all of
 it, with the settings dialog's cases.
 
+### The dock area (`app/UiBootstrapCoordinator.h`, `controls/KDDockWidgetsHelper.h`, `theme/KddwProxyStyle.h`)
+
+Docking is KDDockWidgets, configured once for the process by `UiBootstrapCoordinator::initializeDockManager`: the flags
+`kRequiredDockConfigFlags` names, the dragged window's opacity, the smallest dock widget, and `AN_ViewFactory`, which
+makes the decorations - `AN_TabBar`, `AN_TitleBar`, `AN_Stack`, `AN_Group`, `AN_FloatingWindow` - that paint from the
+design tokens. `KddwProxyStyle` is installed on the dock main window. The decorations and the style carry
+`AFTERNIGHTCONTROLS_API`: a window outside the library makes its dock areas from them, and the docking suite makes
+its own factory from `AN_ViewFactory` as such a window would.
+
+What the interface asks of the library is held by `Test_ControlsDocking`, as cases against the library itself, because
+none of it is the library's documented promise and each fact decides how a window with several dock areas is built:
+
+- **Several main windows in one window.** Main windows are pages of one stack, a dock widget is added to either and
+  moves between them by code and by a drag, and the page that is not on screen is never a drop target: the library
+  looks for a dock area among the widgets visible under the cursor. A page taken out of the stack into a window of its
+  own keeps its layout and takes drops there, and keeps both when it is put back. A main window made with the stack as
+  its parent stays a window; it is made with the window as parent and handed to the stack, as the application does.
+- **Affinities.** Two sets match when both are empty or they share a name. A dock widget that carries a name no main
+  window carries is refused by every main window, is shown no indicator over one, and neither joins nor is joined by
+  the floating window of a dock widget that carries none.
+- **Who owns a floating window.** With several main windows the library parents a floating window to the first one
+  made that shares its affinity, whichever is on screen, and to none when none does; the floating window is destroyed
+  with that parent. A main window that is never shown parents floating windows all the same and is never a drop
+  target, so floating windows that must outlive every dock area are given one, made first.
+- **One saved layout.** A `LayoutSaver` blob holds every main window and floating window and puts dock widgets made
+  again under the same names back where they were; a name that is not made again is skipped and its place closed up.
+  Three things it does are not what its interface suggests. Applying a layout closes every dock widget it names
+  before placing them, so a dock widget made with `DockWidgetOption_DeleteOnClose`, as a view's is, is destroyed by a
+  layout applied while it is shown: a layout is applied to views that are not shown yet, or with the option cleared
+  for the duration. A saver limited to an affinity name writes the windows that carry no affinity and none of the
+  dock widgets in them, so a dock widget is kept out of a layout by `LayoutSaverOption::Skip`, never by limiting the
+  saver. And `openedDockWidgetsInLayout` names only the dock widgets that were on screen when the layout was saved -
+  not a tab behind another, not a page that was not shown - so what was open is recorded beside the layout, not read
+  from it. Restored with `RestoreOption_RelativeToMainWindow`, a layout leaves the window that holds the main windows
+  where it is; without it the library sets that window's geometry once for each main window in it.
+- **The hooks.** `setDragAboutToStartFunc`, `setDropIndicatorAllowedFunc` and `setDragEndedFunc` each take one plain
+  function for the process. The first is asked again at every move while the button is down, so it is a question and
+  not an event; it can answer by the main window its draggable is inside, found among the draggable's parent widgets.
+  A draggable names its dock widget only when it carries one alone: for a strip of several tabs the dragged one is
+  the strip's current tab. The second can refuse by the dock area it is handed. The third is told nothing, runs after
+  a floating window's drag and after a tab's with the cursor's place readable and the dock widgets already where the
+  drag left them, and does not run for a drag that was refused.
+- **A drag started by code.** `Core::DockWidget::startDragging()` puts a floating dock widget in the drag a press
+  starts, with the same hooks, indicators and drop. The library's drag controller is not in its installed interface:
+  such a drag ends when a release reaches the widget the library drags by, and what is being dragged is known only
+  from the hooks. A widget that was pressed and then starts such a drag - a thumbnail pulled out of its window - is
+  not told of the release: it clears its pressed state when the drag ends.
+- **Decorations by window.** A floating window shows no tab strip and one title bar when its dock widget asks for it
+  before the window exists (`setFloatingWindowFlags`) and its group's strip is set to hide with one tab
+  (`Core::Stack::setTabBarAutoHide`), while every other window keeps the strip the flags give it. The window that
+  shows the drop indicators and the band that marks the landing place are made by the view factory
+  (`createClassicIndicatorWindow`, `createRubberBand`), so both can be classes that paint from the tokens.
+- **The style.** A style set on a main window is that widget's alone: Qt hands it to no child. What `KddwProxyStyle`
+  gives the widgets inside a dock area is the palette `refreshThemeTokens()` sets on the main window; they are drawn
+  by their own paint events and by the application's style. Each main window keeps the style installed on it, and
+  `installedKddwProxyStyle()` names only the last one installed, so a window with several dock areas refreshes each.
+
 ### The library and its suites
 
 `AfterNightControls` (registry class `engine`) compiles every unit of `src/AfterNightControls/`, the session bridge

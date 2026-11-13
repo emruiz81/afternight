@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "AfterNightControlsExport.h"
+
 #include <QProxyStyle>
 
 namespace an::ui
@@ -34,7 +36,7 @@ struct DesignTokens;
 ///   // ... on theme change:
 ///   kddwStyle->refreshThemeTokens();
 /// @endcode
-class KddwProxyStyle : public QProxyStyle
+class AFTERNIGHTCONTROLS_API KddwProxyStyle : public QProxyStyle
 {
 public:
     /// Constructs the KDDW proxy style.
@@ -85,9 +87,9 @@ private:
 
 /// Install a KddwProxyStyle on @p dockMainWindow. Call once during bootstrap.
 /// Returns a non-owning pointer (the widget takes ownership).
-KddwProxyStyle* installKddwProxyStyle(QWidget* dockMainWindow);
+AFTERNIGHTCONTROLS_API KddwProxyStyle* installKddwProxyStyle(QWidget* dockMainWindow);
 
 /// Returns the currently installed KddwProxyStyle, or nullptr.
-[[nodiscard]] KddwProxyStyle* installedKddwProxyStyle();
+[[nodiscard]] AFTERNIGHTCONTROLS_API KddwProxyStyle* installedKddwProxyStyle();
 
 } // namespace an::ui

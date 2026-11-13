@@ -1533,6 +1533,36 @@ sources Test_ControlsDialogs
     external kddockwidgets
     qt       core gui widgets network sql testlib
 
+# The docking suite, class engine: the dock library held to the behaviour the interface is built on, driven
+# through its installed interface as the application drives it, with the application's view factory, dock
+# decorations and dock style. Its cases link the Controls library and compile nothing of it.
+sources Test_ControlsDocking
+    unit     src/AfterNightTests/Test_ControlsDocking/AffinitiesTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/DecorationsTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/DockingTestSupport.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/HiddenWorkspaceTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/HooksTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/LayoutBlobTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/PerWindowStyleTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/ProgrammaticDragTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/SeveralMainWindowsTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/WorkspaceWindowTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/main.cpp
+    header   src/AfterNightTests/Test_ControlsDocking/DockingTestSupport.h
+    header   src/AfterNightControls/AfterNightControlsExport.h
+    header   src/AfterNightControls/app/UiBootstrapCoordinator.h
+    header   src/AfterNightControls/controls/KDDockWidgetsHelper.h
+    header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightControls/theme/KddwProxyStyle.h
+    header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
+    include  src/AfterNightTests
+    include  src/AfterNightControls
+    include  3rdparty/src
+    link     AfterNightControls
+    external kddockwidgets
+    qt       core gui widgets
+
 # The Controls seams, class engine: the one Controls suite that compiles Controls sources rather than linking the
 # library, because its cases need the classes they exercise compiled into the executable. The close-during-work cases of
 # the view, the histogram and statistics windows and the drawing canvas run under the freed-memory quarantine, which

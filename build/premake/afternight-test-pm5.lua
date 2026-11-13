@@ -652,6 +652,9 @@ end
     -- and the opener of a view's tool windows, and the PixelMath editor.
     addIsolatedTestProject { name = "Test_ControlsDialogs" }
 
+    -- The dock library held to what the interface is built on, and the application's dock decorations over it.
+    addIsolatedTestProject { name = "Test_ControlsDocking" }
+
     -- The cases that need the Controls classes they exercise compiled into the executable: the close-during-work cases,
     -- whose freed-memory quarantine holds a class's freed blocks only when the class is compiled here, and the case that
     -- observes what the view tells its companions through registered stand-ins. Every other Controls suite links the

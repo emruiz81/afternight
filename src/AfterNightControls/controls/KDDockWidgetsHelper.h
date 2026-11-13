@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "AfterNightControlsExport.h"
+
 #include <kddockwidgets/qtwidgets/views/TabBar.h>
 #include <kddockwidgets/qtwidgets/views/TitleBar.h>
 #include <kddockwidgets/qtwidgets/views/Group.h>
@@ -51,7 +53,7 @@ private:
     bool m_hovered = false;
 };
 
-class AN_TabBar : public KDDockWidgets::QtWidgets::TabBar
+class AFTERNIGHTCONTROLS_API AN_TabBar : public KDDockWidgets::QtWidgets::TabBar
 {
     W_OBJECT(AN_TabBar) // Replaces Q_OBJECT
 
@@ -71,7 +73,7 @@ protected:
     bool event(QEvent* event) override;
 };
 
-class AN_TitleBar : public KDDockWidgets::QtWidgets::TitleBar
+class AFTERNIGHTCONTROLS_API AN_TitleBar : public KDDockWidgets::QtWidgets::TitleBar
 {
     W_OBJECT(AN_TitleBar) // Replaces Q_OBJECT
 
@@ -83,7 +85,7 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent* event) override;
 };
 
-class AN_Stack : public KDDockWidgets::QtWidgets::Stack
+class AFTERNIGHTCONTROLS_API AN_Stack : public KDDockWidgets::QtWidgets::Stack
 {
     W_OBJECT(AN_Stack) // Replaces Q_OBJECT
 
@@ -99,7 +101,7 @@ protected:
 };
 
 /// Token-aware group frame — replaces hardcoded border colors in KDDockWidgets::QtWidgets::Group.
-class AN_Group : public KDDockWidgets::QtWidgets::Group
+class AFTERNIGHTCONTROLS_API AN_Group : public KDDockWidgets::QtWidgets::Group
 {
 public:
     explicit AN_Group(KDDockWidgets::Core::Group* controller, QWidget* parent = nullptr);
@@ -109,7 +111,7 @@ protected:
 };
 
 /// Token-aware floating window — replaces hardcoded border colors in KDDockWidgets::QtWidgets::FloatingWindow.
-class AN_FloatingWindow : public KDDockWidgets::QtWidgets::FloatingWindow
+class AFTERNIGHTCONTROLS_API AN_FloatingWindow : public KDDockWidgets::QtWidgets::FloatingWindow
 {
 public:
     explicit AN_FloatingWindow(KDDockWidgets::Core::FloatingWindow* controller, QMainWindow* parent = nullptr,
@@ -119,7 +121,7 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 };
 
-class AN_ViewFactory : public KDDockWidgets::QtWidgets::ViewFactory
+class AFTERNIGHTCONTROLS_API AN_ViewFactory : public KDDockWidgets::QtWidgets::ViewFactory
 {
 public:
     using KDDockWidgets::QtWidgets::ViewFactory::ViewFactory;
