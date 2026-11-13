@@ -292,13 +292,14 @@ shows a process another way - inside another window, beside a view - is built on
   the main keyboard's Enter is `Qt::Key_Return`, written `Ctrl+Return`. Image Integration's Execute carries the
   first alone.
 
-### The history (`controls/ImageHistoryTracker.h`, `controls/ImageHistoryBackupQueue.h`, `controls/ImageHistoryCompanion.cpp`)
+### The history (`controls/ImageHistoryTracker.h`, `controls/ImageHistoryBackupQueue.h`, `controls/ImageHistoryStepCodec.h`, `controls/ImageHistoryCompanion.cpp`)
 
 A step is a copy taken under a lease (`copyForHistory`), admitted against the session's
 `MemoryCategory::PendingSnapshots` allowance before it is made - an edit's copy waits for room, a state already shown
-is `ReservationKind::Required` - and written by the history's `BackupQueue` as the engine's image snapshot
-(`writeHistorySnapshot`), samples, metadata and validity mask together, read back only for the identity the history
-drew for it (`readHistorySnapshot`). A step is a copy rather than the shown asset, so the history need not know every
+is `ReservationKind::Required` - and written by the history's `BackupQueue` through the history's step codec,
+samples, metadata and validity mask together, read back only for the identity the history drew for it. A history
+given no codec, which is every history today, writes the engine's image snapshot (`writeHistorySnapshot`,
+`readHistorySnapshot`). A step is a copy rather than the shown asset, so the history need not know every
 path that may write an asset in place through its write lease; and a state already shown cannot be refused without
 the timeline ceasing to match the view, so its copy is admitted beyond the allowance. The view reaches the history
 through `IViewHistory`, made by `createViewHistory`
@@ -313,6 +314,52 @@ through the unlinked autostretch the recent-file thumbnails take, so it looks as
 step as it is. The step's title and details are `AnElidedLabel`s of a set number of lines, because a label that wraps
 to its text moved the preview below it from one step to the next. `Test_ControlsHistory` holds the history, and
 `Test_ImageViewControl` the viewer's history cases.
+
+**The step codec** (`StepCodec`, `controls/ImageHistoryStepCodec.h`) is what writes a step to a file, reads it back
+and names the file's extension; the tracker and its queue know nothing else of a format. There are two.
+`snapshotStepCodec()` is the engine's image snapshot, `.ansnap`. `xisfStepCodec(compression)` writes a step as an
+XISF image, `.xisf`, that any reader of the format opens, for a history a person keeps: the samples as XISF stores
+them, uncompressed or under LZ4 or Zstandard, with the image's own cards beside them.
+
+- **Why an XISF step carries a record.** XISF states less than a step is. The engine's XISF writer writes the
+  preserved cards and the acquisition facts, and a read gives back default semantics, a lineage that begins at the
+  file, no output intent, none of another format's cards, a description restated from the file's own (a normalized
+  floating image, an unsigned integer one) and no mask. So the file holds two properties this application alone
+  reads: `AfterNight:HistoryStep:Record`, the engine's snapshot of the step's metadata, description and identity
+  over a frame of one pixel, and `AfterNight:HistoryStep:Validity`, the mask's bits, each compressed and written as
+  text across the property's cards. A read takes the samples from the image and everything else from the record,
+  and refuses an XISF file that has none. The record is the engine's own snapshot rather than a second encoding of
+  the metadata in the product, so a field the engine adds to an image's metadata is in a step without a change
+  here; the engine reads a snapshot from a file, so the record is staged in one beside the step for the length of
+  the call.
+- **What bounds it.** The record travels in the image's cards, and one image holds `kMaxCodecCards` cards of
+  `kMaxCodecCardTextBytes` each: `kMaxXisfStepRecordTextBytes` (24 MiB of text, 18 MiB of compressed record) is
+  the most a step carries, which a mask with no pattern reaches at about 150 megapixels. A longer record is refused
+  when it is written, with nothing published; the snapshot holds any step.
+- **What another reader sees.** XISF has no signed integers and counts rows from the top, so a signed image's
+  samples are written as the unsigned codes of the same bits and a bottom-up image in the order it holds its rows.
+  The image's cards are written for that reader less the ones an XISF unit cannot spell (a FITS keyword longer than
+  eight characters, text outside printable ASCII, a property name that is no identifier), because the encoder
+  refuses the whole image for one such card; if it still refuses, the step is written with its record and identity
+  alone.
+- **Why there is no FITS codec.** A record would travel in the header, and the engine's FITS writer takes a header
+  of at most `kMaxCodecCards` eighty-byte records, about 400 KiB of record: the mask of an ordinary image exceeds
+  it unless it compresses to almost nothing. FITS holds such data in an extension, which the engine's FITS adapter
+  does not write.
+- **What it costs.** For a 60-megapixel Float32 image, measured beside the snapshot (`StepCodecCost.*`), an
+  uncompressed XISF step is written in about 1.1 times the snapshot's time, an LZ4 one in about 1.4 to 1.5 times
+  at three quarters of the size, and a Zstandard one in about twice at two thirds. An uncompressed step is read
+  as fast as a snapshot, an LZ4 one in about twice the time and a Zstandard one in about two and a half times.
+  The first read of an uncompressed XISF step written a moment before waits on Windows for the virus scanner's
+  pass over the new file, about half a second for 230 MiB; the compressed ones do not.
+- **Why its samples state no checksum.** A snapshot checks every section with a hash that costs next to nothing.
+  XISF's own checksums are cryptographic: SHA-1 over the same image takes the write from about 105 ms to about
+  305 ms under LZ4, and SHA-256 to about 510 ms. An XISF step's record is checked, being a snapshot; its samples
+  are held to their size and, compressed, to decompressing to it.
+
+`StepCodecFidelity.*` holds every codec to the same cases - each of the eight representations in grey and in
+colour, the description, every metadata object with cards no container spells, the mask, the identity - so a codec
+added later is held to them by one line.
 
 ### The file workflows (`app/FileManager.h`, `app/FileWorkflowRunner.h`, `app/FilePolicies.h`, `app/FileCompanions.h`)
 

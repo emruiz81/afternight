@@ -96,12 +96,9 @@ protected:
     }
 
     [[nodiscard]] std::unique_ptr<ImageHistoryTracker> track(FakeHistoryView& view,
-                                                             an::ui::history::SnapshotWriter writer = {})
+                                                             an::ui::history::StepCodecPtr codec = {})
     {
-        return std::make_unique<ImageHistoryTracker>(
-            view, session(),
-            writer ? std::move(writer) : an::ui::history::SnapshotWriter(an::ui::history::writeHistorySnapshot),
-            qtPath(m_Directory.path()));
+        return std::make_unique<ImageHistoryTracker>(view, session(), std::move(codec), qtPath(m_Directory.path()));
     }
 
     [[nodiscard]] an::consumer::MemoryCategoryCounters pending() const
@@ -123,7 +120,7 @@ TEST_F(ImageHistoryBackupQueue, TheWriterWritesTheImageAsItWasWhenItWasSubmitted
 {
     WriterGate gate;
     gate.close();
-    BackupQueue queue(session(), gate.writer());
+    BackupQueue queue(session(), gate.codec());
     GateOpener opener(gate);
 
     const auto image = makeImage(session(), 8, 6, 1, 1.0f);
@@ -147,7 +144,7 @@ TEST_F(ImageHistoryBackupQueue, AReservationWaitsWhileTwoSnapshotsArePending)
 {
     WriterGate gate;
     gate.close();
-    BackupQueue queue(session(), gate.writer());
+    BackupQueue queue(session(), gate.codec());
     GateOpener opener(gate);
 
     const auto image = makeImage(session(), 8, 6, 1, 1.0f);
@@ -192,7 +189,7 @@ TEST_F(SmallAllowanceQueue, ASnapshotLargerThanTheByteAllowanceIsAdmittedAlone)
 {
     WriterGate gate;
     gate.close();
-    BackupQueue queue(session(), gate.writer());
+    BackupQueue queue(session(), gate.codec());
     GateOpener opener(gate);
 
     const auto image = makeImage(session(), 8, 6, 1, 1.0f); // 192 bytes
@@ -246,7 +243,7 @@ TEST_F(ImageHistoryBackupQueue, ASnapshotThatCannotBeWrittenSettlesAsFailedAndIs
 {
     std::atomic_int reported = 0;
     std::string reportedLabel;
-    BackupQueue queue(session(), an::ui::history::writeHistorySnapshot, [&](const an::ui::history::Snapshot& snapshot) {
+    BackupQueue queue(session(), nullptr, [&](const an::ui::history::Snapshot& snapshot) {
         if (snapshot.state() == SnapshotState::Failed)
         {
             reportedLabel = snapshot.label();
@@ -285,7 +282,7 @@ TEST_F(ImageHistoryBackupQueue, DiscardTakesAQueuedSnapshotOffWithoutWritingIt)
 {
     WriterGate gate;
     gate.close();
-    BackupQueue queue(session(), gate.writer());
+    BackupQueue queue(session(), gate.codec());
     GateOpener opener(gate);
 
     const auto image = makeImage(session(), 8, 6, 1, 1.0f);
@@ -313,7 +310,7 @@ TEST_F(ImageHistoryBackupQueue, ClosingStopsTheWriteInProgressAndLeavesNoFile)
 {
     WriterGate gate;
     gate.close();
-    auto queue = std::make_unique<BackupQueue>(session(), gate.writer());
+    auto queue = std::make_unique<BackupQueue>(session(), gate.codec());
     GateOpener opener(gate);
 
     auto room = queue->tryReserve(192u);
@@ -342,7 +339,7 @@ TEST_F(ImageHistorySnapshot, AStepKeepsTheStateItWasRegisteredWithWhenTheImageCh
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
     const auto opened = samplesOf(*view.image);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
     GateOpener opener(gate);
 
     tracker->registerInitialStep("opened");
@@ -417,7 +414,7 @@ TEST_F(ImageHistorySnapshot, AWriteThatFailsLeavesTheStepFailed)
     gate.refuseNext(1);
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
 
     tracker->registerInitialStep("opened");
 
@@ -431,7 +428,7 @@ TEST_F(ImageHistorySnapshot, UndoToAStepWhoseSnapshotFailedChangesNothing)
     gate.refuseNext(1);
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
 
     tracker->registerInitialStep("opened");
     view.image = makeImage(session(), 8, 6, 1, 500.0f);
@@ -454,7 +451,7 @@ TEST_F(ImageHistorySnapshot, JumpingToAStepWhoseSnapshotFailedChangesNothing)
     gate.refuseNext(1);
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
 
     tracker->registerInitialStep("opened");
     view.image = makeImage(session(), 8, 6, 1, 500.0f);
@@ -495,7 +492,7 @@ TEST_F(ImageHistorySnapshot, AShownStateIsRecordedAtOnceEvenWhileTwoCopiesArePen
     gate.close();
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
     GateOpener opener(gate);
 
     tracker->registerInitialStep("opened");
@@ -542,7 +539,7 @@ TEST_F(ImageHistorySnapshot, AnEditIsRefusedWhenTheStateItReplacesCannotBeKept)
     gate.refuseAll(true);
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
     tracker->registerInitialStep("opened");
     tracker->waitAllAsyncJobsDone();
 
@@ -558,7 +555,7 @@ TEST_F(ImageHistorySnapshot, AnEditSecuresAgainTheStateItReplacesWhenItsFirstWri
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
     const auto opened = samplesOf(*view.image);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
     tracker->registerInitialStep("opened");
     ASSERT_EQ(tracker->getInitialStep()->waitAsyncJobsDone(), SnapshotState::Failed);
 
@@ -578,7 +575,7 @@ TEST_F(ImageHistorySnapshot, AnEditNobodyPreparedWaitsForNothingAndIsRefusedWhil
     gate.close();
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
     GateOpener opener(gate);
     tracker->registerInitialStep("opened");
     ASSERT_TRUE(gate.waitForStarted(1));
@@ -625,7 +622,7 @@ TEST_F(ImageHistorySnapshot, ClosingAViewWithSnapshotsPendingLeavesNoFileBehind)
     gate.close();
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
     GateOpener opener(gate);
 
     tracker->registerInitialStep("opened");
@@ -706,7 +703,7 @@ TEST_F(ImageHistorySequence, AnEditOfTheShownFrameIsWrittenAndUndone)
 TEST_F(ImageHistorySequence, AFrameEditIsRefusedBeforeItIsShownWhenTheFrameCannotBeWritten)
 {
     WriterGate gate;
-    auto tracker = track(m_View, gate.writer());
+    auto tracker = track(m_View, gate.codec());
     tracker->registerInitialStep("opened");
     const auto shown = m_View.image;
 
@@ -722,7 +719,7 @@ TEST_F(ImageHistorySequence, AFrameEditIsRefusedBeforeItIsShownWhenTheFrameCanno
 TEST_F(ImageHistorySequence, AFrameChangeAlreadyShownThatCannotBeWrittenIsRecordedAndCannotBeRestored)
 {
     WriterGate gate;
-    auto tracker = track(m_View, gate.writer());
+    auto tracker = track(m_View, gate.codec());
     tracker->registerInitialStep("opened");
 
     gate.refuseAll(true);

@@ -256,8 +256,8 @@ void Snapshot::settle(const SnapshotState state, std::string failure)
     m_Settled.notify_all();
 }
 
-BackupQueue::BackupQueue(const an::consumer::EngineSession& session, SnapshotWriter writer, SettledListener onSettled)
-    : m_Session(session), m_Writer(std::move(writer)), m_OnSettled(std::move(onSettled))
+BackupQueue::BackupQueue(const an::consumer::EngineSession& session, StepCodecPtr codec, SettledListener onSettled)
+    : m_Session(session), m_Codec(codec ? std::move(codec) : snapshotStepCodec()), m_OnSettled(std::move(onSettled))
 {
     m_WriterThread = std::jthread([this](std::stop_token stop) { runWriter(std::move(stop)); });
 }
@@ -270,6 +270,11 @@ BackupQueue::~BackupQueue()
 const an::consumer::EngineSession& BackupQueue::session() const
 {
     return m_Session;
+}
+
+const StepCodec& BackupQueue::codec() const
+{
+    return *m_Codec;
 }
 
 an::Result<an::consumer::MemoryReservation> BackupQueue::tryReserve(const std::uint64_t bytes,
@@ -449,7 +454,7 @@ void BackupQueue::runWriter(std::stop_token stop)
         {
             an::Result<an::consumer::AssetReadLease> lease = entry.copy->read(stop);
             written = lease.hasValue()
-                          ? m_Writer(m_Session, *lease, entry.snapshot->path(), entry.snapshot->identity(), stop)
+                          ? m_Codec->write(m_Session, *lease, entry.snapshot->path(), entry.snapshot->identity(), stop)
                           : lease.status();
         }
         catch (const std::exception& error)

@@ -12,6 +12,7 @@
 
 #include "controls/ImageHistoryBackupQueue.h"
 #include "controls/ImageHistoryHost.h"
+#include "controls/ImageHistoryStepCodec.h"
 #include "controls/ImageHistoryTracker.h"
 #include "controls/SequenceContainers.h"
 
@@ -179,41 +180,11 @@ inline bool waitUntil(const std::function<bool()>& condition)
 class WriterGate
 {
 public:
-    [[nodiscard]] an::ui::history::SnapshotWriter writer()
+    /// The snapshot codec behind this gate: every write waits at the gate, and reads go straight through. The gate
+    /// must outlive whatever is given the codec.
+    [[nodiscard]] an::ui::history::StepCodecPtr codec()
     {
-        return
-            [this](const an::consumer::EngineSession& session, const an::consumer::AssetReadLease& image,
-                   const std::string& path, const an::ArtifactIdentity& identity, std::stop_token stop) -> an::Status {
-                bool refuse = false;
-                {
-                    std::unique_lock lock(m_Mutex);
-                    ++m_Started;
-                    m_Changed.notify_all();
-                    if (!m_Changed.wait_for(lock, stop, std::chrono::seconds(30), [this] { return m_Open; }) &&
-                        !stop.stop_requested())
-                    {
-                        ADD_FAILURE() << "a history write waited at a gate nobody opened";
-                    }
-
-                    if (m_RefuseAll || m_RefuseNext > 0)
-                    {
-                        refuse = true;
-                        if (m_RefuseNext > 0)
-                        {
-                            --m_RefuseNext;
-                        }
-                    }
-
-                    m_Paths.push_back(path);
-                }
-
-                if (refuse)
-                {
-                    return an::Status::failure(an::ErrorCode::ExternalFailure, "the test refused this write");
-                }
-
-                return an::ui::history::writeHistorySnapshot(session, image, path, identity, stop);
-            };
+        return std::make_shared<const GatedCodec>(*this);
     }
 
     void close()
@@ -265,6 +236,72 @@ public:
     }
 
 private:
+    /// The snapshot codec with the gate in front of its writes.
+    class GatedCodec final : public an::ui::history::StepCodec
+    {
+    public:
+        explicit GatedCodec(WriterGate& gate) : m_Gate(gate) {}
+
+        [[nodiscard]] std::string_view name() const noexcept override
+        {
+            return m_Snapshot->name();
+        }
+
+        [[nodiscard]] std::string_view fileExtension() const noexcept override
+        {
+            return m_Snapshot->fileExtension();
+        }
+
+        [[nodiscard]] an::Status write(const an::consumer::EngineSession& session,
+                                       const an::consumer::AssetReadLease& image, const std::string& path,
+                                       const an::ArtifactIdentity& identity, std::stop_token stop) const override
+        {
+            if (m_Gate.pass(path, stop))
+            {
+                return an::Status::failure(an::ErrorCode::ExternalFailure, "the test refused this write");
+            }
+            return m_Snapshot->write(session, image, path, identity, stop);
+        }
+
+        [[nodiscard]] an::Result<an::consumer::ImageAsset> read(const an::consumer::EngineSession& session,
+                                                                const std::string& path,
+                                                                const an::ArtifactIdentity& expected,
+                                                                std::stop_token stop) const override
+        {
+            return m_Snapshot->read(session, path, expected, std::move(stop));
+        }
+
+    private:
+        WriterGate& m_Gate;
+        const an::ui::history::StepCodecPtr m_Snapshot = an::ui::history::snapshotStepCodec();
+    };
+
+    /// Counts a write, holds it while the gate is closed, and says whether the test refuses it.
+    [[nodiscard]] bool pass(const std::string& path, const std::stop_token& stop)
+    {
+        bool refuse = false;
+        std::unique_lock lock(m_Mutex);
+        ++m_Started;
+        m_Changed.notify_all();
+        if (!m_Changed.wait_for(lock, stop, std::chrono::seconds(30), [this] { return m_Open; }) &&
+            !stop.stop_requested())
+        {
+            ADD_FAILURE() << "a history write waited at a gate nobody opened";
+        }
+
+        if (m_RefuseAll || m_RefuseNext > 0)
+        {
+            refuse = true;
+            if (m_RefuseNext > 0)
+            {
+                --m_RefuseNext;
+            }
+        }
+
+        m_Paths.push_back(path);
+        return refuse;
+    }
+
     mutable std::mutex m_Mutex;
     std::condition_variable_any m_Changed;
     bool m_Open = true;

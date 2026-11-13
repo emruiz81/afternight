@@ -127,9 +127,9 @@ void reportFromAnyThread(const std::string& message)
 class HistoryStore
 {
 public:
-    HistoryStore(const an::consumer::EngineSession& session, SnapshotWriter writer, const QString& baseDirectory)
+    HistoryStore(const an::consumer::EngineSession& session, StepCodecPtr codec, const QString& baseDirectory)
         : m_Session(session), m_RunId(newToken()), m_Directory(pathOf(baseDirectory) / ("AN_HISTORY_" + m_RunId)),
-          m_Queue(session, std::move(writer), [this](const Snapshot& snapshot) { onSettled(snapshot); })
+          m_Queue(session, std::move(codec), [this](const Snapshot& snapshot) { onSettled(snapshot); })
     {
     }
 
@@ -176,7 +176,8 @@ public:
         {
             return std::nullopt;
         }
-        return std::make_pair(utf8Of(m_Directory / (artifactId + ".ansnap")), std::move(*identity));
+        return std::make_pair(utf8Of(m_Directory / (artifactId + std::string(m_Queue.codec().fileExtension()))),
+                              std::move(*identity));
     }
 
     /// Remembers what an edit's worker prepared, until the edit is recorded or let go.
@@ -409,10 +410,10 @@ an::ui::history::SnapshotState ImageHistoryStep::waitAsyncJobsDone() const
 
 ImageHistoryTracker::ImageHistoryTracker(an::ui::history::ImageHistoryHost& host,
                                          const an::consumer::EngineSession& session,
-                                         an::ui::history::SnapshotWriter writer, QString directory)
+                                         an::ui::history::StepCodecPtr codec, QString directory)
     : m_Host(host),
       m_Store(std::make_shared<HistoryStore>(
-          session, std::move(writer), directory.isEmpty() ? an::ui::ensureTempDirPathOrSystemTemp() : directory)),
+          session, std::move(codec), directory.isEmpty() ? an::ui::ensureTempDirPathOrSystemTemp() : directory)),
       m_Self(std::make_shared<ImageHistoryTracker*>(this))
 {
 }
@@ -833,8 +834,8 @@ ImageHistoryTracker::StepReader ImageHistoryTracker::stepReader(const size_t ste
                     an::ErrorCode::InvalidState,
                     fmt::format("the snapshot of step '{}' was not kept: {}", name, snapshot->failure()));
             }
-            return an::ui::history::readHistorySnapshot(store->session(), snapshot->path(), snapshot->identity(),
-                                                        std::move(stop));
+            return store->queue().codec().read(store->session(), snapshot->path(), snapshot->identity(),
+                                               std::move(stop));
         }
         if (sequence.has_value())
         {

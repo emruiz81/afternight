@@ -236,12 +236,9 @@ protected:
     }
 
     [[nodiscard]] std::unique_ptr<ImageHistoryTracker> track(FakeHistoryView& view,
-                                                             an::ui::history::SnapshotWriter writer = {})
+                                                             an::ui::history::StepCodecPtr codec = {})
     {
-        return std::make_unique<ImageHistoryTracker>(
-            view, session(),
-            writer ? std::move(writer) : an::ui::history::SnapshotWriter(an::ui::history::writeHistorySnapshot),
-            qtPath(m_Directory.path()));
+        return std::make_unique<ImageHistoryTracker>(view, session(), std::move(codec), qtPath(m_Directory.path()));
     }
 
     std::optional<TestSessionProvider> m_Provider;
@@ -395,7 +392,7 @@ TEST_F(HistorySnapshotTest, AnEditsPreparationWaitsForASlowWriterOnItsWorkerNotT
     gate.close();
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
     GateOpener opener(gate);
     tracker->registerInitialStep("opened");
     ASSERT_TRUE(gate.waitForStarted(1));
@@ -436,7 +433,7 @@ TEST_F(HistorySnapshotTest, ARestoreIsReadOnAWorkerAndTheCurrentStepMovesWhenItI
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
     const auto opened = samplesOf(*view.image);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
     GateOpener opener(gate);
     tracker->registerInitialStep("opened");
     view.image = makeImage(session(), 8, 6, 1, 500.0f);
@@ -511,7 +508,7 @@ TEST_F(HistorySnapshotTest, ARestoreIsNotShownOnADocumentTheViewTookMeanwhile)
     gate.close();
     FakeHistoryView view;
     view.image = makeImage(session(), 8, 6, 1, 1.0f);
-    auto tracker = track(view, gate.writer());
+    auto tracker = track(view, gate.codec());
     GateOpener opener(gate);
     tracker->registerInitialStep("opened");
     view.image = makeImage(session(), 8, 6, 1, 500.0f);

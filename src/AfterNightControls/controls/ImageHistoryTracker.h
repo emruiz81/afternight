@@ -7,8 +7,9 @@
 ///
 /// A step is recorded when the view's image changes and holds what restoring it needs: the view's name, the sequence a
 /// sequence view shows, and a snapshot - a copy of the image taken under a lease when the step is recorded and written
-/// behind it by the history's backup writer. A rename shares the snapshot of the state it renames; a sequence step that
-/// changed no frame has none, because its sequence file is the state.
+/// behind it by the history's backup writer, through the step codec the history was made with
+/// (`ImageHistoryStepCodec.h`). A rename shares the snapshot of the state it renames; a sequence step that changed no
+/// frame has none, because its sequence file is the state.
 ///
 /// **An edit is recorded before it is shown, and waits for the history on its own worker.** What the edit replaces
 /// must be kept - written, or written again from the edit's own lease when its first write failed - and the edit's
@@ -130,11 +131,11 @@ public:
     ///
     /// @param host the view; it must outlive the tracker.
     /// @param session the session; it must outlive the tracker and every worker it starts.
-    /// @param writer what writes each snapshot.
+    /// @param codec what writes each snapshot and reads it back, and names its file; none for the snapshot codec.
     /// @param directory the directory the history's own directory is made in; empty for the application's temporary
     ///        directory.
     ImageHistoryTracker(an::ui::history::ImageHistoryHost& host, const an::consumer::EngineSession& session,
-                        an::ui::history::SnapshotWriter writer = an::ui::history::writeHistorySnapshot,
+                        an::ui::history::StepCodecPtr codec = an::ui::history::snapshotStepCodec(),
                         QString directory = {});
 
     ImageHistoryTracker(const ImageHistoryTracker&) = delete;

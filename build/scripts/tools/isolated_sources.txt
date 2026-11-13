@@ -266,6 +266,7 @@ sources Test_ConsumerFaults
     header   src/AfterNightControls/app/SharedBufferManager.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/ImageHistoryBackupQueue.h
+    header   src/AfterNightControls/controls/ImageHistoryStepCodec.h
     header   src/AfterNightControls/controls/ImageListTableHelpers.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
     header   src/AfterNightControls/controls/SequenceContainers.h
@@ -796,9 +797,13 @@ sources Test_ImageRTPreviewControl
 # reaches it through and the window over it. Its cases link the Controls library and compile nothing of it.
 sources Test_ControlsHistory
     unit     src/AfterNightTests/Test_ControlsHistory/HistorySnapshotTest.cpp
+    unit     src/AfterNightTests/Test_ControlsHistory/StepCodecCostTest.cpp
+    unit     src/AfterNightTests/Test_ControlsHistory/StepCodecFidelityTest.cpp
+    unit     src/AfterNightTests/Test_ControlsHistory/StepCodecHistoryTest.cpp
     unit     src/AfterNightTests/Test_ControlsHistory/ViewHistoryTest.cpp
     unit     src/AfterNightTests/Test_ControlsHistory/main.cpp
     header   src/AfterNightTests/Test_ControlsHistory/HistoryTestContext.h
+    header   src/AfterNightTests/Test_ControlsHistory/StepCodecTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ViewerTestContext.h
@@ -818,6 +823,7 @@ sources Test_ControlsHistory
     header   src/AfterNightControls/controls/ImageHistoryControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageHistoryHost.h
     header   src/AfterNightControls/controls/ImageHistoryLineage.h
+    header   src/AfterNightControls/controls/ImageHistoryStepCodec.h
     header   src/AfterNightControls/controls/ImageHistoryTracker.h
     header   src/AfterNightControls/controls/ImageHistoryTrackerUtils.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
@@ -1874,6 +1880,7 @@ sources Test_ImageViewControl
     header   src/AfterNightControls/controls/ImageHistoryControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageHistoryHost.h
     header   src/AfterNightControls/controls/ImageHistoryLineage.h
+    header   src/AfterNightControls/controls/ImageHistoryStepCodec.h
     header   src/AfterNightControls/controls/ImageHistoryTracker.h
     header   src/AfterNightControls/controls/ImageHistoryTrackerUtils.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
@@ -2088,6 +2095,7 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/controls/ImageHistoryControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageHistoryHost.h
     header   src/AfterNightControls/controls/ImageHistoryLineage.h
+    header   src/AfterNightControls/controls/ImageHistoryStepCodec.h
     header   src/AfterNightControls/controls/ImageHistoryTracker.h
     header   src/AfterNightControls/controls/ImageListTableHelpers.h
     header   src/AfterNightControls/controls/ImageMaskSelectorControlUiBuilder.h

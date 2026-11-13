@@ -94,6 +94,14 @@ real button down, so whether a window pulled out by a pressed widget follows the
 `AFTERNIGHT_TEST_DOCKING_HAND_TRIAL` is set, then opens a window to drag from under the platform it is given
 (`-platform windows`, `xcb` or `wayland`) and prints what it saw when the window is closed.
 
+**A time is measured, not asserted.** A time depends on the host, and a comparison of two times more so, so a case
+that measures one is compiled always and skipped unless `AFTERNIGHT_TEST_TIMINGS=1`: it prints what it measured,
+records it as the case's properties, and fails only when what it timed did not work. `StepCodecCost.*`
+(`Test_ControlsHistory`) is the first: the time to write and to read a 60-megapixel history step in each step codec,
+each beside the snapshot codec in alternation, the median of five rounds, with the file's size. It is run in Release
+on an idle machine when a step codec or the engine's writers change, and its figures go where the change is
+reported. A count - calls, repaints, admissions - is exact and is asserted on every run.
+
 Two cases of `Test_ImageIntegration` write files for a person to look at, and are skipped unless
 `AFTERNIGHT_WRITE_REPORT_SAMPLES` names the folder to write them into: `ReportSamples.*` writes the Image Integration
 report of every scenario the report's suites build, in both of its forms, and `ReportChartSamples.*` a page of every

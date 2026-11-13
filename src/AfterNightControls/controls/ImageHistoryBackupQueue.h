@@ -3,20 +3,23 @@
 
 /// @file
 /// The history's backup writer: the bounded queue of step snapshots copied at registration and written, one at a time,
-/// as versioned image snapshots to a directory the history owns.
+/// through the history's step codec to a directory the history owns.
 ///
 /// A step is a copy of an image taken under a lease when the step is registered, so nothing that happens to the shown
 /// image afterwards reaches it. The copy waits in memory until the writer has written it, and that memory is the
 /// session's to bound: every copy is admitted against the session's pending-snapshot allowance before it is made, and
-/// holds its admission until the writer lets it go. A snapshot is the engine's image snapshot - samples, every metadata
-/// object, the validity mask and the identity the history gave it - published whole or not at all, and read back only
-/// when its identity is the one the history wrote it for.
+/// holds its admission until the writer lets it go. A snapshot is what the queue's codec writes
+/// (`ImageHistoryStepCodec.h`) - samples, every metadata object, the validity mask and the identity the history gave
+/// it - published whole or not at all, and read back only when its identity is the one the history wrote it for. A
+/// queue given no codec writes the engine's image snapshot.
 ///
 /// Nothing here waits on the thread that registers a step: `tryReserve` answers at once, and `reserve`, which waits for
 /// room, is for a worker.
 #pragma once
 
 #include "AfterNightControlsExport.h"
+
+#include "ImageHistoryStepCodec.h"
 
 #include <AfterNightConsumerRuntime/ConsumerMemory.h>
 #include <AfterNightConsumerRuntime/EngineSession.h>
@@ -51,7 +54,8 @@ enum class SnapshotState
     Discarded
 };
 
-/// Writes one snapshot of the image under `image` to `path`, for `identity`. Called on the backup writer's thread.
+/// What the snapshot codec writes: the engine's image snapshot of the image under `image` at `path`, for `identity`,
+/// published through a pending sibling and renamed into place, under one admitted operation of the session.
 ///
 /// @param session the session the image belongs to.
 /// @param image the copy, under a read lease.
@@ -59,17 +63,12 @@ enum class SnapshotState
 /// @param identity the identity the snapshot is written for.
 /// @param stop stops the write; a stopped write leaves no file.
 /// @return success once the snapshot is whole at `path`, or why nothing was published there.
-using SnapshotWriter =
-    std::function<an::Status(const an::consumer::EngineSession& session, const an::consumer::AssetReadLease& image,
-                             const std::string& path, const an::ArtifactIdentity& identity, std::stop_token stop)>;
-
-/// The writer the product uses: the engine's image snapshot, published through a pending sibling and renamed into
-/// place, under one admitted operation of the session.
 [[nodiscard]] AFTERNIGHTCONTROLS_API an::Status
 writeHistorySnapshot(const an::consumer::EngineSession& session, const an::consumer::AssetReadLease& image,
                      const std::string& path, const an::ArtifactIdentity& identity, std::stop_token stop);
 
-/// Reads a snapshot the history wrote back as a new asset of the session, with a new identity.
+/// What the snapshot codec reads: a snapshot the history wrote, back as a new asset of the session, with a new
+/// identity.
 ///
 /// @param session the session the asset is made in.
 /// @param path the file, as UTF-8.
@@ -180,8 +179,9 @@ public:
     /// Called on the writer's thread when a snapshot settles, written or not.
     using SettledListener = std::function<void(const Snapshot& snapshot)>;
 
-    /// A queue writing through `writer` for the histories of `session`, which must outlive it.
-    explicit BackupQueue(const an::consumer::EngineSession& session, SnapshotWriter writer = writeHistorySnapshot,
+    /// A queue writing through `codec` for the histories of `session`, which must outlive it; no codec is the
+    /// snapshot codec.
+    explicit BackupQueue(const an::consumer::EngineSession& session, StepCodecPtr codec = snapshotStepCodec(),
                          SettledListener onSettled = {});
 
     /// Closes the queue as `close` does.
@@ -192,6 +192,9 @@ public:
 
     /// The session whose allowance the queue admits against.
     [[nodiscard]] const an::consumer::EngineSession& session() const;
+
+    /// The codec every snapshot of the queue is written through, and read back through.
+    [[nodiscard]] const StepCodec& codec() const;
 
     /// Admits a copy's bytes now, or says why not. Never waits.
     ///
@@ -251,7 +254,7 @@ private:
     void runWriter(std::stop_token stop);
 
     const an::consumer::EngineSession& m_Session;
-    const SnapshotWriter m_Writer;
+    const StepCodecPtr m_Codec;
     const SettledListener m_OnSettled;
 
     mutable std::mutex m_Mutex;

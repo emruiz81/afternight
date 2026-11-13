@@ -691,7 +691,7 @@ TEST_F(ImageHistoryTrackerLifecycle, StepsRemovedWhileTheirSnapshotsAreOnTheirWa
     WriterGate gate;
     FakeHistoryView view;
     view.image = makeImage(session(), 8u, 6u, 1u, 1.0f);
-    auto tracker = std::make_unique<ImageHistoryTracker>(view, session(), gate.writer(), directory.path());
+    auto tracker = std::make_unique<ImageHistoryTracker>(view, session(), gate.codec(), directory.path());
     GateOpener opener(gate);
     tracker->registerInitialStep("opened");
     tracker->waitAllAsyncJobsDone();
