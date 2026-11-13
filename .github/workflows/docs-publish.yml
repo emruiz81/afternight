@@ -1,0 +1,106 @@
+name: Publish User Guide
+
+# Publishes the user guide as it stands at the head of main, without a release, so a correction to the guide reaches
+# GitHub Pages without the cost of a full release. The guide is built and checked by the documentation workflow, the
+# same way a release builds it, and the build that passed is the one that goes up. Its footer and home page state the
+# latest published release's version unless the dispatch names another: the guide on Pages describes the build people
+# have installed, and a correction does not change which build that is.
+#
+# Only a dispatch from main publishes; the github-pages environment admits deployments from main alone, and the first
+# job refuses any other ref before anything is built.
+
+on:
+  workflow_dispatch:
+    inputs:
+      guide_version:
+        description: 'The version the guide states (e.g. 1.1.0); empty states the latest published release'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-publish
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Resolve the guide's version
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Refuse a ref other than main
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$REF" != refs/heads/main ]; then
+            echo "::error::The guide is published from main only; this run was dispatched from $REF."
+            exit 1
+          fi
+
+      - name: Resolve the version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.guide_version }}
+        run: |
+          version="${REQUESTED#v}"
+          if [ -z "$version" ]; then
+            tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+            version="${tag#v}"
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$version' is not a version number."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "The guide states AfterNight $version, built from $GITHUB_SHA."
+
+  # The documentation workflow's own deployment job stays skipped when it is called; a caller has to grant what any
+  # of a called workflow's jobs asks for, so the grant is here.
+  build-docs:
+    name: Build Documentation
+    needs: prepare
+    uses: ./.github/workflows/docs.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    with:
+      release_version: ${{ needs.prepare.outputs.version }}
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build-docs
+    runs-on: ubuntu-26.04
+    permissions:
+      pages: write
+      id-token: write
+    # Shared with the release's and the documentation workflow's deployments: one at a time, and one in progress is
+    # never cancelled half way.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download the guide this run built
+        uses: actions/download-artifact@v8
+        with:
+          name: afternight-documentation-html
+          path: site
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/
+
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v5
