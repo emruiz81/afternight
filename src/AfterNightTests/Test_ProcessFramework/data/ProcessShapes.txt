@@ -1,0 +1,164 @@
+# The shape of the window every registered process opens, in the registry's order, extensions
+# left out:
+#   id | window class | framework class | layout | preview | button box | image selectors |
+#   channel selector | menus | window | marks | key sequences
+#
+# framework class   the nearest of TopLevelProcessBaseControl, ImageProcessControl and
+#                   ImageRTPreviewControl the window derives from.
+# layout            of a window with a preview: `splitter: controls, preview` when the
+#                   splitter named mainSplitter has two panes, the first holding the window's
+#                   inputs and the second none; `row: controls, preview` when the window has
+#                   no such splitter and its layout is a row whose first item holds the
+#                   inputs and whose last holds none. The controls are a widget in a splitter
+#                   and a layout in a row.
+# preview           `checkbox, preview pane` when a checkbox named for the preview, checked,
+#                   puts the preview view inside the splitter's second pane or the row's last
+#                   item; `opens on` is added when the window opens with it checked.
+# button box        the standard buttons of the window's button boxes, by name; `custom` for
+#                   each button that is not a standard one.
+# image selectors   how many combo boxes list the open images: the colour view the window
+#                   is opened on or the grey view open beside it.
+# channel selector  `yes` when a combo box lists the channels a process runs on.
+# menus             the titles of the window's own menu bar.
+# window            `resizable` or `fixed size`, then each window hint the window adds to or
+#                   takes from a process window's.
+# marks             what the person marks on a view for the process: an area, samples,
+#                   stars, points. A window with a preview marks them on its preview view
+#                   while it shows one, and the preview area every such window has is not
+#                   listed; any other window marks them on the view it runs on.
+# key sequences     every key sequence of the window's own actions and shortcuts, with its
+#                   context and the action's text; `the keys of Undo` for the sequences the
+#                   platform binds to a standard key. Keys a window reads in a key press are
+#                   not listed: Escape closes every process window.
+#
+# A descriptor that opens no process window says so. No size is recorded: a pane's width
+# follows the fonts of the host.
+#
+# ProcessCensus.EveryProcessStatesItsShape in Test_ProcessFramework compares every window with
+# this record. An entry is edited by the change that means to move it - a process given a
+# preview, a new shortcut, a retired process; the record is not written again whole. A field
+# is `-` when empty; `\|` is a bar inside a text.
+
+[shapes]
+non_interactive.actionExtract_Frame | runs without a window
+multi_image_stacking.actionExtract_Sequence | ExtractSequenceProcess | ImageProcessControl | - | - | Close, Ok, Reset | - | - | - | resizable | - | -
+non_interactive.actionExtract_Red_Channel | runs without a window
+non_interactive.actionExtract_Green_Channel | runs without a window
+non_interactive.actionExtract_Blue_Channel | runs without a window
+non_interactive.actionExtract_RGB_Channels | runs without a window
+non_interactive.actionExtract_CIE_L | runs without a window
+non_interactive.actionExtract_CIE_a | runs without a window
+non_interactive.actionExtract_CIE_b | runs without a window
+non_interactive.actionExtract_CIE_c | runs without a window
+non_interactive.actionExtract_CIE_h | runs without a window
+non_interactive.actionExtract_CIE_L_c_h | runs without a window
+non_interactive.actionExtract_CIE_a_b | runs without a window
+non_interactive.actionExtract_CIE_L_a_b | runs without a window
+non_interactive.actionExtract_CIE_X | runs without a window
+non_interactive.actionExtract_CIE_Y | runs without a window
+non_interactive.actionExtract_CIE_Z | runs without a window
+non_interactive.actionExtract_CIE_X_Y_Z | runs without a window
+non_interactive.actionExtract_HSL_Hue | runs without a window
+non_interactive.actionExtract_HSL_Saturation | runs without a window
+non_interactive.actionExtract_HSL_Lightness | runs without a window
+non_interactive.actionExtract_HSL | runs without a window
+non_interactive.actionExtract_HSV_Hue | runs without a window
+non_interactive.actionExtract_HSV_Saturation | runs without a window
+non_interactive.actionExtract_HSV_Value | runs without a window
+non_interactive.actionExtract_HSV | runs without a window
+non_interactive.actionExtract_HSI_Hue | runs without a window
+non_interactive.actionExtract_HSI_Saturation | runs without a window
+non_interactive.actionExtract_HSI_Intensity | runs without a window
+non_interactive.actionExtract_HSI | runs without a window
+non_interactive.actionExtract_YCbCr_Luminance | runs without a window
+non_interactive.actionExtract_YCbCr_Blue_Chrominance | runs without a window
+non_interactive.actionExtract_YCbCr_Red_Chrominance | runs without a window
+non_interactive.actionExtract_YCbCr | runs without a window
+non_interactive.actionConvert_to_8_bit | runs without a window
+non_interactive.actionConvert_to_signed_16_bit | runs without a window
+non_interactive.actionConvert_to_unsigned_16_bit | runs without a window
+non_interactive.actionConvert_to_signed_32_bit | runs without a window
+non_interactive.actionConvert_to_unsigned_32_bit | runs without a window
+non_interactive.actionConvert_to_32_bit_float | runs without a window
+non_interactive.actionConvert_to_64_bit_float | runs without a window
+non_interactive.actionConvert_to_SER | runs without a window
+non_interactive.actionConvert_to_Image_List | runs without a window
+non_interactive.actionExport | runs without a window
+non_interactive.actionConvert_to_FITS | runs without a window
+tone_brightness.actionAdjustBrightness_Contrast | AdjustBrightnessAndContrastProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+tone_brightness.actionGamma_Correction | GammaCorrectionProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+tone_brightness.actionExposure | ExposureCorrectionProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+tone_brightness.actionAdjustHSL | AdjustHSLProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+tone_brightness.actionAdjustLightness_Chroma_Hue | AdjustLChProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+tone_brightness.actionArcSinh_Stretch | ArcSinhStretchProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+tone_brightness.actionHistogram_Transformation | HistogramTransformationProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+transforms.actionGeneralized_Hyperbolic_Transformation | GHTransformationProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | points | -
+transforms.actionCurves_Transformation | CurvesTransformationProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+star_object.actionStarnet | StarnetProcess | ImageProcessControl | - | - | Close, Ok | 1 | - | - | fixed size | - | -
+multi_image_stacking.actionStarmask_Recombination | StarmaskRecombinationProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, no view, opens on | Close, Ok | 3 | - | - | resizable | - | -
+multi_image_stacking.actionProfiled_Starmask_Recombination | ProfiledStarmaskRecombinationProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, no view | Close, Ok, Reset | 2 | - | - | resizable | stars | -
+star_object.actionStar_Reduction | StarReductionProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Close, Ok, Reset | 1 | - | - | resizable | - | -
+color.actionSCNR | SCNRProcess | ImageProcessControl | - | - | Apply, Close | 1 | - | - | fixed size, without maximize button | - | -
+filters.actionMedian_Filter | MedianFilterProcess | ImageRTPreviewControl | row: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+denoising.actionDeepSNR | DeepSNRProcess | ImageProcessControl | - | - | Close, Ok | 1 | - | - | fixed size | - | -
+denoising.actionNon_Local_Bayes_Filter | NLBayesProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+denoising.actionWavelet_Denoise_Filter | WaveletDenoiseProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+denoising.actionPatch_PCA_Filter | PatchPCADenoiseProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+sharpening_enhancement.actionLocal_Histogram_Equalization | LocalHistogramEqualizationProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+sharpening_enhancement.actionLocal_Contrast_Enhancement | LocalContrastEnhancementProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+sharpening_enhancement.actionDark_Structure_Enhance | DarkStructureEnhanceProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+sharpening_enhancement.actionMultiscale_Alpha_Sharpen | SharpenAlphaProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+filters.actionGaussian_Blur | GaussianBlurProcess | ImageRTPreviewControl | row: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+sharpening_enhancement.actionHigh_Pass | HighPassFilterProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+color.actionChannelComposition | ChannelCompositionProcess | TopLevelProcessBaseControl | - | - | Close, Ok | 3 | - | - | fixed size, without maximize button | - | -
+sensor_calibration.actionDebayer | DebayerProcess | ImageProcessControl | - | - | Close, Ok | 1 | - | - | fixed size, without maximize button | - | -
+sensor_calibration.actionSplit_CFA | SplitCFAProcess | ImageProcessControl | - | - | Close, Ok | - | - | - | fixed size | - | -
+sensor_calibration.actionMerge_CFA | MergeCFAProcess | TopLevelProcessBaseControl | - | - | Close, Ok | 4 | - | - | fixed size, without maximize button | - | -
+geometry.actionResize | ResizeProcess | ImageProcessControl | - | - | Close, Ok, Reset | 1 | - | - | fixed size, without maximize button | - | -
+geometry.actionIntegerResample | IntegerResampleProcess | ImageProcessControl | - | - | Close, Ok, Reset | 1 | - | - | fixed size, without maximize button | - | -
+geometry.actionCFA_Integer_Resample | CFAIntegerResampleProcess | ImageProcessControl | - | - | Close, Ok, Reset | - | - | - | fixed size, without maximize button | - | -
+geometry.actionCrop | CropProcess | ImageProcessControl | - | - | Close, Ok, Reset | 1 | - | - | fixed size, without maximize button | an area | -
+geometry.actionRotate | RotateProcess | ImageProcessControl | - | - | Close, Ok, Reset | 1 | - | - | fixed size, without maximize button | an area | -
+mask_generation.actionMask_Drawing | MaskDrawingProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Cancel, Ok, Reset | 1 | - | - | resizable | - | [ (widget with children); ] (widget with children); X (widget with children); F (widget with children); G (widget with children); Del (widget with children); the keys of Undo (widget with children); the keys of Redo (widget with children)
+sensor_calibration.actionRange_Selection | RangeSelectionProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Cancel, Ok, Reset | 1 | - | - | resizable | - | -
+non_interactive.actionSelect_Mask | opens no process window
+non_interactive.actionRemove_Mask | opens no process window
+star_object.actionStar_Mask | StarMaskProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+star_object.actionStarnet_Star_Mask | StarnetStarMaskProcess | ImageProcessControl | - | - | Close, Ok | 1 | - | - | fixed size, without maximize button | - | -
+sharpening_enhancement.actionCLA_Histogram_Equalization | CLAHEProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+color.actionColor_Saturation | ColorSaturationProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+color.actionColor_Calibration_2 | ColorCalibrationProcess | ImageProcessControl | - | - | Apply, Close, Reset | 1 | - | - | fixed size, without maximize button | an area | -
+color.actionPhotometric_Color_Calibration | PhotometricColorCalibrationProcess | ImageProcessControl | - | - | Apply, Close, Reset | 1 | - | - | fixed size, without maximize button | an area | -
+color.actionSpectrophotometric_Color_Calibration | SpectrophotometricColorCalibrationProcess | ImageRTPreviewControl | - | - | Apply, Close, Reset | 1 | - | - | fixed size, without maximize button | - | -
+color.actionBackground_Neutralization | BackgroundNeutralizationProcess | ImageProcessControl | - | - | Cancel, Ok, Reset | 1 | - | - | fixed size, without maximize button | an area | -
+background_extraction.actionBackground_Extraction | BackgroundExtractionProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | samples | -
+background_extraction.actionAuto_Gradient_Removal | AutoGradientRemovalProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+transforms.actionMultiscale_Linear_Transform | MultiscaleLinearProcess | ImageRTPreviewControl | splitter: inputs on both sides | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+filters.actionMorphological_Transformation | MorphologicalTransformationProcess | ImageRTPreviewControl | row: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+sharpening_enhancement.actionTighten_Edges | TightenEdgesProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+denoising.actionGRAYCstoration_Filter | GRAYCstorationProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+filters.actionCosmetic_Correction_Filter | CosmeticCorrectionProcess | ImageRTPreviewControl | row: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+filters.actionBanding_Reduction_Filter | BandingReductionProcess | ImageRTPreviewControl | row: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+filters.actionBilateral_Filter | BilateralFilterProcess | ImageRTPreviewControl | row: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+star_object.actionStar_Profiler_v1 | StarProfilerProcessV1 | ImageProcessControl | - | - | Close | - | - | - | resizable | stars | -
+star_object.actionStar_Profiler_v2 | StarProfilerProcessV2 | ImageProcessControl | - | - | Close | - | - | - | resizable | stars | -
+tone_brightness.actionStatistical_Stretch | StatisticalStretch | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+sharpening_enhancement.actionUnsharp_Mask | UnsharpMaskProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+filters.actionNoise_Generator | NoiseGeneratorProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+denoising.actionTotal_Variation_Denoise_Filter | TotalVariationDenoiseProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
+multi_image_stacking.actionImage_Compare | ImageCompareProcess | ImageRTPreviewControl | splitter: controls, preview | view without a checkbox | Close | 2 | - | - | resizable | - | -
+multi_image_stacking.actionImage_Blend | ImageBlendProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Close, Ok, Reset | 2 | - | - | resizable | - | -
+multi_image_stacking.actionImage_List_Analyzer | ImageListAnalyzerProcess | TopLevelProcessBaseControl | - | - | Close, Reset | - | - | - | resizable, without minimize button | - | -
+color.actionLRGB_Combination | LRGBCombinationProcess | ImageRTPreviewControl | splitter: controls, preview | view without a checkbox | Apply, Close, Reset | 2 | - | - | resizable | - | -
+color.actionNBRGB_Combination | NBRGBCombinationProcess | ImageRTPreviewControl | splitter: controls, preview | view without a checkbox | Apply, Close, Reset | 4 | - | - | resizable | - | -
+color.actionNBColorMapper | NBColorMapperProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+color.actionNarrowbandPaletteComposer | NarrowbandPaletteComposerProcess | ImageRTPreviewControl | splitter: controls, preview | - | Apply, Close, Reset | 5 | - | - | resizable | - | -
+color.actionColorize | ColorizeProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
+sensor_calibration.actionImage_Calibration | ImageCalibrationProcess | TopLevelProcessBaseControl | - | - | Close, Reset | - | - | - | resizable, without minimize button | - | -
+multi_image_stacking.actionImage_Stacking | ImageStackingProcess | TopLevelProcessBaseControl | - | - | Close, Reset | - | - | - | resizable, without minimize button | - | -
+multi_image_stacking.actionImage_Registration | ImageRegistrationProcess | TopLevelProcessBaseControl | - | - | Close, Reset | - | - | - | resizable, without minimize button | - | -
+multi_image_stacking.actionImage_Integration | ImageIntegrationProcess | TopLevelProcessBaseControl | - | - | Close, Reset | - | - | Frames, Project, Edit, Run, Navigate, Help | resizable | - | Ctrl+O (window: Auto-sort by file type...); Ctrl+Shift+O (window: Auto-sort by file type...); Del (window: Remove Selected); Ctrl+Shift+Del (window: Remove All Frames...); Ctrl+G (window: Go to Group...); Ctrl+I (window: Import Project...); Ctrl+E (window: Export Project...); Ctrl+Enter (window: Execute Integration); Ctrl+1 (window: Bias); Ctrl+2 (window: Darks); Ctrl+3 (window: Flats); Ctrl+4 (window: Lights); Ctrl+5 (window: Calibration); Ctrl+6 (window: Registration); Ctrl+7 (window: Stacking); Ctrl+8 (window: Summary); Shift+F1 (window: Keyboard Shortcuts); F5 (window); Return (widget with children); Enter (widget with children); Del (widget with children); the keys of Find (widget with children)
+multi_image_stacking.actionImage_Integration_Lite | ImageIntegrationLiteProcess | TopLevelProcessBaseControl | - | - | Close, custom, custom | - | - | - | resizable | - | -
+color.actionLinear_Match | LinearMatchProcess | ImageProcessControl | - | - | Close, Ok | 1 | - | - | fixed size, without maximize button | - | -
+transforms.actionPixel_Math_2 | PixelMathProcess | ImageProcessControl | - | - | Apply, Close | 1 | - | - | resizable | - | -
+sensor_calibration.actionBinarize | BinarizeProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -

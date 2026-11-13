@@ -4848,6 +4848,7 @@ sources Test_ImageIntegration
 # SDK service and protocol cases, the process windows' programmatic interfaces, the registry and the launcher, each case
 # compiled here and every production unit linked from its library.
 sources Test_ProcessFramework
+    unit     src/AfterNightTests/Test_ProcessFramework/ProcessCensusTest.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/main.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/test_adjust_brightness_contrast_programmatic_ui.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/test_adjust_hsl_programmatic_ui.cpp
@@ -5214,6 +5215,7 @@ sources Test_ProcessFramework
     header   src/AfterNightTests/Test_ProcessFramework/WindowLayoutChecks.h
     header   src/AfterNightTests/Test_ProcessesShared/ProcessesSharedTestSupport.h
     header   src/AfterNightTests/Test_Widgets/theme_test_utils.h
+    header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
     header   src/AfterNightTests/fixtures/InMemoryDatabase.h
     header   src/AfterNightTests/fixtures/ScopedEnvVar.h

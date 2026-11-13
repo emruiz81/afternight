@@ -59,6 +59,7 @@
 !build/scripts/tools/isolated_sources.txt
 !build/scripts/tools/package_profiles.txt
 !src/AfterNightTests/Test_AfterNightApp/data/*.txt
+!src/AfterNightTests/Test_ProcessFramework/data/*.txt
 !src/AfterNightTests/Test_ThemeSystem/data/*.txt
 *.mk
 *.tlog

@@ -105,7 +105,7 @@ change; `docs/dev/LOCAL_VALIDATION.md` has the commands and `docs/dev/IMAGE_INTE
 ## The interface's records
 
 What the interface is - its design tokens, its actions and menus, the keys it answers, the processes it registers -
-is recorded in five text files beside the suites that read them, and a case compares each with the running product:
+is recorded in six text files beside the suites that read them, and a case compares each with the running product:
 
 | Record | Holds | Held by |
 |---|---|---|
@@ -114,6 +114,7 @@ is recorded in five text files beside the suites that read them, and a case comp
 | `Test_AfterNightApp/data/ViewMenuInventory.txt` | The tree of the menu a view shows on a right click | `ApplicationMenu.ViewMenuTreeMatchesTheRecord` |
 | `Test_AfterNightApp/data/ShortcutInventory.txt` | Every shortcut of the main window and of the Session Console, and every key press a view takes for itself in each of its three modes | `ApplicationWindow.ShortcutsMatchTheRecord` |
 | `Test_AfterNightApp/data/ProcessInventory.txt` | What the registry states of every process of the application: its id, names, category, launch mode, guards, outputs and help page | `ProcessRegistry.InventoryMatchesTheRecord` |
+| `Test_ProcessFramework/data/ProcessShapes.txt` | What the window of every registered process is made of: the framework class it derives from, how its controls and its preview are laid out, its preview checkbox and where the preview view lands, its button box, its selectors of images and channels, its menus, whether its size is fixed and which window hints it changes, what the person marks on a view for it, and every key sequence its own actions and shortcuts carry | `ProcessCensus.EveryProcessStatesItsShape` |
 
 The records exist so that a change which reorganises the interface's code - a part of the window moved to another
 library, the tokens resolved another way, the menus built from a table - proves that it changed nothing a person sees
@@ -129,6 +130,31 @@ favourite and the recent processes - is held by name alone, of the Extensions me
 actions are read over one image that was never edited, because Undo, Redo and Maximize View are worded after the
 active image. `fixtures/BaselineRecord.h` is the reader: a record is sections of entries, a case compares one section
 in order, and the failure names the first entry that differs with what the record holds and what the product has.
+
+The process shapes are read by launching every descriptor as the application launches it, on a colour view with a
+grey one open beside it, under window settings that hold nothing, so no case that ran before decides what a window
+restores. A part is recognised by what it does, not by a name a builder gave it: the preview checkbox is the window's
+own checkbox named for the preview that, checked, puts the preview view in the preview's pane; a selector of images is
+a combo box that lists the two views; the channel selector lists the framework's channel choices. A key sequence made
+from a standard key is recorded by the key's name, because its bindings are the platform's. What belongs to an image
+view a window shows - its toolbar, its preview-area checkbox - is the view's and is left out. The record holds no
+size, for the reason the next section gives.
+
+### A window's size is not measured under the suites' platform
+
+The suites run headless: under `minimal` on Windows, where text is drawn by a box font about two and a half times as
+wide as the interface's, and under `offscreen` elsewhere, where the fonts are the host's. A widget's minimum width
+under either is not the width a person sees, and is not the same number on two hosts, so no record holds one and no
+case asserts that a text fits. Under `offscreen` on Windows the default font resolves to whatever family the font
+folder lists first, which is not the interface's either.
+
+A size that matters is measured under the native platform with the product's style installed
+(`an::ui::installAnProxyStyle()`, which also sets the application font the design tokens take their body font from),
+with every window kept off the screen: an application event filter that sets `Qt::WA_DontShowOnScreen` on each window
+as it is polished lets the window be laid out, shown as far as Qt is concerned and painted into a pixmap
+(`QWidget::grab`) without ever being mapped, so nothing appears on the desktop and nothing takes the focus. Such a
+measurement is run by hand with `QT_QPA_PLATFORM=windows`; it is a number for a design decision, written where the
+decision is, not a case of a sweep.
 
 A record is made once. With `AFTERNIGHT_WRITE_BASELINE_RECORDS` naming a folder a case writes its section there
 instead of comparing - the only case in which it writes, and never beside the suite - and a person reads what was

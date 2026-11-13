@@ -382,8 +382,9 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
   `build/scripts/tools/dependencies.txt` whose marker is the copyright line, which `check_dependency_provenance.py`
   enforces; and the About dialog's licence credit, held by `Test_ControlsDialogs`. Licence and copyright text is not a
   planning reference. See AGENTS.md, "Credit for derived code".
-- **The interface's records are edited, never regenerated.** The tokens, actions, menus, shortcuts and process
-  registry are held to text records beside `Test_ThemeSystem` and `Test_AfterNightApp` (`data/*.txt`). A change that
+- **The interface's records are edited, never regenerated.** The tokens, actions, menus, shortcuts, process
+  registry and the shape of every process window are held to text records beside `Test_ThemeSystem`,
+  `Test_AfterNightApp` and `Test_ProcessFramework` (`data/*.txt`). A change that
   means to move one edits its entry in the same diff; see "The interface's records" in
   [docs/dev/guides/TESTING.md](docs/dev/guides/TESTING.md).
 - **TDD is mandatory** for new features (failing test first), and bug fixes need a regression test.

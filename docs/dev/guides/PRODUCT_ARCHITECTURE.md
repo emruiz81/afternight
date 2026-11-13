@@ -236,6 +236,62 @@ stretch-based dialogs and of brightness and contrast to the references under
 `src/AfterNightTests/fixtures/references/realtime-preview/`, and carries the opt-in drag benchmark
 ([BENCHMARKS.md](BENCHMARKS.md)).
 
+### What a process window is made of (`controls/TopLevelProcessBaseControl.h`, `controls/ProcessPreviewLayout.h`)
+
+A process is a window of its own, and several things it does assume that. They are stated here because anything that
+shows a process another way - inside another window, beside a view - is built on them, and
+`ProcessCensus.EveryProcessStatesItsShape` (`Test_ProcessFramework`) holds every process to the record of its shape
+([TESTING.md](TESTING.md), "The interface's records").
+
+- **Three kinds of window.** A process derives from `ImageRTPreviewControl` (through `TypedProcessControl`) when it
+  runs over one image with parameters, from `ImageProcessControl` when it runs over one image without the preview
+  framework, and from `TopLevelProcessBaseControl` alone when it runs over files or several images. Deriving from
+  `ImageRTPreviewControl` does not mean a preview: Spectrophotometric Color Calibration takes the typed framework for
+  its runs and shows none.
+- **Two layouts hold a preview.** `initializeStandardProcess` is handed the main layout, the preview layout, the
+  preview checkbox, the button box and the two selectors, and keeps the two layouts and the selectors; the checkbox
+  and the button box it only connects. Most builders make the main layout with `buildMainProcessSplitter`
+  (`processes/RTPreviewUiCommon.h`): a splitter named `mainSplitter` whose first pane, a widget, holds the controls
+  and whose second holds the preview. Six - the median, Gaussian, morphological, cosmetic, banding and bilateral
+  filters - have no splitter: their main layout is a row whose first item is the controls' *layout* and whose last is
+  the preview's. Whatever rearranges a process therefore moves widgets in the one case and layout items in the other,
+  and deletes neither the main layout nor the preview layout, which the framework goes on reading
+  (`findMainProcessSplitter`, `findPreviewPanelWidget`). Three processes are handed no checkbox and always show their
+  preview (Image Compare and the LRGB and NBRGB combinations); two show no preview until their inputs are chosen (the
+  two star mask recombinations); the Narrowband Palette Composer fills the preview's pane with a grid of its own; and
+  Multiscale Linear Transform keeps controls in the preview's pane.
+- **The window dresses itself at its first show.** `initializeModernProcessShell` moves the process's own layout into
+  a content widget under a header, a banner and a card, and hoists the button box of a preview process to the
+  window's foot. Before that show the layout is the builder's; after it, it is the shell's.
+- **A window fits and locks its own size at every show.** `showEvent` runs `ensureFixedWindowFitsContent` and
+  `ensureModernShellSize` at once and again after 0 and 30 ms. A process marked as of a fixed size
+  (`setFixedSizeWindow`, or one whose builder set equal minimum and maximum sizes) is resized to its content and
+  locked there, whatever its parent is.
+- **The preview checkbox resizes the window.** Unchecking it drops the layout's size constraint, fixes the window at
+  the controls' width for one turn of the event loop and then unlocks it; checking it restores the size the window
+  had. Both act on the process widget itself.
+- **The panes carry their own margins.** A splitter's two panes are laid out with 12 px at the sides and 8 px above
+  and below, so a preview view is 24 px narrower than the pane it is in.
+- **How wide the controls are.** Measured on Windows under the product's style (Segoe UI 9 pt, 2026-11-13), the least
+  width the controls of a preview process take runs up to 604 px (Profiled Starmask Recombination). Fifteen
+  processes that show a histogram under their controls take 524 to 534 px, set by the one row of the histogram's
+  toolbar; twenty take 360 px or less; Curves Transformation takes 374 px, set by its curve editor's 350 px.
+- **A process brings key sequences of its own.** Image Integration's menus carry seventeen as window shortcuts
+  (`Ctrl+O`, `Ctrl+Shift+O`, `Del`, `Ctrl+Shift+Del`, `Ctrl+G`, `Ctrl+I`, `Ctrl+E`, `Ctrl+Enter`, `Ctrl+1` to
+  `Ctrl+8`, `Shift+F1`), with `F5` and four more on its tabs' tables; Mask Drawing carries eight on itself and its
+  children. No other process defines one; every process closes on Escape, read in `keyPressEvent`. In a window of
+  its own a process meets no other window's shortcuts. Put inside a window that holds the same sequence, neither
+  runs: Qt reports two window shortcuts that match as ambiguous and triggers nothing, wherever the focus is.
+  Narrowing the process's shortcuts to its widget and children leaves the pair ambiguous while the focus is inside
+  the process; accepting the `ShortcutOverride` alone makes the key reach the focused widget, which does nothing
+  with it. What works is all three together: the sequences taken off the process's actions and shortcuts, the
+  process widget accepting the `ShortcutOverride` of a sequence it holds, and the action triggered from the key
+  press that follows. A text field inside the process still keeps the keys it edits with, because it accepts their
+  override before the process sees it.
+- **`Ctrl+Enter` is the keypad's Enter.** A key sequence written `Ctrl+Enter` is `Qt::Key_Enter`, the keypad's key;
+  the main keyboard's Enter is `Qt::Key_Return`, written `Ctrl+Return`. Image Integration's Execute carries the
+  first alone.
+
 ### The history (`controls/ImageHistoryTracker.h`, `controls/ImageHistoryBackupQueue.h`, `controls/ImageHistoryCompanion.cpp`)
 
 A step is a copy taken under a lease (`copyForHistory`), admitted against the session's
